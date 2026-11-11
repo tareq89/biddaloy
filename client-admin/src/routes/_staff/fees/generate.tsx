@@ -107,7 +107,7 @@ export const Route = createFileRoute('/_staff/fees/generate')({
         )
         .catch(swallowUnlessOffline),
       // [16.3.6]'s modal uses the `feeGeneration` i18n namespace.
-      loadRouteNamespaces('fees'),
+      loadRouteNamespaces('fees', 'academicYears'),
       loadRouteNamespaces('feeGeneration'),
     ]),
   pendingComponent: GenerateFeesPending,

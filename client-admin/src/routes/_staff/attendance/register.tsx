@@ -123,7 +123,7 @@ function useIsMd(): boolean {
 
 export const Route = createFileRoute('/_staff/attendance/register')({
   validateSearch: searchSchema,
-  loader: () => loadRouteNamespaces('attendance', 'common'),
+  loader: () => loadRouteNamespaces('attendance', 'common', 'academicYears'),
   component: RegisterPage,
 });
 

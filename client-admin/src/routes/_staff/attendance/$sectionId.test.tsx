@@ -1234,4 +1234,65 @@ describe('/attendance/$sectionId', () => {
       toastSpy.mockRestore();
     }
   });
+
+  describe('closed year [69.4.05]', () => {
+    // D12: closed when the date is inside ANY closed year.
+    function renderOn(closedYear: boolean) {
+      server.use(
+        http.get('/api/v1/attendance/sections/section-1/register', () =>
+          HttpResponse.json(registerBody()),
+        ),
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({
+            data: [
+              {
+                id: 'year-2026',
+                name: '2026',
+                is_current: false,
+                closed_at: closedYear ? '2026-12-31T00:00:00.000Z' : null,
+                start_date: '2026-01-01T00:00:00.000Z',
+                end_date: '2026-12-31T00:00:00.000Z',
+              },
+            ],
+            total: 1,
+            page: 1,
+            limit: 100,
+            totalPages: 1,
+          }),
+        ),
+        http.get('/api/v1/academic-years/year-2026', () =>
+          HttpResponse.json({
+            id: 'year-2026',
+            name: '2026',
+            closed_at: closedYear ? '2026-12-31T00:00:00.000Z' : null,
+          }),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+    }
+
+    it('a date inside a closed year shows the notice and cannot be saved', async () => {
+      renderOn(true);
+
+      expect(await screen.findByText(/2026 is closed/)).toBeTruthy();
+      const user = userEvent.setup();
+      await user.click(await screen.findByText('Rafi Ahmed'));
+      // The row click would mark Present on an editable register.
+      expect(screen.queryByText('Present 1')).toBeNull();
+    });
+
+    it('a date in an open year marks as before', async () => {
+      renderOn(false);
+
+      const user = userEvent.setup();
+      await user.click(await screen.findByText('Rafi Ahmed'));
+      expect(await screen.findByText('Present 1')).toBeTruthy();
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
+  });
 });
