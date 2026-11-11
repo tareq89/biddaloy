@@ -86,6 +86,9 @@ import { PlatformAdmin } from './modules/platform-identity/entities/platform-adm
 import { PlatformAdminDevice } from './modules/platform-identity/entities/platform-admin-device.entity';
 import { PlatformApproval } from './modules/platform-identity/entities/platform-approval.entity';
 import { PlatformSetting } from './modules/platform-identity/entities/platform-setting.entity';
+import { ImpersonationSession } from './modules/support-access/entities/impersonation-session.entity';
+import { PlatformSchoolNote } from './modules/support-access/entities/platform-school-note.entity';
+import { PlatformAnnouncement } from './modules/support-access/entities/platform-announcement.entity';
 import { UserMfa } from './modules/platform-identity/entities/user-mfa.entity';
 import { UserRecoveryCode } from './modules/platform-identity/entities/user-recovery-code.entity';
 import { CockpitAuthModule } from './modules/auth/cockpit/cockpit-auth.module';
@@ -444,6 +447,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             PlatformAdminDevice,
             PlatformApproval,
             PlatformSetting,
+            ImpersonationSession,
+            PlatformSchoolNote,
+            PlatformAnnouncement,
             UserMfa,
             UserRecoveryCode,
             Survey,
