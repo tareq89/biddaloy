@@ -31,6 +31,7 @@ import { FeeModule } from './modules/fees/fees.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { SupportAccessModule } from './modules/support-access/support-access.module';
 import { SchoolsModule } from './modules/schools/schools.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AttendanceImportModule } from './modules/attendance/import/attendance-import.module';
@@ -520,6 +521,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     }),
     HealthModule,
     AuditModule,
+    SupportAccessModule,
     AuthModule,
     AcademicYearModule,
     CalendarModule,
