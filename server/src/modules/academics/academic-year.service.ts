@@ -53,7 +53,6 @@ export const YEAR_SCOPED_TABLES: Record<string, string> = {
   StudyPlan: 'study_plans',
   AcrAssessment: 'acr_assessments',
   Application: 'applications',
-  Program: 'programs',
   FinalResult: 'final_results',
 };
 
