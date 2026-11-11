@@ -174,6 +174,34 @@ export const ALLOWLIST: AllowlistEntry[] = [
       '[98.3.2] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Re-checks the caller own TOTP code and returns a short step-up token for the caller only.',
   },
   {
+    controller: 'LoginAsCandidatesController',
+    method: 'GET',
+    path: '/platform/schools/:id/login-as/candidates',
+    reason:
+      '[99.2.06] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists who Login as can target in one school; the service applies the school support-access mode.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'POST',
+    path: '/platform/impersonation',
+    reason:
+      '[99.2.05] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard, plus ApprovalGuard (step-up); no tenant, no school role. Starts a Login as session; the answer carries a one-time code and is never cached.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'DELETE',
+    path: '/platform/impersonation/:id',
+    reason:
+      '[99.2.05] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Ends a Login as session; the service checks the owner of the session.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'GET',
+    path: '/platform/impersonation',
+    reason:
+      '[99.2.05] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists Login as sessions of the caller; platform data only.',
+  },
+  {
     controller: 'PlatformApprovalsController',
     method: 'GET',
     path: '/platform/approvals',
@@ -256,6 +284,27 @@ export const ALLOWLIST: AllowlistEntry[] = [
     path: '/auth/logout-all',
     reason:
       "Bearer-authenticated but tenant-agnostic — operates on the caller's own user.sub/jti (AuthGuard(jwt) only, no ContextGuard/RolesGuard, since it is not a tenant-scoped resource).",
+  },
+  {
+    controller: 'ImpersonationExchangeController',
+    method: 'POST',
+    path: '/auth/impersonation/exchange',
+    reason:
+      '[99.2.02] Public by design: the one-time Login as code is the credential (single use, short life, hashed in Redis). Fails closed without Redis and is strictly rate limited.',
+  },
+  {
+    controller: 'ImpersonationExchangeController',
+    method: 'GET',
+    path: '/auth/impersonation/me',
+    reason:
+      "[99.2.02] Bearer-authenticated but tenant-agnostic like /auth/logout-all (AuthGuard(jwt) only); reads the caller's own Login as session for the banner.",
+  },
+  {
+    controller: 'ImpersonationExchangeController',
+    method: 'POST',
+    path: '/auth/impersonation/end',
+    reason:
+      "[99.2.02] Bearer-authenticated but tenant-agnostic like /auth/logout-all (AuthGuard(jwt) only); ends the caller's own Login as session.",
   },
   {
     controller: 'AuthController',

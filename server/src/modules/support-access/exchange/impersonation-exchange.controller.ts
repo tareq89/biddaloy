@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -48,6 +49,7 @@ export class ImpersonationExchangeController {
 
   @Post('exchange')
   @FailClosedWithoutRedis()
+  @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({ summary: 'Swap a one-time Login as code for a short access token.' })
