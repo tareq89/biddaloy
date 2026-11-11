@@ -40,9 +40,11 @@ describe('CockpitEnrolService', () => {
       secret: SECRET,
       signOptions: { issuer: 'biddaloy', algorithm: 'HS256' },
     });
-    steps = new CockpitStepTokens(jwt, {
-      get: (k: string) => (k === 'JWT_SECRET' ? SECRET : undefined),
-    } as any);
+    steps = new CockpitStepTokens(
+      jwt,
+      { get: (k: string) => (k === 'JWT_SECRET' ? SECRET : undefined) } as any,
+      { findOne: vi.fn(async () => ({ id: 'u1', tokens_valid_after: null })) } as any,
+    );
     svc = new CockpitEnrolService(auth, steps, otp, mfa, attempts, audit);
   });
 
