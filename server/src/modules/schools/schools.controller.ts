@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import {
   Body,
   Controller,
@@ -149,6 +150,7 @@ export class SchoolsController {
     return this.schools.getMessagingProviders(id);
   }
 
+  @DenyWhenImpersonating({ bodyKeys: ['communications'] })
   @Patch(':id/settings')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   @Throttle({ default: SETTINGS_RATE_LIMIT })

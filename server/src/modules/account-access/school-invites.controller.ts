@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import {
   Controller,
   Get,
@@ -39,6 +40,7 @@ export class SchoolInvitesController {
     return this.invites.listMine((request.user as JwtPayload).sub);
   }
 
+  @DenyWhenImpersonating()
   @Post(':id/accept')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: STRICT_RATE_LIMIT })

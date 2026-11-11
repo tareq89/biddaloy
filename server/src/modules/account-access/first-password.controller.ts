@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -15,6 +16,7 @@ import { FirstPasswordDto } from './dto/first-password.dto';
 export class FirstPasswordController {
   constructor(private readonly firstPassword: FirstPasswordService) {}
 
+  @DenyWhenImpersonating()
   @Post('first-password')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: STRICT_RATE_LIMIT })

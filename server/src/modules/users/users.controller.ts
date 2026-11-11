@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import {
   Controller,
   Get,
@@ -93,6 +94,7 @@ export class UserController {
 
   // --- User endpoints ---
 
+  @DenyWhenImpersonating()
   @Post('users')
   // [10.4] G1 — E tightened off: lacks USER_CREATE.
   @RequirePermissions(Permission.USER_CREATE)
@@ -130,6 +132,7 @@ export class UserController {
   }
 
   /** [68.2.02] "Add staff" for someone who already has an account: they accept before they join. */
+  @DenyWhenImpersonating()
   @Post('users/join-requests')
   @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(202)
@@ -165,6 +168,7 @@ export class UserController {
     });
   }
 
+  @DenyWhenImpersonating()
   @Post('users/:id/reset-password')
   @RequirePermissions(Permission.USER_UPDATE)
   @HttpCode(200)
@@ -249,6 +253,7 @@ export class UserController {
     return this.guardianProvisioningService.preview(tenant.id, dto);
   }
 
+  @DenyWhenImpersonating()
   @Post('users/invitations/batch')
   @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(202)
@@ -420,6 +425,7 @@ export class UserController {
    * above `users/:id` for the same ordering reason as `GET users/me`.
    */
   @AuthenticatedOnly()
+  @DenyWhenImpersonating()
   @Post('users/me/contact-change')
   @FailClosedWithoutRedis()
   @HttpCode(202)
@@ -439,6 +445,7 @@ export class UserController {
   }
 
   @AuthenticatedOnly()
+  @DenyWhenImpersonating()
   @Post('users/me/contact-change/confirm-phone')
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -456,6 +463,7 @@ export class UserController {
 
   /** [13.2.1, D16] Staff leave a school themselves. Declared above `users/:id`. */
   @AuthenticatedOnly()
+  @DenyWhenImpersonating()
   @Post('users/me/leave')
   @HttpCode(204)
   @Roles(...SELF_SERVICE_ROLES)
@@ -484,6 +492,7 @@ export class UserController {
     return dto;
   }
 
+  @DenyWhenImpersonating({ bodyKeys: ['email', 'phone'] })
   @Patch('users/:id')
   // [10.4] G1 — E tightened off: lacks USER_UPDATE.
   @RequirePermissions(Permission.USER_UPDATE)
@@ -522,6 +531,7 @@ export class UserController {
     return responseDto;
   }
 
+  @DenyWhenImpersonating()
   @Delete('users/:id')
   @RequirePermissions(Permission.MEMBER_REMOVE)
   @ApiOperation({
@@ -536,6 +546,7 @@ export class UserController {
     return this.userService.remove(id, tenant.id, user.sub);
   }
 
+  @DenyWhenImpersonating()
   @Post('users/:id/restore')
   @HttpCode(204)
   @RequirePermissions(Permission.MEMBER_REMOVE)
