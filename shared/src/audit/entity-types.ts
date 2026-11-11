@@ -49,6 +49,8 @@ export const AUDIT_ENTITY_TYPES = [
   'FineRule',
   'GradingScale',
   'Guardian',
+  // [Epic 99] ImpersonationSession, PlatformAnnouncement, PlatformSchoolNote: written from #3789.
+  'ImpersonationSession',
   'InvitationBatch',
   'Invoice',
   'LeaveRecord',
@@ -61,6 +63,8 @@ export const AUDIT_ENTITY_TYPES = [
   'Notice',
   'Payment',
   'PlatformAdmin',
+  'PlatformAnnouncement',
+  'PlatformSchoolNote',
   'PrintAsset',
   'PrintJobItem',
   'PrintTemplate',
