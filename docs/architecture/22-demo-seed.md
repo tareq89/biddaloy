@@ -170,11 +170,11 @@ flowchart LR
   C --> E[one section resized after the copy]
 ```
 
-| Table / column                                   | What the demo has                                                                                                                       |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `academic_years` (current)                       | created by the real rollover from the previous year, then made `is_current`; its own `YEAR_ROLLOVER` audit row                          |
+| Table / column                                  | What the demo has                                                                                                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `academic_years` (current)                      | created by the real rollover from the previous year, then made `is_current`; its own `YEAR_ROLLOVER` audit row                            |
 | `academic_years.closed_at` / `closed_by_user_id` | every year older than the previous one: `end_date + 30 days`, closed by the demo admin. The previous year stays open (`year.close_due`) |
-| `class_sections.capacity`                        | null on the previous year; one section of the current year's last class is resized, so the demo shows an "edited after copy" year       |
+| `class_sections.capacity`                       | null on the previous year; one section of the current year's last class is resized, so the demo shows an "edited after copy" year         |
 
 Fee structures are not rolled over in the seed: the `org` slice runs before `fees`, so the previous year has none yet and the `fee_structures` block copies nothing. `fees.ts` still writes every year's structures itself, and nothing collides.
 
