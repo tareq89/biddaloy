@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { alertRuleMeta, UserRole } from '@biddaloy/shared';
-import type { RuleContext } from '../rule.types';
+import type { AttentionRule as AttentionRuleShape, RuleContext } from '../rule.types';
 import { PlatformApprovalPendingRule } from './platform-approval-pending.rule';
 import { PlatformRecoveryCodesLowRule } from './platform-recovery-codes-low.rule';
 
@@ -32,17 +32,26 @@ const home = (id: string | undefined) => ({ id: async () => id }) as never;
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 describe('platform owner rules: shared contract', () => {
-  for (const [key, rule] of [
-    ['platform.recovery_codes_low', new PlatformRecoveryCodesLowRule(ds([]) as never, home(HOME))],
-    ['platform.approval_pending', new PlatformApprovalPendingRule(ds([]) as never, home(HOME))],
-  ] as const) {
-    it(`${key}: meta, matching bn/en placeholders, at most 3 steps`, () => {
-      expect(rule.meta).toEqual(alertRuleMeta(key));
-      const { en, bn } = rule.messages;
-      expect(placeholders(en.title + en.why)).toEqual(placeholders(bn.title + bn.why));
-      expect(en.steps.length).toBeLessThanOrEqual(3);
-    });
+  function expectContract(key: Parameters<typeof alertRuleMeta>[0], rule: AttentionRuleShape) {
+    expect(rule.meta).toEqual(alertRuleMeta(key));
+    const { en, bn } = rule.messages;
+    expect(placeholders(en.title + en.why)).toEqual(placeholders(bn.title + bn.why));
+    expect(en.steps.length).toBeLessThanOrEqual(3);
   }
+
+  it('platform.recovery_codes_low: meta, matching bn/en placeholders, at most 3 steps', () => {
+    expectContract(
+      'platform.recovery_codes_low',
+      new PlatformRecoveryCodesLowRule(ds([]) as never, home(HOME)),
+    );
+  });
+
+  it('platform.approval_pending: meta, matching bn/en placeholders, at most 3 steps', () => {
+    expectContract(
+      'platform.approval_pending',
+      new PlatformApprovalPendingRule(ds([]) as never, home(HOME)),
+    );
+  });
 });
 
 describe('PlatformRecoveryCodesLowRule', () => {
@@ -78,6 +87,7 @@ describe('PlatformApprovalPendingRule', () => {
     scope: 'platform.owner_lock',
     requestedBy: 'a',
     fullName: 'Alice Owner',
+    expiresAt: new Date('2026-10-10T20:00:00Z'),
   };
 
   it('only the other owner receives it, with the first name and a plain scope label', async () => {
@@ -90,6 +100,7 @@ describe('PlatformApprovalPendingRule', () => {
         params: { who: 'Alice', what: 'lock an owner' },
         actionUrl: '/platform-owners?tab=approvals',
         recipients: [OWNER_B],
+        expiresAt: row.expiresAt,
       }),
     ]);
   });

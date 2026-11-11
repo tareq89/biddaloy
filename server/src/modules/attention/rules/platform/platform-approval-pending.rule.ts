@@ -44,9 +44,9 @@ export class PlatformApprovalPendingRule implements AttentionRuleShape {
     const owners = await platformAdminRecipients(this.dataSource);
     if (!owners.length) return [];
 
-    const rows: { id: string; scope: string; requestedBy: string; fullName: string | null }[] =
+    const rows: { id: string; scope: string; requestedBy: string; fullName: string | null; expiresAt: Date }[] =
       await this.dataSource.query(
-        `SELECT a.id, a.scope, a.requested_by AS "requestedBy", u.full_name AS "fullName"
+        `SELECT a.id, a.scope, a.requested_by AS "requestedBy", u.full_name AS "fullName", a.expires_at AS "expiresAt"
            FROM platform_approvals a JOIN users u ON u.id = a.requested_by
           WHERE a.status = 'PENDING' AND a.expires_at > $1
           ORDER BY a.created_at`,
@@ -65,6 +65,7 @@ export class PlatformApprovalPendingRule implements AttentionRuleShape {
         },
         actionUrl: '/platform-owners?tab=approvals',
         recipients,
+        expiresAt: r.expiresAt,
       });
     }
     return findings;
