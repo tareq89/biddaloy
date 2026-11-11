@@ -156,8 +156,9 @@ const ROWS: Row[] = [
   ['platform.backup_failing', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false],
   ['platform.trials_ending', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false],
   ['platform.provider_failures', C.PLATFORM, S.WARNING, [K.HOURLY], [R.SUPER_ADMIN], true, true, false],
-  ['platform.recovery_codes_low', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false],
-  ['platform.approval_pending', C.PLATFORM, S.WARNING, [K.HOURLY], [R.SUPER_ADMIN], true, true, false],
+  ['platform.recovery_codes_low', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false, '#3725'],
+  // Cockpit owner rules: no evaluator yet, so deferred to Epic 98 (#3725) like the other ownerEpic rows.
+  ['platform.approval_pending', C.PLATFORM, S.WARNING, [K.HOURLY], [R.SUPER_ADMIN], true, true, false, '#3725'],
   ['manual.alert', C.MANUAL, S.WARNING, [], ALL9, true, false, false],
   ['study_plan.unreported', C.STUDY_PLAN, S.WARNING, [K.DAILY], [R.TEACHER, R.EXECUTIVE, R.ADMIN], true, true, false, '#1828'],
   ['study_plan.behind', C.STUDY_PLAN, S.REMINDER, [K.DAILY], [R.PARENT, R.COMMITTEE], true, true, false, '#1828'],
