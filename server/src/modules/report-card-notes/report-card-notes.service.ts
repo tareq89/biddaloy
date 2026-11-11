@@ -9,6 +9,7 @@ import {
   ExamStatus,
   FinalResultStatus,
 } from '@biddaloy/shared';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { reportCardNotesLocked } from '../../common/filters/known-errors';
 import { RequestContext } from '../../common/request-context.util';
 import { AuditService } from '../audit/audit.service';
@@ -148,6 +149,8 @@ export class ReportCardNotesService {
     return this.repo.manager.transaction(async (manager) => {
       const target = await this.resolveTarget(manager, tenantId, input, true);
       await this.assertSection(manager, tenantId, sectionId, target.class_id);
+      // A closed year is read-only; the notes table has no year column of its own (69.3.99).
+      await assertYearOpen(manager, tenantId, target.academic_year_id);
       // D28: checked under the row lock, so a publish racing this save cannot slip a write in.
       if (target.published) throw reportCardNotesLocked();
 

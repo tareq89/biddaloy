@@ -153,6 +153,18 @@ August. Staff send `POST /api/v1/enrollments` for her. The server refuses:
 "Use Readmit to bring them back". `POST /api/v1/students/<nadia>/readmit`
 works, writes a READMITTED event and revokes her old Transfer Certificate.
 
+## Closed academic year
+
+A closed year (`academic_years.closed_at`) is frozen. See Rule 28 in [08-security.md](08-security.md#rule-28-a-closed-year-is-read-only).
+
+| Invariant                                                                                                                                  | Enforced by                                                                                                                                                                                              | Status                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| No write touches a row of a closed year; the API answers `409 ACADEMIC_YEAR_CLOSED` and writes nothing.                                    | `server/src/common/utils/year-open.guard.ts` `assertYearOpen` / `assertDateNotInClosedYear`, called by every service in `YEAR_SCOPED_WRITES`; `server/test/year-open-guard-registry.integration.spec.ts` | enforced                                                    |
+| A report card note of a closed year cannot be saved (the notes table has no year column; the guard reads the exam or final result's year). | `report-card-notes/report-card-notes.service.ts` `save`                                                                                                                                                  | enforced                                                    |
+| A student cannot be recorded as leaving through their latest ACTIVE row in a just-closed year that has no next-year enrollment.            | the lifecycle write hits the closed year                                                                                                                                                                 | by design (D10): promote before closing, or reopen the year |
+
+Example: Nadia is ACTIVE in 2025, which was closed without promoting her. Recording her transfer returns `409`. Promote her into 2026 first, or reopen 2025.
+
 ## Exams and results
 
 Marks, processing, publishing, certificates, seat plans, ACR.

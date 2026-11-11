@@ -41,11 +41,9 @@ export async function assertDateNotInClosedYear(
 
 /**
  * One entry per entity with an `academic_year_id` column: the service and write methods that
- * must call `assertYearOpen` (D1, D11). `wired: false` = the service does not call the guard
- * yet. #3526-#3532 flip them (#3532 the last), after which the registry test requires all
- * `true`. `server/test/year-open-guard-registry.integration.spec.ts` fails on an entity that
- * is missing here. Method names of unwired entries are the planned write methods; the wiring
- * ticket confirms them.
+ * must call `assertYearOpen` (D1, D11).
+ * `server/test/year-open-guard-registry.integration.spec.ts` fails on an entity that is
+ * missing here, and on a listed service file that never calls the guard.
  *
  * `AttendanceRecord` has no year column; it is keyed by date, so its guard is
  * `assertDateNotInClosedYear` (D12).
@@ -54,15 +52,13 @@ export interface YearScopedWrite {
   entity: string;
   service: string;
   methods: string[];
-  wired: boolean;
 }
 
-const entry = (
-  entity: string,
-  service: string,
-  methods: string[],
-  wired = false,
-): YearScopedWrite => ({ entity, service, methods, wired });
+const entry = (entity: string, service: string, methods: string[]): YearScopedWrite => ({
+  entity,
+  service,
+  methods,
+});
 
 export const YEAR_SCOPED_WRITES: ReadonlyArray<YearScopedWrite> = [
   entry('Class', 'ClassService', ['create', 'update', 'remove']),
@@ -78,7 +74,7 @@ export const YEAR_SCOPED_WRITES: ReadonlyArray<YearScopedWrite> = [
   entry('GradingScale', 'GradingService', ['create', 'update', 'remove', 'copy']),
   entry('PromotionRun', 'PromotionsService', ['create', 'remove']),
   entry('Routine', 'RoutineService', ['create']),
-  entry('Enrollment', 'StudentsService', ['create', 'update']),
+  entry('Enrollment', 'StudentService', ['create', 'update']),
   entry('StudentLifecycleEvent', 'StudentLifecycleService', ['recordEvent']),
   entry('StudentSubjectChoice', 'SubjectChoicesService', ['setChoice']),
   entry('StudyPlan', 'StudyPlansService', ['create', 'remove', 'copyToSection']),
