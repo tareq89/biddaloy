@@ -4,6 +4,7 @@ import {
   ConflictException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
@@ -145,6 +146,7 @@ export class RoutineSlotsService {
     await this.assertNotBackdated(routine, dto.valid_from, tenantId);
 
     return this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4
       await this.validateTenantReferences(manager, dto, tenantId);
       const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
       const existing = await this.loadExisting(routineId, tenantId, manager, dto, actorUserId);
@@ -187,6 +189,14 @@ export class RoutineSlotsService {
       // FOR UPDATE (#3022): a substitution or change-request insert takes FOR KEY SHARE on
       // this row through its FK, so it waits for this edit instead of slipping past the
       // reference check below.
+      // [69.3.05] D4: year guard first, before the FOR UPDATE below (unlocked pre-read of the slot).
+      const seen = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
+      if (!seen) throw new NotFoundException('Routine slot not found');
+      const seenRoutine = await manager.findOne(Routine, {
+        where: { id: seen.routine_id, tenant_id: tenantId },
+      });
+      if (!seenRoutine) throw new NotFoundException('Routine not found');
+      await assertYearOpen(manager, tenantId, seenRoutine.academic_year_id);
       const oldSlot = await manager.findOne(RoutineSlot, {
         where: { id, tenant_id: tenantId },
         lock: { mode: 'pessimistic_write' },
@@ -409,6 +419,7 @@ export class RoutineSlotsService {
         throw new NotFoundException('Routine slot not found');
       }
       const routine = await this.getRoutine(slot.routine_id, tenantId);
+      await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4 (no lock taken yet)
       const today = await this.today(tenantId);
       const published = routine.state === RoutineState.PUBLISHED;
 

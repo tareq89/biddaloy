@@ -212,6 +212,64 @@ describe('/academic-years/$academicYearId', () => {
     expect(await screen.findByText("You don't have permission to view this.")).toBeTruthy();
   });
 
+  describe('close / reopen [69.4.04]', () => {
+    function renderYear(year: ReturnType<typeof academicYearFactory>) {
+      server.use(
+        http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
+        http.get('/api/v1/academic-years/:id/stats', () =>
+          HttpResponse.json({ classes_count: 1, students_count: 1, fee_structures_count: 1 }),
+        ),
+        http.get('/api/v1/classes', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+        ),
+      );
+      return renderWithRouter(routeTree, {
+        initialEntries: [`/academic-years/${year.id}`],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+    }
+
+    // Header actions past the first three sit in More actions.
+    async function actionNames() {
+      await screen.findByRole('heading', { level: 1 });
+      const more = screen.queryByRole('button', { name: 'More actions' });
+      if (more) await userEvent.setup().click(more);
+      return [...screen.queryAllByRole('button'), ...screen.queryAllByRole('menuitem')].map(
+        (el) => el.textContent,
+      );
+    }
+
+    it('an open, non-current year offers Create next year and Close year, not Reopen', async () => {
+      renderYear(academicYearFactory({ id: 'year-1', is_current: false, closed_at: null }));
+      const names = await actionNames();
+      expect(names).toContain('Create next year from this one');
+      expect(names).toContain('Close year');
+      expect(names).not.toContain('Reopen year');
+    });
+
+    it('the current year cannot be closed', async () => {
+      renderYear(academicYearFactory({ id: 'year-1', is_current: true, closed_at: null }));
+      expect(await actionNames()).not.toContain('Close year');
+    });
+
+    it('a closed year shows "Closed on" and offers Reopen year only', async () => {
+      renderYear(
+        academicYearFactory({
+          id: 'year-1',
+          is_current: false,
+          closed_at: '2026-12-31T00:00:00.000Z',
+        }),
+      );
+      const names = await actionNames();
+      expect(await screen.findByText(/Closed on/)).toBeTruthy();
+      expect(names).toContain('Reopen year');
+      expect(names).not.toContain('Close year');
+      expect(names).not.toContain('Create next year from this one');
+    });
+  });
+
   it('is axe clean', async () => {
     const year = academicYearFactory({ id: 'year-1' });
     server.use(

@@ -32,7 +32,10 @@ import {
   PatchPromotionEntryDto,
   SuggestTargetQueryDto,
   ListPromotionRunsQueryDto,
+  ListPromotionGroupsQueryDto,
+  SetPromotionGroupsDto,
 } from './dto/promotions.dto';
+import { PromotionGroupsService } from './promotion-groups.service';
 import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('promotions')
@@ -42,6 +45,7 @@ import { Permission, JwtPayload } from '@biddaloy/shared';
 export class PromotionsController {
   constructor(
     private readonly service: PromotionsService,
+    private readonly groups: PromotionGroupsService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
   ) {}
 
@@ -105,6 +109,39 @@ export class PromotionsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.refresh(id, tenant.id, user.sub);
+  }
+
+  // [69.4.01] Groups step. PROMOTION_GROUP_SET is held by ADMIN and TEACHER; a TEACHER only
+  // sees and sets entries of their homeroom sections (PromotionGroupsService, Rule 2).
+  @Get('promotions/:id/groups')
+  @RequirePermissions(Permission.PROMOTION_GROUP_SET)
+  listGroups(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: ListPromotionGroupsQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.groups.list(id, query, {
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+    });
+  }
+
+  @Patch('promotions/:id/groups')
+  @UseInterceptors(IdempotencyInterceptor)
+  @RequirePermissions(Permission.PROMOTION_GROUP_SET)
+  setGroups(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SetPromotionGroupsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.groups.set(id, dto.entry_ids, dto.group_name, {
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+    });
   }
 
   @Delete('promotions/:id')

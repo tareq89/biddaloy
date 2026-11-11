@@ -111,6 +111,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/communications/message-log/': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/academic-years/': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/academic-years/$academicYearId': Permission.ACADEMIC_YEAR_MANAGE,
+  // [69.4.03] Create next year wizard; the server route is ACADEMIC_YEAR_MANAGE too.
+  '/_staff/academic-years/$academicYearId_/next': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/classes/': Permission.CLASS_MANAGE,
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
   // [22.4.1] ADMIN/TEACHER only. EXECUTIVE lacks HOMEWORK_READ
@@ -178,6 +180,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/promotions/': Permission.PROMOTION_MANAGE,
   '/_staff/promotions/new': Permission.PROMOTION_MANAGE,
   '/_staff/promotions/$runId': Permission.PROMOTION_MANAGE,
+  '/_staff/promotions/$runId_/groups': Permission.PROMOTION_GROUP_SET,
   // [21.7.1] Setup screens (shifts, period slots, rooms, routine-wide
   // settings) are all ADMIN-only server-side (`@RequirePermissions
   // (Permission.ROUTINE_MANAGE)` on every write route in

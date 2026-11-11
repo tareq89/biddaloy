@@ -352,7 +352,7 @@ describe('/promotions/$runId', () => {
   // Only the commit endpoint returns these codes — so drive a real commit
   // (Ctrl+Enter → confirm) rather than faking them on the entries PATCH.
   async function commitAndGetConflict(
-    code: 'STALE_RESULTS' | 'COHORT_CHANGED' | 'RETAIN_CLASS_MISSING',
+    code: 'STALE_RESULTS' | 'COHORT_CHANGED' | 'RETAIN_CLASS_MISSING' | 'ACADEMIC_YEAR_CLOSED',
   ) {
     const user = userEvent.setup();
     stubCommon();
@@ -360,7 +360,13 @@ describe('/promotions/$runId', () => {
       http.get(RUN_URL, () => HttpResponse.json(baseRun())),
       http.post(`${RUN_URL}/commit`, () =>
         HttpResponse.json(
-          { ...apiErrorBody(409, 'Conflict', `${RUN_URL}/commit`), details: { code } },
+          {
+            ...apiErrorBody(409, 'Conflict', `${RUN_URL}/commit`),
+            ...(code === 'ACADEMIC_YEAR_CLOSED'
+              ? { message: 'This academic year is closed.' }
+              : {}),
+            details: { code },
+          },
           { status: 409 },
         ),
       ),
@@ -878,5 +884,36 @@ describe('/promotions/$runId', () => {
     const row = (await screen.findByText('Rafi Ahmed')).closest('tr') as HTMLElement;
     expect(within(row).getAllByText('Promote').length).toBeGreaterThan(0);
     expect(within(row).queryByRole('combobox', { name: 'Final decision' })).toBeNull();
+  });
+
+  describe('closed source year [69.4.05]', () => {
+    function serveYear(closedAt: string | null) {
+      server.use(
+        http.get('/api/v1/academic-years/year-2026', () =>
+          HttpResponse.json({ id: 'year-2026', name: '2026-2027', closed_at: closedAt }),
+        ),
+      );
+    }
+
+    it('shows the notice and takes away Commit and the grid controls', async () => {
+      stubCommon();
+      statefulRun();
+      serveYear('2026-12-31T00:00:00.000Z');
+      renderRun();
+
+      expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /Commit/ })).toBeNull();
+      expect(screen.queryByLabelText('Final decision')).toBeNull();
+    });
+
+    it('an open source year leaves the page as it was', async () => {
+      stubCommon();
+      statefulRun();
+      serveYear(null);
+      renderRun();
+
+      expect(await screen.findByLabelText('Final decision')).toBeTruthy();
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
   });
 });

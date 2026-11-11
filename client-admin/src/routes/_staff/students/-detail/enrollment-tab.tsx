@@ -2,8 +2,10 @@ import { EnrollmentStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
   Card,
+  ClosedYearNotice,
   DataTable,
   StatusBadge,
+  useIsYearClosed,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -30,11 +32,15 @@ export interface EnrollmentTabProps {
 export function EnrollmentTab({ studentId, studentName, enrollmentStatus }: EnrollmentTabProps) {
   const { t } = useTranslation('students');
   const { t: tPromotions } = useTranslation('promotions');
+  const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useRegionConfig();
   const query = useStudentEnrollments(studentId);
   const overridesQuery = useStudentPromotionOverrides(studentId);
   const canUpdate = useHasPermission(Permission.STUDENT_UPDATE) && enrollmentStatus === 'ACTIVE';
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  // [69.4.05] A section change writes into the year of the current enrolment; closed means read-only.
+  const currentYearId = query.data?.find((e) => e.enrollment_status === 'ACTIVE')?.academic_year_id;
+  const yearClosed = useIsYearClosed(currentYearId);
 
   return (
     <Card className="overflow-hidden">
@@ -45,12 +51,20 @@ export function EnrollmentTab({ studentId, studentName, enrollmentStatus }: Enro
           // student who predates [8.11.3]'s day-one enrollment write is
           // exactly who needs the "get-or-create" POST fallback, not just
           // students that already have history rows.
-          <Button type="button" variant="outline" onClick={() => setMoveDialogOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={yearClosed}
+            {...(yearClosed ? { title: tYears('closedNotice.tooltip') } : {})}
+            onClick={() => setMoveDialogOpen(true)}
+          >
             <ArrowRightLeftIcon className="size-4" aria-hidden />
             {t('detail.enrollment.moveClassAction')}
           </Button>
         )}
       </div>
+
+      <ClosedYearNotice academicYearId={currentYearId} />
 
       <TabQueryState
         query={query}

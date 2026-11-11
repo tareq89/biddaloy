@@ -15,6 +15,9 @@ import { User } from '../users/entities/user.entity';
 import { EnrollmentModule } from '../enrollments/enrollments.module';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
+import { ClassModule } from '../classes/classes.module';
+import { SchoolsModule } from '../schools/schools.module';
+import { PromotionGroupsService } from './promotion-groups.service';
 import { PromotionsService } from './promotions.service';
 import { PromotionsController } from './promotions.controller';
 
@@ -42,8 +45,10 @@ import { PromotionsController } from './promotions.controller';
     EnrollmentModule,
     AuditModule,
     StudentModule,
+    ClassModule, // TeacherScopeService (homeroom sections)
+    SchoolsModule, // SchoolSettingsReader (groups vocabulary)
   ],
-  providers: [PromotionsService],
+  providers: [PromotionsService, PromotionGroupsService],
   controllers: [PromotionsController],
 })
 export class PromotionsModule {}

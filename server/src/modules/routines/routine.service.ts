@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Routine } from './entities/routine.entity';
@@ -30,6 +31,7 @@ export class RoutineService {
     if (!academicYear) {
       throw new NotFoundException('Academic year not found');
     }
+    await assertYearOpen(this.repo.manager, tenantId, dto.academic_year_id); // [69.3.05] D4
 
     const existing = await this.repo.findOne({
       where: { tenant_id: tenantId, academic_year_id: dto.academic_year_id, deleted_at: IsNull() },

@@ -1,5 +1,11 @@
 import { Permission } from '@biddaloy/shared';
-import { RoutePending, Skeleton, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+  toast,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import {
   academicYearsQueryOptions,
   useAcademicYearStats,
@@ -40,6 +46,10 @@ export const Route = createFileRoute('/_staff/academic-years/')({
     sort: z.string().optional().catch(undefined),
     order: z.enum(['asc', 'desc']).optional().catch(undefined),
     new: z.coerce.string().optional().catch(undefined),
+    // [69.4.02] One-shot palette flags: `next=1` goes on to the current year's "Create next year",
+    // `close=1` to the latest non-current year's detail page (acted on by the list page).
+    next: z.coerce.string().optional().catch(undefined),
+    close: z.coerce.string().optional().catch(undefined),
   }),
   // [8.14.5]: no search-string filters here (unlike `students/index.tsx`),
   // so no `loaderDeps` — the list's full first page is the same query on
@@ -101,6 +111,37 @@ function AcademicYearsListPage() {
   const yearsQuery = useAcademicYears({ limit: YEARS_LIMIT });
   const isEmpty =
     !yearsQuery.isLoading && !yearsQuery.isError && (yearsQuery.data?.total ?? 0) === 0;
+
+  // [69.4.02] Palette flags: `next=1` → current year's wizard, `close=1` → latest non-current
+  // open year's detail (where Close year lives). Decided once the list has loaded, then the flag
+  // is dropped so Back does not bounce.
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const years = yearsQuery.data?.data;
+  React.useEffect(() => {
+    if (!canManage || !years) return;
+    const wantsNext = search.next === '1';
+    const wantsClose = search.close === '1';
+    if (!wantsNext && !wantsClose) return;
+    const target = wantsNext
+      ? years.find((y) => y.is_current)
+      : [...years]
+          .filter((y) => !y.is_current && y.closed_at === null)
+          .sort((a, b) => b.end_date.localeCompare(a.end_date))[0];
+    if (!target) {
+      toast.info(t(wantsNext ? 'list.noCurrentYear' : 'list.noOpenYearToClose'));
+      void navigate({
+        search: (prev) => ({ ...prev, next: undefined, close: undefined }),
+        replace: true,
+      });
+      return;
+    }
+    void navigate({
+      to: wantsNext ? '/academic-years/$academicYearId/next' : '/academic-years/$academicYearId',
+      params: { academicYearId: target.id },
+      replace: true,
+    });
+  }, [canManage, years, search.next, search.close, navigate, t]);
 
   const createYear = useCreateAcademicYear();
   const [createOpen, setCreateOpen] = useLandingFlag('new', canManage);
@@ -189,6 +230,12 @@ function AcademicYearsListPage() {
         columns={columns}
         rowActions={(row) => [
           { intent: 'view', label: t('list.view'), to: `/academic-years/${row.id}` },
+          {
+            intent: 'duplicate',
+            label: t('nextYear.action'),
+            to: `/academic-years/${row.id}/next`,
+            allowed: canManage && row.closed_at === null,
+          },
           {
             intent: 'edit',
             label: t('list.edit'),
