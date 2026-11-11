@@ -11,7 +11,7 @@ import * as React from 'react';
 
 import { CodeStep } from './code-step';
 import { DeviceStep } from './device-step';
-import { saveEnrolHandoff } from './enrol-handoff';
+import { clearEnrolHandoff, saveEnrolHandoff } from './enrol-handoff';
 import { PasswordStep } from './password-step';
 
 type Step =
@@ -63,6 +63,7 @@ export function CockpitSignInCard({
   }
 
   function again(): void {
+    clearEnrolHandoff();
     login.reset();
     mfa.reset();
     device.reset();

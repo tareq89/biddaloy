@@ -26,7 +26,7 @@ describe('root beforeLoad: cockpit host', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/sign-in'));
   });
 
-  it.each(['/sign-in/forgot', '/sign-in/reset'])(
+  it.each(['/sign-in/forgot', '/sign-in/reset', '/owner-security/two-step'])(
     'cockpit host: %s stays put while signed out',
     async (path) => {
       host.cockpit = true;

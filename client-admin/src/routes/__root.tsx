@@ -79,7 +79,14 @@ const PUBLIC_PATHS = new Set([
  * is regenerated. Which host we are on only picks screens; the server decides
  * access.
  */
-const COCKPIT_PUBLIC_PATHS = new Set(['/sign-in', '/sign-in/forgot', '/sign-in/reset']);
+// `/owner-security/two-step` is public on purpose: a first-time owner arrives there from the
+// sign-in card with a hand-off, not a session (see `enrol-handoff.ts`).
+const COCKPIT_PUBLIC_PATHS = new Set([
+  '/sign-in',
+  '/sign-in/forgot',
+  '/sign-in/reset',
+  '/owner-security/two-step',
+]);
 const COCKPIT_APP_ONLY = ['/dashboard', '/portal'];
 
 const PUBLIC_PATH_PREFIXES = ['/i/', '/admission/', '/v/', '/n/'];
