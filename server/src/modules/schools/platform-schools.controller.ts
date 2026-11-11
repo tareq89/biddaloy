@@ -17,7 +17,6 @@ import { Request } from 'express';
 import { JwtPayload } from '@biddaloy/shared';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../common/request-context.util';
 import { SchoolsService } from './schools.service';
@@ -36,7 +35,6 @@ import { ReviveSchoolDto } from './dto/revive-school.dto';
 export class PlatformSchoolsController {
   constructor(private readonly schools: SchoolsService) {}
 
-  @AuthenticatedOnly()
   @Get()
   @ApiOperation({
     summary:
@@ -47,7 +45,6 @@ export class PlatformSchoolsController {
     return this.schools.findAll(query.trial);
   }
 
-  @AuthenticatedOnly()
   @Get(':id/stats')
   @ApiOperation({
     summary:
@@ -57,7 +54,6 @@ export class PlatformSchoolsController {
     return this.schools.getStats(id);
   }
 
-  @AuthenticatedOnly()
   @Patch(':id/status')
   @ApiOperation({
     summary:
@@ -72,7 +68,6 @@ export class PlatformSchoolsController {
     return this.schools.updateStatus(id, dto, user.sub, requestContext(request));
   }
 
-  @AuthenticatedOnly()
   @Post(':id/revive')
   @HttpCode(200)
   @ApiOperation({
