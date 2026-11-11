@@ -267,6 +267,8 @@ describe('scrub.sql', () => {
       report_card_notes: { exam_id: lit(randomUUID()) + '::uuid' },
       staff_incidents: { withdrawn_at: `'2026-01-02T00:00:00Z'::timestamptz` },
       communication_logs: { status: `'QUEUED'::"communication_logs_status_enum"` },
+      // CHK_user_recovery_codes_hash_len: a sha256 hex digest is 64 chars.
+      user_recovery_codes: { code_hash: `'${'a'.repeat(64)}'::character varying` },
       // CHK_notice_recipients_target: a STAFF row needs a user
       notice_recipients: { user_id: lit(randomUUID()) + '::uuid' },
     };
