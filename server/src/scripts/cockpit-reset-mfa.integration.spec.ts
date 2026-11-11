@@ -4,6 +4,12 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'crypto';
+import { User } from '../modules/users/entities/user.entity';
+import { PlatformAdmin } from '../modules/platform-identity/entities/platform-admin.entity';
+import { CockpitJwtStrategy } from '../modules/auth/strategies/cockpit-jwt.strategy';
 import { resetOwnerMfa, printResetResult } from './cockpit-reset-mfa';
 
 describe('cockpit-reset-mfa (integration)', () => {
@@ -93,6 +99,49 @@ describe('cockpit-reset-mfa (integration)', () => {
     expect(tu.tokens_valid_after).not.toBeNull();
     expect(ou.tokens_valid_after).toBeNull();
     await ds.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [[target, other]]);
+  });
+
+  it('an access token issued before the reset is refused afterwards (401)', async () => {
+    const id = await makeUser('jwt', 5, true);
+    // The real cockpit strategy over the real user + platform_admins rows; only Redis-backed parts are stubbed.
+    const strategy = new CockpitJwtStrategy(
+      { get: () => 'test-secret-test-secret-test-1234' } as never,
+      new JwtService({}),
+      { isRevoked: async () => false } as never,
+      { touch: async () => undefined } as never,
+      ds.getRepository(User),
+      ds.getRepository(PlatformAdmin),
+    );
+    const token = { sub: id, jti: 'j', fam: 'f', typ: 'cockpit', iat_ms: Date.now() };
+    await expect(strategy.validate(token)).resolves.toMatchObject({ sub: id });
+    await new Promise((r) => setTimeout(r, 10));
+    await resetOwnerMfa(ds, mail('jwt'));
+    await expect(strategy.validate(token)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('a refresh rotation in flight cannot leave a live successor after the reset', async () => {
+    const id = await makeUser('race', 6, true);
+    // A rotation that holds its share lock and is about to insert the successor.
+    const rotation = ds.createQueryRunner();
+    await rotation.connect();
+    await rotation.startTransaction();
+    await rotation.query('SELECT 1 FROM users WHERE id = $1 FOR SHARE', [id]);
+    await rotation.query(
+      `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
+       VALUES ($1, $2, 'successor', now() + interval '1 hour')`,
+      [id, randomUUID()],
+    );
+    const reset = resetOwnerMfa(ds, mail('race'));
+    await new Promise((r) => setTimeout(r, 300));
+    await rotation.commitTransaction();
+    await rotation.release();
+    await reset;
+    const live = await ds.query(
+      `SELECT 1 FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`,
+      [id],
+    );
+    expect(live).toHaveLength(0);
+    await ds.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
   });
 
   it('prints no email or phone', () => {

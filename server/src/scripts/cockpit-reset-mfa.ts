@@ -38,6 +38,9 @@ export async function resetOwnerMfa(ds: DataSource, emailInput: string): Promise
     // Unknown email and a normal user get the same text (Rule 23: no echo, no oracle).
     if (!user || !owner) throw new Error('the email is not a platform owner');
 
+    // Same order as `revokeAllForUser`: wait out a refresh rotation in flight (it holds FOR SHARE),
+    // so its successor is revoked below and none stays live past the reset.
+    await em.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [user.id]);
     await em.delete(UserMfa, { user_id: user.id });
     await em.delete(UserRecoveryCode, { user_id: user.id });
     await em.delete(PlatformAdminDevice, { user_id: user.id });
