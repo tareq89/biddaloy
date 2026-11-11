@@ -471,11 +471,15 @@ export class AcademicYearService {
                                  AND y2.start_date > $4::date)`,
           [tenantId, id, EnrollmentStatus.ACTIVE, year.start_date],
         ),
+        // Same definition as the attention rule: keep in step with promotion-groups-pending.rule.ts.
         this.count(
           manager,
           `SELECT count(*) n FROM promotion_entries pe JOIN promotion_runs r ON r.id = pe.run_id
             WHERE r.tenant_id = $1 AND r.source_academic_year_id = $2 AND r.status = $3
-              AND pe.group_name IS NULL`,
+              AND pe.group_name IS NULL AND pe.target_class_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM class_sections t WHERE t.tenant_id = $1
+                AND t.class_id = pe.target_class_id AND t.deleted_at IS NULL
+                AND t.group_name IS NOT NULL)`,
           [...T, draft],
         ),
         // student_fees has no tenant_id: scope it through its student.
