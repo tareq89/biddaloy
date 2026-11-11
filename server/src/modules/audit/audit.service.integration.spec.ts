@@ -19,6 +19,8 @@ import { Invoice } from '../invoices/entities/invoice.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogResponseDto } from './dto/audit-log-response.dto';
+import { RequestActorContext } from '../../common/request-actor-context';
+import { insertJoinRequest } from '../account-access/school-invite.service';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 
@@ -262,6 +264,46 @@ describe('AuditService (integration)', () => {
     const asAssessor = await service.findAll({} as QueryAuditLogDto, TENANT_ID, YEAR);
     expect(asAssessor.data.map((r) => r.entity_id).sort()).toEqual([mine.id, other.id].sort());
   });
+  describe('Login as stamping ([Epic 99] #3784)', () => {
+    const PA = '00000000-0000-4000-8000-0000000003b1';
+    const SID = '00000000-0000-4000-8000-0000000003b2';
+
+    it('round-trips both columns through the real table via record()', async () => {
+      await RequestActorContext.run(async () => {
+        RequestActorContext.setImpersonation({ sid: SID, pa: PA });
+        await recordUpdateBy(ACTIVE_USER_ID);
+      });
+      const [row] = await auditLogRepo.find({ where: { tenant_id: TENANT_ID } });
+      expect(row.impersonated_by_platform_admin_id).toBe(PA);
+      expect(row.impersonation_session_id).toBe(SID);
+    });
+
+    it('stamps the direct-save path in insertJoinRequest too', async () => {
+      await RequestActorContext.run(async () => {
+        RequestActorContext.setImpersonation({ sid: SID, pa: PA });
+        await dataSource.transaction((m) =>
+          insertJoinRequest(m, {
+            userId: ACTIVE_USER_ID,
+            tenantId: TENANT_ID,
+            role: UserRole.PARENT,
+            createdByUserId: null,
+          }),
+        );
+      });
+      const [row] = await auditLogRepo.find({ where: { tenant_id: TENANT_ID } });
+      expect(row.new_values).toMatchObject({ via: 'join_request' });
+      expect(row.impersonated_by_platform_admin_id).toBe(PA);
+      expect(row.impersonation_session_id).toBe(SID);
+    });
+
+    it('leaves a row written outside a request unstamped', async () => {
+      await recordUpdateBy(ACTIVE_USER_ID);
+      const [row] = await auditLogRepo.find({ where: { tenant_id: TENANT_ID } });
+      expect(row.impersonated_by_platform_admin_id).toBeNull();
+      expect(row.impersonation_session_id).toBeNull();
+    });
+  });
+
   describe('entity labels ([31.3.7a])', () => {
     const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000000003c0';
     let studentId: string;

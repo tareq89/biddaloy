@@ -1,6 +1,77 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AuditService } from './audit.service';
 import { ApprovalScope, AuditAction } from '@biddaloy/shared';
+import { RequestActorContext } from '../../common/request-actor-context';
+
+describe('AuditService actor stamping ([Epic 99] #3784)', () => {
+  const imp = { sid: 'sess-1', pa: 'pa-1' };
+  const entry = {
+    action: AuditAction.LOGIN,
+    entity_type: 'User',
+    entity_id: 'u1',
+    tenant_id: 't1',
+    performed_by_user_id: 'u1',
+  } as const;
+  const approved = {
+    ...entry,
+    approved_by_user_id: 'a1',
+    approval_scope: 'payments.reverse' as unknown as ApprovalScope,
+  };
+  const stamped = {
+    impersonated_by_platform_admin_id: 'pa-1',
+    impersonation_session_id: 'sess-1',
+  };
+  const repoWithSpy = () => {
+    const repo = {
+      create: vi.fn((v) => v),
+      save: vi.fn(async (v) => v),
+    };
+    return repo;
+  };
+
+  it('stamps record() without a manager', async () => {
+    const repo = repoWithSpy();
+    await RequestActorContext.run(async () => {
+      RequestActorContext.setImpersonation(imp);
+      await new AuditService(repo as any).record(entry);
+    });
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining(stamped));
+  });
+
+  it('stamps record() with a manager', async () => {
+    const repo = repoWithSpy();
+    const manager = { getRepository: () => repo };
+    await RequestActorContext.run(async () => {
+      RequestActorContext.setImpersonation(imp);
+      await new AuditService(repoWithSpy() as any).record(entry, manager as any);
+    });
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining(stamped));
+  });
+
+  it('stamps recordApproved() on both paths', async () => {
+    const repo = repoWithSpy();
+    const manager = { getRepository: () => repo };
+    await RequestActorContext.run(async () => {
+      RequestActorContext.setImpersonation(imp);
+      await new AuditService(repo as any).recordApproved(approved);
+      await new AuditService(repoWithSpy() as any).recordApproved(approved, manager as any);
+    });
+    expect(repo.save).toHaveBeenCalledTimes(2);
+    for (const call of repo.save.mock.calls) expect(call[0]).toMatchObject(stamped);
+  });
+
+  it('leaves both ids unset without imp, and outside a request', async () => {
+    const repo = repoWithSpy();
+    const service = new AuditService(repo as any);
+    await RequestActorContext.run(() => service.record(entry));
+    await service.record(entry);
+    expect(repo.save).toHaveBeenCalledTimes(2);
+    for (const call of repo.save.mock.calls) {
+      expect(call[0].impersonated_by_platform_admin_id).toBeUndefined();
+      expect(call[0].impersonation_session_id).toBeUndefined();
+    }
+  });
+});
 
 function fakeRepo() {
   return {

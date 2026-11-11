@@ -17,6 +17,7 @@ import { Guardian } from '../students/entities/guardian.entity';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { School } from '../schools/entities/school.entity';
 import type { RequestContext } from '../../common/request-context.util';
+import { stampAuditActor } from '../../common/request-actor-context';
 import { AuthToken } from './entities/auth-token.entity';
 import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
 import { SchoolInviteDto } from './dto/school-invite.dto';
@@ -108,14 +109,16 @@ export async function insertJoinRequest(
 
   const audit = m.getRepository(AuditLog);
   await audit.save(
-    audit.create({
-      action: AuditAction.CREATE,
-      entity_type: 'Membership', // ponytail: no 'SchoolInvite' in the shared audit union; add one if audit filtering needs it
-      entity_id: input.userId,
-      tenant_id: input.tenantId,
-      performed_by_user_id: input.createdByUserId,
-      new_values: { via: 'join_request', requested: true, request_id: row.id, role: input.role },
-    }),
+    stampAuditActor(
+      audit.create({
+        action: AuditAction.CREATE,
+        entity_type: 'Membership', // ponytail: no 'SchoolInvite' in the shared audit union; add one if audit filtering needs it
+        entity_id: input.userId,
+        tenant_id: input.tenantId,
+        performed_by_user_id: input.createdByUserId,
+        new_values: { via: 'join_request', requested: true, request_id: row.id, role: input.role },
+      }),
+    ),
   );
   return row;
 }

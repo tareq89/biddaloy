@@ -16,6 +16,7 @@ import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { User } from '../users/entities/user.entity';
 import { pagedRows } from '../reports/export/paged-rows';
+import { stampAuditActor } from '../../common/request-actor-context';
 
 /** Keys of either snapshot whose value differs (deep equality); a key on one side only counts. Same rule as the client's `changedFieldCount`. */
 function countChangedFields(
@@ -72,7 +73,7 @@ export class AuditService {
         old_values: entry.old_values ? redactSensitiveFields(entry.old_values) : null,
         new_values: entry.new_values ? redactSensitiveFields(entry.new_values) : null,
       };
-      await repo.save(repo.create(sanitized));
+      await repo.save(stampAuditActor(repo.create(sanitized)));
       return;
     }
 
@@ -85,7 +86,7 @@ export class AuditService {
         old_values: entry.old_values ? redactSensitiveFields(entry.old_values) : null,
         new_values: entry.new_values ? redactSensitiveFields(entry.new_values) : null,
       };
-      await this.repo.save(this.repo.create(sanitized));
+      await this.repo.save(stampAuditActor(this.repo.create(sanitized)));
     } catch (error) {
       this.logger.error(
         `Failed to write ${entry.action} audit record: ${error instanceof Error ? error.message : String(error)}`,
@@ -131,11 +132,11 @@ export class AuditService {
 
     if (manager) {
       const repo = manager.getRepository(AuditLog);
-      await repo.save(repo.create(sanitized));
+      await repo.save(stampAuditActor(repo.create(sanitized)));
       return;
     }
     // No manager: still don't swallow — see the fail-open note above.
-    await this.repo.save(this.repo.create(sanitized));
+    await this.repo.save(stampAuditActor(this.repo.create(sanitized)));
   }
 
   /**
