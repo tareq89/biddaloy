@@ -79,4 +79,58 @@ describe('useIdleTimer', () => {
     });
     expect(onExpire).toHaveBeenCalledTimes(1);
   });
+
+  it('visibilitychange while hidden fires nothing', () => {
+    const { onExpire } = setup();
+    vi.setSystemTime(Date.now() + 120 * MIN);
+    const spy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    expect(onExpire).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('scroll and wheel count as activity', () => {
+    const { onWarn } = setup();
+    act(() => {
+      vi.advanceTimersByTime(20 * MIN);
+    });
+    act(() => void window.dispatchEvent(new Event('wheel')));
+    act(() => {
+      vi.advanceTimersByTime(20 * MIN);
+    });
+    act(() => void window.dispatchEvent(new Event('scroll')));
+    act(() => {
+      vi.advanceTimersByTime(20 * MIN);
+    });
+    expect(onWarn).not.toHaveBeenCalled();
+  });
+
+  it('unmount clears timer and listeners; a late reset cannot re-arm', () => {
+    const { onWarn, onExpire, result, unmount } = setup();
+    unmount();
+    act(() => {
+      result.current.reset();
+    });
+    act(() => {
+      vi.advanceTimersByTime(60 * MIN);
+    });
+    window.dispatchEvent(new Event('keydown'));
+    expect(onWarn).not.toHaveBeenCalled();
+    expect(onExpire).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('enabled=false stops tracking', () => {
+    const onWarn = vi.fn();
+    const { rerender } = renderHook(
+      ({ enabled }) => useIdleTimer({ onWarn, onExpire: vi.fn(), enabled }),
+      { initialProps: { enabled: true } },
+    );
+    rerender({ enabled: false });
+    act(() => {
+      vi.advanceTimersByTime(60 * MIN);
+    });
+    expect(onWarn).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
