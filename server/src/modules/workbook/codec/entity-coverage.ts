@@ -15,6 +15,9 @@ import { Alert } from '../../attention/entities/alert.entity';
 import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import { PlatformAdminDevice } from '../../platform-identity/entities/platform-admin-device.entity';
 import { PlatformApproval } from '../../platform-identity/entities/platform-approval.entity';
+import { ImpersonationSession } from '../../support-access/entities/impersonation-session.entity';
+import { PlatformSchoolNote } from '../../support-access/entities/platform-school-note.entity';
+import { PlatformAnnouncement } from '../../support-access/entities/platform-announcement.entity';
 import { PlatformSetting } from '../../platform-identity/entities/platform-setting.entity';
 import { UserMfa } from '../../platform-identity/entities/user-mfa.entity';
 import { UserRecoveryCode } from '../../platform-identity/entities/user-recovery-code.entity';
@@ -102,6 +105,18 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [
     UserRecoveryCode,
     'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
+  [
+    ImpersonationSession,
+    'Cockpit Login as (Epic 99): platform data, not school data; covered by the nightly database backup.',
+  ],
+  [
+    PlatformSchoolNote,
+    'Cockpit Login as (Epic 99): platform data, not school data; covered by the nightly database backup.',
+  ],
+  [
+    PlatformAnnouncement,
+    'Cockpit Login as (Epic 99): platform data, not school data; covered by the nightly database backup.',
   ],
   [PlatformAlert, 'Platform-only incident state (Redis outage), not school data.'],
   [
