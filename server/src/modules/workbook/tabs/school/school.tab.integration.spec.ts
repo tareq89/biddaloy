@@ -117,6 +117,37 @@ describe('schoolTab (integration)', () => {
   // Business-critical: an imported workbook never carries secrets, because
   // export strips them. Restoring must therefore not wipe the credentials the
   // destination already had.
+  it('a restore with an older file never changes supportAccess [99.1.06]', async () => {
+    const confirmed = {
+      mode: 'ask',
+      confirmedAt: '2026-02-03T04:05:06.000Z',
+      confirmedBy: null,
+      textVersion: 1,
+    };
+    const base = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+    await schoolRepo.update(
+      { id: TENANT_A },
+      { settings: { ...base.settings, supportAccess: confirmed } },
+    );
+    const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+
+    await schoolTab.upsert(
+      rowFor({
+        settings: {
+          region: { timezone: 'Asia/Kolkata' },
+          supportAccess: { mode: 'allowed', confirmedAt: '2020-01-01T00:00:00.000Z' },
+        },
+      }),
+      existing,
+      TENANT_A,
+      dataSource.manager,
+    );
+
+    const updated = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+    expect(updated.settings?.supportAccess).toEqual(confirmed);
+    expect(updated.settings?.region?.timezone).toBe('Asia/Kolkata');
+  });
+
   it('keeps the stored secret when the imported settings do not mention it', async () => {
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 

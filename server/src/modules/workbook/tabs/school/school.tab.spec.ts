@@ -499,3 +499,36 @@ describe('sms.metering is never imported', () => {
     expect(mergeImportedSettings(stored(), { communications: { sms: 'OFF' } })).toEqual(stored());
   });
 });
+
+// [99.1.06] Consent for Login as is neither exported nor restored.
+describe('supportAccess is never imported or exported', () => {
+  const stored = {
+    supportAccess: { mode: 'allowed', confirmedAt: '2026-01-01T00:00:00.000Z' },
+  };
+
+  it('a file carrying blocked leaves the stored allowed unchanged', () => {
+    const merged = mergeImportedSettings(stored, { supportAccess: { mode: 'blocked' } });
+    expect(merged).toEqual(stored);
+  });
+
+  it('a null or string value is dropped too', () => {
+    expect(mergeImportedSettings(stored, { supportAccess: null })).toEqual(stored);
+    expect(mergeImportedSettings(stored, { supportAccess: 'blocked' })).toEqual(stored);
+  });
+
+  it('other keys in the same file still merge', () => {
+    const merged = mergeImportedSettings(stored, {
+      supportAccess: { mode: 'blocked' },
+      region: { timezone: 'Asia/Dhaka' },
+    });
+    expect(merged).toEqual({ ...stored, region: { timezone: 'Asia/Dhaka' } });
+  });
+
+  it('export output has no supportAccess key', () => {
+    const row = schoolTab.toRow(
+      makeSchool({ settings: { ...stored, region: { timezone: 'Asia/Dhaka' } } }),
+      exportCtx,
+    );
+    expect(row.settings).toEqual({ region: { timezone: 'Asia/Dhaka' } });
+  });
+});

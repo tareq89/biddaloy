@@ -445,6 +445,10 @@ table here.
 The six cockpit identity tables (Epic 98) are platform data, covered by the nightly database backup, not by the school workbook.
 They sit in `ENTITY_COVERAGE_EXEMPT` (`codec/entity-coverage.ts`) with that reason.
 
+`impersonation_sessions`, `platform_school_notes` and `platform_announcements` (Epic 99) have no tab either: platform data, covered by the nightly database backup.
+
+`settings.supportAccess` (whether platform staff may use Login as on this school) is never exported and never restored. The school tab drops it on export and ignores it on import, so an old file can not flip consent. The school admin changes it only on its own screen.
+
 ## Adding a new tab
 
 1. Copy an existing tab in the closest group directory as a starting
