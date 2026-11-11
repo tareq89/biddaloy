@@ -125,6 +125,11 @@ export function stripSecretPaths(settings: Record<string, unknown>): Record<stri
   return result;
 }
 
+function withoutSupportAccess(settings: Record<string, unknown>): Record<string, unknown> {
+  const { supportAccess: _consent, ...rest } = settings;
+  return rest;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -165,7 +170,10 @@ export function deepMergePresent(
  * or `communications.sms` (e.g. `null`) is dropped too: the merge would replace the stored object
  * with it, wiping the stored metering and every saved credential under it.
  */
-function withoutPlatformOnlyPaths(settings: Record<string, unknown>): Record<string, unknown> {
+function withoutPlatformOnlyPaths(imported: Record<string, unknown>): Record<string, unknown> {
+  // [99.1.06] `supportAccess` (consent for Login as) is never restored: a file, however old, must
+  // not flip it. Dropped whatever its value; the destination keeps its own.
+  const { supportAccess: _consent, ...settings } = imported;
   if (!('communications' in settings)) return settings;
   const { communications, ...rest } = settings;
   if (!isPlainObject(communications)) return rest;
@@ -221,7 +229,8 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
       registration_id: entity.registration_id,
       country_code: entity.country_code,
       // Credentials never leave the system in a backup file.
-      settings: entity.settings ? stripSecretPaths(entity.settings) : null,
+      // Consent state (`supportAccess`, with a user id in it) is not school data to carry around.
+      settings: entity.settings ? withoutSupportAccess(stripSecretPaths(entity.settings)) : null,
     };
   },
 
