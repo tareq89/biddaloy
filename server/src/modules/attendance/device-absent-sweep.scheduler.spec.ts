@@ -24,6 +24,8 @@ describe('DeviceAbsentSweepScheduler', () => {
   let scheduler: DeviceAbsentSweepScheduler;
   let sweepSection: ReturnType<typeof vi.fn>;
 
+  let closedYears: unknown[] = [];
+
   function build(s: any, scans = 1) {
     queue = { upsertJobScheduler: vi.fn(async () => undefined) };
     dataSource = {
@@ -33,6 +35,8 @@ describe('DeviceAbsentSweepScheduler', () => {
         .mockResolvedValueOnce(scans ? [{ '?column?': 1 }] : [])
         .mockResolvedValueOnce([{ id: 'sec-1', class_id: 'c-1', shift_id: null }]),
       transaction: vi.fn(async (fn: any) => fn({})),
+      // closed-year lookup (assertDateNotInClosedYear): no closed year by default
+      manager: { query: vi.fn(async () => closedYears) },
     };
     schoolsService = {
       findAllActive: vi.fn(async () => [{ id: 't-1' }, { id: 't-2' }]),
@@ -46,7 +50,10 @@ describe('DeviceAbsentSweepScheduler', () => {
     (scheduler as any).sweepSection = sweepSection;
   }
 
-  beforeEach(() => build(settings(DailyAttendanceSource.DEVICE)));
+  beforeEach(() => {
+    closedYears = [];
+    build(settings(DailyAttendanceSource.DEVICE));
+  });
 
   it('registers one repeatable job every 5 minutes', async () => {
     await scheduler.onModuleInit();
@@ -67,6 +74,14 @@ describe('DeviceAbsentSweepScheduler', () => {
     calendar.isNonWorkingDay.mockResolvedValue(true);
     expect(await scheduler.sweepTenant('t-1')).toBe(0);
     expect(dataSource.query).not.toHaveBeenCalled();
+  });
+
+  it('sweeps nothing when today is inside a closed year (D12)', async () => {
+    closedYears = [{ id: 'closed-year' }];
+    build(settings(DailyAttendanceSource.DEVICE));
+    expect(await scheduler.sweepTenant('t-1')).toBe(0);
+    expect(sweepSection).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
   it('skips the school when no device scan arrived today', async () => {
