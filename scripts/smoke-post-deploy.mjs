@@ -5,6 +5,7 @@
  * dedicated smoke accounts in production. See docs/architecture/12-operations.md §7.
  *
  * Optional SMOKE_COCKPIT_DOMAIN + SMOKE_APP_DOMAIN (bare hosts): the cockpit fence checks.
+ * Optional SMOKE_IMPERSONATION=1 (needs both domains): the Login as fence checks.
  * Optional SMOKE_FENCE_ORIGIN (e.g. http://nginx:80): send the fence requests to that origin with
  * the intended Host header, so a host behind Cloudflare Access is probed at nginx itself.
  *
@@ -238,30 +239,25 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     });
   }
 
-  // [Epic 98, D17] Cockpit fence: platform routes answer on the cockpit host only.
-  // Output carries the check name and status only, never a body or token (Rule 13).
-  if (!env.SMOKE_COCKPIT_DOMAIN) {
-    out('cockpit fence: skipped: SMOKE_COCKPIT_DOMAIN not set');
-  } else if (!env.SMOKE_APP_DOMAIN) {
-    // No fallback to baseUrl: the app host must be named, or the fence proves nothing.
-    out('FAIL  cockpit fence: SMOKE_APP_DOMAIN not set');
-    result.failed++;
-  } else {
+  // Shared by the cockpit and impersonation fence groups. Prints name + status only (Rule 13).
+  const fenceKit = (group) => {
     // With SMOKE_FENCE_ORIGIN the request goes to that origin and the name travels in the Host
     // header; without it the public https host is probed, as before.
     const origin = env.SMOKE_FENCE_ORIGIN?.replace(/\/+$/, '');
-    const cockpit = env.SMOKE_COCKPIT_DOMAIN;
-    const app = env.SMOKE_APP_DOMAIN;
     // `refused` = 404 or a closed socket (nginx 444); 200, 401, 403 mean the host knows the route.
     // Any other fetch error (DNS, refused connect, TLS, timeout) is a FAIL, not a refusal.
     const CLOSED = ['UND_ERR_SOCKET', 'ECONNRESET', 'UND_ERR_CLOSED'];
-    const fence = async (name, method, host, path, passes) => {
+    const fence = async (name, method, host, path, passes, body) => {
       let status = 'network error';
       let good = false;
       try {
         const res = await fetch(origin ? `${origin}${path}` : `https://${host}${path}`, {
           method,
-          headers: origin ? { Host: host } : {},
+          headers: {
+            ...(origin ? { Host: host } : {}),
+            ...(body ? { 'Content-Type': 'application/json' } : {}),
+          },
+          body,
           redirect: 'manual',
           signal: AbortSignal.timeout(10_000),
         });
@@ -275,15 +271,59 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
           good = passes(null);
         }
       }
-      out(`${good ? 'PASS' : 'FAIL'}  cockpit fence: ${name}  ${status}`);
+      out(`${good ? 'PASS' : 'FAIL'}  ${group}: ${name}  ${status}`);
       if (good) result.passed++;
       else result.failed++;
     };
-    const refused = (s) => s === null || s === 404;
-    await fence('alerts on cockpit host', 'GET', cockpit, '/api/v1/platform/alerts', (s) => s === 401);
+    return {
+      cockpit: env.SMOKE_COCKPIT_DOMAIN,
+      app: env.SMOKE_APP_DOMAIN,
+      fence,
+      refused: (s) => s === null || s === 404,
+    };
+  };
+
+  // [Epic 98, D17] Cockpit fence: platform routes answer on the cockpit host only.
+  // Output carries the check name and status only, never a body or token (Rule 13).
+  if (!env.SMOKE_COCKPIT_DOMAIN) {
+    out('cockpit fence: skipped: SMOKE_COCKPIT_DOMAIN not set');
+  } else if (!env.SMOKE_APP_DOMAIN) {
+    // No fallback to baseUrl: the app host must be named, or the fence proves nothing.
+    out('FAIL  cockpit fence: SMOKE_APP_DOMAIN not set');
+    result.failed++;
+  } else {
+    const { cockpit, app, fence, refused } = fenceKit('cockpit fence');
+    await fence(
+      'alerts on cockpit host',
+      'GET',
+      cockpit,
+      '/api/v1/platform/alerts',
+      (s) => s === 401,
+    );
     await fence('alerts on app host', 'GET', app, '/api/v1/platform/alerts', refused);
     await fence('cockpit login on app host', 'POST', app, '/api/v1/auth/cockpit/login', refused);
     await fence('cockpit shell', 'GET', cockpit, '/', (s) => s === 200);
+  }
+
+  // [Epic 99, D19/D32] Login as fence: a bogus code never mints a token; the start route is closed.
+  if (env.SMOKE_IMPERSONATION !== '1') {
+    out('impersonation fence: skipped: SMOKE_IMPERSONATION not set');
+  } else if (!env.SMOKE_COCKPIT_DOMAIN || !env.SMOKE_APP_DOMAIN) {
+    out('FAIL  impersonation fence: SMOKE_COCKPIT_DOMAIN and SMOKE_APP_DOMAIN must be set');
+    result.failed++;
+  } else {
+    const { cockpit, app, fence, refused } = fenceKit('impersonation fence');
+    const start = '/api/v1/platform/impersonation';
+    await fence(
+      'bogus code on app host',
+      'POST',
+      app,
+      '/api/v1/auth/impersonation/exchange',
+      (s) => s === 401,
+      JSON.stringify({ code: 'A'.repeat(43) }),
+    );
+    await fence('start without token on cockpit host', 'POST', cockpit, start, (s) => s === 401);
+    await fence('start on app host', 'POST', app, start, refused);
   }
 
   // [Epic 87] Test-inbox stacks only: a password reset for the admin must reach Mailpit.
