@@ -129,16 +129,17 @@
     fail_msg: 'EDGE_MODE in edge.enc.env must be tunnel or direct'
     quiet: true
   when: stack == 'edge'
-- name: Check STAGING_SITE_HOSTS is present (may be empty) and holds only staging school hosts
+# Absent means no staging school is listed (every -staging host gets 444). sops leaves an empty
+# value in plain text, and check-tracked-files refuses plain text, so "no hosts" is "no key" (#4013).
+- name: Check STAGING_SITE_HOSTS, when set, holds only staging school hosts
   ansible.builtin.assert:
     that:
-      - secret_env.edge.STAGING_SITE_HOSTS is defined
       - >-
         (secret_env.edge.STAGING_SITE_HOSTS | default('')).split()
         | reject('match', '^[a-z0-9][a-z0-9-]*-staging\\.' ~ (secret_env.edge.ROOT_DOMAIN | default('') | regex_escape) ~ '$')
         | list | length == 0
       - (secret_env.edge.STAGING_SITE_HOSTS | default('')).split() | length == (secret_env.edge.STAGING_SITE_HOSTS | default('')).split() | unique | length
-    fail_msg: 'STAGING_SITE_HOSTS in infra/secrets/edge.enc.env must exist (empty is fine) and hold lower-case <school>-staging.<ROOT_DOMAIN> names, each once, space separated (a repeated host stops nginx starting)'
+    fail_msg: 'STAGING_SITE_HOSTS in infra/secrets/edge.enc.env may be left out (no staging school listed) or hold lower-case <school>-staging.<ROOT_DOMAIN> names, each once, space separated (a repeated host stops nginx starting)'
     quiet: true
   when: stack == 'edge'
 - name: Check the edge settings
