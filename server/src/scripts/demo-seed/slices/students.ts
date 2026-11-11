@@ -534,6 +534,60 @@ export const slice: DemoSlice = {
       );
     }
 
+    // ---- one DRAFT run with groups pending (69.4.99) ---------------------------------------------
+    // The College branch's lowest class is promoted into a class whose sections carry groups
+    // (Science / Business Studies). Half of the draft's entries have no group yet, so the
+    // `promotion.groups_pending` attention item shows for that class teacher and for the admin,
+    // and the open draft blocks closing the source year (D9). It is a second, still-open look at
+    // the cohort the service already committed above; no enrolment depends on it.
+    const college = org.tenants.findIndex((tn) => tn.kind === 'COLLEGE');
+    if (college >= 0 && Y >= 2) {
+      const [from, to] = [yearOf(college, Y - 2), yearOf(college, Y - 1)];
+      const cohort = (members.get(`${college}:${Y - 2}:0`) ?? []).slice(0, 16);
+      if (from.classes.length > 1 && to.classes.length > 1 && cohort.length >= 2) {
+        const runId = uuid();
+        const tenantId = org.tenants[college].id;
+        const noGroup = new Set(
+          ctx.rng.helpers.shuffle(cohort.map((_, i) => i)).slice(0, Math.floor(cohort.length / 2)),
+        );
+        const run = {
+          id: runId,
+          tenant_id: tenantId,
+          source_class_id: from.classes[0].id,
+          source_academic_year_id: from.id,
+          target_academic_year_id: to.id,
+          target_class_id: to.classes[1].id,
+          exam_ids: [],
+          algorithm: PlacementAlgorithm.BLOCK,
+          status: PromotionRunStatus.DRAFT,
+          refreshed_at: stamp(from.end),
+          created_by_user_id: adminId,
+        };
+        const draftEntries = cohort.map((s, rank) => {
+          const source = stayAt(s, Y - 2)!;
+          const gpa = ctx.rng.number.float({ min: 2.5, max: 5 });
+          return {
+            tenant_id: tenantId,
+            run_id: runId,
+            student_id: s.id,
+            source_enrollment_id: source.enrId,
+            source_section_id: from.classes[0].sections[source.s].id,
+            merit_rank: rank + 1,
+            mean_gpa: gpa.toFixed(2),
+            total_marks_sum: (gpa * 160).toFixed(2),
+            passed_all: true,
+            suggested_outcome: PromotionOutcome.PROMOTE,
+            final_outcome: PromotionOutcome.PROMOTE,
+            is_override: false,
+            group_name: noGroup.has(rank) ? null : from.classes[0].sections[source.s].group,
+            target_class_id: to.classes[1].id,
+          };
+        });
+        rows += await insertChunked(ctx.ds.getRepository(PromotionRun), [run] as never);
+        rows += await insertChunked(ctx.ds.getRepository(PromotionEntry), draftEntries as never);
+      }
+    }
+
     // ---- what later slices need ---------------------------------------------------------------
     const bySection = new Map<string, string[]>();
     const published: DemoStudent[] = stus.map((s) => {
