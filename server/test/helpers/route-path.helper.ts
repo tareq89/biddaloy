@@ -169,6 +169,20 @@ export const ALLOWLIST: AllowlistEntry[] = [
       'Bearer (cockpit-jwt) plus PlatformAdminGuard and SameOriginGuard, no tenant: revokes only a family owned by user.sub.',
   },
   {
+    controller: 'CockpitMfaController',
+    method: 'GET',
+    path: '/auth/cockpit/mfa-status',
+    reason:
+      "Bearer (cockpit-jwt) plus PlatformAdminGuard, no tenant: reads only the caller's own authenticator status (user.sub).",
+  },
+  {
+    controller: 'CockpitMfaController',
+    method: 'POST',
+    path: '/auth/cockpit/recovery-codes',
+    reason:
+      "Bearer (cockpit-jwt) plus PlatformAdminGuard, SameOriginGuard and ApprovalGuard (platform.recovery_codes), no tenant: replaces only the caller's own codes (user.sub).",
+  },
+  {
     controller: 'PlatformStepUpController',
     method: 'POST',
     path: '/platform/step-up',

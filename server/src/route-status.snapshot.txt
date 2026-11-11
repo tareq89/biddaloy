@@ -116,6 +116,8 @@ POST   /api/v1/auth/cockpit/login                                               
 POST   /api/v1/auth/cockpit/logout                                               PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/cockpit/logout-all                                           401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/auth/cockpit/mfa                                                  PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
+GET    /api/v1/auth/cockpit/mfa-status                                           401 401 401 401 401 401 401 401 401 401 401 401
+POST   /api/v1/auth/cockpit/recovery-codes                                       401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/auth/cockpit/refresh                                              PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/cockpit/reset-password                                       PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/auth/cockpit/sessions                                             401 401 401 401 401 401 401 401 401 401 401 401

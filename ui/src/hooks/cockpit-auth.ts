@@ -90,11 +90,7 @@ export function useCockpitResetPassword() {
   });
 }
 
-/**
- * ponytail: `GET /auth/cockpit/mfa-status` and `POST /auth/cockpit/recovery-codes` are not on
- * the server yet (no ticket owns them at the time of writing); the paths are the obvious ones
- * and live only here. Change the two strings if the server lands different ones.
- */
+/** `GET /auth/cockpit/mfa-status` (server: CockpitMfaController, #4062). */
 export function useCockpitMfaStatus() {
   return useQuery({
     queryKey: cockpitMfaKeys.all,
