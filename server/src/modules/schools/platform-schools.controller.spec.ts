@@ -36,13 +36,24 @@ describe('PlatformSchoolsController', () => {
     expect(service.revive).toHaveBeenCalledWith(ID, { reason: 'Back' }, 'user-1', CTX);
   });
 
-  it.each([
-    [PlatformSchoolsController, 'platform/schools'],
-    [ProvisioningController, 'platform/schools'],
-    [SchoolSmsCreditsController, 'platform/schools/:id/sms-credits'],
-    [SchoolAdminsController, 'platform/schools/:id/admins'],
-  ])('%o lives under platform/ and is gated by PlatformAccessGuard', (cls, path) => {
+  function expectPlatformGated(cls: object, path: string) {
     expect(Reflect.getMetadata(PATH_METADATA, cls)).toBe(path);
     expect(Reflect.getMetadata(GUARDS_METADATA, cls)).toContain(PlatformAccessGuard);
+  }
+
+  it('PlatformSchoolsController lives under platform/ and is gated by PlatformAccessGuard', () => {
+    expectPlatformGated(PlatformSchoolsController, 'platform/schools');
+  });
+
+  it('ProvisioningController lives under platform/ and is gated by PlatformAccessGuard', () => {
+    expectPlatformGated(ProvisioningController, 'platform/schools');
+  });
+
+  it('SchoolSmsCreditsController lives under platform/ and is gated by PlatformAccessGuard', () => {
+    expectPlatformGated(SchoolSmsCreditsController, 'platform/schools/:id/sms-credits');
+  });
+
+  it('SchoolAdminsController lives under platform/ and is gated by PlatformAccessGuard', () => {
+    expectPlatformGated(SchoolAdminsController, 'platform/schools/:id/admins');
   });
 });
