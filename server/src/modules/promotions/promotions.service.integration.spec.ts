@@ -920,21 +920,42 @@ describe('PromotionsService (integration)', () => {
       ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     });
 
-    it('patchEntries and remove refuse 409 on a closed source year', async () => {
+    it('patchEntries refuses 409 on a closed source year and leaves entries unchanged', async () => {
       const run = await draft();
-      const [entry] = await entryRepo.find({ where: { run_id: run.id } });
+      const before = await entryRepo.find({ where: { run_id: run.id } });
       await close(SOURCE_YEAR_ID);
       await expect(
         service.patchEntries(
           run.id,
-          [{ student_id: entry.student_id, final_outcome: PromotionOutcome.RETAIN } as any],
+          [{ student_id: before[0].student_id, final_outcome: PromotionOutcome.RETAIN } as any],
           TENANT_ID,
           ADMIN_USER_ID,
         ),
       ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      const after = await entryRepo.find({ where: { run_id: run.id } });
+      expect(after.map((e) => e.final_outcome)).toEqual(before.map((e) => e.final_outcome));
+    });
+
+    it('refresh refuses 409 on a closed source year and writes nothing', async () => {
+      const run = await draft();
+      const before = await runRepo.findOneOrFail({ where: { id: run.id } });
+      const entriesBefore = await entryRepo.find({ where: { run_id: run.id } });
+      await close(SOURCE_YEAR_ID);
+      await expect(service.refresh(run.id, TENANT_ID, ADMIN_USER_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      const after = await runRepo.findOneOrFail({ where: { id: run.id } });
+      expect(after.refreshed_at).toEqual(before.refreshed_at);
+      expect(await entryRepo.count({ where: { run_id: run.id } })).toBe(entriesBefore.length);
+    });
+
+    it('remove refuses 409 on a closed source year and the run still exists', async () => {
+      const run = await draft();
+      await close(SOURCE_YEAR_ID);
       await expect(service.remove(run.id, TENANT_ID)).rejects.toMatchObject({
         response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
       });
+      expect(await runRepo.count({ where: { id: run.id } })).toBe(1);
     });
   });
 
