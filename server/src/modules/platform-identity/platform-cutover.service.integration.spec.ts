@@ -11,6 +11,8 @@ describe('PlatformCutoverService (integration)', () => {
   const tag = `cut${process.pid}`;
   let oldPlatform: string;
   let schoolB: string;
+  let homeSchool: string;
+  let platformIds: string[] = [];
   const audit = { record: vi.fn() };
   const cutOff = vi.fn();
   let failAudit = false;
@@ -18,7 +20,7 @@ describe('PlatformCutoverService (integration)', () => {
   const make = () =>
     new PlatformCutoverService(
       ds,
-      { platformTenantId: async () => oldPlatform } as never,
+      { platformSchoolIds: async () => platformIds } as never,
       { cutOff } as never,
       {
         record: async (...a: unknown[]) => {
@@ -75,7 +77,13 @@ describe('PlatformCutoverService (integration)', () => {
       `INSERT INTO schools (slug, name) VALUES ($1, 'School B') RETURNING id`,
       [`${tag}-b`],
     );
+    const [h] = await ds.query(
+      `INSERT INTO schools (slug, name) VALUES ($1, 'Home') RETURNING id`,
+      [`${tag}-home`],
+    );
+    homeSchool = h.id;
     oldPlatform = a.id;
+    platformIds = [oldPlatform, homeSchool];
     schoolB = b.id;
   });
   afterAll(cleanup);
@@ -167,5 +175,60 @@ describe('PlatformCutoverService (integration)', () => {
 
     expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
     expect(await done()).toBe(0);
+  });
+
+  it('removes owner and SUPER_ADMIN rows on the is_platform home school too', async () => {
+    const owner = await mkUser('owner');
+    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await join(owner, homeSchool, UserRole.ADMIN);
+    const sa = await mkUser('sa');
+    await join(sa, homeSchool, UserRole.SUPER_ADMIN);
+
+    await make().run();
+
+    expect(await live(owner)).toEqual([]);
+    expect(await live(sa)).toEqual([]);
+  });
+
+  it('with no platform school resolved it changes nothing and leaves cutover.done unset', async () => {
+    const owner = await mkUser('owner');
+    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    const sa = await mkUser('sa');
+    await join(sa, schoolB, UserRole.SUPER_ADMIN);
+    platformIds = [];
+
+    expect(await make().run()).toBeNull();
+
+    expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
+    expect(await done()).toBe(0);
+  });
+
+  it('restores a soft-deleted ADMIN row, audits the restore, and loses nothing', async () => {
+    const owner = await mkUser('owner');
+    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    const u = await mkUser('u');
+    await join(u, schoolB, UserRole.SUPER_ADMIN);
+    await join(u, schoolB, UserRole.ADMIN);
+    await ds.query(
+      `UPDATE user_tenants SET deleted_at = now() WHERE user_id = $1 AND role = 'ADMIN'`,
+      [u],
+    );
+
+    await make().run();
+
+    // The user keeps exactly one live membership: the restored ADMIN row.
+    expect(await live(u)).toEqual([{ tenant_id: schoolB, role: 'ADMIN' }]);
+    const entries = audit.record.mock.calls.map((c) => c[0]);
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        action: 'UPDATE',
+        tenant_id: schoolB,
+        performed_by_user_id: null,
+        new_values: { restored: true, role: 'ADMIN' },
+      }),
+    );
+    expect(entries).toContainEqual(
+      expect.objectContaining({ action: 'DELETE', tenant_id: schoolB }),
+    );
   });
 });
