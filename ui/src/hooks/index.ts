@@ -1904,3 +1904,43 @@ export {
   type GalleryPhoto,
   type SaveGalleryAlbumInput,
 } from './use-website-gallery';
+export {
+  cockpitMfaKeys,
+  cockpitSessionKeys,
+  useCockpitDeviceOtp,
+  useCockpitEnrolConfirm,
+  useCockpitEnrolStart,
+  useCockpitForgotPassword,
+  useCockpitLogin,
+  useCockpitMfa,
+  useCockpitMfaStatus,
+  useCockpitResetPassword,
+  useCockpitSessions,
+  useRegenerateRecoveryCodes,
+  useRevokeCockpitSession,
+  type CockpitLoginInput,
+  type CockpitSessionDto,
+} from './cockpit-auth';
+export { cockpitRequest } from './cockpit-request';
+export {
+  platformHistoryKeys,
+  platformOwnerKeys,
+  useLockOwner,
+  usePlatformHistory,
+  usePlatformOwners,
+  useUnlockOwner,
+  type PlatformHistoryPage,
+  type PlatformHistoryRow,
+  type PlatformOwner,
+} from './platform-owners';
+export {
+  approvalsSettingKeys,
+  getApprovalRequestId,
+  platformApprovalKeys,
+  useApprovalsSetting,
+  useDecideApproval,
+  usePlatformApprovals,
+  useSetApprovalsSetting,
+  type PlatformApproval,
+  type PlatformApprovalSetting,
+} from './platform-approvals';
