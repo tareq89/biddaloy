@@ -116,6 +116,19 @@ describe('SubjectChoicesService choice groups (integration)', () => {
   const rows = () =>
     ds.getRepository(StudentSubjectChoice).find({ where: { student_id: studentId } });
 
+  it('[69.3.04] setChoice refuses 409 on a closed year and writes nothing', async () => {
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [yearId],
+    );
+    await expect(
+      choices.setChoice(studentId, { class_subject_id: islam }, A),
+    ).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    expect(await rows()).toHaveLength(0);
+  });
+
   it('pick Islam then Hindu leaves exactly one row in group Religion', async () => {
     await choices.setChoice(studentId, { class_subject_id: islam }, A);
     await choices.setChoice(studentId, { class_subject_id: hindu }, A);

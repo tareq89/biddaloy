@@ -3,6 +3,9 @@ import { NotFoundException, ConflictException, UnprocessableEntityException } fr
 import { PromotionRunStatus, PlacementAlgorithm, PromotionOutcome } from '@biddaloy/shared';
 import { PromotionsService } from './promotions.service';
 
+// [69.3.04] The guard has its own integration spec; unit managers here are mocks without `query`.
+vi.mock('../../common/utils/year-open.guard', () => ({ assertYearOpen: vi.fn() }));
+
 /**
  * Unit tests against mocked repositories — covers validation branches that
  * are cheap to hit without a database (missing class, bad exam ids,
