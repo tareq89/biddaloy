@@ -177,6 +177,14 @@
       "archetype": "detail"
     },
     {
+      "path": "/academic-years/$academicYearId/next",
+      "params": {
+        "academicYearId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "wizard"
+    },
+    {
       "path": "/classes",
       "role": "admin",
       "archetype": "list"

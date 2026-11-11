@@ -337,6 +337,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { entity: 'academicYear' } },
     { label: { entity: 'academicYear' }, dynamic: 'entity' },
   ],
+  '/_staff/academic-years/$academicYearId_/next': [
+    { label: { entity: 'academicYear' } },
+    { label: { entity: 'academicYear' }, dynamic: 'entity' },
+    { label: { key: 'nextYear' } },
+  ],
   '/_staff/classes/$classId': [
     { label: { entity: 'class' } },
     { label: { entity: 'class' }, dynamic: 'entity' },

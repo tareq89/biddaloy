@@ -106,6 +106,36 @@ function AcademicYearsListPage() {
   const isEmpty =
     !yearsQuery.isLoading && !yearsQuery.isError && (yearsQuery.data?.total ?? 0) === 0;
 
+  // [69.4.02] Palette flags: `next=1` → current year's wizard, `close=1` → latest non-current
+  // open year's detail (where Close year lives). Decided once the list has loaded, then the flag
+  // is dropped so Back does not bounce.
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const years = yearsQuery.data?.data;
+  React.useEffect(() => {
+    if (!canManage || !years) return;
+    const wantsNext = search.next === '1';
+    const wantsClose = search.close === '1';
+    if (!wantsNext && !wantsClose) return;
+    const target = wantsNext
+      ? years.find((y) => y.is_current)
+      : [...years]
+          .filter((y) => !y.is_current && y.closed_at === null)
+          .sort((a, b) => b.end_date.localeCompare(a.end_date))[0];
+    if (!target) {
+      void navigate({
+        search: (prev) => ({ ...prev, next: undefined, close: undefined }),
+        replace: true,
+      });
+      return;
+    }
+    void navigate({
+      to: wantsNext ? '/academic-years/$academicYearId/next' : '/academic-years/$academicYearId',
+      params: { academicYearId: target.id },
+      replace: true,
+    });
+  }, [canManage, years, search.next, search.close, navigate]);
+
   const createYear = useCreateAcademicYear();
   const [createOpen, setCreateOpen] = useLandingFlag('new', canManage);
 
@@ -193,6 +223,12 @@ function AcademicYearsListPage() {
         columns={columns}
         rowActions={(row) => [
           { intent: 'view', label: t('list.view'), to: `/academic-years/${row.id}` },
+          {
+            intent: 'duplicate',
+            label: t('nextYear.action'),
+            to: `/academic-years/${row.id}/next`,
+            allowed: canManage,
+          },
           {
             intent: 'edit',
             label: t('list.edit'),
