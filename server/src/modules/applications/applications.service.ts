@@ -147,7 +147,7 @@ export class ApplicationsService {
       const academicYear = await manager.findOne(AcademicYear, {
         where: { tenant_id: tenantId, is_current: true },
       });
-      if (academicYear) await assertYearOpen(manager, tenantId, academicYear.id); // [69.3.05] D4
+      // No year guard: the current year can never be closed (CHK_academic_years_closed_not_current).
       const no = await nextApplicationSerial(manager, tenantId, year);
       const draft = manager.create(Application, {
         tenant_id: tenantId,
