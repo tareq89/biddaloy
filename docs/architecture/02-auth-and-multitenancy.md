@@ -934,5 +934,5 @@ sequenceDiagram
   - It reads `SMOKE_COCKPIT_DOMAIN` and `SMOKE_APP_DOMAIN`, not a new `COCKPIT_DOMAIN`.
   - The Login as fence runs only when `SMOKE_IMPERSONATION=1`. Once opted in, a missing domain is a FAIL, never a silent skip.
   - Open item: `SMOKE_IMPERSONATION` appears in no workflow, `smoke.yml` or the nightly `-e` list, so the fence never runs in CI. Forward it in the wave that enables the fence (the Wave 0 cockpit bullet above is the rule).
-- **The banner story still passes "End session" (#3778).** `endLabel` is a prop and the test passes "End", but `impersonation-banner.stories.tsx` passes "End session", which breaks D14. Fix the story to "End".
+- **Banner story label (#3778) — fixed in the accumulating branch.** `impersonation-banner.stories.tsx` passed "End session", which broke D14; it now passes "End".
 - **Open owner steps (#3777).** The usability test and the screenshots of the tenant control mockups are human steps and are not done. They stay open for the owner.
