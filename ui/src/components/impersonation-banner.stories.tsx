@@ -8,7 +8,7 @@ const meta = {
   args: {
     message: 'You are viewing as Rahim Uddin (Teacher)',
     remainingSeconds: 1800,
-    endLabel: 'End session',
+    endLabel: 'End',
     warningLabel: 'Less than 5 minutes left',
     onEnd: () => {},
   },
