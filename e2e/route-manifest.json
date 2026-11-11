@@ -354,6 +354,14 @@
       "overlays": ["commit"]
     },
     {
+      "path": "/promotions/$runId/groups",
+      "params": {
+        "runId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"

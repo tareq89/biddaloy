@@ -26,6 +26,7 @@ import {
   ArrivalNoticesCard,
   DuesCard,
   FlagsCard,
+  GroupsPendingCards,
   HomeworkCard,
   NotesCard,
   ResultsCard,
@@ -63,6 +64,7 @@ function MyClassSectionPage() {
   const section = query.data?.find((s) => s.section_id === sectionId);
   // The card's list needs MANAGE; MY_CLASS_VIEW alone must not mount a card that can only fail.
   const canManageArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
+  const canSetGroups = useHasPermission(Permission.PROMOTION_GROUP_SET);
   const resolvedId = section?.section_id;
 
   // First focus: the one thing a class teacher does here every morning.
@@ -130,6 +132,7 @@ function MyClassSectionPage() {
       <div className="grid items-start gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
         <AbsenteesCard sectionId={sectionId} />
         {canManageArrival && <ArrivalNoticesCard sectionId={sectionId} />}
+        {canSetGroups && <GroupsPendingCards sectionId={sectionId} />}
         <FlagsCard sectionId={sectionId} />
         <DuesCard sectionId={sectionId} />
         <HomeworkCard sectionId={sectionId} />

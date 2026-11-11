@@ -61,7 +61,13 @@ import { DetailShell, type DetailShellAction } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { CircleCheckIcon, RotateCcwIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import {
+  CircleCheckIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+  UsersIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -563,6 +569,13 @@ function PromotionRunPage() {
             priority: 'secondary',
             busy: refreshRun.isPending,
             onClick: () => void refresh(),
+          },
+          {
+            id: 'set-groups',
+            label: t('groups.setGroupsAction'),
+            icon: <UsersIcon aria-hidden="true" />,
+            priority: 'secondary',
+            onClick: () => void navigate({ to: '/promotions/$runId/groups', params: { runId } }),
           },
           {
             id: 'commit',

@@ -21,8 +21,11 @@
     "results": "Results",
     "roster": "Students",
     "arrival": "Arrival notices",
-    "notes": "Remarks and conduct"
+    "notes": "Remarks and conduct",
+    "groups": "Groups"
   },
+  "groupsPending": "Groups pending: {{n}}",
+  "groupsPendingAction": "Set groups",
   "flagGroups": {
     "ABSENT": "Absent 3 or more days in a row",
     "LATE": "Late 3 or more days in a row",

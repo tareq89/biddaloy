@@ -12,6 +12,8 @@ import {
   type StaffArrivalSubscription,
   classPerformanceQueryOptions,
   useAttendanceStreaks,
+  useAttentionItems,
+  usePromotionGroupEntries,
   useDefaultedList,
   useExams,
   useFeeDues,
@@ -727,6 +729,58 @@ export function ArrivalNoticesCard({ sectionId }: { sectionId: string }) {
         {t('arrival.addYourself')}
       </Button>
       <ArrivalAddDialog open={adding} onOpenChange={setAdding} sectionId={sectionId} />
+    </CardFrame>
+  );
+}
+
+// --- 9. Groups pending (Epic 69, D15) -------------------------------------
+
+const RUN_URL = /^\/promotions\/([0-9a-f-]{36})$/i;
+
+/** One card per draft promotion run that still has ungrouped students in this section.
+ * The run id comes from the attention item (`actionUrl`), because a class teacher cannot
+ * list promotion runs. */
+export function GroupsPendingCards({ sectionId }: { sectionId: string }) {
+  const items = useAttentionItems({ tab: 'active', pageSize: 100 });
+  const runIds = [
+    ...new Set(
+      (items.data?.items ?? [])
+        .filter((i) => i.ruleKey === 'promotion.groups_pending')
+        .map((i) => RUN_URL.exec(i.actionUrl ?? '')?.[1])
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+  return (
+    <>
+      {runIds.map((runId) => (
+        <GroupsPendingCard key={runId} runId={runId} sectionId={sectionId} />
+      ))}
+    </>
+  );
+}
+
+function GroupsPendingCard({ runId, sectionId }: { runId: string; sectionId: string }) {
+  const { t } = useTranslation('myClass');
+  const region = useRegionConfig();
+  // ponytail: counts the first 100 rows only; a section is far below that.
+  const query = usePromotionGroupEntries(runId, { limit: 100 });
+  const pending = (query.data?.data ?? []).filter(
+    (r) => r.source_section_id === sectionId && r.group_name === null,
+  ).length;
+  if (!query.isSuccess || pending === 0) return null;
+  return (
+    <CardFrame
+      id={`my-class-groups-${runId}`}
+      title={t('cards.groups')}
+      state={{ isPending: false, isError: false, retry: () => undefined }}
+    >
+      <p className="text-h2 tabular-nums">
+        {t('groupsPending', { n: formatNumber(pending, region) })}
+      </p>
+      <Link className={SEE_ALL_CLASS} to="/promotions/$runId/groups" params={{ runId }}>
+        {t('groupsPendingAction')}
+        {SEE_ALL_ICON}
+      </Link>
     </CardFrame>
   );
 }
