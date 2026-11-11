@@ -140,7 +140,7 @@ describe('YearNextMissingRule', () => {
       dedupeKey: 'academic_year:Y1',
       subject: { type: 'academic_year', id: 'Y1' },
       params: { year: '2026', endDate: '2026-12-31' },
-      actionUrl: '/academic-years/Y1/next',
+      actionUrl: '/academic-years',
     });
     expectMessagesSane(rule, 'year.next_missing', f.params);
   });
