@@ -739,6 +739,36 @@ describe('AuthService', () => {
     });
   });
 
+  describe('mintImpersonationToken [99.2.02]', () => {
+    it('signs the real memberships with imp, caps expiry at 3600, creates no refresh token', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ id: 'user-1', email: 'a@b.c', phone: null });
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      const imp = { sid: 's-1', pa: 'pa-1' };
+
+      await expect(service.mintImpersonationToken('user-1', imp, 5000)).resolves.toBe(
+        'test-jwt-token',
+      );
+      const [payload, opts] = mockJwtService.sign.mock.calls[0];
+      expect(payload).toMatchObject({ sub: 'user-1', imp });
+      expect(payload.memberships).toEqual([
+        { tenantId: 'tenant-1', role: mockMemberships[0].role, name: 'Greenview School' },
+      ]);
+      expect(opts.expiresIn).toBe(3600);
+      expect(opts.audience).toBeDefined();
+      expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
+
+      await service.mintImpersonationToken('user-1', imp, 42.9);
+      expect(mockJwtService.sign.mock.calls[1][1].expiresIn).toBe(42);
+    });
+
+    it('401s for a missing person', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+      await expect(service.mintImpersonationToken('x', { sid: 's', pa: 'p' }, 60)).rejects.toThrow(
+        'Invalid or expired code',
+      );
+    });
+  });
+
   describe('refresh', () => {
     it('throws UnauthorizedException when no cookie is presented', async () => {
       await expect(service.refresh(undefined, { ip: null, userAgent: null })).rejects.toThrow(
