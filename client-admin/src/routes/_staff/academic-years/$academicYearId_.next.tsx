@@ -52,7 +52,7 @@ const STEP_IDS = ['name', 'preview', 'done'] as const;
 type StepId = (typeof STEP_IDS)[number];
 
 function NextYearPending() {
-  const { t } = useTranslation('nav');
+  const { t } = useTranslation('academicYears');
   return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
 }
 

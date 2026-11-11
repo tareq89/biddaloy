@@ -138,6 +138,8 @@ test('close a year with approval, see it frozen on the marks grid, reopen it', a
       .getByRole('alertdialog')
       .getByRole('button', { name: t('academicYears.closeYear.reopenConfirm') })
       .click();
+    // Reopen is step-up too: the first attempt answers 403 APPROVAL_REQUIRED and the modal retries.
+    await new ApprovalModalPage(page).complete(SEED_ROLE_EMAILS.admin);
     await expect(
       page.getByText(t('academicYears.closeYear.closedOn', { date: '' }).trim()),
     ).toBeHidden();
