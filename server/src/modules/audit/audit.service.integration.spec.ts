@@ -17,6 +17,8 @@ import { Exam } from '../exams/entities/exam.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { PlatformAdmin } from '../platform-identity/entities/platform-admin.entity';
+import { ImpersonationSession } from '../support-access/entities/impersonation-session.entity';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogResponseDto } from './dto/audit-log-response.dto';
 import { RequestActorContext } from '../../common/request-actor-context';
@@ -264,6 +266,104 @@ describe('AuditService (integration)', () => {
     const asAssessor = await service.findAll({} as QueryAuditLogDto, TENANT_ID, YEAR);
     expect(asAssessor.data.map((r) => r.entity_id).sort()).toEqual([mine.id, other.id].sort());
   });
+  describe('Login as visibility ([Epic 99] #3796)', () => {
+    const SESS_A = '00000000-0000-4000-8000-0000000003c1';
+    const SESS_B = '00000000-0000-4000-8000-0000000003c2';
+    const OTHER_TENANT = '00000000-0000-4000-8000-0000000003c3';
+    const ADMIN_ID = ACTIVE_USER_ID;
+    let seeded = false;
+
+    async function seedSessions() {
+      if (seeded) return;
+      seeded = true;
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.save(
+        schoolRepo.create({ id: OTHER_TENANT, name: 'Imp Other', slug: 'audit-imp-other' }),
+      );
+      const paRepo = dataSource.getRepository(PlatformAdmin);
+      await paRepo.save(paRepo.create({ user_id: ADMIN_ID } as Partial<PlatformAdmin>));
+      const sRepo = dataSource.getRepository(ImpersonationSession);
+      const base = {
+        platform_admin_id: ADMIN_ID,
+        target_user_id: REMOVED_USER_ID,
+        role: 'TEACHER',
+        status: 'ACTIVE',
+        entry_kind: 'NORMAL',
+        reason: 'support',
+      };
+      await sRepo.save([
+        sRepo.create({ ...base, id: SESS_A, tenant_id: TENANT_ID }),
+        sRepo.create({ ...base, id: SESS_B, tenant_id: OTHER_TENANT }),
+      ]);
+    }
+
+    const row = (tenant_id: string, sid: string | null) =>
+      auditLogRepo.save(
+        auditLogRepo.create({
+          tenant_id,
+          action: AuditAction.UPDATE,
+          entity_type: 'Student',
+          performed_by_user_id: REMOVED_USER_ID,
+          impersonation_session_id: sid,
+          impersonated_by_platform_admin_id: sid ? ADMIN_ID : null,
+        }),
+      );
+
+    it('flags stamped rows with the session role, ordinary rows false, never the admin id', async () => {
+      await seedSessions();
+      await row(TENANT_ID, SESS_A);
+      await row(TENANT_ID, null);
+      const dtos = await listAsDtos();
+      const stamped = dtos.find((d) => d.impersonation_session_id === SESS_A)!;
+      expect(stamped).toMatchObject({ impersonated_by_support: true, acting_role: 'TEACHER' });
+      expect(stamped.performed_by_name).toBe('Kamrul Hasan');
+      const plain = dtos.find((d) => d.impersonation_session_id === null)!;
+      expect(plain).toMatchObject({ impersonated_by_support: false, acting_role: null });
+      expect(JSON.stringify(dtos)).not.toContain('impersonated_by_platform_admin_id');
+    });
+
+    it('filters by impersonation_session_id', async () => {
+      await seedSessions();
+      await row(TENANT_ID, SESS_A);
+      await row(TENANT_ID, null);
+      const r = await service.findAll(
+        { impersonation_session_id: SESS_A } as QueryAuditLogDto,
+        TENANT_ID,
+      );
+      expect(r.data.map((d) => d.impersonation_session_id)).toEqual([SESS_A]);
+    });
+
+    it('never shows another school’s stamped rows, even by session id', async () => {
+      await seedSessions();
+      await row(OTHER_TENANT, SESS_B);
+      const r = await service.findAll(
+        { impersonation_session_id: SESS_B } as QueryAuditLogDto,
+        TENANT_ID,
+      );
+      expect(r.data).toEqual([]);
+    });
+
+    it('a row stamped with a foreign-tenant session gets no role (join is tenant-equal)', async () => {
+      await seedSessions();
+      await row(TENANT_ID, SESS_B);
+      const [d] = await listAsDtos();
+      expect(d).toMatchObject({ impersonated_by_support: true, acting_role: null });
+    });
+
+    it('export has the Biddaloy support column', async () => {
+      await seedSessions();
+      await row(TENANT_ID, SESS_A);
+      expect(service.exportHeader()).toHaveLength(6);
+      const rows: string[][] = [];
+      for await (const r of service.iterateForExport(
+        {} as QueryAuditLogDto,
+        TENANT_ID,
+      ) as AsyncIterable<string[]>)
+        rows.push(r);
+      expect(rows[0][5]).toBe('yes');
+    });
+  });
+
   describe('Login as stamping ([Epic 99] #3784)', () => {
     const PA = '00000000-0000-4000-8000-0000000003b1';
     const SID = '00000000-0000-4000-8000-0000000003b2';

@@ -30,6 +30,11 @@ export class QueryAuditLogDto {
   @IsUUID()
   entity_id?: string;
 
+  /** [Epic 99] Scope to the rows written during one Login as session. */
+  @IsOptional()
+  @IsUUID()
+  impersonation_session_id?: string;
+
   @IsOptional()
   @IsDateString()
   from_date?: string;

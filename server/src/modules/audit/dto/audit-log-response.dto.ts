@@ -61,6 +61,21 @@ export class AuditLogResponseDto {
   @ApiProperty({ nullable: true, type: String })
   user_agent: string | null;
 
+  @ApiProperty({
+    description: 'True when Biddaloy support wrote this row during a Login as session.',
+  })
+  impersonated_by_support: boolean;
+
+  @ApiProperty({ nullable: true, type: String })
+  impersonation_session_id: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Role the support person acted as; null for ordinary rows.',
+  })
+  acting_role: string | null;
+
   @ApiProperty()
   created_at: Date;
 
@@ -73,6 +88,10 @@ export class AuditLogResponseDto {
     dto.entity_id = log.entity_id;
     dto.performed_by_user_id = log.performed_by_user_id;
     dto.performed_by_name = log.performed_by?.full_name ?? null;
+    // By name only: the entity carries impersonated_by_platform_admin_id, which must never serialise.
+    dto.impersonation_session_id = log.impersonation_session_id ?? null;
+    dto.impersonated_by_support = !!log.impersonation_session_id;
+    dto.acting_role = log.impersonation_session?.role ?? null;
     // Only `findAll` resolves labels; it sets this after mapping (see AuditController).
     // Kept single-arg because callers pass this to `.map(...)` directly.
     dto.entity_label = null;

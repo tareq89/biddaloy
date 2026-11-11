@@ -141,12 +141,14 @@ describe('[8.10.7.3.18] recent-activity widget', () => {
     expect(res.body.items.length).toBeGreaterThan(0);
     for (const item of res.body.items) {
       expect(Object.keys(item).sort()).toEqual([
+        'acting_role',
         'action',
         'changed_field_count',
         'created_at',
         'entity_label',
         'entity_type',
         'id',
+        'impersonated_by_support',
         'performed_by_name',
       ]);
       expect(item).not.toHaveProperty('old_values');

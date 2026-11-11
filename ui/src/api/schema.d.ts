@@ -12740,6 +12740,11 @@ export interface components {
             } | null;
             ip_address: string | null;
             user_agent: string | null;
+            /** @description True when Biddaloy support wrote this row during a Login as session. */
+            impersonated_by_support: boolean;
+            impersonation_session_id: string | null;
+            /** @description Role the support person acted as; null for ordinary rows. */
+            acting_role: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -12760,6 +12765,8 @@ export interface components {
             entity_label: string | null;
             /** @description Acting user’s full name; null for system actions or a removed user. */
             performed_by_name: string | null;
+            impersonated_by_support: boolean;
+            acting_role: string | null;
             /**
              * @description ISO 8601, UTC
              * @example 2026-10-07T04:12:00.000Z
@@ -23015,6 +23022,7 @@ export interface operations {
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -23056,6 +23064,7 @@ export interface operations {
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -23094,6 +23103,7 @@ export interface operations {
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -30890,6 +30900,7 @@ export interface operations {
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;

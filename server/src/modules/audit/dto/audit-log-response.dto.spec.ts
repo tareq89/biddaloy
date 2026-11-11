@@ -77,4 +77,30 @@ describe('AuditLogResponseDto.fromEntity', () => {
       created_at: entity.created_at,
     });
   });
+
+  it('serialises the Login as fields and never the platform admin id', () => {
+    const dto = AuditLogResponseDto.fromEntity(
+      auditLogEntity({
+        impersonation_session_id: 'sess-1',
+        impersonated_by_platform_admin_id: 'admin-secret-9',
+        impersonation_session: { id: 'sess-1', role: 'TEACHER' },
+      }),
+    );
+    expect(dto).toMatchObject({
+      impersonated_by_support: true,
+      impersonation_session_id: 'sess-1',
+      acting_role: 'TEACHER',
+    });
+    const json = JSON.stringify(dto);
+    expect(json).not.toContain('admin-secret-9');
+    expect(json).not.toContain('impersonated_by_platform_admin_id');
+  });
+
+  it('is false/null for an ordinary row', () => {
+    expect(AuditLogResponseDto.fromEntity(auditLogEntity())).toMatchObject({
+      impersonated_by_support: false,
+      impersonation_session_id: null,
+      acting_role: null,
+    });
+  });
 });
