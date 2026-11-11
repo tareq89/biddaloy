@@ -112,6 +112,8 @@ export class MfaService {
 
   private async replaceCodes(em: EntityManager, userId: string): Promise<string[]> {
     const codes = generateCodes(10);
+    // Row lock: two regenerates run one after the other, so only the last commit's set is valid.
+    await em.query(`SELECT 1 FROM user_mfa WHERE user_id = $1 FOR UPDATE`, [userId]);
     await em.query(`DELETE FROM user_recovery_codes WHERE user_id = $1`, [userId]);
     for (const c of codes) {
       await em.query(`INSERT INTO user_recovery_codes (user_id, code_hash) VALUES ($1, $2)`, [

@@ -1,4 +1,14 @@
-import { Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -20,6 +30,8 @@ import { MfaService } from '../mfa/mfa.service';
 @ApiBearerAuth('bearer')
 @Controller('auth/cockpit')
 export class CockpitMfaController {
+  private readonly logger = new Logger(CockpitMfaController.name);
+
   constructor(
     private readonly mfa: MfaService,
     private readonly audit: AuditService,
@@ -53,15 +65,23 @@ export class CockpitMfaController {
     const recoveryCodes = await this.mfa.regenerateRecoveryCodes(me.sub);
     const ctx = requestContext(request);
     // The audit row never carries the codes (Rule 13).
-    await this.audit.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'PlatformAdmin',
-      entity_id: me.sub,
-      tenant_id: null,
-      performed_by_user_id: me.sub,
-      ip_address: ctx.ip,
-      user_agent: ctx.userAgent,
-    });
+    const ctx = requestContext(request);
+    // The codes are already committed: an audit failure must not hide them from the owner.
+    // The row and the log line never carry the codes (Rule 13).
+    try {
+      await this.audit.record({
+        action: AuditAction.UPDATE,
+        entity_type: 'PlatformAdmin',
+        entity_id: me.sub,
+        tenant_id: null,
+        performed_by_user_id: me.sub,
+        ip_address: ctx.ip,
+        user_agent: ctx.userAgent,
+        new_values: { event: 'recovery_codes_regenerated' },
+      });
+    } catch {
+      this.logger.warn('Audit row for recovery-code regenerate was not written');
+    }
     response.setHeader('Cache-Control', 'no-store');
     return { recoveryCodes };
   }
