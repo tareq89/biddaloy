@@ -949,4 +949,4 @@ sequenceDiagram
   - Middleware order: the AsyncLocalStorage context must survive body-parser.
   - `JwtStrategy` (#3791) must call `setImpersonation` exactly once per request.
 - **Open follow-ups.** #4081 (`SMOKE_IMPERSONATION` not forwarded in CI), #4087 (workbook restore race).
-- **No route or API type changed in Wave 1 close**, so `schema.d.ts` was not regenerated.
+- **`ci:local` caught a stale `schema.d.ts` (#3788).** No route changed, but the 16 new `AuditAction` values reached the OpenAPI schema; `client-admin` audit-logs failed `tsc -b`. Fix: `yarn api:types` and commit `schema.d.ts`. Rule candidate: a shared enum used in a DTO means regenerate the API types.
