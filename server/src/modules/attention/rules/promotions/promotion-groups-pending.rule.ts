@@ -46,9 +46,9 @@ export class PromotionGroupsPendingRule implements AttentionRuleShape {
          JOIN class_sections cs ON cs.id = e.source_section_id AND cs.tenant_id = $1 AND cs.deleted_at IS NULL
          JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
          WHERE r.tenant_id = $1 AND r.status = 'DRAFT'
-           AND e.group_name IS NULL AND e.target_class_id IS NOT NULL
+           AND e.group_name IS NULL AND COALESCE(e.target_class_id, r.target_class_id) IS NOT NULL
            AND EXISTS (SELECT 1 FROM class_sections t WHERE t.tenant_id = $1
-             AND t.class_id = e.target_class_id AND t.deleted_at IS NULL AND t.group_name IS NOT NULL)
+             AND t.class_id = COALESCE(e.target_class_id, r.target_class_id) AND t.deleted_at IS NULL AND t.group_name IS NOT NULL)
          GROUP BY r.id, e.source_section_id, c.name, cs.section_name`,
         [ctx.tenantId],
       );

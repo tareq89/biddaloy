@@ -5,7 +5,8 @@ import { yearClosed } from '../filters/known-errors';
 /**
  * [69.1.04] A closed academic year is read-only for every row with its `academic_year_id` (D4).
  * One query, no cache (D11): a close that just committed is seen by the next write.
- * Call it inside the write's transaction, before the write.
+ * Call it inside the write's transaction, before the write. `FOR SHARE` makes a concurrent
+ * close (which takes the year row `FOR UPDATE`) wait until the write commits.
  */
 export async function assertYearOpen(
   manager: EntityManager,
@@ -13,7 +14,7 @@ export async function assertYearOpen(
   academicYearId: string,
 ): Promise<void> {
   const rows: Array<{ closed_at: Date | null }> = await manager.query(
-    `SELECT closed_at FROM academic_years WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+    `SELECT closed_at FROM academic_years WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL FOR SHARE`,
     [academicYearId, tenantId],
   );
   if (rows.length === 0) throw new NotFoundException('Academic year not found');
