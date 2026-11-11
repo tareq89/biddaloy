@@ -904,25 +904,11 @@ scripts/deploy.sh demo    "$SHA"     # builds the demo school; takes a few minut
 
 ### 12b. Platform super admins
 
-`create-platform-admin` makes a super admin of the platform school. The password comes from the
-`ADMIN_PASSWORD` environment variable, never from the command line (so it is not in your shell
-history). Running it twice is safe: an existing password is never changed.
+The old `create-platform-admin` command is gone (Epic 98 wave 5). Platform owners are created at
+boot from the `COCKPIT_OWNER_1_*` and `COCKPIT_OWNER_2_*` secrets (`ensureOwners()`), and replaced
+with `cockpit-replace-owner`. See the cockpit runbook for both.
 
-Make one: **you**. (The old smoke-test super admin is retired; the staging nightly signs in as a
-staging owner instead, see the runbook.)
-
-```bash
-ssh deploy@<VPS_IP>
-# VPS
-dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
-
-read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD            # your own password; nothing is shown
-dcp prod run --rm --no-deps -e ADMIN_PASSWORD app node server/dist/scripts/create-platform-admin.js you@example.com "Your Name"
-# you@example.com: created
-unset ADMIN_PASSWORD
-```
-
-Log in at `https://app.<DOMAIN>/login` with your account.
+Sign in at the cockpit address with an owner account.
 
 ### 12c. The Smoke Test School
 
@@ -1248,7 +1234,7 @@ has every step):
 | prod config check: `... is empty` for `SMOKE_*`                        | prod needs smoke logins even on the first deploy                                              | set them up front (the script does)                                             |
 | staging config check: `PLATFORM_TENANT_ID must be set`                 | staging needs prod's platform school id                                                       | Part 12a                                                                        |
 | prod app restarting, `Cannot find module 'express'`                    | a package missing from the production install                                                 | fixed; the build now checks every package                                       |
-| nobody can log in on fresh prod                                        | no user exists, and there was no command                                                      | `create-platform-admin` (Part 12b)                                              |
+| nobody can log in on fresh prod                                        | no user exists, and there was no command                                                      | set the `COCKPIT_OWNER_*` secrets (Part 12b)                                              |
 | `https://<DOMAIN>/` redirects to `http://`                             | landing nginx built absolute redirects behind the tunnel                                      | fixed (`absolute_redirect off`)                                                 |
 | `beszel-agent` keeps restarting                                        | `BESZEL_KEY` not set yet                                                                      | Part 13b + 14                                                                   |
 | demo: 502                                                              | demo not deployed yet                                                                         | `scripts/deploy.sh demo "$SHA"`                                                 |

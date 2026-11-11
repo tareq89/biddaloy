@@ -53,7 +53,7 @@ export class PlatformSeatsExpiringRule implements AttentionRuleShape {
       [pid, ctx.localDate, PLATFORM_WARN_DAYS],
     );
     if (!rows.length) return [];
-    const recipients = await platformRecipients(this.dataSource, pid);
+    const recipients = await platformRecipients(this.dataSource);
     if (!recipients.length) return [];
     return [
       {

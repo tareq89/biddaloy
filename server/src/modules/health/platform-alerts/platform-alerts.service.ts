@@ -12,7 +12,6 @@ import { ProviderNotConfiguredError } from '../../communications/config/provider
 import { MailpitSinkProvider } from '../../communications/providers/sink/mailpit-sink.provider';
 import { isMessageSink } from '../../communications/providers/sink/message-sink';
 import { HealthService } from '../health.service';
-import { TenantStatusService } from '../../schools/tenant-status.service';
 import { PlatformAlertsDto } from './dto/platform-alerts.dto';
 
 const PROBE_INTERVAL_MS = 30_000;
@@ -44,7 +43,6 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     private readonly health: HealthService,
     private readonly config: ConfigService,
     private readonly resolver: MessagingConfigResolver,
-    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   onModuleInit(): void {
@@ -130,21 +128,15 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Verified phones of the platform tenant's active SUPER_ADMINs; `PLATFORM_ALERT_PHONES` only
-   * when there are none (D16). No platform tenant (production without `PLATFORM_TENANT_ID`) →
-   * the env list only: never every school's SUPER_ADMINs.
+   * Verified phones of the active, unlocked `platform_admins` (the owners' phones, verified when
+   * seeded); `PLATFORM_ALERT_PHONES` only when there are none (D16). Never a school's users.
    */
   async recipients(): Promise<string[]> {
-    const platformTenant = await this.tenantStatus.platformTenantId();
-    const rows: { phone: string }[] = platformTenant
-      ? await this.dataSource.query(
-          `SELECT DISTINCT u.phone FROM users u JOIN user_tenants ut ON ut.user_id = u.id
-           WHERE ut.tenant_id = $1 AND ut.role = 'SUPER_ADMIN' AND ut.deleted_at IS NULL
-             AND u.deleted_at IS NULL AND u.status = 'ACTIVE'
-             AND u.phone IS NOT NULL AND u.phone_verified_at IS NOT NULL`,
-          [platformTenant],
-        )
-      : [];
+    const rows: { phone: string }[] = await this.dataSource.query(
+      `SELECT DISTINCT u.phone FROM users u JOIN platform_admins pa ON pa.user_id = u.id
+       WHERE pa.locked_at IS NULL AND u.deleted_at IS NULL AND u.status = 'ACTIVE'
+         AND u.phone IS NOT NULL AND u.phone_verified_at IS NOT NULL`,
+    );
     if (rows.length > 0) return rows.map((r) => r.phone);
     const fallback = (this.config.get<string>('PLATFORM_ALERT_PHONES') ?? '')
       .split(',')

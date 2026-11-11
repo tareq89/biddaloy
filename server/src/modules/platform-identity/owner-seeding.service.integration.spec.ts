@@ -27,18 +27,12 @@ describe('OwnerSeedingService (integration)', () => {
     ...over,
   });
   const enrol = vi.fn();
-  const make = () =>
-    new OwnerSeedingService(
-      ds,
-      home,
-      { platformTenantId: async () => undefined } as never,
-      { enrolWithKnownSecret: enrol } as never,
-    );
+  const make = () => new OwnerSeedingService(ds, home, { enrolWithKnownSecret: enrol } as never);
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
     ds = module.get<DataSource>(getDataSourceToken());
-    home = new PlatformHomeService(ds, { configuredPlatformTenantId: () => undefined } as never);
+    home = new PlatformHomeService(ds);
   });
 
   const cleanup = async () => {
@@ -56,7 +50,7 @@ describe('OwnerSeedingService (integration)', () => {
   };
   beforeEach(async () => {
     await cleanup();
-    home = new PlatformHomeService(ds, { configuredPlatformTenantId: () => undefined } as never);
+    home = new PlatformHomeService(ds);
     vi.restoreAllMocks();
     enrol.mockReset();
   });

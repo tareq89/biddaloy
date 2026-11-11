@@ -15,7 +15,7 @@ const make = (env: Record<string, string>) => {
     config,
     MESSAGING_PROVIDERS.map((P) => new P()) as never,
   );
-  const svc = new PlatformAlertsService({} as never, {} as never, config, resolver, {} as never);
+  const svc = new PlatformAlertsService({} as never, {} as never, config, resolver);
   return svc as unknown as { resolveSms(): Promise<Resolved | undefined>; onModuleInit(): void };
 };
 
@@ -86,13 +86,7 @@ describe('platform SMS config through the real resolver', () => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const config = { get: () => undefined } as never;
     const boom = { resolve: async () => Promise.reject(new Error('db password=hunter2')) };
-    const svc = new PlatformAlertsService(
-      {} as never,
-      {} as never,
-      config,
-      boom as never,
-      {} as never,
-    );
+    const svc = new PlatformAlertsService({} as never, {} as never, config, boom as never);
     expect(
       await (svc as unknown as { resolveSms(): Promise<unknown> }).resolveSms(),
     ).toBeUndefined();

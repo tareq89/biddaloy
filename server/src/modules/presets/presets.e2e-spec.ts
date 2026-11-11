@@ -9,6 +9,7 @@ import { AppModule } from '../../app.module';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { PresetRegistryService } from './preset-registry.service';
 import { makeTestPack } from './__fixtures__/test-pack';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import {
   SEED_ADMIN_EMAIL,
@@ -26,8 +27,6 @@ import {
 const API = '/api/v1';
 const TEACHER_ID = '00000000-0000-4000-8000-0000000d3501';
 const TEACHER_EMAIL = 'presets-e2e-teacher@testschool.example';
-const SUPER_ID = '00000000-0000-4000-8000-0000000d3502';
-const SUPER_EMAIL = 'presets-e2e-super@testschool.example';
 const LOCAL_SUPER_ID = '00000000-0000-4000-8000-0000000d3503';
 const LOCAL_SUPER_EMAIL = 'presets-e2e-local-super@testschool.example';
 
@@ -63,8 +62,6 @@ describe('Curriculum presets E2E (35.2.6)', () => {
     for (const [uid, role] of [
       [SEED_ADMIN_USER_ID, UserRole.ADMIN],
       [TEACHER_ID, UserRole.TEACHER],
-      // `super` is a platform SUPER_ADMIN (membership on the platform tenant, see
-      // beforeAll) — it deliberately has no row in the school itself.
       [LOCAL_SUPER_ID, UserRole.SUPER_ADMIN],
     ] as const) {
       await ds.query(
@@ -78,7 +75,6 @@ describe('Curriculum presets E2E (35.2.6)', () => {
     for (const [k, email] of [
       ['admin', SEED_ADMIN_EMAIL],
       ['teacher', TEACHER_EMAIL],
-      ['super', SUPER_EMAIL],
       ['localSuper', LOCAL_SUPER_EMAIL],
     ] as const) {
       tokens[k] = await login(email);
@@ -88,18 +84,18 @@ describe('Curriculum presets E2E (35.2.6)', () => {
 
   const as = (who: keyof typeof tokens, role: UserRole, tenant: string) => ({
     get: (url: string) =>
-      supertest(app.getHttpServer())
-        .get(`${API}${url}`)
-        .set('Authorization', `Bearer ${tokens[who]}`)
-        .set('X-Tenant-ID', tenant)
-        .set('X-Role', role),
+      headers(who, role, tenant, supertest(app.getHttpServer()).get(`${API}${url}`)),
     post: (url: string) =>
-      supertest(app.getHttpServer())
-        .post(`${API}${url}`)
-        .set('Authorization', `Bearer ${tokens[who]}`)
-        .set('X-Tenant-ID', tenant)
-        .set('X-Role', role),
+      headers(who, role, tenant, supertest(app.getHttpServer()).post(`${API}${url}`)),
   });
+  // A platform owner (cockpit token) sends no tenant or role header (Epic 98 wave 5).
+  const headers = (who: keyof typeof tokens, role: UserRole, tenant: string, r: supertest.Test) =>
+    who === 'super'
+      ? r.set('Authorization', `Bearer ${tokens[who]}`)
+      : r
+          .set('Authorization', `Bearer ${tokens[who]}`)
+          .set('X-Tenant-ID', tenant)
+          .set('X-Role', role);
   const admin = (t: string) => as('admin', UserRole.ADMIN, t);
   const superAdmin = (t: string) => as('super', UserRole.SUPER_ADMIN, t);
 
@@ -128,7 +124,6 @@ describe('Curriculum presets E2E (35.2.6)', () => {
 
     for (const [id, email, role] of [
       [TEACHER_ID, TEACHER_EMAIL, UserRole.TEACHER],
-      [SUPER_ID, SUPER_EMAIL, UserRole.SUPER_ADMIN],
       [LOCAL_SUPER_ID, LOCAL_SUPER_EMAIL, UserRole.SUPER_ADMIN],
     ] as const) {
       await ds.query(
@@ -138,28 +133,14 @@ describe('Curriculum presets E2E (35.2.6)', () => {
       );
       void role;
     }
-    // Platform authority = SUPER_ADMIN on the platform tenant, which ContextGuard
-    // discovers by slug outside production. The test seed has no such school.
-    await ds.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-      [randomUUID()],
-    );
-    await ds.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       SELECT $1, id, $2, NOW(), NOW() FROM schools WHERE slug = 'default-school'`,
-      [SUPER_ID, UserRole.SUPER_ADMIN],
-    );
+    tokens.super = await mintCockpitToken(app, ds);
     await newSchool();
   }, 60000);
 
   afterAll(async () => {
+    await removeCockpitOwners(ds);
     registry.packs = originalPacks;
-    // Includes the platform-tenant membership added in beforeAll.
-    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
-      [SUPER_ID, LOCAL_SUPER_ID],
-    ]);
+    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [[LOCAL_SUPER_ID]]);
     if (schools.length) {
       await ds.query(`DELETE FROM user_tenants WHERE tenant_id = ANY($1)`, [schools]);
       // audit_logs is write-only and preset rows are soft-deleted; fresh schools are left behind (unique ids).

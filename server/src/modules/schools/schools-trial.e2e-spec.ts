@@ -8,6 +8,7 @@ import { CommunicationMedium, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { StudentService } from '../students/students.service';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import {
   SEED_ADMIN_EMAIL,
@@ -20,8 +21,6 @@ import {
 
 /** [13.3.4] Platform console trials: list fields + filter, extend, and who may do either. */
 const API = '/api/v1';
-const SUPER_ID = '00000000-0000-4000-8000-0000000d1301';
-const SUPER_EMAIL = 'trials-e2e-super@testschool.example';
 const LOCAL_SUPER_ID = '00000000-0000-4000-8000-0000000d1302';
 const LOCAL_SUPER_EMAIL = 'trials-e2e-local-super@testschool.example';
 const REASON = 'Customer asked for two more weeks';
@@ -34,9 +33,7 @@ describe('Platform trials E2E (13.3.4)', () => {
   let superToken = '';
   let localSuperToken = '';
   const schools: string[] = [];
-  // Platform calls act on the school in the path while the tenant header names the platform tenant,
-  // so a suspended school's own header (which ContextGuard refuses) is never needed.
-  let platformId = '';
+  // Platform calls carry a cockpit token and no tenant header; the school comes from the path.
 
   const login = async (email: string) =>
     (
@@ -79,9 +76,7 @@ describe('Platform trials E2E (13.3.4)', () => {
   const list = (qs = '') =>
     supertest(app.getHttpServer())
       .get(`${API}/platform/schools${qs}`)
-      .set('Authorization', `Bearer ${superToken}`)
-      .set('X-Tenant-ID', platformId)
-      .set('X-Role', UserRole.SUPER_ADMIN);
+      .set('Authorization', `Bearer ${superToken}`);
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -92,36 +87,19 @@ describe('Platform trials E2E (13.3.4)', () => {
     await app.init();
     ds = app.get(DataSource);
 
-    for (const [id, email] of [
-      [SUPER_ID, SUPER_EMAIL],
-      [LOCAL_SUPER_ID, LOCAL_SUPER_EMAIL],
-    ]) {
+    for (const [id, email] of [[LOCAL_SUPER_ID, LOCAL_SUPER_EMAIL]]) {
       await ds.query(
         `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
          VALUES ($1, $2, $3, 'Trials E2E', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
         [id, email, SEED_ADMIN_PASSWORD_HASH],
       );
     }
-    // Platform authority = SUPER_ADMIN on the platform tenant (found by slug outside production).
-    await ds.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-      [randomUUID()],
-    );
-    await ds.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       SELECT $1, id, $2, NOW(), NOW() FROM schools WHERE slug = 'default-school'`,
-      [SUPER_ID, UserRole.SUPER_ADMIN],
-    );
-    platformId = (await ds.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0].id;
-    superToken = await login(SUPER_EMAIL);
+    superToken = await mintCockpitToken(app, ds);
   }, 60000);
 
   afterAll(async () => {
-    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
-      [SUPER_ID, LOCAL_SUPER_ID],
-    ]);
+    await removeCockpitOwners(ds);
+    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [[LOCAL_SUPER_ID]]);
     if (schools.length) {
       await ds.query(`DELETE FROM user_tenants WHERE tenant_id = ANY($1)`, [schools]);
     }
@@ -134,7 +112,6 @@ describe('Platform trials E2E (13.3.4)', () => {
   it('list shows trial fields and filters active / expired', async () => {
     const active = await newSchool({ trialEnds: new Date(Date.now() + 5 * DAY) });
     const expired = await newSchool({ trialEnds: new Date(Date.now() - DAY), expired: true });
-    superToken = await login(SUPER_EMAIL);
 
     const all = (await list().expect(200)).body as { id: string }[];
     const row = all.find((s) => s.id === active)!;
@@ -157,8 +134,6 @@ describe('Platform trials E2E (13.3.4)', () => {
     await supertest(app.getHttpServer())
       .patch(`${API}/platform/schools/${id}/status`)
       .set('Authorization', `Bearer ${superToken}`)
-      .set('X-Tenant-ID', platformId)
-      .set('X-Role', UserRole.SUPER_ADMIN)
       .send({ status: 'ACTIVE', reason: 'Back in business' })
       .expect(200);
   });
@@ -177,8 +152,6 @@ describe('Platform trials E2E (13.3.4)', () => {
       supertest(app.getHttpServer())
         .patch(`${API}/platform/schools/${id}/status`)
         .set('Authorization', `Bearer ${superToken}`)
-        .set('X-Tenant-ID', platformId)
-        .set('X-Role', UserRole.SUPER_ADMIN)
         .send({ status: 'SUSPENDED', reason });
 
     await exportAsAdmin().expect(202);
@@ -229,18 +202,17 @@ describe('Platform trials E2E (13.3.4)', () => {
       id: string,
       body: object = reviveBody,
     ) => {
-      const [token, role, tenant] =
+      const [token, role] =
         who === 'admin'
-          ? [adminToken, UserRole.ADMIN, id]
+          ? [adminToken, UserRole.ADMIN]
           : who === 'super'
-            ? [superToken, UserRole.SUPER_ADMIN, platformId]
-            : [localSuperToken, UserRole.SUPER_ADMIN, id];
-      return supertest(app.getHttpServer())
+            ? [superToken, UserRole.SUPER_ADMIN]
+            : [localSuperToken, UserRole.SUPER_ADMIN];
+      const req = supertest(app.getHttpServer())
         .post(`${API}/platform/schools/${id}/revive`)
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', tenant)
-        .set('X-Role', role)
-        .send(body);
+        .set('Authorization', `Bearer ${token}`);
+      // A platform owner (cockpit token) sends no tenant or role header (Epic 98 wave 5).
+      return (who === 'super' ? req : req.set('X-Tenant-ID', id).set('X-Role', role)).send(body);
     };
     const row = async (id: string) =>
       (

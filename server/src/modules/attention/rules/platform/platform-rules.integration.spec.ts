@@ -65,6 +65,18 @@ describe('Platform rules (integration)', () => {
     );
     return id;
   };
+  /** A platform owner: a user with a `platform_admins` row (no school membership). */
+  const mkOwner = async () => {
+    const id = (
+      await ds.query(
+        `INSERT INTO users (email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, 'x', 'Platform Owner', 'ACTIVE', NOW(), NOW()) RETURNING id`,
+        [`owner-${Math.random().toString(36).slice(2)}@example.com`],
+      )
+    )[0].id as string;
+    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [id]);
+    return id;
+  };
   /** A PAID order whose cover ends `daysFromNow` days after the test's local date (2026-10-10). */
   const paidOrder = (schoolId: string, daysFromNow: number) =>
     ds.query(
@@ -113,9 +125,9 @@ describe('Platform rules (integration)', () => {
     P = await mkSchool('Platform HQ');
     A = await mkSchool('Alpha School', { backup: { schedule: 'DAILY' } });
     B = await mkSchool('Beta School');
-    // TenantStatusService reads PLATFORM_TENANT_ID once at construction, before P exists.
+    // The home row P is created above, after the service cached a miss.
     vi.spyOn(module.get(TenantStatusService), 'platformTenantId').mockResolvedValue(P);
-    superAdminP = await mkMember(P, UserRole.SUPER_ADMIN);
+    superAdminP = await mkOwner();
     adminA = await mkMember(A, UserRole.ADMIN);
   }, 60000);
 
@@ -130,6 +142,7 @@ describe('Platform rules (integration)', () => {
   });
 
   afterAll(async () => {
+    await ds.query(`DELETE FROM platform_admins WHERE user_id = $1`, [superAdminP]);
     vi.restoreAllMocks();
     await ds.destroy();
   });

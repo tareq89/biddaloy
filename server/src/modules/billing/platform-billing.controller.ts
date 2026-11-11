@@ -11,12 +11,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, UserRole } from '@biddaloy/shared';
-import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
+import { JwtPayload } from '@biddaloy/shared';
+import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import {
@@ -33,12 +29,10 @@ import { PlatformBillingService } from './platform-billing.service';
 @ApiTags('platform')
 @ApiTenantAuth()
 @Controller('platform/billing')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, PlatformSuperAdminGuard)
-@Roles(UserRole.SUPER_ADMIN)
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class PlatformBillingController {
   constructor(private readonly service: PlatformBillingService) {}
 
-  @AuthenticatedOnly()
   @Get('schools')
   @ApiOperation({
     summary: 'Every school with seats entitled / used, paid-until and pending orders.',
@@ -48,7 +42,6 @@ export class PlatformBillingController {
     return this.service.listSchools(query);
   }
 
-  @AuthenticatedOnly()
   @Get('schools/:id')
   @ApiOperation({ summary: "One school's entitlement and its orders with the payment method." })
   @ApiOkResponse({ type: PlatformSchoolBillingDetailDto })
@@ -56,7 +49,6 @@ export class PlatformBillingController {
     return this.service.schoolDetail(id);
   }
 
-  @AuthenticatedOnly()
   @Post('orders/:id/offline-payment')
   @HttpCode(200)
   @ApiOperation({
@@ -71,7 +63,6 @@ export class PlatformBillingController {
     return this.service.recordOfflinePayment(id, dto, user.sub);
   }
 
-  @AuthenticatedOnly()
   @Post('schools/:id/grant')
   @HttpCode(200)
   @ApiOperation({

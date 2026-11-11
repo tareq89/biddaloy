@@ -32,8 +32,6 @@ export interface RequestRestoreInput {
   staging_id: string;
   confirmation: string;
   invite_users?: boolean;
-  /** D13: only a platform SUPER_ADMIN may restore another school's backup. */
-  isPlatformSuperAdmin?: boolean;
 }
 
 export interface RequestRestoreResult {
@@ -88,11 +86,7 @@ export class RestoreService {
     }
 
     const school = await this.schools.findOneOrFail({ where: { id: tenantId } });
-    if (
-      staged.meta.kind !== 'TEMPLATE' &&
-      staged.meta.source_school_slug !== school.slug &&
-      !input.isPlatformSuperAdmin
-    ) {
+    if (staged.meta.kind !== 'TEMPLATE' && staged.meta.source_school_slug !== school.slug) {
       throw new ForbiddenException({
         code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY',
         details: { code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY' },

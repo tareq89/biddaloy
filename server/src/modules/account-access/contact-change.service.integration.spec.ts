@@ -35,12 +35,11 @@ import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
-import { TenantStatusService } from '../schools/tenant-status.service';
 import { SchoolsService } from '../schools/schools.service';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 
 const context = { ip: '127.0.0.1', userAgent: 'vitest' };
-/** The platform tenant: a SUPER_ADMIN row here is platform authority (`isPlatformSuperAdmin`). */
+/** A school that used to be the platform tenant: a SUPER_ADMIN row there is no authority now. */
 const PLATFORM_SCHOOL = '00000000-0000-4000-8000-0000000007f0';
 
 describe('ContactChangeService (integration)', () => {
@@ -71,7 +70,6 @@ describe('ContactChangeService (integration)', () => {
       AuditService,
       SessionCutoffService,
       { provide: RefreshTokenService, useValue: fakeRefreshTokens },
-      { provide: TenantStatusService, useValue: { platformTenantId: async () => PLATFORM_SCHOOL } },
       { provide: OTP_REDIS, useValue: redis },
       { provide: AuthService, useValue: fakeAuthService },
       {
@@ -1169,8 +1167,9 @@ describe('ContactChangeService (integration)', () => {
       expect((await service.confirmEmail(token, context)).status).toBe('revoked');
     });
 
-    // Review m-new-1: PATCH /users/:id is open to a platform SUPER_ADMIN, who has no ADMIN row there.
-    it('a proposal by a platform SUPER_ADMIN can be approved; a school-local SUPER_ADMIN cannot', async () => {
+    // Epic 98 wave 5: a SUPER_ADMIN membership is no platform authority, on any school. Only an
+    // ADMIN row in the asking school backs a proposal.
+    it('a proposal by a SUPER_ADMIN (platform school, local, or home school) is withdrawn', async () => {
       const { user } = await sharedSetup();
       const schoolRepo = dataSource.getRepository(School);
       await schoolRepo.save(
@@ -1211,15 +1210,16 @@ describe('ContactChangeService (integration)', () => {
         );
 
       await proposeAs(platformAdmin.id, NEW_PHONE);
-      expect((await service.confirmEmail(lastLink(), context, 'approve')).status).toBe('confirm');
+      await expect(service.confirmEmail(lastLink(), context, 'approve')).rejects.toMatchObject({
+        response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
+      });
 
       await proposeAs(localSuper.id, '+8801799990002');
       await expect(service.confirmEmail(lastLink(), context, 'approve')).rejects.toMatchObject({
         response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
       });
 
-      // A SUPER_ADMIN on a distinct `is_platform` home school is not platform authority either
-      // (ContextGuard.isPlatformSuperAdmin keys on the platform tenant only).
+      // Nor is a SUPER_ADMIN on a distinct `is_platform` home school.
       const HOME_SCHOOL = '00000000-0000-4000-8000-0000000007f1';
       await schoolRepo.save(
         schoolRepo.create({ id: HOME_SCHOOL, name: 'Home', slug: 'home-cc', is_platform: true }),
