@@ -60,7 +60,8 @@ export function RecoveryCodesCard({
     link.href = url;
     link.download = RECOVERY_CODES_FILENAME;
     link.click();
-    URL.revokeObjectURL(url);
+    // Deferred: Safari starts the download after click() returns and fails if the URL is gone.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (

@@ -42,8 +42,8 @@ export interface CodeFieldProps {
 const TOTP_LENGTH = 6;
 const TOTP_PASTE_ROOM = 12;
 const RECOVERY_LENGTH = 16;
-// 16 characters plus 3 dashes between the four groups.
-const RECOVERY_DISPLAY_LENGTH = 19;
+// Room to paste a dashed code (16 characters plus 3 dashes) or a spaced one; clean() keeps 16.
+const RECOVERY_DISPLAY_LENGTH = 32;
 
 function clean(raw: string, variant: CodeFieldVariant): string {
   if (variant === 'totp') return toLatinDigits(raw).replace(/\D/g, '').slice(0, TOTP_LENGTH);
