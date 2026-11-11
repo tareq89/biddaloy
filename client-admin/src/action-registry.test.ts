@@ -174,6 +174,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'seatPlans.publish': `${R}_staff/exams/seat-plans/-publish-dialog.tsx`,
   'examTemplates.createExam': `${R}_staff/exams/-exam-form-dialog.tsx`,
   'academicYears.create': `${R}_staff/academic-years/-year-form-dialog.tsx`,
+  'academic-year.close': `${R}_staff/academic-years/-close-year-dialog.tsx`,
   'academic-year.create-next': `${R}_staff/academic-years/$academicYearId_.next.tsx`,
   'classes.create': `${R}_staff/classes/-class-form-dialog.tsx`,
   'calendar.addEvent': `${R}_staff/calendar/-event-form-dialog.tsx`,
