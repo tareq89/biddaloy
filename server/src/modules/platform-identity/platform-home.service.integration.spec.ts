@@ -17,7 +17,7 @@ describe('PlatformHomeService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, [
       PlatformHomeService,
-      { provide: TenantStatusService, useValue: { platformTenantId: async () => oldPlatformId } },
+      { provide: TenantStatusService, useValue: { configuredPlatformTenantId: () => oldPlatformId } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     svc = module.get(PlatformHomeService);
@@ -36,7 +36,7 @@ describe('PlatformHomeService (integration)', () => {
   beforeEach(async () => {
     await cleanup();
     // A fresh service per test: the id cache must not leak between cases.
-    svc = new PlatformHomeService(ds, { platformTenantId: async () => oldPlatformId } as never);
+    svc = new PlatformHomeService(ds, { configuredPlatformTenantId: () => oldPlatformId } as never);
   });
   afterAll(cleanup);
 
@@ -74,6 +74,15 @@ describe('PlatformHomeService (integration)', () => {
     expect(rows).toEqual([{ id, slug: 'biddaloy-platform' }]);
     const [old] = await ds.query(`SELECT is_platform FROM schools WHERE id = $1`, [oldId]);
     expect(old.is_platform).toBe(false);
+  });
+
+  it('does not flag a slug-discovered school when no legacy platform id is configured', async () => {
+    // Dev: platformTenantId() would find `default-school` by slug, but only the explicit id counts.
+    const school = await ds.getRepository(School).save({ name: 'Dev school', slug: `${tag}-dev` });
+    oldPlatformId = undefined;
+    const id = await svc.ensure();
+    expect(id).not.toBe(school.id);
+    expect(await flagged()).toEqual([{ id, slug: 'biddaloy-platform' }]);
   });
 
   it('a second call changes nothing and never trips the unique index', async () => {

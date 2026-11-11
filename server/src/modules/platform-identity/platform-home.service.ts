@@ -40,7 +40,7 @@ export class PlatformHomeService {
     });
     if (flagged) return (this.cachedId = flagged.id);
 
-    const oldId = await this.tenantStatus.platformTenantId();
+    const oldId = this.tenantStatus.configuredPlatformTenantId();
     if (oldId) {
       const old = await em.findOne(School, { where: { id: oldId }, select: { id: true } });
       if (old) {

@@ -17,7 +17,7 @@ describe('ensureDevCockpitOwner (integration)', () => {
   let mfa: MfaService;
   let home: PlatformHomeService;
   let userId: string;
-  const noPlatformSchool = { platformTenantId: async () => undefined };
+  const noPlatformSchool = { configuredPlatformTenantId: () => undefined };
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
@@ -55,6 +55,15 @@ describe('ensureDevCockpitOwner (integration)', () => {
     expect([admins.length, confirmed.length, n]).toEqual([1, 1, 1]);
     expect(await mfa.verifyCode(userId, authenticator.generate(DEV_COCKPIT_TOTP_SECRET))).toBe(
       true,
+    );
+  });
+
+  it('refuses the public dev secret on a non-local database unless a secret is set', async () => {
+    const remote = Object.create(ds, {
+      options: { value: { ...ds.options, url: 'postgres://u:p@db.example.com:5432/x' } },
+    }) as DataSource;
+    await expect(ensureDevCockpitOwner(remote, home, mfa, {})).rejects.toThrow(
+      /non-local database/,
     );
   });
 
