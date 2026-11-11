@@ -5,6 +5,8 @@
  * dedicated smoke accounts in production. See docs/architecture/12-operations.md §7.
  *
  * Optional SMOKE_COCKPIT_DOMAIN + SMOKE_APP_DOMAIN (bare hosts): the cockpit fence checks.
+ * Optional SMOKE_FENCE_ORIGIN (e.g. http://nginx:80): send the fence requests to that origin with
+ * the intended Host header, so a host behind Cloudflare Access is probed at nginx itself.
  *
  *   SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… (teacher, super_admin likewise) \
  *     node scripts/smoke-post-deploy.mjs --base-url https://staging.example.com
@@ -245,17 +247,21 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     out('FAIL  cockpit fence: SMOKE_APP_DOMAIN not set');
     result.failed++;
   } else {
-    const cockpit = `https://${env.SMOKE_COCKPIT_DOMAIN}`;
-    const app = `https://${env.SMOKE_APP_DOMAIN}`;
+    // With SMOKE_FENCE_ORIGIN the request goes to that origin and the name travels in the Host
+    // header; without it the public https host is probed, as before.
+    const origin = env.SMOKE_FENCE_ORIGIN?.replace(/\/+$/, '');
+    const cockpit = env.SMOKE_COCKPIT_DOMAIN;
+    const app = env.SMOKE_APP_DOMAIN;
     // `refused` = 404 or a closed socket (nginx 444); 200, 401, 403 mean the host knows the route.
     // Any other fetch error (DNS, refused connect, TLS, timeout) is a FAIL, not a refusal.
     const CLOSED = ['UND_ERR_SOCKET', 'ECONNRESET', 'UND_ERR_CLOSED'];
-    const fence = async (name, method, url, passes) => {
+    const fence = async (name, method, host, path, passes) => {
       let status = 'network error';
       let good = false;
       try {
-        const res = await fetch(url, {
+        const res = await fetch(origin ? `${origin}${path}` : `https://${host}${path}`, {
           method,
+          headers: origin ? { Host: host } : {},
           redirect: 'manual',
           signal: AbortSignal.timeout(10_000),
         });
@@ -274,15 +280,10 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       else result.failed++;
     };
     const refused = (s) => s === null || s === 404;
-    await fence(
-      'alerts on cockpit host',
-      'GET',
-      `${cockpit}/api/v1/platform/alerts`,
-      (s) => s === 401,
-    );
-    await fence('alerts on app host', 'GET', `${app}/api/v1/platform/alerts`, refused);
-    await fence('cockpit login on app host', 'POST', `${app}/api/v1/auth/cockpit/login`, refused);
-    await fence('cockpit shell', 'GET', `${cockpit}/`, (s) => s === 200);
+    await fence('alerts on cockpit host', 'GET', cockpit, '/api/v1/platform/alerts', (s) => s === 401);
+    await fence('alerts on app host', 'GET', app, '/api/v1/platform/alerts', refused);
+    await fence('cockpit login on app host', 'POST', app, '/api/v1/auth/cockpit/login', refused);
+    await fence('cockpit shell', 'GET', cockpit, '/', (s) => s === 200);
   }
 
   // [Epic 87] Test-inbox stacks only: a password reset for the admin must reach Mailpit.

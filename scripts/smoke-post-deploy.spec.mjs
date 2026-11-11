@@ -433,6 +433,33 @@ describe('smoke-post-deploy', () => {
       expect(fails(r)[0]).toContain('alerts on app host');
     });
 
+    it('probes SMOKE_FENCE_ORIGIN with the intended Host header when set', async () => {
+      const seen = [];
+      const base = fenceFetch({
+        'GET http://nginx:80/api/v1/platform/alerts': 401,
+        'POST http://nginx:80/api/v1/auth/cockpit/login': 404,
+        'GET http://nginx:80/': 200,
+      });
+      const f = async (url, init) => {
+        if (url.startsWith('http://nginx:80')) seen.push([init.method, url, init.headers?.Host]);
+        return base(url, init);
+      };
+      f.calls = base.calls;
+      // Same URL answers per Host: the cockpit host knows alerts, the app host refuses.
+      const byHost = async (url, init) => {
+        if (url === 'http://nginx:80/api/v1/platform/alerts' && init.headers?.Host === 'app.test') {
+          seen.push([init.method, url, 'app.test']);
+          return new Response(null, { status: 404 });
+        }
+        return f(url, init);
+      };
+      byHost.calls = base.calls;
+      const r = await run(byHost, { ...FENCE, SMOKE_FENCE_ORIGIN: 'http://nginx:80/' });
+      expect(fails(r)).toHaveLength(0);
+      expect(seen).toContainEqual(['GET', 'http://nginx:80/api/v1/platform/alerts', 'app.test']);
+      expect(seen).toContainEqual(['GET', 'http://nginx:80/', 'cockpit.test']);
+    });
+
     it('fails once when the cockpit domain is set without the app domain', async () => {
       const r = await run(fenceFetch(), { ...FENCE, SMOKE_APP_DOMAIN: undefined });
       expect(fails(r)).toEqual(['FAIL  cockpit fence: SMOKE_APP_DOMAIN not set']);
