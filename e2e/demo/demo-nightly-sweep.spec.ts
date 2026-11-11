@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 import manifest from '../route-manifest.json';
+import { onSchoolHost } from '../route-manifest-filter';
 
 import {
   CONSOLE_ERROR_ALLOWLIST,
@@ -29,7 +30,9 @@ import { signedOutAt } from './sweep-session';
  * cannot make this sweep fail. Every visit must still be signed in: a bounce to `/login` (or any
  * signed-out page) fails the run, because a signed-out page shows no error state to catch.
  */
-const routes = (manifest as { routes: { path: string }[] }).routes.map((r) => r.path);
+const routes = onSchoolHost((manifest as { routes: { path: string; host?: string }[] }).routes).map(
+  (r) => r.path,
+);
 
 /**
  * Playwright would compile `@biddaloy/shared` from source (decorators break), so the role table

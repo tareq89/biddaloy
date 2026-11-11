@@ -7,7 +7,14 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { resetAttentionSource } from '../../api/attention';
+import {
+  getPlatformAttentionHealth,
+  hideAttentionItem,
+  markAttentionSeen,
+  resetAttentionSource,
+  snoozeAttentionItem,
+} from '../../api/attention';
+import { setActiveTenant } from '../../api/auth-state';
 import { alertItemFactory, attentionSummaryFactory } from '../../test/factories';
 import { server } from '../../test/msw/server';
 import { renderHookWithProviders } from '../../test/render-hook-with-providers';
@@ -189,5 +196,51 @@ describe('cockpit attention source', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(seen).not.toBeNull();
     expect((seen as unknown as URLSearchParams).has('role')).toBe(false);
+  });
+
+  it('hide, snooze and seen post under /platform/attention; the school source stays on /attention', async () => {
+    const urls: string[] = [];
+    const record = ({ request }: { request: Request }) => {
+      urls.push(new URL(request.url).pathname);
+      return HttpResponse.json({});
+    };
+    server.use(
+      http.post('*/attention/items/seen', record),
+      http.post('*/attention/items/:id/hide', record),
+      http.post('*/attention/items/:id/snooze', record),
+    );
+    const run = async () => {
+      await markAttentionSeen(['a']);
+      await hideAttentionItem('r1');
+      await snoozeAttentionItem('r1', { choice: 'TOMORROW' } as never);
+    };
+    configureCockpitAttention();
+    await run();
+    resetAttentionSource();
+    setActiveTenant('tenant-1'); // the school source needs one; the cockpit source did not
+    await run();
+    const paths = urls.map((u) => u.replace(/^.*?(\/platform)?\/attention/, '$1/attention'));
+    expect(paths).toEqual([
+      '/platform/attention/items/seen',
+      '/platform/attention/items/r1/hide',
+      '/platform/attention/items/r1/snooze',
+      '/attention/items/seen',
+      '/attention/items/r1/hide',
+      '/attention/items/r1/snooze',
+    ]);
+  });
+
+  it('platform health follows the cockpit source too', async () => {
+    configureCockpitAttention();
+    let hit = false;
+    server.use(
+      http.get('*/platform/attention/health', () => {
+        hit = true;
+        return HttpResponse.json({});
+      }),
+    );
+    // No role, no tenant: the school source would reject before sending.
+    await getPlatformAttentionHealth(new AbortController().signal);
+    expect(hit).toBe(true);
   });
 });

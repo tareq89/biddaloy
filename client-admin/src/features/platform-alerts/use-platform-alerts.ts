@@ -1,5 +1,5 @@
-import { ApiError, apiClient, type components } from '@biddaloy/ui/api';
-import { shouldRetryQuery } from '@biddaloy/ui/hooks';
+import { ApiError, type components } from '@biddaloy/ui/api';
+import { shouldRetryQuery, sourceGet } from '@biddaloy/ui/hooks';
 import { useQuery } from '@tanstack/react-query';
 
 export type PlatformAlerts = components['schemas']['PlatformAlertsDto'];
@@ -15,7 +15,7 @@ export function usePlatformAlerts(enabled: boolean) {
   return useQuery({
     queryKey: ['platform-alerts'],
     queryFn: async ({ signal }) =>
-      (await apiClient.get<PlatformAlerts>('/platform/alerts', { signal })).data,
+      (await sourceGet<PlatformAlerts>('/platform/alerts', signal)).data,
     refetchInterval: (query) => (forbidden(query) ? false : 30_000),
     refetchOnWindowFocus: (query) => !forbidden(query),
     refetchOnMount: (query) => !forbidden(query),

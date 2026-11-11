@@ -148,27 +148,32 @@
     {
       "path": "/platform-owners",
       "role": "super_admin",
-      "archetype": "detail"
+      "archetype": "detail",
+      "host": "cockpit"
     },
     {
       "path": "/owner-security",
       "role": "super_admin",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "host": "cockpit"
     },
     {
       "path": "/owner-security/two-step",
       "role": "guest",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "host": "cockpit"
     },
     {
       "path": "/sign-in/forgot",
       "role": "guest",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "host": "cockpit"
     },
     {
       "path": "/sign-in/reset",
       "role": "guest",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "host": "cockpit"
     },
     {
       "path": "/holiday-sets/$setId",

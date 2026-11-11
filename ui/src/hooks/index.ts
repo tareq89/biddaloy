@@ -1473,6 +1473,7 @@ export {
   useStudentAttention,
 } from './attention/use-attention-queries';
 export { configureCockpitAttention } from './attention/cockpit-source';
+export { sourceGet } from '../api/attention';
 export {
   useHideAttentionItem,
   useMarkAttentionSeen,
