@@ -116,7 +116,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token has been revoked');
     }
 
-    if (payload.imp === undefined) return payload;
+    if (payload.imp === undefined) {
+      // A plain token never carries a live session: drop a stray `impSession` claim.
+      if ('impSession' in payload) {
+        const { impSession: _stray, ...rest } = payload as JwtPayload & { impSession?: unknown };
+        return rest as JwtPayload;
+      }
+      return payload;
+    }
     return this.validateImpersonation(payload);
   }
 

@@ -116,6 +116,18 @@ describe('JwtStrategy imp tokens [99.2.03]', () => {
     });
   });
 
+  it('a plain token with a stray impSession claim has it stripped', async () => {
+    const t = {
+      sub: USER,
+      memberships: [],
+      jti: 'j',
+      iat_ms: 2000,
+      impSession: live,
+    } as unknown as JwtPayload;
+    const out = await run(t);
+    expect(out).not.toHaveProperty('impSession');
+  });
+
   it('a token without imp makes no Redis call', async () => {
     const p = token();
     delete (p as { imp?: unknown }).imp;
