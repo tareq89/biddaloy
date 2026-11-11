@@ -54,7 +54,7 @@ export class YearNextMissingRule implements AttentionRuleShape {
         dedupeKey: 'academic_year:' + y.id,
         subject: { type: 'academic_year', id: y.id },
         params: { year: y.name, endDate: y.end_date },
-        actionUrl: '/academic-years/' + y.id + '/next',
+        actionUrl: '/academic-years',
         recipients,
       },
     ];

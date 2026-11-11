@@ -588,14 +588,15 @@ flowchart LR
   P[DRAFT run entries with no group,<br/>target class uses groups] --> G[promotion.groups_pending]
 ```
 
-| Key                        | Fires when                                                                                            | Recipients                                           | Action                       |
-| -------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------- |
-| `year.close_due`           | `end_date` is 60+ days ago, `closed_at` is NULL, not current, no DRAFT promotion run from that year   | ACTIVE admins                                        | `/academic-years/{id}`       |
-| `year.next_missing`        | the current year ends within 45 days and no later year exists (action now opens the next-year wizard) | ACTIVE admins                                        | `/academic-years/{id}/next`  |
-| `promotion.groups_pending` | a DRAFT run has entries with `group_name` NULL and a target class that has grouped sections           | source section's class / assistant teachers + admins | `/promotions/{runId}/groups` |
+| Key                        | Fires when                                                                                          | Recipients                                           | Action                 |
+| -------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------- |
+| `year.close_due`           | `end_date` is 60+ days ago, `closed_at` is NULL, not current, no DRAFT promotion run from that year | ACTIVE admins                                        | `/academic-years/{id}` |
+| `year.next_missing`        | the current year ends within 45 days and no later year exists                                       | ACTIVE admins                                        | `/academic-years`      |
+| `promotion.groups_pending` | a DRAFT run has entries with `group_name` NULL and a target class that has grouped sections         | source section's class / assistant teachers + admins | `/promotions/{runId}`  |
 
 - `year.close_due` is one item per year; closing the year resolves it.
-- `promotion.groups_pending` is one item per run and source section, with the student count. It clears at 0 or when the run commits.
+- `promotion.groups_pending` is one item per run and source section, with the student count. The item resolves when no entry is left without a group, or when the run is committed or cancelled.
+- Wave 4 will point these at the next-year wizard and the groups page once those routes exist.
 - Teachers are looked up for the run's source year, not only the current year.
 
 ## Learning: Epic 83 coordinators (2026-10-31)

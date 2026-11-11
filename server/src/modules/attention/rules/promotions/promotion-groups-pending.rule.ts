@@ -67,7 +67,7 @@ export class PromotionGroupsPendingRule implements AttentionRuleShape {
           dedupeKey: `promotion:${r.runId}:section:${r.sectionId}`,
           subject: { type: 'promotion_run', id: r.runId },
           params: { sectionId: r.sectionId, sectionLabel: r.sectionLabel, count: r.count },
-          actionUrl: `/promotions/${r.runId}/groups`,
+          actionUrl: `/promotions/${r.runId}`,
           recipients,
         };
       })

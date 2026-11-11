@@ -159,7 +159,7 @@ describe('promotion.groups_pending (integration)', () => {
     const b = found.find((f) => f.params.sectionId === t.secB)!;
     expect(a.params).toMatchObject({ count: 2, sectionLabel: 'Eight-A' });
     expect(b.params).toMatchObject({ count: 1, sectionLabel: 'Eight-B' });
-    expect(a.actionUrl).toBe(`/promotions/${t.runId}/groups`);
+    expect(a.actionUrl).toBe(`/promotions/${t.runId}`);
     // Teacher of section A must not receive section B's item, and vice versa.
     expect(a.recipients.map((r) => r.userId).sort()).toEqual([t.admin, t.teacherA].sort());
     expect(b.recipients.map((r) => r.userId).sort()).toEqual([t.admin, t.teacherB].sort());
