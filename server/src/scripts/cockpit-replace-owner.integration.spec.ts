@@ -4,12 +4,12 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
   replaceOwner,
   validateReplaceInput,
   REPLACE_OWNER_LOCK_KEY,
+  operatorName,
 } from './cockpit-replace-owner';
 
 describe('cockpit-replace-owner (integration)', () => {
@@ -84,7 +84,7 @@ describe('cockpit-replace-owner (integration)', () => {
       [result.newUserId],
     );
     expect(audit.tenant_id).toBeNull();
-    expect(audit.new_values.operator).toBe(os.userInfo().username);
+    expect(audit.new_values.operator).toBe(operatorName());
     const text = JSON.stringify(audit) + outputs.join('\n');
     expect(text).not.toContain('@example.com');
     expect(text).not.toContain(phone(1));
@@ -101,6 +101,26 @@ describe('cockpit-replace-owner (integration)', () => {
     });
     await expect(run).rejects.toThrow(/not a platform owner/);
     await expect(run).rejects.not.toThrow(mail('stranger'));
+  });
+
+  it('refuses an existing new user that is not ACTIVE, without creating an owner row', async () => {
+    await makeOwner('sus-a', 41);
+    await makeOwner('sus-b', 42);
+    const [sus] = await ds.query(
+      `INSERT INTO users (email, phone, full_name, status) VALUES ($1, $2, 'Gone', 'SUSPENDED') RETURNING id`,
+      [mail('sus-new'), phone(43)],
+    );
+    created.push(sus.id);
+    await expect(
+      replaceOwner(ds, {
+        oldEmail: mail('sus-a'),
+        newEmail: mail('sus-new'),
+        newPhone: phone(43),
+      }),
+    ).rejects.toThrow(/not active/);
+    expect(
+      await ds.query(`SELECT 1 FROM platform_admins WHERE user_id = $1`, [sus.id]),
+    ).toHaveLength(0);
   });
 
   it('refuses when it would leave no other active owner', async () => {

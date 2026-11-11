@@ -54,6 +54,15 @@ export function validateReplaceInput(input: ReplaceOwnerInput): string | null {
   return null;
 }
 
+/** OS user who ran the CLI, for the audit row; `os.userInfo()` throws when the uid has no passwd entry. */
+export function operatorName(): string {
+  try {
+    return os.userInfo().username;
+  } catch {
+    return process.env.USER || process.env.LOGNAME || 'unknown';
+  }
+}
+
 /** pg advisory lock key; serialises concurrent replaces so the "another owner remains" count is race-free. */
 export const REPLACE_OWNER_LOCK_KEY = 98001001;
 
@@ -66,6 +75,7 @@ export async function replaceOwner(
   const oldEmail = input.oldEmail.trim().toLowerCase();
   const newEmail = input.newEmail.trim().toLowerCase();
   const newPhone = input.newPhone.trim();
+  const operator = operatorName();
 
   return ds.transaction(async (em) => {
     await em.query('SELECT pg_advisory_xact_lock($1)', [REPLACE_OWNER_LOCK_KEY]);
@@ -115,7 +125,7 @@ export async function replaceOwner(
         performed_by_user_id: null,
         old_values: { user_id: oldUser.id },
         // performed_by is null (CLI): record the OS user who ran it (not PII).
-        new_values: { user_id: newUser.id, operator: os.userInfo().username },
+        new_values: { user_id: newUser.id, operator },
       }),
     );
     return { oldUserId: oldUser.id, newUserId: newUser.id };
@@ -127,6 +137,7 @@ async function loadOrCreateNewUser(em: EntityManager, email: string, phone: stri
   const existing = await em.findOne(User, { where: { email }, withDeleted: true });
   if (existing) {
     if (existing.deleted_at) throw new Error('a deleted user has the new email; restore it first');
+    if (existing.status !== UserStatus.ACTIVE) throw new Error('the new user is not active');
     if (existing.phone && existing.phone !== phone) {
       throw new Error('the new user already has a different phone');
     }
