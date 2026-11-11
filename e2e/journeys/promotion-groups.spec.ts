@@ -15,7 +15,6 @@ import {
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { selectByTypeahead } from '../keyboard/keyboard-utils';
-import { escapeRegExp } from '../regex';
 
 /**
  * [69.5.02] Groups page, end to end (T3): the class teacher of a section opens
