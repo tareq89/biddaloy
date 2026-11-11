@@ -596,7 +596,8 @@ flowchart LR
 
 - `year.close_due` is one item per year; closing the year resolves it.
 - `promotion.groups_pending` is one item per run and source section, with the student count. The item resolves when no entry is left without a group, or when the run is committed or cancelled.
-- Wave 4 will point these at the next-year wizard and the groups page once those routes exist.
+- `year.next_missing` links to `/academic-years`; the wizard itself is `/academic-years/{id}/next` and the palette action `academic-year.create-next`. `promotion.groups_pending` links to the run, whose groups page is `/promotions/{runId}/groups`.
+- The close preview's `GROUPS_PENDING` warning uses the same test as `promotion.groups_pending`.
 - Teachers are looked up for the run's source year, not only the current year.
 
 ## Learning: Epic 83 coordinators (2026-10-31)
