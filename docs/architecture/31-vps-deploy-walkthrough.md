@@ -719,7 +719,6 @@ for f in edge prod staging demo; do echo "$f: $(sops -d infra/secrets/$f.enc.env
 sops -d --extract '["STAGING_PASSWORD"]' infra/secrets/staging.enc.env
 sops -d --extract '["DEMO_PASSWORD"]' infra/secrets/demo.enc.env
 sops -d --extract '["DOZZLE_OWNER_PASSWORD"]' infra/secrets/ops.enc.env
-sops -d --extract '["SMOKE_SUPER_ADMIN_PASSWORD"]' infra/secrets/prod.enc.env
 ```
 
 **Every key, and which file it is in:**
@@ -909,13 +908,10 @@ scripts/deploy.sh demo    "$SHA"     # builds the demo school; takes a few minut
 `ADMIN_PASSWORD` environment variable, never from the command line (so it is not in your shell
 history). Running it twice is safe: an existing password is never changed.
 
-Make two: **you**, and the **smoke-test super admin** (its email is `smoke-super@<DOMAIN>`, its
-password is `SMOKE_SUPER_ADMIN_PASSWORD` in `prod.enc.env`).
+Make one: **you**. (The old smoke-test super admin is retired; the staging nightly signs in as a
+staging owner instead, see the runbook.)
 
 ```bash
-# laptop: get the smoke password first, you will paste it in a moment
-sops -d --extract '["SMOKE_SUPER_ADMIN_PASSWORD"]' infra/secrets/prod.enc.env; echo
-
 ssh deploy@<VPS_IP>
 # VPS
 dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
@@ -923,9 +919,6 @@ dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/bi
 read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD            # your own password; nothing is shown
 dcp prod run --rm --no-deps -e ADMIN_PASSWORD app node server/dist/scripts/create-platform-admin.js you@example.com "Your Name"
 # you@example.com: created
-
-read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD            # paste SMOKE_SUPER_ADMIN_PASSWORD
-dcp prod run --rm --no-deps -e ADMIN_PASSWORD app node server/dist/scripts/create-platform-admin.js smoke-super@<DOMAIN> "Smoke Super Admin"
 unset ADMIN_PASSWORD
 ```
 
