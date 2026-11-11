@@ -166,6 +166,41 @@ describe('Cockpit MFA routes E2E', () => {
       .expect(403);
   }, 60000);
 
+  it('refuses a token minted by a different owner', async () => {
+    const a = await makeOwner();
+    const b = await makeOwner();
+    const tokenOfB = await stepUp(b);
+    await http()
+      .post(`${COCKPIT}/recovery-codes`)
+      .set(a.auth)
+      .set('X-Approval-Token', tokenOfB)
+      .expect(403);
+  }, 60000);
+
+  it('two concurrent regenerates: exactly one set stays valid', async () => {
+    const o = await makeOwner();
+    const t1 = await stepUp(o);
+    const t2 = await stepUp(o);
+    const [r1, r2] = await Promise.all(
+      [t1, t2].map((t) =>
+        http().post(`${COCKPIT}/recovery-codes`).set(o.auth).set('X-Approval-Token', t),
+      ),
+    );
+    expect([r1.status, r2.status]).toEqual([200, 200]);
+    const rows = await ds.query(
+      `SELECT count(*)::int AS n FROM user_recovery_codes WHERE user_id = $1 AND used_at IS NULL`,
+      [o.id],
+    );
+    expect(rows[0].n).toBe(10);
+    const mfa = app.get(MfaService);
+    const valid = await Promise.all(
+      [...r1.body.recoveryCodes, ...r2.body.recoveryCodes].map((c: string) =>
+        mfa.useRecoveryCode(o.id, c),
+      ),
+    );
+    expect(valid.filter(Boolean)).toHaveLength(10);
+  }, 60000);
+
   it('refuses a school ADMIN token on both routes', async () => {
     const school = await http()
       .post('/api/v1/auth/login')

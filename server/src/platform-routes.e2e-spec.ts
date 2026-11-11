@@ -26,6 +26,7 @@ const ALLOWED_OUTSIDE: string[] = [
   'POST /auth/cockpit/logout-all',
   'GET /auth/cockpit/sessions',
   'DELETE /auth/cockpit/sessions/:id',
+  // mfa-status and recovery-codes: part of the /auth/cockpit family and carry PlatformAdminGuard on purpose, same reason as sessions and logout-all.
   'GET /auth/cockpit/mfa-status',
   'POST /auth/cockpit/recovery-codes',
 ];
@@ -108,7 +109,7 @@ describe('Platform-only routes live under platform/ (Epic 98 safety net)', () =>
   });
 
   it('keeps ALLOWED_OUTSIDE small and free of duplicates', () => {
-    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(3);
+    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(5);
     expect(new Set(ALLOWED_OUTSIDE).size).toBe(ALLOWED_OUTSIDE.length);
   });
 
