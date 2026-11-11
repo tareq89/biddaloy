@@ -16,7 +16,7 @@ export const Route = createFileRoute('/owner-security/two-step')({
   component: TwoStepRoute,
 });
 
-function TwoStepRoute() {
+export function TwoStepRoute() {
   const navigate = useNavigate();
   const [handoff] = React.useState(readEnrolHandoff);
   React.useEffect(() => clearEnrolHandoff(), []);

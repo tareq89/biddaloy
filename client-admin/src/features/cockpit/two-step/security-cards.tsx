@@ -1,3 +1,4 @@
+import { setAccessToken } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
@@ -8,6 +9,7 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
+  ApprovalCancelledError,
   logoutAll,
   useCockpitMfaStatus,
   useCockpitSessions,
@@ -129,7 +131,7 @@ export function RecoveryCodesSection({ remaining }: { remaining: number | undefi
                 : t('codes.remaining', { count: remaining })}
           </p>
           <p className="text-text-secondary">{t('codes.makeBody')}</p>
-          {regenerate.isError && (
+          {regenerate.isError && !(regenerate.error instanceof ApprovalCancelledError) && (
             <p role="alert" className="text-destructive">
               {t('codes.error')}
             </p>
@@ -137,6 +139,7 @@ export function RecoveryCodesSection({ remaining }: { remaining: number | undefi
           <Button
             variant="outline"
             className="min-h-11 self-start"
+            disabled={regenerate.isPending}
             onClick={() => {
               regenerate.reset();
               setConfirming(true);
@@ -225,8 +228,10 @@ export function DevicesSection({ onSignedOutEverywhere }: { onSignedOutEverywher
               const current = list.find((s) => s.id === id)?.current ?? false;
               revoke.mutate(id, {
                 onSuccess: () => {
-                  if (current) onSignedOutEverywhere();
-                  else toast.success(t('devices.revokedToast'));
+                  if (current) {
+                    setAccessToken(null);
+                    onSignedOutEverywhere();
+                  } else toast.success(t('devices.revokedToast'));
                 },
               });
             }}
