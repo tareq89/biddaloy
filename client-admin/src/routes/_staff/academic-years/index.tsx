@@ -40,6 +40,10 @@ export const Route = createFileRoute('/_staff/academic-years/')({
     sort: z.string().optional().catch(undefined),
     order: z.enum(['asc', 'desc']).optional().catch(undefined),
     new: z.coerce.string().optional().catch(undefined),
+    // [69.4.02] One-shot palette flags: `next=1` goes on to the current year's "Create next year",
+    // `close=1` to the latest non-current year's detail page (acted on by the list page).
+    next: z.coerce.string().optional().catch(undefined),
+    close: z.coerce.string().optional().catch(undefined),
   }),
   // [8.14.5]: no search-string filters here (unlike `students/index.tsx`),
   // so no `loaderDeps` — the list's full first page is the same query on

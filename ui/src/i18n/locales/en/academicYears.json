@@ -140,6 +140,94 @@
     "feeStructureCount_other": "{{count}} fee structures",
     "statsUnavailable": "Couldn't load"
   },
+  "closedNotice": {
+    "text": "{{name}} is closed. Reopen it on Academic years to change this.",
+    "link": "Academic years",
+    "tooltip": "This year is closed. Reopen it on Academic years to change this."
+  },
+  "nextYear": {
+    "action": "Create next year",
+    "title": "Create next year",
+    "subtitle": "Make {{name}}'s setup ready for the new year.",
+    "steps": { "name": "Name and dates", "preview": "What will be copied", "done": "Done" },
+    "nameLabel": "Name of the new year",
+    "startLabel": "First day",
+    "endLabel": "Last day",
+    "errorNameRequired": "Enter a name",
+    "errorDatesRequired": "Enter the first and last day",
+    "errorEndBeforeStart": "The last day must be after the first day",
+    "next": "Next",
+    "back": "Back",
+    "create": "Create year",
+    "creating": "Creating…",
+    "previewIntro": "Tick what to copy from {{name}}. Nothing is created until you press Create year.",
+    "previewError": "Could not check what will be copied",
+    "retry": "Try again",
+    "noBlockChosen": "Tick at least one thing to copy.",
+    "tile": "New {{created}} · Already there {{existing}} · Skipped {{skipped}}",
+    "skippedStaffTitle": "Teachers left out",
+    "skippedStaffRow": "{{teacher}} — {{section}}, {{subject}}",
+    "createFailed": "Nothing was created. Try again.",
+    "blocks": {
+      "classes": "Classes",
+      "sections": "Sections",
+      "class_subjects": "Class subjects",
+      "teacher_assignments": "Teacher assignments",
+      "fee_structures": "Fee structures",
+      "grading_scales": "Grading scales",
+      "terms": "Terms"
+    },
+    "done": {
+      "title": "{{name}} is ready",
+      "counts": "New {{created}} · Already there {{existing}} · Skipped {{skipped}}",
+      "alsoCopy": "Also copy from {{name}}:",
+      "routines": "Class routine",
+      "calendar": "Calendar",
+      "fineRules": "Fine rules",
+      "schedules": "Recurring fee schedules",
+      "feeStructuresLink": "Next: check fee amounts on Fee structures",
+      "finish": "Go to the new year"
+    }
+  },
+  "closeYear": {
+    "action": "Close year",
+    "reopenAction": "Reopen year",
+    "closedOn": "Closed on {{date}}",
+    "title": "Close {{name}}",
+    "description": "After a year is closed, its exams, marks, bills, attendance and enrolments can no longer change. Payments can still be taken. You can reopen the year later.",
+    "freezeTitle": "What will no longer change",
+    "freezeRow": "{{label}}: {{count}}",
+    "warningTitle": "Check before you close",
+    "warnings": {
+      "CLASSES_NOT_PROMOTED": "Classes not promoted: {{count}}",
+      "STUDENTS_STILL_ACTIVE": "Students still active: {{count}}",
+      "GROUPS_PENDING": "Groups pending: {{count}}",
+      "DUES_OUTSTANDING": "Dues outstanding: {{amount}}",
+      "RESULTS_UNPUBLISHED": "Results not published: {{count}}"
+    },
+    "freezes": {
+      "exams": "Exams",
+      "marks": "Marks",
+      "student_fees": "Bills",
+      "attendance_sessions": "Attendance days",
+      "enrollments": "Enrolments",
+      "promotion_runs": "Promotion runs"
+    },
+    "blocked": "A promotion draft is still open for this year. Commit it or delete it first.",
+    "blockedLink": "Open promotions",
+    "previewError": "Could not load what will change",
+    "confirm": "Close year",
+    "closing": "Closing…",
+    "errorMessage": "Could not close the year",
+    "reopenTitle": "Reopen {{name}}",
+    "reopenDescription": "Reopen \"{{name}}\"? Its exams, marks, bills, attendance and enrolments can change again.",
+    "reopenConfirm": "Reopen year",
+    "reopenError": "Could not reopen the year"
+  },
+  "readiness": {
+    "noClasses": "This year has no classes yet. Teachers will see no students.",
+    "noTeachers": "No teacher is assigned to a class in this year. Teachers will see no students."
+  },
   "fields": {
     "name": "Name",
     "startDate": "Start date",
@@ -156,7 +244,14 @@
     "isCurrent": "Tick it and this year becomes current, and the mark leaves the other current year. You must confirm if ticked.",
     "termName": "For example First term.",
     "termStartAndEndDates": "Inside the year's dates, not clashing with another term.",
-    "dates": "The first and last day of the year. The last day must be after the first."
+    "dates": "The first and last day of the year. The last day must be after the first.",
+    "yearRollover": {
+      "skippedStaff": "A teacher is left out when the new year has no matching section. Add the section, then run this again.",
+      "rerun": "You can run this again. It only adds what is missing and never changes what is already there."
+    },
+    "yearClose": {
+      "payments": "A closed year still takes payments. It does not take new bills."
+    }
   },
   "helpRequired": {
     "name": "Yes",
