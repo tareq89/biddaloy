@@ -224,6 +224,7 @@ describe('AuditService', () => {
     it('scopes the query to the given tenant and applies filters', async () => {
       const qb: any = {
         leftJoin: vi.fn().mockReturnThis(),
+        leftJoinAndMapOne: vi.fn().mockReturnThis(),
         addSelect: vi.fn().mockReturnThis(),
         withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -267,6 +268,7 @@ describe('AuditService', () => {
     it('filters by performed_by_user_id when given', async () => {
       const qb: any = {
         leftJoin: vi.fn().mockReturnThis(),
+        leftJoinAndMapOne: vi.fn().mockReturnThis(),
         addSelect: vi.fn().mockReturnThis(),
         withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -290,6 +292,7 @@ describe('AuditService', () => {
     it('does not add the performed-by clause when the filter is absent', async () => {
       const qb: any = {
         leftJoin: vi.fn().mockReturnThis(),
+        leftJoinAndMapOne: vi.fn().mockReturnThis(),
         addSelect: vi.fn().mockReturnThis(),
         withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -320,6 +323,7 @@ describe('AuditService', () => {
     it('joins the acting user and selects only their id and name', async () => {
       const qb: any = {
         leftJoin: vi.fn().mockReturnThis(),
+        leftJoinAndMapOne: vi.fn().mockReturnThis(),
         addSelect: vi.fn().mockReturnThis(),
         withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -356,6 +360,7 @@ describe('AuditService', () => {
     it('extends a date-only to_date to the end of that day', async () => {
       const qb: any = {
         leftJoin: vi.fn().mockReturnThis(),
+        leftJoinAndMapOne: vi.fn().mockReturnThis(),
         addSelect: vi.fn().mockReturnThis(),
         withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -380,6 +385,7 @@ describe('AuditService', () => {
     it('leaves a to_date that already carries a time untouched', async () => {
       const qb: any = {
         leftJoin: vi.fn().mockReturnThis(),
+        leftJoinAndMapOne: vi.fn().mockReturnThis(),
         addSelect: vi.fn().mockReturnThis(),
         withDeleted: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),

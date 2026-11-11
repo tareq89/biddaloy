@@ -7,6 +7,7 @@ import { ApprovalScope, AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import type { RecentActivityDto } from './dto/audit-dashboard.dto';
+import { ImpersonationSession } from '../support-access/entities/impersonation-session.entity';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -145,7 +146,7 @@ export class AuditService {
    * on screen behind the diff panel and never leave in a file.
    */
   exportHeader(): string[] {
-    return ['When', 'Who', 'Action', 'Entity type', 'Entity ID'];
+    return ['When', 'Who', 'Action', 'Entity type', 'Entity ID', 'Biddaloy support'];
   }
 
   iterateForExport(query: QueryAuditLogDto, tenantId: string, callerId?: string) {
@@ -157,6 +158,7 @@ export class AuditService {
         log.action,
         log.entity_type,
         log.entity_id ?? '',
+        log.impersonation_session_id ? 'yes' : '',
       ],
     );
   }
@@ -186,6 +188,15 @@ export class AuditService {
       .withDeleted()
       .leftJoin('audit_log.performed_by', 'performed_by')
       .addSelect(['performed_by.id', 'performed_by.full_name'])
+      // [Epic 99] Only the session's role is selected (never the platform admin id or name).
+      // Tenant equality in the join is defense in depth; the tenant WHERE below stays first.
+      .leftJoinAndMapOne(
+        'audit_log.impersonation_session',
+        ImpersonationSession,
+        'imp',
+        'imp.id = audit_log.impersonation_session_id AND imp.tenant_id = audit_log.tenant_id',
+      )
+      .addSelect(['imp.id', 'imp.role'])
       .where('audit_log.tenant_id = :tenantId', { tenantId })
       .orderBy('audit_log.created_at', 'DESC')
       // Tie-break on id: two rows can share created_at, and without a
@@ -203,6 +214,11 @@ export class AuditService {
     if (query.performed_by_user_id) {
       qb.andWhere('audit_log.performed_by_user_id = :performedBy', {
         performedBy: query.performed_by_user_id,
+      });
+    }
+    if (query.impersonation_session_id) {
+      qb.andWhere('audit_log.impersonation_session_id = :impSessionId', {
+        impSessionId: query.impersonation_session_id,
       });
     }
     if (query.entity_id) {
@@ -253,6 +269,8 @@ export class AuditService {
         entity_label: entityLabels.get(`${log.entity_type}:${log.entity_id}`) ?? null,
         performed_by_name: log.performed_by?.full_name ?? null,
         created_at: log.created_at.toISOString(),
+        impersonated_by_support: !!log.impersonation_session_id,
+        acting_role: log.impersonation_session?.role ?? null,
         changed_field_count:
           log.action === AuditAction.UPDATE
             ? countChangedFields(log.old_values, log.new_values)

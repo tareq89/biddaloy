@@ -30,6 +30,12 @@ export class RecentActivityItemDto {
   })
   performed_by_name: string | null;
 
+  @ApiProperty()
+  impersonated_by_support: boolean;
+
+  @ApiProperty({ type: String, nullable: true })
+  acting_role: string | null;
+
   @ApiProperty({ example: '2026-10-07T04:12:00.000Z', description: 'ISO 8601, UTC' })
   created_at: string;
 
