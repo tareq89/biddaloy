@@ -35,7 +35,9 @@ import { TENANT_STATUS_REDIS } from '../../modules/schools/tenant-status.service
  * `communications/logs/:id/check-status` (a double click asks the vendor once),
  * `final-results/:id/sms` (the key is required; [70.2.1] D8),
  * `exams/:examId/marks/sheet/commit` ([81.2.1]; also single-use staging id),
- * `website/gallery/albums` (create) and `website/gallery/albums/:id/photos` (upload) ([40.6.03]).
+ * `website/gallery/albums` (create) and `website/gallery/albums/:id/photos` (upload) ([40.6.03]),
+ * `academic-years/:id/next` (create the next year, [69.2.02]) and `PATCH promotions/:id/groups`
+ * (assign promotion groups; a double click would write the same set twice).
  *
  * Exempt, with the reason (D23):
  * - `POST exams/:examId/results/sms`: deduped by the unique `reference_key` (result-sms.service.ts).
