@@ -64,8 +64,6 @@ export class CockpitMfaController {
     const me = request.user as CockpitPrincipal;
     const recoveryCodes = await this.mfa.regenerateRecoveryCodes(me.sub);
     const ctx = requestContext(request);
-    // The audit row never carries the codes (Rule 13).
-    const ctx = requestContext(request);
     // The codes are already committed: an audit failure must not hide them from the owner.
     // The row and the log line never carry the codes (Rule 13).
     try {
