@@ -6,7 +6,14 @@
  */
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ConfirmDialog, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import {
+  ClosedYearNotice,
+  ConfirmDialog,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  useIsYearClosed,
+} from '@biddaloy/ui/components';
 import {
   examQueryOptions,
   useAcademicYear,
@@ -48,6 +55,8 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
       loadRouteNamespaces(
         'exams',
         'common',
+        // [69.4.05] ClosedYearNotice reads its copy from this namespace.
+        'academicYears',
         'examsTemplateField',
         'grading',
         'examDocuments',
@@ -70,6 +79,8 @@ function ExamDetailPage() {
   const yearQuery = useAcademicYear(exam?.academic_year_id);
   const canManage = useHasPermission(Permission.EXAM_MANAGE);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  // [69.4.05] A closed year's exam cannot be edited or deleted: notice above, those actions off.
+  const yearClosed = useIsYearClosed(exam?.academic_year_id);
   const resultActions = useResultActions(examId, exam?.status);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -88,6 +99,7 @@ function ExamDetailPage() {
 
   return (
     <>
+      <ClosedYearNotice academicYearId={exam.academic_year_id} />
       <DetailShell
         name={exam.name}
         statusBadge={<ExamStatusBadge status={exam.status} />}
@@ -123,7 +135,7 @@ function ExamDetailPage() {
             label: t('detail.edit'),
             icon: <Pencil aria-hidden className="size-4" />,
             priority: 'tertiary',
-            allowed: canManage,
+            allowed: canManage && !yearClosed,
             onClick: () => setEditOpen(true),
           },
           {
@@ -132,7 +144,7 @@ function ExamDetailPage() {
             icon: <Trash2 aria-hidden className="size-4" />,
             priority: 'destructive',
             // Only a DRAFT exam can have no results; the server refuses the rest with 409.
-            allowed: canManage && exam.status === 'DRAFT',
+            allowed: canManage && exam.status === 'DRAFT' && !yearClosed,
             onClick: () => setDeleteOpen(true),
           },
         ]}

@@ -879,4 +879,35 @@ describe('/promotions/$runId', () => {
     expect(within(row).getAllByText('Promote').length).toBeGreaterThan(0);
     expect(within(row).queryByRole('combobox', { name: 'Final decision' })).toBeNull();
   });
+
+  describe('closed source year [69.4.05]', () => {
+    function serveYear(closedAt: string | null) {
+      server.use(
+        http.get('/api/v1/academic-years/year-2026', () =>
+          HttpResponse.json({ id: 'year-2026', name: '2026-2027', closed_at: closedAt }),
+        ),
+      );
+    }
+
+    it('shows the notice and takes away Commit and the grid controls', async () => {
+      stubCommon();
+      statefulRun();
+      serveYear('2026-12-31T00:00:00.000Z');
+      renderRun();
+
+      expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /Commit/ })).toBeNull();
+      expect(screen.queryByLabelText('Final decision')).toBeNull();
+    });
+
+    it('an open source year leaves the page as it was', async () => {
+      stubCommon();
+      statefulRun();
+      serveYear(null);
+      renderRun();
+
+      expect(await screen.findByLabelText('Final decision')).toBeTruthy();
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
+  });
 });

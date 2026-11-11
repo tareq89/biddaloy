@@ -23,6 +23,7 @@ import {
 import {
   Card,
   Checkbox,
+  ClosedYearNotice,
   ConfirmDialog,
   DatePicker,
   HelpHint,
@@ -254,6 +255,8 @@ function GenerateFeesFullPage({
   const effectiveStudentCount = resolvedStudentCount ?? studentCount;
   const canGenerate =
     academicYearId !== '' &&
+    // [69.4.05] Bills cannot be added to a closed year (the notice below says why).
+    !selectedYear?.closed_at &&
     periodStart !== undefined &&
     dueDate !== undefined &&
     // [34.5.3] `program_id` alone resolves the whole program server-side
@@ -408,6 +411,7 @@ function GenerateFeesFullPage({
         onClick: () => (dirty ? setConfirmingCancel(true) : onClose()),
       }}
     >
+      <ClosedYearNotice academicYearId={academicYearId || undefined} />
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Cmd/Ctrl+Enter submit shortcut */}
       <form
         className="space-y-6"
