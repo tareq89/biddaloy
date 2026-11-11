@@ -17,6 +17,13 @@ const HANDOFF = {
   secret: 'JBSWY3DPEHPK3PXP',
   rememberDevice: true,
 };
+const body = (statusCode: number) => ({
+  statusCode,
+  message: 'x',
+  timestamp: '',
+  path: '/',
+  requestId: 'r',
+});
 const CODES = ['AAAA-BBBB-CCCC-DDDD', 'EEEE-FFFF-GGGG-HHHH'];
 
 function setPhone(phone: boolean) {
@@ -63,7 +70,7 @@ describe('TwoStepWizard', () => {
   it('a wrong code shows the error and stays on step 1', async () => {
     server.use(
       http.post('*/auth/cockpit/enrol/confirm', () =>
-        HttpResponse.json({ message: 'no' }, { status: 401 }),
+        HttpResponse.json({ message: 'no' }, { status: 400 }),
       ),
     );
     view();
@@ -119,5 +126,51 @@ describe('TwoStepWizard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByText('AAAA-BBBB-CCCC-DDDD');
     expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain('AAAA');
+  });
+
+  it.each([401, 410])(
+    'an expired enrolment (%i) offers start again, not the wrong-code line',
+    async (status) => {
+      server.use(
+        http.post('*/auth/cockpit/enrol/confirm', () =>
+          HttpResponse.json(body(status), { status }),
+        ),
+      );
+      const onStartAgain = vi.fn();
+      view({ onStartAgain });
+      await userEvent.type(await screen.findByLabelText(/6-digit code/), '123456');
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Start again' }));
+      expect(onStartAgain).toHaveBeenCalled();
+      expect(screen.queryByText('Code did not match, use the new 30-second code.')).toBeNull();
+    },
+  );
+
+  it('a 429 says to slow down', async () => {
+    server.use(
+      http.post('*/auth/cockpit/enrol/confirm', () =>
+        HttpResponse.json(body(429), { status: 429, headers: { 'Retry-After': '5' } }),
+      ),
+    );
+    view();
+    await userEvent.type(await screen.findByLabelText(/6-digit code/), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Too many tries. Wait a little and try again.')).toBeTruthy();
+  });
+
+  it('Close asks before leaving while the codes are unsaved', async () => {
+    server.use(
+      http.post('*/auth/cockpit/enrol/confirm', () =>
+        HttpResponse.json({ step: 'done', access_token: 'tok', recoveryCodes: CODES }),
+      ),
+    );
+    const onDone = vi.fn();
+    view({ onDone });
+    await userEvent.type(await screen.findByLabelText(/6-digit code/), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('AAAA-BBBB-CCCC-DDDD');
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+    expect(onDone).not.toHaveBeenCalled();
   });
 });

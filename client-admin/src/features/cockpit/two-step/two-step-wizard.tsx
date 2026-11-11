@@ -1,4 +1,4 @@
-import { RateLimitedError, setAccessToken } from '@biddaloy/ui/api';
+import { ApiError, RateLimitedError, setAccessToken } from '@biddaloy/ui/api';
 import {
   AuthenticatorSetupCard,
   Button,
@@ -58,7 +58,11 @@ export function TwoStepWizard({ handoff, onDone, onStartAgain }: TwoStepWizardPr
   ];
   const current = codes ? 'codes' : 'add';
 
-  if (!handoff) {
+  const expired =
+    confirm.error instanceof ApiError &&
+    (confirm.error.statusCode === 401 || confirm.error.statusCode === 410);
+
+  if (!handoff || expired) {
     return (
       <FullPageShell
         title={t('wizard.title')}
@@ -77,7 +81,8 @@ export function TwoStepWizard({ handoff, onDone, onStartAgain }: TwoStepWizardPr
   }
 
   const error = confirm.error
-    ? confirm.error instanceof RateLimitedError
+    ? confirm.error instanceof RateLimitedError ||
+      (confirm.error instanceof ApiError && confirm.error.statusCode === 429)
       ? t('wizard.slowDown')
       : t('wizard.wrongCode')
     : undefined;
