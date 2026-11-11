@@ -11,6 +11,10 @@ import type {
 /** A new consent text bumps this and re-asks every school (D16). */
 export const SUPPORT_ACCESS_TEXT_VERSION = 1;
 
+/** D55: the reason for a Login as start is 10 to 500 characters. */
+export const IMPERSONATION_REASON_MIN = 10;
+export const IMPERSONATION_REASON_MAX = 500;
+
 /** The Redis value for a live session and the `JwtStrategy` result. */
 export interface ImpersonationLiveSession {
   adminId: string;
@@ -30,6 +34,8 @@ export interface LoginAsCandidateDto {
   role: UserRole;
   email: string | null;
   phone: string | null;
+  /** D55: null when the person can be chosen; otherwise why not (the screen translates it). */
+  unavailableReason: 'NO_LOGIN_ACCOUNT' | 'INACTIVE' | null;
 }
 
 export interface LoginAsCandidatesResponse {
