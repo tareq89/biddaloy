@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useIdleTimer } from './use-idle-timer';
 
@@ -31,10 +31,17 @@ export function CockpitIdleWarning({
 }: CockpitIdleWarningProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const stayRef = useRef<HTMLButtonElement>(null);
+  const leaving = useRef(false);
   const leave = async (notice: string | null) => {
+    if (leaving.current) return;
+    leaving.current = true;
+    setBusy(true);
     setOpen(false);
     try {
       await signOut();
+    } catch {
+      // Sign-out call failed: still leave; the server idle limit ends the session.
     } finally {
       onSignedOut(notice);
     }
@@ -59,7 +66,15 @@ export function CockpitIdleWarning({
   // Only the two buttons close it: Esc and an outside click are ignored, and there is no corner X.
   return (
     <Dialog open={open} onOpenChange={() => undefined}>
-      <DialogContent size="sm" showCloseButton={false}>
+      <DialogContent
+        size="sm"
+        role="alertdialog"
+        showCloseButton={false}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          stayRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{strings.title}</DialogTitle>
           <DialogDescription>{strings.body}</DialogDescription>
@@ -68,7 +83,7 @@ export function CockpitIdleWarning({
           <Button variant="outline" onClick={() => void leave(null)} disabled={busy}>
             {strings.signOut}
           </Button>
-          <Button onClick={() => void stay()} loading={busy}>
+          <Button ref={stayRef} onClick={() => void stay()} loading={busy}>
             {strings.stay}
           </Button>
         </DialogFooter>
