@@ -33,7 +33,7 @@ describe('OwnerSeedingService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
     ds = module.get<DataSource>(getDataSourceToken());
-    home = new PlatformHomeService(ds, { platformTenantId: async () => undefined } as never);
+    home = new PlatformHomeService(ds, { configuredPlatformTenantId: () => undefined } as never);
   });
 
   const cleanup = async () => {
@@ -51,7 +51,7 @@ describe('OwnerSeedingService (integration)', () => {
   };
   beforeEach(async () => {
     await cleanup();
-    home = new PlatformHomeService(ds, { platformTenantId: async () => undefined } as never);
+    home = new PlatformHomeService(ds, { configuredPlatformTenantId: () => undefined } as never);
     vi.restoreAllMocks();
   });
   afterAll(cleanup);
