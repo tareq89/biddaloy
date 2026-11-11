@@ -43,6 +43,12 @@ describe('CockpitMfaController', () => {
     expect(mfa.regenerateRecoveryCodes).toHaveBeenCalledWith('u1');
     const row = audit.record.mock.calls[0][0];
     expect(row.performed_by_user_id).toBe('u1');
+    expect(row.new_values).toEqual({ event: 'recovery_codes_regenerated' });
     expect(JSON.stringify(row)).not.toContain('"a"');
+  });
+
+  it('still returns the codes when the audit write fails', async () => {
+    audit.record.mockRejectedValueOnce(new Error('db down'));
+    expect(await controller.regenerate(req(), res())).toEqual({ recoveryCodes: ['a', 'b'] });
   });
 });
