@@ -6,10 +6,15 @@ import { MailCheck } from 'lucide-react';
 import * as React from 'react';
 
 import { useFocusFirst } from '../features/cockpit/sign-in/use-focus-first';
+import { loadRouteNamespaces } from '../route-loaders';
 
 import { GuestStatus } from './-guest-status';
 
-export const Route = createFileRoute('/sign-in/forgot')({ component: ForgotPage });
+// Namespaces first: a field typed into before `cockpit` has loaded is lost when the page remounts.
+export const Route = createFileRoute('/sign-in/forgot')({
+  loader: () => loadRouteNamespaces('cockpit', 'common'),
+  component: ForgotPage,
+});
 
 /** Asks only for the email and shows one confirmation for any input (Rule 18). */
 function ForgotPage() {

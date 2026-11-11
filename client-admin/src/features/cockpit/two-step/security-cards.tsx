@@ -68,7 +68,7 @@ export function TwoStepCard({
             variant={enrolled ? 'outline' : 'default'}
             className="min-h-11 self-start"
           >
-            <Link to={'/owner-security/two-step' as '/'}>
+            <Link to={'/owner-security/two-step'}>
               {enrolled ? t('twoStep.replace') : t('twoStep.setUp')}
             </Link>
           </Button>

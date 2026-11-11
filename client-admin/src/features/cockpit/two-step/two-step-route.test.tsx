@@ -5,8 +5,9 @@ import { screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { TwoStepRoute } from '../../../routes/owner-security.two-step';
 import { readEnrolHandoff, saveEnrolHandoff } from '../sign-in/enrol-handoff';
+
+import { TwoStepRoute } from './two-step-route';
 
 vi.mock('@tanstack/react-router', async (orig) => ({
   ...(await orig<typeof import('@tanstack/react-router')>()),

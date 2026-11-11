@@ -10,6 +10,7 @@ import {
 import { z } from 'zod';
 
 import { CockpitSignInCard } from '../features/cockpit/sign-in/cockpit-sign-in-card';
+import { loadRouteNamespaces } from '../route-loaders';
 import { isSameAppRedirect } from '../same-app-redirect';
 
 /** [98.4.03] Owner sign-in on the cockpit host. Mockup: cockpit-identity-mockups.md section a. */
@@ -18,6 +19,7 @@ export const Route = createFileRoute('/sign-in')({
     redirect: z.string().refine(isSameAppRedirect).optional().catch(undefined),
     reset: z.literal('1').optional().catch(undefined),
   }),
+  loader: () => loadRouteNamespaces('cockpit', 'common'),
   component: SignInPage,
 });
 
@@ -37,8 +39,8 @@ function SignInPage() {
           </Button>
         }
         notice={search.reset ? t('signIn.passwordSaved') : undefined}
-        onSignedIn={() => void navigate({ to: (search.redirect ?? '/schools') as '/' })}
-        onEnrol={() => void navigate({ to: '/owner-security/two-step' as '/' })}
+        onSignedIn={() => void navigate({ to: search.redirect ?? '/schools' })}
+        onEnrol={() => void navigate({ to: '/owner-security/two-step' })}
       />
     </AuthLayout>
   );

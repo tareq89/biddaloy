@@ -25,7 +25,7 @@ function OwnerSecurityPage() {
       <PageHeader title={t('title')} subtitle={t('subtitle')} />
       <TwoStepCard enrolled={mfa.enrolled} failed={mfa.failed} onRetry={mfa.retry} />
       <RecoveryCodesSection remaining={mfa.remaining} />
-      <DevicesSection onSignedOutEverywhere={() => void navigate({ to: '/sign-in' as '/' })} />
+      <DevicesSection onSignedOutEverywhere={() => void navigate({ to: '/sign-in' })} />
     </PageContainer>
   );
 }

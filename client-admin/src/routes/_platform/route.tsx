@@ -163,7 +163,7 @@ function PlatformLayout() {
 
   return (
     <DemoCornerFrame>
-      <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
+      <PlatformGate>
         {/* One code-prompt host for every cockpit page (owners, security): step-up asks for a code anywhere. */}
         <ApprovalModalHostProvider>
           {COCKPIT && <CockpitIdle />}
@@ -222,7 +222,8 @@ function PlatformLayout() {
               navLabel={t('navLabel')}
               skipLinkLabel={t('skipToContent')}
             >
-              <PlatformAlertBanner enabled />
+              {/* Off on the cockpit host: GET /platform/alerts still rejects a cockpit token (401), and a 401 ends the whole session. Back on when #4071 moves that controller to PlatformAccessGuard. */}
+              <PlatformAlertBanner enabled={!COCKPIT} />
               {attention.bar}
               {attention.modal}
               {breadcrumbItems.length > 0 && (
@@ -236,8 +237,22 @@ function PlatformLayout() {
             </AppShell>
           )}
         </ApprovalModalHostProvider>
-      </RequireRole>
+      </PlatformGate>
     </DemoCornerFrame>
+  );
+}
+
+/**
+ * School hosts keep the client-side role check. A cockpit session carries no memberships, so the
+ * client never has an active role there and the check would bounce every owner (blank page, found
+ * by the 98.4.99 e2e). The server's cockpit guard is the boundary; this was only ever a UX nicety.
+ */
+function PlatformGate({ children }: { children: React.ReactNode }) {
+  if (COCKPIT) return <>{children}</>;
+  return (
+    <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
+      {children}
+    </RequireRole>
   );
 }
 
@@ -259,7 +274,7 @@ function CockpitIdle() {
       renew={() => cockpitRequest({ url: '/auth/cockpit/mfa-status' })}
       signOut={() => logout(queryClient)}
       onSignedOut={(notice) => {
-        void navigate({ to: '/sign-in' as '/' });
+        void navigate({ to: '/sign-in' });
         // The sign-in route belongs to another screen, so the notice is a toast, not a search param.
         if (notice) toast(notice, { duration: 15_000 });
       }}

@@ -83,7 +83,15 @@ export default defineConfig({
   // [58.2.08] `e2e/demo/` needs a DEMO_MODE server on a seed:demo database; it has its own
   // opt-in project below and never runs in the default or sweeps projects.
   // [50.13] `e2e/landing/` is static-site smoke, run by `playwright.landing.config.ts`.
-  testIgnore: ['**/pwa/**', '**/demo/**', '**/landing/**'],
+  testIgnore: [
+    '**/pwa/**',
+    '**/demo/**',
+    '**/landing/**',
+    // [98.4.99] Cockpit specs need their own database (SEED_COCKPIT_OWNER, MESSAGE_SINK=mailpit)
+    // and the cockpit hostname; opt-in project below.
+    '**/e2e/cockpit/**',
+    '**/keyboard/cockpit.spec.ts',
+  ],
   fullyParallel: true,
   forbidOnly: CI,
   // A suite needing more than one CI retry is hiding flake — see
@@ -155,6 +163,31 @@ export default defineConfig({
             use: {
               ...BROWSER_DEVICES.chromium,
               baseURL: DEMO_SWEEP_URL ?? 'http://localhost:5174',
+            },
+          },
+        ]
+      : []),
+    // [98.4.99] Opt-in: `E2E_COCKPIT=1 npx playwright test --project=cockpit --project=cockpit-phone`
+    // on a database seeded with SEED_COCKPIT_OWNER=true, a server with MESSAGE_SINK=mailpit and a
+    // running Mailpit. No `setup` dependency: the cockpit owner signs in through the UI. The
+    // hostname `cockpit.localhost` resolves to loopback in Chromium and matches `isCockpitHost()`.
+    ...(process.env.E2E_COCKPIT === '1'
+      ? [
+          {
+            name: 'cockpit',
+            testIgnore: [],
+            testMatch: [/e2e\/cockpit\/.*\.spec\.ts/, /e2e\/keyboard\/cockpit\.spec\.ts/],
+            use: { ...BROWSER_DEVICES.chromium, baseURL: 'http://cockpit.localhost:5174' },
+          },
+          {
+            name: 'cockpit-phone',
+            testIgnore: [],
+            testMatch: [/e2e\/cockpit\/.*\.spec\.ts/],
+            use: {
+              ...BROWSER_DEVICES.chromium,
+              baseURL: 'http://cockpit.localhost:5174',
+              viewport: { width: 390, height: 844 },
+              hasTouch: true,
             },
           },
         ]
