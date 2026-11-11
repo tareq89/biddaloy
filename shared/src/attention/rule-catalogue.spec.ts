@@ -88,7 +88,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 13 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 15 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -108,6 +108,8 @@ describe('alert rule catalogue', () => {
         'account.idle',
         'platform.seats.expiring',
         'platform.bkash.refund_due',
+        'platform.recovery_codes_low',
+        'platform.approval_pending',
       ].sort(),
     );
   });
