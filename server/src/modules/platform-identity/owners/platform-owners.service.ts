@@ -231,7 +231,7 @@ export class PlatformOwnersService {
       data,
       nextCursor:
         rows.length > take && last
-          ? Buffer.from(`${last.ts}|${last.id}`, 'utf8').toString('base64url')
+          ? Buffer.from(String(last.ts) + '|' + String(last.id), 'utf8').toString('base64url')
           : null,
     };
   }
