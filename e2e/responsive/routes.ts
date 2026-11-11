@@ -127,6 +127,7 @@ export async function ensureDecidableApplications(
   return first.id;
 }
 import manifest from '../route-manifest.json';
+import { onSchoolHost } from '../route-manifest-filter';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_TRIAL_SCHOOL } from '../seed-contract';
 
 /** Shared manifest typing + param resolution for the responsive suites
@@ -136,11 +137,12 @@ export interface ManifestRoute {
   path: string;
   role: string;
   archetype: string;
+  host?: string;
   params?: Record<string, string>;
   overlays?: string[];
 }
 
-export const routes = (manifest as { routes: ManifestRoute[] }).routes;
+export const routes = onSchoolHost((manifest as { routes: ManifestRoute[] }).routes);
 
 // One admin login per worker process, not one per dynamic route resolved —
 // every call in this file needs the same ADMIN session, and re-logging in

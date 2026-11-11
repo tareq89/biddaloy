@@ -19,6 +19,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { isCockpitHost } from './cockpit-host';
+import { showCockpitExpiredNotice } from './cockpit-session-expired';
 import { registerServiceWorker } from './pwa/register';
 import { RouteErrorFallbackWithUpdate } from './route-error-fallback';
 import { routeTree } from './routeTree.gen';
@@ -161,6 +162,7 @@ registerSessionExpiredHandler(() => {
   const { pathname, href } = router.state.location;
   const loginPath = isCockpitHost() ? '/sign-in' : '/login';
   if (pathname !== loginPath) {
+    if (isCockpitHost()) showCockpitExpiredNotice();
     void router.navigate({ to: loginPath as '/login', search: { redirect: href }, replace: true });
   }
 });

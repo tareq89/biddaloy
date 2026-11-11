@@ -59,6 +59,10 @@ export function resetAttentionSource(): void {
   source = schoolSource;
 }
 
+/** A GET that follows the active source: `apiClient` in a school shell, `cockpitRequest` on the cockpit. */
+export const sourceGet = <T>(url: string, signal: AbortSignal): Promise<{ data: T }> =>
+  source.http.get<T>(url, { signal });
+
 export const isCockpitAttention = (): boolean => source.cockpit;
 
 /** The server caps `POST /attention/items/seen` at 100 ids. */
@@ -120,8 +124,7 @@ export async function getStudentAttention(
 export async function getPlatformAttentionHealth(
   signal: AbortSignal,
 ): Promise<PlatformAttentionHealth> {
-  return (await apiClient.get<PlatformAttentionHealth>('/platform/attention/health', { signal }))
-    .data;
+  return (await sourceGet<PlatformAttentionHealth>('/platform/attention/health', signal)).data;
 }
 
 // [67.5.07] Wave-5 types come straight from the regenerated schema.
