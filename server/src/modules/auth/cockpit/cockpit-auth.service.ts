@@ -108,7 +108,7 @@ export class CockpitAuthService {
     ctx: RequestContext,
     deviceCookie: string | undefined,
   ): Promise<CockpitAuthResult> {
-    const userId = await this.steps.verify(dto.mfaToken, 'mfa');
+    const { userId, authAt } = await this.steps.verify(dto.mfaToken, 'mfa');
     const key = this.userKey(userId);
     if (await this.loginAttempts.isLocked(key)) this.fail();
 
@@ -136,11 +136,12 @@ export class CockpitAuthService {
 
     await this.sendCode(user, 'COCKPIT_DEVICE', 'SMS', 'COCKPIT_DEVICE_CODE');
     await this.sendCode(user, 'COCKPIT_DEVICE', 'EMAIL', 'COCKPIT_DEVICE_CODE');
-    return { step: 'device', deviceToken: this.steps.sign(userId, 'device') };
+    // The device step keeps the password time of the mfa step, so a reset still ends it.
+    return { step: 'device', deviceToken: this.steps.sign(userId, 'device', authAt) };
   }
 
   async deviceOtp(dto: CockpitDeviceOtpDto, ctx: RequestContext): Promise<CockpitAuthResult> {
-    const userId = await this.steps.verify(dto.deviceToken, 'device');
+    const { userId } = await this.steps.verify(dto.deviceToken, 'device');
     if (await this.loginAttempts.isLocked(this.userKey(userId))) this.fail();
     const user = await this.loadOwner(userId);
     if (user.status !== UserStatus.ACTIVE || !user.phone || !user.email) this.fail();

@@ -351,6 +351,12 @@ describe('runStackConfigCheck', () => {
       'OTP_SMS_ALLOWED_PREFIXES',
       'DEMO_MODE',
       'DEMO_PASSWORD',
+      // Epic 98 cockpit owners: identity, not messaging providers.
+      'COCKPIT_DOMAIN',
+      'COCKPIT_OWNER_1_EMAIL',
+      'COCKPIT_OWNER_1_PHONE',
+      'COCKPIT_OWNER_2_EMAIL',
+      'COCKPIT_OWNER_2_PHONE',
       'SITE_ROOT_DOMAIN', // the apex school websites hang under (Epic 40), not a provider
     ]);
     expect(keys.length).toBeGreaterThan(20);

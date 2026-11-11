@@ -714,10 +714,16 @@ So adding a shard means removing one somewhere else.
 | | PR median | PR p90 | PR pass rate |
 |---|---|---|---|
 | Before (last 100 `ci.yml` runs, 2026-11-11) | 34 min | 65 min | 3 of 78 |
-| After | TODO: measure over 20 PR runs after the Epic 101 PRs merge (`gh run list --workflow ci.yml --limit 30 --json event,conclusion,createdAt,updatedAt`) | TODO | TODO |
+| After (first 3 green runs of the new layout, 2026-11-11: 13, 16 and 24 min wall) | about 13-16 min on a PR (n=2); the 24 min run was the push to `main`, which also runs demo-seed, publish and deploy | not measurable on 3 runs | n too small |
 
-Per-job budgets for the new shards are `null` in `ci-budgets.json` until they are measured (the summary shows no
-budget and never fails for them); `enforce` stays off until then.
+Slowest job in those runs: `E2E smoke (chromium 2/4)` at 688 s. Every job finished in under 11.5 min, so the
+gap to the 10 min target is queueing behind the ~20 concurrent-job cap (D7), not one slow job. This is a
+reading of 3 runs, not a measured cause.
+**The 10 / 15 min targets are not met yet.** Re-measure over 20 PR runs (`gh run list --workflow ci.yml --limit 30
+--json event,conclusion,createdAt,updatedAt`) before claiming a median.
+
+Per-job budgets in `ci-budgets.json` are now ceilings: `ceil(max x 1.15)` over those 3 runs, not a p90.
+`enforce` stays off until they are re-baselined over 20 runs.
 
 Learnings (Epic 101):
 
@@ -730,6 +736,10 @@ Learnings (Epic 101):
 - 2026-11: a pure unit test inside a DB-heavy spec file inherits that file's per-test reset, which after the demo
   dataset takes more than 30 s (`importDays` failed on every main push). Rule: pure tests get their own `*.spec.ts`.
 - 2026-11: a plaintext line in a sops `*.enc.env` fails `check-tracked-files`, and only the age key can fix it.
+- 2026-11: the demo-seed coverage spec asserts the seed finishes in 90 s. Run beside 16 slice specs on a 4-vCPU
+  runner it took 199 s and failed. Rule: a wall-clock assertion runs alone; never in a shared parallel run.
+- 2026-11: after the split every job was under 11.5 min but the whole run took 13 to 24 min. Rule: past the ~20
+  concurrent-job cap, more shards add queueing, not speed; measure run wall time, not only job time.
 
 ### Merging to main
 

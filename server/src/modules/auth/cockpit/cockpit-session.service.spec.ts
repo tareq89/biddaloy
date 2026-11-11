@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserStatus } from '@biddaloy/shared';
-import { CockpitSessionService } from './cockpit-session.service';
+import { RefreshTokenReuseDetectedException } from '../refresh-token.service';
+import { COCKPIT_SESSION_ENDED, CockpitSessionService } from './cockpit-session.service';
 
 function fakeRedis() {
   const store = new Map<string, number>(); // key -> expiry ms
@@ -99,6 +100,40 @@ describe('CockpitSessionService', () => {
     expect(tokens.revokeFamily).toHaveBeenCalledWith(familyId);
     // Checked before rotating: a dead owner never gets a fresh cookie.
     expect(tokens.rotate).not.toHaveBeenCalled();
+  });
+
+  it('refresh stamps the access token with the time it started, not after rotating', async () => {
+    const { familyId } = await svc.start('u1', ctx);
+    tokens.familyIdForCookie.mockResolvedValue(familyId);
+    let rotatedAt = 0;
+    tokens.rotate.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5)); // a reset could commit here
+      rotatedAt = Date.now();
+      return { userId: 'u1', refreshToken: { cookieValue: 'id2.s2' } };
+    });
+    const before = Date.now();
+    const out = await svc.refresh('c', ctx);
+    const payload: any = new JwtService({}).decode(out.accessToken);
+    expect(payload.iat_ms).toBeGreaterThanOrEqual(before);
+    expect(payload.iat_ms).toBeLessThan(rotatedAt);
+  });
+
+  it('refresh-token reuse drops both Redis keys and answers the one refusal', async () => {
+    const { familyId } = await svc.start('u1', ctx);
+    tokens.familyIdForCookie.mockResolvedValue(familyId);
+    tokens.rotate.mockRejectedValue(new RefreshTokenReuseDetectedException('u1', familyId));
+    const err: any = await svc.refresh('c', ctx).catch((e) => e);
+    expect(err).toBeInstanceOf(UnauthorizedException);
+    expect(err.message).toBe(COCKPIT_SESSION_ENDED);
+    expect(redis.store.has(`cockpit:abs:${familyId}`)).toBe(false);
+    expect(redis.store.has(`cockpit:idle:${familyId}`)).toBe(false);
+
+    // Redis down while dropping them is a 503, never a quiet pass.
+    tokens.familyIdForCookie.mockResolvedValue('fam');
+    redis.store.set('cockpit:abs:fam', Date.now() + 5000);
+    redis.store.set('cockpit:idle:fam', Date.now() + 1000);
+    redis.del.mockRejectedValue(new Error('down'));
+    await expect(svc.refresh('c', ctx)).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('touch never resurrects an expired idle key', async () => {

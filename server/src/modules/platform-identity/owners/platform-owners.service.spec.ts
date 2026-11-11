@@ -19,6 +19,26 @@ describe('PlatformOwnersService', () => {
     expect(ds.query).not.toHaveBeenCalled();
   });
 
+  it('an actor locked while waiting on the owner lock cannot lock or unlock anyone', async () => {
+    const em = { query: vi.fn() };
+    const { svc, ds } = build();
+    ds.transaction.mockImplementation(async (work: (m: unknown) => unknown) => work(em));
+    // Three owners: b was locked by a while b's own request waited; c is still active.
+    em.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { user_id: 'a', status: 'ACTIVE' },
+      { user_id: 'b', status: 'SUSPENDED' },
+      { user_id: 'c', status: 'ACTIVE' },
+    ]);
+    await expect(svc.lock('b', 'c')).rejects.toMatchObject({ status: 403 });
+    em.query
+      .mockReset()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ status: 'SUSPENDED' }]);
+    await expect(svc.unlock('b', 'c')).rejects.toMatchObject({ status: 403 });
+    // Nothing was written: only the lock and the status reads ran.
+    expect(em.query.mock.calls.every(([sql]) => !/^\s*UPDATE/i.test(sql))).toBe(true);
+  });
+
   it('history rejects a cursor that does not decode to a timestamp and a uuid', async () => {
     const { svc, ds } = build();
     const bad = Buffer.from('not-a-date|not-a-uuid').toString('base64url');

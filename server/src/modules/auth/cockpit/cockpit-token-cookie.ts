@@ -13,6 +13,15 @@ function options(maxAgeMs?: number): CookieOptions {
   return maxAgeMs === undefined ? base : { ...base, maxAge: maxAgeMs };
 }
 
+/*
+ * CodeQL (js/clear-text-storage-of-sensitive-data) flags both cookies below because their value
+ * comes from a variable named `secret`. That is the design, not a leak: each cookie IS the bearer
+ * credential (a refresh token `id.secret`, a remembered-device secret), random 256-bit values that
+ * are never password material. The server keeps only their SHA-256 hash (refresh-token.service.ts,
+ * cockpit-device.service.ts), and the browser keeps them httpOnly + Secure + SameSite=Strict under
+ * `__Host-`, so page script and other hosts cannot read them. Same reasoning as token-cookie.ts.
+ */
+
 /** `maxAgeMs` is the absolute time left on a refresh; a fresh sign-in gets the full 8 h. */
 export function setCockpitRefreshCookie(
   response: Response,
@@ -21,7 +30,7 @@ export function setCockpitRefreshCookie(
 ): void {
   response.cookie(
     COCKPIT_REFRESH_COOKIE,
-    cookieValue,
+    cookieValue, // codeql[js/clear-text-storage-of-sensitive-data]
     options(Math.min(maxAgeMs, COCKPIT_SESSION_MAX_MS)),
   );
 }
@@ -31,5 +40,9 @@ export function clearCockpitRefreshCookie(response: Response): void {
 }
 
 export function setCockpitDeviceCookie(response: Response, value: string): void {
-  response.cookie(COCKPIT_DEVICE_COOKIE, value, options(COCKPIT_DEVICE_MAX_MS));
+  response.cookie(
+    COCKPIT_DEVICE_COOKIE,
+    value, // codeql[js/clear-text-storage-of-sensitive-data]
+    options(COCKPIT_DEVICE_MAX_MS),
+  );
 }

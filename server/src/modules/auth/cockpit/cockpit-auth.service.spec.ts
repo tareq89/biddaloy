@@ -75,9 +75,11 @@ describe('CockpitAuthService', () => {
       secret: SECRET,
       signOptions: { issuer: 'biddaloy', algorithm: 'HS256' },
     });
-    steps = new CockpitStepTokens(jwt, {
-      get: (k: string) => (k === 'JWT_SECRET' ? SECRET : undefined),
-    } as any);
+    steps = new CockpitStepTokens(
+      jwt,
+      { get: (k: string) => (k === 'JWT_SECRET' ? SECRET : undefined) } as any,
+      { findOne: vi.fn(async () => ({ id: 'u1', tokens_valid_after: null })) } as any,
+    );
     const users = {
       findOne: vi.fn(async ({ where }: any) =>
         Array.isArray(where) ? user : user?.id === where.id ? user : null,
@@ -209,6 +211,12 @@ describe('CockpitAuthService', () => {
       await expect(mfaStep('123456', undefined, steps.sign('u1', 'device'))).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+    });
+
+    it('the device token keeps the password time of the mfa token (a reset still ends it)', async () => {
+      const out: any = await mfaStep('123456', undefined, steps.sign('u1', 'mfa', 1234));
+      expect(out.step).toBe('device');
+      expect((new JwtService({}).decode(out.deviceToken) as any).at).toBe(1234);
     });
 
     it('a wrong code fails with the generic body and counts on the user key', async () => {

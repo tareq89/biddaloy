@@ -14,7 +14,12 @@ import { UserStatus } from '@biddaloy/shared';
 import { User } from '../../users/entities/user.entity';
 import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import { COCKPIT_ACCESS_TOKEN_AUDIENCE } from '../jwt-secrets';
-import { RefreshTokenService, RequestContext, ActiveSession } from '../refresh-token.service';
+import {
+  ActiveSession,
+  RefreshTokenReuseDetectedException,
+  RefreshTokenService,
+  RequestContext,
+} from '../refresh-token.service';
 import { SessionCutoffService } from '../session-cutoff.service';
 import { COCKPIT_IDLE_MAX_MS, COCKPIT_SESSION_MAX_MS } from './cockpit-token-cookie';
 
@@ -67,9 +72,10 @@ export class CockpitSessionService {
     }
   }
 
-  private signAccess(userId: string, fam: string): string {
+  /** `issuedAt` defaults to now; a refresh passes the time it started (see refresh()). */
+  private signAccess(userId: string, fam: string, issuedAt = Date.now()): string {
     return this.jwt.sign(
-      { sub: userId, jti: randomUUID(), fam, typ: 'cockpit', iat_ms: Date.now() },
+      { sub: userId, jti: randomUUID(), fam, typ: 'cockpit', iat_ms: issuedAt },
       { audience: COCKPIT_ACCESS_TOKEN_AUDIENCE, expiresIn: ACCESS_TTL_SECONDS },
     );
   }
@@ -90,6 +96,9 @@ export class CockpitSessionService {
   }
 
   async refresh(cookie: string | undefined, ctx: RequestContext): Promise<CockpitStarted> {
+    // Stamped before any check: a reset (cut-off) that lands while this refresh is in flight
+    // is newer than the token, so the strategy refuses it instead of letting it live 15 min.
+    const issuedAt = Date.now();
     const fam = cookie ? await this.refreshTokens.familyIdForCookie(cookie) : null;
     if (!fam) throw new UnauthorizedException(COCKPIT_SESSION_ENDED);
 
@@ -109,10 +118,19 @@ export class CockpitSessionService {
       throw new UnauthorizedException(COCKPIT_SESSION_ENDED);
     }
     // The successor may not outlive the absolute limit: ttl is what is left of it.
-    const rotated = await this.refreshTokens.rotate(cookie as string, ctx, absLeft);
+    let rotated: Awaited<ReturnType<RefreshTokenService['rotate']>>;
+    try {
+      rotated = await this.refreshTokens.rotate(cookie as string, ctx, absLeft);
+    } catch (error) {
+      if (!(error instanceof RefreshTokenReuseDetectedException)) throw error;
+      // rotate() already revoked the family; its access tokens live on the Redis keys, so drop
+      // them too (strict: a Redis failure is a 503, never a token that stays alive).
+      await this.dropKeys(fam, true);
+      throw new UnauthorizedException(COCKPIT_SESSION_ENDED);
+    }
     await this.touch(fam);
     return {
-      accessToken: this.signAccess(rotated.userId, fam),
+      accessToken: this.signAccess(rotated.userId, fam, issuedAt),
       refreshCookieValue: rotated.refreshToken.cookieValue,
       familyId: fam,
       absoluteLeftMs: absLeft,

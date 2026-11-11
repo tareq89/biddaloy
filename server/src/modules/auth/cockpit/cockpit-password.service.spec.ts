@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { AuditAction, UserStatus } from '@biddaloy/shared';
 import { CockpitPasswordService, COCKPIT_RESET_REFUSED } from './cockpit-password.service';
 
@@ -37,12 +37,17 @@ describe('CockpitPasswordService', () => {
   let attempts: any;
   let audit: any;
   let authTokens: any;
+  let em: any;
 
   beforeEach(() => {
     user = owner();
     isAdmin = true;
     findOne = vi.fn(async () => user);
-    users = { findOne, update: vi.fn() };
+    em = { update: vi.fn() };
+    users = {
+      findOne,
+      manager: { transaction: vi.fn(async (work: (m: unknown) => Promise<unknown>) => work(em)) },
+    };
     issue = vi.fn().mockResolvedValue({ raw: 'RAWTOKEN' });
     verify = vi.fn().mockResolvedValue({
       status: 'valid',
@@ -117,10 +122,14 @@ describe('CockpitPasswordService', () => {
 
     it('sets the password, ends every session, bumps the cut-off, audits and returns no session', async () => {
       expect(await reset()).toBeUndefined();
-      expect(users.update).toHaveBeenCalledWith('u1', { password_hash: `hash:${GOOD_PASSWORD}` });
-      expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith('u1');
-      expect(cutoff.cutOff).toHaveBeenCalledWith('u1'); // Rule 8
-      expect(authTokens.consume).toHaveBeenCalledWith('row1');
+      // All four writes share one transaction manager.
+      expect(users.manager.transaction).toHaveBeenCalledTimes(1);
+      expect(em.update).toHaveBeenCalledWith(expect.anything(), 'u1', {
+        password_hash: `hash:${GOOD_PASSWORD}`,
+      });
+      expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith('u1', em);
+      expect(cutoff.cutOff).toHaveBeenCalledWith('u1', em); // Rule 8
+      expect(authTokens.consume).toHaveBeenCalledWith('row1', em);
       expect(attempts.reset).toHaveBeenCalledWith('cockpit:user:u1');
       expect(attempts.reset).toHaveBeenCalledWith('cockpit:one@x.com');
       expect(audit.record).toHaveBeenCalledWith(
@@ -132,9 +141,24 @@ describe('CockpitPasswordService', () => {
       const err: any = await reset(over).catch((e) => e);
       expect(err).toBeInstanceOf(UnauthorizedException);
       expect(err.message).toBe(COCKPIT_RESET_REFUSED);
-      expect(users.update).not.toHaveBeenCalled();
+      expect(em.update).not.toHaveBeenCalled();
       expect(authTokens.consume).not.toHaveBeenCalled();
     }
+
+    it('a link used since verify() is the same refusal, and a failing write ends nothing outside', async () => {
+      authTokens.consume.mockRejectedValueOnce(
+        new ConflictException('This link has already been used'),
+      );
+      const err: any = await reset().catch((e) => e);
+      expect(err).toBeInstanceOf(UnauthorizedException);
+      expect(err.message).toBe(COCKPIT_RESET_REFUSED);
+
+      // A revoke failure rejects the whole transaction: no lockout reset, no audit.
+      refreshTokens.revokeAllForUser.mockRejectedValueOnce(new Error('db down'));
+      await expect(reset()).rejects.toThrow('db down');
+      expect(attempts.reset).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
 
     it('refuses a reused, expired or unknown token', async () => {
       for (const status of ['consumed', 'expired', 'unknown', 'revoked']) {

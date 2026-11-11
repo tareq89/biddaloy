@@ -35,7 +35,7 @@ export class CockpitEnrolService {
   }
 
   async start(dto: CockpitEnrolStartDto): Promise<{ otpauthUri: string; secret: string }> {
-    const userId = await this.steps.verify(dto.enrolToken, 'enrol');
+    const { userId } = await this.steps.verify(dto.enrolToken, 'enrol');
     if (await this.loginAttempts.isLocked(cockpitUserLockKey(userId))) this.fail();
     const user = await this.auth.loadOwner(userId);
     if (user.status !== UserStatus.ACTIVE || !user.phone || !user.email) this.fail();
@@ -64,7 +64,7 @@ export class CockpitEnrolService {
     dto: CockpitEnrolConfirmDto,
     ctx: RequestContext,
   ): Promise<{ recoveryCodes: string[]; session: Extract<CockpitAuthResult, { step: 'done' }> }> {
-    const userId = await this.steps.verify(dto.enrolToken, 'enrol');
+    const { userId } = await this.steps.verify(dto.enrolToken, 'enrol');
     const key = cockpitUserLockKey(userId);
     if (await this.loginAttempts.isLocked(key)) this.fail();
     const user = await this.auth.loadOwner(userId);

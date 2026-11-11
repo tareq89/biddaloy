@@ -125,6 +125,15 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   invoice_share_tokens: { 'delete-row': ['*'] },
   push_subscriptions: { 'delete-row': ['*'] },
   attendance_devices: { 'delete-row': ['*'] },
+  // [Epic 98] Cockpit credential material: a production owner's MFA secret, recovery codes and
+  // trusted devices must never work on staging (owners re-enrol there), and pending approvals
+  // carry production summaries.
+  user_mfa: { 'delete-row': ['*'] },
+  user_recovery_codes: { 'delete-row': ['*'] },
+  platform_admin_devices: { 'delete-row': ['*'] },
+  platform_approvals: { 'delete-row': ['*'] },
+  // Platform switches (e.g. the two-owner approvals flag): config, no secrets or personal data.
+  platform_settings: { 'kept-public': ['value'] },
   // [76.2] upload history keeps the file name and the parsed rows (names, card numbers).
   attendance_imports: { 'delete-row': ['*'] },
   // [76.1] the ID card number can identify a person.
