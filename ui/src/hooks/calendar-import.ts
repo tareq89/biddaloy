@@ -100,20 +100,14 @@ export function useCloneCalendar() {
       target_year_id: string;
       event_ids?: string[];
     }): Promise<CalendarImportValidateResponse> => {
-      const res = await apiClient.post<CalendarImportValidateResponse>(
-        '/calendar/clone',
-        input,
-      );
+      const res = await apiClient.post<CalendarImportValidateResponse>('/calendar/clone', input);
       return res.data;
     },
     retry: false,
   });
 }
 
-function filenameFromContentDisposition(
-  header: string | undefined,
-  fallback: string,
-): string {
+function filenameFromContentDisposition(header: string | undefined, fallback: string): string {
   const match = header?.match(/filename="?([^";]+)"?/i);
   return match?.[1] ?? fallback;
 }
