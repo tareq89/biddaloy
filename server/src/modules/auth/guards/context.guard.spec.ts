@@ -322,6 +322,121 @@ describe('ContextGuard', () => {
     });
   });
 
+  describe('Login as (Epic 99, #3792)', () => {
+    const memberships = [
+      { tenantId: 'tenant-1', role: UserRole.ADMIN },
+      { tenantId: 'tenant-1', role: UserRole.TEACHER },
+    ];
+    const impReq = (
+      over: {
+        method?: string;
+        headers?: Record<string, string>;
+        imp?: any;
+        memberships?: any[];
+      } = {},
+    ) => ({
+      method: over.method ?? 'GET',
+      user: {
+        sub: 'user-1',
+        email: 'a@b.c',
+        phone: null,
+        memberships: over.memberships ?? memberships,
+        impSession: {
+          adminId: 'admin-1',
+          userId: 'user-1',
+          schoolId: 'tenant-1',
+          role: UserRole.TEACHER,
+          viewOnly: false,
+          writeLocked: false,
+          kind: 'SUPPORT',
+          ...over.imp,
+        },
+      },
+      headers: { 'x-tenant-id': 'tenant-1', ...over.headers } as Record<string, string>,
+    });
+    const run = (req: any) => guard.canActivate(createMockContext(req)).then(() => req);
+
+    it('pins the role over a higher-priority role and sets impersonation', async () => {
+      const req = await run(impReq());
+      expect(req.currentTenant).toEqual({ id: 'tenant-1', role: UserRole.TEACHER });
+      expect(req.impersonation.adminId).toBe('admin-1');
+      expect(req.isPlatformSuperAdmin).toBe(false);
+      expect(tenantStatus.platformTenantId).not.toHaveBeenCalled();
+    });
+
+    it('401 on a wrong tenant header', async () => {
+      await expect(run(impReq({ headers: { 'x-tenant-id': 'tenant-2' } }))).rejects.toThrow(
+        'User is not a member of the requested tenant',
+      );
+    });
+
+    it('401 on a wrong role header; matching header is case-safe', async () => {
+      await expect(run(impReq({ headers: { 'x-role': 'ADMIN' } }))).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(run(impReq({ headers: { 'x-role': 'teacher' } }))).resolves.toBeTruthy();
+    });
+
+    it('401 when the token memberships lack the pinned school and role', async () => {
+      await expect(
+        run(impReq({ memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }] })),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('refuses a SUPER_ADMIN session', async () => {
+      const m = [{ tenantId: 'tenant-1', role: UserRole.SUPER_ADMIN }];
+      await expect(
+        run(impReq({ imp: { role: UserRole.SUPER_ADMIN }, memberships: m })),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('missing X-Tenant-ID keeps the existing 401 text', async () => {
+      const req = impReq();
+      delete req.headers['x-tenant-id'];
+      await expect(run(req)).rejects.toThrow('X-Tenant-ID header is required');
+    });
+
+    it('unknown school still 401', async () => {
+      tenantStatus.getStatus.mockResolvedValue(null);
+      await expect(run(impReq())).rejects.toThrow('The requested tenant does not exist');
+    });
+
+    it('suspended school passes for imp but not for a normal token', async () => {
+      tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
+      await expect(run(impReq())).resolves.toBeTruthy();
+      const normal = impReq();
+      (normal.user as any).impSession = undefined;
+      await expect(run(normal)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('seat-grace read-only passes for imp writes', async () => {
+      tenantStatus.getReadOnlyUntil.mockResolvedValue(new Date('2030-01-01'));
+      await expect(run(impReq({ method: 'POST' }))).resolves.toBeTruthy();
+    });
+
+    it('restoring school still blocks imp writes with 423', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      const error: any = await run(impReq({ method: 'POST' })).catch((e) => e);
+      expect(error.getStatus()).toBe(423);
+      await expect(run(impReq({ method: 'GET' }))).resolves.toBeTruthy();
+    });
+
+    it.each(['viewOnly', 'writeLocked'])('%s blocks writes, allows reads', async (flag) => {
+      for (const method of ['POST', 'PATCH', 'DELETE', 'post']) {
+        const error: any = await run(impReq({ method, imp: { [flag]: true } })).catch((e) => e);
+        expect(error.getStatus()).toBe(403);
+        expect(tenantStatus.getStatus).not.toHaveBeenCalled();
+        expect(error.getResponse()).toEqual({
+          message: 'This sign-in is view only',
+          details: { code: 'SUPPORT_VIEW_ONLY' },
+        });
+      }
+      for (const method of ['GET', 'HEAD', 'OPTIONS']) {
+        await expect(run(impReq({ method, imp: { [flag]: true } }))).resolves.toBeTruthy();
+      }
+    });
+  });
+
   describe('Seat-grace read-only window (Epic 49 D9)', () => {
     const UNTIL = new Date('2027-01-07T18:00:00.000Z');
     const adminOf = [{ tenantId: 'tenant-1', role: UserRole.ADMIN }];
