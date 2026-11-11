@@ -6,7 +6,15 @@
  */
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ConfirmDialog, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import {
+  ClosedYearNotice,
+  ConfirmDialog,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  isYearClosedError,
+  useIsYearClosed,
+} from '@biddaloy/ui/components';
 import {
   examQueryOptions,
   useAcademicYear,
@@ -48,6 +56,8 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
       loadRouteNamespaces(
         'exams',
         'common',
+        // [69.4.05] ClosedYearNotice reads its copy from this namespace.
+        'academicYears',
         'examsTemplateField',
         'grading',
         'examDocuments',
@@ -63,6 +73,7 @@ const TAB_IDS = ['progress', 'setup', 'schedule', 'results', 'print'] as const;
 function ExamDetailPage() {
   const { examId } = Route.useParams();
   const { t } = useTranslation('exams');
+  const { t: tYears } = useTranslation('academicYears');
   const config = useRegionConfig();
   const examQuery = useExam(examId);
   const exam = examQuery.data;
@@ -70,6 +81,8 @@ function ExamDetailPage() {
   const yearQuery = useAcademicYear(exam?.academic_year_id);
   const canManage = useHasPermission(Permission.EXAM_MANAGE);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  // [69.4.05] A closed year's exam cannot be edited or deleted: notice above, those actions off.
+  const yearClosed = useIsYearClosed(exam?.academic_year_id);
   const resultActions = useResultActions(examId, exam?.status);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -88,6 +101,7 @@ function ExamDetailPage() {
 
   return (
     <>
+      <ClosedYearNotice academicYearId={exam.academic_year_id} />
       <DetailShell
         name={exam.name}
         statusBadge={<ExamStatusBadge status={exam.status} />}
@@ -124,6 +138,8 @@ function ExamDetailPage() {
             icon: <Pencil aria-hidden className="size-4" />,
             priority: 'tertiary',
             allowed: canManage,
+            disabled: yearClosed,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => setEditOpen(true),
           },
           {
@@ -133,6 +149,8 @@ function ExamDetailPage() {
             priority: 'destructive',
             // Only a DRAFT exam can have no results; the server refuses the rest with 409.
             allowed: canManage && exam.status === 'DRAFT',
+            disabled: yearClosed,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => setDeleteOpen(true),
           },
         ]}
@@ -196,11 +214,13 @@ function ExamDetailPage() {
         description={`${t('detail.delete.description')}${
           deleteExam.isError
             ? ` ${
-                deleteExam.error instanceof ApiError &&
-                (deleteExam.error.details as { code?: string } | undefined)?.code ===
-                  'EXAM_HAS_RESULTS'
-                  ? t('detail.delete.errorHasResults')
-                  : t('detail.delete.errorMessage')
+                isYearClosedError(deleteExam.error)
+                  ? deleteExam.error.message
+                  : deleteExam.error instanceof ApiError &&
+                      (deleteExam.error.details as { code?: string } | undefined)?.code ===
+                        'EXAM_HAS_RESULTS'
+                    ? t('detail.delete.errorHasResults')
+                    : t('detail.delete.errorMessage')
               }`
             : ''
         }`}

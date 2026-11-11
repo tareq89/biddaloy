@@ -13,6 +13,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   cellKey,
+  ClosedYearNotice,
   ConfirmDialog,
   ErrorState,
   HelpHint,
@@ -22,7 +23,9 @@ import {
   Skeleton,
   StatusBadge,
   TableCount,
+  isYearClosedError,
   toast,
+  useIsYearClosed,
 } from '@biddaloy/ui/components';
 import {
   useActiveRole,
@@ -69,7 +72,7 @@ export const Route = createFileRoute('/_staff/marks/$examId/$sectionId/$subjectI
   // depends on `examId`+`sectionId`+`subjectId` together, and this loader
   // has nothing cheaper to prefetch than that same request, so it only
   // needs to warm the i18n namespace before the component renders.
-  loader: () => loadRouteNamespaces('exams', 'grading', 'common'),
+  loader: () => loadRouteNamespaces('exams', 'grading', 'common', 'academicYears'),
   pendingComponent: MarksGridPending,
   component: MarksEntryPage,
 });
@@ -104,6 +107,7 @@ function MarksEntryContent() {
   const { t } = useTranslation('exams');
   const { t: tg, i18n } = useTranslation('grading');
   const { t: tCommon } = useTranslation('common');
+  const { t: tYears } = useTranslation('academicYears');
   const config = useRegionConfig();
   const isMobile = useIsMobile();
   // Context for the subtitle. Both reads are allowed for a teacher (the exam
@@ -121,6 +125,8 @@ function MarksEntryContent() {
   // MARK_ENTER for their own sections without holding EXAM_MANAGE. A
   // MARK_VIEW-only role (EXECUTIVE) sees the grid read-only.
   const canEnter = useHasPermission(Permission.MARK_ENTER);
+  // [69.4.05] A closed year's marks cannot change: notice, read-only grid, no Submit / Reopen.
+  const yearClosed = useIsYearClosed(exam?.academic_year_id);
 
   const gridQuery = useMarkGrid(examId, sectionId, subjectId);
   const submitGrid = useSubmitMarkGrid(examId, sectionId, subjectId);
@@ -129,14 +135,22 @@ function MarksEntryContent() {
   const reopenGrid = useReopenMarkGrid(examId, sectionId, subjectId);
   const submitted = gridQuery.data?.state === 'SUBMITTED';
   // One gate for the Submit button and its Ctrl/Cmd+Enter shortcut.
-  const canSubmit = gridQuery.data !== undefined && !submitted && canEnter;
+  const canSubmit = gridQuery.data !== undefined && !submitted && canEnter && !yearClosed;
 
   const [submitOpen, setSubmitOpen] = React.useState(false);
   const [flushing, setFlushing] = React.useState(false);
+  const [saveClosedYear, setSaveClosedYear] = React.useState(false);
 
   const autosave = useAutosave<MarkGridCell>({
     save: async (batch) => {
-      await saveMarkBatch(examId, sectionId, subjectId, [...batch.values()]);
+      try {
+        await saveMarkBatch(examId, sectionId, subjectId, [...batch.values()]);
+        setSaveClosedYear(false);
+      } catch (error) {
+        // [69.4.05] The page raced a close: say so beside the save state, not a generic failure.
+        setSaveClosedYear(isYearClosedError(error));
+        throw error;
+      }
     },
   });
 
@@ -224,8 +238,8 @@ function MarksEntryContent() {
   }
 
   const grid = gridQuery.data;
-  const readOnly = submitted || !canEnter;
-  const canReopen = submitted && role === UserRole.ADMIN;
+  const readOnly = submitted || !canEnter || yearClosed;
+  const canReopen = submitted && role === UserRole.ADMIN && !yearClosed;
 
   const blankCount = grid.students.reduce((count, student) => {
     // A late joiner, or a student who does not take this subject, owes no
@@ -253,14 +267,16 @@ function MarksEntryContent() {
   const saveStateLine =
     saveState === 'saving'
       ? t('saveState.saving')
-      : saveState === 'error'
-        ? tg('marksSheet.saveError', {
-            count: autosave.pendingCount,
-            n: formatNumber(autosave.pendingCount, config),
-          })
-        : saveState === 'saved'
-          ? t('saveState.saved', { time: formatTime(autosave.lastSavedAt, config) })
-          : t('saveState.idle');
+      : saveState === 'error' && saveClosedYear
+        ? tYears('closedNotice.tooltip')
+        : saveState === 'error'
+          ? tg('marksSheet.saveError', {
+              count: autosave.pendingCount,
+              n: formatNumber(autosave.pendingCount, config),
+            })
+          : saveState === 'saved'
+            ? t('saveState.saved', { time: formatTime(autosave.lastSavedAt, config) })
+            : t('saveState.idle');
   const SaveIcon =
     saveState === 'saving'
       ? LoaderCircleIcon
@@ -356,6 +372,8 @@ function MarksEntryContent() {
           )}
         </div>
       </header>
+
+      <ClosedYearNotice academicYearId={exam?.academic_year_id} />
 
       {submitted && (
         <div className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">

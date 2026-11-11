@@ -9,7 +9,13 @@
  * `students/index.tsx`.
  */
 import { FeeType, Permission } from '@biddaloy/shared';
-import { CachedDataNotice, RoutePending, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  CachedDataNotice,
+  ClosedYearNotice,
+  RoutePending,
+  useIsYearClosed,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import {
   feeStructuresQueryOptions,
   useAcademicYears,
@@ -117,7 +123,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
           }),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('feeStructures'),
+      loadRouteNamespaces('feeStructures', 'academicYears'),
     ]);
   },
   pendingComponent: FeeStructuresListPending,
@@ -126,6 +132,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
 
 function FeeStructuresListPage() {
   const { t } = useTranslation('feeStructures');
+  const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState();
   const filters = state.filters as FeeStructureFilters;
@@ -153,6 +160,9 @@ function FeeStructuresListPage() {
   );
   const sectionsQuery = useClassSections(filters.class_id);
 
+  // [69.4.05] A closed year's fee structures cannot change. The list may span years, so a row is
+  // locked by its own year; Add is off while the year filter names a closed year.
+  const filterYearClosed = useIsYearClosed(filters.academic_year_id);
   const [createOpen, setCreateOpen] = useLandingFlag('new', canCreate);
   const [editing, setEditing] = React.useState<FeeStructure | null>(null);
   const [deleting, setDeleting] = React.useState<FeeStructure | null>(null);
@@ -270,6 +280,7 @@ function FeeStructuresListPage() {
   return (
     <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={feeStructuresQueryOptions(structureListFilters).queryKey} />
+      <ClosedYearNotice academicYearId={filters.academic_year_id} />
       <ListShell
         title={t('list.title')}
         subtitle={t('list.subtitle')}
@@ -281,6 +292,8 @@ function FeeStructuresListPage() {
             icon: <PlusIcon />,
             priority: 'primary',
             allowed: canCreate,
+            disabled: filterYearClosed,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => setCreateOpen(true),
           },
         ]}
@@ -288,13 +301,13 @@ function FeeStructuresListPage() {
           {
             intent: 'edit',
             label: t('list.edit'),
-            allowed: canUpdate,
+            allowed: canUpdate && !row.academic_year?.closed_at,
             onClick: () => setEditing(row),
           },
           {
             intent: 'delete',
             label: t('list.delete'),
-            allowed: canDelete,
+            allowed: canDelete && !row.academic_year?.closed_at,
             onClick: () => setDeleting(row),
           },
         ]}
@@ -320,7 +333,7 @@ function FeeStructuresListPage() {
           // Filtered to nothing is not "no structures yet".
           title: filtered ? t('list.noMatchMessage') : t('list.emptyMessage'),
           explanation: filtered ? t('list.noMatchExplanation') : t('list.emptyExplanation'),
-          ...(canCreate && !filtered
+          ...(canCreate && !filtered && !filterYearClosed
             ? { action: { label: t('list.addStructure'), onClick: () => setCreateOpen(true) } }
             : {}),
         }}

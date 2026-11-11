@@ -375,7 +375,9 @@ export {
 export { Tabs, TabsList, TabsTrigger, TabsContent } from '../primitives/tabs';
 export { CachedDataNotice, type CachedDataNoticeProps } from './cached-data-notice';
 export {
+  closedYearErrorText,
   ClosedYearNotice,
+  isYearClosedError,
   useIsYearClosed,
   type ClosedYearNoticeProps,
 } from './closed-year-notice';

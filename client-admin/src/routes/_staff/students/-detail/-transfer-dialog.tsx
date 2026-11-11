@@ -46,6 +46,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  isYearClosedError,
 } from '@biddaloy/ui/components';
 import {
   useClasses,
@@ -231,12 +232,14 @@ export function TransferDialog({
 
             {mutation.isError && (
               <p role="alert" className="text-destructive">
-                {t(
-                  mutation.error instanceof ApiError &&
-                    mutation.error.details?.code === 'ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION'
-                    ? 'detail.moveClassDialog.classLockedHint'
-                    : 'detail.moveClassDialog.errorMessage',
-                )}
+                {isYearClosedError(mutation.error)
+                  ? mutation.error.message
+                  : t(
+                      mutation.error instanceof ApiError &&
+                        mutation.error.details?.code === 'ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION'
+                        ? 'detail.moveClassDialog.classLockedHint'
+                        : 'detail.moveClassDialog.errorMessage',
+                    )}
               </p>
             )}
           </div>

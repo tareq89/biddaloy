@@ -90,6 +90,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/applications/$applicationId': 'detail page reached from a list row',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
   '/_staff/promotions/$runId': 'detail route reached from the promotions list',
+  '/_staff/promotions/$runId_/groups':
+    'full-page task opened from the run page, the My class card and the attention item (D15), not the menu',
   '/_staff/print-templates/$templateId/edit':
     '[32.4.1] full-screen editor, reached from the print templates library',
   '/_staff/print/committee-report':

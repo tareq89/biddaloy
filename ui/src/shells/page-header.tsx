@@ -28,6 +28,8 @@ interface PageActionBase {
   icon?: React.ReactNode;
   /** Stays visible, not clickable (e.g. Save with no changes). */
   disabled?: boolean;
+  /** Native tooltip (`title`) on a disabled action: why it cannot be used. */
+  disabledReason?: string | undefined;
   /** Button `loading` (spinner + `aria-busy`, label kept). */
   busy?: boolean;
   /** Secondary only: stays an inline outline button on phone instead of moving into More.
@@ -146,6 +148,7 @@ export function PageHeaderActions({
         variant={variantOf(a)}
         data-action-id={a.id}
         disabled={a.disabled ?? false}
+        {...(a.disabled && a.disabledReason ? { title: a.disabledReason } : {})}
         loading={a.busy ?? false}
         onClick={a.onClick}
         className={className}
@@ -187,6 +190,7 @@ export function PageHeaderActions({
         key={a.id}
         variant={a.priority === 'destructive' ? 'destructive' : 'default'}
         disabled={(a.disabled ?? false) || (a.busy ?? false)}
+        {...(a.disabled && a.disabledReason ? { title: a.disabledReason } : {})}
         className={className}
         onSelect={a.onClick}
       >

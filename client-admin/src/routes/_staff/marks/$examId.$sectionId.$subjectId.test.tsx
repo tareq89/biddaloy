@@ -201,6 +201,40 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     });
   });
 
+  it('[69.4.05] a save refused with ACADEMIC_YEAR_CLOSED says the year is closed beside the save state', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.patch(GRID_URL, () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            timestamp: new Date().toISOString(),
+            path: '/exams/exam-1/marks',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await user.type(await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written'), '90');
+
+    await within(screen.getByTestId('save-state-line')).findByText(
+      'This year is closed. Reopen it on Academic years to change this.',
+      undefined,
+      { timeout: 3000 },
+    );
+  });
+
   it('a blank cell blocks submit: alert shows and the confirm button is disabled', async () => {
     const user = userEvent.setup();
     server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
@@ -789,6 +823,44 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       await user.click(screen.getByRole('button', { name: 'Download sheet' }));
       await waitFor(() => expect(patched).toBeGreaterThan(0));
       expect(hit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('closed year [69.4.05]', () => {
+    function renderMarks(closedAt: string | null) {
+      server.use(
+        http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+        http.get('/api/v1/exams', () => {
+          const exam = examFactory({ id: 'exam-1', academic_year_id: 'year-1' });
+          return HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 });
+        }),
+        http.get('/api/v1/academic-years/year-1', () =>
+          HttpResponse.json({ id: 'year-1', name: '2026', closed_at: closedAt }),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+    }
+
+    it('shows the notice, turns the grid read-only and drops Submit', async () => {
+      renderMarks('2026-12-31T00:00:00.000Z');
+
+      expect(await screen.findByText(/2026 is closed/)).toBeTruthy();
+      const cell = await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
+      expect(cell.readOnly || cell.disabled).toBe(true);
+      expect(screen.queryByRole('button', { name: /^Submit/ })).toBeNull();
+    });
+
+    it('an open year keeps the editable grid and Submit', async () => {
+      renderMarks(null);
+
+      expect(await screen.findByLabelText('Rafi Ahmed — Written')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^Submit/ })).toBeTruthy();
+      expect(screen.queryByText(/is closed/)).toBeNull();
     });
   });
 });

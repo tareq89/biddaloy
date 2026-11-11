@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithProviders, renderWithRouter, server } from '@biddaloy/ui/test';
+import { createRootRoute } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -132,5 +133,53 @@ describe('EnrollmentTab', () => {
 
     await waitFor(() => expect(screen.getByText('Class 6 · Section A')).not.toBeNull());
     expect(screen.queryByText(/by override/)).toBeNull();
+  });
+
+  describe('closed year [69.4.05]', () => {
+    function serve(closedAt: string | null) {
+      server.use(
+        http.get('/api/v1/enrollments/student/:studentId', () => HttpResponse.json([enrollment()])),
+        http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+        http.get('/api/v1/academic-years/:id', () =>
+          HttpResponse.json({
+            id: 'year-1',
+            name: '2025-2026',
+            closed_at: closedAt,
+            start_date: '2025-01-01T00:00:00.000Z',
+            end_date: '2025-12-31T00:00:00.000Z',
+          }),
+        ),
+      );
+    }
+
+    it('a closed year shows the notice and turns Move class off', async () => {
+      serve('2026-01-01T00:00:00.000Z');
+      // The notice links to the year, so it needs a router.
+      renderWithRouter(
+        createRootRoute({
+          component: () => (
+            <EnrollmentTab
+              studentId={STUDENT_ID}
+              studentName="Test Student"
+              enrollmentStatus="ACTIVE"
+            />
+          ),
+        }),
+        { initialEntries: ['/'], locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+      );
+      expect(await screen.findByText(/2025-2026 is closed/)).toBeTruthy();
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Move class' }).disabled).toBe(
+        true,
+      );
+    });
+
+    it('an open year leaves Move class on and shows no notice', async () => {
+      serve(null);
+      renderTab();
+      const move = await screen.findByRole<HTMLButtonElement>('button', { name: 'Move class' });
+      await screen.findByText('2025-2026');
+      expect(move.disabled).toBe(false);
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
   });
 });

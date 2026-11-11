@@ -17,6 +17,7 @@ import { AttendanceStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  ClosedYearNotice,
   ConfirmDialog,
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   EmptyState,
   ErrorState,
   HelpHint,
+  isYearClosedError,
   Label,
   MonthPicker,
   Select,
@@ -40,6 +42,7 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
+  useAcademicYears,
   useActiveTenant,
   useClasses,
   useClassSections,
@@ -123,7 +126,7 @@ function useIsMd(): boolean {
 
 export const Route = createFileRoute('/_staff/attendance/register')({
   validateSearch: searchSchema,
-  loader: () => loadRouteNamespaces('attendance', 'common'),
+  loader: () => loadRouteNamespaces('attendance', 'common', 'academicYears'),
   component: RegisterPage,
 });
 
@@ -140,6 +143,7 @@ function RegisterPage() {
 
 function RegisterPageContent() {
   const { t } = useTranslation('attendance');
+  const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useRegionConfig();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
@@ -180,8 +184,27 @@ function RegisterPageContent() {
   // student) that is no longer on screen, so edit mode waits for real data.
   const loading = matrixQuery.isPending || (search.edit === true && matrixQuery.isPlaceholderData);
   const writeBlocked = matrix?.can_write === false;
+  // [69.4.05] D12: a month touching ANY closed year is read-only, even if an open year overlaps it.
+  const yearsQuery = useAcademicYears({ limit: 100 });
+  const closedYear = matrix
+    ? yearsQuery.data?.data.find(
+        (y) =>
+          y.closed_at !== null &&
+          matrix.dates.some(
+            (d) => y.start_date.slice(0, 10) <= d.date && d.date <= y.end_date.slice(0, 10),
+          ),
+      )
+    : undefined;
+  // The server's closed-year sentence, shown under the header when a save races a close.
+  const [closedMessage, setClosedMessage] = React.useState<string | null>(null);
   const editing =
-    search.edit === true && isMd && canMark && !writeBlocked && rows.length > 0 && !loading;
+    search.edit === true &&
+    isMd &&
+    canMark &&
+    !writeBlocked &&
+    !closedYear &&
+    rows.length > 0 &&
+    !loading;
   const saveMatrix = useSaveRegisterMatrix(search.section_id ?? '');
 
   // Changed cells only. A ref mirrors it so the route blocker (and a save
@@ -267,6 +290,7 @@ function RegisterPageContent() {
       return;
     }
     setReasonError(false);
+    setClosedMessage(null);
     // Guard: only dates of the loaded month (a draft never outlives its month).
     const days = changedDates
       .filter((date) => matrix.dates.some((d) => d.date === date))
@@ -296,6 +320,8 @@ function RegisterPageContent() {
           leaveEdit();
         },
         onError: (error) => {
+          // Before the 409 branch below: a closed year is not a stale-day conflict.
+          if (isYearClosedError(error)) return setClosedMessage(error.message);
           const details = error instanceof ApiError ? error.details : undefined;
           const code = details?.code;
           const dates = Array.isArray(details?.dates) ? (details.dates as string[]) : [];
@@ -370,6 +396,8 @@ function RegisterPageContent() {
             label: t('register.edit'),
             icon: <PencilIcon aria-hidden="true" />,
             allowed: !editing && !loading && isMd && canMark && !writeBlocked && rows.length > 0,
+            disabled: closedYear !== undefined,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => void navigate({ search: (prev) => ({ ...prev, edit: true }) }),
           },
           {
@@ -392,6 +420,12 @@ function RegisterPageContent() {
           },
         ]}
       />
+      <ClosedYearNotice academicYearId={closedYear?.id} />
+      {closedMessage !== null && (
+        <p role="alert" className="text-destructive">
+          {closedMessage}
+        </p>
+      )}
       {writeBlocked && (matrix?.write_reason != null || canMark) && (
         <p
           role="status"

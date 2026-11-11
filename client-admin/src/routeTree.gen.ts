@@ -170,6 +170,7 @@ import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fee
 import { Route as StaffFeesSchedulesIdRouteImport } from './routes/_staff/fees/schedules/$id'
 import { Route as StaffMyClassSectionIdNotesRouteImport } from './routes/_staff/my-class/$sectionId_.notes'
 import { Route as StaffPrintTemplatesTemplateIdEditRouteImport } from './routes/_staff/print-templates/$templateId.edit'
+import { Route as StaffPromotionsRunIdGroupsRouteImport } from './routes/_staff/promotions/$runId_.groups'
 import { Route as StaffReportsReportIdEditRouteImport } from './routes/_staff/reports/$reportId_.edit'
 import { Route as StaffReportsRunsRunIdRouteImport } from './routes/_staff/reports/runs.$runId'
 import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff/results/$examId.$studentId'
@@ -1033,6 +1034,12 @@ const StaffPrintTemplatesTemplateIdEditRoute =
     path: '/print-templates/$templateId/edit',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffPromotionsRunIdGroupsRoute =
+  StaffPromotionsRunIdGroupsRouteImport.update({
+    id: '/promotions/$runId_/groups',
+    path: '/promotions/$runId/groups',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffReportsReportIdEditRoute =
   StaffReportsReportIdEditRouteImport.update({
     id: '/reports/$reportId_/edit',
@@ -1260,6 +1267,7 @@ export interface FileRoutesByFullPath {
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/my-class/$sectionId/notes': typeof StaffMyClassSectionIdNotesRoute
   '/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
+  '/promotions/$runId/groups': typeof StaffPromotionsRunIdGroupsRoute
   '/reports/$reportId/edit': typeof StaffReportsReportIdEditRoute
   '/reports/runs/$runId': typeof StaffReportsRunsRunIdRoute
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
@@ -1432,6 +1440,7 @@ export interface FileRoutesByTo {
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/my-class/$sectionId/notes': typeof StaffMyClassSectionIdNotesRoute
   '/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
+  '/promotions/$runId/groups': typeof StaffPromotionsRunIdGroupsRoute
   '/reports/$reportId/edit': typeof StaffReportsReportIdEditRoute
   '/reports/runs/$runId': typeof StaffReportsRunsRunIdRoute
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
@@ -1610,6 +1619,7 @@ export interface FileRoutesById {
   '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/_staff/my-class/$sectionId_/notes': typeof StaffMyClassSectionIdNotesRoute
   '/_staff/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
+  '/_staff/promotions/$runId_/groups': typeof StaffPromotionsRunIdGroupsRoute
   '/_staff/reports/$reportId_/edit': typeof StaffReportsReportIdEditRoute
   '/_staff/reports/runs/$runId': typeof StaffReportsRunsRunIdRoute
   '/_staff/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
@@ -1787,6 +1797,7 @@ export interface FileRouteTypes {
     | '/fees/schedules/$id'
     | '/my-class/$sectionId/notes'
     | '/print-templates/$templateId/edit'
+    | '/promotions/$runId/groups'
     | '/reports/$reportId/edit'
     | '/reports/runs/$runId'
     | '/results/$examId/$studentId'
@@ -1959,6 +1970,7 @@ export interface FileRouteTypes {
     | '/fees/schedules/$id'
     | '/my-class/$sectionId/notes'
     | '/print-templates/$templateId/edit'
+    | '/promotions/$runId/groups'
     | '/reports/$reportId/edit'
     | '/reports/runs/$runId'
     | '/results/$examId/$studentId'
@@ -2136,6 +2148,7 @@ export interface FileRouteTypes {
     | '/_staff/fees/schedules/$id'
     | '/_staff/my-class/$sectionId_/notes'
     | '/_staff/print-templates/$templateId/edit'
+    | '/_staff/promotions/$runId_/groups'
     | '/_staff/reports/$reportId_/edit'
     | '/_staff/reports/runs/$runId'
     | '/_staff/results/$examId/$studentId'
@@ -3315,6 +3328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPrintTemplatesTemplateIdEditRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/promotions/$runId_/groups': {
+      id: '/_staff/promotions/$runId_/groups'
+      path: '/promotions/$runId/groups'
+      fullPath: '/promotions/$runId/groups'
+      preLoaderRoute: typeof StaffPromotionsRunIdGroupsRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/reports/$reportId_/edit': {
       id: '/_staff/reports/$reportId_/edit'
       path: '/reports/$reportId/edit'
@@ -3585,6 +3605,7 @@ interface StaffRouteChildren {
   StaffExamsTemplatesTemplateIdRoute: typeof StaffExamsTemplatesTemplateIdRoute
   StaffMyClassSectionIdNotesRoute: typeof StaffMyClassSectionIdNotesRoute
   StaffPrintTemplatesTemplateIdEditRoute: typeof StaffPrintTemplatesTemplateIdEditRoute
+  StaffPromotionsRunIdGroupsRoute: typeof StaffPromotionsRunIdGroupsRoute
   StaffReportsReportIdEditRoute: typeof StaffReportsReportIdEditRoute
   StaffReportsRunsRunIdRoute: typeof StaffReportsRunsRunIdRoute
   StaffResultsExamIdStudentIdRoute: typeof StaffResultsExamIdStudentIdRoute
@@ -3708,6 +3729,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffMyClassSectionIdNotesRoute: StaffMyClassSectionIdNotesRoute,
   StaffPrintTemplatesTemplateIdEditRoute:
     StaffPrintTemplatesTemplateIdEditRoute,
+  StaffPromotionsRunIdGroupsRoute: StaffPromotionsRunIdGroupsRoute,
   StaffReportsReportIdEditRoute: StaffReportsReportIdEditRoute,
   StaffReportsRunsRunIdRoute: StaffReportsRunsRunIdRoute,
   StaffResultsExamIdStudentIdRoute: StaffResultsExamIdStudentIdRoute,

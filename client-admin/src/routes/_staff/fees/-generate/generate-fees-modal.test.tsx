@@ -1,6 +1,13 @@
 import { getNotifications } from '@biddaloy/ui/api';
 import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
-import { apiErrorBody, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import {
+  apiErrorBody,
+  cleanupTestState,
+  renderWithProviders,
+  renderWithRouter,
+  server,
+} from '@biddaloy/ui/test';
+import { createRootRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -433,6 +440,37 @@ describe('GenerateFeesModal', () => {
     expect(screen.queryByText(/Internal thing/)).toBeNull();
   });
 
+  it('[69.4.05] a 409 ACADEMIC_YEAR_CLOSED shows the server sentence beside Create bills', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),
+      http.post('/api/v1/fees/generate/preview', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal();
+
+    await user.click(await screen.findByRole('button', { name: /Select all/ }));
+    const feeCheckboxes = await within(await screen.findByTestId('fee-picker')).findAllByRole(
+      'checkbox',
+    );
+    await user.click(feeCheckboxes[0]!);
+    await user.click(screen.getByRole('button', { name: 'Create bills' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'This academic year is closed.',
+    );
+  });
+
   it('keeps the primary action disabled until a student and a fee are chosen', async () => {
     server.use(
       yearHandler(),
@@ -582,5 +620,63 @@ describe('GenerateFeesModal', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  describe('closed year [69.4.05]', () => {
+    // The notice links to the year, so these cases need a router.
+    let yearFetched = false;
+    function renderWithYear(closedAt: string | null) {
+      yearFetched = false;
+      server.use(
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({
+            data: [
+              {
+                id: 'year-2026',
+                name: '2026',
+                start_date: '2026-01-01',
+                end_date: '2026-12-31',
+                is_current: true,
+                closed_at: closedAt,
+              },
+            ],
+            total: 1,
+            page: 1,
+            limit: 100,
+            totalPages: 1,
+          }),
+        ),
+        http.get('/api/v1/academic-years/year-2026', () => {
+          yearFetched = true;
+          return HttpResponse.json({ id: 'year-2026', name: '2026', closed_at: closedAt });
+        }),
+      );
+      renderWithRouter(
+        createRootRoute({
+          component: () => (
+            <RegionConfigProvider value={REGION_BD_EN}>
+              <GenerateFeesModal open onOpenChange={vi.fn()} />
+            </RegionConfigProvider>
+          ),
+        }),
+        { initialEntries: ['/'], tenantId: 'tenant-1', locale: 'en', role: 'ADMIN' },
+      );
+    }
+
+    it('says why when the chosen year is closed', async () => {
+      renderWithYear('2026-12-31T00:00:00.000Z');
+      expect(await screen.findByText(/2026 is closed/)).toBeTruthy();
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Create bills' }).disabled).toBe(
+        true,
+      );
+    });
+
+    it('shows no notice for an open year', async () => {
+      renderWithYear(null);
+      await screen.findByRole('button', { name: 'Create bills' });
+      // The year was read and came back open: nothing to say.
+      await waitFor(() => expect(yearFetched).toBe(true));
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
   });
 });

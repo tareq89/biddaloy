@@ -12,7 +12,7 @@
  * instead of the generic failure message.
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { ConfirmDialog, toast } from '@biddaloy/ui/components';
+import { closedYearErrorText, ConfirmDialog, toast } from '@biddaloy/ui/components';
 import { useDeleteFeeStructure } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -47,10 +47,14 @@ export function DeleteStructureDialog({
       onSuccess: onDeleted,
       onError: (error) => {
         onOpenChange(false);
+        // [69.4.05] ConfirmDialog has no error slot, so the toast carries the server's sentence.
         toast.error(
-          error instanceof ApiError && error.statusCode === 409
-            ? t('deleteDialog.conflictMessage')
-            : t('deleteDialog.errorMessage'),
+          closedYearErrorText(
+            error,
+            error instanceof ApiError && error.statusCode === 409
+              ? t('deleteDialog.conflictMessage')
+              : t('deleteDialog.errorMessage'),
+          ),
         );
       },
     });

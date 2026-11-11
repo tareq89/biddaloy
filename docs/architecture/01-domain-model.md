@@ -170,7 +170,11 @@ for full field lists.)_
 
 - **`AcademicYear`** — a school's calendar period (e.g. "2026-2027"),
   school-scoped. Only one can be `is_current` per school. Everything
-  fee-related is ultimately scoped to one of these.
+  fee-related is ultimately scoped to one of these. `closed_at` and
+  `closed_by_user_id` (Epic 69) mark a **closed** year: every write into it is
+  refused with `409 ACADEMIC_YEAR_CLOSED`. A DB CHECK
+  (`CHK_academic_years_closed_not_current`) stops a closed year from being
+  current. An admin can reopen it.
 - **`Class`** — a grade/standard (e.g. "Class 10"), unique per
   academic-year + school + `shift` + `version`. `shift` (e.g. "Morning" vs
   "Day") and `version` (e.g. "Bangla" vs "English") are free-text values a
@@ -783,9 +787,54 @@ flowchart LR
 
 ## Year rollover (Epic 69)
 
+Year end is four admin steps. Each one is a separate route, so each can be
+retried alone.
+
+```mermaid
+sequenceDiagram
+  actor Admin
+  participant Y as academic-years
+  participant P as promotions
+  Admin->>Y: POST /academic-years/{2026}/next (copy blocks into 2027)
+  Y-->>Admin: 2027 created, counts per block
+  Admin->>P: create run, PATCH /promotions/{run}/groups, commit
+  P-->>Admin: students enrolled in 2027 classes
+  Admin->>Y: POST /academic-years/{2027}/set-current
+  Admin->>Y: POST /academic-years/{2026}/close (step-up approval)
+  Y-->>Admin: closed_at set, writes into 2026 now 409
+```
+
+Example. Step 1 request, `POST /api/v1/academic-years/<2026-id>/next`:
+
+```json
+{
+  "name": "2027",
+  "start_date": "2027-01-01",
+  "end_date": "2027-12-31",
+  "include": ["classes", "sections", "terms"]
+}
+```
+
+`include` is optional; leave it out to copy all seven blocks (`classes`,
+`sections`, `class_subjects`, `teacher_assignments`, `fee_structures`,
+`grading_scales`, `terms`). `GET /academic-years/<id>/next/preview` takes the
+same values as query params and writes nothing.
+
 Dated learning from wave 1. Each bullet: what surprised us, what it cost, the
 fix, and a rule worth keeping.
 
+- **2026-11-11 — a `.env` copied into a worktree breaks `ci:local`.** `PLATFORM_TENANT_ID`
+  and provider keys leaked from it into the test run. Cost: red runs that no code change
+  explained. Fix: run `ci:local` without the `.env`. Rule candidate: worktrees never carry
+  a `.env` into CI.
+- **2026-11-11 — stacked-branch worker bases drifted.** Each lane must branch from the
+  previous lane's tip, and file counts are measured against the accumulation branch, not
+  `main`. Cost: lanes that re-did or conflicted with earlier work. Fix: base every lane on
+  the previous tip. Rule candidate: a stacked lane names its base branch in its ticket.
+- **2026-11-11 — ticket text disagreed with shipped behaviour.** A teacher asking for another
+  teacher's section gets 404, not an empty list (`promotion-groups.service.ts`), and some
+  button and card names differed. Fix: check every ticket claim against the code before
+  writing docs or guide pages. Rule candidate: docs are written from code, not from tickets.
 - **2026-11-11 — new shared enums break `client-admin` typecheck.** Adding
   `AuditAction.YEAR_*` and `Permission.PROMOTION_GROUP_SET` made `tsc -b` fail in
   places no server lane runs: the audit-log label map, the staff permission
@@ -815,5 +864,20 @@ fix, and a rule worth keeping.
   `assertYearOpen`.
 
 **Learning (2026-11-11, Epic 69 wave 2).** The current academic year is no longer always built by hand: `YearRolloverService` (`modules/academics/year-rollover.service.ts`) copies classes, sections, class subjects, teacher assignments, fee structures, grading scales and terms from a source year into a target year by natural key (D14), all-or-nothing, and re-running it counts rows `existing` instead of duplicating them. A closed year (`academic_years.closed_at`) is read-only for writes that call `assertYearOpen`.
+
+**Learning (2026-11-11, Epic 69 wave 4).** Closing and creating a year are now screens, so the data rules show up in the UI. Example: closing a year asks for the approval code, then every page that writes into it greys its write buttons. Four things to remember:
+
+```mermaid
+flowchart LR
+  A[Close year] --> B{Draft promotion open?}
+  B -- yes --> C[Close refused, link to Promotions]
+  B -- no --> D[closed_at set, 409 on every write]
+  D --> E[Reopen year clears closed_at]
+```
+
+- `GET /academic-years/:id/close-preview` reports `DUES_OUTSTANDING` in **whole paisa** (Rule 26). The dialog passes it straight to `formatCurrency`, which also takes minor units: 150000 paisa shows as `৳1,500.00`. Never divide by 100 in the page.
+- A `DRAFT` promotion run blocks closing its source year (`DRAFT_PROMOTION_RUN_OPEN`, D9). The demo school keeps one such draft (College's lowest class, half its entries without a group) so `promotion.groups_pending` has something to show.
+- The wizard's preview and create answers are typed by hand (`YearRolloverResult` in `ui/src/hooks/academic-years.ts`) because the controller declares no response DTO. Change the service shape and that interface together.
+- `POST academic-years/:id/next` and `PATCH promotions/:id/groups` are idempotency-key routes: a double click must not write twice.
 
 **Learning (2026-11-11, Epic 69 close).** Every year-scoped write is now guarded: `YEAR_SCOPED_WRITES` has 21 entries, none can be unwired, and the registry test also checks the listed service really calls `assertYearOpen`. `Program` was listed by mistake (no `academic_year_id`, D2) and was removed. Report card notes have no year column, so their guard reads the year from the target exam or final result. A student whose latest ACTIVE enrollment is in a just-closed year, with no next-year enrollment, cannot be recorded as leaving until the year is reopened: promote before you close.
