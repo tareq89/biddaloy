@@ -1126,11 +1126,18 @@ describe('ClassService / SectionService (integration)', () => {
           { name: 'Late', numeric_grade: 2, academic_year_id: year.id } as any,
           TENANT_ID,
         ),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
       await expect(
         classService.update(klass.id, { name: 'Renamed' } as any, TENANT_ID),
-      ).rejects.toThrow(ConflictException);
-      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      // nothing written: one class, old name, not deleted
+      const rows = await classRepo.find({ where: { tenant_id: TENANT_ID }, withDeleted: true });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].name).toBe('Closed');
+      expect(rows[0].deleted_at).toBeNull();
     });
   });
 });

@@ -40,7 +40,7 @@ describe('RoutineService [21.6.1]', () => {
     const ctx = buildService(undefined, new Date());
     await expect(
       ctx.service.create({ academic_year_id: 'year-1', name: 'Term 1' } as any, TENANT_ID),
-    ).rejects.toThrow(ConflictException);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     expect(ctx.repo.save).not.toHaveBeenCalled();
   });
 

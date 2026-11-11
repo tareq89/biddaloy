@@ -189,6 +189,14 @@ export class RoutineSlotsService {
       // FOR UPDATE (#3022): a substitution or change-request insert takes FOR KEY SHARE on
       // this row through its FK, so it waits for this edit instead of slipping past the
       // reference check below.
+      // [69.3.05] D4: year guard first, before the FOR UPDATE below (unlocked pre-read of the slot).
+      const seen = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
+      if (!seen) throw new NotFoundException('Routine slot not found');
+      const seenRoutine = await manager.findOne(Routine, {
+        where: { id: seen.routine_id, tenant_id: tenantId },
+      });
+      if (!seenRoutine) throw new NotFoundException('Routine not found');
+      await assertYearOpen(manager, tenantId, seenRoutine.academic_year_id);
       const oldSlot = await manager.findOne(RoutineSlot, {
         where: { id, tenant_id: tenantId },
         lock: { mode: 'pessimistic_write' },
@@ -200,7 +208,6 @@ export class RoutineSlotsService {
       const routine = await manager.findOne(Routine, {
         where: { id: oldSlot.routine_id, tenant_id: tenantId },
       });
-      if (routine) await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4
       await this.assertNotBackdated(routine, dto.valid_from, tenantId);
 
       // D4 effective dating only makes sense moving forward from the old
@@ -412,7 +419,7 @@ export class RoutineSlotsService {
         throw new NotFoundException('Routine slot not found');
       }
       const routine = await this.getRoutine(slot.routine_id, tenantId);
-      await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4
+      await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4 (no lock taken yet)
       const today = await this.today(tenantId);
       const published = routine.state === RoutineState.PUBLISHED;
 

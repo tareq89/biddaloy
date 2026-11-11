@@ -849,16 +849,21 @@ describe('ApplicationDecisionsService (integration)', () => {
       closed,
       app.id,
     ]);
-    await expect(approve(callers.ct, app.id)).rejects.toBeInstanceOf(ConflictException);
+    await expect(approve(callers.ct, app.id)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
     await expect(
       service.reject(SEED_TENANT_ID, callers.ct, app.id, { reason: 'No' }, req),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     await expect(
       service.consider(SEED_TENANT_ID, callers.ct, app.id, {}, req),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     await expect(
       service.cancel(SEED_TENANT_ID, callers.admin, app.id, {} as any, req),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect((await row(app.id)).status).toBe(ApplicationStatus.PENDING);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    const after = await row(app.id);
+    expect(after.status).toBe(ApplicationStatus.PENDING);
+    expect(after.current_step).toBe(0);
+    expect(after.decided_at).toBeNull();
   });
 });

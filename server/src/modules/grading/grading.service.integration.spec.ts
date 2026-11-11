@@ -168,11 +168,18 @@ describe('GradingService.copyScalesToYear (integration)', () => {
     );
     await expect(
       service.create(TENANT, null, { name: 'Late', academic_year_id: SRC_YEAR } as any),
-    ).rejects.toThrow(ConflictException);
-    await expect(service.update(src.id, TENANT, null, { name: 'Renamed' })).rejects.toThrow(
-      ConflictException,
-    );
-    await expect(service.remove(src.id, TENANT, null)).rejects.toThrow(ConflictException);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    await expect(service.update(src.id, TENANT, null, { name: 'Renamed' })).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    await expect(service.remove(src.id, TENANT, null)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    // nothing written: still one live scale named Default in the closed year
+    const live = await ds
+      .getRepository(GradingScale)
+      .find({ where: { tenant_id: TENANT, academic_year_id: SRC_YEAR } });
+    expect(live.map((x) => x.name).sort()).toEqual(['Default', 'Override One', 'Override Two']);
     // Source closed, target open: a read of the source, so it succeeds.
     const res = await run(false);
     expect(res.created).toBeGreaterThan(0);

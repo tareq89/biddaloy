@@ -438,8 +438,20 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
       `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
       [p.routine.academic_year_id],
     );
-    await expect(service.create(p.routine.id, dto, tid)).rejects.toThrow(ConflictException);
-    await expect(service.update(p.slot.id, dto, tid, null)).rejects.toThrow(ConflictException);
-    await expect(service.remove(p.slot.id, tid, null)).rejects.toThrow(ConflictException);
+    await expect(service.create(p.routine.id, dto, tid)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    await expect(service.update(p.slot.id, dto, tid, null)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    await expect(service.remove(p.slot.id, tid, null)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    // nothing written: still the one original slot, not ended, not replaced
+    const slots = await dataSource
+      .getRepository(RoutineSlot)
+      .find({ where: { routine_id: p.routine.id } });
+    expect(slots).toHaveLength(1);
+    expect(slots[0]).toMatchObject({ id: p.slot.id, weekday: 1, valid_to: null });
   });
 });

@@ -390,13 +390,21 @@ describe('StudyPlansService (integration)', () => {
       const plan = await service.create(dto(), TENANT, admin());
       await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [yearId]);
       try {
-        expect(
-          status(await service.create(dto({ section_id: sec7B }), TENANT, admin()).catch((e) => e)),
-        ).toBe(409);
-        expect(
-          status(await service.replaceLessons(plan.id, [], TENANT, admin()).catch((e) => e)),
-        ).toBe(409);
-        expect(status(await service.remove(plan.id, TENANT, admin()).catch((e) => e))).toBe(409);
+        for (const attempt of [
+          () => service.create(dto({ section_id: sec7B }), TENANT, admin()),
+          () => service.replaceLessons(plan.id, [lesson('Late', { id: 'x1' })], TENANT, admin()),
+          () => service.remove(plan.id, TENANT, admin()),
+        ]) {
+          const err = await attempt().catch((e) => e);
+          expect(status(err)).toBe(409);
+          expect(code(err)).toBe('ACADEMIC_YEAR_CLOSED');
+        }
+        // nothing written: one live plan, no lessons added
+        const plans = await dataSource
+          .getRepository(StudyPlan)
+          .find({ where: { tenant_id: TENANT } });
+        expect(plans.map((p) => p.id)).toEqual([plan.id]);
+        expect(plans[0].lessons).toEqual([]);
       } finally {
         await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [
           yearId,

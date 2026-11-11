@@ -94,15 +94,25 @@ function setup(yearState: { closedAt: Date | null } = { closedAt: null }) {
 
 describe('AcrAssessmentsService', () => {
   it('[69.3.05] a closed year refuses start, update, complete and reopen (409)', async () => {
-    const { svc, start, yearState } = setup();
+    const { svc, start, yearState, db } = setup();
     const a = await start();
     yearState.closedAt = new Date();
-    await expect(start('other')).rejects.toBeInstanceOf(ConflictException);
-    await expect(svc.update(a.id, { step1_data: { x: 1 } }, T, ADMIN)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-    await expect(svc.complete(a.id, T, ADMIN)).rejects.toBeInstanceOf(ConflictException);
-    await expect(svc.reopen(a.id, T, ADMIN)).rejects.toBeInstanceOf(ConflictException);
+    await expect(start('other')).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    await expect(svc.update(a.id, { step1_data: { x: 1 } }, T, ADMIN)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    await expect(svc.complete(a.id, T, ADMIN)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    await expect(svc.reopen(a.id, T, ADMIN)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    // nothing written: still the one incomplete row, untouched
+    expect(db.assessments).toHaveLength(1);
+    expect(db.assessments[0].status).toBe('INCOMPLETE');
+    expect(db.assessments[0].step1_data ?? null).toBeNull();
   });
 
   it('total = sum of scores, server-computed', async () => {

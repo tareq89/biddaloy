@@ -921,7 +921,9 @@ describe('ApplicationsService (integration)', () => {
       ]);
       await expect(
         service.withdraw(SEED_TENANT_ID, callers.parent, app.id, ctx),
-      ).rejects.toBeInstanceOf(ConflictException);
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      const after = await dataSource.getRepository(Application).findOneByOrFail({ id: app.id });
+      expect(after.status).toBe(ApplicationStatus.PENDING);
     });
 
     it('withdraw: only the applicant (403), once (422), and it notifies', async () => {
