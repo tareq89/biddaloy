@@ -55,6 +55,7 @@ See everything you need today for the section you are class teacher of, on one p
 - [Other situations](#other)
   - [Take today's attendance](#task-attendance)
   - [What the six cards say](#task-cards)
+  - [The Groups pending card](#task-groups-card)
   - [Call a guardian](#task-call)
   - [Write remarks and conduct](#task-notes)
   - [If you have more than one section](#task-many)
@@ -146,6 +147,16 @@ Each card loads on its own. If one fails, it shows **Could not load this card.**
 | **Students**         | The first 5 by name, with roll and the main guardian's phone. With more than 5, **See all** opens the [students](../people/students.md) list filtered to this section                                                                                   | **No students in this section.** |
 
 Homework in detail: [Homework](homework.md). **See all** on the **Dues** card appears only for someone with permission to collect fees; a teacher does not have it, so a teacher sees only the first 5 there.
+
+### The Groups pending card <a href="#task-groups-card" id="task-groups-card"></a>
+
+When the school makes a promotion list for the next year and the next class has groups (for example Science, Arts), every student needs a group. If some students of your section have none yet, an extra card, **Groups**, appears among the cards. It is not there when nobody in your section is waiting, and it is not there when the school has no open promotion list.
+
+1. Look at the **Groups** card. → It says **Groups pending: 8**, the number of students in your section with no group.
+2. Press **Set groups**. → The **Set groups** page opens with your section's students. Tick them, choose a group, press **Apply**. Steps: [Set groups for many students at once](../exams-results/promotion.md#task-groups).
+3. Come back to **My class**. → When every student has a group, the card goes away.
+
+You see only your own section's students there. The Admin sees everyone on the promotion list.
 
 ### Answer arrival notice requests <a href="#task-arrival" id="task-arrival"></a>
 

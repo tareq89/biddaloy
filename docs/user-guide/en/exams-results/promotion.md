@@ -9,6 +9,9 @@ sources:
   - client-admin/src/routes/_staff/promotions/$runId.tsx
   - client-admin/src/routes/_staff/promotions/-commit-dialog.tsx
   - client-admin/src/routes/_staff/promotions/$runId_.groups.tsx
+  - client-admin/src/routes/_staff/promotions/-groups/filter-bar.tsx
+  - client-admin/src/routes/_staff/promotions/-groups/group-select.tsx
+  - client-admin/src/routes/_staff/promotions/-groups/no-source-notice.tsx
   - client-admin/src/route-permissions.ts
   - client-admin/src/nav-tree.ts
   - server/src/modules/promotions/promotions.controller.ts
@@ -223,14 +226,25 @@ If the new academic year has no class of the next level (for example after Class
 
 ### Set groups for many students at once <a href="#task-groups" id="task-groups"></a>
 
-When the next class has groups (for example Science, Arts), every student needs a group before you finalise. A class teacher or an Admin can set them together.
+When the next class has groups (for example Science, Arts), every student needs a group before you finalise. Instead of opening each student, set the group for many at once. An Admin sees every student of the draft list. A class teacher sees only the students of their own section.
 
-1. Admin: on the draft list press **Set groups**. Class teacher: on **My class**, press **Set groups** on the **Groups pending** card. → The **Set groups** page opens.
-2. Optional: to pick students by marks, set **GPA from** / **GPA up to**, or choose a **Subject** and **Marks at least**. → Only matching students are shown.
-3. Tick the students, or press **Select all matching**. → The number selected is shown at the bottom.
-4. Choose a **Group**, then press **Apply**. → A message says **Group set for N students**.
+```mermaid
+flowchart LR
+  A["Admin: draft list<br/>Set groups"] --> P["Set groups page"]
+  T["Class teacher: My class<br/>Groups pending card"] --> P
+  P --> F["Find by marks (optional)"]
+  F --> S["Tick students"]
+  S --> G["Choose group, Apply"]
+```
 
-If the school has no groups yet, the group controls are hidden. Add groups in the school settings first.
+1. Admin: on the draft list press **Set groups**. Class teacher: on [My class](../academics/my-class.md#task-groups-card), press **Set groups** on the **Groups pending** card. → The **Set groups** page opens, with a table: **Student**, **Section**, **GPA**, **Result**, **Group**. A student with no group yet shows **No group**.
+2. Optional: to pick students by marks, set **GPA from** / **GPA up to**, or choose a **Subject** and then **Marks at least**. → Only matching students are shown, and a column with that subject's marks appears. The **Result** column says **From final result** or **From exam average**, so you know where the numbers come from. If the students have no result yet, the page says **No results to filter on**; tick the students by hand.
+3. Tick the students, or press **Select all matching (N)**. → It picks everyone who matches, on every page of the table, not only the page you see. The bottom bar shows **N selected**.
+4. Choose a **Group** (only the school's own groups are listed), then press **Apply to N**. → A message says **Group set for N students**, and the **Group** column fills in.
+
+Example: to put students with GPA 4.00 or more in Science, type `4` in **GPA from**, press **Select all matching**, choose **Science**, press **Apply**.
+
+If the school has no groups yet, the page says **This school has no groups yet** and the group controls are hidden. An Admin can press **Open school settings**, add the groups, and come back. If a year is closed, the groups cannot be set; reopen it on [Academic years](../academics/academic-years.md#task-reopen). If some students are not set, it shows **Couldn't set the group for everyone. Some students may already be set, so check the list and try again.**
 
 ---
 
@@ -256,10 +270,11 @@ If the school has no groups yet, the group controls are hidden. Add groups in th
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role       | Open this page and make a draft | Finalise, including decisions changed by hand |
-| ---------- | ------------------------------- | --------------------------------------------- |
-| Admin      | Yes                             | Yes (with extra approval)                     |
-| All others | No                              | No                                            |
+| Role | Open this page and make a draft | Finalise, including decisions changed by hand | Set groups for many students |
+| --- | --- | --- | --- |
+| Admin | Yes | Yes (with extra approval) | Yes, all students of the draft |
+| Class teacher | No | No | Yes, own section only, from [My class](../academics/my-class.md#task-groups-card) |
+| All others | No | No | No |
 
 **Class promotion** is not in the left menu of the other roles. The mark for a promotion changed by hand on a student's page can still be seen by anyone who is allowed to view students.
 
