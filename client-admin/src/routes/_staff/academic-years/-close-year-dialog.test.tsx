@@ -47,13 +47,30 @@ describe('CloseYearDialog', () => {
   it('lists what will no longer change and what to check, skipping zero counts', async () => {
     server.use(
       http.get('/api/v1/academic-years/:id/close-preview', () => HttpResponse.json(PREVIEW)),
+      // The shared mock school has decimals 0; a real BD school has 2 (paisa).
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({
+          version: 1,
+          region: {
+            currency: {
+              code: 'BDT',
+              symbol: '৳',
+              position: 'prefix',
+              decimals: 2,
+              grouping: 'lakh-crore',
+            },
+            numerals: 'latin',
+          },
+        }),
+      ),
     );
     open();
     expect(await screen.findByText('Exams: 12')).toBeTruthy();
     expect(screen.getByText('Bills: 340')).toBeTruthy();
     expect(screen.queryByText(/Enrolments/)).toBeNull();
     expect(screen.getByText('Classes not promoted: 2')).toBeTruthy();
-    expect(screen.getByText(/Dues outstanding: ৳\S+/)).toBeTruthy();
+    // 150000 paisa is 1,500.00 taka, not 150,000.
+    expect(await screen.findByText('Dues outstanding: ৳1,500.00')).toBeTruthy();
     expect(screen.queryByText(/Groups pending/)).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Close year' }).disabled).toBe(
       false,
