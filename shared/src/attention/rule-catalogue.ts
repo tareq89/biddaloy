@@ -83,7 +83,7 @@ export interface AlertRuleMeta {
   canDisable: boolean;
   guardianSmsFallback: boolean;
   staffSmsFallback: boolean;
-  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169';
+  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725';
 }
 
 const C = AlertCategory;
