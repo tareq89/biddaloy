@@ -40,6 +40,7 @@ describe('/exams/$examId', () => {
     status: 'DRAFT' | 'PROCESSED' | 'PUBLISHED',
     initialEntry = '/exams/exam-1',
     role = 'ADMIN',
+    closedAt: string | null = null,
   ) {
     const exam = examFactory({
       id: 'exam-1',
@@ -53,7 +54,9 @@ describe('/exams/$examId', () => {
     server.use(
       http.get('/api/v1/exams/:id', () => HttpResponse.json(exam)),
       http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
-      http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
+      http.get('/api/v1/academic-years/:id', () =>
+        HttpResponse.json({ ...year, closed_at: closedAt }),
+      ),
       http.get('/api/v1/exams/:examId/results', () => HttpResponse.json([])),
       http.get('/api/v1/exams/:examId/marks/progress', () =>
         HttpResponse.json({ counts: { DRAFT: 2, SUBMITTED: 8 }, outstanding: [] }),
@@ -260,6 +263,34 @@ describe('/exams/$examId', () => {
       renderExam('PUBLISHED');
       await screen.findByRole('heading', { name: 'Half Yearly 2026' });
       expect(screen.queryByRole('button', { name: 'Show results on the website' })).toBeNull();
+    });
+  });
+
+  describe('closed year [69.4.05]', () => {
+    /** Names of every header action, inline or in More actions. */
+    async function actionNames() {
+      await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+      const more = screen.queryByRole('button', { name: 'More actions' });
+      if (more) await userEvent.setup().click(more);
+      return [...screen.queryAllByRole('button'), ...screen.queryAllByRole('menuitem')].map((el) =>
+        el.textContent?.trim(),
+      );
+    }
+
+    it('shows the notice and removes Edit and Delete from the header', async () => {
+      renderExam('DRAFT', '/exams/exam-1', 'ADMIN', '2026-12-31T00:00:00.000Z');
+
+      expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
+      const names = await actionNames();
+      expect(names).not.toContain('Edit');
+      expect(names.some((n) => n?.startsWith('Delete'))).toBe(false);
+    });
+
+    it('an open year keeps Edit and shows no notice', async () => {
+      renderExam('DRAFT');
+
+      expect(await actionNames()).toContain('Edit');
+      expect(screen.queryByText(/is closed/)).toBeNull();
     });
   });
 });

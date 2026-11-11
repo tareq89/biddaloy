@@ -584,4 +584,55 @@ describe('/fee-structures', () => {
       expect(router.state.location.search).toMatchObject({ sort: 'name', order: 'asc' }),
     );
   });
+
+  describe('closed year [69.4.05]', () => {
+    function structureIn(year: typeof YEAR) {
+      return feeStructureFactory({
+        id: 'structure-1',
+        name: 'Class 9 tuition',
+        class: KLASS,
+        class_id: KLASS.id,
+        academic_year: year,
+        academic_year_id: year.id,
+      });
+    }
+    const CLOSED_AT = '2026-12-31T00:00:00.000Z';
+
+    it('a row of a closed year has no Edit or Delete', async () => {
+      server.use(
+        listHandler([structureIn({ ...YEAR, closed_at: CLOSED_AT })]),
+        ...referenceHandlers(),
+      );
+      render();
+
+      await screen.findByText('Class 9 tuition');
+      expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    });
+
+    it('filtered to a closed year: notice shown and Add structure is off', async () => {
+      server.use(
+        listHandler([]),
+        ...referenceHandlers(),
+        http.get('/api/v1/academic-years/year-1', () =>
+          HttpResponse.json({ ...YEAR, closed_at: CLOSED_AT }),
+        ),
+      );
+      render('ADMIN', '/fee-structures?academic_year_id=year-1');
+
+      expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
+      expect(screen.queryAllByRole('button', { name: 'Add fee structure' })).toHaveLength(0);
+    });
+
+    it('an open year keeps Edit and Add structure', async () => {
+      server.use(listHandler([structureIn(YEAR)]), ...referenceHandlers());
+      render();
+
+      expect(await screen.findByRole('button', { name: 'Edit' })).toBeTruthy();
+      expect(screen.getAllByRole('button', { name: 'Add fee structure' }).length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
+  });
 });
