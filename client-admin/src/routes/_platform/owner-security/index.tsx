@@ -1,4 +1,3 @@
-import { ApprovalModalHostProvider } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
@@ -22,13 +21,11 @@ function OwnerSecurityPage() {
   const navigate = useNavigate();
   const mfa = useOwnerMfaStatus();
   return (
-    <ApprovalModalHostProvider>
-      <PageContainer size="narrow">
-        <PageHeader title={t('title')} subtitle={t('subtitle')} />
-        <TwoStepCard enrolled={mfa.enrolled} failed={mfa.failed} onRetry={mfa.retry} />
-        <RecoveryCodesSection remaining={mfa.remaining} />
-        <DevicesSection onSignedOutEverywhere={() => void navigate({ to: '/sign-in' as '/' })} />
-      </PageContainer>
-    </ApprovalModalHostProvider>
+    <PageContainer size="narrow">
+      <PageHeader title={t('title')} subtitle={t('subtitle')} />
+      <TwoStepCard enrolled={mfa.enrolled} failed={mfa.failed} onRetry={mfa.retry} />
+      <RecoveryCodesSection remaining={mfa.remaining} />
+      <DevicesSection onSignedOutEverywhere={() => void navigate({ to: '/sign-in' as '/' })} />
+    </PageContainer>
   );
 }

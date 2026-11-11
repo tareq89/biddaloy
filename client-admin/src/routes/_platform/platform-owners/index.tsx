@@ -1,4 +1,4 @@
-import { ApprovalModalHostProvider, useCurrentUserId } from '@biddaloy/ui/hooks';
+import { useCurrentUserId } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
@@ -12,7 +12,7 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 /**
  * Epic 98 #3761: the platform owners page. Three tabs in the URL (`?tab=owners|approvals|history`).
  * The server is the security boundary (cockpit principal + `platform.*` step-up); this is the UI.
- * The code prompt host is mounted here because `_platform/route.tsx` has none.
+ * The code prompt host is mounted once in `_platform/route.tsx`.
  */
 const TABS = ['owners', 'approvals', 'history'] as const;
 
@@ -27,30 +27,25 @@ function PlatformOwnersPage() {
   const currentUserId = useCurrentUserId();
   const [tab, setTab] = useDetailShellTab(TABS);
   return (
-    <ApprovalModalHostProvider>
-      <DetailShell
-        name={t('title')}
-        tabs={[
-          {
-            id: 'owners',
-            label: t('tabs.owners'),
-            content: (
-              <OwnersTab
-                currentUserId={currentUserId}
-                onOpenApprovals={() => setTab('approvals')}
-              />
-            ),
-          },
-          {
-            id: 'approvals',
-            label: t('tabs.approvals'),
-            content: <ApprovalsTab currentUserId={currentUserId} />,
-          },
-          { id: 'history', label: t('tabs.history'), content: <HistoryTab /> },
-        ]}
-        activeTab={tab}
-        onTabChange={setTab}
-      />
-    </ApprovalModalHostProvider>
+    <DetailShell
+      name={t('title')}
+      tabs={[
+        {
+          id: 'owners',
+          label: t('tabs.owners'),
+          content: (
+            <OwnersTab currentUserId={currentUserId} onOpenApprovals={() => setTab('approvals')} />
+          ),
+        },
+        {
+          id: 'approvals',
+          label: t('tabs.approvals'),
+          content: <ApprovalsTab currentUserId={currentUserId} />,
+        },
+        { id: 'history', label: t('tabs.history'), content: <HistoryTab /> },
+      ]}
+      activeTab={tab}
+      onTabChange={setTab}
+    />
   );
 }

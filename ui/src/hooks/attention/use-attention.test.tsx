@@ -7,11 +7,13 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { resetAttentionSource } from '../../api/attention';
 import { alertItemFactory, attentionSummaryFactory } from '../../test/factories';
 import { server } from '../../test/msw/server';
 import { renderHookWithProviders } from '../../test/render-hook-with-providers';
 import { cleanupTestState } from '../../test/render-with-providers';
 
+import { configureCockpitAttention } from './cockpit-source';
 import {
   useHideAttentionItem,
   useMarkAttentionSeen,
@@ -167,5 +169,25 @@ describe('usePlatformAttentionHealth', () => {
     const { result } = renderHookWithProviders(() => usePlatformAttentionHealth(), TENANT);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.failingRules).toEqual([]);
+  });
+});
+
+describe('cockpit attention source', () => {
+  afterEach(() => resetAttentionSource());
+
+  it('reads /platform/attention with no school role and no role param', async () => {
+    configureCockpitAttention();
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get('*/platform/attention/summary', ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json(attentionSummaryFactory());
+      }),
+    );
+    // No role and no tenant: the school source would stay idle here.
+    const { result } = renderHookWithProviders(() => useAttentionSummary());
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(seen).not.toBeNull();
+    expect((seen as unknown as URLSearchParams).has('role')).toBe(false);
   });
 });

@@ -72,6 +72,7 @@ import {
   UploadIcon,
   UserCheckIcon,
   UserPlusIcon,
+  UserRoundCogIcon,
   UserRoundIcon,
   UsersRoundIcon,
   WalletCardsIcon,
@@ -152,6 +153,7 @@ export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
 /** The platform console's pages (also appended to SUPER_ADMIN's staff sidebar). */
 export const PLATFORM_NAV_ICONS = {
   '/schools': Building2Icon,
+  '/platform-owners': UserRoundCogIcon,
   '/holiday-sets': TreePalmIcon,
   '/subscriptions': WalletCardsIcon,
   '/reports-usage': ChartNoAxesColumnIcon,
