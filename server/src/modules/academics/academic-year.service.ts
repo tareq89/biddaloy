@@ -1,7 +1,7 @@
 import { AcrAssessment } from '../acr/entities/acr-assessment.entity';
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, EntityManager } from 'typeorm';
 import { AcademicYear } from './entities/academic-year.entity';
 import { Class } from './entities/class.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
@@ -15,10 +15,47 @@ import { dropClassSubjects } from './drop-class-subjects';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
 import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
-import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  AuditAction,
+  ExamStatus,
+  PromotionRunStatus,
+  YEAR_CLOSE_BLOCK_DRAFT_PROMOTION,
+  type YearClosePreview,
+  type YearReadiness,
+} from '@biddaloy/shared';
+import { YEAR_SCOPED_WRITES } from '../../common/utils/year-open.guard';
+import { OPEN_FEE_STATUSES } from '../fees/fees.constants';
+import { toPaisa } from '../../common/constants/money';
+import type { ApprovalContext } from '../auth/guards/approval.guard';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { yearClosed } from '../../common/filters/known-errors';
+
+/** Entity name (as in `YEAR_SCOPED_WRITES`) -> table, for the close preview's freeze counts. */
+export const YEAR_SCOPED_TABLES: Record<string, string> = {
+  Class: 'classes',
+  ClassSubject: 'class_subjects',
+  AcademicTerm: 'academic_terms',
+  CalendarEvent: 'calendar_events',
+  Exam: 'exams',
+  FeeGeneration: 'fee_generations',
+  FeeStructure: 'fee_structures',
+  FineRule: 'fine_rules',
+  RecurringSchedule: 'recurring_schedules',
+  StudentFee: 'student_fees',
+  GradingScale: 'grading_scales',
+  PromotionRun: 'promotion_runs',
+  Routine: 'routines',
+  Enrollment: 'enrollments',
+  StudentLifecycleEvent: 'student_lifecycle_events',
+  StudentSubjectChoice: 'student_subject_choices',
+  StudyPlan: 'study_plans',
+  AcrAssessment: 'acr_assessments',
+  Application: 'applications',
+  Program: 'programs',
+  FinalResult: 'final_results',
+};
 
 export interface AcademicYearStats {
   classes_count: number;
@@ -390,6 +427,258 @@ export class AcademicYearService {
     ]);
 
     return { classes_count, students_count, fee_structures_count };
+  }
+
+  private async count(manager: EntityManager, sql: string, params: unknown[]): Promise<number> {
+    const rows: Array<{ n: string }> = await manager.query(sql, params);
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /** [69.3.01] What closing the year blocks, warns about and freezes. One query per count. */
+  private async buildClosePreview(
+    manager: EntityManager,
+    tenantId: string,
+    year: AcademicYear,
+  ): Promise<YearClosePreview> {
+    const id = year.id;
+    const T = [tenantId, id];
+    const draft = PromotionRunStatus.DRAFT;
+    const committed = PromotionRunStatus.COMMITTED;
+
+    const [draftRuns, classesNotPromoted, studentsActive, groupsPending, duesRows, unpublished] =
+      await Promise.all([
+        this.count(
+          manager,
+          `SELECT count(*) n FROM promotion_runs WHERE tenant_id = $1 AND source_academic_year_id = $2 AND status = $3`,
+          [...T, draft],
+        ),
+        this.count(
+          manager,
+          `SELECT count(*) n FROM classes c
+            WHERE c.tenant_id = $1 AND c.academic_year_id = $2 AND c.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM promotion_runs r
+                               WHERE r.tenant_id = c.tenant_id AND r.source_class_id = c.id
+                                 AND r.source_academic_year_id = $2 AND r.status = $3)`,
+          [...T, committed],
+        ),
+        this.count(
+          manager,
+          `SELECT count(*) n FROM enrollments e
+            WHERE e.tenant_id = $1 AND e.academic_year_id = $2 AND e.enrollment_status::text = $3
+              AND NOT EXISTS (SELECT 1 FROM enrollments e2
+                                JOIN academic_years y2 ON y2.id = e2.academic_year_id AND y2.deleted_at IS NULL
+                               WHERE e2.tenant_id = e.tenant_id AND e2.student_id = e.student_id
+                                 AND y2.start_date > $4::date)`,
+          [tenantId, id, EnrollmentStatus.ACTIVE, year.start_date],
+        ),
+        // Same definition as the attention rule: keep in step with promotion-groups-pending.rule.ts.
+        this.count(
+          manager,
+          `SELECT count(*) n FROM promotion_entries pe JOIN promotion_runs r ON r.id = pe.run_id
+            WHERE r.tenant_id = $1 AND r.source_academic_year_id = $2 AND r.status = $3
+              AND pe.group_name IS NULL AND pe.target_class_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM class_sections t WHERE t.tenant_id = $1
+                AND t.class_id = pe.target_class_id AND t.deleted_at IS NULL
+                AND t.group_name IS NOT NULL)`,
+          [...T, draft],
+        ),
+        // student_fees has no tenant_id: scope it through its student.
+        manager.query(
+          `SELECT COALESCE(SUM(sf.total_amount - sf.paid_amount - sf.discount_amount), 0) AS n
+             FROM student_fees sf JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1
+            WHERE sf.academic_year_id = $2 AND sf.deleted_at IS NULL AND sf.status::text = ANY($3)`,
+          [tenantId, id, OPEN_FEE_STATUSES],
+        ) as Promise<Array<{ n: string }>>,
+        this.count(
+          manager,
+          `SELECT count(*) n FROM exams WHERE tenant_id = $1 AND academic_year_id = $2
+              AND deleted_at IS NULL AND status::text <> $3`,
+          [...T, ExamStatus.PUBLISHED],
+        ),
+      ]);
+
+    const tables = [
+      ...new Set(
+        YEAR_SCOPED_WRITES.map((w) => YEAR_SCOPED_TABLES[w.entity]).filter((t): t is string => !!t),
+      ),
+    ];
+    const cols: Array<{ table_name: string; column_name: string }> = await manager.query(
+      `SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = ANY($1)
+          AND column_name IN ('academic_year_id', 'source_academic_year_id', 'tenant_id', 'deleted_at')`,
+      [tables],
+    );
+    const has = (t: string, c: string) =>
+      cols.some((r) => r.table_name === t && r.column_name === c);
+    // A promotion run belongs to its source year.
+    const yearCol = (t: string) =>
+      t === 'promotion_runs' ? 'source_academic_year_id' : 'academic_year_id';
+    const freezes = await Promise.all(
+      tables
+        .filter((t) => has(t, yearCol(t)))
+        .map(async (table) => {
+          // $1 is always referenced so Postgres can type it; student_fees has no tenant_id,
+          // so it is scoped through its student.
+          const join =
+            table === 'student_fees'
+              ? 'JOIN students s ON s.id = x.student_id AND s.tenant_id = $1'
+              : '';
+          // `table`, `yearCol` and `join`/`where` come only from the allowlist and literals above,
+          // never from input, so composing them is safe; values stay bound ($1, $2).
+          const where = [`x.${yearCol(table)} = $2`];
+          if (!join)
+            where.push(has(table, 'tenant_id') ? 'x.tenant_id = $1' : '$1::uuid IS NOT NULL');
+          if (has(table, 'deleted_at')) where.push('x.deleted_at IS NULL');
+          return {
+            table,
+            count: await this.count(
+              manager,
+              `SELECT count(*) n FROM "${table}" x ${join} WHERE ${where.join(' AND ')}`,
+              T,
+            ),
+          };
+        }),
+    );
+    freezes.push({
+      table: 'attendance_sessions',
+      count: await this.count(
+        manager,
+        `SELECT count(*) n FROM attendance_sessions WHERE tenant_id = $1 AND date BETWEEN $2::date AND $3::date`,
+        [tenantId, year.start_date, year.end_date],
+      ),
+    });
+
+    return {
+      blocks: draftRuns > 0 ? [{ code: YEAR_CLOSE_BLOCK_DRAFT_PROMOTION, count: draftRuns }] : [],
+      warnings: [
+        { code: 'CLASSES_NOT_PROMOTED', count: classesNotPromoted },
+        { code: 'STUDENTS_STILL_ACTIVE', count: studentsActive },
+        { code: 'GROUPS_PENDING', count: groupsPending },
+        // Whole paisa, never a float (Rule 26).
+        { code: 'DUES_OUTSTANDING', count: toPaisa(duesRows[0]?.n ?? 0) },
+        { code: 'RESULTS_UNPUBLISHED', count: unpublished },
+      ],
+      freezes,
+    };
+  }
+
+  async closePreview(id: string, tenantId: string): Promise<YearClosePreview> {
+    const year = await this.findOne(id, tenantId);
+    return this.buildClosePreview(this.repo.manager, tenantId, year);
+  }
+
+  /** [69.3.01] Freeze the year. Closing a closed year and reopening an open one are idempotent no-ops (no audit row). The controller checked step-up; `approval` lands in the audit row. */
+  async close(
+    id: string,
+    tenantId: string,
+    userId: string | null,
+    context: RequestContext,
+    approval: ApprovalContext,
+  ): Promise<AcademicYear> {
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(AcademicYear);
+      const year = await repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!year) throw new NotFoundException('Academic year not found');
+      if (year.closed_at) return year; // already closed: nothing to do
+      if (year.is_current) {
+        throw new ConflictException({
+          message: 'This is the current academic year. Make another year current first.',
+          details: { code: 'CANNOT_CLOSE_CURRENT_YEAR' },
+        });
+      }
+      const preview = await this.buildClosePreview(manager, tenantId, year);
+      if (preview.blocks.length > 0) {
+        throw new ConflictException({
+          message: 'A promotion run for this year is still a draft. Commit or delete it first.',
+          details: { code: YEAR_CLOSE_BLOCK_DRAFT_PROMOTION, blocks: preview.blocks },
+        });
+      }
+
+      const closed_at = new Date();
+      await repo.update({ id, tenant_id: tenantId }, { closed_at, closed_by_user_id: userId });
+      await this.auditService.recordApproved(
+        {
+          action: AuditAction.YEAR_CLOSE,
+          entity_type: 'AcademicYear',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          approved_by_user_id: approval.approverId,
+          approval_scope: approval.scope,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { closed_at: null },
+          new_values: { closed_at },
+        },
+        manager,
+      );
+      return repo.findOneOrFail({ where: { id, tenant_id: tenantId } });
+    });
+  }
+
+  async reopen(
+    id: string,
+    tenantId: string,
+    userId: string | null,
+    context: RequestContext,
+  ): Promise<AcademicYear> {
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(AcademicYear);
+      const year = await repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!year) throw new NotFoundException('Academic year not found');
+      if (!year.closed_at) return year; // already open: nothing to do
+
+      await repo.update({ id, tenant_id: tenantId }, { closed_at: null, closed_by_user_id: null });
+      await this.auditService.record(
+        {
+          action: AuditAction.YEAR_REOPEN,
+          entity_type: 'AcademicYear',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { closed_at: year.closed_at },
+          new_values: { closed_at: null },
+        },
+        manager,
+      );
+      return repo.findOneOrFail({ where: { id, tenant_id: tenantId } });
+    });
+  }
+
+  /** [69.3.01] What the target year has before it is made current. */
+  async readiness(id: string, tenantId: string): Promise<YearReadiness> {
+    await this.findOne(id, tenantId);
+    const m = this.repo.manager;
+    const T = [tenantId, id];
+    const [classes, teacher_assignments, committed_promotion_runs] = await Promise.all([
+      this.count(
+        m,
+        `SELECT count(*) n FROM classes WHERE tenant_id = $1 AND academic_year_id = $2 AND deleted_at IS NULL`,
+        T,
+      ),
+      this.count(
+        m,
+        `SELECT count(*) n FROM teacher_class_sections tcs
+           JOIN class_sections cs ON cs.id = tcs.section_id AND cs.deleted_at IS NULL
+           JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+          WHERE tcs.tenant_id = $1 AND c.academic_year_id = $2`,
+        T,
+      ),
+      this.count(
+        m,
+        `SELECT count(*) n FROM promotion_runs WHERE tenant_id = $1 AND target_academic_year_id = $2 AND status = $3`,
+        [...T, PromotionRunStatus.COMMITTED],
+      ),
+    ]);
+    return { classes, teacher_assignments, committed_promotion_runs };
   }
 
   async setCurrent(
