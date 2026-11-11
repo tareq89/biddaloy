@@ -103,3 +103,52 @@ T3 (bulk groups) is not in the #3538 re-check list. It stays in the table above.
 
 Fill in on the day with the same columns as "Results", then tick #3513's box only if every
 row passes.
+
+## Built-screen re-check of T3 (#3540, status: PENDING, needs real school staff)
+
+Wave 5 built the groups page (`/promotions/$runId/groups`, #3539). Ticket #3540 step 2 asks
+for T3 to be re-run **with a real class teacher** on the built screen. An agent cannot do that,
+so **no result is recorded and none is invented**. This is a human to-do.
+
+| Task                                                         | Built screen and expected behaviour                                                                                                                                                                                                        | Result                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| T3 Class teacher: "Give the students with maths 60+ Science" | My class, card "Groups pending: K", "Set groups". Filter: Subject (maths), "Marks at least" 60. "Select all matching", pick the group, "Apply to N". A green notice says how many were set. The run page then shows the group on each row. | PENDING, needs real school staff (human to-do) |
+
+`e2e/journeys/promotion-groups.spec.ts` proves the path works technically. It does not prove a
+person finds it. Tick #3540's T3 box only after this row is filled and passes.
+
+## Wave 5 learnings
+
+Format: surprise, cost, fix, rule candidate.
+
+- **The groups route needs a trailing underscore.** `$runId.tsx` has no `<Outlet />`, so a child
+  file `$runId.groups.tsx` matched but rendered nothing. Cost: a blank page that type-checked.
+  Fix: `$runId_.groups.tsx` (its own chromeless page). Rule candidate: a new sibling under a route
+  file without an outlet uses the `name_` form.
+- **`GET /promotions/:id/groups` is typed `never` in `ui/src/api/schema.d.ts`.** The generated
+  type has no response body, so the hook declares its own `PromotionGroupEntry` shape. Cost: the
+  type is not checked against the server. Fix: hand-written type next to the hook. Rule
+  candidate: type the response of every new route (`@ApiOkResponse`) so `api:types` carries it.
+- **The server rejects `marks_min` without `subject_code`.** Cost: a 400 when a teacher typed
+  marks first. Fix: `toGroupFilters` drops `marks_min` until a subject is chosen. Rule candidate:
+  filters that depend on another filter are dropped in the client mapper, not shown as errors.
+- **The attention item's `actionUrl` points at a page teachers cannot open.**
+  `server/src/modules/attention/rules/promotions/promotion-groups-pending.rule.ts:81` sets
+  `/promotions/${runId}`, which needs `PROMOTION_MANAGE`. The My class card works around it by
+  reading the run id out of that URL. **Follow-up (not fixed here):** point the item at
+  `/promotions/${runId}/groups` for teachers.
+- **The pending card only appears after the attention sweep.** Nothing can trigger the rule on
+  demand (FAST sweep every 5 minutes), so the e2e spec waits 20 s for the card and otherwise opens
+  the page by URL, with an annotation. Rule candidate: a rule a journey must reach needs an
+  event-driven recheck.
+- **A partly failed multi-chunk apply is hard to word.** Apply sends 500 ids per call; if call 2
+  fails, call 1 is already saved. Fix: the message says "Some students may already be set, so
+  check the list and try again." Rule candidate: say what is already saved, never "nothing
+  changed", when a write is chunked.
+- **The admin has no section filter on the groups page.** The server has no `section` parameter,
+  so an admin sees the whole class. Cost: a large class is hard to do one section at a time.
+  Follow-up: add `section_id` to `GET /promotions/:id/groups` and a filter field.
+- **A teacher with a homeroom elsewhere gets a 404, not an empty list.** Only a teacher with no
+  homeroom gets an empty list (`promotion-groups.service.ts:137` vs `:148`). The page shows its
+  load-error state for the 404. Rule candidate: say in the ticket which of the two "empty"
+  cases a journey means.
