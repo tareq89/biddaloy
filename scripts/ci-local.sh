@@ -342,8 +342,8 @@ provision_stack() {
 # The integration section's vitest global-setup drops the run's database and
 # re-creates it with test fixtures only (no `default-school`), so a later
 # section that runs migrations + `seed` needs its own fresh slice, the way each
-# CI job gets its own database. Reusing it broke every platform SUPER_ADMIN and
-# /admission/default-school e2e spec under `--full`.
+# CI job gets its own database. Reusing it broke the cockpit owner and
+# /admission/default-school e2e specs under `--full`.
 fresh_stack() {
   test_env_down
   TEST_ENV_UP=""
