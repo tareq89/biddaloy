@@ -55,6 +55,34 @@ describe('resolveCorsOrigins', () => {
   });
 });
 
+describe('resolveCorsOrigins with COCKPIT_DOMAIN', () => {
+  it('a COCKPIT_DOMAIN typed with a scheme or slash is still one clean https origin', () => {
+    for (const v of [
+      'https://cockpit.example.com',
+      'http://cockpit.example.com/',
+      ' cockpit.example.com/ ',
+    ]) {
+      expect(resolveCorsOrigins(undefined, 'production', v)).toEqual([
+        'https://cockpit.example.com',
+      ]);
+    }
+  });
+
+  it('adds the cockpit origin when set, once', () => {
+    expect(resolveCorsOrigins(undefined, 'production', 'cockpit.example.com')).toEqual([
+      'https://cockpit.example.com',
+    ]);
+    expect(
+      resolveCorsOrigins('https://cockpit.example.com', 'production', 'cockpit.example.com'),
+    ).toEqual(['https://cockpit.example.com']);
+  });
+
+  it('adds nothing when unset or blank', () => {
+    expect(resolveCorsOrigins(undefined, 'production', '')).toEqual([]);
+    expect(resolveCorsOrigins(undefined, 'production', undefined)).toEqual([]);
+  });
+});
+
 describe('buildCorsOptions', () => {
   it('includes the resolved origins, credentials, methods, and tenant/role headers', () => {
     const options = buildCorsOptions('https://app.example.com', 'production');

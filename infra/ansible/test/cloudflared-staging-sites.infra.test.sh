@@ -51,6 +51,8 @@ render() { # <out file> <STAGING_SITE_HOSTS value>
         LOGS_DOMAIN: logs.$ROOT
         INBOX_DEMO_DOMAIN: inbox-demo.$ROOT
         INBOX_STAGING_DOMAIN: inbox-staging.$ROOT
+        COCKPIT_DOMAIN: cockpit.$ROOT
+        COCKPIT_STAGING_DOMAIN: cockpit-staging.$ROOT
         ROOT_DOMAIN: $ROOT
         STAGING_SITE_HOSTS: '$2'
   tasks:

@@ -50,3 +50,38 @@ export async function migrateSchools(
 
   return { migrated, skipped };
 }
+
+export interface MfaRowLike {
+  user_id: string;
+  secret_enc: string;
+}
+
+/**
+ * Re-encrypts every `user_mfa.secret_enc` under the current key (Epic 98).
+ * Same contract as `migrateSchools`: a row already on the current key is left
+ * alone; one no configured key can decrypt is counted in `skipped` (the value
+ * is never logged) so the script still exits non-zero.
+ */
+export async function migrateMfa(
+  rows: MfaRowLike[],
+  encryption: EncryptionService,
+  save: (row: MfaRowLike) => Promise<void>,
+): Promise<{ migrated: number; skipped: number }> {
+  let migrated = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    if (encryption.isCurrent(row.secret_enc)) continue;
+    let plaintext: string;
+    try {
+      plaintext = encryption.decrypt(row.secret_enc);
+    } catch {
+      skipped += 1;
+      console.warn(`Skipping user_mfa:${row.user_id} — could not decrypt with any configured key.`);
+      continue;
+    }
+    row.secret_enc = encryption.encrypt(plaintext);
+    await save(row);
+    migrated += 1;
+  }
+  return { migrated, skipped };
+}

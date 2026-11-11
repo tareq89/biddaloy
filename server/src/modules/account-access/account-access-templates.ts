@@ -11,7 +11,18 @@ export type TemplateKind =
   | 'BACKUP_READY'
   | 'BACKUP_FAILED'
   | 'RESTORE_DONE'
-  | 'RESTORE_FAILED';
+  | 'RESTORE_FAILED'
+  /** [Epic 98] Platform owner sign-in messages. The code is the only secret in a body. */
+  | 'COCKPIT_DEVICE_CODE'
+  | 'COCKPIT_ENROL_CODE'
+  | 'COCKPIT_SIGNIN_NOTICE'
+  | 'COCKPIT_RECOVERY_NOTICE'
+  | 'COCKPIT_LOCKOUT_ALERT'
+  /** [Epic 98] The other owner asked for a two-person approval. `detail` is a short summary, no secret. */
+  | 'PLATFORM_APPROVAL_REQUEST'
+  /** [Epic 98] An owner account was locked or unlocked. `detail` names who did it. */
+  | 'PLATFORM_OWNER_LOCKED'
+  | 'PLATFORM_OWNER_UNLOCKED';
 export type TemplateMedium = 'SMS' | 'EMAIL';
 export type TemplateLocale = 'bn' | 'en';
 
@@ -32,6 +43,10 @@ export interface TemplateVars {
   person?: string;
   /** [75.1] The proposed value(s), MASKED, shown only to the person who must approve. */
   new_value?: string;
+  /** [Epic 98] Free text such as "IP 1.2.3.4, Chrome on Mac, 10:32". Never a secret. */
+  detail?: string;
+  /** [Epic 98] Recovery codes left. */
+  count?: string;
 }
 
 export type ContactField = 'email' | 'phone' | 'both';
@@ -264,6 +279,138 @@ const TEMPLATES: Record<
       },
     },
   },
+  COCKPIT_DEVICE_CODE: {
+    SMS: {
+      en: { body: '{{school}}: code {{code}} to sign in on a new device. Expires in 5 minutes.' },
+      bn: { body: '{{school}}: নতুন ডিভাইসে সাইন-ইনের কোড {{code}}। ৫ মিনিটে মেয়াদোত্তীর্ণ হবে।' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Code for a new device',
+        body: 'Hi {{name}},\n\nYour code to sign in on a new device is {{code}}. It expires in 5 minutes. If this was not you, do not share the code.',
+      },
+      bn: {
+        subject: 'নতুন ডিভাইসের কোড',
+        body: '{{name}},\n\nনতুন ডিভাইসে সাইন-ইনের জন্য আপনার কোড {{code}}। এটি ৫ মিনিটে মেয়াদোত্তীর্ণ হবে। এটি আপনি না হলে কোডটি কাউকে দেবেন না।',
+      },
+    },
+  },
+  COCKPIT_ENROL_CODE: {
+    SMS: {
+      en: { body: '{{school}}: code {{code}} to set up your authenticator. Expires in 5 minutes.' },
+      bn: { body: '{{school}}: অথেনটিকেটর সেট করার কোড {{code}}। ৫ মিনিটে মেয়াদোত্তীর্ণ হবে।' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Code to set up your authenticator',
+        body: 'Hi {{name}},\n\nYour code to set up the authenticator is {{code}}. It expires in 5 minutes. You need this code and the one sent by SMS.',
+      },
+      bn: {
+        subject: 'অথেনটিকেটর সেট করার কোড',
+        body: '{{name}},\n\nঅথেনটিকেটর সেট করার জন্য আপনার কোড {{code}}। এটি ৫ মিনিটে মেয়াদোত্তীর্ণ হবে। এই কোড এবং এসএমএসে পাঠানো কোড, দুটোই লাগবে।',
+      },
+    },
+  },
+  COCKPIT_SIGNIN_NOTICE: {
+    SMS: {
+      en: { body: '{{school}}: new sign-in. {{detail}}. Not you? Lock the account now.' },
+      bn: { body: '{{school}}: নতুন সাইন-ইন। {{detail}}। আপনি না হলে এখনই অ্যাকাউন্ট লক করুন।' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'New sign-in to your owner account',
+        body: 'Hi {{name}},\n\nYour owner account was just signed in. {{detail}}\n\nIf this was not you, lock the account now.',
+      },
+      bn: {
+        subject: 'আপনার মালিক অ্যাকাউন্টে নতুন সাইন-ইন',
+        body: '{{name}},\n\nআপনার মালিক অ্যাকাউন্টে এইমাত্র সাইন-ইন হয়েছে। {{detail}}\n\nএটি আপনি না হলে এখনই অ্যাকাউন্ট লক করুন।',
+      },
+    },
+  },
+  COCKPIT_RECOVERY_NOTICE: {
+    SMS: {
+      en: { body: '{{school}}: a recovery code was used to sign in. {{count}} left.' },
+      bn: { body: '{{school}}: সাইন-ইনে একটি রিকভারি কোড ব্যবহার হয়েছে। আর {{count}}টি বাকি।' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'A recovery code was used',
+        body: 'Hi {{name}},\n\nA recovery code was used to sign in to your owner account. {{count}} recovery codes are left. If this was not you, lock the account now.',
+      },
+      bn: {
+        subject: 'একটি রিকভারি কোড ব্যবহার হয়েছে',
+        body: '{{name}},\n\nআপনার মালিক অ্যাকাউন্টে সাইন-ইনে একটি রিকভারি কোড ব্যবহার হয়েছে। আর {{count}}টি রিকভারি কোড বাকি। এটি আপনি না হলে এখনই অ্যাকাউন্ট লক করুন।',
+      },
+    },
+  },
+  PLATFORM_APPROVAL_REQUEST: {
+    SMS: {
+      en: {
+        body: '{{school}}: the other owner asks for your approval: {{detail}}. Open the cockpit.',
+      },
+      bn: { body: '{{school}}: অন্য মালিক আপনার অনুমোদন চেয়েছেন: {{detail}}। ককপিট খুলুন।' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Approval requested',
+        body: 'Hi {{name}},\n\nThe other owner asks for your approval: {{detail}}.\n\nOpen the cockpit to approve or deny. The request expires in 24 hours.',
+      },
+      bn: {
+        subject: 'অনুমোদনের অনুরোধ',
+        body: '{{name}},\n\nঅন্য মালিক আপনার অনুমোদন চেয়েছেন: {{detail}}।\n\nককপিট খুলে অনুমোদন বা প্রত্যাখ্যান করুন। অনুরোধটি ২৪ ঘণ্টায় মেয়াদোত্তীর্ণ হবে।',
+      },
+    },
+  },
+  PLATFORM_OWNER_LOCKED: {
+    SMS: {
+      en: { body: '{{school}}: an owner account was locked. {{detail}}' },
+      bn: { body: '{{school}}: একটি মালিক অ্যাকাউন্ট লক করা হয়েছে। {{detail}}' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'An owner account was locked',
+        body: 'Hi {{name}},\n\nAn owner account was locked. {{detail}}\n\nA locked owner is signed out everywhere at once.',
+      },
+      bn: {
+        subject: 'একটি মালিক অ্যাকাউন্ট লক করা হয়েছে',
+        body: '{{name}},\n\nএকটি মালিক অ্যাকাউন্ট লক করা হয়েছে। {{detail}}\n\nলক হওয়া মালিক সব জায়গা থেকে একসঙ্গে সাইন-আউট হন।',
+      },
+    },
+  },
+  PLATFORM_OWNER_UNLOCKED: {
+    SMS: {
+      en: { body: '{{school}}: an owner account was unlocked. {{detail}}' },
+      bn: { body: '{{school}}: একটি মালিক অ্যাকাউন্ট আনলক করা হয়েছে। {{detail}}' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'An owner account was unlocked',
+        body: 'Hi {{name}},\n\nAn owner account was unlocked. {{detail}}\n\nThe owner can sign in again.',
+      },
+      bn: {
+        subject: 'একটি মালিক অ্যাকাউন্ট আনলক করা হয়েছে',
+        body: '{{name}},\n\nএকটি মালিক অ্যাকাউন্ট আনলক করা হয়েছে। {{detail}}\n\nমালিক আবার সাইন-ইন করতে পারবেন।',
+      },
+    },
+  },
+  COCKPIT_LOCKOUT_ALERT: {
+    SMS: {
+      en: { body: '{{school}}: 5 failed sign-in attempts on an owner account. Check it now.' },
+      bn: {
+        body: '{{school}}: একটি মালিক অ্যাকাউন্টে ৫ বার ভুল সাইন-ইনের চেষ্টা হয়েছে। এখনই দেখুন।',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Failed sign-ins on an owner account',
+        body: 'Hi {{name}},\n\nThere were 5 failed sign-in attempts on an owner account. Check it now.',
+      },
+      bn: {
+        subject: 'মালিক অ্যাকাউন্টে ভুল সাইন-ইন',
+        body: '{{name}},\n\nএকটি মালিক অ্যাকাউন্টে ৫ বার ভুল সাইন-ইনের চেষ্টা হয়েছে। এখনই দেখুন।',
+      },
+    },
+  },
 };
 
 function resolve(kind: TemplateKind, medium: TemplateMedium, locale: TemplateLocale) {
@@ -290,6 +437,8 @@ export function render(
     field: vars.field ? FIELD_LABEL[locale][vars.field] : '',
     person: vars.person ?? '',
     new_value: vars.new_value ?? '',
+    detail: vars.detail ?? '',
+    count: vars.count ?? '',
   };
   return {
     body: fill(template.body, varsRecord),

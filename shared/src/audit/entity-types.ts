@@ -60,6 +60,7 @@ export const AUDIT_ENTITY_TYPES = [
   // [Epic 53] notice create/edit/publish/withdraw.
   'Notice',
   'Payment',
+  'PlatformAdmin',
   'PrintAsset',
   'PrintJobItem',
   'PrintTemplate',

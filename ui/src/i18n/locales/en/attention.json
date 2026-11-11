@@ -403,6 +403,14 @@
           "name": "bKash payments to refund",
           "help": "Urgent until refunded: bKash took money that paid no order."
         }
+      },
+      "recovery_codes_low": {
+        "name": "Recovery codes running low",
+        "help": "Reminds you to make new recovery codes when few are left."
+      },
+      "approval_pending": {
+        "name": "Owner approval waiting",
+        "help": "Warns when a sensitive change waits for a second owner to approve."
       }
     },
     "manual": {

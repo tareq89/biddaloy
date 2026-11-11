@@ -9,14 +9,24 @@
 export function resolveCorsOrigins(
   corsOriginsEnv: string | undefined,
   nodeEnv: string | undefined,
+  cockpitDomain: string | undefined = process.env.COCKPIT_DOMAIN,
 ): string[] {
-  if (corsOriginsEnv) {
-    return corsOriginsEnv
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean);
-  }
-  return nodeEnv === 'production' ? [] : ['http://localhost:5173'];
+  const base = corsOriginsEnv
+    ? corsOriginsEnv
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : nodeEnv === 'production'
+      ? []
+      : ['http://localhost:5173'];
+  // [Epic 98] The cockpit host is its own origin; allow it when configured.
+  // A scheme or trailing slash typed into COCKPIT_DOMAIN is dropped: the value is a bare host.
+  const host = cockpitDomain
+    ?.trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '');
+  const cockpit = host ? `https://${host}` : null;
+  return cockpit && !base.includes(cockpit) ? [...base, cockpit] : base;
 }
 
 /** A bare origin: http(s) scheme + host[:port], no path, query or trailing slash. */
@@ -34,9 +44,13 @@ export function isValidOrigin(value: string): boolean {
  * cors.e2e-spec.ts so the test exercises the actual production wiring rather
  * than a hand-copied duplicate that could drift from it.
  */
-export function buildCorsOptions(corsOriginsEnv: string | undefined, nodeEnv: string | undefined) {
+export function buildCorsOptions(
+  corsOriginsEnv: string | undefined,
+  nodeEnv: string | undefined,
+  cockpitDomain: string | undefined = process.env.COCKPIT_DOMAIN,
+) {
   return {
-    origin: resolveCorsOrigins(corsOriginsEnv, nodeEnv),
+    origin: resolveCorsOrigins(corsOriginsEnv, nodeEnv, cockpitDomain),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // X-Tenant-ID and X-Role are read by ContextGuard on every authenticated

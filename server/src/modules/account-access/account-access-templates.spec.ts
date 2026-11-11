@@ -1,4 +1,40 @@
-import { resolveTemplateLocale } from './account-access-templates';
+import { redact, render, resolveTemplateLocale, TemplateKind } from './account-access-templates';
+
+describe('cockpit templates', () => {
+  const kinds: TemplateKind[] = [
+    'COCKPIT_DEVICE_CODE',
+    'COCKPIT_ENROL_CODE',
+    'COCKPIT_SIGNIN_NOTICE',
+    'COCKPIT_RECOVERY_NOTICE',
+    'COCKPIT_LOCKOUT_ALERT',
+  ];
+
+  it('renders every kind in bn and en on both channels with no leftover placeholder', () => {
+    for (const kind of kinds) {
+      for (const medium of ['SMS', 'EMAIL'] as const) {
+        for (const locale of ['bn', 'en'] as const) {
+          const out = render(kind, medium, locale, {
+            school: 'SchoolManager',
+            name: 'Owner',
+            code: '123456',
+            detail: 'IP 1.2.3.4',
+            count: '7',
+          });
+          expect(out.body).not.toMatch(/\{\{/);
+        }
+      }
+    }
+  });
+
+  it('redact hides the code in the code messages', () => {
+    const out = redact('COCKPIT_DEVICE_CODE', 'SMS', 'en', {
+      school: 'SchoolManager',
+      name: 'Owner',
+      code: '123456',
+    });
+    expect(out.body).not.toContain('123456');
+  });
+});
 
 describe('resolveTemplateLocale', () => {
   it('maps a bn region locale to Bangla, ignoring case', () => {

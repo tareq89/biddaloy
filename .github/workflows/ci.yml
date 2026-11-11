@@ -93,6 +93,8 @@ jobs:
               - 'scripts/coverage-offenders.mjs'
               - 'scripts/coverage-delta.mjs'
               - 'scripts/bundle-delta.mjs'
+              - 'scripts/smoke-post-deploy.mjs'
+              - 'scripts/smoke-post-deploy.spec.mjs'
               - 'scripts/ci-audit.js'
               - 'scripts/ci-audit.spec.mjs'
               - 'scripts/ci-timings.mjs'

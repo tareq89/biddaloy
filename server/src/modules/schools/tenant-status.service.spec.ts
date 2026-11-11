@@ -356,6 +356,26 @@ describe('TenantStatusService', () => {
       expect(schoolRepo.findOne).toHaveBeenCalledWith({ where: { slug: 'default-school' } });
     });
 
+    it('platformSchoolIds returns env id plus the is_platform home, de-duplicated', async () => {
+      const s = build({ PLATFORM_TENANT_ID: 'env-id' });
+      schoolRepo.findOne.mockResolvedValue({ id: 'home-id' });
+      expect(await s.platformSchoolIds()).toEqual(['env-id', 'home-id']);
+      // Same row as the env id: listed once.
+      schoolRepo.findOne.mockResolvedValue({ id: 'env-id' });
+      const s2 = build({ PLATFORM_TENANT_ID: 'env-id' });
+      expect(await s2.platformSchoolIds()).toEqual(['env-id']);
+    });
+
+    it('a home-school miss is not cached', async () => {
+      const s = build({ NODE_ENV: 'production' });
+      schoolRepo.findOne.mockResolvedValueOnce(null);
+      expect(await s.platformSchoolIds()).toEqual([]);
+      schoolRepo.findOne.mockResolvedValue({ id: 'home-id' });
+      expect(await s.platformSchoolIds()).toEqual(['home-id']);
+      expect(await s.platformSchoolIds()).toEqual(['home-id']);
+      expect(schoolRepo.findOne).toHaveBeenCalledTimes(2);
+    });
+
     it('a miss is not cached', async () => {
       const s = build({ NODE_ENV: 'test' });
       schoolRepo.findOne.mockResolvedValueOnce(null);
