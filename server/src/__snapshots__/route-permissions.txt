@@ -113,6 +113,7 @@ GET /audience/people | AudienceController | perm: NOTICE_POST
 GET /audit-logs | AuditController | perm: AUDIT_LOG_READ
 GET /audit-logs/entity/:entityType/:entityId | AuditController | perm: AUDIT_ENTITY_HISTORY_READ
 GET /audit-logs/export | AuditController | perm: AUDIT_LOG_READ,REPORTS_EXPORT
+GET /auth/cockpit/mfa-status | CockpitMfaController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /auth/cockpit/sessions | CockpitSessionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /auth/sessions | AuthController | allowlist: AuthGuard('jwt')
 GET /auth/social/:provider/callback | SocialAuthController | allowlist: none
@@ -595,6 +596,7 @@ POST /auth/cockpit/login | CockpitAuthController | allowlist: SameOriginGuard
 POST /auth/cockpit/logout | CockpitSessionController | allowlist: SameOriginGuard
 POST /auth/cockpit/logout-all | CockpitSessionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, SameOriginGuard
 POST /auth/cockpit/mfa | CockpitAuthController | allowlist: SameOriginGuard
+POST /auth/cockpit/recovery-codes | CockpitMfaController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, SameOriginGuard, ApprovalGuard | approval: platform.recovery_codes
 POST /auth/cockpit/refresh | CockpitSessionController | allowlist: SameOriginGuard
 POST /auth/cockpit/reset-password | CockpitPasswordController | allowlist: SameOriginGuard
 POST /auth/forgot-password | AccountAccessController | allowlist: none
