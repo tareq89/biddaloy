@@ -571,6 +571,15 @@ describe('StepUpService', () => {
       expect(redis.set).toHaveBeenCalledWith(`approval:${out.jti}`, '1', 'PX', 300_000);
     });
 
+    it('mints a token for platform.login_as (Epic 99)', async () => {
+      const { service, jwtService } = buildService();
+      await service.issueForPlatformAdmin('owner-1', ApprovalScope.PLATFORM_LOGIN_AS, 'home-1');
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: ApprovalScope.PLATFORM_LOGIN_AS }),
+        expect.anything(),
+      );
+    });
+
     it('rejects a non-platform scope', async () => {
       const { service, jwtService } = buildService();
       await expect(

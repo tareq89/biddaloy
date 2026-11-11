@@ -46,21 +46,22 @@ export interface LoginAsCandidatesResponse {
   supportAccessMode: SupportAccessMode;
 }
 
+/** `POST /platform/impersonation`. The `platform.login_as` approval token goes in `X-Approval-Token`. */
 export interface StartImpersonationRequest {
   schoolId: string;
-  userId: string;
+  role: UserRole;
+  targetUserId: string;
   reason: string;
-  viewOnly?: boolean;
-  kind?: ImpersonationEntryKind;
-  /** The approval token for `platform.login_as`. */
-  approvalToken?: string;
+  viewOnly: boolean;
 }
 
+/** `code` and `expiresAt` are present only when the session is already ACTIVE. */
 export interface StartImpersonationResponse {
-  sessionId: string;
+  id: string;
   status: ImpersonationStatus;
-  /** One-time code for the exchange, present once the session is APPROVED/ACTIVE. */
-  exchangeCode?: string;
+  /** One-time exchange code. */
+  code?: string;
+  expiresAt?: string;
 }
 
 export interface ImpersonationSessionDto {

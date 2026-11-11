@@ -76,6 +76,7 @@ export const PLATFORM_APPROVAL_SCOPES: readonly ApprovalScope[] = [
   ApprovalScope.PLATFORM_APPROVALS_SWITCH,
   ApprovalScope.PLATFORM_APPROVAL_DECIDE,
   ApprovalScope.PLATFORM_RECOVERY_CODES,
+  ApprovalScope.PLATFORM_LOGIN_AS,
 ];
 
 export interface StepUpOtpRequestResult {
