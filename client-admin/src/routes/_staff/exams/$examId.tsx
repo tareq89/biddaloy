@@ -12,6 +12,7 @@ import {
   ErrorState,
   RoutePending,
   Skeleton,
+  isYearClosedError,
   useIsYearClosed,
 } from '@biddaloy/ui/components';
 import {
@@ -72,6 +73,7 @@ const TAB_IDS = ['progress', 'setup', 'schedule', 'results', 'print'] as const;
 function ExamDetailPage() {
   const { examId } = Route.useParams();
   const { t } = useTranslation('exams');
+  const { t: tYears } = useTranslation('academicYears');
   const config = useRegionConfig();
   const examQuery = useExam(examId);
   const exam = examQuery.data;
@@ -135,7 +137,9 @@ function ExamDetailPage() {
             label: t('detail.edit'),
             icon: <Pencil aria-hidden className="size-4" />,
             priority: 'tertiary',
-            allowed: canManage && !yearClosed,
+            allowed: canManage,
+            disabled: yearClosed,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => setEditOpen(true),
           },
           {
@@ -144,7 +148,9 @@ function ExamDetailPage() {
             icon: <Trash2 aria-hidden className="size-4" />,
             priority: 'destructive',
             // Only a DRAFT exam can have no results; the server refuses the rest with 409.
-            allowed: canManage && exam.status === 'DRAFT' && !yearClosed,
+            allowed: canManage && exam.status === 'DRAFT',
+            disabled: yearClosed,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => setDeleteOpen(true),
           },
         ]}
@@ -208,11 +214,13 @@ function ExamDetailPage() {
         description={`${t('detail.delete.description')}${
           deleteExam.isError
             ? ` ${
-                deleteExam.error instanceof ApiError &&
-                (deleteExam.error.details as { code?: string } | undefined)?.code ===
-                  'EXAM_HAS_RESULTS'
-                  ? t('detail.delete.errorHasResults')
-                  : t('detail.delete.errorMessage')
+                isYearClosedError(deleteExam.error)
+                  ? deleteExam.error.message
+                  : deleteExam.error instanceof ApiError &&
+                      (deleteExam.error.details as { code?: string } | undefined)?.code ===
+                        'EXAM_HAS_RESULTS'
+                    ? t('detail.delete.errorHasResults')
+                    : t('detail.delete.errorMessage')
               }`
             : ''
         }`}

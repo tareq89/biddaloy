@@ -1,5 +1,7 @@
 {
   "list": {
+    "noCurrentYear": "No current year is set, so there is no year to create the next one from.",
+    "noOpenYearToClose": "No open year is left to close.",
     "title": "Academic Years",
     "caption": "Academic years",
     "addYear": "Add academic year",

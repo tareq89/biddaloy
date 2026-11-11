@@ -12,6 +12,7 @@
 import { FeeType } from '@biddaloy/shared';
 import {
   Button,
+  closedYearErrorText,
   Dialog,
   DialogClose,
   DialogContent,
@@ -123,6 +124,7 @@ export function StructureFormDialog({
   onSaved,
 }: StructureFormDialogProps) {
   const { t } = useTranslation('feeStructures');
+  const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useRegionConfig();
   const requiredLabel = t('form.required', { ns: 'common' });
 
@@ -213,6 +215,10 @@ export function StructureFormDialog({
   }
 
   const isEdit = mode === 'edit';
+  // [69.4.05] Guard client-side too: the picker can name a closed year (the server still decides).
+  const yearClosed =
+    academicYearId !== '' &&
+    yearsQuery.data?.data.some((y) => y.id === academicYearId && y.closed_at != null) === true;
   const title = isEdit ? t('form.editTitle') : t('form.createTitle');
 
   return (
@@ -362,7 +368,12 @@ export function StructureFormDialog({
 
           {mutation.isError && (
             <p role="alert" className="text-caption text-destructive">
-              {t('form.errorMessage')}
+              {closedYearErrorText(mutation.error, t('form.errorMessage'))}
+            </p>
+          )}
+          {yearClosed && (
+            <p role="status" className="text-caption text-text-secondary">
+              {tYears('closedNotice.tooltip')}
             </p>
           )}
 
@@ -372,7 +383,12 @@ export function StructureFormDialog({
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
-            <Button type="submit" loading={mutation.isPending}>
+            <Button
+              type="submit"
+              loading={mutation.isPending}
+              disabled={yearClosed}
+              {...(yearClosed ? { title: tYears('closedNotice.tooltip') } : {})}
+            >
               {mutation.isPending ? t('form.saving') : t('form.save')}
             </Button>
           </DialogFooter>

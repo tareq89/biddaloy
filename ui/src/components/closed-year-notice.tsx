@@ -21,14 +21,20 @@ export function useIsYearClosed(academicYearId: string | undefined): boolean {
   return year.data?.closed_at != null;
 }
 
-/** True for the server's 409 `ACADEMIC_YEAR_CLOSED`. Its `message` is the sentence to show next
- * to the control that failed (Rule 23: one sentence, no echo of what was sent). */
+/** True for the server's 409 `ACADEMIC_YEAR_CLOSED`. Callers show the server-mapped `message`
+ * next to the control that failed via `closedYearErrorText` (Rule 23: one sentence, no echo);
+ * the i18n `closedNotice.tooltip` is for controls disabled up front. */
 export function isYearClosedError(error: unknown): error is ApiError {
   return (
     error instanceof ApiError &&
     error.statusCode === 409 &&
     (error.details as { code?: string } | undefined)?.code === 'ACADEMIC_YEAR_CLOSED'
   );
+}
+
+/** Inline error text: the server's closed-year sentence, else `fallback`. */
+export function closedYearErrorText(error: unknown, fallback: string): string {
+  return isYearClosedError(error) ? error.message : fallback;
 }
 
 export interface ClosedYearNoticeProps {

@@ -32,6 +32,8 @@ export interface FullPageShellAction {
   onClick: () => void;
   busy?: boolean;
   disabled?: boolean;
+  /** Native tooltip (`title`) while disabled: why it cannot be used. */
+  disabledReason?: string | undefined;
   /** A (?) after the button (needs a help index entry, Epic 44). */
   helpId?: string | undefined;
 }
@@ -107,6 +109,7 @@ export function FullPageShell({
       className="h-11"
       loading={primary.busy ?? false}
       disabled={primary.disabled ?? false}
+      {...(primary.disabled && primary.disabledReason ? { title: primary.disabledReason } : {})}
       onClick={primary.onClick}
     >
       {primary.label}

@@ -20,6 +20,7 @@ import { Permission, type PromotionOutcome } from '@biddaloy/shared';
 import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   Button,
+  closedYearErrorText,
   ClosedYearNotice,
   ConfirmDialog,
   ErrorState,
@@ -33,6 +34,7 @@ import {
   SelectValue,
   Skeleton,
   StatusBadge,
+  isYearClosedError,
   toast,
   useIsYearClosed,
   type StatusTone,
@@ -314,7 +316,8 @@ function PromotionRunPage() {
       () => true,
       (error: unknown) => {
         if (!(error instanceof ApiError && error.statusCode === 403)) {
-          toast.error(t('grid.saveFailed'));
+          // [69.4.05] No inline slot in the grid: the toast carries the server's closed-year sentence.
+          toast.error(closedYearErrorText(error, t('grid.saveFailed')));
         }
         return false;
       },
@@ -462,7 +465,7 @@ function PromotionRunPage() {
           setCommitOpen(false);
           toast.error(t('blocking.retainClassMissing'));
         } else if (error instanceof ApiError && error.statusCode !== 403) {
-          toast.error(t('grid.commitFailed'));
+          toast.error(closedYearErrorText(error, t('grid.commitFailed')));
         }
       },
     });
@@ -485,7 +488,9 @@ function PromotionRunPage() {
       onSuccess: () => void navigate({ to: '/promotions' }),
       onError: (error: unknown) => {
         setDeleteOpen(false);
-        if (error instanceof ApiError && error.statusCode === 409) {
+        if (isYearClosedError(error)) {
+          toast.error(error.message);
+        } else if (error instanceof ApiError && error.statusCode === 409) {
           // Finalised (or otherwise changed) elsewhere: show the current state.
           toast.error(t('grid.deleteConflict'));
           void queryClient.invalidateQueries({

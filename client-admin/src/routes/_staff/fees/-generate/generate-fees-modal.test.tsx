@@ -440,6 +440,37 @@ describe('GenerateFeesModal', () => {
     expect(screen.queryByText(/Internal thing/)).toBeNull();
   });
 
+  it('[69.4.05] a 409 ACADEMIC_YEAR_CLOSED shows the server sentence beside Create bills', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),
+      http.post('/api/v1/fees/generate/preview', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal();
+
+    await user.click(await screen.findByRole('button', { name: /Select all/ }));
+    const feeCheckboxes = await within(await screen.findByTestId('fee-picker')).findAllByRole(
+      'checkbox',
+    );
+    await user.click(feeCheckboxes[0]!);
+    await user.click(screen.getByRole('button', { name: 'Create bills' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'This academic year is closed.',
+    );
+  });
+
   it('keeps the primary action disabled until a student and a fee are chosen', async () => {
     server.use(
       yearHandler(),

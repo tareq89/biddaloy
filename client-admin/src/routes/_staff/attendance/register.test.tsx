@@ -813,4 +813,75 @@ describe('/attendance/register month edit', () => {
     expect(link.getAttribute('href')).toContain(`/attendance/${SECTION_ID}`);
     expect(link.getAttribute('href')).toContain('date=2026-01-01');
   });
+
+  describe('closed year [69.4.05]', () => {
+    function useYears(closed: boolean) {
+      const year = {
+        id: 'year-2026',
+        name: '2026',
+        is_current: false,
+        closed_at: closed ? '2026-12-31T00:00:00.000Z' : null,
+        start_date: '2026-01-01T00:00:00.000Z',
+        end_date: '2026-12-31T00:00:00.000Z',
+      };
+      server.use(
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
+        ),
+        http.get('/api/v1/academic-years/year-2026', () => HttpResponse.json(year)),
+      );
+    }
+
+    it('a month inside a closed year shows the notice and Edit stays off', async () => {
+      setDesktop(true);
+      useMatrix();
+      useYears(true);
+      await openEditor();
+      expect(await screen.findByText(/2026 is closed/)).toBeTruthy();
+      const edit = await screen.findByRole('button', { name: 'Edit' });
+      expect((edit as HTMLButtonElement).disabled).toBe(true);
+      expect(edit.getAttribute('title')).toMatch(/This year is closed/);
+    });
+
+    it('a month in an open year edits as before', async () => {
+      setDesktop(true);
+      useMatrix();
+      useYears(false);
+      await openEditor();
+      const edit = await screen.findByRole('button', { name: 'Edit' });
+      expect((edit as HTMLButtonElement).disabled).toBe(false);
+      expect(screen.queryByText(/is closed/)).toBeNull();
+    });
+
+    it('a save that races a close shows the server sentence beside the save, not a toast', async () => {
+      const toastError = vi.spyOn(toast, 'error');
+      setDesktop(true);
+      useMatrix(() =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            timestamp: new Date().toISOString(),
+            path: '/attendance/sections/x/register-matrix',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      );
+      useYears(false);
+      const user = userEvent.setup();
+      await openEditor();
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      const grid = await screen.findByRole('grid');
+      within(grid)
+        .getByRole('gridcell', { name: /Karim Rahman, .*: Present/ })
+        .focus();
+      await user.keyboard('a');
+      await user.type(screen.getByLabelText(/Reason for correction/), 'Copied from paper register');
+      await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+      expect(await screen.findByText('This academic year is closed.')).toBeTruthy();
+      expect(toastError).not.toHaveBeenCalledWith(expect.stringContaining('closed'));
+    });
+  });
 });

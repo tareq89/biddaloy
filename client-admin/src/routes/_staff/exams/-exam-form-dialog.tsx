@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
   toast,
+  closedYearErrorText,
 } from '@biddaloy/ui/components';
 import { useAcademicYears, useClasses, useCreateExam, useUpdateExam } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -350,7 +351,7 @@ export function ExamFormDialog({
           )}
           {mutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {t(errorKey(mutation.error))}
+              {closedYearErrorText(mutation.error, t(errorKey(mutation.error)))}
             </p>
           )}
 
