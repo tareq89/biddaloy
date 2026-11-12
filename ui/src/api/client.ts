@@ -55,11 +55,23 @@ type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL });
 
+/** [4100] True on the cockpit host: an owner has no school, so a request with no tenant
+ * goes out without `X-Tenant-ID` instead of throwing. Set once at boot (`client-admin/src/main.tsx`). */
+let tenantless = false;
+export function setTenantless(next: boolean): void {
+  tenantless = next;
+}
+
 apiClient.interceptors.request.use((config) => {
   // Explicit override wins; then the tenant this same request already
   // resolved to on a previous attempt (see `_resolvedTenantId`'s comment);
   // only a first dispatch falls through to the ambient active tenant.
   const tenantId = config._tenantOverride || config._resolvedTenantId || getActiveTenant();
+  if (!tenantId && tenantless) {
+    const owner = getAccessToken();
+    if (owner) config.headers.set('Authorization', `Bearer ${owner}`);
+    return config;
+  }
   if (!tenantId) {
     // Rejecting here means the request is never dispatched — axios has not
     // yet handed the config to its adapter, so no HTTP call happens.
