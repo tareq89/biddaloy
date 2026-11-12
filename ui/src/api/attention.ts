@@ -124,9 +124,9 @@ export async function getStudentAttention(
 export async function getPlatformAttentionHealth(
   signal: AbortSignal,
 ): Promise<PlatformAttentionHealth> {
-  // Always `apiClient`, never the cockpit source: `/platform/attention/health` still rejects a
-  // cockpit token (401), and a 401 on the cockpit transport ends the owner's whole session. On the
-  // cockpit host this fails fast (no active school) and the card shows its retry state instead.
+  // Always `apiClient`, never the cockpit source. The server route takes a cockpit token now, but
+  // this card is not wired to the cockpit transport yet: on the cockpit host it fails fast (no
+  // active school) and the card shows its retry state instead.
   return (await apiClient.get<PlatformAttentionHealth>('/platform/attention/health', { signal }))
     .data;
 }

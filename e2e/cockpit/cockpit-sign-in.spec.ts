@@ -4,7 +4,6 @@ import {
   expect,
   test,
   expectAccessiblePage,
-  stubLegacyPlatformRoutes,
   warmUp,
   clearCodes,
   emailCode,
@@ -54,7 +53,6 @@ async function newDevice(browser: Browser): Promise<Page> {
     viewport: viewport ?? null,
     hasTouch: hasTouch ?? false,
   });
-  await stubLegacyPlatformRoutes(context);
   return context.newPage();
 }
 
