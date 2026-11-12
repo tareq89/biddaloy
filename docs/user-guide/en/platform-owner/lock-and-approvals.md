@@ -88,7 +88,7 @@ In **Approval requests**, the switch **Ask the other owner first** is **On** or 
 
 ### Read the history <a href="#task-history" id="task-history"></a>
 
-The tab **History** lists, newest first, **Signed in**, **Failed sign-in**, **Owner locked**, **Owner unlocked**, **Authenticator set up**, **Recovery code used**, approvals and **Password reset**, with **Who** and **When**. Press **Load more** for older entries. Look here after any sign-in you do not recognise.
+The tab **History** lists, newest first, **Signed in**, **Failed sign-in**, **Owner locked**, **Owner unlocked**, **Authenticator set up**, **Recovery code used**, **Recovery codes regenerated**, approvals and **Password reset**, with **Who** and **When**. Press **Load more** for older entries. Look here after any sign-in you do not recognise.
 
 ---
 
