@@ -233,7 +233,7 @@ If the bar is in your way, tap **Hide**. It shrinks to a small button at the top
 | **This account has been suspended.** (only on the page an invitation link opens) | The school has put your account on hold, so the invitation cannot be used. Contact the school office. At the sign-in page itself this message does not appear. | School admin |
 | **This link has expired.**                                                       | For an invitation link, see [If you got an invitation link](#task-invite); for a reset link, see [Forgot your password](#task-forgot).                         | School admin |
 | **Set password** cannot be tapped                                                | Not all the rules under the box are met, or the two passwords differ (**Passwords do not match.**).                                                            | —            |
-| **Use a shorter password — at most 72 letters, or 24 Bangla letters.**           | Make the password shorter.                                                                                                                                     | —            |
+| **Use a shorter password — at most 72 letters, or 24 Bangla letters.**           | Make the password shorter. It shows as you type, and **Set password** stays disabled until you do.                                                             | —            |
 | **Something went wrong. Please try again.**                                      | Check your internet and try again. If it keeps happening, tell the admin.                                                                                      | School admin |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#signin).
