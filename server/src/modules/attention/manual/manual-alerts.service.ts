@@ -45,6 +45,27 @@ export class ManualAlertsService {
     actorUserId: string,
     dto: CreateManualAlertDto,
   ): Promise<ManualAlertDto> {
+    return this.write(tenantId, actorUserId, dto, true);
+  }
+
+  /**
+   * [Epic 99 D33] A platform owner's announcement to one school: the same alert, but no daily cap
+   * (the school's budget is its own), and the cap query above never counts it.
+   */
+  async sendPlatform(
+    tenantId: string,
+    actorUserId: string,
+    dto: CreateManualAlertDto,
+  ): Promise<ManualAlertDto> {
+    return this.write(tenantId, actorUserId, dto, false);
+  }
+
+  private async write(
+    tenantId: string,
+    actorUserId: string,
+    dto: CreateManualAlertDto,
+    capped: boolean,
+  ): Promise<ManualAlertDto> {
     const now = new Date();
     const ctx = await this.ruleContext.build(tenantId, now, actorUserId);
     if (dto.expiresOn < ctx.localDate || dto.expiresOn > addDaysIso(ctx.localDate, MAX_DAYS_AHEAD))
@@ -73,23 +94,27 @@ export class ManualAlertsService {
         userIds,
       },
       // runs under the tenant's manual lock, so two parallel sends can't both pass the cap
-      async (em) => {
-        const [{ n }] = await run(
-          em,
-          `SELECT count(*)::int AS n FROM alerts
-            WHERE tenant_id = $1 AND source = 'MANUAL' AND raised_at > now() - interval '24 hours'`,
-          [tenantId],
-        );
-        if (n >= MANUAL_DAILY_CAP)
-          // `details.code` tells this apart from the per-minute throttler's own 429
-          throw new HttpException(
-            {
-              message: `Daily limit of ${MANUAL_DAILY_CAP} alerts reached`,
-              details: { code: 'MANUAL_DAILY_LIMIT', limit: MANUAL_DAILY_CAP },
-            },
-            HttpStatus.TOO_MANY_REQUESTS,
-          );
-      },
+      capped
+        ? async (em) => {
+            const [{ n }] = await run(
+              em,
+              `SELECT count(*)::int AS n FROM alerts
+            WHERE tenant_id = $1 AND source = 'MANUAL' AND raised_at > now() - interval '24 hours'
+              AND NOT EXISTS (SELECT 1 FROM platform_admins pa
+                               WHERE pa.user_id = alerts.created_by_user_id)`,
+              [tenantId],
+            );
+            if (n >= MANUAL_DAILY_CAP)
+              // `details.code` tells this apart from the per-minute throttler's own 429
+              throw new HttpException(
+                {
+                  message: `Daily limit of ${MANUAL_DAILY_CAP} alerts reached`,
+                  details: { code: 'MANUAL_DAILY_LIMIT', limit: MANUAL_DAILY_CAP },
+                },
+                HttpStatus.TOO_MANY_REQUESTS,
+              );
+          }
+        : undefined,
     );
 
     await this.audit.record({
