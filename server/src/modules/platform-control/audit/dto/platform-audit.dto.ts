@@ -45,11 +45,11 @@ export class SearchPlatformAuditQueryDto extends PageQueryDto {
   sessionId?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   from?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   to?: string;
 }
 
