@@ -61,6 +61,7 @@ let tenantless = false;
 export function setTenantless(next: boolean): void {
   tenantless = next;
 }
+export const isTenantless = (): boolean => tenantless;
 
 apiClient.interceptors.request.use((config) => {
   // Explicit override wins; then the tenant this same request already
