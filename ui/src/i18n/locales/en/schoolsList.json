@@ -1,0 +1,29 @@
+{
+  "columnStudents": "Students",
+  "columnLastActive": "Last active",
+  "columnTrialEnd": "Trial ends",
+  "never": "Never",
+  "noTrial": "No trial",
+  "loginAs": "Login as",
+  "loginAsFor": "Login as for {{name}}",
+  "filterStatus": "Status",
+  "allStatuses": "All statuses",
+  "filterTrial": "Trial",
+  "allTrials": "All",
+  "trial": {
+    "active": "Running",
+    "expired": "Ended"
+  },
+  "searchLabel": "Search school or phone",
+  "searchPlaceholder": "School name, link name or phone",
+  "emptyExplanation": "Try another name, link name or phone.",
+  "live": {
+    "title": "Live now ({{count}})",
+    "item": "{{school}} - {{person}}, {{role}} - {{minutes}} min left",
+    "end": "End",
+    "endFor": "End {{person}}'s visit to {{school}}",
+    "confirmTitle": "End this visit?",
+    "confirmDescription": "{{person}} will be signed out of {{school}} right away.",
+    "error": "Could not end it. Try again."
+  }
+}
