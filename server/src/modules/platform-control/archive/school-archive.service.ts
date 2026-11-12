@@ -125,6 +125,12 @@ export class SchoolArchiveService {
     context: RequestContext,
   ): Promise<ArchiveSchoolResponseDto> {
     await this.assertSchool(schoolId);
+    if (await this.schools.exist({ where: { id: schoolId, is_platform: true } })) {
+      throw new ConflictException({
+        message: 'The platform home school cannot be archived',
+        details: { code: 'PLATFORM_HOME_SCHOOL' },
+      });
+    }
     const job = await this.jobOf(schoolId, dto.exportJobId);
     if (job.status !== WorkbookJobStatus.DONE || !job.storage_key || this.isExpired(job)) {
       throw notReady();

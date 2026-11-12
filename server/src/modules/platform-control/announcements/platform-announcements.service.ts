@@ -183,7 +183,7 @@ export class PlatformAnnouncementsService {
       ) => {
         if (!to) return;
         try {
-          await this.delivery.deliver({
+          const r = await this.delivery.deliver({
             tenantId: null,
             medium,
             to,
@@ -191,6 +191,7 @@ export class PlatformAnnouncementsService {
             kind: 'PLATFORM_ANNOUNCEMENT',
             vars: { title: dto.title, message: dto.body },
           });
+          if (r?.status === 'FAILED') this.logger.warn(`Announcement ${medium} delivery failed`);
         } catch (err) {
           this.logger.warn(`Announcement ${medium} failed: ${(err as Error).name}`);
         }

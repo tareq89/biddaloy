@@ -41,8 +41,15 @@ describe('PlatformSchoolsController', () => {
   });
 
   it('search delegates to searchForPlatform', async () => {
-    expect(await controller.search({ q: 'a' })).toEqual({ items: [], total: 0 });
+    const owner = { user: { typ: 'cockpit', sub: 'u', jti: 'j', fam: 'f' } } as never;
+    expect(await controller.search({ q: 'a' }, owner)).toEqual({ items: [], total: 0 });
     expect(service.searchForPlatform).toHaveBeenCalledWith({ q: 'a' });
+  });
+
+  it('search refuses a non-cockpit principal', async () => {
+    await expect(controller.search({}, { user: { sub: 'u' } } as never)).rejects.toThrow(
+      'platform owners only',
+    );
   });
 
   it('search query: limit 101 is refused, 100 and every status and sort pass (Rule 5)', async () => {

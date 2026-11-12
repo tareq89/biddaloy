@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -15,6 +16,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtPayload } from '@biddaloy/shared';
+import { isCockpitPrincipal } from '../platform-identity/cockpit-principal';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -56,7 +58,11 @@ export class PlatformSchoolsController {
       'Search, filter and sort every school with student count, last activity, trial end and seat limit (Epic 99). A deleted school shows only with status=DELETED.',
   })
   @ApiOkResponse({ type: PlatformSchoolSearchPageDto })
-  async search(@Query() query: PlatformSchoolSearchQueryDto) {
+  async search(@Query() query: PlatformSchoolSearchQueryDto, @Req() req: Request) {
+    // Cockpit owners only (#3805): the class guards also admit a legacy SUPER_ADMIN token until Wave 5.
+    if (!isCockpitPrincipal(req.user)) {
+      throw new ForbiddenException('This area is for platform owners only');
+    }
     return this.schools.searchForPlatform(query);
   }
 

@@ -24,7 +24,7 @@ function build(school: Record<string, unknown> | undefined, members: string[] = 
   const cutoff = { cutOff: vi.fn() };
   const refresh = { revokeAllForUser: vi.fn() };
   const sessions = { revokeAllForSchool: vi.fn() };
-  const status = { invalidate: vi.fn() };
+  const status = { invalidate: vi.fn(), configuredPlatformTenantId: vi.fn() };
   const audit = { recordApproved: vi.fn() };
   const svc = new PlatformSchoolDeleteService(
     db as never,

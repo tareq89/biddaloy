@@ -77,6 +77,7 @@ export class PlatformSchoolDeleteService {
       );
       const school = rows[0];
       this.pick(school);
+    if (schoolId === this.tenantStatus.configuredPlatformTenantId()) throw platformHome();
       await m.query(
         `UPDATE schools
             SET deleted_at = $2, status = 'SUSPENDED', status_reason = $3, status_changed_at = $2
@@ -102,18 +103,19 @@ export class PlatformSchoolDeleteService {
       );
     });
     // Own transactions / caches, so after the commit.
-    await this.sessions.revokeAllForSchool(schoolId, ImpersonationEndedBy.OWNER);
-    await this.tenantStatus.invalidate(schoolId);
+    try {
+      await this.sessions.revokeAllForSchool(schoolId, ImpersonationEndedBy.OWNER);
+    } finally {
+      // Always drop the cached status, even if the Login as revocation failed.
+      await this.tenantStatus.invalidate(schoolId);
+    }
     return { id: schoolId, deletedAt: now };
   }
 
   private pick<T extends { is_platform: boolean }>(row: T | undefined): T {
     if (!row) throw new NotFoundException('School not found');
     if (row.is_platform) {
-      throw new ConflictException({
-        message: 'The platform home school cannot be deleted',
-        details: { code: 'PLATFORM_HOME_SCHOOL' },
-      });
+      throw platformHome();
     }
     return row;
   }
@@ -137,3 +139,9 @@ export class PlatformSchoolDeleteService {
     }
   }
 }
+
+const platformHome = () =>
+  new ConflictException({
+    message: 'The platform home school cannot be deleted',
+    details: { code: 'PLATFORM_HOME_SCHOOL' },
+  });

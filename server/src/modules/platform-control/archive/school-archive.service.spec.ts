@@ -34,7 +34,7 @@ describe('SchoolArchiveService', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    schools.exist.mockResolvedValue(true);
+    schools.exist.mockImplementation(async ({ where }) => !where.is_platform);
     jobs.update.mockResolvedValue({ affected: 1 });
     storage.get.mockResolvedValue({ body: 'stream' });
     service = new SchoolArchiveService(
@@ -147,6 +147,12 @@ describe('SchoolArchiveService', () => {
         ConflictException,
       );
       expect(schoolsService.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('refuses the platform home school before pinning anything', async () => {
+      schools.exist.mockResolvedValue(true);
+      await expect(service.archive(SCHOOL, dto, 'o', ctx)).rejects.toBeInstanceOf(ConflictException);
+      expect(jobs.update).not.toHaveBeenCalled();
     });
 
     it('another school job is 404', async () => {

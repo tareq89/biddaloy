@@ -14,7 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { ApprovalScope } from '@biddaloy/shared';
@@ -80,6 +80,7 @@ export class PlatformAnnouncementsController {
   @UseGuards(ApprovalGuard)
   @RequireApproval(ApprovalScope.PLATFORM_ANNOUNCE_ALL)
   @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @ApiOperation({
     summary:
       'Send to the admins of every school in the filter. Needs a step-up token, the other owner and an Idempotency-Key.',
@@ -98,6 +99,7 @@ export class PlatformAnnouncementsController {
     await this.twoPerson.enforce(req, ApprovalScope.PLATFORM_ANNOUNCE_ALL, {
       action: 'Send an announcement to every school',
       title: dto.title,
+      severity: dto.severity,
       statusFilter: dto.statusFilter,
       sms: dto.sms,
       email: dto.email,
