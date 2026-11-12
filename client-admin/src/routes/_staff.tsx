@@ -46,6 +46,7 @@ import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
 import { TrialDetailsLanding } from '../features/onboarding/trial-details-landing';
 import { useWelcomeGate } from '../features/onboarding/welcome-gate';
+import { SupportBannerHost } from '../features/support-access/support-banner-host';
 import { AppHelpProvider } from '../help/help-provider';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../nav-icons';
 import {
@@ -340,6 +341,7 @@ function StaffLayout() {
           staff page finds exactly one host — regardless of which component
           mounted first. See `ui/src/hooks/approval.tsx`. */}
           <ApprovalModalHostProvider>
+            <SupportBannerHost />
             {chromeless ? (
               permissionGate
             ) : (

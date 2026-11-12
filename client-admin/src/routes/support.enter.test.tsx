@@ -67,4 +67,18 @@ describe('/support/enter', () => {
     expect(localStorage.getItem('biddaloy:supportTab')).toBeNull();
     expect(window.location.href).not.toContain(CODE);
   });
+
+  it('?ended=1 shows the ended page and never calls the exchange', async () => {
+    let called = false;
+    server.use(
+      http.post('/api/v1/auth/impersonation/exchange', () => {
+        called = true;
+        return HttpResponse.json({}, { status: 401 });
+      }),
+    );
+    renderWithRouter(routeTree, { initialEntries: ['/support/enter?ended=1'], locale: 'en' });
+    await waitFor(() => expect(screen.getByText('Biddaloy support has ended')).toBeTruthy());
+    expect(screen.getByText('You can close this tab.')).toBeTruthy();
+    expect(called).toBe(false);
+  });
 });
