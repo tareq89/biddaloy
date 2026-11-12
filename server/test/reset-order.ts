@@ -300,6 +300,10 @@ export const REFERENCE_TABLES_CHILD_FIRST = [
   'shifts',
   'academic_years',
   // [Epic 98] RESTRICT-FK users; an owner a spec inserted must not block clearing users.
+  // [Epic 99] RESTRICT-FK platform_admins and users; a Login as session a spec left must not block them.
+  'impersonation_sessions',
+  'platform_school_notes',
+  'platform_announcements',
   'platform_approvals',
   'platform_settings',
   'user_recovery_codes',

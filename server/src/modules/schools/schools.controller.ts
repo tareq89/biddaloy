@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -71,6 +72,7 @@ export class SchoolsController {
     return this.schools.getMessagingProviders(id);
   }
 
+  @DenyWhenImpersonating({ bodyKeys: ['communications'] })
   @Patch(':id/settings')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   @Throttle({ default: SETTINGS_RATE_LIMIT })

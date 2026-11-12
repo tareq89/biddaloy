@@ -7,8 +7,13 @@ import type {
   RoutineSettings,
   DashboardSettings,
   StudyPlansSettings,
+  SupportAccessSettings,
 } from '@biddaloy/shared';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { SchoolsService } from '../schools.service';
+import { School } from '../entities/school.entity';
+import { readSupportAccess } from './support-access-settings';
 
 /**
  * Narrow, read-only entry point onto a tenant's resolved settings for
@@ -23,7 +28,30 @@ import { SchoolsService } from '../schools.service';
  */
 @Injectable()
 export class SchoolSettingsReader {
-  constructor(private readonly schoolsService: SchoolsService) {}
+  constructor(
+    private readonly schoolsService: SchoolsService,
+    @InjectRepository(School) private readonly schoolRepo: Repository<School>,
+  ) {}
+
+  /** [99.1.04] Support-access state through the 30 s cache. Display only. */
+  async supportAccess(tenantId: string): Promise<SupportAccessSettings> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return settings.supportAccess!;
+  }
+
+  /**
+   * [99.1.04] Support-access state read straight from `schools.settings`,
+   * bypassing the per-process cache. The Login as start decision and the
+   * first-login gate use this: another app container's cache could otherwise
+   * miss a switch to `blocked` for 30 s.
+   */
+  async supportAccessFresh(tenantId: string): Promise<SupportAccessSettings> {
+    const school = await this.schoolRepo.findOne({
+      where: { id: tenantId },
+      select: { id: true, settings: true },
+    });
+    return readSupportAccess(school?.settings);
+  }
 
   /** The tenant's `settings.fees.approvalMode`, defaulting to `'OTP'` when
    * unset or invalid (see `resolveTenantSettings`'s read-side guard). */

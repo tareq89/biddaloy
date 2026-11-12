@@ -37,7 +37,7 @@ export class AdminNoticeService {
     schoolId: string,
     key: AdminNoticeKey,
     vars: Omit<NoticeVars, 'school'> = {},
-    opts: { emailOnly?: boolean } = {},
+    opts: { emailOnly?: boolean; exceptUserId?: string } = {},
   ): Promise<void> {
     const school = await this.schools.findOne({ where: { id: schoolId } });
     if (!school) return;
@@ -57,6 +57,7 @@ export class AdminNoticeService {
     for (const admin of admins) {
       // Only live accounts: a deactivated admin must not get school notices.
       if (admin.user?.status !== UserStatus.ACTIVE) continue;
+      if (opts.exceptUserId && admin.user_id === opts.exceptUserId) continue;
       const targets: { medium: CommunicationMedium; to: string | null | undefined }[] = [
         { medium: CommunicationMedium.EMAIL, to: admin.user?.email },
         // A receipt is not worth a metered SMS on the platform keys.

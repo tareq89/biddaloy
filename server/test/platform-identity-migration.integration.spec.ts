@@ -4,7 +4,25 @@ import { randomUUID } from 'node:crypto';
 import { AuditAction } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { PlatformIdentity1792000000000 } from '../src/migrations/1792000000000-PlatformIdentity';
+import { TenantControlLoginAs1792100000000 } from '../src/migrations/1792100000000-TenantControlLoginAs';
 import { School } from '../src/modules/schools/entities/school.entity';
+
+/** The 13 audit values this migration adds. Later epics add more PLATFORM_ values of their own. */
+const EPIC_98_AUDIT_VALUES = [
+  'PLATFORM_LOGIN',
+  'PLATFORM_LOGIN_FAILED',
+  'PLATFORM_OWNER_LOCKED',
+  'PLATFORM_OWNER_UNLOCKED',
+  'PLATFORM_MFA_ENROLLED',
+  'PLATFORM_RECOVERY_USED',
+  'PLATFORM_APPROVAL_REQUESTED',
+  'PLATFORM_APPROVAL_GRANTED',
+  'PLATFORM_APPROVAL_DENIED',
+  'PLATFORM_OWNER_REPLACED',
+  'PLATFORM_MFA_RESET',
+  'PLATFORM_PASSWORD_RESET',
+  'PLATFORM_SETTINGS_CHANGED',
+];
 
 /** [Epic 98 / #3734] Platform identity tables, constraints and audit values, on the migrated test DB. */
 describe('PlatformIdentity1792000000000 (integration)', () => {
@@ -105,19 +123,23 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
     });
   });
 
-  it('has the 13 new audit action values', async () => {
+  it('has the audit action values (13 from this migration, more from later epics)', async () => {
     const rows: { enumlabel: string }[] = await ds.query(
       `SELECT enumlabel FROM pg_enum WHERE enumtypid = 'public.audit_logs_action_enum'::regtype`,
     );
     const labels = rows.map((r) => r.enumlabel);
     const platform = Object.values(AuditAction).filter((a) => a.startsWith('PLATFORM_'));
-    expect(platform).toHaveLength(13);
+    // Epic 99's own migration adds more PLATFORM_ values, so this is a floor, not an exact count.
+    expect(platform.length).toBeGreaterThanOrEqual(13);
     for (const a of platform) expect(labels).toContain(a);
   });
 
   // Last on purpose: down() drops the audit values and tables, up() restores them.
   it('down() then up() round-trips: tables, column and audit values come back', async () => {
     const migration = new PlatformIdentity1792000000000();
+    // Epic 99's tables and audit_logs columns have foreign keys to platform_admins, so the later
+    // migration is reverted first and re-applied last.
+    const later = new TenantControlLoginAs1792100000000();
     const qr = ds.createQueryRunner();
     const count = async (): Promise<number> =>
       (
@@ -135,7 +157,10 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
           ],
         )
       )[0].n;
+    let laterReverted = false;
     try {
+      await later.down(qr);
+      laterReverted = true;
       await migration.down(qr);
       expect(await count()).toBe(0);
       const gone = await ds.query(
@@ -145,10 +170,11 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
       const labels: { enumlabel: string }[] = await ds.query(
         `SELECT enumlabel FROM pg_enum WHERE enumtypid = 'public.audit_logs_action_enum'::regtype`,
       );
-      expect(labels.some((l) => l.enumlabel.startsWith('PLATFORM_'))).toBe(false);
+      expect(labels.some((l) => EPIC_98_AUDIT_VALUES.includes(l.enumlabel))).toBe(false);
     } finally {
       // Always restore, or later specs lose the platform tables.
       if ((await count()) === 0) await migration.up(qr);
+      if (laterReverted) await later.up(qr);
       await qr.release();
     }
     expect(await count()).toBe(6);

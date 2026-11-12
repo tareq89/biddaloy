@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -15,6 +16,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtPayload } from '@biddaloy/shared';
+import { isCockpitPrincipal } from '../platform-identity/cockpit-principal';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { requestContext } from '../../common/request-context.util';
@@ -22,6 +24,10 @@ import { SchoolsService } from './schools.service';
 import { ListSchoolsQueryDto, SchoolListItemDto } from './dto/school-list-item.dto';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 import { ReviveSchoolDto } from './dto/revive-school.dto';
+import {
+  PlatformSchoolSearchPageDto,
+  PlatformSchoolSearchQueryDto,
+} from './dto/platform-school-search.dto';
 
 /**
  * [Epic 98 #3752] The platform-only school routes, moved from `/schools` to `/platform/schools`.
@@ -42,6 +48,21 @@ export class PlatformSchoolsController {
   @ApiOkResponse({ type: SchoolListItemDto, isArray: true })
   async findAll(@Query() query: ListSchoolsQueryDto) {
     return this.schools.findAll(query.trial);
+  }
+
+  /** Declared before every `:id` route so `search` is never read as an id. */
+  @Get('search')
+  @ApiOperation({
+    summary:
+      'Search, filter and sort every school with student count, last activity, trial end and seat limit (Epic 99). A deleted school shows only with status=DELETED.',
+  })
+  @ApiOkResponse({ type: PlatformSchoolSearchPageDto })
+  async search(@Query() query: PlatformSchoolSearchQueryDto, @Req() req: Request) {
+    // Cockpit owners only (#3805): the class guards also admit a legacy SUPER_ADMIN token until Wave 5.
+    if (!isCockpitPrincipal(req.user)) {
+      throw new ForbiddenException('This area is for platform owners only');
+    }
+    return this.schools.searchForPlatform(query);
   }
 
   @Get(':id/stats')

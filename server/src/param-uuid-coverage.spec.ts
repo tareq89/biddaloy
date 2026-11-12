@@ -29,6 +29,7 @@ const NON_UUID_PARAMS = new Map<string, number>([
   ['modules/print/templates/print-templates.controller.ts:side', 1], // artwork side name
   ['modules/staff-hr/staff-document.controller.ts:documentType', 1], // document type name
   ['modules/audit/audit.controller.ts:entityType', 1], // Student, Payment, ...
+  ['modules/platform-control/ops/ops-queues.controller.ts:name', 1], // queue name, checked against OPS_QUEUES (unknown = 404, not echoed)
   ['modules/leave/leave.controller.ts:type', 1], // LeaveType, ParseEnumPipe
   ['modules/admission/applicant-review.controller.ts:type', 1], // AdmissionDocumentType, ParseEnumPipe
 ]);

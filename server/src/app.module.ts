@@ -31,6 +31,7 @@ import { FeeModule } from './modules/fees/fees.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { SupportAccessModule } from './modules/support-access/support-access.module';
 import { SchoolsModule } from './modules/schools/schools.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AttendanceImportModule } from './modules/attendance/import/attendance-import.module';
@@ -86,9 +87,13 @@ import { PlatformAdmin } from './modules/platform-identity/entities/platform-adm
 import { PlatformAdminDevice } from './modules/platform-identity/entities/platform-admin-device.entity';
 import { PlatformApproval } from './modules/platform-identity/entities/platform-approval.entity';
 import { PlatformSetting } from './modules/platform-identity/entities/platform-setting.entity';
+import { ImpersonationSession } from './modules/support-access/entities/impersonation-session.entity';
+import { PlatformSchoolNote } from './modules/support-access/entities/platform-school-note.entity';
+import { PlatformAnnouncement } from './modules/support-access/entities/platform-announcement.entity';
 import { UserMfa } from './modules/platform-identity/entities/user-mfa.entity';
 import { UserRecoveryCode } from './modules/platform-identity/entities/user-recovery-code.entity';
 import { CockpitAuthModule } from './modules/auth/cockpit/cockpit-auth.module';
+import { PlatformControlModule } from './modules/platform-control/platform-control.module';
 import { PlatformIdentityModule } from './modules/platform-identity/platform-identity.module';
 import { MfaModule } from './modules/auth/mfa/mfa.module';
 import { PerformanceModule } from './modules/performance/performance.module';
@@ -444,6 +449,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             PlatformAdminDevice,
             PlatformApproval,
             PlatformSetting,
+            ImpersonationSession,
+            PlatformSchoolNote,
+            PlatformAnnouncement,
             UserMfa,
             UserRecoveryCode,
             Survey,
@@ -514,6 +522,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     }),
     HealthModule,
     AuditModule,
+    SupportAccessModule,
     AuthModule,
     AcademicYearModule,
     CalendarModule,
@@ -579,6 +588,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     CoordinationModule,
     // [98.1.99] Cockpit identity: platform owners, MFA. Wave 1 touches app.module only here (D27).
     PlatformIdentityModule,
+    PlatformControlModule,
     MfaModule,
     CockpitAuthModule,
   ],

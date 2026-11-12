@@ -16,6 +16,8 @@ const data: RecentActivityDto = {
       performed_by_name: 'Rahim',
       created_at: ago(5),
       changed_field_count: 2,
+      impersonated_by_support: false,
+      acting_role: null,
     },
     {
       id: 'a2',
@@ -25,6 +27,8 @@ const data: RecentActivityDto = {
       performed_by_name: null,
       created_at: ago(90),
       changed_field_count: null,
+      impersonated_by_support: false,
+      acting_role: null,
     },
     {
       id: 'a3',
@@ -34,6 +38,8 @@ const data: RecentActivityDto = {
       performed_by_name: 'Karim',
       created_at: ago(300),
       changed_field_count: null,
+      impersonated_by_support: false,
+      acting_role: null,
     },
   ],
 };

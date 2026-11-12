@@ -725,7 +725,10 @@ alone: `yarn test-env run -- yarn workspace @biddaloy/server vitest run src/scri
 Entities with no rows on purpose are listed in the `EXEMPT` map in `slices.ts`,
 each with a reason. The six cockpit identity tables (Epic 98: `PlatformAdmin`, `PlatformAdminDevice`,
 `PlatformApproval`, `PlatformSetting`, `UserMfa`, `UserRecoveryCode`) are exempt with the reason
-`platform data, no cockpit on demo`.
+`platform data, no cockpit on demo`. The three Epic 99 tables (`ImpersonationSession`,
+`PlatformSchoolNote`, `PlatformAnnouncement`) are exempt with the same reason: platform data,
+no cockpit on the demo (Epic 98 D33), nothing to show a demo visitor. The demo schools start with
+`settings.supportAccess` confirmed (`slices/org.ts`), so a visit never meets the first-login page.
 
 | Rule | Fails when                                                     | Exact message                                                                                                                                           |
 | ---- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

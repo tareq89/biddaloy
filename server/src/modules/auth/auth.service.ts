@@ -550,6 +550,34 @@ export class AuthService {
     await Promise.all(identifiers.map((identifier) => this.loginAttempts.reset(identifier)));
   }
 
+  /**
+   * [99.2.02] A Login as access token: the REAL person's memberships plus `imp`, signed like any
+   * access token (same secret, issuer, audience) but with the session's remaining life as expiry
+   * (never above 3600 s). No refresh token and no cookie: when the token dies the session is over.
+   */
+  async mintImpersonationToken(
+    userId: string,
+    imp: NonNullable<JwtPayload['imp']>,
+    ttlSeconds: number,
+  ): Promise<string> {
+    // Before the membership read: see signAccessToken's `issuedAtMs`.
+    const issuedAtMs = Date.now();
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Invalid or expired code');
+    const memberships = await this.fetchMembershipPayload(user.id);
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      phone: user.phone,
+      memberships,
+      jti: randomUUID(),
+      iat_ms: issuedAtMs,
+      imp,
+    };
+    const expiresIn = Math.min(Math.max(Math.floor(ttlSeconds), 1), 3600);
+    return this.jwtService.sign(payload, { audience: ACCESS_TOKEN_AUDIENCE, expiresIn });
+  }
+
   private async fetchMembershipPayload(userId: string): Promise<JwtMembership[]> {
     // `relations: ['tenant']` — [8.9.5]'s picker/top-bar need the school's
     // display name, not just its id; this join gets it in the same query

@@ -37,6 +37,9 @@ export interface JwtPayload {
   // Millisecond issue time, taken before the memberships were read; compared
   // with the per-user removal cut-off (#2297). Absent on pre-#2297 tokens.
   iat_ms?: number;
+  // Set only by the Login as exchange (#3790): impersonation session id and
+  // the platform admin who started it.
+  imp?: { sid: string; pa: string };
 }
 
 /**

@@ -28,6 +28,9 @@ import { UserMfa } from '../src/modules/platform-identity/entities/user-mfa.enti
 import { UserRecoveryCode } from '../src/modules/platform-identity/entities/user-recovery-code.entity';
 import { PlatformAdminDevice } from '../src/modules/platform-identity/entities/platform-admin-device.entity';
 import { PlatformApproval } from '../src/modules/platform-identity/entities/platform-approval.entity';
+import { ImpersonationSession } from '../src/modules/support-access/entities/impersonation-session.entity';
+import { PlatformSchoolNote } from '../src/modules/support-access/entities/platform-school-note.entity';
+import { PlatformAnnouncement } from '../src/modules/support-access/entities/platform-announcement.entity';
 import { PlatformSetting } from '../src/modules/platform-identity/entities/platform-setting.entity';
 import { AuthToken } from '../src/modules/account-access/entities/auth-token.entity';
 import { CommunicationLog } from '../src/modules/communications/entities/communication-log.entity';
@@ -198,6 +201,9 @@ export const ALL_ENTITIES = [
   PlatformAdminDevice,
   PlatformApproval,
   PlatformSetting,
+  ImpersonationSession,
+  PlatformSchoolNote,
+  PlatformAnnouncement,
   RefreshToken,
   CommunicationLog,
   ReminderBatch,

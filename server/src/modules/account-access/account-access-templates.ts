@@ -22,7 +22,13 @@ export type TemplateKind =
   | 'PLATFORM_APPROVAL_REQUEST'
   /** [Epic 98] An owner account was locked or unlocked. `detail` names who did it. */
   | 'PLATFORM_OWNER_LOCKED'
-  | 'PLATFORM_OWNER_UNLOCKED';
+  | 'PLATFORM_OWNER_UNLOCKED'
+  /** [Epic 99] Both owners are told at every Biddaloy support entry. No secret. */
+  | 'SUPPORT_SESSION_OWNER_NOTICE'
+  /** [Epic 99] The school allowed the request. `link` opens the cockpit school page; never a code. */
+  | 'SUPPORT_TICKET_READY'
+  /** [Epic 99] A platform announcement to one school admin. SMS short, email full. */
+  | 'PLATFORM_ANNOUNCEMENT';
 export type TemplateMedium = 'SMS' | 'EMAIL';
 export type TemplateLocale = 'bn' | 'en';
 
@@ -47,6 +53,13 @@ export interface TemplateVars {
   detail?: string;
   /** [Epic 98] Recovery codes left. */
   count?: string;
+  /** [Epic 99] The customer school the message is about (`school` is the platform sender). */
+  target_school?: string;
+  /** [Epic 99] Role entered as, already a plain label. */
+  role?: string;
+  /** [Epic 99] Announcement title and text. */
+  title?: string;
+  message?: string;
 }
 
 export type ContactField = 'email' | 'phone' | 'both';
@@ -411,6 +424,56 @@ const TEMPLATES: Record<
       },
     },
   },
+  SUPPORT_SESSION_OWNER_NOTICE: {
+    SMS: {
+      en: {
+        body: '{{target_school}}: {{person}} entered as {{role}} via Login as. Reason: {{reason}}',
+      },
+      bn: {
+        body: '{{target_school}}: {{person}} স্কুল হিসেবে প্রবেশে {{role}} হয়ে ঢুকেছেন। কারণ: {{reason}}',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Login as started for {{target_school}}',
+        body: 'Hi {{name}},\n\n{{person}} entered {{target_school}} as {{role}} using Login as.\nReason: {{reason}}\n\nBoth owners get this message every time.',
+      },
+      bn: {
+        subject: '{{target_school}}-এ স্কুল হিসেবে প্রবেশ শুরু হয়েছে',
+        body: '{{name}},\n\n{{person}} স্কুল হিসেবে প্রবেশ ব্যবহার করে {{target_school}}-এ {{role}} হয়ে ঢুকেছেন।\nকারণ: {{reason}}\n\nপ্রতিবার দুজন মালিকই এই বার্তা পান।',
+      },
+    },
+  },
+  SUPPORT_TICKET_READY: {
+    SMS: {
+      en: {
+        body: '{{target_school}} allowed your request. Open the school page to enter: {{link}}',
+      },
+      bn: {
+        body: '{{target_school}} আপনার অনুরোধে অনুমতি দিয়েছে। প্রবেশ করতে স্কুলের পাতা খুলুন: {{link}}',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: '{{target_school}} allowed your request',
+        body: 'Hi {{name}},\n\n{{target_school}} allowed your request to enter. Open the school page within 24 hours and use Login as once:\n\n{{link}}',
+      },
+      bn: {
+        subject: '{{target_school}} আপনার অনুরোধে অনুমতি দিয়েছে',
+        body: '{{name}},\n\n{{target_school}} প্রবেশের অনুরোধে অনুমতি দিয়েছে। ২৪ ঘণ্টার মধ্যে স্কুলের পাতা খুলে একবার স্কুল হিসেবে প্রবেশ ব্যবহার করুন:\n\n{{link}}',
+      },
+    },
+  },
+  PLATFORM_ANNOUNCEMENT: {
+    SMS: {
+      en: { body: '{{title}}: {{message}}' },
+      bn: { body: '{{title}}: {{message}}' },
+    },
+    EMAIL: {
+      en: { subject: '{{title}}', body: 'Hi {{name}},\n\n{{message}}' },
+      bn: { subject: '{{title}}', body: '{{name}},\n\n{{message}}' },
+    },
+  },
 };
 
 function resolve(kind: TemplateKind, medium: TemplateMedium, locale: TemplateLocale) {
@@ -439,6 +502,10 @@ export function render(
     new_value: vars.new_value ?? '',
     detail: vars.detail ?? '',
     count: vars.count ?? '',
+    target_school: vars.target_school ?? '',
+    role: vars.role ?? '',
+    title: vars.title ?? '',
+    message: vars.message ?? '',
   };
   return {
     body: fill(template.body, varsRecord),

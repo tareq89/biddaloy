@@ -470,6 +470,92 @@ describe('smoke-post-deploy', () => {
       expect(fails(r)).toHaveLength(1);
     });
   });
+  describe('impersonation fence', () => {
+    const IMP = {
+      ...ENV,
+      SMOKE_IMPERSONATION: '1',
+      SMOKE_COCKPIT_DOMAIN: 'cockpit.test',
+      SMOKE_APP_DOMAIN: 'app.test',
+    };
+    const EX = 'POST https://app.test/api/v1/auth/impersonation/exchange';
+    const COCK = 'POST https://cockpit.test/api/v1/platform/impersonation';
+    const APP = 'POST https://app.test/api/v1/platform/impersonation';
+    const GOOD = { [EX]: 401, [COCK]: 401, [APP]: 404 };
+    const impFetch = (over = {}) => {
+      const table = { ...GOOD, ...over };
+      const base = fakeFetch();
+      const fn = async (url, init) => {
+        const key = `${init.method} ${url}`;
+        if (!(key in table)) return base(url, init);
+        if (table[key] === 'reset')
+          throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+        return json(table[key], { access_token: 'LEAK-BODY' });
+      };
+      fn.calls = base.calls;
+      return fn;
+    };
+    const fails = (r) =>
+      r.lines.filter((l) => l.startsWith('FAIL') && l.includes('impersonation fence'));
+
+    it('skips unless SMOKE_IMPERSONATION is 1', async () => {
+      const r = await run(fakeFetch(), { ...IMP, SMOKE_IMPERSONATION: undefined });
+      expect(fails(r)).toHaveLength(0);
+      expect(r.lines).toContain('impersonation fence: skipped: SMOKE_IMPERSONATION not set');
+    });
+
+    it('passes all three checks', async () => {
+      const r = await run(impFetch(), IMP);
+      expect(fails(r)).toHaveLength(0);
+      expect(r.lines.filter((l) => l.startsWith('PASS  impersonation fence'))).toHaveLength(3);
+    });
+
+    it.each([
+      [EX, 200, 'bogus code on app host'],
+      [EX, 500, 'bogus code on app host'],
+      [EX, 404, 'bogus code on app host'],
+      [COCK, 200, 'start without token on cockpit host'],
+      [COCK, 403, 'start without token on cockpit host'],
+      [COCK, 404, 'start without token on cockpit host'],
+      [APP, 200, 'start on app host'],
+      [APP, 401, 'start on app host'],
+      [APP, 403, 'start on app host'],
+    ])('fails on %s answering %i', async (key, status, name) => {
+      const r = await run(impFetch({ [key]: status }), IMP);
+      expect(fails(r)).toHaveLength(1);
+      expect(fails(r)[0]).toContain(name);
+    });
+
+    it('counts a network reset on the app host start route as refused', async () => {
+      const r = await run(impFetch({ [APP]: 'reset' }), IMP);
+      expect(fails(r)).toHaveLength(0);
+      expect(r.lines).toContain('PASS  impersonation fence: start on app host  closed');
+    });
+
+    it('fails when a domain is missing', async () => {
+      const r = await run(impFetch(), { ...IMP, SMOKE_APP_DOMAIN: undefined });
+      expect(fails(r)).toHaveLength(1);
+    });
+
+    it('sends the 43-char code as JSON to the exchange route', async () => {
+      const f = impFetch();
+      let sent;
+      const spy = async (url, init) => {
+        if (`${init.method} ${url}` === EX) sent = init;
+        return f(url, init);
+      };
+      spy.calls = f.calls;
+      await run(spy, IMP);
+      expect(JSON.parse(sent.body)).toEqual({ code: 'A'.repeat(43) });
+      expect(sent.headers['Content-Type']).toBe('application/json');
+    });
+
+    it('never prints the code or a response body', async () => {
+      const r = await run(impFetch({ [EX]: 200 }), IMP);
+      const out = r.lines.join('\n');
+      expect(out).not.toContain('AAAAAAAAAA');
+      expect(out).not.toContain('LEAK-BODY');
+    });
+  });
 
   describe('cockpit sign-in (staging only, D17)', () => {
     const SECRET = 'JBSWY3DPEHPK3PXP';

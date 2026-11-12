@@ -10,6 +10,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
 import { AuditAction } from '@biddaloy/shared';
+import type { ImpersonationSession } from '../../support-access/entities/impersonation-session.entity';
 
 /**
  * Immutable record of every significant action in the system.
@@ -30,6 +31,8 @@ import { AuditAction } from '@biddaloy/shared';
  *   here would hit the write-only trigger and abort, so a tenant with audit
  *   history simply can't be deleted, by design.
  */
+// IDX_al_tenant_created is (tenant_id, created_at DESC) in the migration; decorators cannot say DESC.
+@Index('IDX_al_tenant_created', ['tenant_id', 'created_at'])
 @Entity('audit_logs')
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
@@ -70,6 +73,18 @@ export class AuditLog {
 
   @Column({ type: 'text', nullable: true })
   user_agent: string | null;
+
+  /** [Epic 99] The platform admin behind this row during a Login as session (stamped by AuditService). */
+  @Column({ type: 'uuid', nullable: true })
+  impersonated_by_platform_admin_id: string | null;
+
+  /** [Epic 99] The Login as session behind this row. RESTRICT FK in the migration (the write-only trigger blocks SET NULL); no TypeORM relation, so every module that registers AuditLog keeps working. */
+  @Index('IDX_al_impersonation_session', { where: '"impersonation_session_id" IS NOT NULL' })
+  @Column({ type: 'uuid', nullable: true })
+  impersonation_session_id: string | null;
+
+  /** [Epic 99] Transient: set only by AuditService.findAll's join (role only). Not a column, no migration. */
+  impersonation_session?: Pick<ImpersonationSession, 'id' | 'role'> | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

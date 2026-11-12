@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import {
   Body,
   Controller,
@@ -109,6 +110,7 @@ export class BillingController {
   }
 
   /** Starts a bKash payment for a PENDING order of this school; the client redirects to `bkash_url`. */
+  @DenyWhenImpersonating()
   @Post('orders/:id/pay/bkash')
   @HttpCode(200)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
@@ -124,6 +126,7 @@ export class BillingController {
   }
 
   /** Creates a PENDING order only; pay it with `orders/:id/pay/bkash`. Price is server-computed, integer paisa. */
+  @DenyWhenImpersonating()
   @Post('orders')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   @AllowWhenSuspendedForBilling()

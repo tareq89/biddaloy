@@ -23,6 +23,8 @@ export * from './dto/designation.dto';
 export * from './dto/staff-hr-record.dto';
 export * from './dto/evaluations';
 export * from './dto/platform-owners';
+export * from './enums/support-access';
+export * from './dto/support-access';
 export * from './auth/password-rules';
 export * from './types/onboarding';
 export * from './enums/billing';

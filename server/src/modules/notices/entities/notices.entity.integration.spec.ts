@@ -200,6 +200,10 @@ describe('Notices schema (integration)', () => {
         const gone = await ds.query(`SELECT to_regclass('public.notices') AS t`);
         expect(gone[0].t).toBeNull();
         await m.up(qr);
+        // SchoolWebsite1791900003400 adds this column later; put it back so later specs in the shard see the real schema.
+        await qr.query(
+          `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "pinned_on_website" boolean NOT NULL DEFAULT false`,
+        );
         const back = await ds.query(`SELECT to_regclass('public.notice_recipients') AS t`);
         expect(back[0].t).not.toBeNull();
       } finally {

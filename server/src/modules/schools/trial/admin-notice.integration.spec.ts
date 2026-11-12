@@ -98,6 +98,46 @@ describe('AdminNoticeService (integration)', () => {
     ]);
   });
 
+  it('support_emergency sends SMS and email; emailOnly sends no SMS; exceptUserId skips that admin', async () => {
+    const id = await school('en-BD');
+    const keep = randomUUID();
+    const skip = randomUUID();
+    for (const [uid, tag] of [
+      [keep, 'keep'],
+      [skip, 'skip'],
+    ]) {
+      await ds.getRepository(User).save({
+        id: uid,
+        email: `${tag}-${uid}@notice.test`,
+        phone: `017${uid.replace(/\D/g, '').padEnd(8, '1').slice(0, 8)}`,
+        password_hash: 'x',
+        full_name: tag,
+        status: UserStatus.ACTIVE,
+      });
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: uid, tenant_id: id, role: UserRole.ADMIN });
+    }
+    const vars = { person: 'Rafi', role: 'Admin', reason: 'Fee help', time: '10:00' };
+
+    send.mockClear();
+    await svc.notifyAdmins(id, 'support_emergency', vars);
+    expect(send).toHaveBeenCalledTimes(4); // 2 admins x (email + SMS)
+
+    send.mockClear();
+    await svc.notifyAdmins(
+      id,
+      'support_mode_changed',
+      { ...vars, mode: 'off' },
+      {
+        emailOnly: true,
+        exceptUserId: skip,
+      },
+    );
+    expect(send).toHaveBeenCalledTimes(1); // one admin, email only
+    expect(send.mock.calls[0][0].to).toBe(`keep-${keep}@notice.test`);
+  });
+
   it('renders bn for bn-BD and for no stored region (the bn-BD default), en for en-BD (#3041)', async () => {
     send.mockClear();
     const bn = await school('bn-BD');

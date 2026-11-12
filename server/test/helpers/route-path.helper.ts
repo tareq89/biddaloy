@@ -190,6 +190,41 @@ export const ALLOWLIST: AllowlistEntry[] = [
       '[98.3.2] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Re-checks the caller own TOTP code and returns a short step-up token for the caller only.',
   },
   {
+    controller: 'LoginAsCandidatesController',
+    method: 'GET',
+    path: '/platform/schools/:id/login-as/candidates',
+    reason:
+      '[99.2.06] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists who Login as can target in one school; the service applies the school support-access mode.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'POST',
+    path: '/platform/impersonation',
+    reason:
+      '[99.2.05] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard, plus ApprovalGuard (step-up); no tenant, no school role. Starts a Login as session; the answer carries a one-time code and is never cached.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'POST',
+    path: '/platform/impersonation/:id/request-write',
+    reason:
+      '[99.3.close] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard plus ApprovalGuard (step-up); no tenant, no school role. The owner of an emergency session asks the school admins to allow writes; the service checks the session belongs to the caller.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'DELETE',
+    path: '/platform/impersonation/:id',
+    reason:
+      '[99.2.05] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Ends a Login as session; the service checks the owner of the session.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
+    method: 'GET',
+    path: '/platform/impersonation',
+    reason:
+      '[99.2.05] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists Login as sessions of the caller; platform data only.',
+  },
+  {
     controller: 'PlatformApprovalsController',
     method: 'GET',
     path: '/platform/approvals',
@@ -503,6 +538,27 @@ export const ALLOWLIST: AllowlistEntry[] = [
     path: '/auth/logout-all',
     reason:
       "Bearer-authenticated but tenant-agnostic — operates on the caller's own user.sub/jti (AuthGuard(jwt) only, no ContextGuard/RolesGuard, since it is not a tenant-scoped resource).",
+  },
+  {
+    controller: 'ImpersonationExchangeController',
+    method: 'POST',
+    path: '/auth/impersonation/exchange',
+    reason:
+      '[99.2.02] Public by design: the one-time Login as code is the credential (single use, short life, hashed in Redis). Fails closed without Redis and is strictly rate limited.',
+  },
+  {
+    controller: 'ImpersonationExchangeController',
+    method: 'GET',
+    path: '/auth/impersonation/me',
+    reason:
+      "[99.2.02] Bearer-authenticated but tenant-agnostic like /auth/logout-all (AuthGuard(jwt) only); reads the caller's own Login as session for the banner.",
+  },
+  {
+    controller: 'ImpersonationExchangeController',
+    method: 'POST',
+    path: '/auth/impersonation/end',
+    reason:
+      "[99.2.02] Bearer-authenticated but tenant-agnostic like /auth/logout-all (AuthGuard(jwt) only); ends the caller's own Login as session.",
   },
   {
     controller: 'AuthController',
@@ -845,6 +901,174 @@ export const ALLOWLIST: AllowlistEntry[] = [
     path: '/demo/roles',
     reason:
       '[58.1.01] Public, unauthenticated — the demo login cards and shared demo password; 404 unless DEMO_MODE=true, default throttle.',
+  },
+  {
+    controller: 'PlatformSchoolsController',
+    method: 'GET',
+    path: '/platform/schools/search',
+    reason:
+      '[99.4.16/#3816] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). School picker search; not tenant-scoped, PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'SchoolHelpController',
+    method: 'POST',
+    path: '/platform/schools/:id/admins/:userId/reset-link',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Sends a password reset link to one school admin.',
+  },
+  {
+    controller: 'SchoolHelpController',
+    method: 'POST',
+    path: '/platform/schools/:id/logout-all',
+    reason:
+      "[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Cuts every session of the school's members (bumps tokens_valid_after).",
+  },
+  {
+    controller: 'SchoolNotesController',
+    method: 'GET',
+    path: '/platform/schools/:id/notes',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Reads private owner notes of ONE school, filtered by that school id.',
+  },
+  {
+    controller: 'SchoolNotesController',
+    method: 'POST',
+    path: '/platform/schools/:id/notes',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Adds a private owner note; audited.',
+  },
+  {
+    controller: 'SchoolNotesController',
+    method: 'DELETE',
+    path: '/platform/schools/:id/notes/:noteId',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Deletes a note only if it belongs to that school; audited.',
+  },
+  {
+    controller: 'PlatformUsersController',
+    method: 'GET',
+    path: '/platform/users',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Cross-school user lookup for support; paged, limit capped at 100.',
+  },
+  {
+    controller: 'PlatformUsersController',
+    method: 'POST',
+    path: '/platform/users/:id/logout',
+    reason:
+      "[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Cuts one user's sessions.",
+  },
+  {
+    controller: 'PlatformAuditController',
+    method: 'GET',
+    path: '/platform/audit',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Reads the audit log, optionally for one school; paged, limit capped at 100.',
+  },
+  {
+    controller: 'PlatformAuditController',
+    method: 'GET',
+    path: '/platform/audit/sessions',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Lists Login as sessions; paged, limit capped at 100.',
+  },
+  {
+    controller: 'PlatformOpsQueuesController',
+    method: 'GET',
+    path: '/platform/ops/queues',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Read-only queue counts, no tenant data.',
+  },
+  {
+    controller: 'PlatformOpsQueuesController',
+    method: 'POST',
+    path: '/platform/ops/queues/:name/retry-failed',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Retries failed jobs of one named queue.',
+  },
+  {
+    controller: 'PlatformOpsSystemController',
+    method: 'GET',
+    path: '/platform/ops/system',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Read-only system health and restore locks.',
+  },
+  {
+    controller: 'PlatformOpsSystemController',
+    method: 'POST',
+    path: '/platform/ops/restore-lock/:schoolId/release',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Releases a stuck restore lock of one school.',
+  },
+  {
+    controller: 'PlatformAnnouncementsController',
+    method: 'GET',
+    path: '/platform/announcements',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Lists announcements the owners sent.',
+  },
+  {
+    controller: 'PlatformAnnouncementsController',
+    method: 'POST',
+    path: '/platform/announcements/preview',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Counts recipients; sends nothing.',
+  },
+  {
+    controller: 'PlatformAnnouncementsController',
+    method: 'POST',
+    path: '/platform/announcements',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Sends a bulk announcement to many schools.',
+  },
+  {
+    controller: 'PlatformSchoolDeleteController',
+    method: 'DELETE',
+    path: '/platform/schools/:id',
+    reason:
+      "[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Deletes a school; also needs a second owner's approval (two-person rule).",
+  },
+  {
+    controller: 'SchoolOverviewController',
+    method: 'GET',
+    path: '/platform/schools/:id/overview',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Read-only overview numbers of ONE school, all queries filtered by that school id.',
+  },
+  {
+    controller: 'SchoolRenameController',
+    method: 'PATCH',
+    path: '/platform/schools/:id/name',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Renames a school.',
+  },
+  {
+    controller: 'SchoolArchiveController',
+    method: 'POST',
+    path: '/platform/schools/:id/archive/export',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Starts the archive export of one school.',
+  },
+  {
+    controller: 'SchoolArchiveController',
+    method: 'GET',
+    path: '/platform/schools/:id/archive/export/:jobId/download',
+    reason:
+      "[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Downloads the export of that school's own job only.",
+  },
+  {
+    controller: 'SchoolArchiveController',
+    method: 'GET',
+    path: '/platform/schools/:id/archive/export/:jobId',
+    reason:
+      "[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. Reads the status of that school's own export job.",
+  },
+  {
+    controller: 'SchoolArchiveController',
+    method: 'POST',
+    path: '/platform/schools/:id/archive',
+    reason:
+      '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Archives (suspends) a school after its export exists.',
   },
 ];
 

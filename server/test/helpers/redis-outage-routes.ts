@@ -10,7 +10,11 @@ import { CockpitEnrolController } from '../../src/modules/auth/cockpit/cockpit-e
 import { CockpitMfaController } from '../../src/modules/auth/cockpit/cockpit-mfa.controller';
 import { CockpitPasswordController } from '../../src/modules/auth/cockpit/cockpit-password.controller';
 import { CockpitSessionController } from '../../src/modules/auth/cockpit/cockpit-session.controller';
+import { ImpersonationExchangeController } from '../../src/modules/support-access/exchange/impersonation-exchange.controller';
 import { UserController } from '../../src/modules/users/users.controller';
+import { PlatformOpsQueuesController } from '../../src/modules/platform-control/ops/ops-queues.controller';
+import { PlatformOpsSystemController } from '../../src/modules/platform-control/ops/ops-system.controller';
+import { PlatformAnnouncementsController } from '../../src/modules/platform-control/announcements/platform-announcements.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -30,10 +34,16 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   RegistrationController,
   UserController,
   MarksController,
+  ImpersonationExchangeController,
   CockpitAuthController,
   CockpitEnrolController,
   CockpitPasswordController,
   CockpitSessionController,
+  ImpersonationExchangeController,
+  // [99.4.16] Cockpit routes that spend a Redis-held approval or lock.
+  PlatformOpsQueuesController,
+  PlatformOpsSystemController,
+  PlatformAnnouncementsController,
   CockpitMfaController,
 ];
 
@@ -55,6 +65,8 @@ export const FAIL_CLOSED = [
   'POST /auth/register/verify',
   'POST /auth/step-up',
   'POST /auth/step-up/otp/request',
+  // [Epic 99] The one-time Login as code lives in Redis; no Redis, no exchange.
+  'POST /auth/impersonation/exchange',
   'GET /auth/social/:provider/start',
   'GET /auth/social/:provider/callback',
   'POST /auth/social/:provider/link-start',
@@ -79,15 +91,27 @@ export const FAIL_CLOSED = [
   // MarksController: the sheet import stages in Redis, so without it validate and commit cannot work.
   'POST /exams/:examId/marks/sheet/validate',
   'POST /exams/:examId/marks/sheet/commit',
+  // [99.4.16] Owner actions that spend a step-up token or a restore lock kept in Redis.
+  'POST /platform/ops/queues/:name/retry-failed',
+  'POST /platform/ops/restore-lock/:schoolId/release',
+  'POST /platform/announcements',
+  // The code is the credential; a missing rate limit would allow unlimited guessing.
+  'POST /auth/impersonation/exchange',
 ];
 
 // Served without a rate limit while Redis is down: keeps signed-in people signed in, reads,
 // and routes that check no password or code. confirm-phone checks a code, but OtpService.verify
 // itself answers 503 when Redis is down, so it cannot fail open.
 export const FAIL_OPEN = [
+  // Bearer-token only banner status and end for a Login as session: no password or code.
+  'GET /auth/impersonation/me',
+  'POST /auth/impersonation/end',
   'POST /auth/refresh',
   'POST /auth/logout',
   'POST /auth/logout-all',
+  // [Epic 99] Bearer routes: the session check itself answers 503 when Redis is down.
+  'GET /auth/impersonation/me',
+  'POST /auth/impersonation/end',
   'GET /auth/sessions',
   'DELETE /auth/sessions/:id',
   'GET /auth/social/providers',
@@ -131,4 +155,9 @@ export const FAIL_OPEN = [
   'POST /exams/:examId/marks/reopen',
   'GET /exams/:examId/marks/progress',
   'GET /exams/:examId/marks/sheet',
+  // [99.4.16] Read-only or preview cockpit routes: Postgres only.
+  'GET /platform/ops/queues',
+  'GET /platform/ops/system',
+  'GET /platform/announcements',
+  'POST /platform/announcements/preview',
 ];

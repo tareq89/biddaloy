@@ -7,7 +7,13 @@ import {
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtPayload, JwtMembership, SchoolStatus } from '@biddaloy/shared';
+import {
+  JwtPayload,
+  JwtMembership,
+  UserRole,
+  SchoolStatus,
+  ImpersonatedJwtPayload,
+} from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
 import { ALLOW_WHEN_READ_ONLY_KEY } from '../decorators/allow-when-read-only.decorator';
@@ -104,8 +110,33 @@ export class ContextGuard implements CanActivate {
       throw new UnauthorizedException('X-Tenant-ID header is required');
     }
 
-    const explicitRole = request.headers['x-role'] as string | undefined;
-    const activeRole = resolveRole(user.memberships, tenantId, explicitRole);
+    // Login as (Epic 99): the session pins school and role. The whole block runs before any DB read.
+    const imp = (user as Partial<ImpersonatedJwtPayload>).impSession;
+    let activeRole: string | null;
+    if (imp) {
+      const headerRole = request.headers['x-role'] as string | undefined;
+      const pinned =
+        tenantId === imp.schoolId &&
+        (!headerRole || String(headerRole).toUpperCase() === String(imp.role).toUpperCase()) &&
+        imp.role !== UserRole.SUPER_ADMIN &&
+        user.memberships.some(
+          (m: JwtMembership) => m.tenantId === imp.schoolId && m.role === imp.role,
+        );
+      if (!pinned) {
+        throw new UnauthorizedException('User is not a member of the requested tenant');
+      }
+      const method = String(request.method ?? '').toUpperCase();
+      if ((imp.viewOnly || imp.writeLocked) && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        throw new ForbiddenException({
+          message: 'This sign-in is view only',
+          details: { code: 'SUPPORT_VIEW_ONLY' },
+        });
+      }
+      activeRole = imp.role;
+    } else {
+      const explicitRole = request.headers['x-role'] as string | undefined;
+      activeRole = resolveRole(user.memberships, tenantId, explicitRole);
+    }
 
     if (!activeRole) {
       throw new UnauthorizedException('User is not a member of the requested tenant');
@@ -117,7 +148,8 @@ export class ContextGuard implements CanActivate {
     if (status === null) {
       throw new UnauthorizedException('The requested tenant does not exist');
     }
-    if (status !== SchoolStatus.ACTIVE) {
+    // D6: a suspended school does not block a support session.
+    if (!imp && status !== SchoolStatus.ACTIVE) {
       const reason = await this.tenantStatus.getStatusReason(tenantId);
       // D16: an ended trial may still export. Only a route marked
       // @AllowWhenSuspendedForBilling, only SUSPENDED + TRIAL_EXPIRED; PermissionsGuard
@@ -144,7 +176,7 @@ export class ContextGuard implements CanActivate {
     // daily job suspends it. Handlers marked @AllowWhenSuspendedForBilling
     // stay open; the billing routes must carry that mark (billing lane) for a school to pay.
     // One message for every write (Rule 23); `until` is the school's own date, not an echo of input.
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+    if (!imp && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       // @AllowWhenReadOnly: a user's own writes (alerts seen, step-up, push, preferences).
       const allowed =
         this.reflector.get<boolean>(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, context.getHandler()) ===
@@ -177,6 +209,7 @@ export class ContextGuard implements CanActivate {
     };
 
     request.currentUser = user;
+    if (imp) request.impersonation = imp;
 
     return true;
   }

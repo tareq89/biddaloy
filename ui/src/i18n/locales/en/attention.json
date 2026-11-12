@@ -389,7 +389,17 @@
         "help": "Reminds you about open surveys."
       }
     },
+    "support": {
+      "access_request": {
+        "name": "Support access requested",
+        "help": "Shows when the platform team asks to open your school to help you."
+      }
+    },
     "platform": {
+      "login_as_burst": {
+        "name": "Many Login as uses",
+        "help": "Warns when Login as is used unusually often in a short time."
+      },
       "backup_failing": {
         "name": "School backups failing",
         "help": "Urgent when a school's backups keep failing."

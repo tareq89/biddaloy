@@ -106,6 +106,83 @@ describe('SchoolsService (integration)', () => {
     );
   }
 
+  describe('[Epic 99 #3805] searchForPlatform', () => {
+    // A unique tag in every name keeps these rows apart from other tests' schools.
+    async function seedSearch(over: Partial<School> = {}): Promise<School> {
+      return schoolRepo.save(
+        schoolRepo.create({ id: randomUUID(), name: 'x', slug: `s-${randomUUID()}`, ...over }),
+      );
+    }
+    const find = (q: Record<string, unknown>) => service.searchForPlatform(q as never);
+
+    it('q matches name, slug and phone; % and _ are literal', async () => {
+      const tag = randomUUID().slice(0, 8);
+      const byName = await seedSearch({ name: `Alpha ${tag}` });
+      const bySlug = await seedSearch({ name: 'n', slug: `zz-${tag}` });
+      const byPhone = await seedSearch({ name: 'p', phone: `0${tag.slice(0, 6)}` });
+      const pct = await seedSearch({ name: `100%_${tag}` });
+      const ids = async (q: string) => (await find({ q })).items.map((i) => i.id);
+      expect(await ids(`Alpha ${tag}`)).toEqual([byName.id]);
+      expect(await ids(`zz-${tag}`)).toEqual([bySlug.id]);
+      expect(await ids(`0${tag.slice(0, 6)}`)).toEqual([byPhone.id]);
+      expect(await ids(`100%_${tag}`)).toEqual([pct.id]);
+      // Escaped: a bare % must not act as a wildcard that matches everything.
+      expect((await find({ q: '%' })).items.every((i) => i.name.includes('%'))).toBe(true);
+      expect((await find({ q: `_lpha ${tag}` })).total).toBe(0);
+    });
+
+    it('status filters; a deleted school appears only with status=DELETED', async () => {
+      const tag = randomUUID().slice(0, 8);
+      const active = await seedSearch({ name: `A ${tag}` });
+      const susp = await seedSearch({ name: `S ${tag}`, status: 'SUSPENDED' });
+      const gone = await seedSearch({ name: `D ${tag}` });
+      await schoolRepo.softDelete(gone.id);
+      const ids = async (status?: string) =>
+        (await find({ q: tag, status })).items.map((i) => i.id).sort();
+      expect(await ids()).toEqual([active.id, susp.id].sort());
+      expect(await ids('ACTIVE')).toEqual([active.id]);
+      expect(await ids('SUSPENDED')).toEqual([susp.id]);
+      expect(await ids('DELETED')).toEqual([gone.id]);
+    });
+
+    it('trial filter, sort and paging with total', async () => {
+      const tag = randomUUID().slice(0, 8);
+      const soon = await seedSearch({
+        name: `B ${tag}`,
+        trial_ends_at: new Date(Date.now() + 86_400_000),
+      });
+      const expired = await seedSearch({
+        name: `C ${tag}`,
+        status: 'SUSPENDED',
+        status_reason: 'TRIAL_EXPIRED',
+      });
+      expect((await find({ q: tag, trial: 'active' })).items.map((i) => i.id)).toEqual([soon.id]);
+      expect((await find({ q: tag, trial: 'expired' })).items.map((i) => i.id)).toEqual([
+        expired.id,
+      ]);
+      const byName = await find({ q: tag, sort: 'name', limit: 1, page: 2 });
+      expect(byName.total).toBe(2);
+      expect(byName.items.map((i) => i.id)).toEqual([expired.id]);
+      expect((await find({ q: tag, sort: 'trialEnd' })).items[0].id).toBe(soon.id);
+    });
+
+    it('students and lastActivity come from one grouped query', async () => {
+      const tag = randomUUID().slice(0, 8);
+      const quiet = await seedSearch({ name: `Q ${tag}` });
+      const busy = await seedSearch({ name: `Z ${tag}` });
+      await dataSource.query(
+        `INSERT INTO audit_logs (id, action, entity_type, entity_id, tenant_id)
+         VALUES ($1, 'CREATE', 'School', $2, $2)`,
+        [randomUUID(), busy.id],
+      );
+      const res = await find({ q: tag, sort: 'lastActivity' });
+      expect(res.items.map((i) => i.id)).toEqual([busy.id, quiet.id]);
+      expect(res.items[0].lastActivityAt).not.toBeNull();
+      expect(res.items[1].lastActivityAt).toBeNull();
+      expect(res.items[1].studentCount).toBe(0);
+    });
+  });
+
   it('[15.4] defaults a new School to status ACTIVE', async () => {
     const school = await createSchool();
     expect(school.status).toBe('ACTIVE');

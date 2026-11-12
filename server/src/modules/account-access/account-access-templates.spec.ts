@@ -36,6 +36,49 @@ describe('cockpit templates', () => {
   });
 });
 
+describe('Epic 99 support-access templates', () => {
+  const kinds: TemplateKind[] = [
+    'SUPPORT_SESSION_OWNER_NOTICE',
+    'SUPPORT_TICKET_READY',
+    'PLATFORM_ANNOUNCEMENT',
+  ];
+  const vars = {
+    school: 'SchoolManager',
+    name: 'Owner',
+    target_school: 'Rose School',
+    role: 'Admin',
+    person: 'Rafi',
+    reason: 'Fee help',
+    link: 'https://app.test/schools/1',
+    title: 'Notice',
+    message: 'Short text',
+  };
+
+  it('renders every kind in bn and en on both channels with no placeholder left', () => {
+    for (const kind of kinds) {
+      for (const medium of ['SMS', 'EMAIL'] as const) {
+        for (const locale of ['bn', 'en'] as const) {
+          const out = render(kind, medium, locale, vars);
+          expect(out.body).not.toMatch(/\{\{/);
+          expect(out.body.length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('never carries a code and never uses a never-say word (D14, template text only)', () => {
+    for (const kind of kinds) {
+      for (const medium of ['SMS', 'EMAIL'] as const) {
+        for (const locale of ['bn', 'en'] as const) {
+          const out = render(kind, medium, locale, { ...vars, title: '', message: '' });
+          const text = `${out.subject ?? ''} ${out.body}`;
+          expect(text).not.toMatch(/impersonat|act as|break-glass|consent|session|revoke|#/i);
+        }
+      }
+    }
+  });
+});
+
 describe('resolveTemplateLocale', () => {
   it('maps a bn region locale to Bangla, ignoring case', () => {
     expect(resolveTemplateLocale('bn-BD')).toBe('bn');

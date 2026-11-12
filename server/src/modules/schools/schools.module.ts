@@ -132,6 +132,6 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
   // SchoolSettingsReader is exported so 16.2.2's auth/step-up module can
   // read `settings.fees.approvalMode` without depending on the rest of
   // SchoolsService's surface.
-  exports: [SchoolsService, EncryptionService, TenantSettingsCache, SchoolSettingsReader],
+  exports: [SchoolsService, SchoolAdminsService, EncryptionService, TenantSettingsCache, SchoolSettingsReader],
 })
 export class SchoolsModule {}

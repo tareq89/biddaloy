@@ -1332,4 +1332,13 @@ export const DRIFT_BASELINE: DriftGroup[] = [
       'ALTER TABLE "invoice_share_tokens" ALTER COLUMN "expires_at" SET DEFAULT now() + \'30 days\'::interval',
     ],
   },
+  {
+    reason:
+      '[Epic 99 / #3783] audit_logs.impersonated_by_platform_admin_id and impersonation_session_id are plain columns on the entity (a TypeORM relation to ImpersonationSession would break every module that registers AuditLog alone); the migration adds the RESTRICT FKs.',
+    owner: 'Epic 99 #3726',
+    statements: [
+      'ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_al_impersonated_by_platform_admin"',
+      'ALTER TABLE "audit_logs" DROP CONSTRAINT "FK_al_impersonation_session"',
+    ],
+  },
 ];

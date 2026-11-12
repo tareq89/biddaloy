@@ -2004,6 +2004,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/schools/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search, filter and sort every school with student count, last activity, trial end and seat limit (Epic 99). A deleted school shows only with status=DELETED. */
+        get: operations["PlatformSchoolsController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/schools/{id}/stats": {
         parameters: {
             query?: never;
@@ -2382,6 +2399,263 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/impersonation/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Swap a one-time Login as code for a short access token. */
+        post: operations["ImpersonationExchangeController_exchange_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/impersonation/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status of the caller's own Login as session, for the banner. */
+        get: operations["ImpersonationExchangeController_me_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/impersonation/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the caller's own Login as session. */
+        post: operations["ImpersonationExchangeController_end_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/login-as/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** People of one school and role that Login as can target. */
+        get: operations["LoginAsCandidatesController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/impersonation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live or recent sessions, both owners see all. */
+        get: operations["PlatformImpersonationController_list_v1"];
+        put?: never;
+        /** Start a Login as session. Needs a step-up token. */
+        post: operations["PlatformImpersonationController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/impersonation/{id}/request-write": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask for write access on an emergency session. Needs a step-up token. */
+        post: operations["PlatformImpersonationController_requestWrite_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/impersonation/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End a session. 404 when unknown or already over. */
+        delete: operations["PlatformImpersonationController_end_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This school's support access mode and confirmation state. */
+        get: operations["SupportAccessSettingsController_get_v1"];
+        /** Change the mode. blocked ends every live Login as session. */
+        put: operations["SupportAccessSettingsController_change_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** First-login box: ticked is allowed, unticked is blocked. */
+        post: operations["SupportAccessSettingsController_confirm_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Biddaloy's requests to this school (pending or decided). */
+        get: operations["SupportRequestsController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a request. The first decision is final. */
+        post: operations["SupportRequestsController_approve_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/requests/{id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deny a request. The first decision is final. */
+        post: operations["SupportRequestsController_deny_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Login as sessions of this school, last 90 days. */
+        get: operations["SupportSessionsController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/platform-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Biddaloy's own actions on this school, last 90 days. */
+        get: operations["SupportSessionsController_platformActions_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/sessions/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End a live session now. Already over is a 200. */
+        post: operations["SupportSessionsController_end_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -2686,6 +2960,160 @@ export interface paths {
         put?: never;
         /** Unlock another owner. Needs a step-up token. */
         post: operations["PlatformOwnersController_unlock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The school's seat balance: seats bought, in use, paid-until. */
+        get: operations["BillingController_summary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The school's seat orders, newest first. */
+        get: operations["BillingController_list_v1"];
+        put?: never;
+        /** Start a seat purchase: a PENDING order, idempotent per key. */
+        post: operations["BillingController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/orders/{id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the receipt of a paid seat order. */
+        get: operations["BillingController_receipt_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/orders/{id}/pay/bkash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay a seat order with bKash: returns the bKash checkout URL. */
+        post: operations["BillingController_payWithBkash_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/bkash/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** bKash redirect target: verifies the payment, then returns to Settings. */
+        get: operations["BkashCallbackController_callback_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every school with seats entitled / used, paid-until and pending orders. */
+        get: operations["PlatformBillingController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's entitlement and its orders with the payment method. */
+        get: operations["PlatformBillingController_detail_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/orders/{id}/offline-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a PENDING order paid offline (bank / cash). Audited; a replay changes nothing. */
+        post: operations["PlatformBillingController_offlinePayment_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools/{id}/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant seats for free (a GRANT order, unit price 0). Audited with the reason; idempotent per key. */
+        post: operations["PlatformBillingController_grant_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5665,160 +6093,6 @@ export interface paths {
         put?: never;
         /** Commit a validated staff import: creates or restores members, optionally invites. */
         post: operations["StaffBulkUploadController_commit_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The school's seat balance: seats bought, in use, paid-until. */
-        get: operations["BillingController_summary_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The school's seat orders, newest first. */
-        get: operations["BillingController_list_v1"];
-        put?: never;
-        /** Start a seat purchase: a PENDING order, idempotent per key. */
-        post: operations["BillingController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/orders/{id}/receipt": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Download the receipt of a paid seat order. */
-        get: operations["BillingController_receipt_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/orders/{id}/pay/bkash": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pay a seat order with bKash: returns the bKash checkout URL. */
-        post: operations["BillingController_payWithBkash_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/bkash/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** bKash redirect target: verifies the payment, then returns to Settings. */
-        get: operations["BkashCallbackController_callback_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/billing/schools": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Every school with seats entitled / used, paid-until and pending orders. */
-        get: operations["PlatformBillingController_list_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/billing/schools/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One school's entitlement and its orders with the payment method. */
-        get: operations["PlatformBillingController_detail_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/billing/orders/{id}/offline-payment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark a PENDING order paid offline (bank / cash). Audited; a replay changes nothing. */
-        post: operations["PlatformBillingController_offlinePayment_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/billing/schools/{id}/grant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Grant seats for free (a GRANT order, unit price 0). Audited with the reason; idempotent per key. */
-        post: operations["PlatformBillingController_grant_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11858,6 +12132,365 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/schools/{id}/admins/{userId}/reset-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a school admin a password reset link. Needs a step-up token. */
+        post: operations["SchoolHelpController_resetLink_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/logout-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign every user of a school out. Needs a step-up token. */
+        post: operations["SchoolHelpController_logoutAll_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a school’s private notes, newest first. */
+        get: operations["SchoolNotesController_list_v1"];
+        put?: never;
+        /** Add a private note to a school. */
+        post: operations["SchoolNotesController_add_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove one note. */
+        delete: operations["SchoolNotesController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find a person by email or phone across all schools. */
+        get: operations["PlatformUsersController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/users/{id}/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign a person out everywhere. Needs a step-up token. */
+        post: operations["PlatformUsersController_logout_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search audit rows across all schools (no old/new values). */
+        get: operations["PlatformAuditController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/audit/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Login as session log across all schools. */
+        get: operations["PlatformAuditController_sessions_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/queues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Waiting, active, failed and delayed counts per queue. */
+        get: operations["PlatformOpsQueuesController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/queues/{name}/retry-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry up to 1000 failed jobs of one queue. Needs a step-up token. */
+        post: operations["PlatformOpsQueuesController_retryFailed_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** App version, last migration, database and Redis state, restoring schools. */
+        get: operations["PlatformOpsSystemController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/restore-lock/{schoolId}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release a stuck restore lock. Needs a step-up token. */
+        post: operations["PlatformOpsSystemController_releaseLock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What was sent, newest first. */
+        get: operations["PlatformAnnouncementsController_list_v1"];
+        put?: never;
+        /** Send to the admins of every school in the filter. Needs a step-up token, the other owner and an Idempotency-Key. */
+        post: operations["PlatformAnnouncementsController_send_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/announcements/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** How many schools and people a send would reach. Writes nothing. */
+        post: operations["PlatformAnnouncementsController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a school: members signed out, Login as sessions ended, not revivable from the app. Needs a step-up token and the other owner. */
+        delete: operations["PlatformSchoolDeleteController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One call for the school 360 header: admins, people, SMS, files, alerts, audit, notes. */
+        get: operations["SchoolOverviewController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a school (name, name_bn). Needs a step-up token. */
+        patch: operations["SchoolRenameController_patch_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue an export of this school's workbook. One running at a time. */
+        post: operations["SchoolArchiveController_startExport_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive/export/{jobId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream the finished workbook. Works after the school is suspended. */
+        get: operations["SchoolArchiveController_download_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive/export/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status and size of an export of this school. */
+        get: operations["SchoolArchiveController_getExport_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend a school as archived once a finished export exists. Needs a step-up token. */
+        post: operations["SchoolArchiveController_archiveSchool_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/cockpit/refresh": {
         parameters: {
             query?: never;
@@ -12912,7 +13545,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -12927,6 +13560,11 @@ export interface components {
             } | null;
             ip_address: string | null;
             user_agent: string | null;
+            /** @description True when Biddaloy support wrote this row during a Login as session. */
+            impersonated_by_support: boolean;
+            impersonation_session_id: string | null;
+            /** @description Role the support person acted as; null for ordinary rows. */
+            acting_role: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -12940,13 +13578,15 @@ export interface components {
         RecentActivityItemDto: {
             id: string;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
             /** @example Student */
             entity_type: string;
             /** @description Display name of the record, when it can be resolved; null otherwise. */
             entity_label: string | null;
             /** @description Acting user’s full name; null for system actions or a removed user. */
             performed_by_name: string | null;
+            impersonated_by_support: boolean;
+            acting_role: string | null;
             /**
              * @description ISO 8601, UTC
              * @example 2026-10-07T04:12:00.000Z
@@ -14562,6 +15202,28 @@ export interface components {
             seat_limit: number | null;
             status_reason: string | null;
         };
+        PlatformSchoolSearchItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            statusReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            studentCount: number;
+            /** Format: date-time */
+            lastActivityAt: string | null;
+            /** Format: date-time */
+            trialEndsAt: string | null;
+            seatLimit: number | null;
+            /** Format: date-time */
+            deletedAt: string | null;
+        };
+        PlatformSchoolSearchPageDto: {
+            items: components["schemas"]["PlatformSchoolSearchItemDto"][];
+            total: number;
+        };
         UpdateSchoolStatusDto: {
             /** @enum {string} */
             status: "ACTIVE" | "SUSPENDED";
@@ -14718,6 +15380,87 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
+        ImpersonationExchangeDto: {
+            /** @description The one-time code handed over by the cockpit. */
+            code: string;
+        };
+        StartImpersonationDto: {
+            /** Format: uuid */
+            schoolId: string;
+            /** @enum {string} */
+            role: "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
+            /** Format: uuid */
+            targetUserId: string;
+            reason: string;
+            viewOnly: boolean;
+            /** Format: uuid */
+            ticketId?: string;
+        };
+        RequestWriteDto: {
+            reason: string;
+        };
+        SupportAccessSettingsResponseDto: {
+            /** @enum {string} */
+            mode: "allowed" | "ask" | "blocked";
+            confirmedAt: string | null;
+            confirmedByName: string | null;
+            textVersion: number;
+            currentTextVersion: number;
+            needsConfirmation: boolean;
+        };
+        ConfirmSupportAccessDto: {
+            allowed: boolean;
+            textVersion: number;
+        };
+        ChangeSupportAccessModeDto: {
+            /** @enum {string} */
+            mode: "allowed" | "ask" | "blocked";
+        };
+        SupportRequestItemDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "ASK" | "WRITE";
+            ownerName: string;
+            role: string;
+            personName: string;
+            reason: string;
+            requestedAt: string;
+            expiresAt: string | null;
+            /** @enum {string} */
+            status: "REQUESTED" | "APPROVED" | "DENIED" | "EXPIRED";
+        };
+        SupportRequestDecisionDto: {
+            id: string;
+            /** @enum {string} */
+            status: "APPROVED" | "DENIED";
+        };
+        SupportSessionItemDto: {
+            id: string;
+            ownerName: string;
+            startedAt: string;
+            endedAt: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "ENDED" | "EXPIRED";
+            /** @enum {string} */
+            kind: "NORMAL" | "EMERGENCY";
+            viewOnly: boolean;
+            role: string;
+            personName: string;
+            reason: string;
+            changedCount: number;
+        };
+        PlatformActionItemDto: {
+            id: string;
+            at: string;
+            actorName: string;
+            label: string;
+            reason: string | null;
+        };
+        EndSupportSessionResultDto: {
+            id: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "ENDED" | "EXPIRED";
+        };
         LoginDto: {
             /** Format: email */
             email?: string;
@@ -14751,7 +15494,7 @@ export interface components {
             /** @description The approver's email or phone. */
             identifier: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "academic_year.close";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "platform.login_as" | "platform.delete_school" | "platform.announce_all" | "platform.ops_action" | "platform.school_control" | "academic_year.close";
         };
         StepUpVerifyDto: {
             /** @description The approver's email or phone. */
@@ -14763,11 +15506,11 @@ export interface components {
             /** @description The approver's password — required when method is PASSWORD. */
             password?: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "academic_year.close";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "platform.login_as" | "platform.delete_school" | "platform.announce_all" | "platform.ops_action" | "platform.school_control" | "academic_year.close";
         };
         PlatformStepUpDto: {
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "academic_year.close";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "platform.login_as" | "platform.delete_school" | "platform.announce_all" | "platform.ops_action" | "platform.school_control" | "academic_year.close";
             /** @description Current 6-digit authenticator code. Recovery codes are refused. */
             code: string;
         };
@@ -14800,6 +15543,67 @@ export interface components {
         PlatformHistoryPageDto: {
             data: components["schemas"]["PlatformHistoryRowDto"][];
             nextCursor: string | null;
+        };
+        BkashPayResponseDto: {
+            /** @description The bKash checkout page to send the admin to. */
+            bkash_url: string;
+        };
+        CreateOrderDto: {
+            seats: number;
+            months: number;
+            /**
+             * Format: uuid
+             * @description Client-made; a retry with the same key returns the first order.
+             */
+            idempotency_key: string;
+        };
+        PlatformSchoolBillingDto: {
+            id: string;
+            name: string;
+            status: string;
+            status_reason: string | null;
+            deleted: boolean;
+            seats_entitled: number;
+            seats_used: number;
+            /** @description Last covered day, ISO date. */
+            paid_until: string | null;
+            pending_orders: number;
+        };
+        PlatformSchoolBillingPageDto: {
+            items: components["schemas"]["PlatformSchoolBillingDto"][];
+            /** @description Rows matching the search and filter, before paging. */
+            total: number;
+        };
+        PlatformSchoolBillingDetailDto: {
+            id: string;
+            name: string;
+            status: string;
+            status_reason: string | null;
+            deleted: boolean;
+            seats_entitled: number;
+            seats_used: number;
+            /** @description Last covered day, ISO date. */
+            paid_until: string | null;
+            pending_orders: number;
+            /** @description SeatOrderDto[] */
+            orders: Record<string, never>[];
+        };
+        OfflinePaymentDto: {
+            /** @enum {string} */
+            method: "OFFLINE_BANK" | "OFFLINE_CASH";
+            reference: string;
+            idempotency_key: string;
+        };
+        OfflinePaymentResultDto: {
+            /** @description false when the order was already paid. */
+            applied: boolean;
+            school_id: string;
+        };
+        GrantSeatsDto: {
+            seats: number;
+            months: number;
+            reason: string;
+            idempotency_key: string;
         };
         CreateAcademicYearDto: {
             name: string;
@@ -16717,67 +17521,6 @@ export interface components {
                 row: number;
                 reason: string;
             }[];
-        };
-        BkashPayResponseDto: {
-            /** @description The bKash checkout page to send the admin to. */
-            bkash_url: string;
-        };
-        CreateOrderDto: {
-            seats: number;
-            months: number;
-            /**
-             * Format: uuid
-             * @description Client-made; a retry with the same key returns the first order.
-             */
-            idempotency_key: string;
-        };
-        PlatformSchoolBillingDto: {
-            id: string;
-            name: string;
-            status: string;
-            status_reason: string | null;
-            deleted: boolean;
-            seats_entitled: number;
-            seats_used: number;
-            /** @description Last covered day, ISO date. */
-            paid_until: string | null;
-            pending_orders: number;
-        };
-        PlatformSchoolBillingPageDto: {
-            items: components["schemas"]["PlatformSchoolBillingDto"][];
-            /** @description Rows matching the search and filter, before paging. */
-            total: number;
-        };
-        PlatformSchoolBillingDetailDto: {
-            id: string;
-            name: string;
-            status: string;
-            status_reason: string | null;
-            deleted: boolean;
-            seats_entitled: number;
-            seats_used: number;
-            /** @description Last covered day, ISO date. */
-            paid_until: string | null;
-            pending_orders: number;
-            /** @description SeatOrderDto[] */
-            orders: Record<string, never>[];
-        };
-        OfflinePaymentDto: {
-            /** @enum {string} */
-            method: "OFFLINE_BANK" | "OFFLINE_CASH";
-            reference: string;
-            idempotency_key: string;
-        };
-        OfflinePaymentResultDto: {
-            /** @description false when the order was already paid. */
-            applied: boolean;
-            school_id: string;
-        };
-        GrantSeatsDto: {
-            seats: number;
-            months: number;
-            reason: string;
-            idempotency_key: string;
         };
         ImportPreviewRowDto: {
             /** @description 1-based row number in the file */
@@ -21161,6 +21904,115 @@ export interface components {
             alert_id: string;
             recipient_count: number;
         };
+        AdminResetLinkResponseDto: {
+            /** @enum {string} */
+            channel: "SMS" | "EMAIL";
+            expiresAt: string;
+        };
+        LogoutAllResponseDto: {
+            usersSignedOut: number;
+        };
+        SchoolNoteResponseDto: {
+            id: string;
+            authorId: string;
+            text: string;
+            createdAt: string;
+        };
+        AddSchoolNoteDto: {
+            text: string;
+        };
+        /** @enum {string} */
+        SchoolStatus: "ACTIVE" | "SUSPENDED";
+        PreviewAnnouncementDto: {
+            statusFilter: components["schemas"]["SchoolStatus"][];
+        };
+        SendAnnouncementDto: {
+            statusFilter: components["schemas"]["SchoolStatus"][];
+            title: string;
+            body: string;
+            /** @enum {string} */
+            severity: "WARNING" | "REMINDER";
+            sms: boolean;
+            email: boolean;
+        };
+        DeleteSchoolDto: {
+            reason: string;
+        };
+        OverviewAdminDto: {
+            userId: string;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            membershipStatus: string;
+        };
+        OverviewRoleCountDto: {
+            role: string;
+            count: number;
+        };
+        OverviewSmsDto: {
+            available: number;
+            reserved: number;
+        };
+        OverviewAlertCountDto: {
+            severity: string;
+            count: number;
+        };
+        OverviewAuditRowDto: {
+            id: string;
+            action: string;
+            entityType: string;
+            createdAt: string;
+            actorName: string | null;
+            viaLoginAs: boolean;
+        };
+        SchoolOverviewDto: {
+            schoolId: string;
+            admins?: components["schemas"]["OverviewAdminDto"][] | null;
+            peopleByRole?: components["schemas"]["OverviewRoleCountDto"][] | null;
+            smsBalance?: components["schemas"]["OverviewSmsDto"] | null;
+            filesBytes?: number | null;
+            openAlerts?: components["schemas"]["OverviewAlertCountDto"][] | null;
+            recentAudit?: components["schemas"]["OverviewAuditRowDto"][] | null;
+            lastActivityAt?: string | null;
+            notesCount?: number | null;
+        };
+        SchoolRenameDto: {
+            name?: string;
+            name_bn?: string | null;
+            reason: string;
+        };
+        SchoolRenameResponseDto: {
+            name: string;
+            name_bn: string | null;
+            changed: boolean;
+        };
+        StartArchiveExportResponseDto: {
+            jobId: string;
+        };
+        ArchiveExportStatusDto: {
+            id: string;
+            /** @enum {string} */
+            status: "QUEUED" | "RUNNING" | "DONE" | "FAILED" | "DELETED";
+            sizeBytes: string | null;
+            pinned: boolean;
+            error: string | null;
+            expiresAt: string | null;
+            finishedAt: string | null;
+        };
+        ArchiveSchoolDto: {
+            /**
+             * Format: uuid
+             * @description A finished export of this school.
+             */
+            exportJobId: string;
+            reason: string;
+        };
+        ArchiveSchoolResponseDto: {
+            id: string;
+            /** @enum {string} */
+            status: "SUSPENDED";
+            exportJobId: string;
+        };
         CockpitLoginDto: {
             /** Format: email */
             email?: string;
@@ -23198,10 +24050,11 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -23239,10 +24092,11 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "CSV" | "XLSX";
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -23277,10 +24131,11 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -26493,6 +27348,32 @@ export interface operations {
             };
         };
     };
+    PlatformSchoolsController_search_v1: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "SUSPENDED" | "DELETED";
+                trial?: "active" | "expired";
+                q?: string;
+                sort?: "lastActivity" | "students" | "trialEnd" | "name";
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolSearchPageDto"];
+                };
+            };
+        };
+    };
     PlatformSchoolsController_getStats_v1: {
         parameters: {
             query?: never;
@@ -27127,6 +28008,505 @@ export interface operations {
             };
         };
     };
+    ImpersonationExchangeController_exchange_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpersonationExchangeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    ImpersonationExchangeController_me_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    ImpersonationExchangeController_end_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoginAsCandidatesController_list_v1: {
+        parameters: {
+            query: {
+                role: "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformImpersonationController_list_v1: {
+        parameters: {
+            query?: {
+                scope?: "live" | "recent";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    PlatformImpersonationController_start_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.login_as" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartImpersonationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformImpersonationController_requestWrite_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.login_as" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestWriteDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformImpersonationController_end_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportAccessSettingsController_get_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccessSettingsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportAccessSettingsController_change_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeSupportAccessModeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccessSettingsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportAccessSettingsController_confirm_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmSupportAccessDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccessSettingsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportRequestsController_list_v1: {
+        parameters: {
+            query?: {
+                status?: "pending" | "decided";
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportRequestItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportRequestsController_approve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportRequestDecisionDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportRequestsController_deny_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportRequestDecisionDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportSessionsController_list_v1: {
+        parameters: {
+            query?: {
+                days?: number;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportSessionsController_platformActions_v1: {
+        parameters: {
+            query?: {
+                days?: number;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformActionItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportSessionsController_end_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndSupportSessionResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AuthController_login_v1: {
         parameters: {
             query?: never;
@@ -27629,6 +29009,280 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    BillingController_summary_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description BillingSummary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SeatOrderDto[] */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderDto"];
+            };
+        };
+        responses: {
+            /** @description SeatOrderDto */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_receipt_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Receipt HTML */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_payWithBkash_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BkashPayResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BkashCallbackController_callback_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformBillingController_list_v1: {
+        parameters: {
+            query?: {
+                search?: string;
+                filter?: "expiring" | "exhausted" | "idle";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolBillingPageDto"];
+                };
+            };
+        };
+    };
+    PlatformBillingController_detail_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
+                };
+            };
+        };
+    };
+    PlatformBillingController_offlinePayment_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfflinePaymentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfflinePaymentResultDto"];
+                };
+            };
+        };
+    };
+    PlatformBillingController_grant_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantSeatsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
                 };
             };
         };
@@ -30941,10 +32595,11 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
+                impersonation_session_id?: string;
                 from_date?: string;
                 to_date?: string;
                 page?: number;
@@ -35508,280 +37163,6 @@ export interface operations {
             };
         };
     };
-    BillingController_summary_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description BillingSummary */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    BillingController_list_v1: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description SeatOrderDto[] */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    BillingController_create_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateOrderDto"];
-            };
-        };
-        responses: {
-            /** @description SeatOrderDto */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    BillingController_receipt_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Receipt HTML */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    BillingController_payWithBkash_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BkashPayResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    BkashCallbackController_callback_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PlatformBillingController_list_v1: {
-        parameters: {
-            query?: {
-                search?: string;
-                filter?: "expiring" | "exhausted" | "idle";
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformSchoolBillingPageDto"];
-                };
-            };
-        };
-    };
-    PlatformBillingController_detail_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
-                };
-            };
-        };
-    };
-    PlatformBillingController_offlinePayment_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OfflinePaymentDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OfflinePaymentResultDto"];
-                };
-            };
-        };
-    };
-    PlatformBillingController_grant_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GrantSeatsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
-                };
-            };
-        };
-    };
     AttendanceImportController_template_v1: {
         parameters: {
             query: {
@@ -36503,7 +37884,7 @@ export interface operations {
             query: {
                 /** @description School-local month, within the last 12 months. */
                 month: string;
-                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due";
+                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due" | "platform.login_as_burst" | "support.access_request";
                 sectionId?: string;
                 format?: "json" | "csv";
             };
@@ -50146,6 +51527,621 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    SchoolHelpController_resetLink_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminResetLinkResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolHelpController_logoutAll_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoutAllResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolNotesController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolNoteResponseDto"][];
+                };
+            };
+        };
+    };
+    SchoolNotesController_add_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSchoolNoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolNoteResponseDto"];
+                };
+            };
+        };
+    };
+    SchoolNotesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformUsersController_search_v1: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    PlatformUsersController_logout_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformAuditController_search_v1: {
+        parameters: {
+            query?: {
+                tenantId?: string;
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
+                actorId?: string;
+                sessionId?: string;
+                from?: string;
+                to?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformAuditController_sessions_v1: {
+        parameters: {
+            query?: {
+                tenantId?: string;
+                ownerId?: string;
+                status?: "REQUESTED" | "APPROVED" | "ACTIVE" | "ENDED" | "EXPIRED" | "DENIED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformOpsQueuesController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformOpsQueuesController_retryFailed_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.ops_action" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformOpsSystemController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformOpsSystemController_releaseLock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.ops_action" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                schoolId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformAnnouncementsController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformAnnouncementsController_send_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.announce_all" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendAnnouncementDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformAnnouncementsController_preview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAnnouncementDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformSchoolDeleteController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.delete_school" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteSchoolDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolOverviewController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolOverviewDto"];
+                };
+            };
+        };
+    };
+    SchoolRenameController_patch_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolRenameDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolRenameResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolArchiveController_startExport_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartArchiveExportResponseDto"];
+                };
+            };
+        };
+    };
+    SchoolArchiveController_download_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolArchiveController_getExport_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveExportStatusDto"];
+                };
+            };
+        };
+    };
+    SchoolArchiveController_archiveSchool_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveSchoolDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveSchoolResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };
