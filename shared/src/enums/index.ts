@@ -242,6 +242,25 @@ export enum AuditAction {
   PLATFORM_MFA_RESET = 'PLATFORM_MFA_RESET',
   PLATFORM_PASSWORD_RESET = 'PLATFORM_PASSWORD_RESET',
   PLATFORM_SETTINGS_CHANGED = 'PLATFORM_SETTINGS_CHANGED',
+  // [Epic 100] Cockpit money: SMS packages, plans, coupons, refunds, VAT.
+  SMS_BUNDLE_CREATED = 'SMS_BUNDLE_CREATED',
+  SMS_BUNDLE_UPDATED = 'SMS_BUNDLE_UPDATED',
+  SMS_BUNDLE_TOGGLED = 'SMS_BUNDLE_TOGGLED',
+  SMS_BUNDLE_ORDERED = 'SMS_BUNDLE_ORDERED',
+  SMS_BUNDLE_PAID = 'SMS_BUNDLE_PAID',
+  SMS_STOCK_RECORDED = 'SMS_STOCK_RECORDED',
+  SMS_STOCK_DELETED = 'SMS_STOCK_DELETED',
+  SMS_SOURCE_CHANGED = 'SMS_SOURCE_CHANGED',
+  PLAN_CREATED = 'PLAN_CREATED',
+  PLAN_UPDATED = 'PLAN_UPDATED',
+  PLAN_DEACTIVATED = 'PLAN_DEACTIVATED',
+  PLAN_ASSIGNED = 'PLAN_ASSIGNED',
+  COUPON_CREATED = 'COUPON_CREATED',
+  COUPON_UPDATED = 'COUPON_UPDATED',
+  COUPON_DISABLED = 'COUPON_DISABLED',
+  COUPON_REDEEMED = 'COUPON_REDEEMED',
+  ORDER_REFUNDED = 'ORDER_REFUNDED',
+  PLATFORM_VAT_CHANGED = 'PLATFORM_VAT_CHANGED',
 }
 
 export enum EnrollmentStatus {
@@ -430,6 +449,13 @@ export enum ApprovalScope {
   // [69.1.01] Closing an academic year freezes its writes (D1, D19) —
   // same step-up bar as a result reopen.
   ACADEMIC_YEAR_CLOSE = 'academic_year.close',
+  // [Epic 100] Cockpit money approvals.
+  PLATFORM_REFUND = 'platform.refund',
+  PLATFORM_COUPON = 'platform.coupon',
+  PLATFORM_COUPON_FREE = 'platform.coupon_free',
+  PLATFORM_PLAN = 'platform.plan',
+  PLATFORM_SMS_STOCK = 'platform.sms_stock',
+  PLATFORM_VAT = 'platform.vat',
 }
 
 // [69.1.01] Year rollover blocks the wizard can copy (D2).
