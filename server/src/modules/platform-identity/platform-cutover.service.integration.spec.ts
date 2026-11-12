@@ -4,7 +4,13 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { PlatformCutoverService, CUTOVER_DONE_KEY } from './platform-cutover.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
+import { User } from '../users/entities/user.entity';
+import {
+  PlatformCutoverService,
+  CUTOVER_DONE_KEY,
+  CUTOVER_PENDING_KEY,
+} from './platform-cutover.service';
 
 describe('PlatformCutoverService (integration)', () => {
   let ds: DataSource;
@@ -14,14 +20,19 @@ describe('PlatformCutoverService (integration)', () => {
   let homeSchool: string;
   let platformIds: string[] = [];
   const audit = { record: vi.fn() };
-  const cutOff = vi.fn();
+  let failCutoff = false;
   let failAudit = false;
 
   const make = () =>
     new PlatformCutoverService(
       ds,
       { platformSchoolIds: async () => platformIds } as never,
-      { cutOff } as never,
+      {
+        cutOff: async (...a: Parameters<SessionCutoffService['cutOff']>) => {
+          if (failCutoff) throw new Error('cutoff boom');
+          return new SessionCutoffService(ds.getRepository(User)).cutOff(...a);
+        },
+      } as never,
       {
         record: async (...a: unknown[]) => {
           if (failAudit) throw new Error('boom');
@@ -47,11 +58,16 @@ describe('PlatformCutoverService (integration)', () => {
     ds.query(`SELECT tenant_id, role FROM user_tenants WHERE user_id = $1 AND deleted_at IS NULL`, [
       userId,
     ]);
+  const validAfter = async (id: string): Promise<Date | null> =>
+    (await ds.query(`SELECT tokens_valid_after FROM users WHERE id = $1`, [id]))[0]
+      .tokens_valid_after;
   const done = async () =>
     (await ds.query(`SELECT 1 FROM platform_settings WHERE key = $1`, [CUTOVER_DONE_KEY])).length;
 
   const cleanup = async () => {
-    await ds.query(`DELETE FROM platform_settings WHERE key = $1`, [CUTOVER_DONE_KEY]);
+    await ds.query(`DELETE FROM platform_settings WHERE key = ANY($1)`, [
+      [CUTOVER_DONE_KEY, CUTOVER_PENDING_KEY],
+    ]);
     await ds.query(`DELETE FROM platform_admins`);
     await ds.query(
       `DELETE FROM user_tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)`,
@@ -69,6 +85,7 @@ describe('PlatformCutoverService (integration)', () => {
     await cleanup();
     vi.clearAllMocks();
     failAudit = false;
+    failCutoff = false;
     const [a] = await ds.query(
       `INSERT INTO schools (slug, name) VALUES ($1, 'Old platform') RETURNING id`,
       [`${tag}-old`],
@@ -99,7 +116,7 @@ describe('PlatformCutoverService (integration)', () => {
     expect(
       await ds.query(`SELECT 1 FROM platform_admins WHERE user_id = $1`, [owner]),
     ).toHaveLength(1);
-    expect(cutOff).toHaveBeenCalledWith(owner, expect.anything(), expect.any(Date));
+    expect(await validAfter(owner)).not.toBeNull();
   });
 
   it('a non-owner SUPER_ADMIN of the platform school loses it and their sessions end', async () => {
@@ -111,7 +128,8 @@ describe('PlatformCutoverService (integration)', () => {
     await make().run();
 
     expect(await live(sa)).toEqual([]);
-    expect(cutOff.mock.calls.map((c) => c[0])).toContain(sa);
+    expect(await validAfter(sa)).not.toBeNull();
+    expect(await validAfter(owner)).toBeNull(); // untouched account
     // The membership removal is audited against the old platform school, actor null.
     const entries = audit.record.mock.calls.map((c) => c[0]);
     expect(entries).toContainEqual(
@@ -150,10 +168,10 @@ describe('PlatformCutoverService (integration)', () => {
 
     expect(await make().run()).not.toBeNull();
     audit.record.mockClear();
-    cutOff.mockClear();
+    const first = await validAfter(sa);
     expect(await make().run()).toBeNull();
     expect(audit.record).not.toHaveBeenCalled();
-    expect(cutOff).not.toHaveBeenCalled();
+    expect(await validAfter(sa)).toEqual(first);
   });
 
   it('a fresh database (no owners) is skipped and cutover.done stays unset', async () => {
@@ -162,6 +180,7 @@ describe('PlatformCutoverService (integration)', () => {
     expect(await make().run()).toBeNull();
     expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
     expect(await done()).toBe(0);
+    expect(await validAfter(sa)).toBeNull();
   });
 
   it('a failure midway rolls everything back and leaves cutover.done unset', async () => {
@@ -230,5 +249,27 @@ describe('PlatformCutoverService (integration)', () => {
     expect(entries).toContainEqual(
       expect.objectContaining({ action: 'DELETE', tenant_id: schoolB }),
     );
+  });
+
+  it('a failure after the commit keeps the ids, leaves cutover.done unset, and a retry cuts off', async () => {
+    const owner = await mkUser('owner');
+    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    const sa = await mkUser('sa');
+    await join(sa, schoolB, UserRole.SUPER_ADMIN);
+    failCutoff = true;
+
+    await expect(make().run()).rejects.toThrow('cutoff boom');
+
+    expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'ADMIN' }]); // conversion committed
+    expect(await done()).toBe(0);
+    expect(await validAfter(sa)).toBeNull();
+
+    failCutoff = false;
+    expect(await make().run()).not.toBeNull();
+    expect(await validAfter(sa)).not.toBeNull();
+    expect(await done()).toBe(1);
+    expect(
+      await ds.query(`SELECT 1 FROM platform_settings WHERE key = $1`, [CUTOVER_PENDING_KEY]),
+    ).toHaveLength(0);
   });
 });

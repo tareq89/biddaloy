@@ -8,7 +8,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
 import { OwnerSeedingService } from './owner-seeding.service';
 import { PlatformHomeService } from './platform-home.service';
-import { verifyPassword } from '../auth/password-hash';
+import { hashPassword, verifyPassword } from '../auth/password-hash';
 
 describe('OwnerSeedingService (integration)', () => {
   let ds: DataSource;
@@ -223,15 +223,28 @@ describe('OwnerSeedingService (integration)', () => {
       expect((await ownerRow()).password_hash).toBe(row.password_hash);
     });
 
-    it.each([
-      ['production', { ENV_NAME: 'production' }],
-      ['dev (no ENV_NAME)', {}],
-    ])('%s with the same variables changes nothing', async (_n, extra) => {
-      await make().seed(env({ ...extra, ...SMOKE }));
+    it('production with the same variables changes nothing', async () => {
+      await make().seed(env({ ENV_NAME: 'production', ...SMOKE }));
       const row = await ownerRow();
       expect(row.password_hash).toBeNull();
       expect(enrol).not.toHaveBeenCalled();
       expect(await devices(row.id)).toHaveLength(0);
+    });
+
+    it('dev (no ENV_NAME) with the same variables changes nothing', async () => {
+      await make().seed(env({ ...SMOKE }));
+      const row = await ownerRow();
+      expect(row.password_hash).toBeNull();
+      expect(enrol).not.toHaveBeenCalled();
+      expect(await devices(row.id)).toHaveLength(0);
+    });
+
+    it('replaces the scrub-assigned staging hash with the smoke password', async () => {
+      const staging = await hashPassword('shared-staging-pass');
+      await ds.query(`UPDATE users SET password_hash = $2 WHERE email = $1`, [e1, staging]);
+      await make().seed(env({ ENV_NAME: 'staging', ...SMOKE }));
+      const row = await ownerRow();
+      expect(await verifyPassword(SMOKE.SMOKE_COCKPIT_PASSWORD, row.password_hash)).toBe(true);
     });
 
     it('skips an email that is not an owner', async () => {

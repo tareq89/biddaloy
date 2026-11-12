@@ -485,8 +485,10 @@ describe('smoke-post-deploy', () => {
     const cockpitFetch = (over = {}) => {
       const seen = {};
       const base = fakeFetch();
+      const calls = [];
       const fn = async (url, init) => {
         const key = `${init.method} ${url.replace('https://x.test', '')}`;
+        calls.push(key);
         if (key in over) return over[key];
         if (key === `POST ${API}/login`) return json(200, { step: 'mfa', mfaToken: 'mfa-tok' });
         if (key === `POST ${API}/mfa`) {
@@ -508,16 +510,26 @@ describe('smoke-post-deploy', () => {
         return base(url, init);
       };
       fn.seen = seen;
-      fn.calls = base.calls;
+      fn.calls = calls;
       return fn;
     };
 
     it('signs in with a code and the smoke device, reads owners, signs out', async () => {
       const f = cockpitFetch();
-      const r = await run(f, STAGING);
+      // Freeze the clock so the runner and the assertion share one 30s TOTP step.
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      let r;
+      try {
+        r = await run(f, STAGING);
+      } finally {
+        now.mockRestore();
+      }
       expect(r.failed).toBe(0);
       expect(r.passed).toBe(7 + 4);
-      expect(f.seen.mfa.body).toEqual({ mfaToken: 'mfa-tok', code: totpCode(SECRET) });
+      expect(f.seen.mfa.body).toEqual({
+        mfaToken: 'mfa-tok',
+        code: totpCode(SECRET, 1_700_000_000_000),
+      });
       expect(f.seen.mfa.headers.Cookie).toBe(`__Host-cockpit_device=${smokeDeviceCookie(SECRET)}`);
       expect(f.seen.ownersAuth).toBe(`Bearer ${TOKEN}`);
       expect(f.seen.logoutCookie).toBe('__Host-cockpit_refresh=r1');
@@ -527,6 +539,7 @@ describe('smoke-post-deploy', () => {
       const f = cockpitFetch();
       const r = await run(f, { ...STAGING, ENV_NAME: 'production' });
       expect(r.failed).toBe(0);
+      expect(f.calls.length).toBeGreaterThan(0);
       expect(f.calls.some((c) => c.includes('/auth/cockpit/'))).toBe(false);
     });
 

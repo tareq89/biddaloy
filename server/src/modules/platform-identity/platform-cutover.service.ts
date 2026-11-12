@@ -8,6 +8,8 @@ import { isDemoMode } from '../demo/demo-mode';
 import { TenantStatusService } from '../schools/tenant-status.service';
 
 export const CUTOVER_DONE_KEY = 'cutover.done';
+/** User ids whose sessions still need cutting off after the conversion committed. */
+export const CUTOVER_PENDING_KEY = 'cutover.pending_cutoff';
 /** Arbitrary constant: two app containers booting together queue on it. */
 export const CUTOVER_LOCK_KEY = 98_001_002;
 
@@ -60,18 +62,18 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
       this.logger.warn('Platform cutover skipped: no platform school could be resolved');
       return null;
     }
-    // `cutover.done` is written inside the transaction, so it exists only if everything committed.
-    const counts = await this.ds.transaction(async (em) => {
+    // Conversion + the affected user ids commit together; `cutover.done` is written only after the
+    // post-commit session cutoff, so a crash in between is retried on the next boot (Rule 8).
+    const { counts, pending } = await this.ds.transaction(async (em) => {
       await em.query(`SELECT pg_advisory_xact_lock($1)`, [CUTOVER_LOCK_KEY]);
-      if (await this.isDone(em)) return null; // another container finished while we queued
+      if (await this.isDone(em)) return { counts: null, pending: [] as string[] }; // another container finished
       const c = await this.convert(em, platformIds);
-      await em.query(
-        `INSERT INTO platform_settings (key, value) VALUES ($1, 'true'::jsonb)
-         ON CONFLICT (key) DO UPDATE SET value = 'true'::jsonb`,
-        [CUTOVER_DONE_KEY],
-      );
-      return c;
+      const ids = new Set([...(await this.pending(em)), ...c.affected]);
+      if (ids.size === 0) await this.setKey(em, CUTOVER_DONE_KEY, true);
+      else await this.setKey(em, CUTOVER_PENDING_KEY, [...ids]);
+      return { counts: c.counts, pending: [...ids] };
     });
+    await this.finishCutoff(pending);
     if (counts) {
       this.logger.log(
         `Platform cutover done: ${counts.removed} memberships removed, ` +
@@ -82,6 +84,33 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
     return counts;
   }
 
+  /** Takes the cutoff time AFTER the commit, so a token issued off the old memberships is refused. */
+  private async finishCutoff(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const at = new Date();
+    for (const userId of ids) await this.cutoff.cutOff(userId, undefined, at);
+    await this.ds.transaction(async (em) => {
+      await em.query(`DELETE FROM platform_settings WHERE key = $1`, [CUTOVER_PENDING_KEY]);
+      await this.setKey(em, CUTOVER_DONE_KEY, true);
+    });
+  }
+
+  private async pending(em: EntityManager): Promise<string[]> {
+    const rows: { value: string[] }[] = await em.query(
+      `SELECT value FROM platform_settings WHERE key = $1`,
+      [CUTOVER_PENDING_KEY],
+    );
+    return rows[0]?.value ?? [];
+  }
+
+  private setKey(em: EntityManager, key: string, value: unknown): Promise<unknown> {
+    return em.query(
+      `INSERT INTO platform_settings (key, value) VALUES ($1, $2::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = $2::jsonb`,
+      [key, JSON.stringify(value)],
+    );
+  }
+
   private async isDone(em: EntityManager): Promise<boolean> {
     const rows: unknown[] = await em.query(
       `SELECT 1 FROM platform_settings WHERE key = $1 AND value = 'true'::jsonb`,
@@ -90,7 +119,10 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
     return rows.length > 0;
   }
 
-  private async convert(em: EntityManager, platformIds: string[]): Promise<CutoverCounts> {
+  private async convert(
+    em: EntityManager,
+    platformIds: string[],
+  ): Promise<{ counts: CutoverCounts; affected: string[] }> {
     const counts: CutoverCounts = { removed: 0, downgraded: 0, duplicatesRemoved: 0 };
     const affected = new Set<string>();
 
@@ -140,9 +172,7 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
       affected.add(m.user_id);
     }
 
-    const at = new Date();
-    for (const userId of affected) await this.cutoff.cutOff(userId, em, at); // Rule 8
-    return counts;
+    return { counts, affected: [...affected] };
   }
 
   private async softDelete(em: EntityManager, m: Membership): Promise<void> {
