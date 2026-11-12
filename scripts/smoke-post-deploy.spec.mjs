@@ -571,4 +571,74 @@ describe('smoke-post-deploy', () => {
       expect(totpCode('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 59_000)).toBe('287082');
     });
   });
+  describe('money fences', () => {
+    const MONEY = { ...ENV, SMOKE_MONEY: '1' };
+    const redirect = (location) => ({
+      status: 302,
+      headers: new Headers({ location }),
+      body: null,
+    });
+    const GOOD = {
+      'GET /api/v1/billing/bkash/callback?paymentID=smoke-bogus-0&status=success': redirect(
+        'https://x.test/billing?payment=error',
+      ),
+      'POST /api/v1/billing/orders': json(401, {}),
+      'POST /api/v1/sms-bundles/orders': json(401, {}),
+      'POST /api/v1/billing/orders/preview': json(401, {}),
+    };
+    const CB = 'GET /api/v1/billing/bkash/callback?paymentID=smoke-bogus-0&status=success';
+    const money = (r) => r.lines.filter((l) => l.includes('money:'));
+    const go = (over, env = MONEY) => run(fakeFetch({ ...GOOD, ...over }), env);
+
+    it('skips when SMOKE_MONEY is unset and calls nothing', async () => {
+      const f = fakeFetch(GOOD);
+      const r = await run(f);
+      expect(r.lines).toContain('money: skipped (no SMOKE_MONEY)');
+      expect(f.calls.filter((c) => c.includes('billing'))).toEqual([]);
+    });
+    it('passes all four when the doors are closed', async () => {
+      const r = await go({});
+      expect(money(r).filter((l) => l.startsWith('PASS'))).toHaveLength(4);
+      expect(r.failed).toBe(0);
+    });
+    it.each([
+      ['500', json(500, {})],
+      ['200', json(200, {})],
+      ['a Location echoing the id', redirect('https://x.test/b?payment=error&id=smoke-bogus-0')],
+      ['a Location without payment=error', redirect('https://x.test/b')],
+    ])('callback fails on %s', async (_n, res) => {
+      expect((await go({ [CB]: res })).failed).toBe(1);
+    });
+    it.each([
+      'POST /api/v1/billing/orders',
+      'POST /api/v1/sms-bundles/orders',
+      'POST /api/v1/billing/orders/preview',
+    ])('%s fails on 200 and 403', async (key) => {
+      expect((await go({ [key]: json(200, {}) })).failed).toBe(1);
+      expect((await go({ [key]: json(403, {}) })).failed).toBe(1);
+    });
+    it('404 on a later-wave route passes unless strict; orders 404 always fails', async () => {
+      const late = {
+        'POST /api/v1/sms-bundles/orders': json(404, {}),
+        'POST /api/v1/billing/orders/preview': json(404, {}),
+      };
+      const soft = await go(late);
+      expect(soft.failed).toBe(0);
+      expect(soft.lines.join('\n')).toContain('skipped: route not deployed yet');
+      expect((await go(late, { ...MONEY, SMOKE_MONEY_STRICT: '1' })).failed).toBe(2);
+      expect((await go({ 'POST /api/v1/billing/orders': json(404, {}) })).failed).toBe(1);
+    });
+    it('a network error is a FAIL', async () => {
+      const f = fakeFetch(GOOD);
+      const wrapped = async (url, init) => {
+        if (url.includes('/billing/orders') && !url.includes('preview')) throw new Error('boom');
+        return f(url, init);
+      };
+      expect((await run(wrapped, MONEY)).failed).toBe(1);
+    });
+    it('prints no body or token', async () => {
+      const r = await go({});
+      expect(money(r).join('\n')).not.toMatch(/smoke-bogus|SECRET|tok-/);
+    });
+  });
 });
