@@ -2,6 +2,8 @@ import { ConflictException, HttpException, Injectable, NotFoundException } from 
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
+import { attentionEvents } from '../../attention/attention.constants';
+import { emitRecheck } from '../../attention/engine/attention-events';
 import { AuditService } from '../../audit/audit.service';
 import type { RequestContext } from '../../../common/request-context.util';
 import { ImpersonationSession } from '../entities/impersonation-session.entity';
@@ -150,6 +152,11 @@ export class SupportRequestsService {
       return rows[0];
     });
     if (ask) {
+      emitRecheck(attentionEvents, {
+        tenantId: schoolId,
+        ruleKey: 'support.access_request',
+        actorUserId: adminId,
+      });
       if (approve) await this.tellOwner(ask.platform_admin_id, schoolId);
       return;
     }
