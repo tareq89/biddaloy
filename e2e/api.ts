@@ -10,6 +10,7 @@ import {
   type AlertRuleKey,
 } from '@biddaloy/shared';
 import type { APIRequestContext } from '@playwright/test';
+import { createHash, randomBytes } from 'node:crypto';
 
 import type {
   AcrResponse,
@@ -21,6 +22,7 @@ import type {
   SurveyResponse,
 } from './fixtures/evaluations';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from './seed-contract';
+import { totpNow } from './totp';
 
 interface RefreshResponse {
   access_token: string;
@@ -50,28 +52,67 @@ export async function adminApiSession(request: APIRequestContext): Promise<ApiSe
   return { token: body.access_token, tenantId: membership.tenantId };
 }
 
-/** Same shape as `adminApiSession`, for the SUPER_ADMIN platform console
- * (`e2e/platform/provision-and-suspend.spec.ts`, #536). The seeded
- * super_admin account has an ordinary ADMIN-tier membership on Default
- * School too (`seed.util.ts`'s `ROLE_TEST_USERS`) — `ContextGuard`
- * requires *some* `X-Tenant-ID` even for a platform route
- * (`/schools*`), but never applies that tenant's own suspension check to
- * a SUPER_ADMIN-active request (see `ContextGuard`'s own comment), so
- * this tenant choice has no bearing on which school the calls below
- * actually manage. */
-export async function superAdminApiSession(request: APIRequestContext): Promise<ApiSession> {
+/** `X-Tenant-ID` for a school session; a platform (cockpit) session has no school, so no header. */
+function tenantHeader(session: ApiSession): Record<string, string> {
+  return session.tenantId ? { 'X-Tenant-ID': session.tenantId } : {};
+}
+
+const COCKPIT_DEVICE_COOKIE = '__Host-cockpit_device';
+
+/**
+ * [98.5.09] Makes the seeded platform owner's e2e sign-ins skip the SMS/email device step: one
+ * remembered-device row with a known secret, sent back as the device cookie. Also clears the TOTP
+ * replay marker (`last_step`) so any number of specs can sign in within one 30 s step.
+ * ponytail: raw SQL on the e2e database; the owner needs `SEED_COCKPIT_OWNER=true` at seed time.
+ */
+export async function trustOwnerDevice(): Promise<string> {
+  const secret = randomBytes(32).toString('hex');
+  const owner = SEED_ROLE_EMAILS.super_admin;
+  const added = await runSql(
+    `INSERT INTO platform_admin_devices (user_id, device_hash, label)
+     SELECT id, $2, 'e2e remembered device' FROM users WHERE email = $1`,
+    [owner, createHash('sha256').update(secret, 'utf8').digest('hex')],
+  );
+  if (added !== 1) {
+    throw new Error(`${owner} not found: seed the e2e database with SEED_COCKPIT_OWNER=true`);
+  }
+  await runSql(
+    `UPDATE user_mfa SET last_step = NULL WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+    [owner],
+  );
+  return secret;
+}
+
+/**
+ * Signs the seeded platform owner in through the cockpit (`/auth/cockpit/login` + `/mfa` with the
+ * dev TOTP secret) and returns the access token. The refresh cookie lands in `request`'s jar, so
+ * call it on a context of its own, never on one that holds a school admin's session.
+ */
+export async function cockpitSignIn(request: APIRequestContext): Promise<string> {
   const password = process.env[SEED_PASSWORD_ENV];
   if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
-  const response = await request.post('/api/v1/auth/login', {
+  const secret = await trustOwnerDevice();
+  const login = await request.post('/api/v1/auth/cockpit/login', {
     data: { email: SEED_ROLE_EMAILS.super_admin, password },
   });
-  if (!response.ok()) {
-    throw new Error(`super_admin login failed: ${response.status()} ${await response.text()}`);
+  if (!login.ok()) throw new Error(`cockpit login failed: ${login.status()} ${await login.text()}`);
+  const { mfaToken } = (await login.json()) as { mfaToken?: string };
+  if (!mfaToken) throw new Error('cockpit login gave no mfaToken: is the owner enrolled?');
+  const mfa = await request.post('/api/v1/auth/cockpit/mfa', {
+    headers: { Cookie: `${COCKPIT_DEVICE_COOKIE}=${secret}` },
+    data: { mfaToken, code: totpNow() },
+  });
+  if (!mfa.ok()) throw new Error(`cockpit mfa failed: ${mfa.status()} ${await mfa.text()}`);
+  const done = (await mfa.json()) as { step: string; access_token?: string };
+  if (done.step !== 'done' || !done.access_token) {
+    throw new Error(`cockpit mfa ended at step "${done.step}": the device was not trusted`);
   }
-  const body = (await response.json()) as RefreshResponse;
-  const membership = body.memberships.find((m) => m.role === 'SUPER_ADMIN');
-  if (!membership) throw new Error('no SUPER_ADMIN membership for seed super_admin');
-  return { token: body.access_token, tenantId: membership.tenantId };
+  return done.access_token;
+}
+
+/** Same shape as `adminApiSession`, for the platform console (`/platform/*`): a cockpit session. */
+export async function platformApiSession(request: APIRequestContext): Promise<ApiSession> {
+  return { token: await cockpitSignIn(request), tenantId: '' };
 }
 
 /** Same shape as `adminApiSession`, but for the seeded PARENT account —
@@ -134,7 +175,7 @@ export async function post<T>(
   const response = await request.post(`/api/v1${path}`, {
     headers: {
       Authorization: `Bearer ${session.token}`,
-      'X-Tenant-ID': session.tenantId,
+      ...tenantHeader(session),
     },
     data,
   });
@@ -157,7 +198,7 @@ export async function postMultipart<T>(
   const response = await request.post(`/api/v1${path}`, {
     headers: {
       Authorization: `Bearer ${session.token}`,
-      'X-Tenant-ID': session.tenantId,
+      ...tenantHeader(session),
     },
     multipart: { file },
   });
@@ -181,7 +222,7 @@ export async function patch<T>(
   const response = await request.patch(`/api/v1${path}`, {
     headers: {
       Authorization: `Bearer ${session.token}`,
-      'X-Tenant-ID': session.tenantId,
+      ...tenantHeader(session),
     },
     data,
   });
@@ -234,7 +275,7 @@ export async function put<T>(
   const response = await request.put(`/api/v1${path}`, {
     headers: {
       Authorization: `Bearer ${session.token}`,
-      'X-Tenant-ID': session.tenantId,
+      ...tenantHeader(session),
     },
     data,
   });
@@ -255,7 +296,7 @@ export async function get<T>(
   const response = await request.get(`/api/v1${path}`, {
     headers: {
       Authorization: `Bearer ${session.token}`,
-      'X-Tenant-ID': session.tenantId,
+      ...tenantHeader(session),
     },
   });
   if (!response.ok()) {
@@ -273,7 +314,7 @@ export async function del(
   const response = await request.delete(`/api/v1${path}`, {
     headers: {
       Authorization: `Bearer ${session.token}`,
-      'X-Tenant-ID': session.tenantId,
+      ...tenantHeader(session),
     },
   });
   if (!response.ok()) {
@@ -1661,7 +1702,7 @@ export async function grantSeats(
   seats: number,
   months: number,
 ): Promise<void> {
-  const session = await superAdminApiSession(request);
+  const session = await platformApiSession(request);
   await post(request, session, `/platform/billing/schools/${schoolId}/grant`, {
     seats,
     months,
