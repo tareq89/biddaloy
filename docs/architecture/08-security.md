@@ -415,7 +415,30 @@ sequenceDiagram
 - **Example.** A school Admin opens the activity log: no `PLATFORM_LOGIN` row appears, because those rows have no school. `GET /platform/owners` needs a cockpit token.
 - **Test.** `server/test/platform-identity-migration.integration.spec.ts` (the tables and their constraints), `server/src/platform-authority.e2e-spec.ts`, `server/src/scripts/cockpit-replace-owner.integration.spec.ts` (audit row has no email or phone).
 
-> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. These three are 29 to 31, so Epic 96's rules start at 32.
+### Rule 32: Login as is stamped and deny-listed
+
+- **Rule.** A platform owner who is signed in as a school person ("Login as") carries an `imp` claim (`{ sid, pa }`: session id, platform admin id) in a school access token. Four things keep it safe:
+  1. **Every audit row is stamped.** `JwtStrategy` calls `RequestActorContext.setImpersonation` once per request; `AuditService` passes each row through `stampAuditActor`, which sets `impersonated_by_platform_admin_id` and `impersonation_session_id`. No `imp` (a queue worker, a script) leaves the row untouched.
+  2. **Risky routes are marked.** `@DenyWhenImpersonating()` (optionally `{ bodyKeys }`) makes the global `DenyWhenImpersonatingInterceptor` answer `403 IMPERSONATION_DENIED` with one fixed sentence. Marked routes: password and sign-in changes, session and step-up routes, user create, delete, restore and reset, contact change, billing orders, school contact settings and the support-access consent routes. The list is `server/src/impersonation-deny-list.snapshot.txt`; a new or removed mark is a reviewed snapshot diff.
+  3. **A session ends at once.** The live session is `imp:<sid>` in Redis. `JwtStrategy` rejects an `imp` token whose key is gone. Ending (by the owner, or by a school Admin through `POST /api/v1/support-access/sessions/:id/end`), expiry (60 minutes at most, the key's TTL) or deleting the school removes the key. Redis down means 503, never "assume still live".
+  4. **View-only is enforced for writes.** `ContextGuard` refuses every non-GET call of a `viewOnly` or `writeLocked` session (emergency entry starts locked), and an `imp` token never acts as `SUPER_ADMIN` or in another school.
+- **Why.** Epic 99 (D4, D6, D19, D32): "who did this" must name the real person, not only the school user they were signed in as, and the owner must not be able to change the credentials of the person they borrowed.
+- **Example.** An owner signed in as a school Admin calls `POST /api/v1/auth/change-password`: `403 IMPERSONATION_DENIED`, nothing changes. The same owner approves a fee waiver: the `audit_logs` row has the Admin as actor and `impersonated_by_platform_admin_id` set to the owner.
+
+```mermaid
+flowchart LR
+  T[School token with imp] --> J[JwtStrategy: imp:sid in Redis?]
+  J -- gone --> U[401]
+  J -- live --> S[RequestActorContext set once]
+  S --> C[ContextGuard: view-only blocks writes]
+  C --> D{marked DenyWhenImpersonating?}
+  D -- yes --> X[403 IMPERSONATION_DENIED]
+  D -- no --> H[Handler, audit row stamped]
+```
+
+- **Test.** `server/src/impersonation-deny-list.e2e-spec.ts` (the snapshot), `server/src/modules/auth/deny-when-impersonating.interceptor.spec.ts`, `server/src/common/request-actor-context.spec.ts` (stamping), `server/src/modules/auth/strategies/jwt.strategy.impersonation.spec.ts` (Redis key), `server/src/modules/auth/guards/context.guard.spec.ts` (view-only), `server/src/modules/support-access/sessions/impersonation-session.service.integration.spec.ts`, `server/src/modules/support-access/consent/support-access-consent.e2e-spec.ts`.
+
+> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98 and Rule 32 is Epic 99, so Epic 96's rules start at 33.
 
 ## Login brute-force protection
 
