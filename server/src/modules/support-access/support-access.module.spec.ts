@@ -17,16 +17,28 @@ import { LoginAsCandidatesController } from './candidates/login-as-candidates.co
 import { PlatformImpersonationController } from './platform-impersonation.controller';
 import { DenyWhenImpersonatingInterceptor } from '../auth/deny-when-impersonating.interceptor';
 import { requestActorContextMiddleware } from '../../common/request-actor-context';
+import { ConsentGateService } from './consent/consent-gate.service';
+import { SupportAccessSettingsController } from './consent/support-access-settings.controller';
+import { SupportAccessSettingsService } from './consent/support-access-settings.service';
+import { SupportAccessNoticeService } from './notices/support-access-notice.service';
+import { SupportRequestsController } from './requests/support-requests.controller';
+import { SupportRequestsService } from './requests/support-requests.service';
+import { SupportSessionsController } from './school-view/support-sessions.controller';
+import { SupportSessionsService } from './school-view/support-sessions.service';
 import { IMPERSONATION_REDIS } from './sessions/impersonation-redis';
 
 const meta = (key: string) => Reflect.getMetadata(key, SupportAccessModule) as unknown[];
 
 describe('SupportAccessModule', () => {
   it('registers the support-access repositories and imports Auth and Schools', () => {
-    const imports = meta(MODULE_METADATA.IMPORTS) as ({ providers?: { provide: unknown }[] } | unknown)[];
+    const imports = meta(MODULE_METADATA.IMPORTS) as (
+      { providers?: { provide: unknown }[] } | unknown
+    )[];
     expect(imports).toContain(AuthModule);
     expect(imports).toContain(SchoolsModule);
-    const tokens = imports.flatMap((i) => (i as { providers?: { provide: unknown }[] }).providers ?? []).map((p) => p.provide);
+    const tokens = imports
+      .flatMap((i) => (i as { providers?: { provide: unknown }[] }).providers ?? [])
+      .map((p) => p.provide);
     expect(tokens).toEqual(
       expect.arrayContaining([
         getRepositoryToken(ImpersonationSession),
@@ -36,13 +48,18 @@ describe('SupportAccessModule', () => {
     );
   });
 
-  it('provides the three services and the deny interceptor, and mounts the three controllers', () => {
+  it('provides the services and the deny interceptor, and mounts the six controllers', () => {
     const providers = meta(MODULE_METADATA.PROVIDERS);
     expect(providers).toEqual(
       expect.arrayContaining([
         ImpersonationSessionService,
         ImpersonationCodeService,
         LoginAsCandidatesService,
+        ConsentGateService,
+        SupportAccessNoticeService,
+        SupportAccessSettingsService,
+        SupportRequestsService,
+        SupportSessionsService,
         { provide: APP_INTERCEPTOR, useClass: DenyWhenImpersonatingInterceptor },
       ]),
     );
@@ -50,6 +67,9 @@ describe('SupportAccessModule', () => {
       ImpersonationExchangeController,
       LoginAsCandidatesController,
       PlatformImpersonationController,
+      SupportAccessSettingsController,
+      SupportRequestsController,
+      SupportSessionsController,
     ]);
   });
 

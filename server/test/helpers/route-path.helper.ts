@@ -189,6 +189,13 @@ export const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     controller: 'PlatformImpersonationController',
+    method: 'POST',
+    path: '/platform/impersonation/:id/request-write',
+    reason:
+      '[99.3.close] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard plus ApprovalGuard (step-up); no tenant, no school role. The owner of an emergency session asks the school admins to allow writes; the service checks the session belongs to the caller.',
+  },
+  {
+    controller: 'PlatformImpersonationController',
     method: 'DELETE',
     path: '/platform/impersonation/:id',
     reason:
