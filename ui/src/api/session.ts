@@ -11,7 +11,11 @@ import type { JwtMembership, LoginResponse } from '@biddaloy/shared';
 import {
   currentSessionGeneration,
   getAccessToken,
+  isSupportSession,
+  readSupportEntry,
+  setAccessToken,
   setActiveRole,
+  setSupportSession,
   setActiveTenant,
 } from './auth-state';
 import { postAuthRefresh, setSessionEndpoints, type SessionEndpoints } from './client';
@@ -112,6 +116,8 @@ function quietRefresh(): Promise<LoginResponse> {
  * token from a real login response, the same way bootstrap does below. */
 export function scheduleTokenRefresh(token: string): void {
   clearScheduledRefresh();
+  // [99.G4.01] A support tab has no refresh cookie; it ends at expiry.
+  if (isSupportSession()) return;
   const expiryMs = decodeJwtExpiryMs(token);
   if (expiryMs === null) return;
   const delay = Math.max(0, expiryMs - Date.now() - REFRESH_MARGIN_MS);
@@ -195,6 +201,17 @@ async function bootstrap(): Promise<boolean> {
  * happens once per app lifetime, memoized in `bootstrapPromise`. */
 export function ensureSessionLoaded(): Promise<boolean> {
   if (getAccessToken()) return Promise.resolve(true);
+  // [99.G4.01] A reload of a support tab restores from its own sessionStorage;
+  // a missing-but-was-one (expired) entry is signed out, never refreshed (D32).
+  const support = readSupportEntry();
+  if (support === 'expired') return Promise.resolve(false);
+  if (support) {
+    setAccessToken(support.token);
+    setSupportSession(true);
+    setActiveTenant(support.tenantId);
+    setActiveRole(support.role);
+    return Promise.resolve(true);
+  }
   bootstrapPromise ??= bootstrap();
   return bootstrapPromise;
 }

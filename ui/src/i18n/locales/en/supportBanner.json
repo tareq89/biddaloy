@@ -1,0 +1,8 @@
+{
+  "intake": {
+    "opening": "Opening the school…",
+    "failedTitle": "This link cannot be used",
+    "failed": "This link has already been used or has run out of time. Close this tab and open it again from Biddaloy.",
+    "closeTab": "Close this tab"
+  }
+}
