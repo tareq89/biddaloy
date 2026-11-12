@@ -1,0 +1,29 @@
+{
+  "columnStudents": "শিক্ষার্থী",
+  "columnLastActive": "সর্বশেষ ব্যবহার",
+  "columnTrialEnd": "ট্রায়াল শেষ",
+  "never": "কখনো না",
+  "noTrial": "ট্রায়াল নেই",
+  "loginAs": "হিসেবে ঢুকুন",
+  "loginAsFor": "{{name}}-এ হিসেবে ঢুকুন",
+  "filterStatus": "অবস্থা",
+  "allStatuses": "সব অবস্থা",
+  "filterTrial": "ট্রায়াল",
+  "allTrials": "সব",
+  "trial": {
+    "active": "চলছে",
+    "expired": "শেষ হয়েছে"
+  },
+  "searchLabel": "স্কুল বা ফোন খুঁজুন",
+  "searchPlaceholder": "স্কুলের নাম, লিংক নাম বা ফোন",
+  "emptyExplanation": "অন্য নাম, লিংক নাম বা ফোন লিখে দেখুন।",
+  "live": {
+    "title": "এখন চালু ({{count}})",
+    "item": "{{school}} - {{person}}, {{role}} - আর {{minutes}} মিনিট",
+    "end": "শেষ করুন",
+    "endFor": "{{school}}-এ {{person}}-এর প্রবেশ শেষ করুন",
+    "confirmTitle": "এই প্রবেশ শেষ করবেন?",
+    "confirmDescription": "{{person}} এখনই {{school}} থেকে বেরিয়ে যাবেন।",
+    "error": "শেষ করা যায়নি। আবার চেষ্টা করুন।"
+  }
+}

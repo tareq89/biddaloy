@@ -1,75 +1,108 @@
+import { UserRole } from '@biddaloy/shared';
 import {
   usePlatformAttentionHealth,
   usePlatformBackupHealth,
-  useSchools,
+  usePlatformSchoolList,
+  type PlatformSchoolSearchItem,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
+import { LoginAsDialog } from '../../../features/cockpit/login-as/login-as-dialog';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { BackupHealthTable } from './-backup-health';
 import { EngineHealthCard } from './-engine-health';
+import { LiveSessionsStrip } from './-live-sessions-strip';
 import { SchoolsListView } from './-schools-list-view';
 
 /**
- * #533's SUPER_ADMIN platform schools list — every school (id, name,
- * slug, status, created date), searchable by name/slug. No pagination:
- * `useSchools()` (`ui/src/hooks/school-settings.ts`) already fetches the
- * full unpaginated list for #8.7.13's school picker, and the platform is
- * expected to run a handful of tenants, same "N is always small" call
- * `academic-years/index.tsx` makes for its own year list.
- *
- * Client-side search only (`filteredSchools` below) — there's no
- * server-side filter on `GET /schools` and none is needed at this scale.
- *
- * `-schools-list-view.tsx` carries the actual table markup so it can be
- * storied on its own; this file only wires the live query and navigation.
+ * The owner's schools list (mockup "Cockpit: Schools list"). Search, filters and sort live in
+ * the URL and drive `usePlatformSchoolList` (`GET /platform/schools/search`, at most 100 rows);
+ * the live strip above it lists who is signed in to a school right now. Login as on a row opens
+ * the shared dialog.
  */
+const SORT_KEYS = ['lastActivity', 'students', 'trialEnd', 'name'] as const;
+
+const schoolsSearchSchema = z.object({
+  q: z.string().optional().catch(undefined),
+  status: z.enum(['ACTIVE', 'SUSPENDED']).optional().catch(undefined),
+  trial: z.enum(['active', 'expired']).optional().catch(undefined),
+  sort: z.enum(SORT_KEYS).optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_platform/schools/')({
-  // No `ensureQueryData` prefetch — `useSchools()`
-  // (`ui/src/hooks/school-settings.ts`) has no `queryOptions` factory to
-  // share with a loader (it's a plain `useQuery` call, same shape
-  // `security.tsx`'s own session list uses), so this route fetches on
-  // mount like that one does rather than duplicating the query definition.
-  // Still needs a `loader` to preload the `platform` i18n namespace.
-  // [14.12.3/#617] `backup` too — `BackupHealthTable`'s "Never" fallback
-  // and per-job status labels (`status.DONE`/`FAILED`/...) reuse that
-  // namespace rather than duplicating its `status.*` tree here.
-  loader: () => loadRouteNamespaces('platform', 'backup', 'attention'),
+  validateSearch: schoolsSearchSchema,
+  // `usePlatformSchoolList` has no queryOptions factory to prefetch with; the page fetches on mount.
+  // `backup` / `attention`: reused by the health tables below. `loginAs`: the dialog and the
+  // strip's role names.
+  loader: () => loadRouteNamespaces('platform', 'backup', 'attention', 'schoolsList', 'loginAs'),
   component: SchoolsListPage,
 });
 
 function SchoolsListPage() {
   const { t } = useTranslation('platform');
-  const navigate = useNavigate();
-  const schoolsQuery = useSchools();
+  const navigate = useNavigate({ from: '/schools/' });
+  const search = Route.useSearch();
+  const schoolsQuery = usePlatformSchoolList({
+    ...(search.q ? { q: search.q } : {}),
+    ...(search.status ? { status: search.status } : {}),
+    ...(search.trial ? { trial: search.trial } : {}),
+    ...(search.sort ? { sort: search.sort } : {}),
+  });
   const backupHealthQuery = usePlatformBackupHealth();
   const engineHealth = usePlatformAttentionHealth();
-  const [search, setSearch] = React.useState('');
+  const [loginAsFor, setLoginAsFor] = React.useState<PlatformSchoolSearchItem | null>(null);
 
-  const filteredSchools = React.useMemo(() => {
-    const rows = schoolsQuery.data ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter(
-      (school) =>
-        school.name.toLowerCase().includes(term) || school.slug.toLowerCase().includes(term),
-    );
-  }, [schoolsQuery.data, search]);
+  const setSearch = (patch: Record<string, string | null>) =>
+    void navigate({
+      search: (prev) => {
+        const next: Record<string, unknown> = { ...prev };
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null || value === '') delete next[key];
+          else next[key] = value;
+        }
+        return next;
+      },
+      replace: true,
+    });
 
   return (
     <div className="space-y-6">
+      <LiveSessionsStrip />
+
       <SchoolsListView
-        schools={filteredSchools}
+        schools={schoolsQuery.data?.items ?? []}
+        total={schoolsQuery.data?.total ?? 0}
         loading={schoolsQuery.isLoading}
         isFetching={schoolsQuery.isFetching}
         {...(schoolsQuery.isError ? { error: t('schools.errorMessage') } : {})}
-        search={search}
-        onSearchChange={setSearch}
+        filters={search}
+        onFiltersChange={setSearch}
+        // The server picks the direction for each sort key, so `desc` here is display-only.
+        sorting={search.sort ? { id: search.sort, desc: false } : null}
+        onSortingChange={(sorting) => setSearch({ sort: sorting?.id ?? null })}
         onNew={() => void navigate({ to: '/schools/new' })}
+        onLoginAs={setLoginAsFor}
       />
+
+      {loginAsFor && (
+        <LoginAsDialog
+          open
+          onOpenChange={(open) => !open && setLoginAsFor(null)}
+          schoolId={loginAsFor.id}
+          schoolName={loginAsFor.name}
+          defaultRole={UserRole.ADMIN}
+          // The add-admin form lives on the school's page, so Invite admin goes there.
+          onInviteAdmin={() => {
+            const id = loginAsFor.id;
+            setLoginAsFor(null);
+            void navigate({ to: '/schools/$schoolId', params: { schoolId: id } });
+          }}
+        />
+      )}
 
       <EngineHealthCard
         health={engineHealth.data}
