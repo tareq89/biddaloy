@@ -63,10 +63,6 @@ export class ApprovalModalPage {
       ]);
       const body = (await otpResponse.json()) as { debug?: { otp?: string } };
       otp = body.debug?.otp;
-      // A fresh modal's resend button is enabled at once, so without this the
-      // 6 attempts burn in seconds (year-close main run 43186139696: the reopen
-      // modal fired 6 swallowed requests in ~20s). 6 x 11s outlasts the 60s cooldown.
-      if (!otp) await this.page.waitForTimeout(11_000);
     }
     if (!otp) {
       throw new Error(
