@@ -77,7 +77,8 @@ test('class teacher sets groups in bulk from a marks filter; admin sees them; an
   // A homeroom list only covers the CURRENT academic year, so the class goes in that one.
   const currentYear = await currentAcademicYear(request, admin);
   const source = await createClassSection(request, admin, currentYear);
-  await ensureGradingScale(request, admin, source.academicYearId);
+  // Class-specific override: the current year already has a default scale (a second default 409s).
+  await ensureGradingScale(request, admin, source.academicYearId, source.classId);
   await patch(request, admin, `/classes/${source.classId}`, { numeric_grade: 6 });
   const targetYear = await post<{ id: string }>(request, admin, '/academic-years', {
     name: `E2E PG Year ${suffix}`,
