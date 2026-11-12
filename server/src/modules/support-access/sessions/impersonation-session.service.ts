@@ -100,22 +100,23 @@ export class ImpersonationSessionService {
   async create(input: CreateImpersonationInput): Promise<ImpersonationSession> {
     await this.takeRateToken(input.platformAdminId);
     const mode = (await this.settings.supportAccessFresh(input.schoolId)).mode;
-    if (mode === SupportAccessMode.BLOCKED) {
-      if (input.entryKind === ImpersonationEntryKind.EMERGENCY) {
-        // Built in #3802.
-        throw fail(HttpStatus.NOT_IMPLEMENTED, 'EMERGENCY_NOT_AVAILABLE', 'Not available yet.');
-      }
+    const emergency = input.entryKind === ImpersonationEntryKind.EMERGENCY;
+    if (mode === SupportAccessMode.BLOCKED && !emergency) {
       throw fail(
         HttpStatus.FORBIDDEN,
         'SUPPORT_ACCESS_BLOCKED',
         'This school has blocked support access.',
       );
     }
+    // Emergency entry exists only for a blocked school (#3802).
+    if (emergency && mode !== SupportAccessMode.BLOCKED) {
+      throw fail(HttpStatus.CONFLICT, 'EMERGENCY_NOT_ALLOWED', 'Emergency entry is not allowed.');
+    }
     return this.repo.manager.transaction(async (m) => {
       await this.lockOwner(m, input.platformAdminId);
       await this.finalizeExpired(m, { platformAdminId: input.platformAdminId });
       await this.assertEligible(m, input);
-      const active = mode === SupportAccessMode.ALLOWED;
+      const active = mode === SupportAccessMode.ALLOWED || emergency;
       // D23: only a start that goes live replaces; an `ask` request (REQUESTED) never ends a live
       // session. The limit is checked before the replace so a refused start ends nothing.
       if (active) {
@@ -132,8 +133,8 @@ export class ImpersonationSessionService {
           role: input.role,
           status: active ? 'ACTIVE' : 'REQUESTED',
           entry_kind: input.entryKind,
-          view_only: input.viewOnly,
-          write_locked: false,
+          view_only: emergency ? true : input.viewOnly,
+          write_locked: emergency,
           reason: input.reason,
           started_at: active ? now : null,
           expires_at: active ? new Date(now.getTime() + IMPERSONATION_MAX_MINUTES * 60_000) : null,
