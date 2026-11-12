@@ -7,8 +7,8 @@ import bnSchoolsList from '../../ui/src/i18n/locales/bn/schoolsList.json';
 import bnSupportAccess from '../../ui/src/i18n/locales/bn/supportAccess.json';
 import bnSupportBanner from '../../ui/src/i18n/locales/bn/supportBanner.json';
 import bnSupportWelcome from '../../ui/src/i18n/locales/bn/supportWelcome.json';
-import { platformApiSession, type ApiSession } from '../api';
-import { nextStepIn, totpNow } from '../totp';
+import { clearOwnerTotpStep, platformApiSession, type ApiSession } from '../api';
+import { totpNow } from '../totp';
 
 /**
  * [99.6.02 / 99.6.03] Shared by the Login as specs (`platform/login-as.spec.ts`,
@@ -42,9 +42,15 @@ export function tc(
   return node.replace(/\{\{(\w+)\}\}/g, (_, n: string) => String(vars[n] ?? ''));
 }
 
-/** An authenticator code is single use per 30 s step, and sign-in already used this step's. */
+/**
+ * An authenticator code is single use per 30 s step, and the specs share one owner across
+ * workers. Clearing the replay marker right before taking the code means a step another sign-in
+ * or spec already used does not block this one, and nobody waits for the next step.
+ * ponytail: a worker can still spend the step between this clear and the request; callers that
+ * can retry (`loginAsApproval`) do, the UI path in login-as.spec is the one that cannot.
+ */
 export async function nextOwnerCode(): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, nextStepIn() + 500));
+  await clearOwnerTotpStep();
   return totpNow();
 }
 
@@ -60,12 +66,18 @@ export async function loginAsApproval(
   request: APIRequestContext,
   session: ApiSession,
 ): Promise<string> {
-  const res = await request.post('/api/v1/platform/step-up', {
-    headers: bearer(session),
-    data: { scope: 'platform.login_as', code: await nextOwnerCode() },
-  });
-  if (!res.ok()) throw new Error(`step-up ${res.status()} ${await res.text()}`);
-  return ((await res.json()) as { approval_token: string }).approval_token;
+  for (let attempt = 0; ; attempt++) {
+    const res = await request.post('/api/v1/platform/step-up', {
+      headers: bearer(session),
+      data: { scope: 'platform.login_as', code: await nextOwnerCode() },
+    });
+    if (res.ok()) return ((await res.json()) as { approval_token: string }).approval_token;
+    // 401: another worker spent the same step first; clear the marker and try again.
+    if (res.status() !== 401 || attempt >= 2) {
+      throw new Error(`step-up ${res.status()} ${await res.text()}`);
+    }
+    await new Promise((r) => setTimeout(r, 200 + Math.random() * 800));
+  }
 }
 
 interface Candidates {

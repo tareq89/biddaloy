@@ -83,6 +83,14 @@ export async function trustOwnerDevice(): Promise<string> {
   return secret;
 }
 
+/** Clears the owner's TOTP replay marker so the next code is accepted even inside the step another sign-in used. */
+export async function clearOwnerTotpStep(): Promise<void> {
+  await runSql(
+    `UPDATE user_mfa SET last_step = NULL WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+    [SEED_ROLE_EMAILS.super_admin],
+  );
+}
+
 /**
  * Signs the seeded platform owner in through the cockpit (`/auth/cockpit/login` + `/mfa` with the
  * dev TOTP secret) and returns the access token. The refresh cookie lands in `request`'s jar, so
@@ -93,10 +101,10 @@ export async function cockpitSignIn(request: APIRequestContext): Promise<string>
   if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
   // Parallel workers share one owner and one single-use TOTP step: another worker can consume
   // the step between our `last_step` reset and our verify, which reads as a 401. A retry resets
-  // the marker again, so give it a few jittered goes before failing.
-  // ponytail: retry, not a cross-worker lock; revisit if five attempts ever stop being enough.
+  // the marker again, so give it a few jittered goes before failing (kept small: failed codes count toward the lockout).
+  // ponytail: retry, not a cross-worker lock; revisit if three attempts ever stop being enough.
   let lastFailure = '';
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 200 + Math.random() * 800));
     const secret = await trustOwnerDevice();
     const login = await request.post('/api/v1/auth/cockpit/login', {
@@ -121,7 +129,7 @@ export async function cockpitSignIn(request: APIRequestContext): Promise<string>
     }
     return done.access_token;
   }
-  throw new Error(`cockpit mfa failed: 401 after 5 attempts ${lastFailure}`);
+  throw new Error(`cockpit mfa failed: 401 after 3 attempts ${lastFailure}`);
 }
 
 /** Same shape as `adminApiSession`, for the platform console (`/platform/*`): a cockpit session. */

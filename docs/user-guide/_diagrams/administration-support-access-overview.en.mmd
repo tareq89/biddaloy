@@ -4,7 +4,8 @@ flowchart LR
   A["School admin chooses<br/>in Settings"]:::admin --> C{"Choice"}
   C -- Allowed --> L1["Support can log in"]
   C -- Ask each time --> Q["Support asks<br/>an admin approves or says Not now"]:::admin
-  Q --> L1
+  Q -- Approves --> L1
+  Q -- Not now --> N["No login"]
   C -- Blocked --> X["No normal login<br/>anyone inside is ended"]
   X --> EM["Emergency access<br/>needs a reason<br/>admins are told at once"]:::note
   EM --> L1
