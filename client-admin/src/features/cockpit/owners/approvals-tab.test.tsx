@@ -216,4 +216,74 @@ describe('ApprovalsTab', () => {
     await user.click(await screen.findByRole('button', { name: 'Ask to turn off' }));
     await waitFor(() => expect(sent).toEqual([null, 'req-9']));
   });
+
+  it('a pending request older than the newest 50 is still shown', async () => {
+    const old = approval({
+      id: '66666666-6666-4666-8666-666666666666',
+      created_at: '2020-01-01T00:00:00.000Z',
+    });
+    server.use(
+      http.get('*/platform/approvals', ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get('status') === 'PENDING'
+            ? [old]
+            : [approval({ id: '77777777-7777-4777-8777-777777777777', status: 'USED' })],
+        ),
+      ),
+    );
+    view();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy());
+  });
+
+  it('shows a loading status first', async () => {
+    server.use(http.get('*/platform/approvals', () => new Promise(() => undefined)));
+    view();
+    await screen.findByText('Loading the requests…');
+  });
+
+  it('the switch load error has a retry', async () => {
+    serve([]);
+    let ok = false;
+    server.use(
+      http.get('*/platform/settings/approvals', () =>
+        ok ? HttpResponse.json({ enabled: true }) : new HttpResponse(null, { status: 400 }),
+      ),
+    );
+    const user = userEvent.setup();
+    view();
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    ok = true;
+    await user.click(retry);
+    await screen.findByRole('switch', { name: 'Ask the other owner first' });
+  });
+
+  it('APPROVAL_INVALID drops the saved request id so the next try files a new one', async () => {
+    serve([approval({ requested_by: ME })]);
+    const sent: (string | null)[] = [];
+    const err = (details: object) =>
+      HttpResponse.json(
+        { statusCode: 403, message: 'x', timestamp: '', path: '/', requestId: 'r', details },
+        { status: 403 },
+      );
+    server.use(
+      http.patch('*/platform/settings/approvals', ({ request }) => {
+        const id = request.headers.get('X-Platform-Approval');
+        sent.push(id);
+        if (sent.length === 1) return err({ code: 'APPROVAL_REQUESTED', requestId: 'req-9' });
+        if (sent.length === 2) return err({ code: 'APPROVAL_INVALID' });
+        return err({ code: 'APPROVAL_REQUESTED', requestId: 'req-10' });
+      }),
+    );
+    const user = userEvent.setup();
+    view();
+    for (let i = 0; i < 3; i++) {
+      await user.click(await screen.findByRole('switch', { name: 'Ask the other owner first' }));
+      await user.click(await screen.findByRole('button', { name: 'Ask to turn off' }));
+      await waitFor(() => expect(sent).toHaveLength(i + 1));
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Ask to turn off' })).toBeNull(),
+      );
+    }
+    expect(sent).toEqual([null, 'req-9', null]);
+  });
 });

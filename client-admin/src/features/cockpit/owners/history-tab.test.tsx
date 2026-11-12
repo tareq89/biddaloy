@@ -67,10 +67,7 @@ describe('HistoryTab', () => {
     server.use(
       http.get('*/platform/owners/history', () =>
         HttpResponse.json({
-          data: [
-            row('h1', 'Server phrase', 'PLATFORM_OWNER_LOCKED'),
-            row('h2', 'Fallback phrase'),
-          ],
+          data: [row('h1', 'Server phrase', 'PLATFORM_OWNER_LOCKED'), row('h2', 'Fallback phrase')],
           nextCursor: null,
         }),
       ),
@@ -79,5 +76,40 @@ describe('HistoryTab', () => {
     await screen.findByText('মালিককে আটকে দেওয়া হয়েছে');
     expect(screen.queryByText('Server phrase')).toBeNull();
     expect(screen.getByText('Fallback phrase')).toBeTruthy();
+  });
+
+  it('keeps loaded rows when a later page fails, and retries the first-page failure', async () => {
+    let fail = false;
+    server.use(
+      http.get('*/platform/owners/history', ({ request }) =>
+        new URL(request.url).searchParams.get('cursor') && fail
+          ? new HttpResponse(null, { status: 400 })
+          : HttpResponse.json({ data: [row('h1', 'First entry')], nextCursor: 'abc' }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<HistoryTab />, { locale: 'en' });
+    await screen.findByText('First entry');
+    fail = true;
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    await screen.findByText('Could not load more.');
+    expect(screen.getByText('First entry')).toBeTruthy();
+  });
+
+  it('first-page failure offers Retry', async () => {
+    let ok = false;
+    server.use(
+      http.get('*/platform/owners/history', () =>
+        ok
+          ? HttpResponse.json({ data: [row('h1', 'First entry')], nextCursor: null })
+          : new HttpResponse(null, { status: 400 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<HistoryTab />, { locale: 'en' });
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+    ok = true;
+    await user.click(retry);
+    await screen.findByText('First entry');
   });
 });

@@ -38,6 +38,8 @@ const TONE = {
 export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }) {
   const { t, i18n } = useTranslation('platformOwners');
   const approvals = usePlatformApprovals();
+  // The list is the server's newest 50; ask for pending ones on their own so an old one stays reachable.
+  const pending = usePlatformApprovals({ status: 'PENDING' });
   const owners = usePlatformOwners();
   const setting = useApprovalsSetting();
   const decide = useDecideApproval();
@@ -81,6 +83,14 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
     } catch (error) {
       if (error instanceof ApprovalCancelledError) {
         // Code prompt closed: nothing to say.
+      } else if (
+        (error as { details?: { code?: unknown } })?.details?.code === 'APPROVAL_INVALID'
+      ) {
+        // Denied or expired: forget it so the next confirm files a fresh request.
+        setSwitchApprovalId(null);
+        setSwitchWaiting(false);
+        void approvals.refetch();
+        toast.error(t('approvals.switch.invalid'));
       } else if (getApprovalRequestId(error)) {
         setSwitchApprovalId(getApprovalRequestId(error) ?? null);
         setSwitchWaiting(true);
@@ -104,7 +114,9 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
     }
   }
 
-  const list = approvals.data ?? [];
+  const list = [
+    ...new Map([...(approvals.data ?? []), ...(pending.data ?? [])].map((a) => [a.id, a])).values(),
+  ].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
   const renderRequest = (a: PlatformApproval) => {
     const mine = a.requested_by === currentUserId;
     const requester = nameOf(a.requested_by) ?? t('approvals.otherOwner');
@@ -161,8 +173,11 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
             <p className="text-body text-text-secondary">{t('approvals.switch.description')}</p>
           </div>
           {setting.isError ? (
-            <span className="text-caption text-text-secondary">
+            <span className="flex items-center gap-2 text-caption text-text-secondary">
               {t('approvals.switch.loadError')}
+              <Button variant="outline" size="sm" onClick={() => void setting.refetch()}>
+                {t('approvals.retry')}
+              </Button>
             </span>
           ) : (
             <Switch
@@ -182,9 +197,13 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
           </div>
         )}
       </Card>
-      {approvals.isError ? (
+      {approvals.isLoading && list.length === 0 ? (
+        <p role="status" className="text-body text-text-secondary">
+          {t('approvals.loading')}
+        </p>
+      ) : approvals.isError && list.length === 0 ? (
         <ErrorState message={t('approvals.loadError')} onRetry={() => void approvals.refetch()} />
-      ) : approvals.isSuccess && list.length === 0 ? (
+      ) : approvals.isSuccess && pending.isSuccess && list.length === 0 ? (
         <EmptyState
           kind="empty"
           title={t('approvals.empty')}

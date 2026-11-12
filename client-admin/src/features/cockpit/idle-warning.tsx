@@ -32,6 +32,7 @@ export function CockpitIdleWarning({
   onSignedOut,
 }: CockpitIdleWarningProps) {
   const [open, setOpen] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const stayRef = useRef<HTMLButtonElement>(null);
   const leaving = useRef(false);
@@ -58,15 +59,17 @@ export function CockpitIdleWarning({
     onResume: () => setOpen(false),
   });
   const stay = async () => {
-    setBusy(true);
+    setRenewing(true);
     try {
       await renew();
+      // A renewal that lands after Sign out began must not revive the timer or reopen anything.
+      if (leaving.current) return;
       reset();
       setOpen(false);
     } catch {
       // Renewal failed (session already gone): leave the warning up; expiry signs out.
     } finally {
-      setBusy(false);
+      setRenewing(false);
     }
   };
 
@@ -90,7 +93,7 @@ export function CockpitIdleWarning({
           <Button variant="outline" onClick={() => void leave(null)} disabled={busy}>
             {strings.signOut}
           </Button>
-          <Button ref={stayRef} onClick={() => void stay()} loading={busy}>
+          <Button ref={stayRef} onClick={() => void stay()} loading={renewing} disabled={busy}>
             {strings.stay}
           </Button>
         </DialogFooter>

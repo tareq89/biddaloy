@@ -45,4 +45,18 @@ describe('PasswordStep', () => {
     await user.type(screen.getByLabelText('Email or phone number'), 'a');
     expect(screen.queryByText('Enter your email or phone number.')).toBeNull();
   });
+
+  it('ties each invalid input to its error text', async () => {
+    renderWithProviders(<PasswordStep onSubmit={vi.fn()} />, { locale: 'en' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    const id = screen.getByLabelText('Email or phone number');
+    const pw = screen.getByLabelText('Password');
+    expect(document.getElementById(id.getAttribute('aria-describedby')!)?.textContent).toBe(
+      'Enter your email or phone number.',
+    );
+    expect(document.getElementById(pw.getAttribute('aria-describedby')!)?.textContent).toBe(
+      'Enter your password.',
+    );
+  });
 });

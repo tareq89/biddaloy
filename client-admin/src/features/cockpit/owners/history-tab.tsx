@@ -1,4 +1,4 @@
-import { Button, DataTable, type DataTableColumn } from '@biddaloy/ui/components';
+import { Button, DataTable, ErrorState, type DataTableColumn } from '@biddaloy/ui/components';
 import { usePlatformHistory, type PlatformHistoryRow } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime } from '@biddaloy/ui/utils';
@@ -37,6 +37,11 @@ export function HistoryTab() {
     },
   ];
 
+  // First page failed: nothing to show, so offer a retry. A later page failing keeps the rows.
+  if (history.isError && rows.length === 0) {
+    return <ErrorState message={t('history.loadError')} onRetry={() => void history.refetch()} />;
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {rows.length > 0 && (
@@ -55,13 +60,17 @@ export function HistoryTab() {
         totalCount={rows.length}
         paginated={false}
         loading={history.isLoading}
-        {...(history.isError ? { error: t('history.loadError') } : {})}
         emptyState={{
           kind: 'empty',
           title: t('history.empty'),
           explanation: t('history.emptyExplanation'),
         }}
       />
+      {history.isError && (
+        <p role="alert" className="text-center text-caption text-destructive">
+          {t('history.loadMoreError')}
+        </p>
+      )}
       {history.hasNextPage && (
         <Button
           variant="outline"

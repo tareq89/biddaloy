@@ -56,13 +56,14 @@ export function PasswordStep({
           autoComplete="username"
           value={identifier}
           aria-invalid={local.identifier ? true : undefined}
+          aria-describedby={local.identifier ? 'cockpit-identifier-error' : undefined}
           onChange={(e) => {
             setIdentifier(e.target.value);
             setLocal((l) => ({ ...l, identifier: undefined }));
           }}
         />
         {local.identifier && (
-          <p role="alert" className="text-caption text-destructive">
+          <p id="cockpit-identifier-error" role="alert" className="text-caption text-destructive">
             {local.identifier}
           </p>
         )}
@@ -77,13 +78,14 @@ export function PasswordStep({
           autoComplete="current-password"
           value={password}
           aria-invalid={local.password || error ? true : undefined}
+          aria-describedby={local.password || error ? 'cockpit-password-error' : undefined}
           onChange={(e) => {
             setPassword(e.target.value);
             setLocal((l) => ({ ...l, password: undefined }));
           }}
         />
         {(local.password ?? error) && (
-          <p role="alert" className="text-caption text-destructive">
+          <p id="cockpit-password-error" role="alert" className="text-caption text-destructive">
             {local.password ?? error}
           </p>
         )}

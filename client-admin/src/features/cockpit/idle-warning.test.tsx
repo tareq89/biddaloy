@@ -149,4 +149,30 @@ describe('CockpitIdleWarning', () => {
     await act(() => vi.advanceTimersByTimeAsync(MIN));
     expect(signOut).toHaveBeenCalledTimes(1);
   });
+
+  it('Sign out stays clickable while a renewal is pending, and a late renewal does not undo it', async () => {
+    let finish: () => void = () => undefined;
+    const { onSignedOut, signOut } = mount({
+      renew: () => new Promise<void>((resolve) => (finish = resolve)),
+    });
+    await warn();
+    await act(() => {
+      fireEvent.click(screen.getByRole('button', { name: strings.stay }));
+      return Promise.resolve();
+    });
+    const out = screen.getByRole('button', { name: strings.signOut });
+    expect(out).toHaveProperty('disabled', false);
+    await act(() => {
+      fireEvent.click(out);
+      return Promise.resolve();
+    });
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(onSignedOut).toHaveBeenCalledWith(null);
+    await act(() => {
+      finish();
+      return Promise.resolve();
+    });
+    await act(() => vi.advanceTimersByTimeAsync(2 * MIN));
+    expect(onSignedOut).toHaveBeenCalledTimes(1);
+  });
 });

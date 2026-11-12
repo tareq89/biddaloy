@@ -79,8 +79,11 @@
       "turnedOff": "Approvals are off.",
       "waiting": "Waiting for the other owner to agree to turn this off.",
       "loadError": "Could not load this setting.",
-      "dismiss": "Dismiss"
-    }
+      "dismiss": "Dismiss",
+      "invalid": "That request was denied or has expired. Confirm again to send a new one."
+    },
+    "retry": "Try again",
+    "loading": "Loading the requests…"
   },
   "history": {
     "caption": "Owner sign-in and lock history",
@@ -108,6 +111,7 @@
       "PLATFORM_MFA_RESET": "Authenticator reset",
       "PLATFORM_PASSWORD_RESET": "Password reset",
       "PLATFORM_SETTINGS_CHANGED": "Setting changed"
-    }
+    },
+    "loadMoreError": "Could not load more."
   }
 }

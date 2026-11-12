@@ -157,4 +157,14 @@ describe('useIdleTimer', () => {
     expect(onWarn).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it('activity after a sleep past the limit expires instead of resetting the clock', () => {
+    const { onExpire } = setup();
+    act(() => {
+      // Device slept: the clock jumped, no timer fired yet.
+      vi.setSystemTime(Date.now() + 31 * MIN);
+      window.dispatchEvent(new Event('pointerdown'));
+    });
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
 });

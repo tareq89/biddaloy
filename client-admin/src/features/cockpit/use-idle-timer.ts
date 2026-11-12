@@ -96,6 +96,11 @@ export function useIdleTimer({ onWarn, onExpire, onResume, enabled = true }: Idl
     const onActivity = () => {
       if (warned.current) return;
       const now = Date.now();
+      // Woke after the limit passed (sleep): expire, do not let activity erase the idle time.
+      if (now - last.current >= IDLE_EXPIRE_MS) {
+        check.current();
+        return;
+      }
       // At most one write a second: pointermove fires constantly.
       if (now - last.current >= 1000) writeShared(now);
       last.current = now;
