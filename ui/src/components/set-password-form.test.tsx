@@ -84,10 +84,11 @@ describe('SetPasswordForm', () => {
       true,
     );
     // A programmatic submit skips the disabled button, so this reaches the schema's byte check.
-    await act(async () => {
+    await act(() => {
       fireEvent.submit(
         screen.getByRole('button', { name: 'Set password' }).closest('form') as HTMLFormElement,
       );
+      return Promise.resolve();
     });
     expect(onSubmit).not.toHaveBeenCalled();
   });
