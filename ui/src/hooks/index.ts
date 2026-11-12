@@ -1947,3 +1947,7 @@ export {
   type PlatformApproval,
   type PlatformApprovalSetting,
 } from './platform-approvals';
+export * from './platform-impersonation';
+export * from './platform-school-control';
+export * from './platform-console';
+export * from './support-access';
