@@ -274,11 +274,12 @@ test.describe('platform console (cockpit owner)', () => {
   test.describe('at 1280px', () => {
     test.use({ viewport: { width: 1280, height: 900 } });
 
-    test('the sidebar holds exactly five links', async ({ page }) => {
+    test('the sidebar holds exactly nine links', async ({ page }) => {
       await page.goto('/schools');
       const sidebar = page.getByRole('navigation', { name: t('nav.navLabel') });
-      // Schools, Platform owners (98), Holiday sets, Subscriptions (#1821), Report usage (8.15).
-      await expect(sidebar.getByRole('link')).toHaveCount(5);
+      // Schools, Platform owners (98), Holiday sets, Subscriptions (#1821), Report usage (8.15),
+      // then the Epic 99 cockpit pages: Users, Operations, Audit, Announcements.
+      await expect(sidebar.getByRole('link')).toHaveCount(9);
     });
   });
 });

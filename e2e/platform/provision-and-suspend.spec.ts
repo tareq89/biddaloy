@@ -159,7 +159,8 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     const picker = new SchoolPickerPage(adminPage);
     await picker.expectLoaded();
     await picker.choose(schoolName);
-    await expect(adminPage).toHaveURL(/\/dashboard/);
+    // [99.G4.03] The new school's admin sees the one-time support-access page first.
+    await expect(adminPage).toHaveURL(/\/(dashboard|welcome\/support-access)/);
   });
 
   await test.step('SUPER_ADMIN suspends the new school with a reason', async () => {
