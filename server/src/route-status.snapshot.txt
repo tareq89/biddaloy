@@ -527,6 +527,10 @@ POST   /api/v1/platform/schools/:id/admins                                      
 DELETE /api/v1/platform/schools/:id/admins/:userId/invitation                    401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/schools/:id/admins/:userId/resend-invitation             401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/schools/:id/preset/reset                                 401 PASS 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/schools/:id/restore                                      401 PASS 403 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/platform/schools/:id/restore/jobs/:jobId                          401 PASS 403 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/platform/schools/:id/restore/template                             401 PASS 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/schools/:id/restore/validate                             401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/schools/:id/revive                                       401 PASS 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/schools/:id/sms-credits                                  401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/schools/:id/sms-credits                                  401 PASS 403 403 403 403 403 403 403 403 403 403 403

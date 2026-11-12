@@ -314,6 +314,8 @@ GET /platform/owners/history | PlatformOwnersController | allowlist: AuthGuard('
 GET /platform/reports/usage | PlatformReportUsageController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+GET /platform/schools/:id/restore/jobs/:jobId | PlatformSchoolRestoreController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+GET /platform/schools/:id/restore/template | PlatformSchoolRestoreController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/:id/stats | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
@@ -732,6 +734,8 @@ POST /platform/schools | ProvisioningController | allowlist: AuthGuard(['jwt','c
 POST /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/preset/reset | PlatformPresetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/schools/:id/restore | PlatformSchoolRestoreController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/schools/:id/restore/validate | PlatformSchoolRestoreController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/revive | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/step-up | PlatformStepUpController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard

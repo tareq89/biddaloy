@@ -280,6 +280,20 @@ export const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
+  ...(
+    [
+      ['POST', '/platform/schools/:id/restore'],
+      ['POST', '/platform/schools/:id/restore/validate'],
+      ['GET', '/platform/schools/:id/restore/template'],
+      ['GET', '/platform/schools/:id/restore/jobs/:jobId'],
+    ] as const
+  ).map(([method, path]) => ({
+    controller: 'PlatformSchoolRestoreController',
+    method,
+    path,
+    reason:
+      '[4101] Platform route, no tenant header: the school comes from the path. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only). The school-side restore rules (staging, confirmation name, lock) run in the same RestoreService.',
+  })),
   {
     controller: 'PlatformPresetsController',
     method: 'POST',

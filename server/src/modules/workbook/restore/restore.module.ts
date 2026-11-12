@@ -13,6 +13,10 @@ import { WORKBOOK_RESTORE_QUEUE } from './restore.constants';
 import { RestoreService } from './restore.service';
 import { RestoreProcessor } from './restore.processor';
 import { RestoreController } from './restore.controller';
+import { PlatformSchoolRestoreController } from './platform-school-restore.controller';
+import { ImportController } from '../import/import.controller';
+import { DiffService } from '../import/diff.service';
+import { TemplateService } from '../template/template.service';
 
 /**
  * Concurrency 1 for the restore worker (14.10.2's `RestoreProcessor`) is
@@ -37,8 +41,17 @@ import { RestoreController } from './restore.controller';
     ExportModule,
     BullModule.registerQueue({ name: WORKBOOK_RESTORE_QUEUE }),
   ],
-  controllers: [RestoreController],
-  providers: [RestoreService, RestoreProcessor, ValidationService],
+  controllers: [RestoreController, PlatformSchoolRestoreController],
+  // ImportController/DiffService/TemplateService are providers here only so the platform
+  // controller reuses `stage()` and `build()` instead of copying them.
+  providers: [
+    RestoreService,
+    RestoreProcessor,
+    ValidationService,
+    DiffService,
+    TemplateService,
+    ImportController,
+  ],
   exports: [RestoreService],
 })
 export class RestoreModule {}
