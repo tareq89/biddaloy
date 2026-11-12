@@ -28,7 +28,7 @@ import { SchoolPickerPage } from '../pages/school-picker';
  * reactivation restores access.
  *
  * Zero DB/seed-script access for the new school itself — it exists only
- * because this spec drove `POST /schools` through the real wizard UI.
+ * because this spec drove `POST /platform/schools` through the real wizard UI.
  * The pre-existing fixtures it *does* reuse (the seeded `super_admin`
  * account, and the seeded `admin`'s second "Rose Valley School" tenant —
  * see `seed.util.ts`'s `ensureSecondSchoolMembership`) are exactly the
@@ -75,7 +75,7 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     await page.getByLabel(t('platform.createWizard.adminEmailLabel')).fill(adminEmail);
 
     const provisionResponse = page.waitForResponse(
-      (res) => res.url().includes('/api/v1/schools') && res.request().method() === 'POST',
+      (res) => res.url().includes('/api/v1/platform/schools') && res.request().method() === 'POST',
     );
     await page.getByRole('button', { name: t('platform.createWizard.submitAction') }).click();
     const response = await provisionResponse;
@@ -166,7 +166,8 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
 
     const statusResponse = page.waitForResponse(
       (res) =>
-        res.url().includes(`/schools/${schoolId}/status`) && res.request().method() === 'PATCH',
+        res.url().includes(`/platform/schools/${schoolId}/status`) &&
+        res.request().method() === 'PATCH',
     );
     await dialog
       .getByRole('button', { name: t('platform.schoolDetail.suspendDialog.confirm') })
@@ -210,7 +211,8 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
 
     const statusResponse = page.waitForResponse(
       (res) =>
-        res.url().includes(`/schools/${schoolId}/status`) && res.request().method() === 'PATCH',
+        res.url().includes(`/platform/schools/${schoolId}/status`) &&
+        res.request().method() === 'PATCH',
     );
     await dialog
       .getByRole('button', { name: t('platform.schoolDetail.reactivateDialog.confirm') })

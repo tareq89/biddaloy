@@ -207,6 +207,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                 <StudyPlansSection
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
+                  isSuperAdmin={isSuperAdmin}
                   studyPlans={loaded.data.studyPlans}
                   smsConfigured={smsConfigured}
                 />

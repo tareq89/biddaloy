@@ -55,7 +55,7 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
   },
   {
     method: 'PATCH',
-    pathPattern: /^\/schools\/[^/]+\/(status|trial)$/,
+    pathPattern: /^\/(platform\/)?schools\/[^/]+\/(status|trial)$/,
     reason: 'suspend / trial danger zone',
     example: '/schools/3f1b2c4d-0000-4000-8000-000000000000/status',
   },

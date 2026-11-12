@@ -121,12 +121,12 @@ export function useGrantSeats(schoolId: string) {
   });
 }
 
-/** `POST /schools/:id/revive` — a school paused for having no students. */
+/** `POST /platform/schools/:id/revive` — a school paused for having no students. */
 export function useReviveSchool(schoolId: string) {
   const invalidate = useInvalidateBilling(schoolId);
   return useMutation({
     mutationFn: async (input: { reason: string }) =>
-      (await apiClient.post<unknown>(`/schools/${schoolId}/revive`, input)).data,
+      (await apiClient.post<unknown>(`/platform/schools/${schoolId}/revive`, input)).data,
     retry: false,
     onSuccess: invalidate,
   });

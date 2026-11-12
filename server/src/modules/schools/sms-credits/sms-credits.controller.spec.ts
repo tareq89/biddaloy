@@ -1,14 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Reflector } from '@nestjs/core';
-import { ForbiddenException } from '@nestjs/common';
-import { UserRole } from '@biddaloy/shared';
-import { RolesGuard } from '../../auth/guards/context.guard';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { SchoolSmsCreditsController } from './sms-credits.controller';
 import { SmsCreditsService } from './sms-credits.service';
 
 /**
  * [15.6.7/#550]. Guard test mirrors `SchoolAdminsController.spec.ts`:
- * `@Roles(SUPER_ADMIN)` on the class is the whole gate for this route.
+ * `PlatformAccessGuard` on the class is the whole gate for this route.
  */
 describe('SchoolSmsCreditsController', () => {
   let controller: SchoolSmsCreditsController;
@@ -56,26 +54,11 @@ describe('SchoolSmsCreditsController', () => {
     });
   });
 
-  describe('guards — SUPER_ADMIN only', () => {
-    const guard = new RolesGuard(new Reflector());
-    const handler = SchoolSmsCreditsController.prototype.grantOrAdjust;
-
-    function context(role: UserRole) {
-      return {
-        getHandler: () => handler,
-        getClass: () => SchoolSmsCreditsController,
-        switchToHttp: () => ({
-          getRequest: () => ({ currentTenant: { id: 'tenant-x', role } }),
-        }),
-      } as any;
-    }
-
-    it('allows SUPER_ADMIN', () => {
-      expect(guard.canActivate(context(UserRole.SUPER_ADMIN))).toBe(true);
-    });
-
-    it('denies ADMIN', () => {
-      expect(() => guard.canActivate(context(UserRole.ADMIN))).toThrow(ForbiddenException);
+  describe('guards — platform only', () => {
+    it('is guarded by PlatformAccessGuard at class level', () => {
+      expect(Reflect.getMetadata(GUARDS_METADATA, SchoolSmsCreditsController)).toContain(
+        PlatformAccessGuard,
+      );
     });
   });
 });

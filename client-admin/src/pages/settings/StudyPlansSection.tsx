@@ -50,6 +50,8 @@ interface FormValues {
 
 interface StudyPlansSectionProps {
   schoolId: string;
+  /** SUPER_ADMIN reads a picked school through the platform route; an ADMIN reads their own tenant. */
+  isSuperAdmin?: boolean;
   studyPlans: StudyPlansSettings | undefined;
   /** The server's "SMS is set up" (D32). `null` = not known yet (loading or failed): no warning. */
   smsConfigured?: boolean | null;
@@ -57,6 +59,7 @@ interface StudyPlansSectionProps {
 
 export function StudyPlansSection({
   schoolId,
+  isSuperAdmin = false,
   studyPlans,
   smsConfigured = false,
 }: StudyPlansSectionProps) {
@@ -76,7 +79,7 @@ export function StudyPlansSection({
   });
   useWarnUnsavedChanges(form.formState.isDirty);
   const updateSettings = useUpdateSchoolSettings(schoolId);
-  const credits = useSmsCredits(1, 1, schoolId);
+  const credits = useSmsCredits(1, 1, isSuperAdmin ? schoolId : undefined);
   const balance = credits.data?.metering === 'PLATFORM' ? credits.data.available : undefined;
 
   const live = form.watch();

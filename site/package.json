@@ -14,7 +14,7 @@
     "@astrojs/node": "^11.1.11",
     "@biddaloy/shared": "*",
     "@biddaloy/site-themes": "*",
-    "astro": "^7.4.4",
+    "astro": "^7.4.7",
     "cookie": "^2.0.1",
     "send": "^1.2.1",
     "sharp": "^0.35.5"

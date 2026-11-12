@@ -74,7 +74,7 @@ describe('SmsCreditSection', () => {
           ledger: { data: [], total: 0, page: 1, limit: 10, totalPages: 1 },
         });
       }),
-      http.get(`/api/v1/schools/${PICKED_SCHOOL_ID}/sms-credits`, () =>
+      http.get(`/api/v1/platform/schools/${PICKED_SCHOOL_ID}/sms-credits`, () =>
         HttpResponse.json({
           metering: 'PLATFORM',
           available: 40,

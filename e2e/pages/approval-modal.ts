@@ -51,7 +51,7 @@ export class ApprovalModalPage {
     await this.page.getByLabel(t('approval.identifierLabel')).fill(identifier);
 
     let otp: string | undefined;
-    for (let attempt = 0; attempt < 4 && !otp; attempt += 1) {
+    for (let attempt = 0; attempt < 6 && !otp; attempt += 1) {
       // `waitForResponse` defaults to Playwright's 30s action timeout,
       // shorter than the up-to-65s the paired `click()` is allowed to
       // wait out the cooldown for — without an explicit matching timeout
