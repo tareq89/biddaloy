@@ -1,0 +1,74 @@
+{
+  "signIn": {
+    "title": "Platform owner sign-in",
+    "next": "Next",
+    "signIn": "Sign in",
+    "working": "Please wait…",
+    "startAgain": "Start again",
+    "forgot": "Forgot your password?",
+    "passwordSaved": "Your new password is saved. Sign in with it.",
+    "identifierLabel": "Email or phone number",
+    "passwordLabel": "Password",
+    "code": {
+      "title": "Enter the code from your authenticator app",
+      "label": "6-digit code from your authenticator app",
+      "hint": "Each code works once. If it was just used, wait for the next one.",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use the code from the app instead",
+      "recoveryLabel": "Recovery code",
+      "recoveryHint": "One of the 16-character codes you saved when you turned on two-step sign-in. Each works once."
+    },
+    "device": {
+      "title": "New-device check",
+      "body": "This device is new. We sent one code by SMS and one code by email. Enter both.",
+      "smsLabel": "Code from the SMS",
+      "emailLabel": "Code from the email",
+      "remember": "Remember this device"
+    },
+    "enrol": {
+      "title": "Set up two-step sign-in",
+      "body": "Before you set up two-step sign-in, we sent one code by SMS and one code by email. Enter both."
+    },
+    "errors": {
+      "generic": "Sign-in did not work. Check what you typed and try again.",
+      "identifierRequired": "Enter your email or phone number.",
+      "passwordRequired": "Enter your password.",
+      "wrongCode": "Code did not match. Check it and try again.",
+      "wrongDeviceCode": "A code did not match. Check both codes and try again.",
+      "slowDown": "Too many tries. Wait a little and try again."
+    }
+  },
+  "forgot": {
+    "title": "Forgot your password?",
+    "body": "Enter your email. If it belongs to an owner, we send a link to set a new password.",
+    "emailLabel": "Email",
+    "send": "Send the link",
+    "sent": "If this email belongs to an owner, a link to set a new password is on its way.",
+    "back": "Back to sign-in",
+    "errors": {
+      "emailRequired": "Enter your email.",
+      "generic": "Something went wrong. Try again in a moment."
+    }
+  },
+  "reset": {
+    "title": "Set a new password",
+    "body": "Choose a new password. You will sign in with it on the next page.",
+    "submit": "Save password",
+    "badLink": "This link does not work",
+    "badLinkBody": "It may be old or already used. Ask for a new one.",
+    "newLink": "Get a new link",
+    "errors": {
+      "generic": "The password could not be saved. Try again."
+    }
+  },
+  "help": {
+    "whyTwoSteps": {
+      "title": "Why two steps?",
+      "body": "A password alone can be stolen. The second step is a code only your phone can make, so a thief with your password still cannot get in."
+    },
+    "whatIsRecoveryCode": {
+      "title": "What is a recovery code?",
+      "body": "When you turned on two-step sign-in you saved ten spare codes. If you lose your phone, type one of them instead of the app code. Each works only once."
+    }
+  }
+}

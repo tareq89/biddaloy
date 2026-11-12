@@ -26,7 +26,7 @@ import * as React from 'react';
 import { useLandingFlag } from '../../routes/_staff/-use-landing-flag';
 import { useAcknowledgeNotice } from '../notices/read/use-my-notices';
 
-export function useAttentionCenter({ todoTo }: { todoTo: string }) {
+export function useAttentionCenter({ todoTo }: { todoTo?: string }) {
   const summary = useAttentionSummary();
   const [open, setOpen] = useLandingFlag('alerts', true);
   const navigate = useNavigate();
@@ -79,7 +79,7 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
   if (ackCard && acknowledge.isPending) itemState[ackCard] = { busy: true };
   else if (ackCard && acknowledge.isError) itemState[ackCard] = { error: t('item.actionFailed') };
 
-  const todoHref = `${todoTo}?tab=active`;
+  const todoHref = todoTo === undefined ? undefined : `${todoTo}?tab=active`;
   const data = summary.data;
   const bell: NotificationBellAttention = {
     count: data?.activeTotal ?? 0,

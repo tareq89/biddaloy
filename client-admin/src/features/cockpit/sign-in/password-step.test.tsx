@@ -1,0 +1,62 @@
+import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { PasswordStep } from './password-step';
+
+afterEach(cleanupTestState);
+
+describe('PasswordStep', () => {
+  it('focuses the first field and submits the email and password on Enter', async () => {
+    const onSubmit = vi.fn();
+    renderWithProviders(<PasswordStep onSubmit={onSubmit} />, { locale: 'en' });
+    const id = await screen.findByLabelText('Email or phone number');
+    expect(document.activeElement).toBe(id);
+    const user = userEvent.setup();
+    await user.type(id, 'Owner@Example.test');
+    await user.type(screen.getByLabelText('Password'), 'secret-pass{Enter}');
+    expect(onSubmit).toHaveBeenCalledWith({ email: 'owner@example.test' }, 'secret-pass');
+  });
+
+  it('asks for what is missing and does not submit', async () => {
+    const onSubmit = vi.fn();
+    renderWithProviders(<PasswordStep onSubmit={onSubmit} />, { locale: 'en' });
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Enter your email or phone number.')).toBeTruthy();
+    expect(screen.getByText('Enter your password.')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows the one failure sentence under the password', async () => {
+    renderWithProviders(<PasswordStep onSubmit={vi.fn()} error="Sign-in did not work." />, {
+      locale: 'en',
+    });
+    expect((await screen.findByRole('alert')).textContent).toBe('Sign-in did not work.');
+  });
+
+  it('clears a field error as soon as that field changes', async () => {
+    renderWithProviders(<PasswordStep onSubmit={vi.fn()} />, { locale: 'en' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await user.type(screen.getByLabelText('Password'), 'x');
+    expect(screen.queryByText('Enter your password.')).toBeNull();
+    expect(screen.getByText('Enter your email or phone number.')).toBeTruthy();
+    await user.type(screen.getByLabelText('Email or phone number'), 'a');
+    expect(screen.queryByText('Enter your email or phone number.')).toBeNull();
+  });
+
+  it('ties each invalid input to its error text', async () => {
+    renderWithProviders(<PasswordStep onSubmit={vi.fn()} />, { locale: 'en' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    const id = screen.getByLabelText('Email or phone number');
+    const pw = screen.getByLabelText('Password');
+    expect(document.getElementById(id.getAttribute('aria-describedby')!)?.textContent).toBe(
+      'Enter your email or phone number.',
+    );
+    expect(document.getElementById(pw.getAttribute('aria-describedby')!)?.textContent).toBe(
+      'Enter your password.',
+    );
+  });
+});

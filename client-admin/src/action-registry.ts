@@ -1217,3 +1217,59 @@ export const DEMO_SWITCH_ROLE_ACTION: PaletteAction = {
   group: 'top',
   run: (ctx) => ctx.navigate({ to: '/login' }),
 };
+
+/**
+ * [98.4.07] The cockpit's palette actions. The cockpit palette is page-only (no Action tab, no
+ * school permission to hold: `RequireRole(SUPER_ADMIN)` and the server's cockpit guard are the
+ * gates), so these ride in as page rows from `_platform/route.tsx` on the cockpit host only and
+ * never reach a school's palette. Owner-scoped actions land on the list and the user picks the
+ * row (no entity id here, see the header): Lock and Unlock still confirm with a code on that row.
+ */
+export interface PlatformPaletteAction {
+  readonly id: string;
+  readonly label: { readonly en: string; readonly bn: string };
+  readonly synonyms?: readonly string[];
+  readonly kind: ActionKind;
+  /** Where `run` lands. */
+  readonly to: string;
+  readonly run: (ctx: ActionRunContext) => void;
+}
+
+const platformGo = (to: string) => ({ to, run: (ctx: ActionRunContext) => ctx.navigate({ to }) });
+
+export const PLATFORM_ACTIONS: readonly PlatformPaletteAction[] = [
+  {
+    id: 'platform-owners.open',
+    label: { en: 'Platform owners', bn: 'প্ল্যাটফর্ম মালিক' },
+    kind: 'navigate',
+    ...platformGo('/platform-owners'),
+  },
+  {
+    id: 'platform-owners.lock',
+    label: { en: 'Lock a platform owner', bn: 'প্ল্যাটফর্ম মালিককে লক করুন' },
+    synonyms: ['suspend', 'block'],
+    kind: 'inline',
+    ...platformGo('/platform-owners?tab=owners'),
+  },
+  {
+    id: 'platform-owners.unlock',
+    label: { en: 'Unlock a platform owner', bn: 'প্ল্যাটফর্ম মালিককে আনলক করুন' },
+    synonyms: ['restore'],
+    kind: 'inline',
+    ...platformGo('/platform-owners?tab=owners'),
+  },
+  {
+    id: 'approvals.open',
+    label: { en: 'Approval requests', bn: 'অনুমোদনের অনুরোধ' },
+    synonyms: ['approve', 'pending'],
+    kind: 'navigate',
+    ...platformGo('/platform-owners?tab=approvals'),
+  },
+  {
+    id: 'security.new-recovery-codes',
+    label: { en: 'Get new recovery codes', bn: 'নতুন জরুরি কোড নিন' },
+    synonyms: ['backup codes', 'two-step'],
+    kind: 'navigate',
+    ...platformGo('/owner-security'),
+  },
+];

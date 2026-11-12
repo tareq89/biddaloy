@@ -96,7 +96,7 @@ Decrypts the chosen archive, restores it into `TARGET_DATABASE_URL`, and
 prints integrity counts from `verify.sql`. It does **not** run migrations:
 run `node server/dist/scripts/migrate.js run` from the app image afterwards.
 `--require-empty` (prod restore, used by `deploy/bin/biddaloy-restore-prod`)
-refuses a target that has a user or a school besides `default-school` (exit 3)
+refuses a target that has a user (cockpit owners aside) or a school besides `default-school` and the `is_platform` home (exit 3)
 and does the check, the schema wipe and the load in one transaction. Refuses to run if `TARGET_DATABASE_URL` equals the `DATABASE_URL`
 env var (the running production database) — see the script for the exact
 check.
@@ -152,7 +152,7 @@ Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
 - `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - `BACKUP_S3_ENDPOINT` (https), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`: the **read-only** R2 token
 - the age private key at `/run/age/key.txt` (`BACKUP_AGE_KEY_DIR` mounted read-only)
-- `STAGING_PASSWORD_HASH_B64` (base64 of a bcrypt cost-12 hash), `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID` (uuid)
+- `STAGING_PASSWORD_HASH_B64` (base64 of a bcrypt cost-12 hash), `SMOKE_SCHOOL_SLUG`
 - optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only, never with `--target`), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50),
   `STAGING_REFRESH_LOCK` (extra lock file; unset by default, the host unit's `flock` is the real lock)
 

@@ -87,7 +87,6 @@ export class CrossBranchCountsService {
       definition.calculated.length === 0;
     if (!countsOnly) throw new NotCountableAcrossBranchesError();
 
-    const platformTenantId = await this.tenantStatus.platformTenantId();
     const branchIds = [...new Set(user.memberships.map((m) => m.tenantId))];
     const results: BranchCountsResultDto['branches'] = [];
     const shapes: string[] = [];
@@ -99,12 +98,7 @@ export class CrossBranchCountsService {
       const role =
         branchId === tenant.id
           ? (tenant.role as UserRole)
-          : (resolveRole(
-              user.memberships,
-              branchId,
-              undefined,
-              platformTenantId,
-            ) as UserRole | null);
+          : (resolveRole(user.memberships, branchId, undefined) as UserRole | null);
       if (!role || !roleHasPermission(role, Permission.REPORTS_VIEW)) continue;
       if ((await this.tenantStatus.getStatus(branchId)) !== SchoolStatus.ACTIVE) continue;
       if (source.visible_roles.length > 0 && !source.visible_roles.includes(role)) continue;

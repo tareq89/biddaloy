@@ -109,6 +109,8 @@
     "notifications": "Alerts & notifications",
     "security": "Security",
     "schools": "Schools",
+    "platformOwners": "Platform owners",
+    "twoStepSignIn": "Two-step sign-in",
     "holidaySets": "Holiday lists",
     "subscriptions": "Subscriptions",
     "schoolDetail": "School",

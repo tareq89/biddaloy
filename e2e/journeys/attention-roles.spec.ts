@@ -98,12 +98,8 @@ async function checkRole(
 
 const en = { e2eLocale: 'en' };
 
-test.describe('super_admin', () => {
-  test.use({ ...loggedIn('super_admin'), ...en });
-  test('sees only platform alerts', async ({ page, request }) => {
-    await checkRole(page, request, { role: 'super_admin', home: '/schools', mustHaveItems: false });
-  });
-});
+// The platform owner has no school, so no school alerts: platform alerts are covered by
+// `platform/platform-alert-banner.spec.ts` on the cockpit host (98.5.10).
 
 test.describe('admin', () => {
   test.use({ ...loggedIn('admin'), ...en });

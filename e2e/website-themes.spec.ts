@@ -2,7 +2,7 @@ import {
   activateInvite,
   provisionSchool,
   resendSchoolAdminInvitation,
-  superAdminApiSession,
+  platformApiSession,
 } from './api';
 import type { ApiSession } from './api';
 import { shells } from './config';
@@ -45,7 +45,7 @@ test('admin switches every theme, saves, publishes, and the public read API agre
 }) => {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const setup = await playwright.request.newContext({ baseURL: shells.app.baseURL });
-  const superAdmin = await superAdminApiSession(setup);
+  const superAdmin = await platformApiSession(setup);
   const provisioned = await provisionSchool(
     setup,
     superAdmin,

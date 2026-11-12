@@ -49,7 +49,6 @@ describe('PlatformAlertsService (two instances, real DB)', () => {
           get: (k: string) => ({ SMS_PROVIDER: 'p', PLATFORM_ALERT_PHONES: '01700000000' })[k],
         } as never,
         { resolve: async () => ({ provider: { send }, config: {} }) } as never,
-        { platformTenantId: async () => undefined } as never,
       );
     const a = make();
     const b = make();

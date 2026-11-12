@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
+import { onSchoolHost } from '../../e2e/route-manifest-filter';
 import manifest from '../../e2e/route-manifest.json';
 
 import { routeTree } from './routeTree.gen';
@@ -55,5 +56,25 @@ describe('e2e route manifest', () => {
         ).toBeTruthy();
       }
     }
+  });
+
+  it('keeps the cockpit-only routes out of the school-host sweeps', () => {
+    const cockpit = [
+      '/platform-owners',
+      '/owner-security',
+      '/owner-security/two-step',
+      '/sign-in/forgot',
+      '/sign-in/reset',
+    ];
+    const marked = (manifest.routes as { path: string; host?: string }[])
+      .filter((r) => r.host === 'cockpit')
+      .map((r) => r.path);
+    // The platform screens (schools, holiday sets, ...) are host-tagged too since 98.5.
+    for (const p of cockpit) expect(marked).toContain(p);
+    const kept = onSchoolHost(manifest.routes as { path: string; host?: string }[]).map(
+      (r) => r.path,
+    );
+    for (const p of marked) expect(kept).not.toContain(p);
+    expect(kept).toContain('/students');
   });
 });

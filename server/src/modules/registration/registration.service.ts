@@ -220,14 +220,13 @@ export class RegistrationService {
 
   /**
    * There is no school yet, so the code goes out through the platform school
-   * (`PLATFORM_TENANT_ID`) with the normal secret-safe `communication_logs` row. In production a
+   * (the `is_platform` home row) with the normal secret-safe `communication_logs` row. In production a
    * code that cannot be sent is a 503, never a silent 202; elsewhere it stays quiet (the echo
    * flag is how tests read the code).
    */
   private async deliver(staged: StagedRegistration, code: string): Promise<void> {
     const production = this.config.get<string>('NODE_ENV') === 'production';
-    // Same trimmed/lower-cased id the guard and sweeps use; never the dev slug fallback.
-    const tenantId = this.tenantStatus.configuredPlatformTenantId();
+    const tenantId = await this.tenantStatus.platformTenantId();
     let sent = false;
     if (tenantId) {
       try {

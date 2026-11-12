@@ -14,7 +14,7 @@ import {
   setActiveRole,
   setActiveTenant,
 } from './auth-state';
-import { postAuthRefresh } from './client';
+import { postAuthRefresh, setSessionEndpoints, type SessionEndpoints } from './client';
 import { getPersistedTenant } from './tenant-storage';
 
 /** Refresh this long before the token's own `exp` — comfortably ahead of
@@ -197,4 +197,11 @@ export function ensureSessionLoaded(): Promise<boolean> {
   if (getAccessToken()) return Promise.resolve(true);
   bootstrapPromise ??= bootstrap();
   return bootstrapPromise;
+}
+
+/** [98.4.01] Points refresh/logout/logout-all at other paths (the cockpit
+ * host's `/auth/cockpit/*`). Defaults are today's `/auth/*`; call before the
+ * router renders. */
+export function configureSessionEndpoints(endpoints: SessionEndpoints): void {
+  setSessionEndpoints(endpoints);
 }

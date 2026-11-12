@@ -9,13 +9,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { JwtPayload } from '@biddaloy/shared';
 import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { ProvisioningService } from './provisioning.service';
 import { ProvisionSchoolDto } from './dto/provision-school.dto';
 
@@ -27,7 +26,7 @@ import { ProvisionSchoolDto } from './dto/provision-school.dto';
  * concurrently on the same branch.
  */
 @ApiTags('schools')
-@ApiTenantAuth()
+@ApiBearerAuth('bearer')
 @Controller('platform/schools')
 @UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class ProvisioningController {

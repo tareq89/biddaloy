@@ -5,6 +5,7 @@ type Row = {
   id: string;
   slug: string;
   has_students?: boolean;
+  is_platform?: boolean;
   created_in_demo?: boolean;
 };
 const check = (env: Record<string, string | undefined>, schools: Row[]) => {
@@ -63,24 +64,23 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
     ).resolves.toBeUndefined();
   });
 
-  it('excepts an explicitly configured platform tenant', async () => {
+  it('excepts the is_platform home school', async () => {
     await expect(
-      check({ DEMO_MODE: 'true', PLATFORM_TENANT_ID: 'p' }, [
-        { id: 'p', slug: 'platform' },
+      check({ DEMO_MODE: 'true' }, [
+        { id: 'p', slug: 'platform', is_platform: true },
         { id: '2', slug: 'bmsc-high' },
       ]).run(),
     ).resolves.toBeUndefined();
   });
 
-  // A legacy install's env names its default-school row as the platform tenant; copying that env
-  // with DEMO_MODE=true must not let the exemption skip the students check.
-  it('refuses a platform tenant with students', async () => {
+  // The platform home never holds students; one that does is a real school, not the platform row.
+  it('refuses an is_platform school with students', async () => {
     await expect(
-      check({ DEMO_MODE: 'true', PLATFORM_TENANT_ID: 'p' }, [
-        { id: 'p', slug: 'default-school', has_students: true },
+      check({ DEMO_MODE: 'true' }, [
+        { id: 'p', slug: 'real-school', is_platform: true, has_students: true },
         { id: '2', slug: 'bmsc-high' },
       ]).run(),
-    ).rejects.toThrow(/default-school/);
+    ).rejects.toThrow(/real-school/);
   });
 
   // Epic 88 D3: the flag alone decides. A visitor can add 100 rows per request, so no student count
@@ -113,7 +113,7 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
   });
 
   // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.
-  // It must not suggest setting PLATFORM_TENANT_ID as a fix: an empty default-school is already exempt by slug.
+  // It must not suggest an env var as a fix: the empty platform home and default-school are already exempt.
   it('says why it refuses', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [{ id: '1', slug: 'real-school' }]).run(),

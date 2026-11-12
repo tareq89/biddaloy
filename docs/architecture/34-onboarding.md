@@ -138,7 +138,7 @@ flowchart TD
   ended yesterday stops counting.
 - `GET /billing/summary` and `GET /billing/orders` (`SETTINGS_MANAGE`, own
   school only; `limit` at most 100).
-- Platform billing (SUPER_ADMIN, `PlatformSuperAdminGuard`, `/platform/billing/*`):
+- Platform billing (platform owner, `PlatformAccessGuard`, `/platform/billing/*`):
   list and read every school's seats and orders, record an offline (bank / cash)
   payment on a PENDING order, and grant seats
   (`POST /platform/billing/schools/:id/grant { seats, months, reason, idempotency_key }`,

@@ -18,6 +18,7 @@ import {
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
@@ -139,6 +140,7 @@ describe('Cross-tenant access (regression)', () => {
   }, 60000);
 
   afterAll(async () => {
+    await removeCockpitOwners(dataSource);
     // FK dependency order: invoices reference students, so they're removed
     // first. communication_logs and fee_structures are independent of the
     // others created here.
@@ -428,11 +430,12 @@ describe('Cross-tenant access (regression)', () => {
    * their own tenant context — so the route rejects them outright rather
    * than returning a filtered, single-school list.
    */
-  it('lists every school for a super admin, and rejects an admin entirely', async () => {
+  it('lists every school for a cockpit owner, and rejects a school admin and a school super admin', async () => {
+    // [Epic 98] Platform authority is a cockpit token only; a SUPER_ADMIN membership no longer counts.
+    const cockpitToken = await mintCockpitToken(app, dataSource);
     const listRes = await supertest(app.getHttpServer())
       .get('/api/v1/platform/schools')
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_B)
+      .set('Authorization', `Bearer ${cockpitToken}`)
       .expect(200);
     expect(listRes.body).toEqual(
       expect.arrayContaining([
@@ -448,10 +451,10 @@ describe('Cross-tenant access (regression)', () => {
       .set('X-Tenant-ID', TENANT_A)
       .expect(403);
 
-    // Platform routes take no tenant header: neither a missing nor an unknown one matters.
     await supertest(app.getHttpServer())
       .get('/api/v1/platform/schools')
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .expect(200);
+      .set('X-Tenant-ID', TENANT_B)
+      .expect(403);
   });
 });

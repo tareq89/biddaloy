@@ -70,6 +70,8 @@ expect "transaction order: guard, DROP SCHEMA, CREATE SCHEMA, dump" bash -c "
   t=\$(grep -n 'CREATE TABLE dumped' '$WORK/stdin.sql' | cut -d: -f1)
   [[ \$g -lt \$d && \$d -lt \$c && \$c -lt \$t ]]"
 expect "the guard ignores default-school" grep -q "default-school" "$WORK/stdin.sql"
+expect "the guard ignores the is_platform home" grep -q "is_platform" "$WORK/stdin.sql"
+expect "the guard ignores cockpit owners (platform_admins users)" grep -q "public.platform_admins" "$WORK/stdin.sql"
 expect "migrations are not run (message)" grep -q "migrations NOT run" "$WORK/out.txt"
 
 TXN_REFUSE=1 run "$WORK/a.dump.age" @env --allow-live-target --require-empty --expect-db biddaloy_prod

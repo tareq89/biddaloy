@@ -55,11 +55,24 @@ type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL });
 
+/** [4100] True on the cockpit host: an owner has no school, so a request with no tenant
+ * goes out without `X-Tenant-ID` instead of throwing. Set once at boot (`client-admin/src/main.tsx`). */
+let tenantless = false;
+export function setTenantless(next: boolean): void {
+  tenantless = next;
+}
+export const isTenantless = (): boolean => tenantless;
+
 apiClient.interceptors.request.use((config) => {
   // Explicit override wins; then the tenant this same request already
   // resolved to on a previous attempt (see `_resolvedTenantId`'s comment);
   // only a first dispatch falls through to the ambient active tenant.
   const tenantId = config._tenantOverride || config._resolvedTenantId || getActiveTenant();
+  if (!tenantId && tenantless) {
+    const owner = getAccessToken();
+    if (owner) config.headers.set('Authorization', `Bearer ${owner}`);
+    return config;
+  }
   if (!tenantId) {
     // Rejecting here means the request is never dispatched — axios has not
     // yet handed the config to its adapter, so no HTTP call happens.
@@ -115,11 +128,32 @@ apiClient.interceptors.request.use((config) => {
  * `JwtMembership.name`) alongside every refresh; `ui/src/api/session.ts`'s
  * cold-boot bootstrap decodes them to restore [8.9.5]'s persisted active
  * tenant, which a token-only return couldn't support. */
+export interface SessionEndpoints {
+  refresh: string;
+  logout: string;
+  logoutAll: string;
+}
+
+let sessionEndpoints: SessionEndpoints = {
+  refresh: '/auth/refresh',
+  logout: '/auth/logout',
+  logoutAll: '/auth/logout-all',
+};
+
+/** [98.4.01] Swapped once at boot on the cockpit host; see `configureSessionEndpoints`. */
+export function setSessionEndpoints(next: SessionEndpoints): void {
+  sessionEndpoints = next;
+}
+
 export async function postAuthRefresh(): Promise<LoginResponse> {
   const generation = currentSessionGeneration();
-  const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/refresh`, undefined, {
-    withCredentials: true,
-  });
+  const response = await axios.post<LoginResponse>(
+    `${API_BASE_URL}${sessionEndpoints.refresh}`,
+    undefined,
+    {
+      withCredentials: true,
+    },
+  );
   if (currentSessionGeneration() === generation) {
     setAccessToken(response.data.access_token);
   }
@@ -143,7 +177,8 @@ export async function postAuthRefresh(): Promise<LoginResponse> {
  * refresh cookie is `/auth/logout`'s actual credential. */
 export async function postAuthLogout(endpoint: '/auth/logout' | '/auth/logout-all'): Promise<void> {
   const token = getAccessToken();
-  await axios.post(`${API_BASE_URL}${endpoint}`, undefined, {
+  const path = endpoint === '/auth/logout' ? sessionEndpoints.logout : sessionEndpoints.logoutAll;
+  await axios.post(`${API_BASE_URL}${path}`, undefined, {
     withCredentials: true,
     ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
   });

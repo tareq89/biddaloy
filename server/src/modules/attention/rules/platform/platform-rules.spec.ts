@@ -27,7 +27,7 @@ function ds(rows: unknown[]) {
   const query = vi
     .fn()
     .mockImplementation(async (sql: string) =>
-      sql.includes('FROM user_tenants') ? [SUPER] : rows,
+      sql.includes('FROM platform_admins') ? [SUPER] : rows,
     );
   return { query };
 }
@@ -74,43 +74,17 @@ describe('platform rules: shared contract', () => {
 });
 
 describe('PlatformTenantResolver', () => {
-  // A real TenantStatusService: the resolver must behave exactly like the guard's resolver.
-  const make = (env: Record<string, string>, lookup = vi.fn()) => {
-    const config = { get: (k: string) => env[k] };
-    const schoolRepo = {
-      findOne: async ({ where }: { where: { slug: string } }) => {
-        const id = await lookup(where.slug);
-        return id ? { id } : null;
-      },
-    };
-    return {
-      r: new PlatformTenantResolver(
-        new TenantStatusService({} as never, schoolRepo as never, config as never),
-      ),
-      lookup,
-    };
-  };
-
-  it('PLATFORM_TENANT_ID wins without a DB call', async () => {
-    const { r, lookup } = make({ PLATFORM_TENANT_ID: 'p1' });
-    expect(await r.resolve()).toBe('p1');
-    expect(lookup).not.toHaveBeenCalled();
-  });
-
-  it('production without the env fails closed', async () => {
-    const { r, lookup } = make({ NODE_ENV: 'production' });
-    expect(await r.resolve()).toBeUndefined();
-    expect(lookup).not.toHaveBeenCalled();
-  });
-
-  it('dev looks up default-school; caches a hit but not a miss', async () => {
-    const lookup = vi.fn().mockResolvedValueOnce(null).mockResolvedValue('dev1');
-    const { r } = make({}, lookup);
+  // A real TenantStatusService: the resolver reads the `is_platform` row and nothing else.
+  it('resolves the flagged home school; caches a hit but not a miss', async () => {
+    const findOne = vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ id: 'home1' });
+    const r = new PlatformTenantResolver(
+      new TenantStatusService({} as never, { findOne } as never),
+    );
     expect(await r.resolve()).toBeUndefined(); // miss: not cached
-    expect(await r.resolve()).toBe('dev1'); // hit
-    expect(await r.resolve()).toBe('dev1'); // cached
-    expect(lookup).toHaveBeenCalledTimes(2);
-    expect(lookup).toHaveBeenCalledWith('default-school');
+    expect(await r.resolve()).toBe('home1'); // hit
+    expect(await r.resolve()).toBe('home1'); // cached
+    expect(findOne).toHaveBeenCalledTimes(2);
+    expect(findOne).toHaveBeenCalledWith({ where: { is_platform: true } });
   });
 });
 

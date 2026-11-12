@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestException, GoneException, ServiceUnavailableException } from '@nestjs/common';
-import { TenantStatusService } from '../schools/tenant-status.service';
 import { RegistrationService } from './registration.service';
 
 /** Only the pieces `start` touches; everything else is never reached. */
@@ -24,8 +23,8 @@ function build(env: Record<string, string>, deliver: ReturnType<typeof vi.fn>) {
     config as never,
     {} as never,
     {} as never,
-    // Real service: only its constructor's env read is reached.
-    new TenantStatusService({} as never, {} as never, config as never),
+    // The `is_platform` home school id; `PLATFORM_HOME_ID` unset = no home school.
+    { platformTenantId: async () => env.PLATFORM_HOME_ID || undefined } as never,
   );
 }
 
@@ -44,11 +43,11 @@ const ctx = { ip: null, userAgent: null };
 describe('RegistrationService.start delivery', () => {
   it('answers 503 in production when the code could not be sent', async () => {
     const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'FAILED' });
-    const s = build({ NODE_ENV: 'production', PLATFORM_TENANT_ID: 'p' }, deliver);
+    const s = build({ NODE_ENV: 'production', PLATFORM_HOME_ID: 'p' }, deliver);
     await expect(s.start(dto, ctx)).rejects.toThrow(ServiceUnavailableException);
   });
 
-  it('answers 503 in production when there is no platform tenant to send from', async () => {
+  it('answers 503 in production when there is no platform home school to send from', async () => {
     const deliver = vi.fn();
     const s = build({ NODE_ENV: 'production' }, deliver);
     await expect(s.start(dto, ctx)).rejects.toThrow(ServiceUnavailableException);
@@ -57,16 +56,9 @@ describe('RegistrationService.start delivery', () => {
 
   it('sends through the platform tenant and answers normally when delivery works', async () => {
     const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'SENT' });
-    const s = build({ NODE_ENV: 'production', PLATFORM_TENANT_ID: 'p' }, deliver);
+    const s = build({ NODE_ENV: 'production', PLATFORM_HOME_ID: 'p' }, deliver);
     await expect(s.start(dto, ctx)).resolves.toMatchObject({ channel: 'sms', resend_in: 60 });
     expect(deliver).toHaveBeenCalledWith(expect.objectContaining({ tenantId: 'p', kind: 'OTP' }));
-  });
-
-  it('sends from the trimmed platform id, not the raw env value', async () => {
-    const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'SENT' });
-    const s = build({ NODE_ENV: 'production', PLATFORM_TENANT_ID: ' P \n' }, deliver);
-    await s.start(dto, ctx);
-    expect(deliver).toHaveBeenCalledWith(expect.objectContaining({ tenantId: 'p' }));
   });
 
   it('stays quiet outside production when nothing can be sent', async () => {
@@ -155,7 +147,7 @@ describe('RegistrationService.createSchool contacts', () => {
 describe('RegistrationService.start channel', () => {
   it('always uses SMS, even when an email was given', async () => {
     const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'SENT' });
-    const s = build({ NODE_ENV: 'test', PLATFORM_TENANT_ID: 'p' }, deliver);
+    const s = build({ NODE_ENV: 'test', PLATFORM_HOME_ID: 'p' }, deliver);
     await expect(s.start(dto, ctx)).resolves.toMatchObject({ channel: 'sms' });
     expect(deliver).toHaveBeenCalledWith(
       expect.objectContaining({ medium: 'SMS', to: '01711000000' }),
