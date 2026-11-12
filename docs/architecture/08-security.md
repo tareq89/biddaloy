@@ -285,7 +285,7 @@ flowchart LR
 ### Rule 20: A reachability change updates the route snapshot
 
 - **Rule.** A change in who can reach a route updates `server/src/route-status.snapshot.txt` in the same PR, and the PR lists each changed line with its ticket.
-- **Why.** Guard changes are easy to miss in a diff (D21). A `/platform/*` route also needs `PlatformSuperAdminGuard`, which only this snapshot shows.
+- **Why.** Guard changes are easy to miss in a diff (D21). A `/platform/*` route also needs `PlatformAccessGuard` (a cockpit token only). `route-permissions.txt` records the guard; this snapshot shows which roles can reach the route.
 - **Example.** `GET /api/v1/platform/alerts  401 PASS 403 …` (`TENANT_SA` 403).
 - **Test.** `server/src/route-status-snapshot.e2e-spec.ts`. See `server/CLAUDE.md` "Route status snapshot".
 - **Log.** 2026-11-05 [81.0.1] D5b: `PATCH /exams/:examId/marks` and `POST /exams/:examId/marks/submit` flip `EXAM_CONTROLLER` 403 → PASS (it now holds `MARK_ENTER`, a backup for an absent teacher). Teacher scope, other roles and other routes unchanged.
@@ -372,6 +372,50 @@ flowchart LR
 ```
 
 - **Test.** `server/test/year-open-guard-registry.integration.spec.ts` (coverage, and every listed service calls the guard); each service's own integration spec proves the 409.
+
+### Rule 29: Platform routes live under `/platform/` and are refused on the app host
+
+- **Rule.** A route guarded as platform-only (`PlatformAdminGuard` or `PlatformAccessGuard`) lives under `/platform/`, or is on the short, reviewed `ALLOWED_OUTSIDE` list (the `/auth/cockpit/*` owner-session routes). The app host's nginx answers `404` for `/api/v1/platform/*` and `/api/v1/auth/cockpit/*`. Only the cockpit host serves them. A platform route takes a cockpit token only; a school token, even a school `SUPER_ADMIN`'s, is refused.
+- **Why.** Epic 98 (D2, D4): the platform owners are not school users, and a school login must never reach platform power. Before, `@Roles(SUPER_ADMIN)` let any school's super admin through.
+- **Example.** `GET https://app.schoolmanagerp.com/api/v1/platform/alerts` is `404` at the edge. The same path on the cockpit host with a school token is `401`; with a cockpit token it is `200`.
+
+```mermaid
+flowchart LR
+  R["Request to /api/v1/platform/..."] --> H{"Which host?"}
+  H -- "app host" --> N1["nginx 404"]
+  H -- "cockpit host" --> T{"Cockpit token?"}
+  T -- "no, or a school token" --> N2["401"]
+  T -- yes --> OK["PlatformAccessGuard passes"]
+```
+
+- **Test.** `server/src/platform-routes.e2e-spec.ts` (guarded as platform means under `platform/`), `server/src/platform-authority.e2e-spec.ts` (a school token never passes), `nginx/test/cockpit.infra.test.sh` (the app host refuses, the cockpit host serves), and the snapshot columns in `route-status.snapshot.txt` (Rule 20).
+
+### Rule 30: A cockpit sign-in needs a second factor, and answers equally until both proofs pass
+
+- **Rule.** `/auth/cockpit/login` never signs an owner in on the password alone. It returns an `mfaToken`, and `/auth/cockpit/mfa` finishes the sign-in with an authenticator code (or a recovery code). A new device also needs one SMS code and one email code. Until both proofs pass, every failure is the same answer (same text, same status, same time, Rule 18): wrong email, wrong password, locked owner and unknown owner look alike. A TOTP code works once per 30 s step (`last_step`). Lock, replace and reset cut sessions (Rule 8).
+- **Why.** Epic 98 (D3b, D6, D7, D23): a stolen password alone must not reach the platform. A different answer per failure would tell a thief which owner exists.
+- **Example.** Wrong password and unknown email on `POST /auth/cockpit/login` both answer `401` with the same body. Right password and an old, already-used code on `/auth/cockpit/mfa` is `401`, not a hint.
+
+```mermaid
+sequenceDiagram
+  actor O as Owner
+  participant API as /auth/cockpit/*
+  O->>API: login (email, password)
+  API-->>O: mfaToken (or the same 401 for any failure)
+  O->>API: mfa (authenticator code, new device: SMS + email codes)
+  API-->>O: access token + refresh cookie
+```
+
+- **Test.** `server/src/modules/auth/cockpit/cockpit-auth.e2e-spec.ts`, `cockpit-mfa.e2e-spec.ts`, `cockpit-session.service.integration.spec.ts`; the UI side in `e2e/cockpit/cockpit-sign-in.spec.ts`.
+
+### Rule 31: Platform tables are not school data
+
+- **Rule.** The platform identity tables (`platform_admins`, `platform_admin_devices`, `user_mfa`, `user_recovery_codes`, the platform approvals and their audit rows) carry no school: owner audit rows have `tenant_id` NULL and hold user ids only, never an email, phone, code or secret. No school-scoped read or export includes them, and a school never lists, edits or deletes an owner. Owners are created from `COCKPIT_OWNER_*` at boot or by the `cockpit-replace-owner` script, not through a school screen.
+- **Why.** Epic 98 (D3b, D4): mixing platform rows into school queries is how one school's admin would see or change the platform's owners.
+- **Example.** A school Admin opens the activity log: no `PLATFORM_LOGIN` row appears, because those rows have no school. `GET /platform/owners` needs a cockpit token.
+- **Test.** `server/test/platform-identity-migration.integration.spec.ts` (the tables and their constraints), `server/src/platform-authority.e2e-spec.ts`, `server/src/scripts/cockpit-replace-owner.integration.spec.ts` (audit row has no email or phone).
+
+> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. These three are 29 to 31, so Epic 96's rules start at 32.
 
 ## Login brute-force protection
 
@@ -1455,13 +1499,13 @@ flowchart LR
   T -- yes --> J["JWT HS256 + iss + aud (75.9)"]
   L --> P["verifyPassword: always one cost-12 unit (75.11)"]
   R["Redis probe every 30 s"] -- "3 fails" --> A["platform_alerts row + SMS (75.34)"]
-  A --> B["GET /platform/alerts<br/>PlatformSuperAdminGuard → red banner (75.35)"]
+  A --> B["GET /platform/alerts<br/>PlatformAccessGuard → red banner (75.35)"]
 ```
 
 - **JWT pin and rotation.** Pinning HS256 + issuer + audience logs out every token minted before the change once (no `iss`/`aud`), by design (D21) — none in practice, the client's refresh path re-mints because refresh tokens are DB rows — fix: #2317 — rule candidate: a token-format change ships with a note that names who gets one 401 and why it self-heals; secret rotation is "old value to `JWT_SECRET_PREVIOUS`, wait out the access-token lifetime (15 min), remove", and after a leak a hard swap with no `JWT_SECRET_PREVIOUS` (refresh re-mints, so nobody signs in again). → Rule 10
 - **bcrypt timing padding.** Raising the cost to 12 _reversed_ the enumeration oracle instead of closing it: every real account still had a cost-10 hash (~80 ms) while an unknown identifier paid the cost-12 dummy (~320 ms) — one review round — fix: `verifyPassword` in `auth/password-hash.ts` pads a cost-`r` check with throw-away hashes at costs `r..11`, run one after another, and every password check (login, change-password, step-up, social connect, contact-change) goes through it (#2319, d9f2b4ea2) — rule candidate: a security cost change is checked for _every_ stored-data state the system is in on deploy day, not just new rows; no `bcrypt.compare` on a password outside `password-hash.ts`. → Rule 9
 - **Redis-down policy.** "Fail open everywhere" would mean unlimited password guessing while Redis is down, and "fail closed everywhere" would take the whole app down with it — the split is per route (D4) — fix: `AppThrottlerGuard` returns 503 only for routes marked `@FailClosedWithoutRedis()` (first a hand-kept route-string list, which was too wide, closing read-only social GETs, and fragile, since a renamed route failed open silently: review r1, F11); refresh, logout and every other route fail open; `/health/ready` reports `degraded` (#2326) — rule candidate: each Redis-backed control states its own down-mode in the ticket, and an e2e spec with a throwing store proves it (`app-throttler.guard.e2e-spec.ts`). → Rule 15
-- **Platform-only guards.** `@Roles(SUPER_ADMIN)` is also passed by a _school-local_ SUPER_ADMIN, so `GET /platform/alerts` and `GET /platform/attention/health` were open to every school's super admin, and the alert SMS went to them too — one review round — fix: `PlatformSuperAdminGuard` after `ContextGuard` on both routes (snapshot `TENANT_SA` PASS → 403), SMS recipients limited to the platform tenant's SUPER_ADMINs (14805b9ae, 7b013cdca) — rule candidate: a `/platform/*` route always carries `PlatformSuperAdminGuard`; the snapshot's `TENANT_SA` column must read 403 on every `/platform/*` row. `route-permissions.txt` does not record this guard, so only the route-status snapshot catches it. → Rule 20
+- **Platform-only guards.** `@Roles(SUPER_ADMIN)` is also passed by a _school-local_ SUPER_ADMIN, so `GET /platform/alerts` and `GET /platform/attention/health` were open to every school's super admin, and the alert SMS went to them too — one review round — fix: a platform guard on both routes (snapshot `TENANT_SA` PASS → 403), SMS recipients limited to the platform tenant's SUPER_ADMINs (14805b9ae, 7b013cdca); since Epic 98 wave 5 (#3769) the guard is `PlatformAccessGuard` (a cockpit token only) and the recipients are the active `platform_admins` — rule candidate: a `/platform/*` route always carries `PlatformAccessGuard`; the snapshot's `TENANT_SA` and `HOME_SA` columns must read 401 or 403 on every `/platform/*` row. `route-permissions.txt` records `PlatformAccessGuard` for `GET /platform/alerts`, and the route-status snapshot shows which roles can reach the route. → Rule 20
 - **Enum-order drift is real, not a macOS artifact.** After the platform-alert backend (#2441), `api:types` reordered the literals of 12 enum unions in `ui/src/api/schema.d.ts` (e.g. `"TERM" | "MONTHLY" | "MODEL" | "OTHER"` → `"TERM" | "OTHER" | "MONTHLY" | "MODEL"`). It was written off as "macOS only" and reverted by hand, and CI's `check-api-types` then failed, so the integration and server e2e suites never ran on that head. Cause: the `@nestjs/swagger` CLI plugin writes a string-literal union in the order TypeScript created those literal types. `health.module.ts` started importing the SMS gateways and the platform-alerts service, which moved files that mention `'OTHER'`, `'WEEKLY'`, `'ACCEPTED'` and `'REJECTED'` earlier in the program, so the checker created those literals first. The order is the same on macOS and Linux for the same code (the base branch had 0 drift on both) — fix: regenerate and commit the reorder (review r1, F1) — rule candidate: an `api:types` reorder is real drift; commit it, never revert it by hand. If it only shows up on one machine, rebuild from clean (`rm -rf server/dist`) before calling it platform noise. → no rule (tooling: `check-api-types` catches it; commit the reorder)
 - **Cost 12 slows every test login.** The shared test fixture hash (`server/test/constants.ts`) was cost 10, so each fixture login paid the cost-12 padding _plus_ a rehash write (~580 ms instead of ~70 ms). Specs that sign in ten roles per test hit the 10 s hook timeout, and bcrypt work still running when the vitest thread was torn down aborted the whole server e2e run (`libc++abi: Napi::Error`, SIGABRT) — two red full runs — fix: fixture hash at cost 12 (2c33d0ead); a login is still ~4x slower than before, so login-heavy specs (documents journey: 1.3 s → 2.9 s alone) have less headroom under load (#2456) — rule candidate: when a security cost goes up, test fixtures move to the same cost in the same ticket, and the slowest login-heavy spec is timed before and after. → Rule 9 (fixtures move to the same cost)
 - **Global tables and parallel e2e.** The banner Playwright spec opened and cleared the one global `platform_alerts` table from four tests running in parallel, so one test's clear hid another's banner — flaky first tries — fix: `test.describe.configure({ mode: 'serial' })` (969908a88) — rule candidate: a Playwright spec that writes a table with no tenant column runs serial. → no rule (test hygiene: a spec that writes a table with no tenant column runs serial)

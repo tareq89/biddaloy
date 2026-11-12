@@ -7,11 +7,20 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  getPlatformAttentionHealth,
+  hideAttentionItem,
+  markAttentionSeen,
+  resetAttentionSource,
+  snoozeAttentionItem,
+} from '../../api/attention';
+import { setActiveTenant } from '../../api/auth-state';
 import { alertItemFactory, attentionSummaryFactory } from '../../test/factories';
 import { server } from '../../test/msw/server';
 import { renderHookWithProviders } from '../../test/render-hook-with-providers';
 import { cleanupTestState } from '../../test/render-with-providers';
 
+import { configureCockpitAttention } from './cockpit-source';
 import {
   useHideAttentionItem,
   useMarkAttentionSeen,
@@ -167,5 +176,71 @@ describe('usePlatformAttentionHealth', () => {
     const { result } = renderHookWithProviders(() => usePlatformAttentionHealth(), TENANT);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.failingRules).toEqual([]);
+  });
+});
+
+describe('cockpit attention source', () => {
+  afterEach(() => resetAttentionSource());
+
+  it('reads /platform/attention with no school role and no role param', async () => {
+    configureCockpitAttention();
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get('*/platform/attention/summary', ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json(attentionSummaryFactory());
+      }),
+    );
+    // No role and no tenant: the school source would stay idle here.
+    const { result } = renderHookWithProviders(() => useAttentionSummary());
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(seen).not.toBeNull();
+    expect((seen as unknown as URLSearchParams).has('role')).toBe(false);
+  });
+
+  it('hide, snooze and seen post under /platform/attention; the school source stays on /attention', async () => {
+    const urls: string[] = [];
+    const record = ({ request }: { request: Request }) => {
+      urls.push(new URL(request.url).pathname);
+      return HttpResponse.json({});
+    };
+    server.use(
+      http.post('*/attention/items/seen', record),
+      http.post('*/attention/items/:id/hide', record),
+      http.post('*/attention/items/:id/snooze', record),
+    );
+    const run = async () => {
+      await markAttentionSeen(['a']);
+      await hideAttentionItem('r1');
+      await snoozeAttentionItem('r1', { choice: 'TOMORROW' } as never);
+    };
+    configureCockpitAttention();
+    await run();
+    resetAttentionSource();
+    setActiveTenant('tenant-1'); // the school source needs one; the cockpit source did not
+    await run();
+    const paths = urls.map((u) => u.replace(/^.*?(\/platform)?\/attention/, '$1/attention'));
+    expect(paths).toEqual([
+      '/platform/attention/items/seen',
+      '/platform/attention/items/r1/hide',
+      '/platform/attention/items/r1/snooze',
+      '/attention/items/seen',
+      '/attention/items/r1/hide',
+      '/attention/items/r1/snooze',
+    ]);
+  });
+
+  it('platform health never goes through the cockpit transport (its 401 would end the session)', async () => {
+    configureCockpitAttention();
+    let hit = false;
+    server.use(
+      http.get('*/platform/attention/health', () => {
+        hit = true;
+        return HttpResponse.json({});
+      }),
+    );
+    // No tenant: the school client rejects before sending, so no 401 reaches the cockpit handler.
+    await expect(getPlatformAttentionHealth(new AbortController().signal)).rejects.toBeDefined();
+    expect(hit).toBe(false);
   });
 });

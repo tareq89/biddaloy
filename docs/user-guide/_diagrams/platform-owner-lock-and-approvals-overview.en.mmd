@@ -1,0 +1,12 @@
+%% title: Locking an owner and the other owner's approval
+%% desc: An owner asks to lock the other owner and confirms with a code. If approvals are on and both owners are active, the other owner must approve a risky action first. Without approvals the lock goes through at once. A locked owner is signed out and cannot sign in until unlocked.
+flowchart LR
+  A["Owner A presses Lock<br/>and confirms with a code"]:::owner --> G{"Approvals on and<br/>both owners active?"}
+  G -- no --> L["B is locked at once<br/>and signed out"]
+  G -- yes --> Q["Request waits under<br/>Approval requests"]:::note
+  Q --> B["Owner B presses Approve"]:::owner
+  B --> A2["Owner A repeats the action"]:::owner
+  A2 --> L
+  L --> U["Unlock later<br/>also confirmed with a code"]
+  classDef owner fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

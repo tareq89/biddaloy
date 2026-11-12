@@ -29,16 +29,6 @@ describe('TenantStatusService', () => {
   let schoolRepo: { findOne: ReturnType<typeof vi.fn> };
   let service: TenantStatusService;
 
-  function build(env: Record<string, string | undefined>) {
-    return new TenantStatusService(
-      redis as any,
-      schoolRepo as any,
-      {
-        get: vi.fn((k: string) => env[k]),
-      } as any,
-    );
-  }
-
   beforeEach(() => {
     redis = {
       get: vi.fn(),
@@ -47,7 +37,7 @@ describe('TenantStatusService', () => {
       exists: vi.fn(),
     };
     schoolRepo = { findOne: vi.fn() };
-    service = build({});
+    service = new TenantStatusService(redis as any, schoolRepo as any);
   });
 
   describe('isActive', () => {
@@ -153,25 +143,6 @@ describe('TenantStatusService', () => {
       schoolRepo.findOne.mockRejectedValue(new Error('connection terminated'));
 
       await expect(service.getStatus('tenant-1')).rejects.toThrow('connection terminated');
-    });
-  });
-
-  describe('findSchoolIdBySlug', () => {
-    it('returns the id of the school with the given slug', async () => {
-      schoolRepo.findOne.mockResolvedValue({ id: 'school-uuid-1', slug: 'default-school' });
-
-      const result = await service.findSchoolIdBySlug('default-school');
-
-      expect(result).toBe('school-uuid-1');
-      expect(schoolRepo.findOne).toHaveBeenCalledWith({ where: { slug: 'default-school' } });
-    });
-
-    it('returns null when no school has that slug', async () => {
-      schoolRepo.findOne.mockResolvedValue(null);
-
-      const result = await service.findSchoolIdBySlug('no-such-slug');
-
-      expect(result).toBeNull();
     });
   });
 
@@ -314,75 +285,30 @@ describe('TenantStatusService', () => {
     });
   });
 
-  describe('platformTenantId (TEN-19, moved from ContextGuard #620)', () => {
-    it('env id wins without a DB call', async () => {
-      const s = build({ PLATFORM_TENANT_ID: 'env-id' });
-      expect(await s.platformTenantId()).toBe('env-id');
-      expect(schoolRepo.findOne).not.toHaveBeenCalled();
+  describe('platformTenantId (Epic 98: the is_platform home row only)', () => {
+    it('returns the flagged school id, never an env value or a slug match', async () => {
+      schoolRepo.findOne.mockResolvedValue({ id: 'home-id' });
+      expect(await service.platformTenantId()).toBe('home-id');
+      expect(schoolRepo.findOne).toHaveBeenCalledWith({ where: { is_platform: true } });
     });
 
-    it('configuredPlatformTenantId is env only, never the slug', () => {
-      expect(build({ PLATFORM_TENANT_ID: 'env-id' }).configuredPlatformTenantId()).toBe('env-id');
-      expect(build({ NODE_ENV: 'development' }).configuredPlatformTenantId()).toBeUndefined();
-      expect(schoolRepo.findOne).not.toHaveBeenCalled();
-    });
-
-    it('trims the env value; whitespace-only counts as unset', () => {
-      expect(build({ PLATFORM_TENANT_ID: ' env-id \n' }).configuredPlatformTenantId()).toBe(
-        'env-id',
-      );
-      expect(build({ PLATFORM_TENANT_ID: '  ' }).configuredPlatformTenantId()).toBeUndefined();
-    });
-
-    it('lower-cases the env value so it matches the ids Postgres returns', async () => {
-      const s = build({ PLATFORM_TENANT_ID: ' AB12CD34-0000-4000-8000-00000000ABCD ' });
-      expect(s.configuredPlatformTenantId()).toBe('ab12cd34-0000-4000-8000-00000000abcd');
-      expect(await s.platformTenantId()).toBe('ab12cd34-0000-4000-8000-00000000abcd');
-    });
-
-    it('production with no env is undefined, no DB call (fail closed)', async () => {
-      const s = build({ NODE_ENV: 'production' });
-      schoolRepo.findOne.mockResolvedValue({ id: 'x' });
-      expect(await s.platformTenantId()).toBeUndefined();
-      expect(schoolRepo.findOne).not.toHaveBeenCalled();
-    });
-
-    it('non-production finds default-school and caches the hit', async () => {
-      const s = build({ NODE_ENV: 'development' });
-      schoolRepo.findOne.mockResolvedValue({ id: 'dev-id' });
-      expect(await s.platformTenantId()).toBe('dev-id');
-      expect(await s.platformTenantId()).toBe('dev-id');
+    it('caches a hit', async () => {
+      schoolRepo.findOne.mockResolvedValue({ id: 'home-id' });
+      await service.platformTenantId();
+      await service.platformTenantId();
       expect(schoolRepo.findOne).toHaveBeenCalledTimes(1);
-      expect(schoolRepo.findOne).toHaveBeenCalledWith({ where: { slug: 'default-school' } });
     });
 
-    it('platformSchoolIds returns env id plus the is_platform home, de-duplicated', async () => {
-      const s = build({ PLATFORM_TENANT_ID: 'env-id' });
-      schoolRepo.findOne.mockResolvedValue({ id: 'home-id' });
-      expect(await s.platformSchoolIds()).toEqual(['env-id', 'home-id']);
-      // Same row as the env id: listed once.
-      schoolRepo.findOne.mockResolvedValue({ id: 'env-id' });
-      const s2 = build({ PLATFORM_TENANT_ID: 'env-id' });
-      expect(await s2.platformSchoolIds()).toEqual(['env-id']);
+    it('does not cache a miss, so a late-created home row is found', async () => {
+      schoolRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'home-id' });
+      expect(await service.platformTenantId()).toBeUndefined();
+      expect(await service.platformTenantId()).toBe('home-id');
     });
 
-    it('a home-school miss is not cached', async () => {
-      const s = build({ NODE_ENV: 'production' });
-      schoolRepo.findOne.mockResolvedValueOnce(null);
-      expect(await s.platformSchoolIds()).toEqual([]);
-      schoolRepo.findOne.mockResolvedValue({ id: 'home-id' });
-      expect(await s.platformSchoolIds()).toEqual(['home-id']);
-      expect(await s.platformSchoolIds()).toEqual(['home-id']);
-      expect(schoolRepo.findOne).toHaveBeenCalledTimes(2);
-    });
-
-    it('a miss is not cached', async () => {
-      const s = build({ NODE_ENV: 'test' });
-      schoolRepo.findOne.mockResolvedValueOnce(null);
-      expect(await s.platformTenantId()).toBeUndefined();
-      schoolRepo.findOne.mockResolvedValueOnce({ id: 'late-id' });
-      expect(await s.platformTenantId()).toBe('late-id');
-      expect(schoolRepo.findOne).toHaveBeenCalledTimes(2);
+    it('platformSchoolIds is the one home id, or empty', async () => {
+      schoolRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'home-id' });
+      expect(await service.platformSchoolIds()).toEqual([]);
+      expect(await service.platformSchoolIds()).toEqual(['home-id']);
     });
   });
 });

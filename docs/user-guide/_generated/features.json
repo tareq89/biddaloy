@@ -923,6 +923,30 @@
     "routes": []
   },
   {
+    "id": "platformOwner.signIn",
+    "kind": "platformOwner",
+    "path": "platform-owner/sign-in",
+    "route": "/sign-in/forgot",
+    "roles": ["SUPER_ADMIN"],
+    "routes": ["/sign-in/forgot", "/sign-in/reset"]
+  },
+  {
+    "id": "platformOwner.recoveryCodes",
+    "kind": "platformOwner",
+    "path": "platform-owner/recovery-codes",
+    "route": "/owner-security",
+    "roles": ["SUPER_ADMIN"],
+    "routes": ["/owner-security", "/owner-security/two-step"]
+  },
+  {
+    "id": "platformOwner.lockAndApprovals",
+    "kind": "platformOwner",
+    "path": "platform-owner/lock-and-approvals",
+    "route": "/platform-owners",
+    "roles": ["SUPER_ADMIN"],
+    "routes": ["/platform-owners"]
+  },
+  {
     "id": "help.glossary",
     "kind": "help",
     "path": "help/glossary",

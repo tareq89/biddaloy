@@ -1,0 +1,97 @@
+{
+  "title": "Security",
+  "subtitle": "Your two-step sign-in, recovery codes and signed-in devices.",
+  "idle": {
+    "warnTitle": "Still there?",
+    "warnBody": "You will be signed out in one minute because nothing happened for a while.",
+    "stay": "Stay signed in",
+    "signOut": "Sign out now",
+    "expired": "You were signed out because nothing happened for 30 minutes. Sign in again."
+  },
+  "wizard": {
+    "title": "Set up two-step sign-in",
+    "stepsLabel": "Steps",
+    "stepsDone": "(done)",
+    "step1": "Add authenticator",
+    "step2": "Save recovery codes",
+    "stepCount": "Step {{current}} of {{total}}",
+    "close": "Close",
+    "startAgainTitle": "This set-up page has expired",
+    "startAgainBody": "Sign in again and we will take you back to set-up.",
+    "startAgain": "Start again",
+    "codeLabel": "6-digit code from your authenticator app",
+    "codeHint": "Open the authenticator app, find this account and type the code it shows.",
+    "next": "Next",
+    "working": "Please wait…",
+    "finish": "Finish",
+    "wrongCode": "Code did not match, use the new 30-second code.",
+    "slowDown": "Too many tries. Wait a little and try again.",
+    "generic": "Two-step sign-in could not be turned on. Try again.",
+    "ackNeeded": "Tick \"I saved them\" before you finish."
+  },
+  "authenticator": {
+    "title": "Add an authenticator app",
+    "descriptionDesktop": "1. Scan this picture with your authenticator app. 2. Type the 6-digit code it shows.",
+    "descriptionPhone": "1. Open your authenticator app with the button. 2. Type the 6-digit code it shows.",
+    "qrAlt": "QR picture to scan with your authenticator app",
+    "qrError": "The picture could not be drawn. Type the key below into your app.",
+    "manualKey": "Or type this key into your app",
+    "openApp": "Open authenticator app",
+    "copyKey": "Copy key",
+    "keyCopied": "Key copied"
+  },
+  "recoveryCodes": {
+    "title": "Save your recovery codes",
+    "description": "If you lose your phone, each code lets you sign in once. Keep them somewhere safe. They are shown only now.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "acknowledge": "I saved them"
+  },
+  "twoStep": {
+    "title": "Two-step sign-in",
+    "on": "On",
+    "off": "Not set up",
+    "onBody": "Signing in asks for a code from your authenticator app.",
+    "offBody": "Add an authenticator app so a stolen password alone cannot get in.",
+    "setUp": "Set up",
+    "loadError": "We could not read your two-step status.",
+    "retry": "Try again"
+  },
+  "codes": {
+    "title": "Recovery codes",
+    "remaining_one": "{{count}} recovery code left.",
+    "remaining_other": "{{count}} recovery codes left.",
+    "none": "You have no recovery codes left.",
+    "make": "Make new codes",
+    "makeBody": "New codes replace the old ones. The old codes stop working.",
+    "confirmTitle": "Make new recovery codes?",
+    "confirmBody": "The old codes stop working. You confirm with a code next.",
+    "confirmCancel": "Cancel",
+    "done": "Done",
+    "error": "New codes could not be made. Try again."
+  },
+  "devices": {
+    "title": "Signed-in devices",
+    "description": "Devices where you are signed in now. Sign out any you do not know.",
+    "error": "We could not load your devices.",
+    "retry": "Try again",
+    "revokedToast": "Device signed out.",
+    "revokeError": "That device could not be signed out. Try again.",
+    "signOutAllFailed": "Some devices could not be reached and may still be signed in. Sign out everywhere again."
+  },
+  "help": {
+    "twoStep": {
+      "title": "What is two-step sign-in?",
+      "body": "After your password, you type a 6-digit code from an app on your phone. A thief with only your password cannot get in."
+    },
+    "codes": {
+      "title": "What are recovery codes?",
+      "body": "Ten one-time codes for the day you lose your phone. Each works once. Making new codes cancels the old ones."
+    },
+    "devices": {
+      "title": "What are signed-in devices?",
+      "body": "Every phone or computer where you are signed in. Sign out a device you do not know, or sign out everywhere."
+    }
+  }
+}

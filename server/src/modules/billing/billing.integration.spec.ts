@@ -454,10 +454,10 @@ describe('EntitlementService + OrdersService (integration)', () => {
         method: 'OFFLINE_CASH',
       });
 
-      // The platform SUPER_ADMIN sees it (real SQL; only the recipient lookup is stubbed) ...
+      // A platform owner sees it (real SQL; only the recipient lookup is stubbed) ...
       const viaDb = {
         query: (sql: string, p?: unknown[]) =>
-          sql.includes('FROM user_tenants') ? [{ userId: 'sa' }] : ds.query(sql, p),
+          sql.includes('FROM platform_admins') ? [{ userId: 'sa' }] : ds.query(sql, p),
       };
       const rule = new PlatformBkashRefundDueRule(
         viaDb as never,

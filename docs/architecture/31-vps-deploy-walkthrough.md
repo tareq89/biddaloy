@@ -719,7 +719,6 @@ for f in edge prod staging demo; do echo "$f: $(sops -d infra/secrets/$f.enc.env
 sops -d --extract '["STAGING_PASSWORD"]' infra/secrets/staging.enc.env
 sops -d --extract '["DEMO_PASSWORD"]' infra/secrets/demo.enc.env
 sops -d --extract '["DOZZLE_OWNER_PASSWORD"]' infra/secrets/ops.enc.env
-sops -d --extract '["SMOKE_SUPER_ADMIN_PASSWORD"]' infra/secrets/prod.enc.env
 ```
 
 **Every key, and which file it is in:**
@@ -905,31 +904,11 @@ scripts/deploy.sh demo    "$SHA"     # builds the demo school; takes a few minut
 
 ### 12b. Platform super admins
 
-`create-platform-admin` makes a super admin of the platform school. The password comes from the
-`ADMIN_PASSWORD` environment variable, never from the command line (so it is not in your shell
-history). Running it twice is safe: an existing password is never changed.
+The old `create-platform-admin` command is gone (Epic 98 wave 5). Platform owners are created at
+boot from the `COCKPIT_OWNER_1_*` and `COCKPIT_OWNER_2_*` secrets (`ensureOwners()`), and replaced
+with `cockpit-replace-owner`. See the cockpit runbook for both.
 
-Make two: **you**, and the **smoke-test super admin** (its email is `smoke-super@<DOMAIN>`, its
-password is `SMOKE_SUPER_ADMIN_PASSWORD` in `prod.enc.env`).
-
-```bash
-# laptop: get the smoke password first, you will paste it in a moment
-sops -d --extract '["SMOKE_SUPER_ADMIN_PASSWORD"]' infra/secrets/prod.enc.env; echo
-
-ssh deploy@<VPS_IP>
-# VPS
-dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
-
-read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD            # your own password; nothing is shown
-dcp prod run --rm --no-deps -e ADMIN_PASSWORD app node server/dist/scripts/create-platform-admin.js you@example.com "Your Name"
-# you@example.com: created
-
-read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD            # paste SMOKE_SUPER_ADMIN_PASSWORD
-dcp prod run --rm --no-deps -e ADMIN_PASSWORD app node server/dist/scripts/create-platform-admin.js smoke-super@<DOMAIN> "Smoke Super Admin"
-unset ADMIN_PASSWORD
-```
-
-Log in at `https://app.<DOMAIN>/login` with your account.
+Sign in at the cockpit address with an owner account.
 
 ### 12c. The Smoke Test School
 
@@ -1255,7 +1234,7 @@ has every step):
 | prod config check: `... is empty` for `SMOKE_*`                        | prod needs smoke logins even on the first deploy                                              | set them up front (the script does)                                             |
 | staging config check: `PLATFORM_TENANT_ID must be set`                 | staging needs prod's platform school id                                                       | Part 12a                                                                        |
 | prod app restarting, `Cannot find module 'express'`                    | a package missing from the production install                                                 | fixed; the build now checks every package                                       |
-| nobody can log in on fresh prod                                        | no user exists, and there was no command                                                      | `create-platform-admin` (Part 12b)                                              |
+| nobody can log in on fresh prod                                        | no user exists, and there was no command                                                      | set the `COCKPIT_OWNER_*` secrets (Part 12b)                                              |
 | `https://<DOMAIN>/` redirects to `http://`                             | landing nginx built absolute redirects behind the tunnel                                      | fixed (`absolute_redirect off`)                                                 |
 | `beszel-agent` keeps restarting                                        | `BESZEL_KEY` not set yet                                                                      | Part 13b + 14                                                                   |
 | demo: 502                                                              | demo not deployed yet                                                                         | `scripts/deploy.sh demo "$SHA"`                                                 |

@@ -19,6 +19,8 @@ import {
 } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
+import { isCockpitHost } from '../cockpit-host';
+
 /**
  * `queryClient` in router context is what lets a route's `loader` call
  * `context.queryClient.ensureQueryData(...)` — the mechanism behind
@@ -71,6 +73,22 @@ const PUBLIC_PATHS = new Set([
  *
  * [53.6.01] `/n/` added the same way: `/n/<token>` is the public notice link.
  */
+/**
+ * [98.4.01] The cockpit host's own public paths. The routes are added by the
+ * page tickets, so the redirect targets are cast until `routeTree.gen.ts`
+ * is regenerated. Which host we are on only picks screens; the server decides
+ * access.
+ */
+// `/owner-security/two-step` is public on purpose: a first-time owner arrives there from the
+// sign-in card with a hand-off, not a session (see `enrol-handoff.ts`).
+const COCKPIT_PUBLIC_PATHS = new Set([
+  '/sign-in',
+  '/sign-in/forgot',
+  '/sign-in/reset',
+  '/owner-security/two-step',
+]);
+const COCKPIT_APP_ONLY = ['/dashboard', '/portal'];
+
 const PUBLIC_PATH_PREFIXES = ['/i/', '/admission/', '/v/', '/n/'];
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -84,8 +102,29 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // `/login`'s `redirect` search param has no absolute-URL open-redirect
   // surface.
   beforeLoad: async ({ location }) => {
+    const cockpit = isCockpitHost();
+    if (!cockpit && COCKPIT_PUBLIC_PATHS.has(location.pathname)) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({ to: '/login' });
+    }
     if (PUBLIC_PATH_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))) return;
     const authenticated = await ensureSessionLoaded();
+    if (cockpit) {
+      if (!authenticated && !COCKPIT_PUBLIC_PATHS.has(location.pathname)) {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw redirect({ to: '/sign-in', search: { redirect: location.href } });
+      }
+      if (
+        authenticated &&
+        COCKPIT_APP_ONLY.some(
+          (p) => location.pathname === p || location.pathname.startsWith(`${p}/`),
+        )
+      ) {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw redirect({ to: '/platform-owners' });
+      }
+      return;
+    }
     if (!authenticated && !PUBLIC_PATHS.has(location.pathname)) {
       // TanStack Router's own documented pattern: `redirect()` returns a
       // plain sentinel object (not an `Error` instance) that the router's

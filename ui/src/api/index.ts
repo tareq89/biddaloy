@@ -1,7 +1,7 @@
 /**
  * Generated OpenAPI types and the shared axios client.
  */
-export { apiClient, API_BASE_URL } from './client';
+export { apiClient, API_BASE_URL, isTenantless, setTenantless } from './client';
 export {
   fetchPublicVerification,
   getPublicInvoice,
@@ -94,6 +94,7 @@ export {
   setSelection as setListSelection,
 } from './list-selection-memory';
 export {
+  configureSessionEndpoints,
   decodeAccessTokenMemberships,
   ensureSessionLoaded,
   resetSessionBootstrap,

@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest = require('supertest');
-import { randomUUID } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { ACCESS_TOKEN_DENYLIST_REDIS } from '../../auth/access-token-denylist.service';
+import { COCKPIT_REDIS } from '../../auth/cockpit/cockpit-session.service';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import {
@@ -23,12 +24,9 @@ describe('Platform Alerts E2E', () => {
   let redisDownApp: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
-  let superAdminToken: string;
-  let platformId: string;
+  let ownerToken: string;
 
   const URL = '/api/v1/platform/alerts';
-  const SUPER_ADMIN_USER_ID = '00000000-0000-4000-8000-0000000c0d02';
-  const SUPER_ADMIN_EMAIL = 'superadmin@platform-alerts-e2e.example';
   const TEACHER_USER_ID = '00000000-0000-4000-8000-0000000c0d03';
   const TEACHER_EMAIL = 'teacher@platform-alerts-e2e.example';
   const PARENT_USER_ID = '00000000-0000-4000-8000-0000000c0d04';
@@ -56,11 +54,7 @@ describe('Platform Alerts E2E', () => {
     return res.body.access_token as string;
   };
 
-  const get = (
-    target: INestApplication,
-    token?: string,
-    tenant: string | null = SEED_TENANT_ID,
-  ) => {
+  const get = (target: INestApplication, token?: string, tenant: string | null = null) => {
     let req = supertest(target.getHttpServer()).get(URL);
     if (token) req = req.set('Authorization', `Bearer ${token}`);
     if (tenant) req = req.set('X-Tenant-ID', tenant);
@@ -78,7 +72,6 @@ describe('Platform Alerts E2E', () => {
     dataSource = app.get(DataSource);
 
     for (const [id, email, role] of [
-      [SUPER_ADMIN_USER_ID, SUPER_ADMIN_EMAIL, UserRole.SUPER_ADMIN],
       [TEACHER_USER_ID, TEACHER_EMAIL, UserRole.TEACHER],
       [PARENT_USER_ID, PARENT_EMAIL, UserRole.PARENT],
       [TENANT_SA_USER_ID, TENANT_SA_EMAIL, UserRole.SUPER_ADMIN],
@@ -94,77 +87,52 @@ describe('Platform Alerts E2E', () => {
         [id, SEED_TENANT_ID, role],
       );
     }
-    // Platform authority = SUPER_ADMIN on the platform tenant, which ContextGuard
-    // discovers by slug outside production. The test seed has no such school; it is
-    // left in place afterwards, like the other specs that add it.
-    await dataSource.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-      [randomUUID()],
-    );
-    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
-      .id;
-    await dataSource.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, platformId, UserRole.SUPER_ADMIN],
-    );
     await dataSource.query(`DELETE FROM platform_alerts`);
 
     adminToken = await loginAs(app, SEED_ADMIN_EMAIL);
-    superAdminToken = await loginAs(app, SUPER_ADMIN_EMAIL);
+    ownerToken = await mintCockpitToken(app, dataSource);
   }, 60000);
 
   afterAll(async () => {
+    await removeCockpitOwners(dataSource);
     await dataSource.query(`DELETE FROM platform_alerts`);
-    await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
-      SUPER_ADMIN_USER_ID,
-      platformId,
-    ]);
     await redisDownApp?.close();
     await app.close();
   });
 
-  it('lets a platform SUPER_ADMIN read an empty list, then an open alert, then an empty list again', async () => {
+  it('lets a platform owner read an empty list, then an open alert, then an empty list again', async () => {
     await dataSource.query(`DELETE FROM platform_alerts`);
-    let res = await get(app, superAdminToken).expect(200);
+    let res = await get(app, ownerToken).expect(200);
     expect(res.body).toEqual({ alerts: [] });
 
     await dataSource.query(
       `INSERT INTO platform_alerts (kind, opened_at) VALUES ('REDIS_DOWN', '2026-11-02T08:02:10Z')`,
     );
-    res = await get(app, superAdminToken).expect(200);
+    res = await get(app, ownerToken).expect(200);
     expect(res.body).toEqual({
       alerts: [{ kind: 'REDIS_DOWN', opened_at: '2026-11-02T08:02:10.000Z' }],
     });
 
     await dataSource.query(`UPDATE platform_alerts SET cleared_at = now()`);
-    res = await get(app, superAdminToken).expect(200);
+    res = await get(app, ownerToken).expect(200);
     expect(res.body).toEqual({ alerts: [] });
   });
 
-  it('refuses a school-local SUPER_ADMIN with 403 (PlatformSuperAdminGuard)', async () => {
-    await get(app, await loginAs(app, TENANT_SA_EMAIL)).expect(403);
+  it('refuses a school-local SUPER_ADMIN with 403 (PlatformAccessGuard)', async () => {
+    await get(app, await loginAs(app, TENANT_SA_EMAIL), SEED_TENANT_ID).expect(403);
   });
 
   it('refuses ADMIN, TEACHER and PARENT with 403', async () => {
-    await get(app, adminToken).expect(403);
-    await get(app, await loginAs(app, TEACHER_EMAIL)).expect(403);
-    await get(app, await loginAs(app, PARENT_EMAIL)).expect(403);
+    await get(app, adminToken, SEED_TENANT_ID).expect(403);
+    await get(app, await loginAs(app, TEACHER_EMAIL), SEED_TENANT_ID).expect(403);
+    await get(app, await loginAs(app, PARENT_EMAIL), SEED_TENANT_ID).expect(403);
   });
 
-  it('refuses no token (401) and a missing X-Tenant-ID (401)', async () => {
+  it('refuses no token with 401', async () => {
     await get(app).expect(401);
-    await get(app, superAdminToken, null).expect(401);
   });
 
-  it('rejects an unknown X-Tenant-ID for the SUPER_ADMIN (ContextGuard)', async () => {
-    const res = await get(app, superAdminToken, '00000000-0000-4000-8000-0000000009fe');
-    expect([401, 403, 404]).toContain(res.status);
-  });
-
-  it('still answers 200 with the open row while Redis is unreachable (D4)', async () => {
+  it('answers 503, not an open door, while the cockpit session store is unreachable (Rule 15)', async () => {
     await dataSource.query(`DELETE FROM platform_alerts`);
     await dataSource.query(`INSERT INTO platform_alerts (kind) VALUES ('REDIS_DOWN')`);
 
@@ -198,11 +166,14 @@ describe('Platform Alerts E2E', () => {
         .overrideProvider(ACCESS_TOKEN_DENYLIST_REDIS)
         .useValue(dead)
         .overrideProvider(TENANT_STATUS_REDIS)
+        .useValue(dead)
+        .overrideProvider(COCKPIT_REDIS)
         .useValue(dead),
     );
 
-    const res = await get(redisDownApp, superAdminToken).expect(200);
-    expect(res.body.alerts).toHaveLength(1);
-    expect(res.body.alerts[0].kind).toBe('REDIS_DOWN');
+    // Epic 98 wave 5: the route is cockpit-only now, and a cockpit session check fails closed
+    // (Rule 15), so the list is unreachable while Redis is down. The alert itself still goes out
+    // by SMS (PlatformAlertsService does not touch Redis). Follow-up filed in the lane report.
+    await get(redisDownApp, ownerToken).expect(503);
   }, 60000);
 });

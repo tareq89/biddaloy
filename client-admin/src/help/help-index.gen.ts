@@ -5066,6 +5066,36 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 0,
   },
+  'platformOwner.signIn': {
+    title: { bn: 'প্ল্যাটফর্ম মালিকের সাইন-ইন', en: 'Platform owner sign-in' },
+    summary: {
+      bn: 'পাসওয়ার্ড আর দ্বিতীয় ধাপ দিয়ে প্ল্যাটফর্ম মালিকের কনসোলে ঢুকুন; প্রথমবার পাসওয়ার্ড বানানো, নতুন ডিভাইস, আর ফোন হারালে কী করবেন।',
+      en: 'Sign in to the platform owner console with your password and a second step; set your first password, use a new device, and get in when your phone is lost.',
+    },
+    path: 'platform-owner/sign-in',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'platformOwner.recoveryCodes': {
+    title: { bn: 'জরুরি কোড ও দুই ধাপে সাইন-ইন', en: 'Recovery codes and two-step sign-in' },
+    summary: {
+      bn: 'দুই ধাপে সাইন-ইন চালু করুন, দশটি জরুরি কোড নিরাপদে রাখুন, ফোন হারালে একটি ব্যবহার করুন, নতুন কোড বানান; নিজের ডিভাইসও দেখুন ও সাইন-আউট করুন।',
+      en: 'Turn on two-step sign-in, keep your ten recovery codes safe, use one when your phone is lost, and make new codes; also see and sign out your devices.',
+    },
+    path: 'platform-owner/recovery-codes',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'platformOwner.lockAndApprovals': {
+    title: { bn: 'মালিককে আটকে দেওয়া ও অনুমতি', en: 'Locking an owner and approvals' },
+    summary: {
+      bn: 'অন্য প্ল্যাটফর্ম মালিককে আটকে দিন বা খুলে দিন, ঝুঁকির কাজে অন্য মালিকের অনুমতি নিন, আর সাইন-ইন ও আটকে দেওয়ার ইতিহাস দেখুন।',
+      en: 'Lock or unlock the other platform owner, ask the other owner to approve risky actions, and read the sign-in and lock history.',
+    },
+    path: 'platform-owner/lock-and-approvals',
+    anchor: '',
+    knownIssues: 0,
+  },
   'help.glossary': {
     title: { bn: 'শব্দের তালিকা', en: 'Glossary' },
     summary: {
@@ -5283,6 +5313,11 @@ export const HELP_ROUTES = {
   '/register': 'admin.createSchool',
   '/welcome': 'admin.createSchool',
   '/notifications': 'dashboard.alerts',
+  '/sign-in/forgot': 'platformOwner.signIn',
+  '/sign-in/reset': 'platformOwner.signIn',
+  '/owner-security': 'platformOwner.recoveryCodes',
+  '/owner-security/two-step': 'platformOwner.recoveryCodes',
+  '/platform-owners': 'platformOwner.lockAndApprovals',
   '/portal/notifications': 'portal.notifications',
 } as const;
 

@@ -1,5 +1,4 @@
 import { Injectable, Inject, Logger, HttpException, HttpStatus } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
@@ -33,10 +32,6 @@ function isInvalidUuidError(error: unknown): boolean {
 
 export const TENANT_STATUS_REDIS = 'TENANT_STATUS_REDIS';
 
-// The well-known slug of the "Default School" row (created by the `MultiTenantAuth` migration and
-// `seed.ts`). Used only to discover the platform tenant outside production; never to guess an id.
-const DEFAULT_SCHOOL_SLUG = 'default-school';
-
 const TENANT_STATUS_CACHE_TTL_SECONDS = 300;
 
 /** At most one Sentry event per this window for a failing restore-lock read (#2210 F3). */
@@ -69,68 +64,31 @@ export function tenantRestoringException(): HttpException {
 export class TenantStatusService {
   private readonly logger = new Logger(TenantStatusService.name);
   private lastRestoreLockReadReport = 0;
-  private readonly configuredPlatformTenantId_?: string;
-  private readonly isProduction: boolean;
   // Cached only on a hit: a miss (booted before seeding) must recover without a restart.
-  private cachedDevPlatformTenantId?: string;
   private cachedHomeSchoolId?: string;
 
   constructor(
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
-    configService: ConfigService,
-  ) {
-    // Trimmed and lower-cased: stray whitespace or an upper-case uuid in the env file must not
-    // silently disable platform authority (ids read back from Postgres are always lower-case).
-    this.configuredPlatformTenantId_ =
-      configService.get<string>('PLATFORM_TENANT_ID')?.trim().toLowerCase() || undefined;
-    this.isProduction = configService.get<string>('NODE_ENV') === 'production';
-  }
+  ) {}
 
   /**
-   * The explicitly configured platform id (env `PLATFORM_TENANT_ID`) only: no DB, no slug
-   * discovery. Outside production the discovered `default-school` is also the main seeded school,
-   * so per-school sweeps must only skip an id the operator named as the platform (TEN-19).
-   */
-  configuredPlatformTenantId(): string | undefined {
-    return this.configuredPlatformTenantId_;
-  }
-
-  /**
-   * Id of the one tenant that designates platform authority.
-   * - `PLATFORM_TENANT_ID` set: always wins, no DB call.
-   * - Production, unset: undefined forever (fail closed).
-   * - Otherwise: look up the `default-school` slug; cache only a hit.
-   * "Not found" means undefined: grants nothing.
+   * Id of the school flagged `is_platform` (the platform home row, Epic 98 D3b): the one place
+   * platform alerts and per-school sweeps look. Authority is never decided by it (that is
+   * `platform_admins`). Cached once found; a miss is not cached so a late-created row is picked up.
    */
   async platformTenantId(): Promise<string | undefined> {
-    if (this.configuredPlatformTenantId_) return this.configuredPlatformTenantId_;
-    if (this.isProduction) return undefined;
-    if (this.cachedDevPlatformTenantId) return this.cachedDevPlatformTenantId;
-    const discoveredId = await this.findSchoolIdBySlug(DEFAULT_SCHOOL_SLUG);
-    if (discoveredId) this.cachedDevPlatformTenantId = discoveredId;
-    return discoveredId ?? undefined;
-  }
-
-  /**
-   * Id of the school flagged `is_platform` (the platform home row, Epic 98 D3b). Cached once
-   * found; a miss is not cached so a late-created row is picked up without a restart.
-   */
-  async platformHomeSchoolId(): Promise<string | undefined> {
     if (this.cachedHomeSchoolId) return this.cachedHomeSchoolId;
     const home = await this.schoolRepo.findOne({ where: { is_platform: true } });
     if (home) this.cachedHomeSchoolId = home.id;
     return home?.id;
   }
 
-  /**
-   * Every school id a per-school sweep, seat rule or count must skip: the old platform tenant
-   * plus the `is_platform` home row, de-duplicated. Callers use this, never a single id.
-   */
+  /** Every school id a per-school sweep, seat rule or count must skip: the one platform home row. */
   async platformSchoolIds(): Promise<string[]> {
-    const ids = [await this.platformTenantId(), await this.platformHomeSchoolId()];
-    return [...new Set(ids.filter((id): id is string => !!id))];
+    const id = await this.platformTenantId();
+    return id ? [id] : [];
   }
 
   private key(tenantId: string): string {
@@ -198,20 +156,6 @@ export class TenantStatusService {
     }
 
     return status as SchoolStatus | null;
-  }
-
-  /**
-   * Looks up a school's id by slug. Used by `platformTenantId()` to resolve
-   * the platform tenant outside production when `PLATFORM_TENANT_ID` isn't
-   * set (#620): no database actually has the old hardcoded dev id, since the
-   * `MultiTenantAuth` migration inserts the real "Default School" row with a
-   * random uuid. Not Redis-cached like `getStatus`/`isActive` — a school's
-   * slug is effectively immutable, so `platformTenantId()` caches the
-   * resolved id itself for the process lifetime instead of re-querying.
-   */
-  async findSchoolIdBySlug(slug: string): Promise<string | null> {
-    const school = await this.schoolRepo.findOne({ where: { slug } });
-    return school?.id ?? null;
   }
 
   /**

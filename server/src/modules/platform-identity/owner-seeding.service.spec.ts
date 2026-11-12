@@ -8,7 +8,7 @@ const build = () => {
   const svc = new OwnerSeedingService(
     { transaction } as never,
     { ensure } as never,
-    { platformTenantId: vi.fn() } as never,
+    { enrolWithKnownSecret: vi.fn() } as never,
   );
   return { svc, transaction };
 };

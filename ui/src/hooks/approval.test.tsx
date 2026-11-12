@@ -8,6 +8,7 @@ import { server } from '../test/msw/server';
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
 import { ApprovalCancelledError, useApprovedMutation } from './approval';
+import { getApprovalRequestId } from './platform-approvals';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -54,7 +55,7 @@ function stepUpHandlers() {
 }
 
 describe('handleRequestOtp request body', () => {
-  it('posts { identifier, scope } to /auth/step-up/otp/request, with the queued request\'s scope', async () => {
+  it("posts { identifier, scope } to /auth/step-up/otp/request, with the queued request's scope", async () => {
     let capturedBody: unknown;
     server.use(
       http.post('/api/v1/auth/step-up/otp/request', async ({ request }) => {
@@ -350,5 +351,105 @@ describe('useApprovedMutation', () => {
     await waitFor(() => expect(screen.getByTestId('error')).toBeTruthy());
     expect(screen.getByTestId('error').textContent).toContain(new ApprovalCancelledError().message);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('owner (platform.*) scopes: code-only step-up', () => {
+  function PlatformHarness({
+    mutationFn,
+  }: {
+    mutationFn: (v: string, o: { headers?: Record<string, string> }) => Promise<string>;
+  }) {
+    const approved = useApprovedMutation(mutationFn, { approvalScope: 'platform.owner_lock' });
+    return (
+      <div>
+        <button onClick={() => approved.mutate('vars')}>run</button>
+        {approved.isSuccess && <span data-testid="result">{approved.data}</span>}
+        {approved.isError && (
+          <span data-testid="error">{String((approved.error as Error).message)}</span>
+        )}
+      </div>
+    );
+  }
+
+  it('asks only for the code, posts { scope, code } to /platform/step-up, retries with the token', async () => {
+    let stepUpBody: unknown;
+    let schoolStepUpCalled = false;
+    server.use(
+      http.post('*/platform/step-up', async ({ request }) => {
+        stepUpBody = await request.json();
+        return HttpResponse.json({ approval_token: 'owner-tok', expires_at: 'x' });
+      }),
+      http.post('*/auth/step-up', () => {
+        schoolStepUpCalled = true;
+        return HttpResponse.json({});
+      }),
+    );
+    const mutationFn = vi
+      .fn()
+      .mockRejectedValueOnce(approvalRequiredError())
+      .mockResolvedValueOnce('locked');
+    const user = userEvent.setup();
+    renderWithProviders(<PlatformHarness mutationFn={mutationFn} />, { locale: 'en' });
+
+    await user.click(screen.getByRole('button', { name: 'run' }));
+    await screen.findByRole('dialog');
+    expect(screen.queryByLabelText('Email or phone')).toBeNull();
+    await user.type(screen.getByLabelText('Authenticator code'), '123456');
+    await user.keyboard('{Enter}');
+
+    await screen.findByText('locked', { selector: '[data-testid="result"]' });
+    expect(stepUpBody).toEqual({ scope: 'platform.owner_lock', code: '123456' });
+    expect(mutationFn).toHaveBeenLastCalledWith('vars', {
+      headers: { 'X-Approval-Token': 'owner-tok' },
+    });
+    expect(schoolStepUpCalled).toBe(false);
+  });
+
+  it('a refused code shows the fixed sentence under the field and keeps the modal open', async () => {
+    server.use(
+      http.post('*/platform/step-up', () =>
+        HttpResponse.json(
+          {
+            statusCode: 401,
+            message: 'Code is not valid. Wait for the next code and try again.',
+            timestamp: '',
+            path: '/',
+            requestId: 'r',
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const mutationFn = vi.fn().mockRejectedValueOnce(approvalRequiredError());
+    const user = userEvent.setup();
+    renderWithProviders(<PlatformHarness mutationFn={mutationFn} />, { locale: 'en' });
+
+    await user.click(screen.getByRole('button', { name: 'run' }));
+    await user.type(await screen.findByLabelText('Authenticator code'), '123456');
+    await user.keyboard('{Enter}');
+
+    await screen.findByText("That code isn't valid. Wait for the next code and try again.");
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(mutationFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('APPROVAL_REQUESTED is not a step-up trigger: no modal, the error carries requestId', async () => {
+    const error = new ApiError({
+      statusCode: 403,
+      message: 'Forbidden',
+      timestamp: '',
+      path: '/',
+      requestId: 'r',
+      details: { code: 'APPROVAL_REQUESTED', requestId: 'req-7' },
+    });
+    const mutationFn = vi.fn().mockRejectedValueOnce(error);
+    const user = userEvent.setup();
+    renderWithProviders(<PlatformHarness mutationFn={mutationFn} />, { locale: 'en' });
+
+    await user.click(screen.getByRole('button', { name: 'run' }));
+    await screen.findByTestId('error');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(getApprovalRequestId(error)).toBe('req-7');
   });
 });

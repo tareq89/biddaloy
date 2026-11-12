@@ -138,6 +138,17 @@ export class ImportController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ): Promise<ValidateResponseDto> {
+    return this.stage(file, tenant.id, user.sub);
+  }
+
+  /** The upload-validate-stage body, shared with the platform route (`platform/schools/:id/restore/validate`). */
+  async stage(
+    file: Express.Multer.File,
+    tenantId: string,
+    userId: string,
+  ): Promise<ValidateResponseDto> {
+    const tenant = { id: tenantId };
+    const user = { sub: userId };
     if (!file) {
       throw new BadRequestException('A file is required.');
     }

@@ -8,11 +8,11 @@ import {
   presetState,
   provisionSchool,
   resendSchoolAdminInvitation,
-  superAdminApiSession,
+  platformApiSession,
   type ApiSession,
 } from '../api';
 import { shells } from '../config';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { cockpitOwner, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { focusedText, tabUntilFocused } from './keyboard-utils';
 
@@ -51,7 +51,7 @@ async function freshSchool(
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const setupRequest = await playwright.request.newContext({ baseURL: shells.app.baseURL });
   try {
-    const superAdmin = await superAdminApiSession(setupRequest);
+    const superAdmin = await platformApiSession(setupRequest);
     const provisioned = await provisionSchool(
       setupRequest,
       superAdmin,
@@ -72,6 +72,7 @@ async function freshSchool(
     await patch(setupRequest, admin, '/onboarding', { seen: true });
     const state = await setupRequest.storageState();
     const adminContext = await browser.newContext({
+      baseURL: shells.app.baseURL,
       storageState: {
         ...state,
         origins: [
@@ -235,8 +236,8 @@ test.describe('apply a curriculum preset', () => {
   });
 });
 
-test.describe('super-admin reset', () => {
-  test.use(loggedIn('super_admin'));
+test.describe('platform-owner reset (cockpit)', () => {
+  test.use(cockpitOwner);
   test.setTimeout(90_000);
 
   test('school detail -> Reset curriculum preset with a reason -> Available again', async ({

@@ -10,35 +10,28 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, UserRole } from '@biddaloy/shared';
-import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtPayload } from '@biddaloy/shared';
+import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../common/request-context.util';
 import { PresetResetService } from './preset-reset.service';
 import { ResetPresetDto, ResetPresetResponseDto } from './dto/reset-preset.dto';
-import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 /** The school comes from the path, never from @CurrentTenant (the caller's own tenant is irrelevant). */
 @ApiTags('platform')
-@ApiTenantAuth()
+@ApiBearerAuth('bearer')
 @Controller('platform/schools')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, PlatformSuperAdminGuard)
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class PlatformPresetsController {
   constructor(private readonly reset: PresetResetService) {}
 
-  @AuthenticatedOnly()
   @Post(':id/preset/reset')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({
     summary:
-      "Undo a school's curriculum preset (SUPER_ADMIN only). 409 PRESET_NOT_APPLIED if none is applied, 409 PRESET_RESET_BLOCKED while operational data exists. A reason is mandatory and audited.",
+      "Undo a school's curriculum preset (Cockpit owners only). 409 PRESET_NOT_APPLIED if none is applied, 409 PRESET_RESET_BLOCKED while operational data exists. A reason is mandatory and audited.",
   })
   @ApiOkResponse({ type: ResetPresetResponseDto })
   run(
