@@ -8,15 +8,23 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { SupportEnded } from '../features/support-access/support-ended';
 import { enterSupportSession, takeFragmentCode } from '../features/support-access/support-session';
 
 import { GuestStatus } from './-guest-status';
 
 export const Route = createFileRoute('/support/enter')({
+  validateSearch: (s: Record<string, unknown>): { ended?: true } =>
+    s.ended === 1 || s.ended === '1' ? { ended: true } : {},
   component: SupportEnterPage,
 });
 
 function SupportEnterPage() {
+  const { ended } = Route.useSearch();
+  return ended ? <SupportEnded /> : <SupportEnter />;
+}
+
+function SupportEnter() {
   const { t } = useTranslation('supportBanner');
   const navigate = useNavigate();
   const [failed, setFailed] = useState(false);
