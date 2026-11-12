@@ -327,7 +327,6 @@
       "role": "admin",
       "archetype": "detail"
     },
-
     {
       "path": "/marks/$examId/$sectionId/$subjectId/import",
       "params": {
@@ -338,7 +337,6 @@
       "role": "admin",
       "archetype": "form"
     },
-
     {
       "path": "/results",
       "role": "admin",
@@ -960,13 +958,11 @@
       "archetype": "wizard",
       "overlays": ["discard"]
     },
-
     {
       "path": "/attendance/imports",
       "role": "admin",
       "archetype": "list"
     },
-
     {
       "path": "/attendance/imports/$importId",
       "params": {
@@ -975,7 +971,6 @@
       "role": "admin",
       "archetype": "detail"
     },
-
     {
       "path": "/attendance/staff",
       "role": "admin",
@@ -1078,6 +1073,48 @@
       "path": "/reports/alerts",
       "role": "executive",
       "archetype": "list"
+    },
+    {
+      "path": "/operations",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/users",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "list"
+    },
+    {
+      "path": "/audit",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "list"
+    },
+    {
+      "path": "/announcements",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/support/enter",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/welcome/support-access",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/support-access/requests/$requestId",
+      "params": {
+        "requestId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
     }
   ]
 }
