@@ -69,6 +69,23 @@ describe('SetPasswordForm', () => {
     expect(submit.disabled).toBe(false);
   });
 
+  it('blocks a password over 72 bytes before submit (Bangla letters are 3 bytes)', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={onSubmit} />, {
+      locale: 'en',
+    });
+    // 25 Bangla letters = 75 bytes but only 25 characters.
+    const long = `Aa1-${'ক'.repeat(25)}`;
+    await user.type(await screen.findByLabelText('New password'), long);
+    await user.type(screen.getByLabelText('Confirm password'), long);
+    expect(screen.getByText(/shorter password/i)).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Set password' }).disabled).toBe(
+      true,
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('shows five rules for staff and two for family', async () => {
     const { unmount } = renderWithProviders(
       <SetPasswordForm heading="Welcome" onSubmit={vi.fn()} />,
