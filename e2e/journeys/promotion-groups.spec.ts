@@ -199,7 +199,9 @@ test('class teacher sets groups in bulk from a marks filter; admin sees them; an
         })
         .click();
       await expect(
-        tp.getByRole('status').filter({ hasText: t('promotions.groups.applied', { n: 1 }) }),
+        // The toast renders an outer role="status" wrapper and an inner
+        // <span role="status"> with the text; name the inner one only.
+        tp.getByText(t('promotions.groups.applied', { n: 1 }), { exact: true }),
       ).toBeVisible();
     });
   } finally {
