@@ -81,6 +81,17 @@ describe('root beforeLoad: protected-route redirect', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/i/some-token'));
   });
 
+  it('[99.G4.01] /support/enter is public and makes no cold-boot refresh', async () => {
+    // No refresh handler on purpose: an unhandled `POST /auth/refresh` fails
+    // via `onUnhandledRequest: 'error'`.
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/support/enter'],
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/support/enter'));
+  });
+
   it('visiting /login directly while unauthenticated does not redirect (no loop)', async () => {
     server.use(authHandlers.refreshFailure);
 

@@ -19,6 +19,7 @@ import {
   getAccessToken,
   getActiveRole,
   getActiveTenant,
+  isSupportSession,
   notifySessionExpired,
   setAccessToken,
 } from './auth-state';
@@ -146,6 +147,10 @@ export function setSessionEndpoints(next: SessionEndpoints): void {
 }
 
 export async function postAuthRefresh(): Promise<LoginResponse> {
+  // [99.G4.01] Never send the refresh cookie from a support tab. Every refresh
+  // path (reactive 401, quiet, cold boot) goes through here, so a rejection
+  // here makes any 401 end the tab via the callers' own failure handling.
+  if (isSupportSession()) throw new Error('refresh is not available on a support tab');
   const generation = currentSessionGeneration();
   const response = await axios.post<LoginResponse>(
     `${API_BASE_URL}${sessionEndpoints.refresh}`,

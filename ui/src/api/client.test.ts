@@ -2,8 +2,13 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { clearAuthState, setAccessToken } from './auth-state';
-import { deleteAuthSession, fetchPublicVerification, getAuthSessions } from './client';
+import { clearAuthState, isSupportSession, setAccessToken, setSupportSession } from './auth-state';
+import {
+  deleteAuthSession,
+  fetchPublicVerification,
+  getAuthSessions,
+  postAuthRefresh,
+} from './client';
 import { ApiError } from './errors';
 
 /**
@@ -143,5 +148,32 @@ describe('fetchPublicVerification', () => {
     await fetchPublicVerification('tok-1');
 
     expect(mock.history.get[0]?.headers?.Authorization).toBeUndefined();
+  });
+});
+
+describe('[99.G4.01] support tab', () => {
+  it('postAuthRefresh refuses to call the network on a support tab', async () => {
+    setSupportSession(true);
+    await expect(postAuthRefresh()).rejects.toBeInstanceOf(Error);
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it('a 401 clears state with no refresh call', async () => {
+    setSupportSession(true);
+    mock.onGet('/api/v1/auth/sessions').reply(401);
+    await expect(getAuthSessions()).rejects.toBeDefined();
+    expect(mock.history.post).toHaveLength(0);
+    expect(isSupportSession()).toBe(false);
+  });
+
+  it('without the flag a 401 still refreshes (unchanged)', async () => {
+    mock
+      .onGet('/api/v1/auth/sessions')
+      .replyOnce(401)
+      .onPost('/api/v1/auth/refresh')
+      .replyOnce(200, { access_token: 'fresh-token', memberships: [] })
+      .onGet('/api/v1/auth/sessions')
+      .replyOnce(200, { data: [] });
+    await expect(getAuthSessions()).resolves.toEqual({ data: [] });
   });
 });
