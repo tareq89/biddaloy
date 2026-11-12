@@ -63,6 +63,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_platform/schools/$schoolId': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/schools/new': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/platform-owners/': '[98.4.07] cockpit page, has its own nav, not the staff sidebar',
+  '/_platform/users/': '[99.5] cockpit page, has its own nav, not the staff sidebar',
+  '/_platform/operations/': '[99.5] cockpit page, has its own nav, not the staff sidebar',
+  '/_platform/audit/': '[99.5] cockpit page, has its own nav, not the staff sidebar',
   '/_platform/owner-security/':
     '[98.4.07] cockpit page, reached from the account menu, not a nav item',
 

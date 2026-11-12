@@ -25,8 +25,8 @@ export function actionLabel(t: T, action: string): string {
  * role the mockup shows is not here.
  */
 export function whoLabel(t: T, row: Pick<PlatformAuditItem, 'actorName' | 'impersonatedByName'>) {
-  if (row.impersonatedByName) return t('platformAudit:support', { name: row.actorName ?? '-' });
-  return row.actorName ?? t('platformAudit:table.platform');
+  if (row.impersonatedByName) return t('support', { name: row.actorName ?? '-' });
+  return row.actorName ?? t('table.platform');
 }
 
 export interface AuditTableProps {
@@ -37,37 +37,39 @@ export interface AuditTableProps {
 }
 
 export function AuditTable({ rows, loading, isFetching, error }: AuditTableProps) {
-  const { t } = useTranslation(['platformAudit', 'auditLogs']);
+  const { t } = useTranslation('platformAudit');
+  // Loads the namespace actionLabel() falls back to; the key checker reads only the first hook.
+  useTranslation('auditLogs');
   const config = useRegionConfig();
 
   const columns: DataTableColumn<PlatformAuditItem>[] = [
     {
       id: 'who',
-      header: t('platformAudit:table.who'),
+      header: t('table.who'),
       accessorFn: (row) => whoLabel(t, row),
       card: 'title',
     },
     {
       id: 'when',
-      header: t('platformAudit:table.when'),
+      header: t('table.when'),
       accessorFn: (row) => formatDateTime(row.at, config),
       card: 'field',
     },
     {
       id: 'school',
-      header: t('platformAudit:table.school'),
+      header: t('table.school'),
       accessorFn: (row) => row.schoolName,
       card: 'field',
     },
     {
       id: 'action',
-      header: t('platformAudit:table.action'),
+      header: t('table.action'),
       accessorFn: (row) => actionLabel(t, row.action),
       card: 'field',
     },
     {
       id: 'what',
-      header: t('platformAudit:table.what'),
+      header: t('table.what'),
       accessorFn: (row) => row.entityType,
       card: 'field',
     },
@@ -76,7 +78,7 @@ export function AuditTable({ rows, loading, isFetching, error }: AuditTableProps
   return (
     <DataTable
       tableId="platform-audit"
-      caption={t('platformAudit:table.caption')}
+      caption={t('table.caption')}
       columns={columns}
       data={rows}
       getRowId={(row) => row.id}
@@ -88,11 +90,11 @@ export function AuditTable({ rows, loading, isFetching, error }: AuditTableProps
       isFetching={isFetching}
       {...(error !== undefined ? { error } : {})}
       emptyState={{
-        title: t('platformAudit:table.emptyTitle'),
-        explanation: t('platformAudit:table.emptyExplanation'),
+        title: t('table.emptyTitle'),
+        explanation: t('table.emptyExplanation'),
         kind: 'no-results',
       }}
-      announceResults={(shown) => t('platformAudit:table.announceResults', { count: shown })}
+      announceResults={(shown) => t('table.announceResults', { count: shown })}
     />
   );
 }
