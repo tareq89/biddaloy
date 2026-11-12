@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
 export const IDLE_WARN_MS = 29 * 60_000;
 export const IDLE_EXPIRE_MS = 30 * 60_000;
@@ -38,7 +38,9 @@ export function useIdleTimer({ onWarn, onExpire, enabled = true }: IdleTimerOpti
   const active = useRef(false);
   const check = useRef<() => void>(() => undefined);
   const handlers = useRef({ onWarn, onExpire });
-  handlers.current = { onWarn, onExpire };
+  useLayoutEffect(() => {
+    handlers.current = { onWarn, onExpire };
+  }, [onWarn, onExpire]);
 
   useEffect(() => {
     active.current = enabled;

@@ -34,4 +34,15 @@ describe('PasswordStep', () => {
     });
     expect((await screen.findByRole('alert')).textContent).toBe('Sign-in did not work.');
   });
+
+  it('clears a field error as soon as that field changes', async () => {
+    renderWithProviders(<PasswordStep onSubmit={vi.fn()} />, { locale: 'en' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await user.type(screen.getByLabelText('Password'), 'x');
+    expect(screen.queryByText('Enter your password.')).toBeNull();
+    expect(screen.getByText('Enter your email or phone number.')).toBeTruthy();
+    await user.type(screen.getByLabelText('Email or phone number'), 'a');
+    expect(screen.queryByText('Enter your email or phone number.')).toBeNull();
+  });
 });

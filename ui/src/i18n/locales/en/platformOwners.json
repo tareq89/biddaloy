@@ -93,6 +93,21 @@
     "loadMore": "Load more",
     "loadError": "Could not load the history.",
     "empty": "Nothing here yet.",
-    "emptyExplanation": "Sign-ins, locks and unlocks show up here."
+    "emptyExplanation": "Sign-ins, locks and unlocks show up here.",
+    "actions": {
+      "PLATFORM_LOGIN": "Signed in",
+      "PLATFORM_LOGIN_FAILED": "Failed sign-in",
+      "PLATFORM_OWNER_LOCKED": "Owner locked",
+      "PLATFORM_OWNER_UNLOCKED": "Owner unlocked",
+      "PLATFORM_MFA_ENROLLED": "Authenticator set up",
+      "PLATFORM_RECOVERY_USED": "Recovery code used",
+      "PLATFORM_APPROVAL_REQUESTED": "Approval requested",
+      "PLATFORM_APPROVAL_GRANTED": "Approval granted",
+      "PLATFORM_APPROVAL_DENIED": "Approval denied",
+      "PLATFORM_OWNER_REPLACED": "Owner replaced",
+      "PLATFORM_MFA_RESET": "Authenticator reset",
+      "PLATFORM_PASSWORD_RESET": "Password reset",
+      "PLATFORM_SETTINGS_CHANGED": "Setting changed"
+    }
   }
 }

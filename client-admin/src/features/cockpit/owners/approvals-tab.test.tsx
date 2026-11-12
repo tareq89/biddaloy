@@ -168,4 +168,36 @@ describe('ApprovalsTab', () => {
     expect(dialog).toBeDefined();
     await screen.findByText('Waiting for the other owner to agree to turn this off.');
   });
+
+  it('the second try sends the retained request id', async () => {
+    serve([approval({ requested_by: ME })]);
+    const sent: (string | null)[] = [];
+    server.use(
+      http.patch('*/platform/settings/approvals', ({ request }) => {
+        const id = request.headers.get('X-Platform-Approval');
+        sent.push(id);
+        return id
+          ? HttpResponse.json({ enabled: false })
+          : HttpResponse.json(
+              {
+                statusCode: 403,
+                message: 'x',
+                timestamp: '',
+                path: '/',
+                requestId: 'r',
+                details: { code: 'APPROVAL_REQUESTED', requestId: 'req-9' },
+              },
+              { status: 403 },
+            );
+      }),
+    );
+    const user = userEvent.setup();
+    view();
+    await user.click(await screen.findByRole('switch', { name: 'Ask the other owner first' }));
+    await user.click(await screen.findByRole('button', { name: 'Ask to turn off' }));
+    await screen.findByText('Waiting for the other owner to agree to turn this off.');
+    await user.click(screen.getByRole('switch', { name: 'Ask the other owner first' }));
+    await user.click(await screen.findByRole('button', { name: 'Ask to turn off' }));
+    await waitFor(() => expect(sent).toEqual([null, 'req-9']));
+  });
 });

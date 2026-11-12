@@ -44,6 +44,8 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
   const setSetting = useSetApprovalsSetting();
   const [confirmSwitch, setConfirmSwitch] = React.useState(false);
   const [switchWaiting, setSwitchWaiting] = React.useState(false);
+  // The request an OFF attempt created; sent back once the other owner has granted it.
+  const [switchApprovalId, setSwitchApprovalId] = React.useState<string | null>(null);
   const [decidingId, setDecidingId] = React.useState<string | null>(null);
   // The switch's waiting note goes once no request of mine is pending (or on dismiss).
   const showSwitchWaiting =
@@ -57,13 +59,18 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
 
   async function flip() {
     try {
-      await setSetting.mutateAsync({ enabled: !enabled });
+      await setSetting.mutateAsync({
+        enabled: !enabled,
+        ...(switchApprovalId ? { approvalId: switchApprovalId } : {}),
+      });
       toast.success(t(enabled ? 'approvals.switch.turnedOff' : 'approvals.switch.turnedOn'));
       setSwitchWaiting(false);
+      setSwitchApprovalId(null);
     } catch (error) {
       if (error instanceof ApprovalCancelledError) {
         // Code prompt closed: nothing to say.
       } else if (getApprovalRequestId(error)) {
+        setSwitchApprovalId(getApprovalRequestId(error) ?? null);
         setSwitchWaiting(true);
         void approvals.refetch();
       } else {

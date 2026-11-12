@@ -76,12 +76,6 @@ export const cockpitDefaultHandlers = [
   ),
   http.post('*/auth/cockpit/forgot-password', () => new HttpResponse(null, { status: 202 })),
   http.post('*/auth/cockpit/reset-password', () => new HttpResponse(null, { status: 204 })),
-  http.get('*/auth/cockpit/mfa-status', () =>
-    HttpResponse.json({ enrolled: true, recoveryRemaining: 8 }),
-  ),
-  http.post('*/auth/cockpit/recovery-codes', () =>
-    HttpResponse.json({ recoveryCodes: ['AAAA-BBBB-CCCC-DDDD'] }),
-  ),
   http.get('*/auth/cockpit/sessions', () =>
     HttpResponse.json({
       data: [

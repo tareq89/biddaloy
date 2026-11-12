@@ -87,6 +87,15 @@ describe('CockpitIdleWarning', () => {
     expect(onSignedOut).toHaveBeenCalledWith(strings.expired);
   });
 
+  it('expiry still leaves when sign-out never settles', async () => {
+    const { onSignedOut } = mount({ signOut: () => new Promise(() => undefined) });
+    await warn();
+    await act(() => vi.advanceTimersByTimeAsync(MIN));
+    expect(onSignedOut).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(onSignedOut).toHaveBeenCalledWith(strings.expired);
+  });
+
   it('is an alertdialog and focuses Stay signed in', async () => {
     mount();
     await warn();
