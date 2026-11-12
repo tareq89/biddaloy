@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ACTIONS,
   DEMO_SWITCH_ROLE_ACTION,
+  PLATFORM_ACTIONS,
   type ActionContext,
   type PaletteAction,
 } from './action-registry';
@@ -677,4 +678,31 @@ describe('DEMO_SWITCH_ROLE_ACTION', () => {
   it('is not in ACTIONS (a normal school never lists it)', () => {
     expect(ACTIONS.some((a) => a.id === DEMO_SWITCH_ROLE_ACTION.id)).toBe(false);
   });
+});
+
+describe('PLATFORM_ACTIONS [98.4.07]', () => {
+  it('lists the five cockpit actions, none of them in the school palette', () => {
+    expect(PLATFORM_ACTIONS.map((a) => a.id)).toEqual([
+      'platform-owners.open',
+      'platform-owners.lock',
+      'platform-owners.unlock',
+      'approvals.open',
+      'security.new-recovery-codes',
+    ]);
+    const schoolIds = new Set(ACTIONS.map((a) => a.id));
+    for (const a of PLATFORM_ACTIONS) expect(schoolIds.has(a.id), a.id).toBe(false);
+  });
+
+  it.each(PLATFORM_ACTIONS.map((a) => [a.id, a] as const))(
+    '%s has both labels, a valid kind and lands where `to` says',
+    (_id, a) => {
+      expect(a.label.en.trim()).not.toBe('');
+      expect(a.label.bn.trim()).not.toBe('');
+      expect(VALID_KINDS.has(a.kind)).toBe(true);
+      const calls: string[] = [];
+      a.run({ navigate: (opts) => calls.push(opts.to) });
+      expect(calls).toEqual([a.to]);
+      expect(a.to).toMatch(/^\/(platform-owners|owner-security)(\?tab=(owners|approvals))?$/);
+    },
+  );
 });

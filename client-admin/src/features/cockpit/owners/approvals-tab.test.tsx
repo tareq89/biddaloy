@@ -169,6 +169,22 @@ describe('ApprovalsTab', () => {
     await screen.findByText('Waiting for the other owner to agree to turn this off.');
   });
 
+  it('turning approvals off again after the other owner approved carries that grant', async () => {
+    serve([approval({ requested_by: ME, scope: 'platform.approvals_switch', status: 'GRANTED' })]);
+    let sent: string | null = 'not called';
+    server.use(
+      http.patch('*/platform/settings/approvals', ({ request }) => {
+        sent = request.headers.get('X-Platform-Approval');
+        return HttpResponse.json({ enabled: false });
+      }),
+    );
+    const user = userEvent.setup();
+    view();
+    await user.click(await screen.findByRole('switch', { name: 'Ask the other owner first' }));
+    await user.click(await screen.findByRole('button', { name: 'Ask to turn off' }));
+    await waitFor(() => expect(sent).toBe('22222222-2222-4222-8222-222222222222'));
+  });
+
   it('the second try sends the retained request id', async () => {
     serve([approval({ requested_by: ME })]);
     const sent: (string | null)[] = [];

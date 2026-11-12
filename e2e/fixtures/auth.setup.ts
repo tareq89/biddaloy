@@ -44,7 +44,8 @@ setup('capture a storageState per seed role', async () => {
 
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
-  for (const role of SEED_ROLES) {
+  // The platform owner signs in through the cockpit, never the app host (98.5.09, D2).
+  for (const role of SEED_ROLES.filter((r) => r !== 'super_admin')) {
     const statePath = storageStatePath(role);
     const ctx = await request.newContext({ baseURL: shells.app.baseURL });
     let response = await ctx.post('/api/v1/auth/login', {

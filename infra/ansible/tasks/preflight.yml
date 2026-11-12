@@ -106,9 +106,12 @@
       - SMOKE_ADMIN_PASSWORD
       - SMOKE_TEACHER_EMAIL
       - SMOKE_TEACHER_PASSWORD
-      - SMOKE_SUPER_ADMIN_EMAIL
-      - SMOKE_SUPER_ADMIN_PASSWORD
       - HEALTH_TOKEN
+    # [98.5.01] Staging only: the nightly's owner sign-in (D17); prod must not set them.
+    staging_smoke_keys:
+      - SMOKE_COCKPIT_EMAIL
+      - SMOKE_COCKPIT_PASSWORD
+      - SMOKE_COCKPIT_TOTP_SECRET
     # Epic 98: boot needs the cockpit host and both owners (env.validation COCKPIT_REQUIRED); the
     # smoke domains keep the cockpit fence check from being skipped.
     cockpit_keys:
@@ -123,7 +126,7 @@
     # without it; checked here so the message names the file to fix.
     required_by_stack:
       prod: "{{ smoke_keys + cockpit_keys + ['ROOT_DOMAIN'] }}"
-      staging: "{{ smoke_keys + cockpit_keys + ['BACKUP_AGE_PRIVATE_KEY', 'ROOT_DOMAIN'] }}"
+      staging: "{{ smoke_keys + staging_smoke_keys + cockpit_keys + ['BACKUP_AGE_PRIVATE_KEY', 'ROOT_DOMAIN'] }}"
       demo: [HEALTH_TOKEN, ROOT_DOMAIN]
       edge: []
       ops: [DOZZLE_USERS_YML]

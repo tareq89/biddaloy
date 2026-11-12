@@ -4434,108 +4434,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/platform/holiday-sets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List every platform public-holiday set. SUPER_ADMIN only. */
-        get: operations["PublicHolidaysController_listSets_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/holiday-sets/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get one platform public-holiday set. SUPER_ADMIN only. */
-        get: operations["PublicHolidaysController_getSet_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/holiday-sets/fetch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Fetch (or re-fetch) a country/year holiday set from an external source. SUPER_ADMIN only. */
-        post: operations["PublicHolidaysController_fetchSet_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/holiday-sets/{id}/entries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Replace a holiday set's entries. SUPER_ADMIN only. */
-        put: operations["PublicHolidaysController_updateEntries_v1"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/holiday-sets/{id}/publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Publish a holiday set for tenants to import from. SUPER_ADMIN only. */
-        post: operations["PublicHolidaysController_publish_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/holiday-sets/{id}/unpublish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Unpublish a holiday set. SUPER_ADMIN only. */
-        post: operations["PublicHolidaysController_unpublish_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/calendar/public-holidays": {
         parameters: {
             query?: never;
@@ -4564,6 +4462,108 @@ export interface paths {
         put?: never;
         /** Bulk-add ticked suggested holidays as HOLIDAY events on this tenant. */
         post: operations["PublicHolidaysController_bulkAdd_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/holiday-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every platform public-holiday set. SUPER_ADMIN only. */
+        get: operations["PlatformHolidaySetsController_listSets_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/holiday-sets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one platform public-holiday set. SUPER_ADMIN only. */
+        get: operations["PlatformHolidaySetsController_getSet_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/holiday-sets/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch (or re-fetch) a country/year holiday set from an external source. SUPER_ADMIN only. */
+        post: operations["PlatformHolidaySetsController_fetchSet_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/holiday-sets/{id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a holiday set's entries. SUPER_ADMIN only. */
+        put: operations["PlatformHolidaySetsController_updateEntries_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/holiday-sets/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a holiday set for tenants to import from. SUPER_ADMIN only. */
+        post: operations["PlatformHolidaySetsController_publish_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/holiday-sets/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unpublish a holiday set. SUPER_ADMIN only. */
+        post: operations["PlatformHolidaySetsController_unpublish_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6362,6 +6362,74 @@ export interface paths {
         put?: never;
         /** Queue a restore from a staged, validated workbook. Returns immediately with the restore job id and the pre-restore snapshot job id; poll GET /backup/jobs/:id for progress. */
         post: operations["RestoreController_requestRestore_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a restore from a staged, validated workbook into any school (platform owners only). The school's exact name is the confirmation phrase. */
+        post: operations["PlatformSchoolRestoreController_requestRestore_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/restore/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate and stage a workbook for a school (platform owners only). */
+        post: operations["PlatformSchoolRestoreController_validate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/restore/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The blank workbook template for a school (platform owners only). */
+        get: operations["PlatformSchoolRestoreController_template_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/restore/jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Poll one of a school's restore or snapshot jobs (platform owners only). */
+        get: operations["PlatformSchoolRestoreController_job_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11994,6 +12062,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/cockpit/mfa-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Is the caller's authenticator set up, and how many codes are left. */
+        get: operations["CockpitMfaController_status_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New recovery codes, shown once; the old ones stop working. Step-up. */
+        post: operations["CockpitMfaController_regenerate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -16017,6 +16119,9 @@ export interface components {
             timezone: string;
             currentAcademicYear?: components["schemas"]["CurrentAcademicYearDto"] | null;
         };
+        BulkAddHolidaysDto: {
+            entry_ids: string[];
+        };
         PublicHolidaySet: {
             id: string;
             country: string;
@@ -16056,9 +16161,6 @@ export interface components {
         };
         UpdateHolidaySetEntriesDto: {
             entries: components["schemas"]["HolidayEntryInputDto"][];
-        };
-        BulkAddHolidaysDto: {
-            entry_ids: string[];
         };
         CalendarImportSummaryDto: {
             new: number;
@@ -32352,208 +32454,6 @@ export interface operations {
             };
         };
     };
-    PublicHolidaysController_listSets_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHolidaySet"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicHolidaysController_getSet_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHolidaySet"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicHolidaysController_fetchSet_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FetchHolidaySetDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHolidaySet"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicHolidaysController_updateEntries_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateHolidaySetEntriesDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHolidaySet"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicHolidaysController_publish_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHolidaySet"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicHolidaysController_unpublish_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHolidaySet"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     PublicHolidaysController_suggest_v1: {
         parameters: {
             query: {
@@ -32610,6 +32510,208 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformHolidaySetsController_listSets_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidaySet"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformHolidaySetsController_getSet_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidaySet"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformHolidaySetsController_fetchSet_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FetchHolidaySetDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidaySet"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformHolidaySetsController_updateEntries_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHolidaySetEntriesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidaySet"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformHolidaySetsController_publish_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidaySet"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformHolidaySetsController_unpublish_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidaySet"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -36994,6 +37096,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RequestRestoreResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolRestoreController_requestRestore_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestRestoreDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestRestoreResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolRestoreController_validate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolRestoreController_template_v1: {
+        parameters: {
+            query?: {
+                lang?: "bn" | "en";
+                variant?: "full" | "starter";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The blank .xlsx workbook. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolRestoreController_job_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkbookJobDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -50423,6 +50666,61 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    CockpitMfaController_status_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        enrolled: boolean;
+                        recoveryRemaining: number;
+                    };
+                };
+            };
+        };
+    };
+    CockpitMfaController_regenerate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.recovery_codes" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        recoveryCodes: string[];
+                    };
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };

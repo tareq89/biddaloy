@@ -6,7 +6,7 @@ import {
   post,
   provisionSchool,
   resendSchoolAdminInvitation,
-  superAdminApiSession,
+  platformApiSession,
 } from '../api';
 import { shells } from '../config';
 import { expect, test } from '../fixtures/test';
@@ -48,7 +48,7 @@ test.describe('organisation structure', () => {
   test.beforeAll(async ({ browser, playwright }) => {
     const setupRequest = await playwright.request.newContext({ baseURL: shells.app.baseURL });
     try {
-      const superAdmin = await superAdminApiSession(setupRequest);
+      const superAdmin = await platformApiSession(setupRequest);
       const provisioned = await provisionSchool(
         setupRequest,
         superAdmin,

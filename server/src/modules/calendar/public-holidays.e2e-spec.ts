@@ -5,6 +5,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import {
@@ -30,14 +31,11 @@ describe('Public holiday sets (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
-  let superAdminToken: string;
-  let platformId: string;
+  let ownerToken: string;
   let otherAdminToken: string;
 
   const TENANT_ID = SEED_TENANT_ID;
   const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000000c7002';
-  const SUPER_ADMIN_USER_ID = '00000000-0000-4000-8000-0000000c7001';
-  const SUPER_ADMIN_EMAIL = 'superadmin@public-holidays-e2e.example';
   const OTHER_ADMIN_USER_ID = '00000000-0000-4000-8000-0000000c7003';
   const OTHER_ADMIN_EMAIL = 'admin@public-holidays-other-e2e.example';
 
@@ -69,34 +67,6 @@ describe('Public holiday sets (e2e)', () => {
        VALUES ($1, 'Other Public Holidays School', 'other-public-holidays-e2e', NOW(), NOW())
        ON CONFLICT DO NOTHING`,
       [OTHER_TENANT_ID],
-    );
-
-    await dataSource.query(
-      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
-       VALUES ($1, $2, $3, 'Public Holidays Super Admin', 'ACTIVE', NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, SUPER_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH],
-    );
-    await dataSource.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, TENANT_ID, UserRole.SUPER_ADMIN],
-    );
-
-    // Platform authority = SUPER_ADMIN membership on the 'default-school' tenant.
-    await dataSource.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT gen_random_uuid(), 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-    );
-    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
-      .id;
-    await dataSource.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, platformId, UserRole.SUPER_ADMIN],
     );
 
     await dataSource.query(
@@ -136,11 +106,12 @@ describe('Public holiday sets (e2e)', () => {
     };
 
     adminToken = await loginAs(SEED_ADMIN_EMAIL);
-    superAdminToken = await loginAs(SUPER_ADMIN_EMAIL);
+    ownerToken = await mintCockpitToken(app, dataSource);
     otherAdminToken = await loginAs(OTHER_ADMIN_EMAIL);
   }, 60000);
 
   afterAll(async () => {
+    await removeCockpitOwners(dataSource);
     await app.close();
   });
 
@@ -156,8 +127,7 @@ describe('Public holiday sets (e2e)', () => {
   it('SUPER_ADMIN gets 400 for a malformed holiday-set id (ParseUUIDPipe, 75.13-b)', async () => {
     await supertest(app.getHttpServer())
       .get(`${API}/platform/holiday-sets/not-a-uuid`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .expect(400);
   });
 
@@ -169,8 +139,7 @@ describe('Public holiday sets (e2e)', () => {
 
     const fetchRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ country: 'BD', year: 2031 })
       .expect(201);
 
@@ -182,8 +151,7 @@ describe('Public holiday sets (e2e)', () => {
 
     const editRes = await supertest(app.getHttpServer())
       .put(`${API}/platform/holiday-sets/${setId}/entries`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({
         entries: [
           {
@@ -200,8 +168,7 @@ describe('Public holiday sets (e2e)', () => {
 
     const publishRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/${setId}/publish`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .expect(201);
     expect(publishRes.body.published_at).not.toBeNull();
   });
@@ -212,8 +179,7 @@ describe('Public holiday sets (e2e)', () => {
 
     const res = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ country: 'PK', year: 2031 })
       .expect(502);
 
@@ -230,8 +196,7 @@ describe('Public holiday sets (e2e)', () => {
     });
     const fetchRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ country: 'BD', year: 2032 })
       .expect(201);
     const setId = fetchRes.body.id;
@@ -248,8 +213,7 @@ describe('Public holiday sets (e2e)', () => {
 
     await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/${setId}/publish`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .expect(201);
 
     const suggestRes = await supertest(app.getHttpServer())
@@ -292,14 +256,12 @@ describe('Public holiday sets (e2e)', () => {
     });
     const fetchRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .send({ country: 'BD', year: 2033 })
       .expect(201);
     await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/${fetchRes.body.id}/publish`)
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .expect(201);
 
     const suggestForA = await supertest(app.getHttpServer())

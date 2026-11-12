@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { apiClient } from '../api/client';
+import { apiClient, isTenantless } from '../api/client';
+
+/** [4101] A cockpit owner has no school, so the school-scoped `/backup/*` calls the restore wizard
+ * makes for another school go to `/platform/schools/:id/restore/*` instead (same handlers, school from the path). */
+function restorePath(path: string, tenantId: string | undefined): string {
+  if (!tenantId || !isTenantless()) return path;
+  const rest = path.replace(/^\/backup\/(restore\/?)?/, '');
+  return `/platform/schools/${tenantId}/restore${rest ? `/${rest}` : ''}`;
+}
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
@@ -199,7 +207,7 @@ export function useBackupJob(
     ...(throwOnError !== undefined ? { throwOnError } : {}),
     queryKey: backupKeys.detail(tenantId ? `${tenantId}:${id ?? ''}` : (id ?? '')),
     queryFn: async () => {
-      const res = await apiClient.get<WorkbookJob>(`/backup/jobs/${id}`, {
+      const res = await apiClient.get<WorkbookJob>(restorePath(`/backup/jobs/${id}`, tenantId), {
         ...(tenantId ? { _tenantOverride: tenantId } : {}),
       });
       return res.data;
@@ -250,14 +258,18 @@ export function useValidateBackup(options: { tenantId?: string } = {}) {
     }): Promise<PreviewResult<RestoreSummary>> => {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await apiClient.post<ValidateResponseDto>('/backup/validate', formData, {
-        ...(tenantId ? { _tenantOverride: tenantId } : {}),
-        onUploadProgress: (event) => {
-          if (onProgress && event.total) {
-            onProgress(Math.round((event.loaded / event.total) * 100));
-          }
+      const res = await apiClient.post<ValidateResponseDto>(
+        restorePath('/backup/validate', tenantId),
+        formData,
+        {
+          ...(tenantId ? { _tenantOverride: tenantId } : {}),
+          onUploadProgress: (event) => {
+            if (onProgress && event.total) {
+              onProgress(Math.round((event.loaded / event.total) * 100));
+            }
+          },
         },
-      });
+      );
       const data = res.data;
       return {
         staging_id: data.staging_id,
@@ -292,9 +304,13 @@ export function useRestoreBackup(options: { tenantId?: string } = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: RestoreBackupInput): Promise<RequestRestoreResponse> => {
-      const res = await apiClient.post<RequestRestoreResponse>('/backup/restore', input, {
-        ...(tenantId ? { _tenantOverride: tenantId } : {}),
-      });
+      const res = await apiClient.post<RequestRestoreResponse>(
+        restorePath('/backup/restore', tenantId),
+        input,
+        {
+          ...(tenantId ? { _tenantOverride: tenantId } : {}),
+        },
+      );
       return res.data;
     },
     retry: false,
@@ -446,7 +462,7 @@ export async function downloadWorkbookTemplate(
   options: { tenantId?: string; variant?: 'full' | 'starter' } = {},
 ): Promise<void> {
   const { tenantId, variant } = options;
-  const res = await apiClient.get<Blob>('/backup/template', {
+  const res = await apiClient.get<Blob>(restorePath('/backup/template', tenantId), {
     params: { lang, ...(variant ? { variant } : {}) },
     responseType: 'blob',
     ...(tenantId ? { _tenantOverride: tenantId } : {}),

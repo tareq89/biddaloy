@@ -15,8 +15,10 @@ import {
   useCockpitForgotPassword,
   useCockpitLogin,
   useCockpitMfa,
+  useCockpitMfaStatus,
   useCockpitResetPassword,
   useCockpitSessions,
+  useRegenerateRecoveryCodes,
   useRevokeCockpitSession,
 } from './cockpit-auth';
 
@@ -93,6 +95,15 @@ describe('cockpit sign-in hooks', () => {
 });
 
 describe('cockpit security hooks', () => {
+  it('mfa status: loading then data', async () => {
+    const { result } = renderHookWithProviders(() => useCockpitMfaStatus());
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() =>
+      expect(result.current.data).toEqual({ enrolled: true, recoveryRemaining: 8 }),
+    );
+  });
+
   it('sessions: unwraps data; revoke succeeds on 204', async () => {
     const { result } = renderHookWithProviders(() => ({
       list: useCockpitSessions(),
@@ -108,5 +119,21 @@ describe('cockpit security hooks', () => {
     server.use(errorHandler('get', '*/auth/cockpit/sessions', 500));
     const { result } = renderHookWithProviders(() => useCockpitSessions());
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('regenerate recovery codes: asks for an authenticator code when the server wants approval', async () => {
+    server.use(
+      http.post('*/auth/cockpit/recovery-codes', () =>
+        HttpResponse.json(
+          { ...apiErrorBody(403, 'Forbidden', '/'), details: { code: 'APPROVAL_REQUIRED' } },
+          { status: 403 },
+        ),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useRegenerateRecoveryCodes());
+    act(() => result.current.mutate());
+    // Stays pending: the host modal is open waiting for the code (see approval.test.tsx).
+    await waitFor(() => expect(result.current.isPending).toBe(true));
+    expect(result.current.isError).toBe(false);
   });
 });

@@ -8,15 +8,12 @@ import type Redis from 'ioredis';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { OTP_REDIS } from '../account-access/otp.service';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
 
 const API = '/api/v1/platform/billing';
-const SUPER = {
-  id: '00000000-0000-4000-8000-0000002719a1',
-  email: 'sa@platform-billing-e2e.example',
-};
 const ADMIN = {
   id: '00000000-0000-4000-8000-0000002719a2',
   email: 'a@platform-billing-e2e.example',
@@ -30,18 +27,19 @@ const LOCAL_SUPER = {
 describe('platform billing E2E', () => {
   let app: INestApplication;
   let ds: DataSource;
-  let platformId = '';
   const schoolId = randomUUID();
   const tokens: Record<string, string> = {};
 
   const as = (who: 'super' | 'admin' | 'localSuper') => {
-    const tenant = who === 'super' ? platformId : schoolId;
     const role = who === 'admin' ? UserRole.ADMIN : UserRole.SUPER_ADMIN;
+    // A platform owner uses a cockpit token: no tenant header, no role header (Epic 98 wave 5).
     const set = (r: supertest.Test) =>
-      r
-        .set('Authorization', `Bearer ${tokens[who]}`)
-        .set('X-Tenant-ID', tenant)
-        .set('X-Role', role);
+      who === 'super'
+        ? r.set('Authorization', `Bearer ${tokens[who]}`)
+        : r
+            .set('Authorization', `Bearer ${tokens[who]}`)
+            .set('X-Tenant-ID', schoolId)
+            .set('X-Role', role);
     const http = supertest(app.getHttpServer());
     return {
       get: (path: string) => set(http.get(`${API}/${path}`)),
@@ -68,7 +66,7 @@ describe('platform billing E2E', () => {
     await app.init();
     ds = app.get(DataSource);
 
-    for (const u of [SUPER, ADMIN, LOCAL_SUPER]) {
+    for (const u of [ADMIN, LOCAL_SUPER]) {
       await ds.query(
         `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
          VALUES ($1, $2, $3, 'Platform Billing E2E', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
@@ -77,18 +75,10 @@ describe('platform billing E2E', () => {
     }
     await ds.query(
       `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-      [randomUUID()],
-    );
-    platformId = (await ds.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0].id;
-    await ds.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
        VALUES ($1, 'Platform Billing E2E School', $2, NOW(), NOW())`,
       [schoolId, `platform-billing-e2e-${schoolId}`],
     );
     for (const [u, tenant, role] of [
-      [SUPER, platformId, UserRole.SUPER_ADMIN],
       [ADMIN, schoolId, UserRole.ADMIN],
       [LOCAL_SUPER, schoolId, UserRole.SUPER_ADMIN],
     ] as const) {
@@ -105,14 +95,15 @@ describe('platform billing E2E', () => {
           .send({ email, password: SEED_ADMIN_PASSWORD })
           .expect(200)
       ).body.access_token as string;
-    tokens.super = await login(SUPER.email);
+    tokens.super = await mintCockpitToken(app, ds);
     tokens.admin = await login(ADMIN.email);
     tokens.localSuper = await login(LOCAL_SUPER.email);
   }, 60_000);
 
   afterAll(async () => {
+    await removeCockpitOwners(ds);
     await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
-      [SUPER.id, ADMIN.id, LOCAL_SUPER.id],
+      [ADMIN.id, LOCAL_SUPER.id],
     ]);
     await app.close();
   });
@@ -194,7 +185,9 @@ describe('platform billing E2E', () => {
         method: 'OFFLINE_BANK',
         // Stored normalised: upper-case, no dashes.
         gateway_ref: `SLIP${orderId.slice(0, 8).toUpperCase()}`,
-        recorded_by_user_id: SUPER.id,
+        recorded_by_user_id: JSON.parse(
+          Buffer.from(tokens.super.split('.')[1], 'base64url').toString(),
+        ).sub,
       },
     ]);
     const audits = await ds.query(

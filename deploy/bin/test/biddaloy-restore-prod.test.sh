@@ -164,6 +164,8 @@ run "${good[@]}"
 expect "5 the listing runs with TZ=UTC" has "-e TZ=UTC"
 expect "5 the empty check ignores default-school" has "default-school"
 expect "5 the empty check counts users" has "public.users"
+expect "5 the empty check ignores the is_platform home" has "is_platform"
+expect "5 the empty check ignores cockpit owners" has "public.platform_admins"
 
 # 6. restore.sh says the target has data (exit 3)
 FAIL_MATCH="restore.sh" FAIL_RC=3 run "${good[@]}"

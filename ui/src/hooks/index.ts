@@ -44,6 +44,7 @@ export {
   login,
   logout,
   logoutAll,
+  logoutAllReporting,
   requestOtp,
   resetPassword,
   sessionsQueryOptions,
@@ -1490,6 +1491,8 @@ export {
   usePlatformAttentionHealth,
   useStudentAttention,
 } from './attention/use-attention-queries';
+export { configureCockpitAttention } from './attention/cockpit-source';
+export { sourceGet } from '../api/attention';
 export {
   useHideAttentionItem,
   useMarkAttentionSeen,
@@ -1905,6 +1908,7 @@ export {
   type SaveGalleryAlbumInput,
 } from './use-website-gallery';
 export {
+  cockpitMfaKeys,
   cockpitSessionKeys,
   useCockpitDeviceOtp,
   useCockpitEnrolConfirm,
@@ -1912,8 +1916,10 @@ export {
   useCockpitForgotPassword,
   useCockpitLogin,
   useCockpitMfa,
+  useCockpitMfaStatus,
   useCockpitResetPassword,
   useCockpitSessions,
+  useRegenerateRecoveryCodes,
   useRevokeCockpitSession,
   type CockpitLoginInput,
   type CockpitSessionDto,

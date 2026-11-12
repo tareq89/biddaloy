@@ -6,14 +6,17 @@ import type {
   CockpitEnrolStartResponse,
   CockpitLoginResponse,
   CockpitMfaRequest,
+  CockpitMfaStatusDto,
 } from '@biddaloy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useApprovedMutation } from './approval';
 import { cockpitRequest } from './cockpit-request';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export const cockpitSessionKeys = createEntityKeys('cockpit-sessions');
+export const cockpitMfaKeys = createEntityKeys('cockpit-mfa');
 
 /** `GET /auth/cockpit/sessions` row (snake_case, same as the school app's session list). */
 export interface CockpitSessionDto {
@@ -85,6 +88,33 @@ export function useCockpitResetPassword() {
       post('/auth/cockpit/reset-password', input),
     retry: false,
   });
+}
+
+/** `GET /auth/cockpit/mfa-status` (server: CockpitMfaController, #4062). */
+export function useCockpitMfaStatus() {
+  return useQuery({
+    queryKey: cockpitMfaKeys.all,
+    queryFn: ({ signal }) =>
+      cockpitRequest<CockpitMfaStatusDto>({ url: '/auth/cockpit/mfa-status', signal }),
+    retry: shouldRetryQuery,
+  });
+}
+
+/** Needs a step-up token for `platform.recovery_codes`; the old codes stop working. */
+export function useRegenerateRecoveryCodes() {
+  const queryClient = useQueryClient();
+  return useApprovedMutation(
+    (_: void, { headers }) =>
+      cockpitRequest<{ recoveryCodes: string[] }>({
+        method: 'POST',
+        url: '/auth/cockpit/recovery-codes',
+        headers,
+      }),
+    {
+      approvalScope: 'platform.recovery_codes',
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: cockpitMfaKeys.all }),
+    },
+  );
 }
 
 export function useCockpitSessions() {

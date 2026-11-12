@@ -55,7 +55,7 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/bin/sleep"
 chmod +x "$WORK/bin/"*
 
 SECRET_PW='sup3r-secret-pw'
-printf 'POSTGRES_DB=biddaloy_staging\nRESTORE_DRILL_PUSH_URL=https://kuma.test/api/push/STAGINGTOKEN?status=up&msg=OK&ping=\nSMOKE_SCHOOL_SLUG=smoke\nSMOKE_ADMIN_EMAIL=a@x.test\nSMOKE_ADMIN_PASSWORD=%s\nSMOKE_TEACHER_EMAIL=t@x.test\nSMOKE_TEACHER_PASSWORD=%s\nSMOKE_SUPER_ADMIN_EMAIL=s@x.test\nSMOKE_SUPER_ADMIN_PASSWORD=%s\n' \
+printf 'POSTGRES_DB=biddaloy_staging\nRESTORE_DRILL_PUSH_URL=https://kuma.test/api/push/STAGINGTOKEN?status=up&msg=OK&ping=\nSMOKE_SCHOOL_SLUG=smoke\nSMOKE_ADMIN_EMAIL=a@x.test\nSMOKE_ADMIN_PASSWORD=%s\nSMOKE_TEACHER_EMAIL=t@x.test\nSMOKE_TEACHER_PASSWORD=%s\nSMOKE_COCKPIT_EMAIL=o@x.test\nSMOKE_COCKPIT_PASSWORD=%s\nSMOKE_COCKPIT_TOTP_SECRET=JBSWY3DPEHPK3PXP\n' \
   "$SECRET_PW" "$SECRET_PW" "$SECRET_PW" > "$WORK/opt/staging/.env"
 echo 'DEMO_RESET_PUSH_URL=https://kuma.test/api/push/DEMOTOKEN' > "$WORK/opt/demo/.env"
 echo 'LOG_ARCHIVE_PUSH_URL=https://kuma.test/api/push/LOGTOKEN' > "$WORK/opt/prod/.env"

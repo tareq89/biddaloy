@@ -46,7 +46,7 @@ export class PlatformProviderFailuresRule implements AttentionRuleShape {
       [new Date(ctx.now.getTime() - 3_600_000)],
     );
     if (!row || row.n < PROVIDER_FAILURE_THRESHOLD) return [];
-    const recipients = await platformRecipients(this.dataSource, pid);
+    const recipients = await platformRecipients(this.dataSource);
     if (!recipients.length) return [];
     return [
       {

@@ -1,4 +1,4 @@
-import { expect, loggedIn, test } from '../fixtures/test';
+import { cockpitOwner, expect, loggedIn, test } from '../fixtures/test';
 import type { Page } from '@playwright/test';
 import { t } from '../i18n';
 
@@ -262,8 +262,8 @@ test.describe('portal shell (parent)', () => {
   });
 });
 
-test.describe('platform console (super_admin)', () => {
-  test.use({ ...loggedIn('super_admin'), viewport: { width: 390, height: 844 } });
+test.describe('platform console (cockpit owner)', () => {
+  test.use({ ...cockpitOwner, viewport: { width: 390, height: 844 } });
 
   test('schools, holidays, dashboard + More at 390 px', async ({ page }) => {
     await page.goto('/schools');
@@ -274,11 +274,11 @@ test.describe('platform console (super_admin)', () => {
   test.describe('at 1280px', () => {
     test.use({ viewport: { width: 1280, height: 900 } });
 
-    test('the sidebar holds exactly four links', async ({ page }) => {
+    test('the sidebar holds exactly five links', async ({ page }) => {
       await page.goto('/schools');
       const sidebar = page.getByRole('navigation', { name: t('nav.navLabel') });
-      // Schools, Holiday sets, Subscriptions (#1821), Report usage (8.15).
-      await expect(sidebar.getByRole('link')).toHaveCount(4);
+      // Schools, Platform owners (98), Holiday sets, Subscriptions (#1821), Report usage (8.15).
+      await expect(sidebar.getByRole('link')).toHaveCount(5);
     });
   });
 });

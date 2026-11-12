@@ -13,10 +13,13 @@ import { Link2Off } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { loadRouteNamespaces } from '../route-loaders';
+
 import { GuestStatus } from './-guest-status';
 
 export const Route = createFileRoute('/sign-in/reset')({
   validateSearch: z.object({ token: z.string().max(200).optional().catch(undefined) }),
+  loader: () => loadRouteNamespaces('cockpit', 'auth', 'common'),
   component: ResetPage,
 });
 
@@ -76,7 +79,7 @@ function ResetPage() {
           reset.mutate(
             { token, newPassword },
             {
-              onSuccess: () => void navigate({ to: '/sign-in', search: { reset: '1' } as never }),
+              onSuccess: () => void navigate({ to: '/sign-in', search: { reset: '1' } }),
             },
           );
         }}

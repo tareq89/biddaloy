@@ -22,6 +22,7 @@ import {
   postAuthRefresh,
   postAuthResetPassword,
   postAuthVerifyEmail,
+  setTenantless,
   toApiError,
 } from './client';
 import { ApiError, NoActiveTenantError, RateLimitedError } from './errors';
@@ -50,6 +51,18 @@ describe('request interceptor: tenant/role/token injection', () => {
 
     await expect(apiClient.get('/students')).rejects.toBeInstanceOf(NoActiveTenantError);
     expect(apiMock.history.get.length).toBe(0);
+  });
+
+  it('[4100] cockpit host + no tenant sends without X-Tenant-ID; app host still throws', async () => {
+    apiMock.onGet('/schools').reply((config) => [200, { header: config.headers?.['X-Tenant-ID'] }]);
+    setTenantless(true);
+    try {
+      const res = await apiClient.get('/schools');
+      expect(res.data.header).toBeUndefined();
+    } finally {
+      setTenantless(false);
+    }
+    await expect(apiClient.get('/schools')).rejects.toBeInstanceOf(NoActiveTenantError);
   });
 
   it('attaches X-Tenant-ID when a tenant is active', async () => {

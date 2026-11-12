@@ -8,6 +8,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
 import { OwnerSeedingService } from './owner-seeding.service';
 import { PlatformHomeService } from './platform-home.service';
+import { hashPassword, verifyPassword } from '../auth/password-hash';
 
 describe('OwnerSeedingService (integration)', () => {
   let ds: DataSource;
@@ -25,15 +26,13 @@ describe('OwnerSeedingService (integration)', () => {
     COCKPIT_OWNER_2_PHONE: p2,
     ...over,
   });
-  const make = () =>
-    new OwnerSeedingService(ds, home, {
-      platformTenantId: async () => undefined,
-    } as never);
+  const enrol = vi.fn();
+  const make = () => new OwnerSeedingService(ds, home, { enrolWithKnownSecret: enrol } as never);
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
     ds = module.get<DataSource>(getDataSourceToken());
-    home = new PlatformHomeService(ds, { configuredPlatformTenantId: () => undefined } as never);
+    home = new PlatformHomeService(ds);
   });
 
   const cleanup = async () => {
@@ -51,8 +50,9 @@ describe('OwnerSeedingService (integration)', () => {
   };
   beforeEach(async () => {
     await cleanup();
-    home = new PlatformHomeService(ds, { configuredPlatformTenantId: () => undefined } as never);
+    home = new PlatformHomeService(ds);
     vi.restoreAllMocks();
+    enrol.mockReset();
   });
   afterAll(cleanup);
 
@@ -192,5 +192,60 @@ describe('OwnerSeedingService (integration)', () => {
     expect(all).not.toContain('owners.test');
     expect(all).not.toContain('01711');
     await ds.query(`DELETE FROM users WHERE email LIKE $1`, [`${tag}-x%`]);
+  });
+
+  describe('staging smoke owner (D16, D17)', () => {
+    const SMOKE = {
+      SMOKE_COCKPIT_EMAIL: e1,
+      SMOKE_COCKPIT_PASSWORD: 'Smoke-pass-12345-x',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+    };
+    const ownerRow = async () =>
+      (await ds.query(`SELECT id, password_hash FROM users WHERE email = $1`, [e1]))[0];
+    const devices = (id: string) =>
+      ds.query(`SELECT 1 FROM platform_admin_devices WHERE user_id = $1`, [id]);
+
+    it('seeds the password, the authenticator secret and a remembered device', async () => {
+      await make().seed(env({ ENV_NAME: 'staging', ...SMOKE }));
+      const row = await ownerRow();
+      expect(await verifyPassword(SMOKE.SMOKE_COCKPIT_PASSWORD, row.password_hash)).toBe(true);
+      expect(enrol).toHaveBeenCalledWith(row.id, SMOKE.SMOKE_COCKPIT_TOTP_SECRET);
+      expect(await devices(row.id)).toHaveLength(1);
+      // a second boot keeps one device row and the same hash
+      await make().seed(env({ ENV_NAME: 'staging', ...SMOKE }));
+      expect(await devices(row.id)).toHaveLength(1);
+      expect((await ownerRow()).password_hash).toBe(row.password_hash);
+    });
+
+    it('production with the same variables changes nothing', async () => {
+      await make().seed(env({ ENV_NAME: 'production', ...SMOKE }));
+      const row = await ownerRow();
+      expect(row.password_hash).toBeNull();
+      expect(enrol).not.toHaveBeenCalled();
+      expect(await devices(row.id)).toHaveLength(0);
+    });
+
+    it('dev (no ENV_NAME) with the same variables changes nothing', async () => {
+      await make().seed(env({ ...SMOKE }));
+      const row = await ownerRow();
+      expect(row.password_hash).toBeNull();
+      expect(enrol).not.toHaveBeenCalled();
+      expect(await devices(row.id)).toHaveLength(0);
+    });
+
+    it('replaces the scrub-assigned staging hash with the smoke password', async () => {
+      const staging = await hashPassword('shared-staging-pass');
+      await ds.query(`UPDATE users SET password_hash = $2 WHERE email = $1`, [e1, staging]);
+      await make().seed(env({ ENV_NAME: 'staging', ...SMOKE }));
+      const row = await ownerRow();
+      expect(await verifyPassword(SMOKE.SMOKE_COCKPIT_PASSWORD, row.password_hash)).toBe(true);
+    });
+
+    it('skips an email that is not an owner', async () => {
+      await make().seed(
+        env({ ENV_NAME: 'staging', ...SMOKE, SMOKE_COCKPIT_EMAIL: `${tag}-nobody@owners.test` }),
+      );
+      expect(enrol).not.toHaveBeenCalled();
+    });
   });
 });

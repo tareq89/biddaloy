@@ -4,6 +4,7 @@ import {
   getActiveTenant,
   initSentry,
   registerSessionExpiredHandler,
+  setTenantless,
   startQueueReplay,
   subscribeAuthState,
   updateSentryRouteTag,
@@ -19,6 +20,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { isCockpitHost } from './cockpit-host';
+import { showCockpitExpiredNotice } from './cockpit-session-expired';
 import { registerServiceWorker } from './pwa/register';
 import { RouteErrorFallbackWithUpdate } from './route-error-fallback';
 import { routeTree } from './routeTree.gen';
@@ -28,6 +30,7 @@ import './index.css';
 // [98.4.01]: on the cockpit host the session lives behind the cockpit
 // endpoints. Must run before the router renders (the root guard refreshes).
 if (isCockpitHost()) {
+  setTenantless(true);
   configureSessionEndpoints({
     refresh: '/auth/cockpit/refresh',
     logout: '/auth/cockpit/logout',
@@ -161,7 +164,8 @@ registerSessionExpiredHandler(() => {
   const { pathname, href } = router.state.location;
   const loginPath = isCockpitHost() ? '/sign-in' : '/login';
   if (pathname !== loginPath) {
-    void router.navigate({ to: loginPath as '/login', search: { redirect: href }, replace: true });
+    if (isCockpitHost()) showCockpitExpiredNotice();
+    void router.navigate({ to: loginPath, search: { redirect: href }, replace: true });
   }
 });
 

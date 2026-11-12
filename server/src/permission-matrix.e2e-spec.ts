@@ -121,34 +121,6 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason: '10.4 — self-service',
   },
   {
-    controller: 'PlatformBillingController',
-    method: 'GET',
-    path: '/platform/billing/schools',
-    reason:
-      "[49 W4] platform route (SUPER_ADMIN lists every school's seats and orders, PlatformSuperAdminGuard), same rationale as GET /schools.",
-  },
-  {
-    controller: 'PlatformBillingController',
-    method: 'GET',
-    path: '/platform/billing/schools/:id',
-    reason:
-      "[49 W4] platform route (SUPER_ADMIN reads one school's orders, PlatformSuperAdminGuard), same rationale as GET /schools.",
-  },
-  {
-    controller: 'PlatformBillingController',
-    method: 'POST',
-    path: '/platform/billing/orders/:id/offline-payment',
-    reason:
-      '[49 W4] platform route (SUPER_ADMIN records an offline payment, PlatformSuperAdminGuard), same rationale as GET /schools.',
-  },
-  {
-    controller: 'PlatformBillingController',
-    method: 'POST',
-    path: '/platform/billing/schools/:id/grant',
-    reason:
-      '[49 W4] platform route (SUPER_ADMIN grants seats, PlatformSuperAdminGuard), same rationale as GET /schools.',
-  },
-  {
     controller: 'OnboardingController',
     method: 'GET',
     path: '/onboarding/status',
@@ -229,80 +201,6 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     method: 'DELETE',
     path: '/schools/me/logo',
     reason: '15.5.3 — self-service removal, same as POST /schools/me/logo.',
-  },
-  {
-    controller: 'PlatformPresetsController',
-    method: 'POST',
-    path: '/platform/schools/:id/preset/reset',
-    reason:
-      '35.2.5 — platform route (SUPER_ADMIN undoes a school preset), same rationale as GET /schools; no new permission, RolesGuard(SUPER_ADMIN) is the whole check.',
-  },
-  {
-    controller: 'PlatformBackupHealthController',
-    method: 'GET',
-    path: '/platform/backups/health',
-    reason:
-      '14.12.3/#617 — platform route (SUPER_ADMIN cross-school backup health), same rationale as GET /schools.',
-  },
-  {
-    controller: 'PlatformAttentionHealthController',
-    method: 'GET',
-    path: '/platform/attention/health',
-    reason:
-      '[67.1.09] platform route (SUPER_ADMIN reads engine health, no tenant data), same rationale as GET /platform/backups/health.',
-  },
-  {
-    controller: 'PlatformReportUsageController',
-    method: 'GET',
-    path: '/platform/reports/usage',
-    reason:
-      '[8.15.45] platform route (SUPER_ADMIN reads report usage counts, aggregates only, no student, guardian or money rows), same rationale as GET /platform/attention/health.',
-  },
-  {
-    controller: 'PlatformAlertsController',
-    method: 'GET',
-    path: '/platform/alerts',
-    reason:
-      '[75.34] platform route (SUPER_ADMIN reads open platform alerts, no tenant data), same rationale as GET /platform/attention/health.',
-  },
-  {
-    controller: 'PublicHolidaysController',
-    method: 'GET',
-    path: '/platform/holiday-sets',
-    reason:
-      '17.2.4 — platform route (SUPER_ADMIN curates public-holiday sets), no tenant involved.',
-  },
-  {
-    controller: 'PublicHolidaysController',
-    method: 'GET',
-    path: '/platform/holiday-sets/:id',
-    reason:
-      '17.2.4 — platform route (SUPER_ADMIN curates public-holiday sets), no tenant involved.',
-  },
-  {
-    controller: 'PublicHolidaysController',
-    method: 'POST',
-    path: '/platform/holiday-sets/fetch',
-    reason:
-      '17.2.4 — platform route (SUPER_ADMIN fetches a country/year set from an external source).',
-  },
-  {
-    controller: 'PublicHolidaysController',
-    method: 'PUT',
-    path: '/platform/holiday-sets/:id/entries',
-    reason: '17.2.4 — platform route (SUPER_ADMIN edits set entries).',
-  },
-  {
-    controller: 'PublicHolidaysController',
-    method: 'POST',
-    path: '/platform/holiday-sets/:id/publish',
-    reason: '17.2.4 — platform route (SUPER_ADMIN publishes a set for tenants to import from).',
-  },
-  {
-    controller: 'PublicHolidaysController',
-    method: 'POST',
-    path: '/platform/holiday-sets/:id/unpublish',
-    reason: '17.2.4 — platform route (SUPER_ADMIN unpublishes a set).',
   },
   {
     controller: 'PushSubscriptionsController',

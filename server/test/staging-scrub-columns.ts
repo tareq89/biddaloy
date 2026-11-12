@@ -132,8 +132,8 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   user_recovery_codes: { 'delete-row': ['*'] },
   platform_admin_devices: { 'delete-row': ['*'] },
   platform_approvals: { 'delete-row': ['*'] },
-  // Platform switches (e.g. the two-owner approvals flag): config, no secrets or personal data.
-  platform_settings: { 'kept-public': ['value'] },
+  // Platform switches: emptied so staging starts from defaults (D26); owners come from staging secrets.
+  platform_settings: { 'delete-row': ['*'] },
   // [76.2] upload history keeps the file name and the parsed rows (names, card numbers).
   attendance_imports: { 'delete-row': ['*'] },
   // [76.1] the ID card number can identify a person.

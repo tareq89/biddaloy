@@ -26,6 +26,45 @@ export interface AttentionItemsQuery {
   locale?: AttentionLocale;
 }
 
+/** Where the bar, worklist and item actions talk. School shells: `/attention` through `apiClient`
+ * (tenant + role headers). The cockpit has no school, so it swaps in `/platform/attention` and a
+ * plain request (see `hooks/attention/cockpit-source.ts`). Set once at load, never per render. */
+export interface AttentionTransport {
+  get<T>(url: string, config?: { params?: unknown; signal?: AbortSignal }): Promise<{ data: T }>;
+  post<T>(url: string, body?: unknown): Promise<{ data: T }>;
+}
+
+const schoolHttp: AttentionTransport = {
+  get: <T>(url: string, config?: { params?: unknown; signal?: AbortSignal }) =>
+    apiClient.get<T>(url, config),
+  post: <T>(url: string, body?: unknown) => apiClient.post<T>(url, body),
+};
+const schoolSource: { base: string; cockpit: boolean; http: AttentionTransport } = {
+  base: '/attention',
+  cockpit: false,
+  http: schoolHttp,
+};
+let source = schoolSource;
+
+export function setAttentionSource(next: {
+  base: string;
+  http: AttentionTransport;
+  cockpit: boolean;
+}): void {
+  source = next;
+}
+
+/** Tests only: back to the school shells' source. */
+export function resetAttentionSource(): void {
+  source = schoolSource;
+}
+
+/** A GET that follows the active source: `apiClient` in a school shell, `cockpitRequest` on the cockpit. */
+export const sourceGet = <T>(url: string, signal: AbortSignal): Promise<{ data: T }> =>
+  source.http.get<T>(url, { signal });
+
+export const isCockpitAttention = (): boolean => source.cockpit;
+
 /** The server caps `POST /attention/items/seen` at 100 ids. */
 export const ATTENTION_SEEN_MAX = 100;
 
@@ -33,30 +72,37 @@ export async function getAttentionSummary(
   params: { role: string; locale: AttentionLocale },
   signal: AbortSignal,
 ): Promise<AttentionSummary> {
-  return (await apiClient.get<AttentionSummary>('/attention/summary', { params, signal })).data;
+  return (
+    await source.http.get<AttentionSummary>(`${source.base}/summary`, {
+      params: source.cockpit ? { locale: params.locale } : params,
+      signal,
+    })
+  ).data;
 }
 
 export async function getAttentionItems(
   query: AttentionItemsQuery,
   signal: AbortSignal,
 ): Promise<AlertItemsPage> {
-  return (await apiClient.get<AlertItemsPage>('/attention/items', { params: query, signal })).data;
+  return (await source.http.get<AlertItemsPage>(`${source.base}/items`, { params: query, signal }))
+    .data;
 }
 
 export async function hideAttentionItem(recipientId: string): Promise<AlertItem> {
-  return (await apiClient.post<AlertItem>(`/attention/items/${recipientId}/hide`)).data;
+  return (await source.http.post<AlertItem>(`${source.base}/items/${recipientId}/hide`)).data;
 }
 
 export async function snoozeAttentionItem(
   recipientId: string,
   body: { choice: SnoozeChoice; date?: string },
 ): Promise<AlertItem> {
-  return (await apiClient.post<AlertItem>(`/attention/items/${recipientId}/snooze`, body)).data;
+  return (await source.http.post<AlertItem>(`${source.base}/items/${recipientId}/snooze`, body))
+    .data;
 }
 
 export async function markAttentionSeen(recipientIds: string[]): Promise<{ updated: number }> {
   return (
-    await apiClient.post<{ updated: number }>('/attention/items/seen', {
+    await source.http.post<{ updated: number }>(`${source.base}/items/seen`, {
       recipientIds: recipientIds.slice(0, ATTENTION_SEEN_MAX),
     })
   ).data;
@@ -78,6 +124,9 @@ export async function getStudentAttention(
 export async function getPlatformAttentionHealth(
   signal: AbortSignal,
 ): Promise<PlatformAttentionHealth> {
+  // Always `apiClient`, never the cockpit source: `/platform/attention/health` still rejects a
+  // cockpit token (401), and a 401 on the cockpit transport ends the owner's whole session. On the
+  // cockpit host this fails fast (no active school) and the card shows its retry state instead.
   return (await apiClient.get<PlatformAttentionHealth>('/platform/attention/health', { signal }))
     .data;
 }

@@ -15,8 +15,6 @@ function fakes(opts: {
   closeRows?: { opened_at: Date; cleared_at: Date; sms_count: number }[];
   phones?: string[];
   env?: Record<string, string | undefined>;
-  /** `TenantStatusService.platformTenantId()`; `null` = no platform tenant. */
-  platformTenantId?: string | null;
 }) {
   const sql: string[] = [];
   const dataSource = {
@@ -42,17 +40,11 @@ function fakes(opts: {
       return { provider, config: { override: o?.override } };
     }),
   };
-  const tenantStatus = {
-    platformTenantId: vi.fn(async () =>
-      opts.platformTenantId === null ? undefined : (opts.platformTenantId ?? 'platform-tenant'),
-    ),
-  };
   const service = new PlatformAlertsService(
     dataSource as never,
     health as never,
     config as never,
     resolver as never,
-    tenantStatus as never,
   );
   return { service, dataSource, health, provider, resolver, sql };
 }
@@ -202,28 +194,20 @@ describe('PlatformAlertsService', () => {
       expect(await f.service.recipients()).toEqual(['01711111111', '01833333333']);
     });
 
-    it('ignores the env list when the DB has verified SUPER_ADMIN phones', async () => {
+    it('ignores the env list when the owners have verified phones', async () => {
       const f = fakes({ phones: ['01922222222'], env: { PLATFORM_ALERT_PHONES: '01711111111' } });
       expect(await f.service.recipients()).toEqual(['01922222222']);
     });
 
-    it('filters on the platform tenant (TenantStatusService.platformTenantId)', async () => {
-      const f = fakes({ phones: ['01922222222'], platformTenantId: 'tenant-1' });
+    // Epic 98: the owners (active, unlocked platform_admins), never school-local SUPER_ADMINs.
+    it('reads the unlocked platform_admins and never user_tenants', async () => {
+      const f = fakes({ phones: ['01922222222'] });
       await f.service.recipients();
-      const [text, params] = f.dataSource.query.mock.calls[0] as unknown as [string, string[]];
-      expect(text).toContain('ut.tenant_id = $1');
-      expect(params).toEqual(['tenant-1']);
-    });
-
-    // [75.34 review r1, F-2441-2] never text school-local SUPER_ADMINs across tenants.
-    it('with no platform tenant: env list only, and the users table is never queried', async () => {
-      const f = fakes({
-        phones: ['01922222222'],
-        platformTenantId: null,
-        env: { PLATFORM_ALERT_PHONES: '01711111111' },
-      });
-      expect(await f.service.recipients()).toEqual(['01711111111']);
-      expect(f.sql.some((q) => q.includes('FROM users u'))).toBe(false);
+      const [text] = f.dataSource.query.mock.calls[0] as unknown as [string];
+      expect(text).toContain('JOIN platform_admins pa');
+      expect(text).toContain('pa.locked_at IS NULL');
+      expect(text).toContain('u.phone_verified_at IS NOT NULL');
+      expect(text).not.toContain('user_tenants');
     });
   });
 
