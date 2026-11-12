@@ -55,7 +55,6 @@
     "onBody": "Signing in asks for a code from your authenticator app.",
     "offBody": "Add an authenticator app so a stolen password alone cannot get in.",
     "setUp": "Set up",
-    "replace": "Replace authenticator",
     "loadError": "We could not read your two-step status.",
     "retry": "Try again"
   },
@@ -78,7 +77,8 @@
     "error": "We could not load your devices.",
     "retry": "Try again",
     "revokedToast": "Device signed out.",
-    "revokeError": "That device could not be signed out. Try again."
+    "revokeError": "That device could not be signed out. Try again.",
+    "signOutAllFailed": "Some devices could not be reached and may still be signed in. Sign out everywhere again."
   },
   "help": {
     "twoStep": {

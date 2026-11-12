@@ -230,7 +230,7 @@ describe('cockpit attention source', () => {
     ]);
   });
 
-  it('platform health follows the cockpit source too', async () => {
+  it('platform health never goes through the cockpit transport (its 401 would end the session)', async () => {
     configureCockpitAttention();
     let hit = false;
     server.use(
@@ -239,8 +239,8 @@ describe('cockpit attention source', () => {
         return HttpResponse.json({});
       }),
     );
-    // No role, no tenant: the school source would reject before sending.
-    await getPlatformAttentionHealth(new AbortController().signal);
-    expect(hit).toBe(true);
+    // No tenant: the school client rejects before sending, so no 401 reaches the cockpit handler.
+    await expect(getPlatformAttentionHealth(new AbortController().signal)).rejects.toBeDefined();
+    expect(hit).toBe(false);
   });
 });
