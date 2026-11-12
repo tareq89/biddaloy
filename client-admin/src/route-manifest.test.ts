@@ -69,11 +69,12 @@ describe('e2e route manifest', () => {
     const marked = (manifest.routes as { path: string; host?: string }[])
       .filter((r) => r.host === 'cockpit')
       .map((r) => r.path);
-    expect(marked.sort()).toEqual(cockpit.sort());
+    // The platform screens (schools, holiday sets, ...) are host-tagged too since 98.5.
+    for (const p of cockpit) expect(marked).toContain(p);
     const kept = onSchoolHost(manifest.routes as { path: string; host?: string }[]).map(
       (r) => r.path,
     );
-    for (const p of cockpit) expect(kept).not.toContain(p);
-    expect(kept).toContain('/schools');
+    for (const p of marked) expect(kept).not.toContain(p);
+    expect(kept).toContain('/students');
   });
 });
