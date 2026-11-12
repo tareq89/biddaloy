@@ -76,7 +76,7 @@
     "@eslint/js": "^10.0.1",
     "@faker-js/faker": "^10",
     "@lhci/cli": "^0.16.0",
-    "@mermaid-js/mermaid-cli": "^11",
+    "@mermaid-js/mermaid-cli": "^12",
     "@playwright/test": "^1.65.0",
     "@swc/core": "^1.16.22",
     "@testing-library/dom": "^10.4.2",
