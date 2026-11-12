@@ -83,6 +83,7 @@ text, the reason and the enforcing test live in
 - **Platform routes live under `/platform/`.** Platform-only routes take a cockpit token and are refused on the app host (`404` at nginx); any exception is on `ALLOWED_OUTSIDE` (Epic 98, D2, D4). → [08-security §Rules 29](docs/architecture/08-security.md#rule-29-platform-routes-live-under-platform-and-are-refused-on-the-app-host)
 - **Cockpit sign-in needs two proofs.** Password, then authenticator code (new device: SMS + email too); every failure before both pass is the same answer (D3b, D6, D7, D23). → [08-security §Rules 30](docs/architecture/08-security.md#rule-30-a-cockpit-sign-in-needs-a-second-factor-and-answers-equally-until-both-proofs-pass)
 - **Platform tables are not school data.** Owner rows have no school, audit rows carry user ids only, and no school screen lists or edits an owner (D3b, D4). → [08-security §Rules 31](docs/architecture/08-security.md#rule-31-platform-tables-are-not-school-data)
+- **Login as is stamped and deny-listed.** An `imp` session fills `RequestActorContext`, which stamps every audit row; routes marked `@DenyWhenImpersonating` answer `403 IMPERSONATION_DENIED`, pinned by a snapshot; the Redis key `imp:<sid>` ends a session at once (Epic 99, D4, D6, D19). → [08-security §Rules 32](docs/architecture/08-security.md#rule-32-login-as-is-stamped-and-deny-listed)
 
 ## Documentation style (always, for any doc in this repo)
 
