@@ -30,6 +30,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   RegistrationController,
   UserController,
   MarksController,
+  ImpersonationExchangeController,
   CockpitAuthController,
   CockpitEnrolController,
   CockpitPasswordController,
@@ -79,12 +80,17 @@ export const FAIL_CLOSED = [
   // MarksController: the sheet import stages in Redis, so without it validate and commit cannot work.
   'POST /exams/:examId/marks/sheet/validate',
   'POST /exams/:examId/marks/sheet/commit',
+  // The code is the credential; a missing rate limit would allow unlimited guessing.
+  'POST /auth/impersonation/exchange',
 ];
 
 // Served without a rate limit while Redis is down: keeps signed-in people signed in, reads,
 // and routes that check no password or code. confirm-phone checks a code, but OtpService.verify
 // itself answers 503 when Redis is down, so it cannot fail open.
 export const FAIL_OPEN = [
+  // Bearer-token only banner status and end for a Login as session: no password or code.
+  'GET /auth/impersonation/me',
+  'POST /auth/impersonation/end',
   'POST /auth/refresh',
   'POST /auth/logout',
   'POST /auth/logout-all',

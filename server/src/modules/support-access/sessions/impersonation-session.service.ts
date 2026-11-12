@@ -169,7 +169,6 @@ export class ImpersonationSessionService {
       // D26 again: the person may have been suspended or removed since the ticket was approved.
       await this.assertEligible(m, who);
       await this.assertRoomForOneMore(m, who);
-      await this.replaceOlderLive(m, who, sid);
       const now = new Date();
       const expires = new Date(now.getTime() + IMPERSONATION_MAX_MINUTES * 60_000);
       const done = await this.rowsOf(
@@ -189,6 +188,8 @@ export class ImpersonationSessionService {
           'This session cannot be started.',
         );
       }
+      // Replace only after the ticket update won, so a 409 above has deleted no key.
+      await this.replaceOlderLive(m, who, sid);
       row.status = 'ACTIVE';
       row.started_at = now;
       row.expires_at = expires;
@@ -199,7 +200,8 @@ export class ImpersonationSessionService {
 
   /** #3799: the owner's write request was approved. */
   async grantWrite(sid: string): Promise<void> {
-    await this.repo.manager.transaction(async (m) => {
+    const notLive = () => fail(HttpStatus.CONFLICT, 'SESSION_NOT_LIVE', 'This session is not live.');
+    const live = await this.repo.manager.transaction(async (m) => {
       const rows: ImpersonationSession[] = await this.rowsOf(
         m.query(
           `UPDATE impersonation_sessions
@@ -209,16 +211,14 @@ export class ImpersonationSessionService {
           [sid],
         ),
       );
-      const notLive = () =>
-        fail(HttpStatus.CONFLICT, 'SESSION_NOT_LIVE', 'This session is not live.');
       if (rows.length === 0) throw notLive();
-      // XX: a key that ended meanwhile is never recreated (answer 409, the UPDATE rolls back).
-      // KEEPTTL: the hard cap stays.
-      const set = await this.redisOp(() =>
-        this.redis.set(impKey(sid), liveJson(rows[0]), 'KEEPTTL', 'XX'),
-      );
-      if (set !== 'OK') throw notLive();
+      return rows[0];
     });
+    // After COMMIT: a failed Redis write leaves the session locked (fails closed), never unlocked
+    // in Redis with a locked row. XX: a key that ended meanwhile is never recreated (409).
+    // KEEPTTL: the hard cap stays.
+    const set = await this.redisOp(() => this.redis.set(impKey(sid), liveJson(live), 'KEEPTTL', 'XX'));
+    if (set !== 'OK') throw notLive();
   }
 
   /** Ends one session. Returns false when it was already over (nothing written). */

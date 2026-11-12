@@ -421,7 +421,8 @@ describe('ContextGuard', () => {
       await expect(run(impReq({ method: 'GET' }))).resolves.toBeTruthy();
     });
 
-    it.each(['viewOnly', 'writeLocked'])('%s blocks writes, allows reads', async (flag) => {
+    // A restricted imp session: every write is 403 SUPPORT_VIEW_ONLY, before any tenant lookup.
+    const expectWritesBlocked = async (flag: 'viewOnly' | 'writeLocked') => {
       for (const method of ['POST', 'PATCH', 'DELETE', 'post']) {
         const error: any = await run(impReq({ method, imp: { [flag]: true } })).catch((e) => e);
         expect(error.getStatus()).toBe(403);
@@ -431,9 +432,27 @@ describe('ContextGuard', () => {
           details: { code: 'SUPPORT_VIEW_ONLY' },
         });
       }
+    };
+    const expectReadsAllowed = async (flag: 'viewOnly' | 'writeLocked') => {
       for (const method of ['GET', 'HEAD', 'OPTIONS']) {
         await expect(run(impReq({ method, imp: { [flag]: true } }))).resolves.toBeTruthy();
       }
+    };
+
+    it('viewOnly blocks writes', async () => {
+      await expectWritesBlocked('viewOnly');
+    });
+
+    it('viewOnly allows reads', async () => {
+      await expectReadsAllowed('viewOnly');
+    });
+
+    it('writeLocked blocks writes', async () => {
+      await expectWritesBlocked('writeLocked');
+    });
+
+    it('writeLocked allows reads', async () => {
+      await expectReadsAllowed('writeLocked');
     });
   });
 

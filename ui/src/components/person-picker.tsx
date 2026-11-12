@@ -43,7 +43,10 @@ export function PersonPicker({
   className,
 }: PersonPickerProps) {
   const uid = React.useId();
-  const [active, setActive] = React.useState<number>(-1);
+  const [activeId, setActiveId] = React.useState<string | undefined>();
+  // Track the active row by person id: a replaced result set drops it instead of re-pointing it.
+  const active = activeId ? items.findIndex((it) => it.id === activeId) : -1;
+  const setActive = (i: number) => setActiveId(items[i]?.id);
   const enabled = (i: number) => items[i] !== undefined && !items[i].disabledReason;
   const move = (dir: 1 | -1) => {
     for (let i = active + dir; i >= 0 && i < items.length; i += dir) {
@@ -60,8 +63,8 @@ export function PersonPicker({
         type="search"
         role="combobox"
         aria-label={searchLabel}
-        aria-expanded="true"
-        aria-controls={`${uid}-list`}
+        aria-expanded={items.length > 0}
+        aria-controls={items.length > 0 ? `${uid}-list` : undefined}
         aria-activedescendant={active >= 0 && items[active] ? optionId(active) : undefined}
         onChange={(e) => {
           setActive(-1);
