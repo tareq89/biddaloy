@@ -16,14 +16,29 @@
  * the More menu, and the add-admin / SMS-credit forms are dialogs.
  */
 import { StatusBadge, Skeleton, ErrorState } from '@biddaloy/ui/components';
-import { useSchools, useSchoolStats, useSchoolAdmins } from '@biddaloy/ui/hooks';
+import {
+  ApprovalModalHostProvider,
+  useSchools,
+  useSchoolStats,
+  useSchoolAdmins,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell } from '@biddaloy/ui/shells';
+import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { ArchiveRestoreIcon, RotateCcwIcon, UserPlusIcon } from 'lucide-react';
+import { ArchiveRestoreIcon, LogInIcon, RotateCcwIcon, UserPlusIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { LoginAsDialog } from '../../../features/cockpit/login-as/login-as-dialog';
+import { OverviewTab } from '../../../features/cockpit/school-360/overview-tab';
+import { PeopleTab } from '../../../features/cockpit/school-360/people-tab';
+import { ArchiveSchoolDialog } from '../../../features/cockpit/school-controls/archive-school-dialog';
+import { ExtendTrialDialog } from '../../../features/cockpit/school-controls/extend-trial-dialog';
+import { RenameSchoolDialog } from '../../../features/cockpit/school-controls/rename-school-dialog';
+import { StuckAdminDialog } from '../../../features/cockpit/school-controls/stuck-admin-dialog';
+import { HealthTab } from '../../../features/cockpit/school-support/health-tab';
+import { NotesTab } from '../../../features/cockpit/school-support/notes-tab';
+import { SupportAccessTab } from '../../../features/cockpit/school-support/support-access-tab';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AddAdminDialog } from './-detail/add-admin-form';
@@ -35,13 +50,31 @@ import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
 import { StatusActionDialog } from './-detail/status-action-dialog';
 
+const TAB_IDS = ['overview', 'people', 'supportAccess', 'notes', 'health'] as const;
+
 export const Route = createFileRoute('/_platform/schools/$schoolId')({
-  loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport', 'presetReset'),
+  // The active tab is `?tab=`; an unknown value falls back to Overview (useDetailShellTab).
+  validateSearch: (search: Record<string, unknown>): { tab?: string } =>
+    typeof search.tab === 'string' ? { tab: search.tab } : {},
+  loader: () =>
+    loadRouteNamespaces(
+      'platform',
+      'backup',
+      'bulkImport',
+      'presetReset',
+      'schoolControl',
+      'schoolSupport',
+      'school360',
+      'loginAs',
+      'common',
+    ),
   component: SchoolDetailPage,
 });
 
 function SchoolDetailPage() {
   const { t } = useTranslation('platform');
+  const { t: t360 } = useTranslation('school360');
+  const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const config = useRegionConfig();
   const { schoolId } = Route.useParams();
 
@@ -54,6 +87,12 @@ function SchoolDetailPage() {
   const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = React.useState(false);
   const [addAdminOpen, setAddAdminOpen] = React.useState(false);
+  const [dialog, setDialog] = React.useState<
+    'loginAs' | 'extendTrial' | 'rename' | 'archive' | 'stuckAdmin' | null
+  >(null);
+  const closeDialog = (open: boolean) => {
+    if (!open) setDialog(null);
+  };
 
   if (schoolsQuery.isLoading) {
     return (
@@ -77,8 +116,58 @@ function SchoolDetailPage() {
 
   const targetStatus = school.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
 
+  const tabs = [
+    {
+      id: 'overview',
+      label: t360('tabs.overview'),
+      content: (
+        <div className="space-y-6">
+          <OverviewTab schoolId={schoolId} />
+          <StatsCard
+            {...(statsQuery.data !== undefined ? { stats: statsQuery.data } : {})}
+            loading={statsQuery.isLoading}
+            {...(statsQuery.isError ? { error: t('schoolDetail.stats.loadError') } : {})}
+            onRetry={() => void statsQuery.refetch()}
+          />
+          <SeatsCard schoolId={schoolId} schoolName={school.name} />
+          <div className="grid gap-6 md:grid-cols-2 md:items-start">
+            <SmsCreditsCard schoolId={schoolId} />
+            <ResetPresetCard schoolId={schoolId} schoolName={school.name} />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'people',
+      label: t360('tabs.people'),
+      content: (
+        <PeopleTab
+          schoolId={schoolId}
+          onLoginAs={() => setDialog('loginAs')}
+          onStuckAdmin={() => setDialog('stuckAdmin')}
+        >
+          <AdminsCard
+            schoolId={schoolId}
+            {...(adminsQuery.data !== undefined ? { admins: adminsQuery.data } : {})}
+            loading={adminsQuery.isLoading}
+            {...(adminsQuery.isError ? { error: t('schoolDetail.admins.loadError') } : {})}
+            onRetry={() => void adminsQuery.refetch()}
+            onAdd={() => setAddAdminOpen(true)}
+          />
+        </PeopleTab>
+      ),
+    },
+    {
+      id: 'supportAccess',
+      label: t360('tabs.supportAccess'),
+      content: <SupportAccessTab schoolId={schoolId} onLoginAs={() => setDialog('loginAs')} />,
+    },
+    { id: 'notes', label: t360('tabs.notes'), content: <NotesTab schoolId={schoolId} /> },
+    { id: 'health', label: t360('tabs.health'), content: <HealthTab schoolId={schoolId} /> },
+  ];
+
   return (
-    <>
+    <ApprovalModalHostProvider>
       <DetailShell
         name={school.name}
         statusBadge={
@@ -91,7 +180,41 @@ function SchoolDetailPage() {
           { label: t('schools.columnSlug'), value: school.slug },
           { label: t('schools.columnCreated'), value: formatDate(school.created_at, config) },
         ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         actions={[
+          {
+            id: 'loginAs',
+            label: t360('header.loginAs'),
+            icon: <LogInIcon aria-hidden="true" />,
+            priority: 'secondary',
+            keepOnPhone: true,
+            onClick: () => setDialog('loginAs'),
+          },
+          {
+            id: 'extendTrial',
+            label: t360('header.extendTrial'),
+            priority: 'tertiary',
+            onClick: () => setDialog('extendTrial'),
+          },
+          {
+            id: 'rename',
+            label: t360('header.rename'),
+            priority: 'tertiary',
+            onClick: () => setDialog('rename'),
+          },
+          {
+            id: 'stuckAdmin',
+            label: t360('header.stuckAdmin'),
+            priority: 'tertiary',
+            onClick: () => setDialog('stuckAdmin'),
+          },
+          {
+            id: 'archive',
+            label: t360('header.archive'),
+            priority: 'tertiary',
+            onClick: () => setDialog('archive'),
+          },
           {
             id: 'addAdmin',
             label: t('schoolDetail.admins.addAction'),
@@ -128,27 +251,8 @@ function SchoolDetailPage() {
               ]
             : []),
         ]}
-      >
-        <StatsCard
-          {...(statsQuery.data !== undefined ? { stats: statsQuery.data } : {})}
-          loading={statsQuery.isLoading}
-          {...(statsQuery.isError ? { error: t('schoolDetail.stats.loadError') } : {})}
-          onRetry={() => void statsQuery.refetch()}
-        />
-        <SeatsCard schoolId={schoolId} schoolName={school.name} />
-        <AdminsCard
-          schoolId={schoolId}
-          {...(adminsQuery.data !== undefined ? { admins: adminsQuery.data } : {})}
-          loading={adminsQuery.isLoading}
-          {...(adminsQuery.isError ? { error: t('schoolDetail.admins.loadError') } : {})}
-          onRetry={() => void adminsQuery.refetch()}
-          onAdd={() => setAddAdminOpen(true)}
-        />
-        <div className="grid gap-6 md:grid-cols-2 md:items-start">
-          <SmsCreditsCard schoolId={schoolId} />
-          <ResetPresetCard schoolId={schoolId} schoolName={school.name} />
-        </div>
-      </DetailShell>
+        tabs={tabs}
+      />
 
       <AddAdminDialog schoolId={schoolId} open={addAdminOpen} onOpenChange={setAddAdminOpen} />
 
@@ -166,6 +270,41 @@ function SchoolDetailPage() {
         schoolId={schoolId}
         schoolName={school.name}
       />
-    </>
+
+      <LoginAsDialog
+        open={dialog === 'loginAs'}
+        onOpenChange={closeDialog}
+        schoolId={schoolId}
+        schoolName={school.name}
+        onInviteAdmin={() => {
+          setDialog(null);
+          setAddAdminOpen(true);
+        }}
+      />
+      <ExtendTrialDialog
+        open={dialog === 'extendTrial'}
+        onOpenChange={closeDialog}
+        schoolId={schoolId}
+        schoolName={school.name}
+      />
+      <RenameSchoolDialog
+        open={dialog === 'rename'}
+        onOpenChange={closeDialog}
+        schoolId={schoolId}
+        currentName={school.name}
+      />
+      <ArchiveSchoolDialog
+        open={dialog === 'archive'}
+        onOpenChange={closeDialog}
+        schoolId={schoolId}
+        schoolName={school.name}
+      />
+      <StuckAdminDialog
+        open={dialog === 'stuckAdmin'}
+        onOpenChange={closeDialog}
+        schoolId={schoolId}
+        schoolName={school.name}
+      />
+    </ApprovalModalHostProvider>
   );
 }
