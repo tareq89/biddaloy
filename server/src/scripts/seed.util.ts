@@ -32,7 +32,14 @@ import type { OrganisationSettings } from '@biddaloy/shared';
 import { EnrollmentStatus } from '@biddaloy/shared';
 import type { PlatformHomeService } from '../modules/platform-identity/platform-home.service';
 import type { MfaService } from '../modules/auth/mfa/mfa.service';
-import { DataSource, EntityManager, FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  FindOptionsWhere,
+  IsNull,
+  ObjectLiteral,
+  Repository,
+} from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -304,7 +311,10 @@ function dataSourceHost(ds: DataSource): string {
 
 /**
  * [98.6.1] Makes the dev SUPER_ADMIN a platform owner with a known TOTP secret, so e2e can sign in
- * to the cockpit. Idempotent. The old SUPER_ADMIN membership stays until Wave 5 (D23).
+ * to the cockpit. Idempotent. Also leaves the dev database in the post-cutover state (D2, D23): no
+ * school membership carries SUPER_ADMIN. Otherwise the first server boot would run
+ * `PlatformCutoverService`, turn every dev SUPER_ADMIN into an ADMIN, and a reversal's "is there
+ * another approver" rule (78 D1) would start refusing self-approval in e2e.
  */
 export async function ensureDevCockpitOwner(
   ds: DataSource,
@@ -330,6 +340,9 @@ export async function ensureDevCockpitOwner(
   );
   // Re-enrolling rewrites the same secret and clears last_step; harmless for a dev account.
   await mfa.enrolWithKnownSecret(user.id, env.COCKPIT_TEST_TOTP_SECRET ?? DEV_COCKPIT_TOTP_SECRET);
+  // Hard delete is fine on this dev-only path (refuses non-local databases without a test secret);
+  // `seedAccounts` re-creates the row on the next run and this removes it again.
+  await ds.query(`DELETE FROM user_tenants WHERE role = 'SUPER_ADMIN'`);
 }
 
 /** The academic chain + student roster the demo/CI database needs.

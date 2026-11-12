@@ -57,6 +57,17 @@ describe('ensureDevCockpitOwner (integration)', () => {
     );
   });
 
+  it('leaves no SUPER_ADMIN school membership, so the boot cutover has nothing to convert', async () => {
+    const [{ id: tenantId }] = await ds.query(`SELECT id FROM schools LIMIT 1`);
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'SUPER_ADMIN')`,
+      [userId, tenantId],
+    );
+    await ensureDevCockpitOwner(ds, home, mfa, {});
+    const left = await ds.query(`SELECT 1 FROM user_tenants WHERE role = 'SUPER_ADMIN'`);
+    expect(left).toHaveLength(0);
+  });
+
   it('refuses the public dev secret on a non-local database unless a secret is set', async () => {
     const remote = Object.create(ds, {
       options: { value: { ...ds.options, url: 'postgres://u:p@db.example.com:5432/x' } },
