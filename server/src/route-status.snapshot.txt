@@ -514,6 +514,7 @@ POST   /api/v1/platform/holiday-sets/fetch                                      
 GET    /api/v1/platform/impersonation                                            401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/impersonation                                            401 401 401 401 401 401 401 401 401 401 401 401
 DELETE /api/v1/platform/impersonation/:id                                        401 401 401 401 401 401 401 401 401 401 401 401
+POST   /api/v1/platform/impersonation/:id/request-write                          401 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/owners                                                   401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/owners/:userId/lock                                      401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/owners/:userId/unlock                                    401 401 401 401 401 401 401 401 401 401 401 401
@@ -791,6 +792,15 @@ POST   /api/v1/subjects                                                         
 DELETE /api/v1/subjects/:id                                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/subjects/:id                                                      401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS
 PATCH  /api/v1/subjects/:id                                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/support-access/confirm                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/support-access/platform-actions                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/support-access/requests                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/support-access/requests/:id/approve                               401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/support-access/requests/:id/deny                                  401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/support-access/sessions                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/support-access/sessions/:id/end                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/support-access/settings                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
+PUT    /api/v1/support-access/settings                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/surveys                                                           401 PASS PASS PASS 403 403 403 403 403 403 403 PASS
 POST   /api/v1/surveys                                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/surveys/:id                                                       401 PASS PASS PASS 403 403 403 403 403 403 403 PASS

@@ -53,6 +53,13 @@ export interface StartImpersonationRequest {
   targetUserId: string;
   reason: string;
   viewOnly: boolean;
+  /** An approved `ask` request to redeem (single use). */
+  ticketId?: string;
+}
+
+/** `POST /platform/impersonation/:id/request-write`: the owner of an emergency session asks to write. */
+export interface RequestWriteRequest {
+  reason: string;
 }
 
 /** `code` and `expiresAt` are present only when the session is already ACTIVE. */
@@ -103,9 +110,11 @@ export interface ImpersonationMeResponse {
 export interface SupportAccessSettingsDto {
   mode: SupportAccessMode;
   confirmedAt: string | null;
-  confirmedBy: string | null;
+  confirmedByName: string | null;
   textVersion: number;
   currentTextVersion: number;
+  /** True until an admin has ticked the box for the current text version. */
+  needsConfirmation: boolean;
 }
 
 export interface SupportRequestDto {

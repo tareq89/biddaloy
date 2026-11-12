@@ -5,6 +5,8 @@ import { requestActorContextMiddleware } from '../../common/request-actor-contex
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { DenyWhenImpersonatingInterceptor } from '../auth/deny-when-impersonating.interceptor';
+import { AccountAccessModule } from '../account-access/account-access.module';
+import { TrialModule } from '../schools/trial/trial.module';
 import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { User } from '../users/entities/user.entity';
@@ -17,6 +19,15 @@ import { ImpersonationCodeService } from './exchange/impersonation-code.service'
 import { ImpersonationExchangeController } from './exchange/impersonation-exchange.controller';
 import { PlatformImpersonationController } from './platform-impersonation.controller';
 import { ImpersonationSessionService } from './sessions/impersonation-session.service';
+import { ConsentGateService } from './consent/consent-gate.service';
+import { SupportAccessSettingsController } from './consent/support-access-settings.controller';
+import { SupportAccessSettingsService } from './consent/support-access-settings.service';
+import { SupportAccessNoticeService } from './notices/support-access-notice.service';
+import { SupportRequestsController } from './requests/support-requests.controller';
+import { SupportRequestsService } from './requests/support-requests.service';
+import { SupportSessionsController } from './school-view/support-sessions.controller';
+import { SupportSessionsService } from './school-view/support-sessions.service';
+import { School } from '../schools/entities/school.entity';
 
 // IMPERSONATION_REDIS is provided and exported by AuthModule (JwtStrategy reads it too), so this
 // module shares that one client by importing AuthModule instead of opening a second connection.
@@ -27,21 +38,32 @@ import { ImpersonationSessionService } from './sessions/impersonation-session.se
       PlatformSchoolNote,
       PlatformAnnouncement,
       User,
+      School,
     ]),
     AuthModule,
     SchoolsModule,
     AuditModule,
     PlatformIdentityModule,
+    TrialModule,
+    AccountAccessModule,
   ],
   controllers: [
     ImpersonationExchangeController,
     LoginAsCandidatesController,
     PlatformImpersonationController,
+    SupportAccessSettingsController,
+    SupportRequestsController,
+    SupportSessionsController,
   ],
   providers: [
     ImpersonationSessionService,
     ImpersonationCodeService,
     LoginAsCandidatesService,
+    ConsentGateService,
+    SupportAccessNoticeService,
+    SupportAccessSettingsService,
+    SupportRequestsService,
+    SupportSessionsService,
     { provide: APP_INTERCEPTOR, useClass: DenyWhenImpersonatingInterceptor },
   ],
 })

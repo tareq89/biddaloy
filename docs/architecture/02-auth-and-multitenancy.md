@@ -971,3 +971,23 @@ flowchart LR
 - **Test reset order.** `impersonation_sessions` (RESTRICT FK to `platform_admins` and `users`) was missing from `test/reset-order.ts`. One leftover row made the next spec file's setup fail with a foreign key error. `platform_school_notes` and `platform_announcements` were missing too, and the reset-order coverage guard caught them. Any new RESTRICT-FK table joins that list in the same ticket.
 - **Stale header.** The deny-list snapshot header said "empty until #3793"; it now lists marked routes, and the generating string in the e2e spec was changed to match.
 - **Open.** `SMOKE_IMPERSONATION=1` still reaches no workflow in this branch (#4081).
+
+## Learning: tenant control and Login as, Wave 3
+
+2026-11-12, Epic 99 wave 3 close (#3804). The consent, request, notice and rule files from #3798 to #3803 were built as loose files; #3804 wired them.
+
+```mermaid
+flowchart LR
+  O[Owner start<br/>POST /platform/impersonation] --> G{school mode}
+  G -- allowed --> A[ACTIVE + code, admins emailed]
+  G -- ask --> R[REQUESTED, admins asked]
+  R -- admin approves --> T[owner redeems ticketId once]
+  G -- blocked --> E[reason + two-owner approval,<br/>view-only emergency session]
+```
+
+- **Wire-only ticket, one real gap.** Seven providers and three controllers joined `SupportAccessModule`, two attention rules joined their rules modules. The module also needed `School` in `TypeOrmModule.forFeature`, plus `TrialModule` (for `AdminNoticeService`) and `AccountAccessModule` (for the delivery service).
+- **Two approval layers on one start.** `ApprovalGuard` always wants a `platform.login_as` step-up token (even with one owner). Only in `blocked` mode does `TwoPersonGuard` then add the second owner (`APPROVAL_REQUESTED`). The e2e spec mints a fresh step-up token per start and suspends other seeded owners so the owner count is its own.
+- **New route classification.** `POST /platform/impersonation/:id/request-write` needed an `ALLOWLIST` entry in `test/helpers/route-path.helper.ts`; `permission-matrix.e2e-spec.ts` fails on any unclassified cockpit route.
+- **Admin notices are logged, not delivered through the delivery spy.** `AdminNoticeService` writes `communication_logs` rows (`metadata.kind`); assert on those, not on `AccountAccessDeliveryService.deliver`.
+- **Shared DTOs followed the server.** `SupportAccessSettingsDto` now has `confirmedByName` and `needsConfirmation`; `StartImpersonationRequest` gained `ticketId?`; `RequestWriteRequest` is new. `schema.d.ts` regenerated.
+- **Deviation.** No i18n keys were added for `supportAccess.platformAction.*`: no UI renders them yet, so they ship with the admin screen ticket.

@@ -444,6 +444,10 @@ GET /study-plans/capacity | StudyPlansController | perm: SYLLABUS_READ
 GET /study-plans/progress.csv | StudyPlansController | perm: SYLLABUS_READ
 GET /subjects | SubjectController | perm: ACADEMIC_STRUCTURE_READ
 GET /subjects/:id | SubjectController | perm: ACADEMIC_STRUCTURE_READ
+GET /support-access/platform-actions | SupportSessionsController | perm: SETTINGS_MANAGE
+GET /support-access/requests | SupportRequestsController | perm: SETTINGS_MANAGE
+GET /support-access/sessions | SupportSessionsController | perm: SETTINGS_MANAGE
+GET /support-access/settings | SupportAccessSettingsController | perm: SETTINGS_MANAGE
 GET /surveys | SurveysController | perm: ACR_READ
 GET /surveys/:id | SurveysController | perm: ACR_READ
 GET /surveys/:id/results | SurveyResultsController | identity | roles: ADMIN,TEACHER
@@ -726,6 +730,7 @@ POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity | 
 POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/fetch | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/impersonation | PlatformImpersonationController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.login_as
+POST /platform/impersonation/:id/request-write | PlatformImpersonationController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.login_as
 POST /platform/owners/:userId/lock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_lock
 POST /platform/owners/:userId/unlock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_unlock
 POST /platform/schools/:id/preset/reset | PlatformPresetsController | identity | roles: SUPER_ADMIN
@@ -810,6 +815,10 @@ POST /study-plans/:id/copy-to-section | StudyPlansController | perm: SYLLABUS_MA
 POST /study-plans/import/commit | StudyPlansController | perm: SYLLABUS_READ
 POST /study-plans/import/validate | StudyPlansController | perm: SYLLABUS_READ
 POST /subjects | SubjectController | perm: CLASS_MANAGE
+POST /support-access/confirm | SupportAccessSettingsController | perm: SETTINGS_MANAGE
+POST /support-access/requests/:id/approve | SupportRequestsController | perm: SETTINGS_MANAGE
+POST /support-access/requests/:id/deny | SupportRequestsController | perm: SETTINGS_MANAGE
+POST /support-access/sessions/:id/end | SupportSessionsController | perm: SETTINGS_MANAGE
 POST /surveys | SurveysController | perm: ACR_WRITE
 POST /surveys/:id/close | SurveysController | perm: ACR_WRITE
 POST /surveys/:id/publish | SurveysController | perm: ACR_WRITE
@@ -861,6 +870,7 @@ PUT /staff/:userId/training | TrainingController | perm: STAFF_HR_MANAGE
 PUT /students/:studentId/subject-choices | SubjectChoicesController | perm: STUDENT_UPDATE
 PUT /study-plans/:id/exam-markers | StudyPlansController | perm: SYLLABUS_MANAGE
 PUT /study-plans/:id/lessons | StudyPlansController | perm: SYLLABUS_MANAGE
+PUT /support-access/settings | SupportAccessSettingsController | perm: SETTINGS_MANAGE
 PUT /website/custom-domain | CustomDomainController | perm: WEBSITE_MANAGE
 PUT /website/draft | SiteConfigController | perm: WEBSITE_MANAGE
 PUT /website/gallery/albums/:id/photos/order | GalleryController | perm: WEBSITE_MANAGE
