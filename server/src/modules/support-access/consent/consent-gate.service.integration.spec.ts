@@ -246,7 +246,11 @@ describe('ConsentGateService (integration)', () => {
       [s.id, AuditAction.SUPPORT_ACCESS_REQUESTED],
     );
     expect(audit).toHaveLength(1);
-    expect(audit[0].new_values).toEqual({ sessionId: s.id, kind: 'WRITE' });
+    expect(audit[0].new_values).toEqual({
+      sessionId: s.id,
+      kind: 'WRITE',
+      reason: 'Need to fix the marks',
+    });
     expect(notices.requestToAdmins).toHaveBeenCalledWith(w.school.id, s.id, expect.anything());
 
     // Still read-only until an admin decides.
