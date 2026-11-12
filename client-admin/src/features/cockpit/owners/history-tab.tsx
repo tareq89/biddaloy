@@ -18,7 +18,11 @@ export function HistoryTab() {
     {
       id: 'label',
       header: t('history.columnAction'),
-      accessorFn: (row) => <span className="font-medium">{row.label}</span>,
+      accessorFn: (row) => (
+        <span className="font-medium">
+          {t(`history.actions.${row.action}`, { defaultValue: row.label })}
+        </span>
+      ),
       card: 'title',
     },
     {
