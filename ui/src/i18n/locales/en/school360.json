@@ -1,0 +1,46 @@
+{
+  "tabsLabel": "School sections",
+  "tabs": {
+    "overview": "Overview",
+    "people": "People",
+    "supportAccess": "Support access",
+    "notes": "Notes",
+    "health": "Health"
+  },
+  "header": {
+    "loginAs": "Login as",
+    "controls": "School controls",
+    "extendTrial": "Extend trial",
+    "rename": "Rename school",
+    "archive": "Archive school",
+    "stuckAdmin": "Send admin a reset link"
+  },
+  "overview": {
+    "title": "At a glance",
+    "admins": "Admins",
+    "noAdmins": "This school has no admin yet.",
+    "activeByRole": "People by role",
+    "noPeople": "No people yet.",
+    "sms": "SMS balance",
+    "smsValue": "{{available}} available, {{reserved}} held",
+    "storage": "Files size",
+    "alerts": "Open alerts",
+    "noAlerts": "No open alerts.",
+    "lastActivity": "Last active",
+    "never": "Never",
+    "recentAudit": "Latest changes",
+    "noAudit": "No changes yet.",
+    "viaLoginAs": "via Login as",
+    "byActor": "by {{name}}",
+    "loadError": "Could not load the overview.",
+    "retry": "Try again"
+  },
+  "people": {
+    "countsTitle": "People by role",
+    "countsEmpty": "No people yet.",
+    "loadError": "Could not load the people counts.",
+    "retry": "Try again",
+    "loginAs": "Login as",
+    "stuckAdmin": "Send admin a reset link"
+  }
+}
