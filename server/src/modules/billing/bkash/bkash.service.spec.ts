@@ -389,3 +389,37 @@ describe('BkashService.reconcilePending', () => {
     expect(t.client.query).not.toHaveBeenCalled();
   });
 });
+
+describe('#2782 findings (unit)', () => {
+  it('F1: a new Pay keeps the earlier unsettled paymentID in the state', async () => {
+    t.redis.get.mockResolvedValue(
+      JSON.stringify({ paymentID: 'PAY1', pay_started_at: new Date().toISOString() }),
+    );
+    t.client.create.mockResolvedValue({ statusCode: '0000', paymentID: 'PAY2', bkashURL: 'u2' });
+    await t.svc.startPayment(SCHOOL, ORDER_ID);
+    const pay = t.redis.set.mock.calls.find((c) => c[0] === `bkash:pay:${ORDER_ID}`)!;
+    expect(JSON.parse(pay[1])).toMatchObject({ paymentID: 'PAY2', earlier: ['PAY1'] });
+  });
+
+  it('F2: a "success" return that did not complete reports failure, not success', async () => {
+    t.client.query.mockResolvedValue(initiated);
+    t.client.execute.mockResolvedValue({ ...initiated });
+    expect(await callback('success')).toEqual({ orderId: ORDER_ID, outcome: 'failure' });
+  });
+
+  it('F10: bKash saying Cancelled marks the payment dead, so offline payment is not blocked', async () => {
+    t.client.query.mockResolvedValue({ ...initiated, transactionStatus: 'Cancelled' });
+    await callback('cancel');
+    const pay = t.redis.set.mock.calls.find((c) => c[0] === `bkash:pay:${ORDER_ID}`)!;
+    expect(JSON.parse(pay[1])).toMatchObject({ paymentID: 'PAY1', dead: true });
+    t.redis.get.mockResolvedValue(pay[1]);
+    expect(await t.svc.paymentMayBeLive(ORDER_ID)).toBe(false);
+  });
+
+  it('F10: a URL saying cancel while bKash says Initiated does NOT mark it dead', async () => {
+    t.client.query.mockResolvedValue(initiated);
+    await callback('cancel');
+    const pay = t.redis.set.mock.calls.find((c) => c[0] === `bkash:pay:${ORDER_ID}`)!;
+    expect(JSON.parse(pay[1]).dead).toBeUndefined();
+  });
+});
