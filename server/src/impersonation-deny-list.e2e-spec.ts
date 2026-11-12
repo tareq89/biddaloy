@@ -43,10 +43,6 @@ const REQUIRED: Entry[] = [
   { route: 'POST /billing/orders/:id/pay/bkash' },
   { route: 'POST /auth/logout-all' },
   { route: 'DELETE /auth/sessions/:id' },
-];
-
-/** Routes Wave 3 adds: required only once the route exists. */
-const REQUIRED_WHEN_PRESENT: Entry[] = [
   { route: 'PUT /support-access/settings' },
   { route: 'POST /support-access/confirm' },
 ];
@@ -159,7 +155,7 @@ describe('Impersonation deny-list manifest (Epic 99 safety net)', () => {
 
   it('marks every D4 route that exists', () => {
     const found = walk(controllers, scanner);
-    expect(unmarked(found, [...REQUIRED, ...REQUIRED_WHEN_PRESENT])).toEqual([]);
+    expect(unmarked(found, REQUIRED)).toEqual([]);
   });
 
   it('fixture: a marked route missing from the snapshot would fail test 1', () => {
