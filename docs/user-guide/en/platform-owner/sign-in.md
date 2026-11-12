@@ -107,11 +107,10 @@ Nobody gives you a password. You make it yourself:
 
 ### A new phone or computer <a href="#task-device" id="task-device"></a>
 
-After your password the card says **New-device check**: "We sent one code by SMS and one code by email. Enter both."
+After your password and app code (or a recovery code), a new device needs a second check. The card says **New-device check**: "We sent one code by SMS and one code by email. Enter both."
 
 1. Type **Code from the SMS** and **Code from the email**.
 2. Tick **Remember this device** on your own computer, so the next sign-in only asks for the app code.
-3. Then type the app code as usual.
 
 Do not tick it on a shared computer.
 
@@ -119,7 +118,8 @@ Do not tick it on a shared computer.
 
 1. On the code step press **Use a recovery code**.
 2. Type one of the codes you saved in **Recovery code**, and sign in. Each recovery code works once.
-3. Open **Security** in the console and make new codes ([how](recovery-codes.md#task-new)).
+3. On a new device, the card then asks for the SMS code and email code ([new-device check](#task-device)). If you cannot receive them, tell the other owner. The person who runs the server can reset your second step.
+4. Your phone's authenticator is still the lost one, and new recovery codes cannot replace it. Ask the person who runs the server to reset your second step (below), then set up again.
 
 If you lost the phone **and** the recovery codes, no screen can help. Tell the other owner. The person who runs the server can reset your second step; you then sign in with your password and set up again (a new SMS code and email code, a new authenticator, new recovery codes).
 

@@ -1340,7 +1340,7 @@ dcp prod run --rm -T --no-deps app node server/dist/scripts/cockpit-replace-owne
 
 It refuses unless another owner stays active. After it, change `COCKPIT_OWNER_1_*` or `COCKPIT_OWNER_2_*` in the sops file for that stack, or the next boot warns that the configured owner no longer matches.
 
-**One owner lost the phone.** Sign in with a recovery code (**Use a recovery code**), then **Security**, **Make new codes**.
+**One owner lost the phone.** Sign in with a recovery code (**Use a recovery code**), then **Security**, **Make new codes**. This does not remove the lost authenticator. While an authenticator is enrolled, the Security screen offers no replacement, so the lost device stays a valid second factor. To remove it, use the `cockpit-reset-mfa` procedure below.
 
 **One owner lost the phone and the recovery codes** (break-glass, no screen for it):
 
@@ -1350,7 +1350,7 @@ dcp prod run --rm -T --no-deps app node server/dist/scripts/cockpit-reset-mfa.js
 
 It deletes that owner's second factor, recovery codes and remembered devices, ends their sessions, and writes an audit row (`PLATFORM_MFA_RESET`, user id only). The password stays. The owner signs in, types the SMS and email codes, and enrols a new authenticator and codes. It needs shell access to the server, the same trust as the database, so keep the list of people who have it short.
 
-**Both owners lost everything.** `cockpit-reset-mfa` works for any owner by email, and you are on the server, so run it for one owner. They sign in with their password (or set a new one with "Forgot your password?") and enrol again, then lock and re-enrol the other owner. If nobody remembers a password and no email works, `cockpit-replace-owner` cannot help (it needs another active owner); restore a backup ([13-backup-restore.md](13-backup-restore.md)) rather than editing rows by hand.
+**Both owners lost everything.** `cockpit-reset-mfa` works for any owner by email, and you are on the server, so run it for one owner. They sign in with their password (or set a new one with "Forgot your password?") and enrol again, then lock and re-enrol the other owner. If nobody remembers a password and no email works, and the other owner is still active and unlocked, run `cockpit-replace-owner` with a new email and phone you control. The new owner then sets a password with "Forgot your password?". If no other owner is active and unlocked, restore a backup ([13-backup-restore.md](13-backup-restore.md)) rather than editing rows by hand.
 
 > **UNVERIFIED on a real VM:** the two scripts ran in tests (`cockpit-replace-owner.integration.spec.ts`, `cockpit-reset-mfa.integration.spec.ts`) and the sign-in ran in e2e, not on a live host or with real SMS and email.
 
