@@ -162,6 +162,8 @@ jobs:
 
       - name: Seed database
         run: yarn workspace @biddaloy/server seed
+        env:
+          SEED_COCKPIT_OWNER: "true"
 
       # No PWA/offline suite here — it's chromium-CDP-only by design
       # (see ci.yml's e2e job comment) and already runs on every PR, so

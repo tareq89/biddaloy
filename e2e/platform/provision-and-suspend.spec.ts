@@ -4,9 +4,10 @@ import {
   E2E_PASSWORD,
   findSchoolIdBySlug,
   resendSchoolAdminInvitation,
-  superAdminApiSession,
+  platformApiSession,
 } from '../api';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { shells } from '../config';
+import { cockpitOwner, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ActivatePage } from '../pages/activate-page';
 import { AppShellPage } from '../pages/app-shell';
@@ -42,12 +43,13 @@ import { SchoolPickerPage } from '../pages/school-picker';
  * since this isn't an application fault.
  */
 
-test.use(loggedIn('super_admin'));
+test.use(cockpitOwner);
 
 test('provision a school, activate its admin, suspend it, and reactivate it', async ({
   page,
   request,
   browser,
+  playwright,
 }) => {
   // Eight steps across two roles and two browser contexts (a wizard, an
   // activation, a suspension, a tenant switch, a reactivation) — ran to
@@ -62,7 +64,8 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
 
   let schoolId = '';
   let adminUserId = '';
-  // `browser.newContext()` would inherit this test's super_admin session.
+  // `browser.newContext()` would inherit this test's platform-owner session and cockpit host.
+  const appRequest = await playwright.request.newContext({ baseURL: shells.app.baseURL });
   const signedOut = { cookies: [], origins: [] };
 
   await test.step('SUPER_ADMIN provisions a new school and its first admin via the wizard', async () => {
@@ -91,13 +94,16 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     ).toBeVisible();
   });
 
-  const superAdmin = await superAdminApiSession(request);
+  const superAdmin = await platformApiSession(request);
 
   await test.step('the invited admin activates, sets a password, and lands in the new school', async () => {
     const token = await resendSchoolAdminInvitation(request, superAdmin, schoolId, adminUserId);
 
     // Its own signed-out context: activation signs it in with one membership.
-    const activationContext = await browser.newContext({ storageState: signedOut });
+    const activationContext = await browser.newContext({
+      baseURL: shells.app.baseURL,
+      storageState: signedOut,
+    });
     const activationPage = await activationContext.newPage();
     const activate = new ActivatePage(activationPage);
     await activate.goto(token);
@@ -124,19 +130,22 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     expect(added.userId).toBe(adminUserId);
     expect(added.invitation.status).toBe('PENDING');
 
-    const login = await request.post('/api/v1/auth/login', {
+    const login = await appRequest.post('/api/v1/auth/login', {
       data: { email: adminEmail, password: E2E_PASSWORD },
     });
     expect(login.ok()).toBe(true);
     const body = (await login.json()) as { access_token: string };
     await acceptSchoolInvite(
-      request,
+      appRequest,
       { token: body.access_token, tenantId: schoolId },
       added.invitation.id,
     );
   });
 
-  const adminContext = await browser.newContext({ storageState: signedOut });
+  const adminContext = await browser.newContext({
+    baseURL: shells.app.baseURL,
+    storageState: signedOut,
+  });
   const adminPage = await adminContext.newPage();
 
   await test.step('the admin signs in, picks the new school, and lands on its dashboard', async () => {
@@ -238,4 +247,5 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
   });
 
   await adminContext.close();
+  await appRequest.dispose();
 });
