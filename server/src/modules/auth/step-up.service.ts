@@ -77,6 +77,11 @@ export const PLATFORM_APPROVAL_SCOPES: readonly ApprovalScope[] = [
   ApprovalScope.PLATFORM_APPROVAL_DECIDE,
   ApprovalScope.PLATFORM_RECOVERY_CODES,
   ApprovalScope.PLATFORM_LOGIN_AS,
+  // [Epic 99 #3816] The Wave 4 owner actions; without these the routes' step-up could never be minted.
+  ApprovalScope.PLATFORM_DELETE_SCHOOL,
+  ApprovalScope.PLATFORM_ANNOUNCE_ALL,
+  ApprovalScope.PLATFORM_OPS_ACTION,
+  ApprovalScope.PLATFORM_SCHOOL_CONTROL,
 ];
 
 export interface StepUpOtpRequestResult {

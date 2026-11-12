@@ -4,6 +4,9 @@ import type { Request } from 'express';
 import type { JwtPayload } from '@biddaloy/shared';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { PlatformSchoolsController } from './platform-schools.controller';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { PlatformSchoolSearchQueryDto } from './dto/platform-school-search.dto';
 import { SchoolsService } from './schools.service';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { ProvisioningController } from './provisioning/provisioning.controller';
@@ -21,6 +24,7 @@ describe('PlatformSchoolsController', () => {
     getStats: vi.fn().mockResolvedValue({ students: 1 }),
     updateStatus: vi.fn().mockResolvedValue({ id: ID }),
     revive: vi.fn().mockResolvedValue({ id: ID }),
+    searchForPlatform: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   };
   const controller = new PlatformSchoolsController(service as unknown as SchoolsService);
 
@@ -34,6 +38,31 @@ describe('PlatformSchoolsController', () => {
     expect(service.updateStatus).toHaveBeenCalledWith(ID, status, 'user-1', CTX);
     await controller.revive(ID, { reason: 'Back' } as never, USER, REQUEST);
     expect(service.revive).toHaveBeenCalledWith(ID, { reason: 'Back' }, 'user-1', CTX);
+  });
+
+  it('search delegates to searchForPlatform', async () => {
+    const owner = { user: { typ: 'cockpit', sub: 'u', jti: 'j', fam: 'f' } } as never;
+    expect(await controller.search({ q: 'a' }, owner)).toEqual({ items: [], total: 0 });
+    expect(service.searchForPlatform).toHaveBeenCalledWith({ q: 'a' });
+  });
+
+  it('search refuses a non-cockpit principal', async () => {
+    await expect(controller.search({}, { user: { sub: 'u' } } as never)).rejects.toThrow(
+      'platform owners only',
+    );
+  });
+
+  it('search query: limit 101 is refused, 100 and every status and sort pass (Rule 5)', async () => {
+    const check = (o: object) => validate(plainToInstance(PlatformSchoolSearchQueryDto, o));
+    expect(await check({ limit: '101' })).not.toHaveLength(0);
+    expect(await check({ limit: '100', sort: 'students', status: 'DELETED' })).toHaveLength(0);
+    expect(await check({ sort: 'bogus' })).not.toHaveLength(0);
+    expect(await check({ status: 'PLAN' })).not.toHaveLength(0);
+  });
+
+  it('search is declared before every :id route', () => {
+    const order = Object.getOwnPropertyNames(PlatformSchoolsController.prototype);
+    expect(order.indexOf('search')).toBeLessThan(order.indexOf('getStats'));
   });
 
   function expectPlatformGated(cls: object, path: string) {

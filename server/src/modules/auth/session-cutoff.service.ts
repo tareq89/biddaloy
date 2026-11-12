@@ -20,7 +20,7 @@ export class SessionCutoffService {
    */
   async cutOff(userId: string, manager?: EntityManager, at: Date = new Date()): Promise<void> {
     await (manager ?? this.userRepo.manager).query(
-      `UPDATE "users" SET "tokens_valid_after" = $2 WHERE "id" = $1`,
+      `UPDATE "users" SET "tokens_valid_after" = GREATEST(COALESCE("tokens_valid_after", $2), $2) WHERE "id" = $1`,
       [userId, at],
     );
   }

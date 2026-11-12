@@ -362,6 +362,25 @@ describe('ManualAlertsService (integration)', () => {
     }, 60000);
   });
 
+  describe('sendPlatform (Epic 99 D33)', () => {
+    it('is not capped, and a school own 20/day budget ignores platform alerts', async () => {
+      const owner = await mkUser('platform-owner');
+      await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+      try {
+        // 21 platform alerts in one school: no 429, because sendPlatform has no cap guard
+        for (let i = 0; i < 21; i++) await service.sendPlatform(SEED_TENANT_ID, owner, dto());
+        // none of them counts, so the school still has its full 20
+        for (let i = 0; i < 20; i++) await service.send(SEED_TENANT_ID, teacher, dto());
+        await expect(service.send(SEED_TENANT_ID, teacher, dto())).rejects.toMatchObject({
+          status: 429,
+        });
+      } finally {
+        await ds.query(`DELETE FROM alerts WHERE tenant_id = $1`, [SEED_TENANT_ID]);
+        await ds.query(`DELETE FROM platform_admins WHERE user_id = $1`, [owner]);
+      }
+    }, 120000);
+  });
+
   describe('list and withdraw', () => {
     it('list returns seenCount and recipientCount, tenant-scoped, newest first', async () => {
       const a = await service.send(SEED_TENANT_ID, teacher, dto());
