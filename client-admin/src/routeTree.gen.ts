@@ -50,14 +50,17 @@ import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
 import { Route as SignInForgotRouteImport } from './routes/sign-in.forgot'
 import { Route as SignInResetRouteImport } from './routes/sign-in.reset'
 import { Route as VTokenRouteImport } from './routes/v/$token'
+import { Route as PlatformAuditIndexRouteImport } from './routes/_platform/audit/index'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
+import { Route as PlatformOperationsIndexRouteImport } from './routes/_platform/operations/index'
 import { Route as PlatformOwnerSecurityIndexRouteImport } from './routes/_platform/owner-security/index'
 import { Route as PlatformPlatformOwnersIndexRouteImport } from './routes/_platform/platform-owners/index'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
 import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/schools/$schoolId'
 import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
 import { Route as PlatformSubscriptionsIndexRouteImport } from './routes/_platform/subscriptions/index'
+import { Route as PlatformUsersIndexRouteImport } from './routes/_platform/users/index'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
 import { Route as StaffAnalysisIndexRouteImport } from './routes/_staff/analysis/index'
@@ -395,6 +398,11 @@ const VTokenRoute = VTokenRouteImport.update({
   path: '/v/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlatformAuditIndexRoute = PlatformAuditIndexRouteImport.update({
+  id: '/audit/',
+  path: '/audit/',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
 const PlatformHolidaySetsIndexRoute =
   PlatformHolidaySetsIndexRouteImport.update({
     id: '/holiday-sets/',
@@ -407,6 +415,11 @@ const PlatformHolidaySetsSetIdRoute =
     path: '/holiday-sets/$setId',
     getParentRoute: () => PlatformRouteRoute,
   } as any)
+const PlatformOperationsIndexRoute = PlatformOperationsIndexRouteImport.update({
+  id: '/operations/',
+  path: '/operations/',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
 const PlatformOwnerSecurityIndexRoute =
   PlatformOwnerSecurityIndexRouteImport.update({
     id: '/owner-security/',
@@ -440,6 +453,11 @@ const PlatformSubscriptionsIndexRoute =
     path: '/subscriptions/',
     getParentRoute: () => PlatformRouteRoute,
   } as any)
+const PlatformUsersIndexRoute = PlatformUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
 const StaffAcademicYearsIndexRoute = StaffAcademicYearsIndexRouteImport.update({
   id: '/academic-years/',
   path: '/academic-years/',
@@ -1259,11 +1277,14 @@ export interface FileRoutesByFullPath {
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
+  '/audit/': typeof PlatformAuditIndexRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
+  '/operations/': typeof PlatformOperationsIndexRoute
   '/owner-security/': typeof PlatformOwnerSecurityIndexRoute
   '/platform-owners/': typeof PlatformPlatformOwnersIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
   '/subscriptions/': typeof PlatformSubscriptionsIndexRoute
+  '/users/': typeof PlatformUsersIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/analysis/': typeof StaffAnalysisIndexRoute
   '/applications/': typeof StaffApplicationsIndexRoute
@@ -1438,11 +1459,14 @@ export interface FileRoutesByTo {
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
+  '/audit': typeof PlatformAuditIndexRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
+  '/operations': typeof PlatformOperationsIndexRoute
   '/owner-security': typeof PlatformOwnerSecurityIndexRoute
   '/platform-owners': typeof PlatformPlatformOwnersIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
   '/subscriptions': typeof PlatformSubscriptionsIndexRoute
+  '/users': typeof PlatformUsersIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/analysis': typeof StaffAnalysisIndexRoute
   '/applications': typeof StaffApplicationsIndexRoute
@@ -1623,11 +1647,14 @@ export interface FileRoutesById {
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
+  '/_platform/audit/': typeof PlatformAuditIndexRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
+  '/_platform/operations/': typeof PlatformOperationsIndexRoute
   '/_platform/owner-security/': typeof PlatformOwnerSecurityIndexRoute
   '/_platform/platform-owners/': typeof PlatformPlatformOwnersIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_platform/subscriptions/': typeof PlatformSubscriptionsIndexRoute
+  '/_platform/users/': typeof PlatformUsersIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/analysis/': typeof StaffAnalysisIndexRoute
   '/_staff/applications/': typeof StaffApplicationsIndexRoute
@@ -1807,11 +1834,14 @@ export interface FileRouteTypes {
     | '/portal/applications/$applicationId'
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
+    | '/audit/'
     | '/holiday-sets/'
+    | '/operations/'
     | '/owner-security/'
     | '/platform-owners/'
     | '/schools/'
     | '/subscriptions/'
+    | '/users/'
     | '/academic-years/'
     | '/analysis/'
     | '/applications/'
@@ -1986,11 +2016,14 @@ export interface FileRouteTypes {
     | '/portal/applications/$applicationId'
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
+    | '/audit'
     | '/holiday-sets'
+    | '/operations'
     | '/owner-security'
     | '/platform-owners'
     | '/schools'
     | '/subscriptions'
+    | '/users'
     | '/academic-years'
     | '/analysis'
     | '/applications'
@@ -2170,11 +2203,14 @@ export interface FileRouteTypes {
     | '/portal/applications/$applicationId'
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
+    | '/_platform/audit/'
     | '/_platform/holiday-sets/'
+    | '/_platform/operations/'
     | '/_platform/owner-security/'
     | '/_platform/platform-owners/'
     | '/_platform/schools/'
     | '/_platform/subscriptions/'
+    | '/_platform/users/'
     | '/_staff/academic-years/'
     | '/_staff/analysis/'
     | '/_staff/applications/'
@@ -2564,6 +2600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_platform/audit/': {
+      id: '/_platform/audit/'
+      path: '/audit'
+      fullPath: '/audit/'
+      preLoaderRoute: typeof PlatformAuditIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
     '/_platform/holiday-sets/': {
       id: '/_platform/holiday-sets/'
       path: '/holiday-sets'
@@ -2576,6 +2619,13 @@ declare module '@tanstack/react-router' {
       path: '/holiday-sets/$setId'
       fullPath: '/holiday-sets/$setId'
       preLoaderRoute: typeof PlatformHolidaySetsSetIdRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/operations/': {
+      id: '/_platform/operations/'
+      path: '/operations'
+      fullPath: '/operations/'
+      preLoaderRoute: typeof PlatformOperationsIndexRouteImport
       parentRoute: typeof PlatformRouteRoute
     }
     '/_platform/owner-security/': {
@@ -2618,6 +2668,13 @@ declare module '@tanstack/react-router' {
       path: '/subscriptions'
       fullPath: '/subscriptions/'
       preLoaderRoute: typeof PlatformSubscriptionsIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/users/': {
+      id: '/_platform/users/'
+      path: '/users'
+      fullPath: '/users/'
+      preLoaderRoute: typeof PlatformUsersIndexRouteImport
       parentRoute: typeof PlatformRouteRoute
     }
     '/_staff/academic-years/': {
@@ -3559,11 +3616,14 @@ interface PlatformRouteRouteChildren {
   PlatformHolidaySetsSetIdRoute: typeof PlatformHolidaySetsSetIdRoute
   PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
   PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
+  PlatformAuditIndexRoute: typeof PlatformAuditIndexRoute
   PlatformHolidaySetsIndexRoute: typeof PlatformHolidaySetsIndexRoute
+  PlatformOperationsIndexRoute: typeof PlatformOperationsIndexRoute
   PlatformOwnerSecurityIndexRoute: typeof PlatformOwnerSecurityIndexRoute
   PlatformPlatformOwnersIndexRoute: typeof PlatformPlatformOwnersIndexRoute
   PlatformSchoolsIndexRoute: typeof PlatformSchoolsIndexRoute
   PlatformSubscriptionsIndexRoute: typeof PlatformSubscriptionsIndexRoute
+  PlatformUsersIndexRoute: typeof PlatformUsersIndexRoute
 }
 
 const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
@@ -3571,11 +3631,14 @@ const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
   PlatformHolidaySetsSetIdRoute: PlatformHolidaySetsSetIdRoute,
   PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
   PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
+  PlatformAuditIndexRoute: PlatformAuditIndexRoute,
   PlatformHolidaySetsIndexRoute: PlatformHolidaySetsIndexRoute,
+  PlatformOperationsIndexRoute: PlatformOperationsIndexRoute,
   PlatformOwnerSecurityIndexRoute: PlatformOwnerSecurityIndexRoute,
   PlatformPlatformOwnersIndexRoute: PlatformPlatformOwnersIndexRoute,
   PlatformSchoolsIndexRoute: PlatformSchoolsIndexRoute,
   PlatformSubscriptionsIndexRoute: PlatformSubscriptionsIndexRoute,
+  PlatformUsersIndexRoute: PlatformUsersIndexRoute,
 }
 
 const PlatformRouteRouteWithChildren = PlatformRouteRoute._addFileChildren(
