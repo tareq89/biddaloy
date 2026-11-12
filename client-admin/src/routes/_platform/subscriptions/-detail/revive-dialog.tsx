@@ -1,5 +1,5 @@
 /**
- * Epic 49 W4: "Revive school" — `POST /schools/:id/revive` (#2717) for a school the idle job
+ * Epic 49 W4: "Revive school" — `POST /platform/schools/:id/revive` (#2717) for a school the idle job
  * paused or soft-deleted. The reason (5-500) is audited server-side.
  */
 import { ApiError } from '@biddaloy/ui/api';

@@ -23,7 +23,7 @@ const STORED = {
 };
 
 function mockCredits(body: object = { metering: 'OFF', available: 0, reserved: 0, ledger: {} }) {
-  server.use(http.get(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, () => HttpResponse.json(body)));
+  server.use(http.get('/api/v1/communications/sms-credits', () => HttpResponse.json(body)));
 }
 
 function mockPatch() {

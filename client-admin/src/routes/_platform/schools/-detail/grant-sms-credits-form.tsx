@@ -1,6 +1,6 @@
 /**
  * [15.6.8/#551] The SUPER_ADMIN console's grant/adjust form on the school
- * detail page — `POST /schools/:id/sms-credits`. `units` signs the
+ * detail page — `POST /platform/schools/:id/sms-credits`. `units` signs the
  * movement (positive grants, negative adjusts down), `reason` is
  * mandatory (min 5 chars, mirroring `GrantSmsCreditsDto`).
  *

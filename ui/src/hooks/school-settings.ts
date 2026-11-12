@@ -1,3 +1,10 @@
+/*
+ * [Epic 98 #3752/#3753] Platform-only URL map (old -> new); the mixed settings routes did not move:
+ *   GET|POST /schools                  -> /platform/schools
+ *   /schools/:id/stats|status|revive   -> /platform/schools/:id/...
+ *   /schools/:id/admins...             -> /platform/schools/:id/admins...
+ *   /schools/:id/sms-credits           -> /platform/schools/:id/sms-credits
+ */
 import type {
   ApplicationsSettings,
   BackupScheduleMode,
@@ -192,7 +199,7 @@ export type MessagingProviders = components['schemas']['MessagingProvidersRespon
 export const schoolsKeys = createEntityKeys('schools');
 export const schoolSettingsKeys = createEntityKeys('school-settings');
 
-/** `POST /schools` request/response shapes (#534's wizard, `#529`'s
+/** `POST /platform/schools` request/response shapes (#534's wizard, `#529`'s
  * `ProvisionSchoolDto`/response). Not in `schema.d.ts` yet — same
  * hand-typed-against-the-DTO gap `SchoolSummary` documents above, since
  * this repo regenerates `schema.d.ts` at integration time, not per-lane. */
@@ -215,7 +222,7 @@ export interface ProvisionSchoolResult {
   invitation: { id: string; status: string };
 }
 
-/** #8.7.13's super-admin school picker — `GET /schools` 401s for anyone
+/** #8.7.13's super-admin school picker — `GET /platform/schools` 401s for anyone
  * who isn't a SUPER_ADMIN (see `schools.controller.ts`), so callers should
  * pass `enabled: false` rather than firing this for an ADMIN, who has no
  * use for a picker anyway (they only ever configure their own school). */
@@ -225,7 +232,7 @@ export function useSchools(options: { enabled?: boolean; trial?: 'active' | 'exp
     queryKey: options.trial ? schoolsKeys.list({ trial: options.trial }) : schoolsKeys.lists(),
     queryFn: async () =>
       (
-        await apiClient.get<SchoolSummary[]>('/schools', {
+        await apiClient.get<SchoolSummary[]>('/platform/schools', {
           params: options.trial ? { trial: options.trial } : undefined,
         })
       ).data,
@@ -242,12 +249,12 @@ export function useSchools(options: { enabled?: boolean; trial?: 'active' | 'exp
  * just forwards whatever it's given, so a retried `.mutate()` call with
  * the same key hits `ProvisioningService`'s Redis-backed no-op replay
  * instead of creating a second school. Invalidates the list query on
- * success so `/schools` reflects the new row without a manual refetch. */
+ * success so `/platform/schools` reflects the new row without a manual refetch. */
 export function useProvisionSchool() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: ProvisionSchoolInput) =>
-      (await apiClient.post<ProvisionSchoolResult>('/schools', input)).data,
+      (await apiClient.post<ProvisionSchoolResult>('/platform/schools', input)).data,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: schoolsKeys.lists() });
     },
@@ -343,7 +350,7 @@ export function useSendTestMessage(schoolId: string) {
   });
 }
 
-/** #535's school detail page. `GET /schools/:id/stats` (#532) — five cheap
+/** #535's school detail page. `GET /platform/schools/:id/stats` (#532) — five cheap
  * platform metrics, hand-typed against `SchoolStats`
  * (`server/src/modules/schools/schools.service.ts`) since it's not in
  * `schema.d.ts` yet, same gap `SchoolSummary` documents above.
@@ -364,7 +371,8 @@ const schoolStatsKeys = createEntityKeys<never, string>('school-stats');
 export function schoolStatsQueryOptions(schoolId: string) {
   return queryOptions({
     queryKey: schoolStatsKeys.detail(schoolId),
-    queryFn: async () => (await apiClient.get<SchoolStats>(`/schools/${schoolId}/stats`)).data,
+    queryFn: async () =>
+      (await apiClient.get<SchoolStats>(`/platform/schools/${schoolId}/stats`)).data,
     enabled: Boolean(schoolId),
     retry: shouldRetryQuery,
   });
@@ -374,7 +382,7 @@ export function useSchoolStats(schoolId: string) {
   return useQuery(schoolStatsQueryOptions(schoolId));
 }
 
-/** `PATCH /schools/:id/status` (#530) response — mirrors
+/** `PATCH /platform/schools/:id/status` (#530) response — mirrors
  * `SchoolStatusResponse` (`schools.service.ts`), hand-typed for the same
  * not-yet-generated reason as `SchoolStats` above. */
 export interface SchoolStatusResult {
@@ -399,7 +407,8 @@ export function useUpdateSchoolStatus(schoolId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: UpdateSchoolStatusInput) =>
-      (await apiClient.patch<SchoolStatusResult>(`/schools/${schoolId}/status`, input)).data,
+      (await apiClient.patch<SchoolStatusResult>(`/platform/schools/${schoolId}/status`, input))
+        .data,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: schoolsKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: schoolsKeys.detail(schoolId) });
@@ -407,7 +416,7 @@ export function useUpdateSchoolStatus(schoolId: string) {
   });
 }
 
-/** `GET /schools/:id/admins` (#531) list item — mirrors
+/** `GET /platform/schools/:id/admins` (#531) list item — mirrors
  * `SchoolAdminListItem` (`school-admins.service.ts`), same hand-typed gap. */
 export interface SchoolAdminListItem {
   user_id: string;
@@ -424,7 +433,7 @@ export function schoolAdminsQueryOptions(schoolId: string) {
   return queryOptions({
     queryKey: schoolAdminsKeys.list({ schoolId }),
     queryFn: async () =>
-      (await apiClient.get<SchoolAdminListItem[]>(`/schools/${schoolId}/admins`)).data,
+      (await apiClient.get<SchoolAdminListItem[]>(`/platform/schools/${schoolId}/admins`)).data,
     enabled: Boolean(schoolId),
     retry: shouldRetryQuery,
   });
@@ -440,28 +449,31 @@ export interface AddSchoolAdminInput {
   phone?: string;
 }
 
-/** `POST /schools/:id/admins` (#531) — reuses the same find-or-create-user
- * path `POST /schools`'s own admin step does. Invalidates the admins list
+/** `POST /platform/schools/:id/admins` (#531) — reuses the same find-or-create-user
+ * path `POST /platform/schools`'s own admin step does. Invalidates the admins list
  * on success, same pattern `useProvisionSchool` uses for the schools list. */
 export function useAddSchoolAdmin(schoolId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: AddSchoolAdminInput) =>
-      (await apiClient.post<SchoolAdminListItem>(`/schools/${schoolId}/admins`, input)).data,
+      (await apiClient.post<SchoolAdminListItem>(`/platform/schools/${schoolId}/admins`, input))
+        .data,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: schoolAdminsKeys.list({ schoolId }) });
     },
   });
 }
 
-/** `POST /schools/:id/admins/:userId/resend-invitation` (#531) — 204, no
+/** `POST /platform/schools/:id/admins/:userId/resend-invitation` (#531) — 204, no
  * body, same shape as `users.ts`'s own `useResendInvitation` for a staff
  * member's invitation. */
 export function useResendSchoolAdminInvitation(schoolId: string, userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      await apiClient.post<void>(`/schools/${schoolId}/admins/${userId}/resend-invitation`);
+      await apiClient.post<void>(
+        `/platform/schools/${schoolId}/admins/${userId}/resend-invitation`,
+      );
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: schoolAdminsKeys.list({ schoolId }) });
@@ -469,12 +481,12 @@ export function useResendSchoolAdminInvitation(schoolId: string, userId: string)
   });
 }
 
-/** `DELETE /schools/:id/admins/:userId/invitation` (#531) — 204, no body. */
+/** `DELETE /platform/schools/:id/admins/:userId/invitation` (#531) — 204, no body. */
 export function useRevokeSchoolAdminInvitation(schoolId: string, userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      await apiClient.delete(`/schools/${schoolId}/admins/${userId}/invitation`);
+      await apiClient.delete(`/platform/schools/${schoolId}/admins/${userId}/invitation`);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: schoolAdminsKeys.list({ schoolId }) });

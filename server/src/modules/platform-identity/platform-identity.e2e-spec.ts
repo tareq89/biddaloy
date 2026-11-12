@@ -339,4 +339,52 @@ describe('Platform identity E2E', () => {
       .send({ enabled: true })
       .expect(200);
   }, 120000);
+
+  it('attention: an owner reads their own list, unknown rows are 404, school tokens are 401', async () => {
+    const a = await makeOwner();
+    await http().get(`${PLATFORM}/attention?tab=active`).set(auth(a)).expect(200);
+    await http().get(`${PLATFORM}/attention/summary`).set(auth(a)).expect(200);
+    await http()
+      .post(`${PLATFORM}/attention/items/seen`)
+      .set(auth(a))
+      .send({ recipientIds: [] })
+      .expect(200);
+
+    // A row that is not this owner's (or does not exist) is 404, never 403.
+    const unknown = '00000000-0000-4000-8000-0000000000aa';
+    await http().post(`${PLATFORM}/attention/items/${unknown}/hide`).set(auth(a)).expect(404);
+    await http()
+      .post(`${PLATFORM}/attention/items/${unknown}/snooze`)
+      .set(auth(a))
+      .send({ choice: 'TWO_HOURS' })
+      .expect(404);
+    await http().post(`${PLATFORM}/attention/items/not-a-uuid/hide`).set(auth(a)).expect(400);
+
+    // SUPER_ADMIN and ADMIN school tokens never reach the cockpit worklist.
+    const school = await http()
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const bearer = { Authorization: `Bearer ${school.body.access_token}` };
+    await http().get(`${PLATFORM}/attention`).set(bearer).expect(401);
+    await http().get(`${PLATFORM}/attention/summary`).set(bearer).expect(401);
+    await http().get(`${PLATFORM}/attention`).expect(401);
+  }, 60000);
+
+  it('moved school routes: an owner reaches /platform/schools, the old URL is gone, a school ADMIN is refused', async () => {
+    const a = await makeOwner();
+    await http().get(`${PLATFORM}/schools`).set(auth(a)).expect(200);
+    // The old path no longer has a handler.
+    await http().get('/api/v1/schools').set(auth(a)).expect(404);
+
+    const school = await http()
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const res = await http()
+      .get(`${PLATFORM}/schools`)
+      .set({ Authorization: `Bearer ${school.body.access_token}` });
+    expect([401, 403]).toContain(res.status);
+    await http().get(`${PLATFORM}/schools`).expect(401);
+  }, 60000);
 });

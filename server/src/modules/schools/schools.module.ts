@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { School } from './entities/school.entity';
 import { SchoolsService } from './schools.service';
 import { SchoolsController } from './schools.controller';
+import { PlatformSchoolsController } from './platform-schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
@@ -85,6 +86,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
   ],
   controllers: [
     SchoolsController,
+    PlatformSchoolsController,
     SchoolProfileController,
     SchoolLogoController,
     ProvisioningController,

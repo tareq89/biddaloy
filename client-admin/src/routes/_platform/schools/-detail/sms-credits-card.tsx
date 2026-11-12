@@ -1,7 +1,7 @@
 /**
  * [15.6.8/#551] The platform school-detail page's "SMS credits" card —
- * `POST /schools/:id/sms-credits` (#550) via `useGrantSmsCredits`, plus
- * (#570) `GET /schools/:id/sms-credits` via `useSmsCredits(..., schoolId)`
+ * `POST /platform/schools/:id/sms-credits` (#550) via `useGrantSmsCredits`, plus
+ * (#570) `GET /platform/schools/:id/sms-credits` via `useSmsCredits(..., schoolId)`
  * to show the balance the school already has on mount, not just after the
  * operator's next grant. The grant mutation still invalidates the
  * `sms-credits` query key broadly, so a successful grant refreshes this
