@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi } from 'vitest';
 import { PATH_METADATA } from '@nestjs/common/constants';
-import { ApprovalScope } from '@biddaloy/shared';
+import { ApprovalScope, AuditAction } from '@biddaloy/shared';
 import { CockpitMfaController } from './cockpit-mfa.controller';
 import { REQUIRE_APPROVAL_KEY } from '../decorators/require-approval.decorator';
 
@@ -42,6 +42,7 @@ describe('CockpitMfaController', () => {
     expect(out).toEqual({ recoveryCodes: ['a', 'b'] });
     expect(mfa.regenerateRecoveryCodes).toHaveBeenCalledWith('u1');
     const row = audit.record.mock.calls[0][0];
+    expect(row.action).toBe(AuditAction.PLATFORM_RECOVERY_REGENERATED);
     expect(row.performed_by_user_id).toBe('u1');
     expect(row.new_values).toEqual({ event: 'recovery_codes_regenerated' });
     expect(JSON.stringify(row)).not.toContain('"a"');

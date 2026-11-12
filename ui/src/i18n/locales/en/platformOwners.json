@@ -110,7 +110,8 @@
       "PLATFORM_OWNER_REPLACED": "Owner replaced",
       "PLATFORM_MFA_RESET": "Authenticator reset",
       "PLATFORM_PASSWORD_RESET": "Password reset",
-      "PLATFORM_SETTINGS_CHANGED": "Setting changed"
+      "PLATFORM_SETTINGS_CHANGED": "Setting changed",
+      "PLATFORM_RECOVERY_REGENERATED": "Recovery codes regenerated"
     },
     "loadMoreError": "Could not load more."
   }
