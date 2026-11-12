@@ -311,24 +311,54 @@ describe('Support access consent modes (e2e)', () => {
     expect(JSON.stringify(res.body)).toContain('TEXT_VERSION_STALE');
   }, 30000);
 
-  const schoolRoutes: [string, string][] = [
-    ['get', '/support-access/settings'],
-    ['put', '/support-access/settings'],
-    ['post', '/support-access/confirm'],
-    ['get', '/support-access/requests'],
-    ['post', `/support-access/requests/${randomUUID()}/approve`],
-    ['post', `/support-access/requests/${randomUUID()}/deny`],
-    ['get', '/support-access/sessions'],
-    ['get', '/support-access/platform-actions'],
-    ['post', `/support-access/sessions/${randomUUID()}/end`],
-  ];
-  it.each(schoolRoutes)(
-    '%s %s: missing or invalid X-Tenant-ID is 401',
-    async (method, path) => {
-      const call = () => (http() as any)[method](`${API}${path}`).set(bearer(adminA.token));
-      await call().expect(401);
-      await call().set('X-Tenant-ID', 'not-a-uuid').expect(401);
-    },
+  const expectTenantHeader401 = async (method: string, path: string) => {
+    const call = () => (http() as any)[method](`${API}${path}`).set(bearer(adminA.token));
+    await call().expect(401);
+    await call().set('X-Tenant-ID', 'not-a-uuid').expect(401);
+  };
+  it(
+    'get /support-access/settings: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('get', '/support-access/settings'),
+    30000,
+  );
+  it(
+    'put /support-access/settings: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('put', '/support-access/settings'),
+    30000,
+  );
+  it(
+    'post /support-access/confirm: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('post', '/support-access/confirm'),
+    30000,
+  );
+  it(
+    'get /support-access/requests: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('get', '/support-access/requests'),
+    30000,
+  );
+  it(
+    'post /support-access/requests/:id/approve: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('post', `/support-access/requests/${randomUUID()}/approve`),
+    30000,
+  );
+  it(
+    'post /support-access/requests/:id/deny: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('post', `/support-access/requests/${randomUUID()}/deny`),
+    30000,
+  );
+  it(
+    'get /support-access/sessions: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('get', '/support-access/sessions'),
+    30000,
+  );
+  it(
+    'get /support-access/platform-actions: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('get', '/support-access/platform-actions'),
+    30000,
+  );
+  it(
+    'post /support-access/sessions/:id/end: missing or invalid X-Tenant-ID is 401',
+    () => expectTenantHeader401('post', `/support-access/sessions/${randomUUID()}/end`),
     30000,
   );
 

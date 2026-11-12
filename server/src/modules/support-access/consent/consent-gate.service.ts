@@ -99,7 +99,8 @@ export class ConsentGateService {
       viewOnly: input.viewOnly,
       entryKind: ImpersonationEntryKind.NORMAL,
     });
-    if (mode === SupportAccessMode.ASK) {
+    // Notice follows the row `create` saved, not the earlier mode read (the mode can flip between).
+    if (row.status === 'REQUESTED') {
       await this.tell(
         row,
         input,
@@ -140,16 +141,33 @@ export class ConsentGateService {
 
   /** Guarded UPDATE: only this owner's live, locked EMERGENCY session with no open request. */
   async requestWrite(ownerId: string, sid: string, reason: string): Promise<void> {
-    const rows = rowsOf<{ tenant_id: string; role: string }>(
-      await this.repo.query(
-        `UPDATE impersonation_sessions SET write_requested_at = now()
+    let rows: { tenant_id: string; role: string }[] = [];
+    // Marker and audit commit together: a failed audit leaves the request retryable.
+    await this.repo.manager.transaction(async (m) => {
+      rows = rowsOf<{ tenant_id: string; role: string }>(
+        await m.query(
+          `UPDATE impersonation_sessions SET write_requested_at = now()
           WHERE id = $1 AND platform_admin_id = $2 AND status = 'ACTIVE'
             AND entry_kind = 'EMERGENCY' AND write_locked AND write_requested_at IS NULL
+            AND decided_at IS NULL
             AND expires_at > now()
         RETURNING tenant_id, role`,
-        [sid, ownerId],
-      ),
-    );
+          [sid, ownerId],
+        ),
+      );
+      if (rows.length === 0) return;
+      await this.audit.record(
+        {
+          action: AuditAction.SUPPORT_ACCESS_REQUESTED,
+          entity_type: 'ImpersonationSession',
+          entity_id: sid,
+          tenant_id: rows[0].tenant_id,
+          performed_by_user_id: ownerId,
+          new_values: { sessionId: sid, kind: 'WRITE', reason },
+        },
+        m,
+      );
+    });
     if (rows.length === 0) {
       const own = await this.repo.query(
         'SELECT 1 FROM impersonation_sessions WHERE id = $1 AND platform_admin_id = $2',
@@ -162,14 +180,6 @@ export class ConsentGateService {
       });
     }
     const r = rows[0];
-    await this.audit.record({
-      action: AuditAction.SUPPORT_ACCESS_REQUESTED,
-      entity_type: 'ImpersonationSession',
-      entity_id: sid,
-      tenant_id: r.tenant_id,
-      performed_by_user_id: ownerId,
-      new_values: { sessionId: sid, kind: 'WRITE' },
-    });
     try {
       const e = await this.entry(ownerId, r.tenant_id, r.role, reason);
       if (e) await this.notices.requestToAdmins(r.tenant_id, sid, e.entry);

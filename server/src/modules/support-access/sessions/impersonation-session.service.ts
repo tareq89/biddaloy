@@ -203,7 +203,7 @@ export class ImpersonationSessionService {
       const rows: ImpersonationSession[] = await this.rowsOf(
         m.query(
           `UPDATE impersonation_sessions
-              SET write_locked = false, write_requested_at = NULL
+              SET write_locked = false, view_only = false, write_requested_at = NULL
             WHERE id = $1 AND status = 'ACTIVE' AND expires_at > now()
         RETURNING platform_admin_id, target_user_id, tenant_id, role, view_only, entry_kind, write_locked`,
           [sid],

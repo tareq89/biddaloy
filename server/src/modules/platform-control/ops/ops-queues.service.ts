@@ -60,9 +60,18 @@ export class OpsQueuesService {
   async retryFailed(name: string, ownerId: string): Promise<OpsRetryResponseDto> {
     const queue = OPS_QUEUES.includes(name) ? this.find(name) : null;
     if (!queue) throw new NotFoundException('Queue not found.');
-    const before = (await queue.getJobCounts('failed')).failed ?? 0;
-    await queue.retryJobs({ state: 'failed', count: RETRY_BATCH });
-    const retried = Math.min(before, RETRY_BATCH);
+    // Bounded selection: retryJobs({count}) loops until every failed job is moved, so retry
+    // at most RETRY_BATCH jobs one by one and report what actually moved.
+    const failed = await queue.getFailed(0, RETRY_BATCH - 1);
+    let retried = 0;
+    for (const job of failed) {
+      try {
+        await job.retry('failed');
+        retried += 1;
+      } catch {
+        // job left the failed set meanwhile; not counted
+      }
+    }
     await this.audit.recordApproved({
       action: AuditAction.PLATFORM_QUEUE_RETRY,
       entity_type: 'PlatformAdmin',

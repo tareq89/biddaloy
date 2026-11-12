@@ -54,7 +54,7 @@ describe('ConsentGateService', () => {
     });
     activeOwnerIds.mockResolvedValue([]);
     svc = new ConsentGateService(
-      { query } as never,
+      { query, manager: { transaction: (fn: (m: unknown) => unknown) => fn({ query }) } } as never,
       { create, activate } as never,
       { supportAccessFresh } as never,
       notices as never,
@@ -78,7 +78,12 @@ describe('ConsentGateService', () => {
 
     it('ask: request sent to admins with the session id, never a started notice', async () => {
       mode(SupportAccessMode.ASK);
-      create.mockResolvedValue({ id: 'sid', platform_admin_id: 'owner-1', tenant_id: SCHOOL });
+      create.mockResolvedValue({
+        id: 'sid',
+        platform_admin_id: 'owner-1',
+        tenant_id: SCHOOL,
+        status: 'REQUESTED',
+      });
       await svc.start(req, input);
       expect(notices.requestToAdmins).toHaveBeenCalledWith(SCHOOL, 'sid', expect.anything());
       expect(notices.sessionStarted).not.toHaveBeenCalled();
@@ -175,8 +180,9 @@ describe('ConsentGateService', () => {
         expect.objectContaining({
           action: AuditAction.SUPPORT_ACCESS_REQUESTED,
           tenant_id: SCHOOL,
-          new_values: { sessionId: 'sid', kind: 'WRITE' },
+          new_values: { sessionId: 'sid', kind: 'WRITE', reason: 'Need to fix the fee' },
         }),
+        expect.anything(),
       );
       expect(notices.requestToAdmins).toHaveBeenCalledWith(SCHOOL, 'sid', expect.anything());
     });
@@ -203,6 +209,7 @@ describe('ConsentGateService', () => {
         "entry_kind = 'EMERGENCY'",
         'write_locked',
         'write_requested_at IS NULL',
+        'decided_at IS NULL',
         'expires_at > now()',
       ]) {
         expect(sql).toContain(frag);
