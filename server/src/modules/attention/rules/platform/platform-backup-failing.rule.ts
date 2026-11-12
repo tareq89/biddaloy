@@ -66,7 +66,7 @@ export class PlatformBackupFailingRule implements AttentionRuleShape {
       ),
     );
     if (!bad.length) return [];
-    const recipients = await platformRecipients(this.dataSource, pid);
+    const recipients = await platformRecipients(this.dataSource);
     if (!recipients.length) return [];
     return [
       {

@@ -52,6 +52,12 @@ import type {
 } from '../components/admin-verification-modal';
 import { AdminVerificationModal } from '../components/admin-verification-modal';
 
+import { cockpitRequest } from './cockpit-request';
+
+/** Owner scopes (`platform.*`): confirmed with an authenticator code on `POST /platform/step-up`,
+ * not the school's identifier + OTP/password flow. */
+export const isPlatformScope = (scope: string) => scope.startsWith('platform.');
+
 /** Rejected by a cancelled approval — `useApprovedMutation`'s caller sees
  * this rather than a generic `Error` so it can special-case "the admin
  * closed the modal" (e.g. don't show a toast) if it wants to. */
@@ -123,7 +129,23 @@ export function useStepUp() {
     retry: false,
   });
 
+  const platformVerifyMutation = useMutation({
+    mutationFn: async ({ scope, code }: { scope: string; code: string }) => {
+      const { approval_token } = await cockpitRequest<{ approval_token: string }>({
+        method: 'POST',
+        url: '/platform/step-up',
+        data: { scope, code },
+      });
+      return { approval_token } satisfies ApprovalResult;
+    },
+    retry: false,
+  });
+
   return {
+    /** Owner scope: the current authenticator code, nothing else. */
+    verifyPlatform: (scope: string, code: string) =>
+      platformVerifyMutation.mutateAsync({ scope, code }),
+    isVerifyingPlatform: platformVerifyMutation.isPending,
     /** The code is minted for `scope` only: the server rejects it under any other scope. */
     requestOtp: (identifier: string, scope: string) =>
       requestOtpMutation.mutateAsync({ identifier, scope }).then(() => undefined),
@@ -199,6 +221,11 @@ export function ApprovalModalHostProvider({ children }: { children: React.ReactN
       if (!current) {
         throw new Error('No approval request is queued.');
       }
+      if (isPlatformScope(current.scope)) {
+        const platformResult = await stepUp.verifyPlatform(current.scope, input.code ?? '');
+        setVerifyError(null);
+        return platformResult;
+      }
       const result = await stepUp.verify({
         identifier: input.identifier,
         method: input.method === 'otp' ? 'OTP' : 'PASSWORD',
@@ -248,7 +275,8 @@ export function ApprovalModalHostProvider({ children }: { children: React.ReactN
           onVerify={handleVerify}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
-          loading={stepUp.isVerifying}
+          codeOnly={isPlatformScope(current.scope)}
+          loading={stepUp.isVerifying || stepUp.isVerifyingPlatform}
           requestingOtp={stepUp.isRequestingOtp}
           error={verifyError}
         />

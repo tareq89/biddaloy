@@ -4,12 +4,13 @@
  * itself (one refresh-token row + one audit row per account per run), so use
  * dedicated smoke accounts in production. See docs/architecture/12-operations.md §7.
  *
+ * ENV_NAME=staging also runs the owner sign-in (SMOKE_COCKPIT_EMAIL/PASSWORD/TOTP_SECRET, D17).
  * Optional SMOKE_COCKPIT_DOMAIN + SMOKE_APP_DOMAIN (bare hosts): the cockpit fence checks.
  * Optional SMOKE_IMPERSONATION=1 (needs both domains): the Login as fence checks.
  * Optional SMOKE_FENCE_ORIGIN (e.g. http://nginx:80): send the fence requests to that origin with
  * the intended Host header, so a host behind Cloudflare Access is probed at nginx itself.
  *
- *   SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… (teacher, super_admin likewise) \
+ *   SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… (teacher likewise) \
  *     node scripts/smoke-post-deploy.mjs --base-url https://staging.example.com
  *
  * Credentials come from env only (arguments end up in shell history).
@@ -18,13 +19,12 @@
  * Optional SMOKE_INBOX_API_URL (test-inbox stacks): asks for a password reset for the admin
  * and waits until Mailpit shows the message (Epic 87, D25).
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ACCOUNTS = [
   ['admin', 'ADMIN'],
   ['teacher', 'TEACHER'],
-  ['super_admin', 'SUPER_ADMIN'],
 ];
 
 /** Pure. Returns the names of required env vars that are unset/empty. */
@@ -35,6 +35,25 @@ export function missingEnv(env) {
   ]);
   return names.filter((n) => !env[n]);
 }
+
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+/** Pure. RFC 6238 code: 6 digits, 30 s step, SHA-1 (the server's totp.util.ts options). */
+export function totpCode(secretBase32, nowMs = Date.now()) {
+  let bits = '';
+  for (const ch of secretBase32.replace(/=+$/, '').toUpperCase())
+    bits += B32.indexOf(ch).toString(2).padStart(5, '0');
+  const key = Buffer.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(nowMs / 30_000)));
+  const h = createHmac('sha1', key).update(counter).digest();
+  const o = h[h.length - 1] & 0xf;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
+
+/** Pure. The remembered-device cookie value; owner-seeding.service.ts `smokeDeviceCookie` matches. */
+export const smokeDeviceCookie = (secret) =>
+  createHash('sha256').update(`smoke-cockpit-device:${secret}`, 'utf8').digest('hex');
 
 /** Pure. `--base-url X` else SMOKE_BASE_URL, trailing slashes stripped. */
 export function resolveBaseUrl(argv, env) {
@@ -162,7 +181,6 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   const reads = [
     ['/api/v1/students?limit=1', 'teacher'],
     ['/api/v1/fees/dues?limit=1', 'admin'],
-    ['/api/v1/schools', 'super_admin'],
   ];
   for (const [path, who] of reads) {
     if ((await check('GET', path, who, { headers: sessions[who] })) === null) return done();
@@ -324,6 +342,77 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     );
     await fence('start without token on cockpit host', 'POST', cockpit, start, (s) => s === 401);
     await fence('start on app host', 'POST', app, start, refused);
+  }
+
+  // [98.5.01, D17] Staging only: the full owner sign-in (password, authenticator, a read, sign out).
+  // Production never runs it. The remembered smoke device skips the SMS/email step; the seed
+  // (OwnerSeedingService) set up the owner, password, secret and device.
+  if (env.ENV_NAME === 'staging') {
+    const need = [
+      'SMOKE_COCKPIT_EMAIL',
+      'SMOKE_COCKPIT_PASSWORD',
+      'SMOKE_COCKPIT_TOTP_SECRET',
+    ].filter((n) => !env[n]);
+    if (need.length) {
+      out(`FAIL  cockpit sign-in: missing ${need.join(', ')}`);
+      result.failed++;
+      return done();
+    }
+    const api = '/api/v1/auth/cockpit';
+    const step1 = await check('POST', `${api}/login`, 'cockpit', {
+      body: { email: env.SMOKE_COCKPIT_EMAIL, password: env.SMOKE_COCKPIT_PASSWORD },
+      ok: (b) => b.step === 'mfa' && typeof b.mfaToken === 'string',
+    });
+    if (!step1) return done();
+    // `check` returns only the body, and the refresh cookie rides on the response: call mfa by hand.
+    let cookie = '';
+    let access = '';
+    let status = 'network error';
+    try {
+      const res = await fetch(`${baseUrl}${api}/mfa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `__Host-cockpit_device=${smokeDeviceCookie(env.SMOKE_COCKPIT_TOTP_SECRET)}`,
+        },
+        body: JSON.stringify({
+          mfaToken: step1.mfaToken,
+          code: totpCode(env.SMOKE_COCKPIT_TOTP_SECRET),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      status = String(res.status);
+      const b = res.status === 200 ? await res.json().catch(() => ({})) : {};
+      if (b.step === 'done' && typeof b.access_token === 'string') access = b.access_token;
+      cookie = (res.headers?.getSetCookie?.() ?? [])
+        .map((c) => c.split(';')[0])
+        .find((c) => c.startsWith('__Host-cockpit_refresh='));
+    } catch (e) {
+      status = e?.name === 'TimeoutError' ? 'timeout' : 'network error';
+    }
+    const signedIn = Boolean(access && cookie);
+    out(`${signedIn ? 'PASS' : 'FAIL'}  POST ${api}/mfa (cockpit)  ${status}`);
+    if (signedIn) result.passed++;
+    else result.failed++;
+    if (!signedIn) return done();
+    await check('GET', '/api/v1/platform/owners', 'cockpit', {
+      headers: { Authorization: `Bearer ${access}` },
+    });
+    // 204 has no body, so `check` (which needs JSON) cannot judge it.
+    let outStatus = 'network error';
+    try {
+      const res = await fetch(`${baseUrl}${api}/logout`, {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        signal: AbortSignal.timeout(10_000),
+      });
+      outStatus = String(res.status);
+    } catch {
+      // stays "network error"
+    }
+    out(`${outStatus === '204' ? 'PASS' : 'FAIL'}  POST ${api}/logout (cockpit)  ${outStatus}`);
+    if (outStatus === '204') result.passed++;
+    else result.failed++;
   }
 
   // [Epic 87] Test-inbox stacks only: a password reset for the admin must reach Mailpit.

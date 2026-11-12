@@ -168,7 +168,7 @@ grep -q "$OLD_TENANT" "$LOG/aws.log" && fail "_prev's objects must stay while _p
 grep -q "redis.invalid:6379 FLUSHDB" "$LOG/redis.log" || fail "the live Redis db was not flushed"
 expect "$(cat "$WORK/state/seed-redis-url")" redis://redis.invalid:6379/1 "the seed runs on the sweep's Redis db, not the live app's"
 grep -q "redis.invalid:6379/1 FLUSHDB" "$LOG/redis.log" || fail "the sweep's Redis db was not flushed"
-expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file holds default-school's id"
+[[ -s "$WORK/state/last-built" ]] || fail "built marker written"
 grep -q "demo rebuild ok — restart the app" "$WORK/out" || fail "the restart-the-app line is missing"
 grep -E '^[^#]*docker (restart|exec|run)' "$HERE/reset.sh" && fail "reset.sh must not call docker"
 grep -q "status=in_progress" "$LOG/curl.log" && grep -q "status=ok" "$LOG/curl.log" || fail "Sentry check-ins in_progress/ok missing"
@@ -218,7 +218,7 @@ expect "$rc" 3 "swapped but cleanup failed must exit 3, not 1"
 grep -q "demo rebuild swapped, cleanup failed — restart the app" "$WORK/out" || fail "exit 3 must still say restart the app"
 expect "$(marker "$LIVE")" night3 "the new database stays live"
 expect "$(marker "${LIVE}_prev")" night2 "_prev is the previous night"
-expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file still written"
+[[ -s "$WORK/state/last-built" ]] || fail "state file still written"
 grep -q "these steps failed: redis-flush purge-${LIVE}_prev_old" "$WORK/out" || { cat "$WORK/err" >&2; fail "partial failure not reported"; }
 grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
 pass "post-swap S3/Redis failure: state file written, exit 3 with the restart line, error reported"
@@ -303,7 +303,7 @@ grep -q "swap FAILED at reopen-live" "$WORK/err" || fail "reopen-live failure no
 grep -q "swap reported exit 1, but ${LIVE}_next is now ${LIVE}" "$WORK/out" || fail "committed swap not recognised"
 expect "$(marker "$LIVE")" night4 "the new database stays live"
 expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "recovery re-opened live"
-expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file written"
+[[ -s "$WORK/state/last-built" ]] || fail "state file written"
 grep -q "redis.invalid:6379 FLUSHDB" "$LOG/redis.log" || fail "the live Redis db was not flushed"
 pass "re-opening live fails once: committed swap recognised, state file written, Redis flushed"
 
@@ -319,7 +319,7 @@ pass "re-open keeps failing: reported, never exit 0"
 run_reset RUN_MARK=night5 PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}_next\" RENAME TO" PSQL_FAIL_ONCE=1 PSQL_FAIL_AFTER=1 \
   || { cat "$WORK/out" "$WORK/err" >&2; fail "a committed _next -> live rename should carry on"; }
 expect "$(marker "$LIVE")" night5 "the committed rename is live"
-expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file written"
+[[ -s "$WORK/state/last-built" ]] || fail "state file written"
 grep -q "psql reported an error, but ${LIVE}_next is now ${LIVE}" "$WORK/err" || fail "committed rename not logged"
 pass "_next -> live commits but reports an error: carries on to the end"
 
@@ -357,10 +357,10 @@ db_exists "${LIVE}_next" && fail "_next should be dropped after a refused swap"
 pass "swap refused (exit 2): live untouched, no restart line, exit 1"
 
 # ---- 14. the run is one-shot: a good run prints the restart line and exits 0, with no docker call
-rm -f "$WORK/state/platform-tenant-id"
+rm -f "$WORK/state/last-built"
 run_reset RUN_MARK=night7 || { cat "$WORK/err" >&2; fail "first run should pass without any app container"; }
 grep -q "^demo rebuild ok — restart the app$" "$WORK/out" || fail "restart line missing"
-[[ -s "$WORK/state/platform-tenant-id" ]] || fail "state file not written"
+[[ -s "$WORK/state/last-built" ]] || fail "state file not written"
 pass "one-shot: exit 0 with the restart-the-app line, no docker restart"
 
 echo "reset.infra.test.sh: all passed"

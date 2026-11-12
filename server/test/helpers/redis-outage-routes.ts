@@ -7,6 +7,7 @@ import { SchoolInvitesController } from '../../src/modules/account-access/school
 import { RegistrationController } from '../../src/modules/registration/registration.controller';
 import { CockpitAuthController } from '../../src/modules/auth/cockpit/cockpit-auth.controller';
 import { CockpitEnrolController } from '../../src/modules/auth/cockpit/cockpit-enrol.controller';
+import { CockpitMfaController } from '../../src/modules/auth/cockpit/cockpit-mfa.controller';
 import { CockpitPasswordController } from '../../src/modules/auth/cockpit/cockpit-password.controller';
 import { CockpitSessionController } from '../../src/modules/auth/cockpit/cockpit-session.controller';
 import { ImpersonationExchangeController } from '../../src/modules/support-access/exchange/impersonation-exchange.controller';
@@ -43,6 +44,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   PlatformOpsQueuesController,
   PlatformOpsSystemController,
   PlatformAnnouncementsController,
+  CockpitMfaController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -84,6 +86,8 @@ export const FAIL_CLOSED = [
   'POST /auth/cockpit/logout-all',
   'GET /auth/cockpit/sessions',
   'DELETE /auth/cockpit/sessions/:id',
+  'GET /auth/cockpit/mfa-status',
+  'POST /auth/cockpit/recovery-codes',
   // MarksController: the sheet import stages in Redis, so without it validate and commit cannot work.
   'POST /exams/:examId/marks/sheet/validate',
   'POST /exams/:examId/marks/sheet/commit',

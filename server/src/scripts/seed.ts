@@ -58,7 +58,7 @@ import { StaffAttendanceSession } from '../modules/staff-attendance/entities/sta
 import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
-import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
+import { DEV_SEED_DEFAULT_SCHOOL_ID } from '../config/env.validation';
 import { PlatformHomeService } from '../modules/platform-identity/platform-home.service';
 import { MfaService } from '../modules/auth/mfa/mfa.service';
 import { seedAccounts, ensureTrialDemoSeed } from './seed.accounts';
@@ -174,13 +174,9 @@ export async function seed() {
   const passwordHash = await hashPassword(adminPassword);
 
   // Ensure the default school exists — every account below is a member of
-  // it. `TenantStatusService.platformTenantId()` (used by ContextGuard)
-  // discovers this school by its slug (`default-school`) at request time
-  // outside production, so this school's SUPER_ADMIN is recognized as a
-  // genuine platform admin however this row got its id — no fixed id needs
-  // to line up between this script and the guard. `DEV_SEED_PLATFORM_TENANT_ID`
-  // below is only this script's own fallback id for a from-scratch create,
-  // not something anything else depends on.
+  // it. It is an ordinary dev school: `DEV_SEED_DEFAULT_SCHOOL_ID` is only this
+  // script's fallback id for a from-scratch create, and platform authority
+  // lives in `platform_admins`, not in any school.
   //
   // Looked up by id as well as slug: `server/test/reset-order.ts` inserts a
   // school with this same fixed id under the slug `test-school`, so a
@@ -189,11 +185,11 @@ export async function seed() {
   // test fixtures applied. On a clean database both lookups miss and the
   // school is created exactly as before.
   let school = await schoolRepository.findOne({
-    where: [{ slug: 'default-school' }, { id: DEV_SEED_PLATFORM_TENANT_ID }],
+    where: [{ slug: 'default-school' }, { id: DEV_SEED_DEFAULT_SCHOOL_ID }],
   });
   if (!school) {
     school = schoolRepository.create({
-      id: DEV_SEED_PLATFORM_TENANT_ID,
+      id: DEV_SEED_DEFAULT_SCHOOL_ID,
       name: 'Default School',
       slug: 'default-school',
     });
@@ -439,7 +435,7 @@ export async function seed() {
   const demoSchools = '(slug IN (:...slugs) OR id = :platformId)';
   const demo = {
     slugs: ['default-school', 'rose-valley-school', FRESH_DEMO_SCHOOL.slug],
-    platformId: DEV_SEED_PLATFORM_TENANT_ID,
+    platformId: DEV_SEED_DEFAULT_SCHOOL_ID,
   };
   await schoolRepository
     .createQueryBuilder()

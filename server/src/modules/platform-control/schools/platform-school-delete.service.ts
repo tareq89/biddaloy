@@ -77,7 +77,6 @@ export class PlatformSchoolDeleteService {
       );
       const school = rows[0];
       this.pick(school);
-    if (schoolId === this.tenantStatus.configuredPlatformTenantId()) throw platformHome();
       await m.query(
         `UPDATE schools
             SET deleted_at = $2, status = 'SUSPENDED', status_reason = $3, status_changed_at = $2

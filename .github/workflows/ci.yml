@@ -1188,6 +1188,9 @@ jobs:
 
       - name: Seed database
         run: yarn workspace @biddaloy/server seed
+        env:
+          # [98.5.09] e2e signs the platform owner in through the cockpit (e2e/api.ts cockpitSignIn)
+          SEED_COCKPIT_OWNER: "true"
 
       - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/4)
         env:

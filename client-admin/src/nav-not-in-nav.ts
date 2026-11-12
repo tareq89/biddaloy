@@ -62,6 +62,15 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_platform/schools/': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/schools/$schoolId': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/schools/new': 'platform admin page, has its own nav, not the staff sidebar',
+  '/_platform/platform-owners/': '[98.4.07] cockpit page, has its own nav, not the staff sidebar',
+  '/_platform/owner-security/':
+    '[98.4.07] cockpit page, reached from the account menu, not a nav item',
+
+  // Cockpit sign-in and first-time set-up — signed-out, on the cockpit host only.
+  '/sign-in/forgot': '[98.4.07] cockpit sign-in step, opened signed-out from the sign-in card',
+  '/sign-in/reset': '[98.4.07] cockpit password reset, opened signed-out from an email link',
+  '/owner-security/two-step':
+    '[98.4.07] first-time two-step set-up, opened from the sign-in hand-off',
 
   // Staff routes reached from elsewhere in the UI, not their own sidebar item.
   '/_staff/notifications': 'reached from the header notification bell, not the sidebar',

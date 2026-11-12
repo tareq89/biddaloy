@@ -119,18 +119,11 @@ export class SchoolsService {
 
   /**
    * For per-tenant scheduler loops; a SUSPENDED school gets no background work (TEN-06, #1655),
-   * and never the explicitly configured platform row (TEN-19; env `PLATFORM_TENANT_ID`, which
-   * production requires). Outside production the slug-discovered `default-school` is the main
-   * seeded school, so it is not excluded.
+   * and never the `is_platform` home row (TEN-19).
    */
   async findAllActive(): Promise<Pick<School, 'id'>[]> {
-    // Env-configured id plus the `is_platform` home row (D3b); not the slug-discovered dev school.
-    const skip = new Set(
-      [
-        this.tenantStatus.configuredPlatformTenantId(),
-        await this.tenantStatus.platformHomeSchoolId(),
-      ].filter(Boolean),
-    );
+    // The `is_platform` home row (D3b) gets no background work.
+    const skip = new Set(await this.tenantStatus.platformSchoolIds());
     // Filtered in memory, not `id <> $1`: a mistyped non-uuid env value would make Postgres throw
     // 22P02 and stop every nightly sweep for every school.
     const schools = await this.repo.find({ where: { status: 'ACTIVE' }, select: { id: true } });

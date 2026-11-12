@@ -8,6 +8,8 @@ import {
   pollUntil,
   resolveBaseUrl,
   runSmoke,
+  smokeDeviceCookie,
+  totpCode,
 } from './smoke-post-deploy.mjs';
 
 const ENV = {
@@ -15,15 +17,12 @@ const ENV = {
   SMOKE_ADMIN_PASSWORD: 'pw-admin-secret',
   SMOKE_TEACHER_EMAIL: 'tea@x.test',
   SMOKE_TEACHER_PASSWORD: 'pw-teacher-secret',
-  SMOKE_SUPER_ADMIN_EMAIL: 'sup@x.test',
-  SMOKE_SUPER_ADMIN_PASSWORD: 'pw-super-secret',
 };
 const TOKEN = 'tok-SECRET-123';
 const json = (status, body) => ({ status, json: async () => body });
 const ROLE_BY_EMAIL = {
   'adm@x.test': 'ADMIN',
   'tea@x.test': 'TEACHER',
-  'sup@x.test': 'SUPER_ADMIN',
 };
 
 /** Fake fetch; `overrides` maps "METHOD path" to a response. */
@@ -61,9 +60,9 @@ const run = (fetch, env = ENV, baseUrl = 'https://x.test') => runSmoke({ baseUrl
 describe('smoke-post-deploy', () => {
   it('passes all 9 checks', async () => {
     const r = await run(fakeFetch());
-    expect(r.passed).toBe(9);
+    expect(r.passed).toBe(7);
     expect(r.failed).toBe(0);
-    expect(r.lines.at(-1)).toBe('smoke: 9/9 passed');
+    expect(r.lines.at(-1)).toBe('smoke: 7/7 passed');
   });
 
   it('stops at a failed admin login', async () => {
@@ -125,7 +124,7 @@ describe('smoke-post-deploy', () => {
     const b = fakeFetch();
     const r = await run(b, { ...ENV, SMOKE_HEALTH_TOKEN: 'h' });
     expect(b.calls).toContain('GET /api/health/ready');
-    expect(r.passed).toBe(10);
+    expect(r.passed).toBe(8);
   });
 
   const OPT = {
@@ -153,7 +152,7 @@ describe('smoke-post-deploy', () => {
       const env = { ...ENV, ...OPT[k] };
       const ok = await run(fakeFetch(), env);
       expect(ok.failed).toBe(0);
-      expect(ok.passed).toBe(9 + extra);
+      expect(ok.passed).toBe(7 + extra);
       expect(ok.lines.join('\n')).toContain(tag);
       const bad = await run(fakeFetch({ [key]: wrong }), env);
       expect(bad.failed).toBe(1);
@@ -393,7 +392,7 @@ describe('smoke-post-deploy', () => {
       const r = await run(fenceFetch(), FENCE);
       expect(fails(r)).toHaveLength(0);
       expect(r.failed).toBe(0);
-      expect(r.passed).toBe(13);
+      expect(r.passed).toBe(11);
     });
 
     it.each([
@@ -555,6 +554,107 @@ describe('smoke-post-deploy', () => {
       const out = r.lines.join('\n');
       expect(out).not.toContain('AAAAAAAAAA');
       expect(out).not.toContain('LEAK-BODY');
+    });
+  });
+
+  describe('cockpit sign-in (staging only, D17)', () => {
+    const SECRET = 'JBSWY3DPEHPK3PXP';
+    const STAGING = {
+      ...ENV,
+      ENV_NAME: 'staging',
+      SMOKE_COCKPIT_EMAIL: 'own@x.test',
+      SMOKE_COCKPIT_PASSWORD: 'pw-cockpit-secret',
+      SMOKE_COCKPIT_TOTP_SECRET: SECRET,
+    };
+    const API = '/api/v1/auth/cockpit';
+    /** Fake cockpit: records the mfa request headers/body and the calls. */
+    const cockpitFetch = (over = {}) => {
+      const seen = {};
+      const base = fakeFetch();
+      const calls = [];
+      const fn = async (url, init) => {
+        const key = `${init.method} ${url.replace('https://x.test', '')}`;
+        calls.push(key);
+        if (key in over) return over[key];
+        if (key === `POST ${API}/login`) return json(200, { step: 'mfa', mfaToken: 'mfa-tok' });
+        if (key === `POST ${API}/mfa`) {
+          seen.mfa = { headers: init.headers, body: JSON.parse(init.body) };
+          return {
+            status: 200,
+            json: async () => ({ step: 'done', access_token: TOKEN }),
+            headers: { getSetCookie: () => ['__Host-cockpit_refresh=r1; Path=/; HttpOnly'] },
+          };
+        }
+        if (key === 'GET /api/v1/platform/owners') {
+          seen.ownersAuth = init.headers.Authorization;
+          return json(200, []);
+        }
+        if (key === `POST ${API}/logout`) {
+          seen.logoutCookie = init.headers.Cookie;
+          return { status: 204, json: async () => undefined };
+        }
+        return base(url, init);
+      };
+      fn.seen = seen;
+      fn.calls = calls;
+      return fn;
+    };
+
+    it('signs in with a code and the smoke device, reads owners, signs out', async () => {
+      const f = cockpitFetch();
+      // Freeze the clock so the runner and the assertion share one 30s TOTP step.
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      let r;
+      try {
+        r = await run(f, STAGING);
+      } finally {
+        now.mockRestore();
+      }
+      expect(r.failed).toBe(0);
+      expect(r.passed).toBe(7 + 4);
+      expect(f.seen.mfa.body).toEqual({
+        mfaToken: 'mfa-tok',
+        code: totpCode(SECRET, 1_700_000_000_000),
+      });
+      expect(f.seen.mfa.headers.Cookie).toBe(`__Host-cockpit_device=${smokeDeviceCookie(SECRET)}`);
+      expect(f.seen.ownersAuth).toBe(`Bearer ${TOKEN}`);
+      expect(f.seen.logoutCookie).toBe('__Host-cockpit_refresh=r1');
+    });
+
+    it('is skipped when ENV_NAME is not staging, even with the variables set', async () => {
+      const f = cockpitFetch();
+      const r = await run(f, { ...STAGING, ENV_NAME: 'production' });
+      expect(r.failed).toBe(0);
+      expect(f.calls.length).toBeGreaterThan(0);
+      expect(f.calls.some((c) => c.includes('/auth/cockpit/'))).toBe(false);
+    });
+
+    it('fails when the owners read is refused', async () => {
+      const r = await run(cockpitFetch({ 'GET /api/v1/platform/owners': json(403, {}) }), STAGING);
+      expect(r.failed).toBe(1);
+    });
+
+    it('fails without a cookie on the mfa answer', async () => {
+      const r = await run(
+        cockpitFetch({
+          [`POST ${API}/mfa`]: {
+            status: 200,
+            json: async () => ({ step: 'done', access_token: TOKEN }),
+          },
+        }),
+        STAGING,
+      );
+      expect(r.failed).toBe(1);
+    });
+
+    it('fails and names the missing variables', async () => {
+      const r = await run(cockpitFetch(), { ...STAGING, SMOKE_COCKPIT_TOTP_SECRET: '' });
+      expect(r.lines.some((l) => l.includes('missing SMOKE_COCKPIT_TOTP_SECRET'))).toBe(true);
+    });
+
+    it('totpCode matches the RFC 6238 SHA-1 vector', () => {
+      // RFC 6238 appendix B, T=59s: 94287082 -> last six digits with the ASCII secret in base32.
+      expect(totpCode('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 59_000)).toBe('287082');
     });
   });
 });

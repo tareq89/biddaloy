@@ -12,7 +12,7 @@ import {
   E2E_PASSWORD,
   loginAsFreshUser,
   post,
-  superAdminApiSession,
+  platformApiSession,
 } from '../api';
 import { shells } from '../config';
 import { newSchool, type NewSchool } from '../fixtures/new-school';
@@ -50,7 +50,7 @@ test.describe('school invitations', () => {
     const token = created.invitation.debug?.token;
     if (!token) throw new Error('no invitation.debug.token — is ACCOUNT_ACCESS_ECHO_SECRETS=true?');
     await activateInvite(request, token, E2E_PASSWORD);
-    const superAdmin = await superAdminApiSession(request);
+    const superAdmin = await platformApiSession(request);
     await addSchoolAdmin(request, superAdmin, schoolB.session.tenantId, 'Invited Person', email);
     return { schoolA, schoolB, email };
   }

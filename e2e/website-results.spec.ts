@@ -8,7 +8,7 @@ import {
   provisionSchool,
   publishedTermExam,
   resendSchoolAdminInvitation,
-  superAdminApiSession,
+  platformApiSession,
 } from './api';
 import type { ApiSession } from './api';
 import { shells } from './config';
@@ -43,7 +43,7 @@ test('admin puts exam results on the website, hides names, then takes them off',
 }) => {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const setup = await playwright.request.newContext({ baseURL: shells.app.baseURL });
-  const superAdmin = await superAdminApiSession(setup);
+  const superAdmin = await platformApiSession(setup);
   const provisioned = await provisionSchool(
     setup,
     superAdmin,

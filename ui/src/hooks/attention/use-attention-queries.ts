@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
   getAttentionItems,
+  isCockpitAttention,
   getAttentionSummary,
   getPlatformAttentionHealth,
   getStudentAttention,
@@ -35,7 +36,8 @@ export function useAttentionSummary() {
   return useQuery({
     queryKey: attentionKeys.summary(role ?? '', locale),
     queryFn: ({ signal }) => getAttentionSummary({ role: role ?? '', locale }, signal),
-    enabled: role !== null,
+    // The cockpit has no school role: its owner is always the platform's SUPER_ADMIN.
+    enabled: role !== null || isCockpitAttention(),
     throwOnError: false,
     retry: shouldRetryQuery,
     ...LIVE,

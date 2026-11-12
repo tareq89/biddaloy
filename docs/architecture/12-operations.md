@@ -552,17 +552,17 @@ Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). The
 deploy passes them by name from the project's secrets file into a throwaway
 container; the app itself never reads them. For a run from your own machine:
 
-| Variable                                         | What it does                                                                            |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `SMOKE_BASE_URL`                                 | Base URL when `--base-url` is not passed.                                               |
-| `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`     | Login for the ADMIN smoke account.                                                      |
-| `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD` | Login for the TEACHER smoke account.                                                    |
-| `SMOKE_SUPER_ADMIN_EMAIL` / `_PASSWORD`          | Login for the SUPER_ADMIN smoke account.                                                |
-| `SMOKE_PAID_STUDENT_FEE_ID`                      | Optional. An already-paid student fee id; adds the `#2592` checkout 409 row.            |
-| `SMOKE_OPEN_STUDENT_FEE_ID`                      | Optional. An outstanding student fee id; adds the `#2636` over-balance 400 row.         |
-| `SMOKE_PARENT_EMAIL` / `SMOKE_PARENT_PASSWORD`   | Optional. A PARENT smoke account; adds the `#2639` step-up 403 row.                     |
-| `SMOKE_HEALTH_TOKEN`                             | Optional. Adds a `/api/health/ready` check (internal URL only; nginx 404s it outside).  |
-| `SMOKE_INBOX_API_URL`                            | Optional. Mailpit API (staging: `http://staging-mailpit:8025`); adds the `inbox` check. |
+| Variable                                                                  | What it does                                                                            |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `SMOKE_BASE_URL`                                                          | Base URL when `--base-url` is not passed.                                               |
+| `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`                              | Login for the ADMIN smoke account.                                                      |
+| `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD`                          | Login for the TEACHER smoke account.                                                    |
+| `ENV_NAME=staging` + `SMOKE_COCKPIT_EMAIL` / `_PASSWORD` / `_TOTP_SECRET` | Staging only: the owner sign-in (login, code, `GET /platform/owners`, sign out).        |
+| `SMOKE_PAID_STUDENT_FEE_ID`                                               | Optional. An already-paid student fee id; adds the `#2592` checkout 409 row.            |
+| `SMOKE_OPEN_STUDENT_FEE_ID`                                               | Optional. An outstanding student fee id; adds the `#2636` over-balance 400 row.         |
+| `SMOKE_PARENT_EMAIL` / `SMOKE_PARENT_PASSWORD`                            | Optional. A PARENT smoke account; adds the `#2639` step-up 403 row.                     |
+| `SMOKE_HEALTH_TOKEN`                                                      | Optional. Adds a `/api/health/ready` check (internal URL only; nginx 404s it outside).  |
+| `SMOKE_INBOX_API_URL`                                                     | Optional. Mailpit API (staging: `http://staging-mailpit:8025`); adds the `inbox` check. |
 
 ## 5. Web push (VAPID keys)
 
@@ -759,7 +759,6 @@ Against the local dev stack with the seed accounts:
 ```bash
 SMOKE_ADMIN_EMAIL=admin@biddaloy.test SMOKE_ADMIN_PASSWORD=$SEED_ADMIN_PASSWORD \
 SMOKE_TEACHER_EMAIL=teacher@biddaloy.test SMOKE_TEACHER_PASSWORD=$SEED_ADMIN_PASSWORD \
-SMOKE_SUPER_ADMIN_EMAIL=superadmin@biddaloy.test SMOKE_SUPER_ADMIN_PASSWORD=$SEED_ADMIN_PASSWORD \
   yarn smoke:post-deploy --base-url http://localhost:3000
 ```
 

@@ -6,6 +6,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import type Redis from 'ioredis';
 import { ReportLayoutType, ReportSubjectArea, UserRole } from '@biddaloy/shared';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { ReportAreaFixture } from '@test/helpers/report-area.fixture';
 import {
@@ -34,14 +35,9 @@ describe('Report delivery routes E2E', () => {
   let adminToken: string;
   let platformToken: string;
   let localSuperToken: string;
-  let platformId: string;
   let otherSchool: string;
   const suffix = Date.now().toString(36);
   const LOCAL_SUPER = { id: randomUUID(), email: `local-sa-${suffix}@report-delivery.example` };
-  const PLATFORM_USER = {
-    id: randomUUID(),
-    email: `platform-sa-${suffix}@report-delivery.example`,
-  };
 
   const http = () => supertest(app.getHttpServer());
   const as = (role: UserRole, req: supertest.Test, tenant = SEED_TENANT_ID) =>
@@ -159,23 +155,6 @@ describe('Report delivery routes E2E', () => {
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at) VALUES ($1, $2, 'ADMIN', NOW(), NOW())`,
       [SEED_ADMIN_USER_ID, otherSchool],
     );
-    // A platform SUPER_ADMIN: SUPER_ADMIN on the platform school.
-    await ds.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-      [randomUUID()],
-    );
-    platformId = (await ds.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0].id;
-    await ds.query(
-      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
-       VALUES ($1, $2, $3, 'Platform SA', 'ACTIVE', NOW(), NOW())`,
-      [PLATFORM_USER.id, PLATFORM_USER.email, SEED_ADMIN_PASSWORD_HASH],
-    );
-    await ds.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at) VALUES ($1, $2, 'SUPER_ADMIN', NOW(), NOW())`,
-      [PLATFORM_USER.id, platformId],
-    );
     // A SUPER_ADMIN of an ordinary school (legacy shape) is not the platform.
     await ds.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
@@ -188,13 +167,12 @@ describe('Report delivery routes E2E', () => {
     );
     localSuperToken = await login(LOCAL_SUPER.email);
     adminToken = await login(SEED_ADMIN_EMAIL);
-    platformToken = await login(PLATFORM_USER.email);
+    platformToken = await mintCockpitToken(app, ds);
   }, 90_000);
 
   afterAll(async () => {
-    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
-      [PLATFORM_USER.id, LOCAL_SUPER.id],
-    ]);
+    await removeCockpitOwners(ds);
+    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [[LOCAL_SUPER.id]]);
     await app.close();
   });
 
@@ -456,9 +434,7 @@ describe('Report delivery routes E2E', () => {
     const usage = (query = '') =>
       http()
         .get(`/api/v1/platform/reports/usage${query}`)
-        .set('Authorization', `Bearer ${platformToken}`)
-        .set('X-Tenant-ID', platformId)
-        .set('X-Role', UserRole.SUPER_ADMIN);
+        .set('Authorization', `Bearer ${platformToken}`);
 
     it('only the platform SUPER_ADMIN may read it: anonymous 401, school roles and a school-local SUPER_ADMIN 403', async () => {
       await http().get('/api/v1/platform/reports/usage').expect(401);

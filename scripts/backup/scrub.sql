@@ -2,7 +2,7 @@
 -- restored copy `biddaloy_staging_next`, never on production:
 --
 --   psql -1 -v ON_ERROR_STOP=1 -v staging_password_hash=... -v smoke_slug=... \
---        -v platform_tenant_id=... -f scrub.sql
+--        -f scrub.sql
 --
 -- `-1` wraps the whole file in ONE transaction, so there is no BEGIN/COMMIT here; a failed
 -- statement rolls everything back. server/test/staging-scrub.integration.spec.ts runs this exact
@@ -21,13 +21,14 @@
 --   * Where a column has a CHECK (override note, withdraw reason) the replacement satisfies it.
 --   * ponytail: phones allow 99,999,999 rows per table. Lengthen the number if it ever matters.
 
--- Users whose email stays: platform super admins (D6) and users of the smoke school (D20).
+-- Users whose email stays: cockpit owners (platform_admins, D6) and users of the smoke school (D20).
 CREATE TEMP TABLE scrub_keep_email ON COMMIT DROP AS
 SELECT DISTINCT ut.user_id AS id
 FROM user_tenants ut
 WHERE ut.deleted_at IS NULL
-  AND ((ut.tenant_id = :'platform_tenant_id'::uuid AND ut.role = 'SUPER_ADMIN')
-       OR ut.tenant_id IN (SELECT s.id FROM schools s WHERE s.slug = :'smoke_slug'));
+  AND ut.tenant_id IN (SELECT s.id FROM schools s WHERE s.slug = :'smoke_slug')
+UNION
+SELECT pa.user_id FROM platform_admins pa;
 
 -- Smoke school users are test accounts and keep their name and phone too.
 CREATE TEMP TABLE scrub_keep_all ON COMMIT DROP AS
@@ -104,12 +105,12 @@ DELETE FROM user_identities;
 
 UPDATE schools s SET phone = '+88018' || lpad(n.rn::text, 8, '0')
 FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM schools
-      WHERE phone IS NOT NULL AND id <> :'platform_tenant_id'::uuid) n
+      WHERE phone IS NOT NULL AND NOT is_platform) n
 WHERE s.id = n.id;
 UPDATE schools SET
   email = CASE WHEN email IS NULL THEN NULL ELSE 's-' || id::text || '@staging.invalid' END,
   address = CASE WHEN address IS NULL THEN NULL ELSE 'Address ' || left(id::text, 4) END
-WHERE id <> :'platform_tenant_id'::uuid;
+WHERE NOT is_platform;
 UPDATE schools SET status_reason = NULL;
 
 UPDATE staff_family_members f SET contact = '+88016' || lpad(n.rn::text, 8, '0')
@@ -194,6 +195,7 @@ DELETE FROM user_mfa;
 DELETE FROM user_recovery_codes;
 DELETE FROM platform_admin_devices;
 DELETE FROM platform_approvals;
+DELETE FROM platform_settings;
 -- [Epic 99] Owner-typed free text about schools can name real people (NOT NULL columns).
 UPDATE impersonation_sessions SET reason = '[scrubbed]';
 UPDATE platform_school_notes SET body = '[scrubbed]';

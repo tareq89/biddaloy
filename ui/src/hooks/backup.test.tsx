@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { setActiveRole, setActiveTenant } from '../api/auth-state';
+import { setTenantless } from '../api/client';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient } from '../test/render-with-providers';
@@ -314,6 +315,28 @@ describe('useRestoreBackup', () => {
       invite_users: true,
     });
     expect(response).toEqual({ job_id: 'restore-job-1', snapshot_job_id: 'snapshot-job-1' });
+  });
+});
+
+describe('useRestoreBackup on the cockpit host [4101]', () => {
+  afterEach(() => setTenantless(false));
+
+  it('posts to the platform route, not /backup/restore, for the target school', async () => {
+    setTenantless(true);
+    server.use(
+      http.post('/api/v1/platform/schools/school-9/restore', () =>
+        HttpResponse.json({ job_id: 'j', snapshot_job_id: 's' }, { status: 202 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useRestoreBackup({ tenantId: 'school-9' }), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    const response = await result.current.mutateAsync({
+      staging_id: 'st',
+      confirmation: 'X',
+    });
+    expect(response.job_id).toBe('j');
   });
 });
 

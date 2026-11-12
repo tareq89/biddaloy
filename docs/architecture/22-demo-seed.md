@@ -170,11 +170,11 @@ flowchart LR
   C --> E[one section resized after the copy]
 ```
 
-| Table / column                                  | What the demo has                                                                                                                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `academic_years` (current)                      | created by the real rollover from the previous year, then made `is_current`; its own `YEAR_ROLLOVER` audit row                            |
+| Table / column                                   | What the demo has                                                                                                                       |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `academic_years` (current)                       | created by the real rollover from the previous year, then made `is_current`; its own `YEAR_ROLLOVER` audit row                          |
 | `academic_years.closed_at` / `closed_by_user_id` | every year older than the previous one: `end_date + 30 days`, closed by the demo admin. The previous year stays open (`year.close_due`) |
-| `class_sections.capacity`                       | null on the previous year; one section of the current year's last class is resized, so the demo shows an "edited after copy" year         |
+| `class_sections.capacity`                        | null on the previous year; one section of the current year's last class is resized, so the demo shows an "edited after copy" year       |
 
 Fee structures are not rolled over in the seed: the `org` slice runs before `fees`, so the previous year has none yet and the `fee_structures` block copies nothing. `fees.ts` still writes every year's structures itself, and nothing collides.
 
@@ -279,7 +279,7 @@ After a run the invariant validator found nothing (scale 1, 10 years).
 flowchart LR
   A["1. create DB biddaloy_demo_x<br/>(name must start with biddaloy_demo)"] --> B["2. migration:run"]
   B --> C["3. seed:demo --scale 1 --years 10"]
-  C --> D["4. start server: DEMO_MODE=true<br/>DEMO_PASSWORD=...<br/>PLATFORM_TENANT_ID=id of default-school"]
+  C --> D["4. start server: DEMO_MODE=true<br/>DEMO_PASSWORD=..."]
   D --> E["5. start client-admin on :5174"]
   E --> F["6. E2E_DEMO=1 npx playwright test<br/>--project=demo"]
 ```
@@ -291,8 +291,8 @@ Two things that are easy to miss:
   `CREATE EXTENSION "uuid-ossp"` in it, point `DATABASE_URL` at it, then `migration:run` and `seed:demo`.
 
 - `DemoBootGuard` refuses to start if the database holds any school that is not
-  a demo branch. A migrated database always has `default-school`, so set
-  `PLATFORM_TENANT_ID` to its id (`SELECT id FROM schools WHERE slug = 'default-school'`).
+  a demo branch. A migrated database always has an empty `default-school` and the `is_platform` home
+  school; both are exempt while they hold no students, so nothing needs setting.
 - The `demo` project is opt-in. It only exists when `E2E_DEMO=1`, so a plain
   `playwright test` and the sweeps never run it. CI does not run it yet
   (58.4.02 wires it into the nightly pipeline).
@@ -419,9 +419,8 @@ The tests are `scripts/demo/reset.infra.test.sh`. CI runs them in the infra job 
 - **One previous database is kept, with its files.** `_prev` keeps its S3 objects until it is dropped as `_prev_old`
   the next night, so a rollback brings back a demo whose files still exist.
 - **The database is picked with `DATABASE_URL`** (the server reads no `DB_NAME`).
-- **`PLATFORM_TENANT_ID` changes every night.** A fresh migration makes a new random `default-school` id, and
-  `TenantStatusService.platformTenantId()` uses `PLATFORM_TENANT_ID` to find the platform tenant. The reset writes the id
-  to the `demo-state` volume and the demo `app` reads it at start (`/demo-state/platform-tenant-id`).
+- **The reset leaves a `last-built` marker.** It writes the time to the `demo-state` volume; the deploy tests it
+  (`/demo-state/last-built`) to know whether the first rebuild has run. The app no longer reads the volume.
 - **Build-time Redis is not the app's.** Migrate, seed, validate and the temporary app use Redis db N+1, so the live
   app's workers never see jobs for tenants that exist only in `_next`.
 - **S3 needs no prefix.** Keys are `tenants/<tenant-id>/...` and every reset creates new tenant ids, so a new run never
@@ -447,7 +446,7 @@ Set these in `infra/secrets/demo.enc.env` (`sops`); the deploy writes them to
 | `DEMO_SWEEP_CMD`                              | empty                                                          | `/app/run-sweep.sh`                                | A command that drives a Playwright runner. Needed unless `DEMO_SKIP_SWEEP=true`.                                                                                                                                                                                |
 | `DEMO_SWEEP_URL`                              | `http://127.0.0.1:3999`                                        | `http://127.0.0.1:3999`                            | Where the sweep finds the temporary app. Plain HTTP must be loopback (see "Staying signed in").                                                                                                                                                                 |
 | `DEMO_SWEEP_TIMEOUT`                          | `1800` (seconds)                                               | `900`                                              | The sweep is killed after this.                                                                                                                                                                                                                                 |
-| `DEMO_STATE_DIR`                              | `/demo-state`, set by compose                                  | `/demo-state`                                      | Holds `reset.lock` and `platform-tenant-id`.                                                                                                                                                                                                                    |
+| `DEMO_STATE_DIR`                              | `/demo-state`, set by compose                                  | `/demo-state`                                      | Holds `reset.lock` and `last-built`.                                                                                                                                                                                                                            |
 | `DEMO_SCALE`                                  | `1`                                                            | `0.05`                                             | Seed size.                                                                                                                                                                                                                                                      |
 | `DEMO_YEARS`                                  | `10`                                                           | `2`                                                | Years of history.                                                                                                                                                                                                                                               |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | empty                                                          | `0x4AAAAAAA...`                                    | Both or neither (the temporary app refuses to boot with one). The public admission form needs them (D42). Make the pair in Cloudflare for the demo hostname ([25-cloudflare.md](25-cloudflare.md)).                                                             |

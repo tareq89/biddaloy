@@ -1,8 +1,10 @@
 import {
+  configureSessionEndpoints,
   createAppQueryClient,
   getActiveTenant,
   initSentry,
   registerSessionExpiredHandler,
+  setTenantless,
   startQueueReplay,
   subscribeAuthState,
   updateSentryRouteTag,
@@ -17,11 +19,24 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { isCockpitHost } from './cockpit-host';
+import { showCockpitExpiredNotice } from './cockpit-session-expired';
 import { registerServiceWorker } from './pwa/register';
 import { RouteErrorFallbackWithUpdate } from './route-error-fallback';
 import { routeTree } from './routeTree.gen';
 import { runtimeConfig } from './runtime-config';
 import './index.css';
+
+// [98.4.01]: on the cockpit host the session lives behind the cockpit
+// endpoints. Must run before the router renders (the root guard refreshes).
+if (isCockpitHost()) {
+  setTenantless(true);
+  configureSessionEndpoints({
+    refresh: '/auth/cockpit/refresh',
+    logout: '/auth/cockpit/logout',
+    logoutAll: '/auth/cockpit/logout-all',
+  });
+}
 
 // [15.8.2]: `beforeinstallprompt` fires at most once, and Chrome can fire
 // it before React ever mounts — registering the listener from inside a
@@ -147,8 +162,10 @@ router.subscribe('onResolved', () => {
 // path can loop into the other.
 registerSessionExpiredHandler(() => {
   const { pathname, href } = router.state.location;
-  if (pathname !== '/login') {
-    void router.navigate({ to: '/login', search: { redirect: href }, replace: true });
+  const loginPath = isCockpitHost() ? '/sign-in' : '/login';
+  if (pathname !== loginPath) {
+    if (isCockpitHost()) showCockpitExpiredNotice();
+    void router.navigate({ to: loginPath, search: { redirect: href }, replace: true });
   }
 });
 

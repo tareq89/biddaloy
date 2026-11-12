@@ -53,8 +53,7 @@ function fakeTenantStatus() {
   return {
     invalidate: vi.fn(),
     isActive: vi.fn(),
-    configuredPlatformTenantId: vi.fn(),
-    platformHomeSchoolId: vi.fn().mockResolvedValue(undefined),
+    platformSchoolIds: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -319,7 +318,7 @@ describe('SchoolsService', () => {
         tenantStatus as any,
       );
 
-      tenantStatus.configuredPlatformTenantId.mockReturnValue(undefined);
+      tenantStatus.platformSchoolIds.mockResolvedValue([]);
 
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
       expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
@@ -340,7 +339,7 @@ describe('SchoolsService', () => {
         auditService as any,
         tenantStatus as any,
       );
-      tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
+      tenantStatus.platformSchoolIds.mockResolvedValue(['platform-id']);
 
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
       // The id never reaches SQL: a non-uuid env value must not throw 22P02 for every sweep (F6).
@@ -351,7 +350,7 @@ describe('SchoolsService', () => {
   describe('findAllActive is_platform home (Epic 98 D3b)', () => {
     it('excludes the is_platform home row; an ordinary school stays', async () => {
       const repo = fakeRepo(null);
-      repo.find.mockResolvedValue([{ id: 's1' }, { id: 'home-id' }, { id: 'platform-id' }]);
+      repo.find.mockResolvedValue([{ id: 's1' }, { id: 'home-id' }]);
       const service = new SchoolsService(
         repo as any,
         {} as any,
@@ -364,8 +363,7 @@ describe('SchoolsService', () => {
         auditService as any,
         tenantStatus as any,
       );
-      tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
-      tenantStatus.platformHomeSchoolId.mockResolvedValue('home-id');
+      tenantStatus.platformSchoolIds.mockResolvedValue(['home-id']);
 
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
     });
@@ -1941,7 +1939,7 @@ describe('SchoolsService', () => {
         tenantStatus as any,
       );
 
-      tenantStatus.configuredPlatformTenantId.mockReturnValue(undefined);
+      tenantStatus.platformSchoolIds.mockResolvedValue([]);
 
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
       expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
@@ -1962,7 +1960,7 @@ describe('SchoolsService', () => {
         auditService as any,
         tenantStatus as any,
       );
-      tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
+      tenantStatus.platformSchoolIds.mockResolvedValue(['platform-id']);
 
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
       // The id never reaches SQL: a non-uuid env value must not throw 22P02 for every sweep (F6).

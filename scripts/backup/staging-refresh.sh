@@ -33,7 +33,6 @@
 #                          made with the app's hashPassword (Rule 9). base64 because compose expands
 #                          every `$` in a .env value; config:check verifies it against STAGING_PASSWORD.
 #   SMOKE_SCHOOL_SLUG      the school whose users keep their email (D20)
-#   PLATFORM_TENANT_ID     uuid of the platform tenant; its super admins keep their email (D6)
 # Optional env:
 #   STAGING_REFRESH_PUSH_URL    Uptime Kuma push URL. Only failures are pushed here; the `up` push
 #                               is sent by the host after the swap and the smoke test. Never used with
@@ -83,13 +82,12 @@ case "$FROM" in
   *) [[ "$FROM" =~ ^db/(daily|hourly)/[A-Za-z0-9._:-]+\.dump\.age$ && "$FROM" != *..* ]] || { echo "staging-refresh.sh: --from must be latest-daily, latest-hourly or a db/daily|hourly/<name>.dump.age key" >&2; exit 2; } ;;
 esac
 for v in POSTGRES_USER POSTGRES_PASSWORD BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY_ID \
-  BACKUP_S3_SECRET_ACCESS_KEY STAGING_PASSWORD_HASH_B64 SMOKE_SCHOOL_SLUG PLATFORM_TENANT_ID; do
+  BACKUP_S3_SECRET_ACCESS_KEY STAGING_PASSWORD_HASH_B64 SMOKE_SCHOOL_SLUG; do
   [[ -n "${!v:-}" ]] || { say "$v is required"; exit 2; }
 done
 [[ "$BACKUP_S3_ENDPOINT" == https://* ]] || { say "BACKUP_S3_ENDPOINT must be https://"; exit 2; }
 STAGING_PASSWORD_HASH="$(printf '%s' "$STAGING_PASSWORD_HASH_B64" | base64 -d 2>/dev/null)" || STAGING_PASSWORD_HASH=""
 [[ "$STAGING_PASSWORD_HASH" =~ ^\$2[aby]\$12\$[./A-Za-z0-9]{53}$ ]] || { say "STAGING_PASSWORD_HASH_B64 is not a base64 bcrypt cost-12 hash"; exit 2; }
-[[ "$PLATFORM_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { say "PLATFORM_TENANT_ID is not a uuid"; exit 2; }
 [[ "$SMOKE_SCHOOL_SLUG" =~ ^[a-z0-9-]+$ ]] || { say "SMOKE_SCHOOL_SLUG must be lowercase letters, digits and dashes"; exit 2; }
 AGE_KEY="${BACKUP_AGE_PRIVATE_KEY_FILE:-/run/age/key.txt}"
 [[ -r "$AGE_KEY" ]] || { say "age key not readable"; exit 2; }
@@ -228,7 +226,6 @@ SCRUB_ERR="$(mktemp)"
 if ! psql "$NEXT_URL" -1 -q -v ON_ERROR_STOP=1 \
   -v "staging_password_hash=${STAGING_PASSWORD_HASH}" \
   -v "smoke_slug=${SMOKE_SCHOOL_SLUG}" \
-  -v "platform_tenant_id=${PLATFORM_TENANT_ID}" \
   -f "$SCRUB_SQL" >/dev/null 2>"$SCRUB_ERR"; then
   # First ERROR line only: DETAIL and CONTEXT lines can carry values.
   grep -m1 'ERROR:' "$SCRUB_ERR" | cut -c1-200 >&2 || true

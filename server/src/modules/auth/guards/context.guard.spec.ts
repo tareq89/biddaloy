@@ -8,7 +8,7 @@ import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
 import { ALLOW_WHEN_READ_ONLY_KEY } from '../decorators/allow-when-read-only.decorator';
 
-const PLATFORM_TENANT_ID = 'platform-tenant';
+const PLATFORM_SCHOOL_ID = 'platform-tenant';
 
 // ============================================================================
 // ContextGuard Tests
@@ -22,7 +22,6 @@ describe('ContextGuard', () => {
     getStatusReason: ReturnType<typeof vi.fn>;
     isSuspendedForBilling: ReturnType<typeof vi.fn>;
     isRestoring: ReturnType<typeof vi.fn>;
-    platformTenantId: ReturnType<typeof vi.fn>;
     getReadOnlyUntil: ReturnType<typeof vi.fn>;
   };
 
@@ -36,8 +35,6 @@ describe('ContextGuard', () => {
       getStatusReason: vi.fn().mockResolvedValue(null),
       isSuspendedForBilling: vi.fn().mockResolvedValue(false),
       isRestoring: vi.fn().mockResolvedValue(false),
-      // Platform designation lives in TenantStatusService (its own spec covers env/prod/slug rules).
-      platformTenantId: vi.fn().mockResolvedValue(PLATFORM_TENANT_ID),
       getReadOnlyUntil: vi.fn().mockResolvedValue(null),
     };
     guard = new ContextGuard(reflector, tenantStatus as unknown as TenantStatusService);
@@ -305,19 +302,19 @@ describe('ContextGuard', () => {
 
     it('refuses a platform SUPER_ADMIN write on their own tenant while it restores', async () => {
       tenantStatus.isRestoring.mockResolvedValue(true);
-      const memberships = [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }];
+      const memberships = [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }];
 
       await expect(
-        guard.canActivate(createMockContext(restoreReq('POST', memberships, PLATFORM_TENANT_ID))),
+        guard.canActivate(createMockContext(restoreReq('POST', memberships, PLATFORM_SCHOOL_ID))),
       ).rejects.toMatchObject({ status: 423 });
     });
 
     it('still lets that platform SUPER_ADMIN read while it restores', async () => {
       tenantStatus.isRestoring.mockResolvedValue(true);
-      const memberships = [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }];
+      const memberships = [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }];
 
       await expect(
-        guard.canActivate(createMockContext(restoreReq('GET', memberships, PLATFORM_TENANT_ID))),
+        guard.canActivate(createMockContext(restoreReq('GET', memberships, PLATFORM_SCHOOL_ID))),
       ).resolves.toBe(true);
     });
   });
@@ -360,8 +357,6 @@ describe('ContextGuard', () => {
       const req = await run(impReq());
       expect(req.currentTenant).toEqual({ id: 'tenant-1', role: UserRole.TEACHER });
       expect(req.impersonation.adminId).toBe('admin-1');
-      expect(req.isPlatformSuperAdmin).toBe(false);
-      expect(tenantStatus.platformTenantId).not.toHaveBeenCalled();
     });
 
     it('401 on a wrong tenant header', async () => {
@@ -526,19 +521,21 @@ describe('ContextGuard', () => {
       await expect(call('POST')).resolves.toBe(true);
     });
 
-    it('never applies to the platform tenant', async () => {
+    it('applies to a SUPER_ADMIN membership on the platform school like any other (no exemption)', async () => {
+      tenantStatus.getReadOnlyUntil.mockResolvedValue(UNTIL);
       const req = {
         method: 'POST',
         user: {
           sub: 'user-1',
           email: 'a@b.c',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }],
         },
-        headers: { 'x-tenant-id': PLATFORM_TENANT_ID },
+        headers: { 'x-tenant-id': PLATFORM_SCHOOL_ID },
       };
-      await expect(guard.canActivate(createMockContext(req))).resolves.toBe(true);
-      expect(tenantStatus.getReadOnlyUntil).not.toHaveBeenCalled();
+      await expect(guard.canActivate(createMockContext(req))).rejects.toMatchObject({
+        status: 403,
+      });
     });
 
     it("tenant B's write is judged on tenant B's own window (isolation)", async () => {
@@ -758,29 +755,22 @@ describe('ContextGuard', () => {
       expect(req.currentTenant).toEqual({ id: 'tenant-2', role: UserRole.ADMIN });
     });
 
-    it('[14.13.3] grants a platform SUPER_ADMIN access to a tenant they hold no membership in', async () => {
+    it('[SECURITY] [Epic 98] a SUPER_ADMIN of the platform school gets no access to a tenant they hold no membership in', async () => {
       const req = {
         user: {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }],
         },
-        // 'new-school-tenant' has no matching membership at all — a
-        // just-provisioned school the SUPER_ADMIN was never added to.
         headers: { 'x-tenant-id': 'new-school-tenant' },
       };
       const context = createMockContext(req);
 
-      const result = await guard.canActivate(context);
-
-      expect(result).toBe(true);
-      expect(req.currentTenant).toEqual({ id: 'new-school-tenant', role: UserRole.SUPER_ADMIN });
-      expect(req).toMatchObject({ isPlatformSuperAdmin: true });
-      // Unlike their OWN platform tenant, an "elsewhere" target IS resolved
-      // — it must exist and be ACTIVE, just refused via platform authority
-      // rather than a membership row.
-      expect(tenantStatus.getStatus).toHaveBeenCalledWith('new-school-tenant');
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        'User is not a member of the requested tenant',
+      );
+      expect(tenantStatus.getStatus).not.toHaveBeenCalled();
     });
 
     it('[14.13.3] gives a platform SUPER_ADMIN a clean 401 for a nonexistent target tenant', async () => {
@@ -790,7 +780,7 @@ describe('ContextGuard', () => {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }],
         },
         headers: { 'x-tenant-id': 'no-such-tenant' },
       };
@@ -799,20 +789,21 @@ describe('ContextGuard', () => {
       await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
     });
 
-    it('[14.13.3] refuses a platform SUPER_ADMIN a SUSPENDED target tenant (no accidental override)', async () => {
+    it('[SECURITY] [Epic 98] a platform-school SUPER_ADMIN gets 401, not an override, for a SUSPENDED school', async () => {
       tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
       const req = {
         user: {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }],
         },
         headers: { 'x-tenant-id': 'suspended-school' },
       };
-      const context = createMockContext(req);
 
-      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+      await expect(guard.canActivate(createMockContext(req))).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('[14.13.3] refuses a SUPER_ADMIN an explicit non-SUPER_ADMIN role in a tenant they hold no membership in', async () => {
@@ -821,7 +812,7 @@ describe('ContextGuard', () => {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }],
         },
         headers: { 'x-tenant-id': 'new-school-tenant', 'x-role': UserRole.ADMIN },
       };
@@ -848,26 +839,23 @@ describe('ContextGuard', () => {
       );
     });
 
-    it('should not check tenant status for a SUPER_ADMIN on their OWN platform tenant', async () => {
+    it('checks tenant status even for a SUPER_ADMIN membership on the platform school (no exemption)', async () => {
       const req = {
         user: {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN }],
         },
-        headers: { 'x-tenant-id': PLATFORM_TENANT_ID },
+        headers: { 'x-tenant-id': PLATFORM_SCHOOL_ID },
       };
-      const context = createMockContext(req);
 
-      const result = await guard.canActivate(context);
-
-      expect(result).toBe(true);
-      expect(tenantStatus.getStatus).not.toHaveBeenCalled();
+      await expect(guard.canActivate(createMockContext(req))).resolves.toBe(true);
+      expect(tenantStatus.getStatus).toHaveBeenCalledWith(PLATFORM_SCHOOL_ID);
     });
 
     // --- Security regression: privilege escalation via tenant-local SUPER_ADMIN ---
-    it('[SECURITY] a tenant-local SUPER_ADMIN acting on their own tenant is not flagged platform', async () => {
+    it('[SECURITY] no request is ever flagged as platform authority', async () => {
       const req = {
         user: {
           sub: 'rogue-1',
@@ -880,7 +868,7 @@ describe('ContextGuard', () => {
 
       await guard.canActivate(createMockContext(req));
 
-      expect(req).toMatchObject({ isPlatformSuperAdmin: false });
+      expect(req).not.toHaveProperty('isPlatformSuperAdmin');
     });
 
     it("[SECURITY] a tenant-local SUPER_ADMIN (minted by that tenant's own ADMIN, not on the platform tenant) cannot reach another tenant", async () => {
@@ -905,44 +893,23 @@ describe('ContextGuard', () => {
       );
     });
 
-    it('[SECURITY] with PLATFORM_TENANT_ID unset, no membership grants platform authority (fail closed)', async () => {
-      tenantStatus.platformTenantId.mockResolvedValue(undefined);
-      const req = {
-        user: {
-          sub: 'super-1',
-          email: 'super@test.com',
-          phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
-        },
-        headers: { 'x-tenant-id': 'new-school-tenant' },
-      };
-      const context = createMockContext(req);
-
-      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('[14.13.3 item 3] lets a platform SUPER_ADMIN who ALSO holds an unrelated membership in the target tenant in as SUPER_ADMIN', async () => {
+    it('[SECURITY] [Epic 98] a platform-school SUPER_ADMIN who is also an ADMIN of a school cannot claim SUPER_ADMIN there', async () => {
       const req = {
         user: {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
           memberships: [
-            { tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN },
-            // Also a plain ADMIN of the school they're managing — the
-            // client always sends X-Role: SUPER_ADMIN, which previously
-            // matched nothing in this tenant's memberships and 401'd.
+            { tenantId: PLATFORM_SCHOOL_ID, role: UserRole.SUPER_ADMIN },
             { tenantId: 'joined-school', role: UserRole.ADMIN },
           ],
         },
         headers: { 'x-tenant-id': 'joined-school', 'x-role': UserRole.SUPER_ADMIN },
       };
-      const context = createMockContext(req);
 
-      const result = await guard.canActivate(context);
-
-      expect(result).toBe(true);
-      expect(req.currentTenant).toEqual({ id: 'joined-school', role: UserRole.SUPER_ADMIN });
+      await expect(guard.canActivate(createMockContext(req))).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -958,7 +925,7 @@ describe('ContextGuard', () => {
    * exercises the actual failure path end-to-end rather than a
    * `getStatus` mock that pre-empts the bug by never hitting the DB at all.
    */
-  describe('Malformed X-Tenant-ID from a platform SUPER_ADMIN (#620 review)', () => {
+  describe('Malformed tenant id in a membership (#620 review)', () => {
     it('gets a clean 401, not a 500, for a non-uuid X-Tenant-ID', async () => {
       const redis = { get: vi.fn().mockResolvedValue(null), set: vi.fn(), del: vi.fn() };
       const invalidUuidError = new QueryFailedError(
@@ -968,13 +935,7 @@ describe('ContextGuard', () => {
       );
       (invalidUuidError as unknown as { code: string }).code = '22P02';
       const schoolRepo = { findOne: vi.fn().mockRejectedValue(invalidUuidError) };
-      const realTenantStatus = new TenantStatusService(
-        redis as any,
-        schoolRepo as any,
-        {
-          get: vi.fn().mockReturnValue(PLATFORM_TENANT_ID), // a platform SUPER_ADMIN
-        } as any,
-      );
+      const realTenantStatus = new TenantStatusService(redis as any, schoolRepo as any);
 
       const realGuard = new ContextGuard(reflector, realTenantStatus);
 
@@ -983,7 +944,7 @@ describe('ContextGuard', () => {
           sub: 'super-1',
           email: 'super@test.com',
           phone: null,
-          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+          memberships: [{ tenantId: 'not-a-uuid', role: UserRole.ADMIN }],
         },
         headers: { 'x-tenant-id': 'not-a-uuid' },
       };

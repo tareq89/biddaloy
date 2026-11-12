@@ -132,8 +132,8 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   user_recovery_codes: { 'delete-row': ['*'] },
   platform_admin_devices: { 'delete-row': ['*'] },
   platform_approvals: { 'delete-row': ['*'] },
-  // Platform switches (e.g. the two-owner approvals flag): config, no secrets or personal data.
-  platform_settings: { 'kept-public': ['value'] },
+  // Platform switches: emptied so staging starts from defaults (D26); owners come from staging secrets.
+  platform_settings: { 'delete-row': ['*'] },
   // [Epic 99] Free text an owner typed about a school: it can name its staff or families, so it
   // becomes '[scrubbed]' (the columns are NOT NULL). Filters and channels are config only.
   impersonation_sessions: { null: ['reason'] },

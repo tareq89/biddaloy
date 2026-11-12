@@ -35,7 +35,7 @@
       "@biddaloy/ui/tailwind": ["../ui/tailwind.preset.ts"]
     }
   },
-  "include": ["src", "../e2e/route-manifest.json", "../ui/src/i18n/locales/**/*.json"],
+  "include": ["src", "../e2e/route-manifest.json", "../e2e/route-manifest-filter.ts", "../ui/src/i18n/locales/**/*.json"],
   // Checked separately, against the `WebWorker` lib — see
   // `tsconfig.sw.json` for why it cannot share this program.
   "exclude": ["src/sw.ts"],
