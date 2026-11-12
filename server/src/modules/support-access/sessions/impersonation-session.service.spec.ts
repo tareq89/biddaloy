@@ -235,13 +235,32 @@ describe('ImpersonationSessionService (unit)', () => {
     expect(saved).toHaveLength(0);
   });
 
-  it('a blocked school with an emergency entry is not built yet (#3802)', async () => {
+  it('a blocked school with an emergency entry goes ACTIVE, view-only and write-locked', async () => {
     mode = SupportAccessMode.BLOCKED;
-    const r = await refusal(
-      service.create({ ...input, entryKind: ImpersonationEntryKind.EMERGENCY }),
-    );
-    expect(r.status).toBe(501);
+    await service.create({
+      ...input,
+      viewOnly: false,
+      entryKind: ImpersonationEntryKind.EMERGENCY,
+    });
+    expect(saved[0]).toMatchObject({
+      status: 'ACTIVE',
+      entry_kind: 'EMERGENCY',
+      view_only: true,
+      write_locked: true,
+    });
   });
+
+  it.each([SupportAccessMode.ALLOWED, SupportAccessMode.ASK])(
+    'an emergency entry in %s mode is refused 409 and writes nothing',
+    async (m) => {
+      mode = m;
+      const r = await refusal(
+        service.create({ ...input, entryKind: ImpersonationEntryKind.EMERGENCY }),
+      );
+      expect(r.status).toBe(409);
+      expect(saved).toHaveLength(0);
+    },
+  );
 
   it('refuses a 4th distinct live session and ends nothing', async () => {
     liveRows = [1, 2, 3].map((n) => ({ tenant_id: 'school-1', target_user_id: `other-${n}` }));

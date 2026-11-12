@@ -35,6 +35,20 @@ export class StartImpersonationDto {
 
   @IsBoolean()
   viewOnly: boolean;
+
+  /** An approved `ask` request to redeem (single use). */
+  @IsOptional()
+  @IsUUID()
+  ticketId?: string;
+}
+
+/** Owner asks the school to let an emergency session write. */
+export class RequestWriteDto {
+  @SanitizeText()
+  @IsString()
+  @MinLength(IMPERSONATION_REASON_MIN)
+  @MaxLength(IMPERSONATION_REASON_MAX)
+  reason: string;
 }
 
 export class ListImpersonationQueryDto {

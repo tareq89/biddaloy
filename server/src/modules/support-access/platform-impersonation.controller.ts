@@ -20,7 +20,6 @@ import type { Response } from 'express';
 import {
   ApprovalScope,
   ImpersonationEndedBy,
-  ImpersonationEntryKind,
   ImpersonationStatus,
   type ImpersonationSessionDto,
   type StartImpersonationResponse,
@@ -31,7 +30,12 @@ import type { CockpitPrincipal } from '../platform-identity/cockpit-principal';
 import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
 import { ImpersonationCodeService } from './exchange/impersonation-code.service';
 import { ImpersonationSessionService } from './sessions/impersonation-session.service';
-import { ListImpersonationQueryDto, StartImpersonationDto } from './dto/platform-impersonation.dto';
+import { ConsentGateService, type GateRequest } from './consent/consent-gate.service';
+import {
+  ListImpersonationQueryDto,
+  RequestWriteDto,
+  StartImpersonationDto,
+} from './dto/platform-impersonation.dto';
 
 /** [Epic 99] Cockpit "Login as": start, end and list sessions. Consent logic lives in the service. */
 @ApiTags('platform')
@@ -42,6 +46,7 @@ export class PlatformImpersonationController {
   constructor(
     private readonly sessions: ImpersonationSessionService,
     private readonly codes: ImpersonationCodeService,
+    private readonly gate: ConsentGateService,
   ) {}
 
   /**
@@ -56,19 +61,11 @@ export class PlatformImpersonationController {
   @ApiOperation({ summary: 'Start a Login as session. Needs a step-up token.' })
   async start(
     @Body() dto: StartImpersonationDto,
-    @Req() req: { user: CockpitPrincipal },
+    @Req() req: GateRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StartImpersonationResponse> {
     res.setHeader('Cache-Control', 'no-store');
-    const row = await this.sessions.create({
-      platformAdminId: req.user.sub,
-      schoolId: dto.schoolId,
-      targetUserId: dto.targetUserId,
-      role: dto.role,
-      reason: dto.reason,
-      viewOnly: dto.viewOnly,
-      entryKind: ImpersonationEntryKind.NORMAL, // emergency is #3802
-    });
+    const row = await this.gate.start(req, dto);
     const status = row.status as ImpersonationStatus; // entity column is a plain string
     if (status !== ImpersonationStatus.ACTIVE) return { id: row.id, status };
     return {
@@ -77,6 +74,20 @@ export class PlatformImpersonationController {
       code: await this.codes.issue(row.id),
       expiresAt: row.expires_at!.toISOString(),
     };
+  }
+
+  /** Owner of an EMERGENCY session asks the school's admins to let it write. */
+  @Post(':id/request-write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ApprovalGuard)
+  @RequireApproval(ApprovalScope.PLATFORM_LOGIN_AS)
+  @ApiOperation({ summary: 'Ask for write access on an emergency session. Needs a step-up token.' })
+  async requestWrite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RequestWriteDto,
+    @Req() req: { user: CockpitPrincipal },
+  ): Promise<void> {
+    await this.gate.requestWrite(req.user.sub, id, dto.reason);
   }
 
   /** Either owner may end any session, not only their own; no step-up needed to end. */
