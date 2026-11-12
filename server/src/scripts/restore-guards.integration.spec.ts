@@ -124,6 +124,15 @@ describe('prod restore emptiness guards (real Postgres)', () => {
     expect(await verdicts()).toEqual(allRefuse);
   });
 
+  it('(g) an owner-only database with a populated default-school is refused', async () => {
+    await addOwner();
+    await addDefault();
+    await db.query(
+      `INSERT INTO students (tenant_id) SELECT id FROM schools WHERE slug = 'default-school'`,
+    );
+    expect(await verdicts()).toEqual(allRefuse);
+  });
+
   it('(f) a missing table counts as 0 (empty database)', async () => {
     await db.query(`DROP SCHEMA public CASCADE; CREATE SCHEMA public`);
     expect(await verdicts()).toEqual(allEmpty);

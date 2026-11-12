@@ -18,7 +18,7 @@ export class PlatformAttentionHealthController {
 
   @Get('health')
   @ApiOperation({
-    summary: 'Attention engine last sweeps, durations and failing rules. SUPER_ADMIN only.',
+    summary: 'Attention engine last sweeps, durations and failing rules. Cockpit owners only.',
   })
   @ApiOkResponse({ type: PlatformAttentionHealthDto })
   health(): Promise<PlatformAttentionHealthDto> {

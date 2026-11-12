@@ -9,7 +9,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -29,20 +29,20 @@ import {
 
 /** `/platform/holiday-sets/*` — platform owners curate one holiday list per country/year (D10). */
 @ApiTags('public-holidays')
-@ApiTenantAuth()
+@ApiBearerAuth('bearer')
 @Controller('platform')
 @UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class PlatformHolidaySetsController {
   constructor(private readonly service: PublicHolidaysService) {}
 
   @Get('holiday-sets')
-  @ApiOperation({ summary: 'List every platform public-holiday set. SUPER_ADMIN only.' })
+  @ApiOperation({ summary: 'List every platform public-holiday set. Cockpit owners only.' })
   async listSets() {
     return this.service.listSets();
   }
 
   @Get('holiday-sets/:id')
-  @ApiOperation({ summary: 'Get one platform public-holiday set. SUPER_ADMIN only.' })
+  @ApiOperation({ summary: 'Get one platform public-holiday set. Cockpit owners only.' })
   async getSet(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getSet(id);
   }
@@ -50,14 +50,14 @@ export class PlatformHolidaySetsController {
   @Post('holiday-sets/fetch')
   @ApiOperation({
     summary:
-      'Fetch (or re-fetch) a country/year holiday set from an external source. SUPER_ADMIN only.',
+      'Fetch (or re-fetch) a country/year holiday set from an external source. Cockpit owners only.',
   })
   async fetchSet(@Body() dto: FetchHolidaySetDto, @CurrentUser() user: { sub: string }) {
     return this.service.fetchIntoSet(dto.country, dto.year, user.sub);
   }
 
   @Put('holiday-sets/:id/entries')
-  @ApiOperation({ summary: "Replace a holiday set's entries. SUPER_ADMIN only." })
+  @ApiOperation({ summary: "Replace a holiday set's entries. Cockpit owners only." })
   async updateEntries(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateHolidaySetEntriesDto,
@@ -67,13 +67,13 @@ export class PlatformHolidaySetsController {
   }
 
   @Post('holiday-sets/:id/publish')
-  @ApiOperation({ summary: 'Publish a holiday set for tenants to import from. SUPER_ADMIN only.' })
+  @ApiOperation({ summary: 'Publish a holiday set for tenants to import from. Cockpit owners only.' })
   async publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
     return this.service.publish(id, user.sub);
   }
 
   @Post('holiday-sets/:id/unpublish')
-  @ApiOperation({ summary: 'Unpublish a holiday set. SUPER_ADMIN only.' })
+  @ApiOperation({ summary: 'Unpublish a holiday set. Cockpit owners only.' })
   async unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
     return this.service.unpublish(id, user.sub);
   }

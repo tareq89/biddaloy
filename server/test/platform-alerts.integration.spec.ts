@@ -17,7 +17,6 @@ describe('platform_alerts (integration)', () => {
   let probe: 'ok' | 'fail';
   const greenweb = { send: vi.fn().mockResolvedValue({ success: true }) };
   let service: PlatformAlertsService;
-  let platformTenantId: string | undefined = SEED_TENANT_ID;
   const env: Record<string, string | undefined> = { SMS_PROVIDER: 'p' };
   const otherTenantId = randomUUID();
 
@@ -29,7 +28,6 @@ describe('platform_alerts (integration)', () => {
       { probeRedis: async () => probe } as never,
       { get: (k: string) => env[k] } as never,
       { resolve: async () => ({ provider: greenweb, config: {} }) } as never,
-      { platformTenantId: async () => platformTenantId } as never,
     );
     await dataSource.query(
       `INSERT INTO schools (id, name, slug, created_at, updated_at)
@@ -45,6 +43,7 @@ describe('platform_alerts (integration)', () => {
 
   afterAll(async () => {
     await dataSource.query(`DELETE FROM platform_alerts`);
+    await dataSource.query(`DELETE FROM platform_admins WHERE user_id = ANY($1)`, [userIds]);
     await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [userIds]);
     await dataSource.query(`DELETE FROM schools WHERE id = $1`, [otherTenantId]);
     // audit_logs may reference users, so blank rather than delete.
@@ -131,7 +130,7 @@ describe('platform_alerts (integration)', () => {
   describe('recipients', () => {
     async function makeUser(
       suffix: string,
-      o: { role: string; verified?: boolean; status?: string; deleted?: boolean; tenant?: string },
+      o: { role: string; admin?: boolean; verified?: boolean; status?: string; deleted?: boolean; tenant?: string },
     ): Promise<string> {
       const phone = `0171${suffix}`;
       const [u] = await dataSource.query(
@@ -149,37 +148,32 @@ describe('platform_alerts (integration)', () => {
         `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at) VALUES ($1, $2, $3, $4)`,
         [u.id, o.tenant ?? SEED_TENANT_ID, o.role, o.deleted ? new Date() : null],
       );
+      if (o.admin)
+        await dataSource.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [u.id]);
       return phone;
     }
 
-    it('returns verified active SUPER_ADMIN phones and skips everyone else', async () => {
-      const good = await makeUser('9000001', { role: 'SUPER_ADMIN' });
-      await makeUser('9000002', { role: 'SUPER_ADMIN', verified: false });
-      await makeUser('9000003', { role: 'SUPER_ADMIN', status: 'SUSPENDED' });
-      await makeUser('9000004', { role: 'SUPER_ADMIN', deleted: true });
-      await makeUser('9000005', { role: 'ADMIN' });
+    it('returns verified active platform_admins phones and skips everyone else', async () => {
+      const good = await makeUser('9000001', { role: 'SUPER_ADMIN', admin: true });
+      await makeUser('9000002', { role: 'SUPER_ADMIN', admin: true, verified: false });
+      await makeUser('9000003', { role: 'SUPER_ADMIN', admin: true, status: 'SUSPENDED' });
+      await makeUser('9000004', { role: 'SUPER_ADMIN', admin: true, deleted: true });
+      await makeUser('9000005', { role: 'SUPER_ADMIN' }); // a school SUPER_ADMIN, not an owner
 
       const phones = await service.recipients();
       expect(phones).toContain(good);
-      for (const bad of ['9000002', '9000003', '9000004', '9000005']) {
+      for (const bad of ['9000002', '9000003', '9000005']) {
         expect(phones).not.toContain(`0171${bad}`);
       }
     });
 
-    // [75.34 review r1, F-2441-2] recipients never span tenants.
-    it('texts only the platform tenant SUPER_ADMINs, and with no platform tenant only the env list', async () => {
-      const platformSa = await makeUser('9000006', { role: 'SUPER_ADMIN' });
-      const schoolSa = await makeUser('9000007', { role: 'SUPER_ADMIN', tenant: otherTenantId });
+    it('with no platform admin only the env list is texted', async () => {
+      await makeUser('9000007', { role: 'SUPER_ADMIN', tenant: otherTenantId });
+      await dataSource.query(`DELETE FROM platform_admins WHERE user_id = ANY($1)`, [userIds]);
       env.PLATFORM_ALERT_PHONES = '01799999999';
       try {
-        const scoped = await service.recipients();
-        expect(scoped).toContain(platformSa);
-        expect(scoped).not.toContain(schoolSa);
-
-        platformTenantId = undefined;
         expect(await service.recipients()).toEqual(['01799999999']);
       } finally {
-        platformTenantId = SEED_TENANT_ID;
         delete env.PLATFORM_ALERT_PHONES;
       }
     });

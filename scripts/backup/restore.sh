@@ -110,7 +110,7 @@ SELECT CASE WHEN to_regclass('public.users') IS NULL THEN 0
      - CASE WHEN to_regclass('public.users') IS NULL OR to_regclass('public.platform_admins') IS NULL THEN 0
          ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.platform_admins', false, true, '')))[1]::text::int END
      + CASE WHEN to_regclass('public.schools') IS NULL THEN 0
-         ELSE (xpath('/row/c/text()', query_to_xml(CASE WHEN to_regclass('public.students') IS NULL THEN 'select count(*) c from public.schools where slug <> ''default-school''' ELSE 'select count(*) c from public.schools s where slug <> ''default-school'' and (coalesce(to_jsonb(s)->>''is_platform'', ''false'') <> ''true'' or exists (select 1 from public.students st where st.tenant_id = s.id))' END, false, true, '')))[1]::text::int END
+         ELSE (xpath('/row/c/text()', query_to_xml(CASE WHEN to_regclass('public.students') IS NULL THEN 'select count(*) c from public.schools where slug <> ''default-school''' ELSE 'select count(*) c from public.schools s where (slug <> ''default-school'' or exists (select 1 from public.students st where st.tenant_id = s.id)) and (coalesce(to_jsonb(s)->>''is_platform'', ''false'') <> ''true'' or exists (select 1 from public.students st where st.tenant_id = s.id))' END, false, true, '')))[1]::text::int END
 SQL
 }
 if [[ $REQUIRE_EMPTY -eq 1 ]]; then
@@ -202,7 +202,7 @@ BEGIN
   IF to_regclass('public.users') IS NOT NULL THEN EXECUTE 'select count(*) from public.users' INTO n; END IF;
   IF to_regclass('public.platform_admins') IS NOT NULL THEN EXECUTE 'select count(*) from public.platform_admins' INTO a; END IF;
   n := n - a;  -- cockpit owners booted once do not make a database "not empty"
-  IF to_regclass('public.schools') IS NOT NULL THEN EXECUTE (CASE WHEN to_regclass('public.students') IS NULL THEN 'select count(*) from public.schools where slug <> ''default-school''' ELSE 'select count(*) from public.schools s where slug <> ''default-school'' and (coalesce(to_jsonb(s)->>''is_platform'', ''false'') <> ''true'' or exists (select 1 from public.students st where st.tenant_id = s.id))' END) INTO m; END IF;
+  IF to_regclass('public.schools') IS NOT NULL THEN EXECUTE (CASE WHEN to_regclass('public.students') IS NULL THEN 'select count(*) from public.schools where slug <> ''default-school''' ELSE 'select count(*) from public.schools s where (slug <> ''default-school'' or exists (select 1 from public.students st where st.tenant_id = s.id)) and (coalesce(to_jsonb(s)->>''is_platform'', ''false'') <> ''true'' or exists (select 1 from public.students st where st.tenant_id = s.id))' END) INTO m; END IF;
   IF n + m > 0 THEN RAISE EXCEPTION 'restore-refused-not-empty'; END IF;
 END
 $guard$;

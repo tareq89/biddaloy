@@ -47,7 +47,7 @@ export class PlatformBackupHealthController {
   @Get('health')
   @ApiOperation({
     summary:
-      'Per-school backup schedule, last attempt outcome, last success time and storage usage. SUPER_ADMIN only.',
+      'Per-school backup schedule, last attempt outcome, last success time and storage usage. Cockpit owners only.',
   })
   @ApiOkResponse({ type: PlatformBackupHealthResponseDto })
   async health(): Promise<PlatformBackupHealthResponseDto> {

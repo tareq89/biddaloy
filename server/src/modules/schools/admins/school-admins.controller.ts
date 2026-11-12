@@ -11,11 +11,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload } from '@biddaloy/shared';
 import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { SchoolAdminsService } from './school-admins.service';
 import { AddSchoolAdminDto } from './dto/add-school-admin.dto';
 
@@ -26,7 +25,7 @@ import { AddSchoolAdminDto } from './dto/add-school-admin.dto';
  * pending invitation. ADMIN role only — no general staff-role management.
  */
 @ApiTags('schools')
-@ApiTenantAuth()
+@ApiBearerAuth('bearer')
 @Controller('platform/schools/:id/admins')
 @UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class SchoolAdminsController {

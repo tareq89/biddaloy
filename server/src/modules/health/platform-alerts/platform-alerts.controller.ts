@@ -17,7 +17,7 @@ export class PlatformAlertsController {
   constructor(private readonly service: PlatformAlertsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Open platform alerts (e.g. Redis down). SUPER_ADMIN only.' })
+  @ApiOperation({ summary: 'Open platform alerts (e.g. Redis down). Cockpit owners only.' })
   @ApiOkResponse({ type: PlatformAlertsDto })
   list(): Promise<PlatformAlertsDto> {
     return this.service.listOpen();

@@ -10,11 +10,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload } from '@biddaloy/shared';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import {
   GrantSeatsDto,
   ListPlatformSchoolsQueryDto,
@@ -27,7 +26,7 @@ import { PlatformBillingService } from './platform-billing.service';
 
 /** Epic 49 W4: the platform SUPER_ADMIN's view of every school's seats, orders and payments. */
 @ApiTags('platform')
-@ApiTenantAuth()
+@ApiBearerAuth('bearer')
 @Controller('platform/billing')
 @UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class PlatformBillingController {

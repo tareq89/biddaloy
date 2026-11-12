@@ -4,6 +4,7 @@ import { parse } from 'pg-connection-string';
 import { DataSource } from 'typeorm';
 import { RedactingTypeOrmLogger } from '../../db-logger';
 import { todayInSchoolTz } from '../../common/time';
+import { PlatformHomeService } from '../../modules/platform-identity/platform-home.service';
 import { createScriptAppContext } from '../script-app-context';
 import { createContext, demoPassword, type DemoSeedContext, type DemoSlice } from './context';
 import { SLICES } from './slices';
@@ -133,6 +134,8 @@ export async function runDemoSeed(args: DemoSeedArgs, password: string) {
     await assertEmptyDatabase(ds);
     const ctx = await createContext({ ds, app, ...args, password });
     await runSlices(ctx, SLICES);
+    // Registration needs the flagged platform home (tenant-status.service); a fresh demo has none.
+    await app.get(PlatformHomeService).ensure();
     return { app, ds, ctx };
   } catch (e) {
     await app.close();
