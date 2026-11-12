@@ -295,3 +295,18 @@ describe('runCheck — unused keys', () => {
     expect(unused).toEqual([]);
   });
 });
+
+describe('runCheck — namespace-prefixed keys', () => {
+  it('resolves t("ns:key") under a multi-namespace hook, and still catches a missing key', () => {
+    const { localesDir, sourceDir } = makeFixture();
+    for (const locale of ['bn', 'en']) writeLocale(localesDir, locale, 'audit', { a: { b: 'x' } });
+    writeSource(
+      sourceDir,
+      'ok.tsx',
+      "const { t } = useTranslation(['audit', 'other']);\nt('audit:a.b'); t('audit:a.missing');",
+    );
+    const { errors } = runCheck({ localesDir, sourceDirs: [sourceDir] });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('"a.missing"');
+  });
+});
