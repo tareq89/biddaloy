@@ -1,0 +1,48 @@
+{
+  "title": "Operations",
+  "caption": "See at a glance whether the platform is healthy.",
+  "loadError": "Could not load operations. Try again.",
+  "queues": {
+    "title": "Queues",
+    "tableCaption": "Waiting and failed jobs of every queue",
+    "columnName": "Queue",
+    "columnWaiting": "Waiting",
+    "columnFailed": "Failed",
+    "unavailable": "Not available",
+    "retryFailed": "Retry failed",
+    "retryFailedFor": "Retry failed jobs of {{name}}",
+    "retried": "{{count}} failed jobs were started again.",
+    "retryError": "Could not retry the failed jobs. Try again.",
+    "emptyTitle": "No queues",
+    "emptyExplanation": "No queue was found to show.",
+    "announceResults": "Showing {{count}} of {{total}} queues"
+  },
+  "system": {
+    "title": "System",
+    "appVersion": "Version",
+    "lastMigration": "Last database change",
+    "noMigration": "None has run yet",
+    "database": "Database",
+    "redis": "Redis",
+    "ok": "OK",
+    "fail": "Down",
+    "allGood": "Everything is running.",
+    "down": "Not working: {{names}}. Schools may not work properly right now.",
+    "downJoin": ", "
+  },
+  "restore": {
+    "title": "Restore lock",
+    "none": "No school is restoring right now.",
+    "status": {
+      "QUEUED": "Waiting",
+      "RUNNING": "Running"
+    },
+    "locked": "Writes stopped",
+    "release": "Release",
+    "releaseFor": "Release the lock of {{name}}",
+    "confirmTitle": "Release the lock of {{name}}?",
+    "confirmBody": "You have checked that no restore is running. The school will be writable again.",
+    "released": "The school is writable again.",
+    "releaseError": "Could not release the lock. Try again."
+  }
+}
