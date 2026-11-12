@@ -69,6 +69,10 @@ export const ALERT_RULE_KEYS = [
   'account.idle',
   'platform.seats.expiring',
   'platform.bkash.refund_due',
+  'sms.low',
+  'sms.expiring',
+  'platform.sms.stock_low',
+  'platform.sms.oversold',
 ] as const;
 
 export type AlertRuleKey = (typeof ALERT_RULE_KEYS)[number];
@@ -85,7 +89,7 @@ export interface AlertRuleMeta {
   canDisable: boolean;
   guardianSmsFallback: boolean;
   staffSmsFallback: boolean;
-  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725';
+  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725' | '#3727';
 }
 
 const C = AlertCategory;
@@ -181,6 +185,11 @@ const ROWS: Row[] = [
   ['platform.seats.expiring', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false, '#1649'],
   // Money bKash took that paid no order: critical until refunded, so it cannot be turned off.
   ['platform.bkash.refund_due', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false, '#1649'],
+  // [Epic 100] SMS stock: school low / expiring, owner stock low / oversold.
+  ['sms.low', C.BILLING, S.CRITICAL, [K.DAILY, K.ON_CHANGE], [R.ADMIN], true, false, false, '#3727'],
+  ['sms.expiring', C.BILLING, S.WARNING, [K.DAILY, K.ON_CHANGE], [R.ADMIN], true, false, false, '#3727'],
+  ['platform.sms.stock_low', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false, '#3727'],
+  ['platform.sms.oversold', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false, '#3727'],
 ];
 
 export const ALERT_RULES: readonly AlertRuleMeta[] = ROWS.map(
