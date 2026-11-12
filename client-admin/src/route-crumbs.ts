@@ -53,6 +53,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/auth/social/done': 'redirect-only landing, never renders a page',
   '/sign-in/forgot': 'cockpit pre-auth screen, no shell',
   '/sign-in/reset': 'cockpit pre-auth screen, no shell',
+  '/support/enter': 'Login as landing in a new tab, chromeless, no shell',
+  '/welcome/support-access': 'one-step welcome card, chromeless, no shell',
   // Chromeless and outside `_platform` (no session yet), so no trail: the page has its own title.
   '/owner-security/two-step': 'cockpit first-time set-up, chromeless, no shell',
   '/select-school': 'post-auth, pre-tenant-selection — no tenant nav to trail into yet',
@@ -94,13 +96,16 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_platform/reports-usage': [{ label: { key: 'reportsUsage' } }],
   '/_platform/platform-owners/': [{ label: { key: 'platformOwners' } }],
   '/_platform/owner-security/': [{ label: { key: 'security' } }],
-  '/_platform/users/': [{ label: { key: 'platformUsers' } }],
-  '/_platform/operations/': [{ label: { key: 'platformOperations' } }],
-  '/_platform/audit/': [{ label: { key: 'platformAudit' } }],
   '/_platform/schools/': [{ label: { key: 'schools' } }],
   '/_platform/schools/new': [{ label: { key: 'schools' } }, { label: { key: 'new' } }],
+  '/_platform/operations/': [{ label: { key: 'operations' } }],
+  '/_platform/users/': [{ label: { key: 'platformUsers' } }],
+  '/_platform/audit/': [{ label: { key: 'platformAudit' } }],
+  '/_platform/announcements/': [{ label: { key: 'platformAnnouncements' } }],
   '/_platform/schools/$schoolId': [
-    { label: { key: 'schools' } },
+    // [99.5.15] The cockpit's own crumb, linked to its home (the schools list).
+    { label: { key: 'cockpit' }, to: '/schools' },
+    { label: { key: 'schools' }, to: '/schools' },
     { label: { key: 'schoolDetail' }, dynamic: 'entity' },
   ],
 
@@ -108,6 +113,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/dashboard': [{ label: { key: 'dashboard' } }],
   '/_staff/notifications': [{ label: { key: 'notifications' } }],
   '/_staff/security': [{ label: { key: 'security' } }],
+  '/_staff/support-access/requests/$requestId': [
+    { label: { key: 'supportAccessRequest' }, dynamic: 'entity' },
+  ],
   '/_staff/students/': [{ label: { entity: 'student' } }],
   '/_staff/guardians/': [{ label: { entity: 'guardian' } }],
   '/_staff/calendar/': [{ label: { key: 'calendar' } }],

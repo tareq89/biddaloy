@@ -194,6 +194,10 @@ export async function resolvePath(
     return `${route.path}?student=${child}`;
   }
   if (!route.path.includes('$')) return route.path;
+  if (route.path.includes('$requestId')) {
+    // [99.5.15] A request nobody made: the page's own "not found" card is what gets scanned.
+    return route.path.replace('$requestId', '00000000-0000-4000-8000-000000000000');
+  }
   if (route.path.startsWith('/my-class/')) {
     // [47.4.4] The page is a 404 for any section the caller is not a class
     // teacher of, so a fresh admin-made section would not do: use the seeded
