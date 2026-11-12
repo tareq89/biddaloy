@@ -79,8 +79,6 @@ x-app: &app
     PLATFORM_SMS_SENDER_ID: ${PLATFORM_SMS_SENDER_ID:-}
     PLATFORM_SMS_API_URL: ${PLATFORM_SMS_API_URL:-}
     PLATFORM_ALERT_PHONES: ${PLATFORM_ALERT_PHONES:-}
-    # Required in production: the id of the platform school (env.validation.ts).
-    PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
     TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
@@ -111,21 +109,20 @@ x-app: &app
     UMAMI_API_URL: ${UMAMI_API_URL:-}
     UMAMI_API_TOKEN: ${UMAMI_API_TOKEN:-}
     # Cockpit owners (Epic 98): required by env validation unless DEMO_MODE, so empty is allowed
-    # here only for demo. SMOKE_COCKPIT_* stay out: they belong to the smoke runner, not the app.
+    # here only for demo.
     COCKPIT_DOMAIN: ${COCKPIT_DOMAIN:-}
     COCKPIT_OWNER_1_EMAIL: ${COCKPIT_OWNER_1_EMAIL:-}
     COCKPIT_OWNER_1_PHONE: ${COCKPIT_OWNER_1_PHONE:-}
     COCKPIT_OWNER_2_EMAIL: ${COCKPIT_OWNER_2_EMAIL:-}
     COCKPIT_OWNER_2_PHONE: ${COCKPIT_OWNER_2_PHONE:-}
+    # Staging only: OwnerSeedingService reads these to give owner 1 the smoke password and TOTP
+    # secret. The secrets file sets them on staging alone; empty elsewhere, and boot refuses them
+    # outside staging.
+    SMOKE_COCKPIT_EMAIL: ${SMOKE_COCKPIT_EMAIL:-}
+    SMOKE_COCKPIT_PASSWORD: ${SMOKE_COCKPIT_PASSWORD:-}
+    SMOKE_COCKPIT_TOTP_SECRET: ${SMOKE_COCKPIT_TOTP_SECRET:-}
   volumes:
     - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
-    - demo-state:/demo-state:ro
-  # Demo only: default-school's id changes every rebuild, so the demo reset writes it to the
-  # demo-state volume and PLATFORM_TENANT_ID must name it, or platform authority is gone.
-  command:
-    - sh
-    - -c
-    - 'if [ "$$DEMO_MODE" = true ]; then [ -s /demo-state/platform-tenant-id ] || { echo "demo: run the first rebuild before starting app" >&2; exit 1; }; PLATFORM_TENANT_ID="$$(cat /demo-state/platform-tenant-id)"; export PLATFORM_TENANT_ID; fi; exec node server/dist/main.js'
   depends_on:
     db:
       condition: service_healthy
@@ -392,7 +389,6 @@ services:
       # base64: compose would expand the `$`s of a raw bcrypt hash (see staging.example.env).
       STAGING_PASSWORD_HASH_B64: ${STAGING_PASSWORD_HASH_B64:-}
       SMOKE_SCHOOL_SLUG: ${SMOKE_SCHOOL_SLUG:-}
-      PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
       STAGING_REFRESH_PUSH_URL: ${STAGING_REFRESH_PUSH_URL:-}
       STAGING_REFRESH_DEADLINE: ${STAGING_REFRESH_DEADLINE:-}
     volumes:

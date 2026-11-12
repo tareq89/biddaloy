@@ -1,6 +1,6 @@
 import { post, registerTrialSchool } from '../api';
 import { shells } from '../config';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { cockpitOwner, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ListShellPage } from '../pages';
 
@@ -10,7 +10,7 @@ import { ListShellPage } from '../pages';
  * then grants 10 more seats (50). Revive is covered by the server e2e-spec and the dialog test:
  * an idle school cannot be made through the UI in a short run.
  */
-test.use({ ...loggedIn('super_admin'), actionTimeout: 15_000 });
+test.use({ ...cockpitOwner, actionTimeout: 15_000 });
 
 test('record an offline payment, then grant seats: the seats-bought tile follows', async ({
   page,

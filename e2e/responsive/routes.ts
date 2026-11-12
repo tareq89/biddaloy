@@ -17,13 +17,11 @@ import {
   createTeacher,
   createTeacherForSection,
   currentAcademicYearId,
-  findSchoolIdBySlug,
   findSeedSectionA,
   get,
   parentApiSession,
   post,
   seededFirstTermExamId,
-  superAdminApiSession,
   type ApiSession,
 } from '../api';
 import { acrBody, surveyBody } from '../fixtures/evaluations';
@@ -128,7 +126,7 @@ export async function ensureDecidableApplications(
 }
 import manifest from '../route-manifest.json';
 import { onSchoolHost } from '../route-manifest-filter';
-import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_TRIAL_SCHOOL } from '../seed-contract';
+import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 
 /** Shared manifest typing + param resolution for the responsive suites
  * (same resolution strategy as the a11y suite). */
@@ -196,16 +194,6 @@ export async function resolvePath(
     return `${route.path}?student=${child}`;
   }
   if (!route.path.includes('$')) return route.path;
-  if (route.path.includes('$schoolId')) {
-    // SUPER_ADMIN platform console (#535) — `GET /schools` is SUPER_ADMIN
-    // only, so this can't ride the shared ADMIN session. Resolves the
-    // seeded school (`SEED_TRIAL_SCHOOL`; its page carries the Seats card
-    // and its "Grant seats" dialog) rather than
-    // provisioning a fresh one per viewport/theme run. Read-only here.
-    const superAdmin = await superAdminApiSession(request);
-    const schoolId = await findSchoolIdBySlug(request, superAdmin, SEED_TRIAL_SCHOOL.slug);
-    return route.path.replace('$schoolId', schoolId);
-  }
   if (route.path.startsWith('/my-class/')) {
     // [47.4.4] The page is a 404 for any section the caller is not a class
     // teacher of, so a fresh admin-made section would not do: use the seeded
@@ -335,14 +323,6 @@ export async function resolvePath(
   if (route.path.startsWith('/admission/')) {
     // Public, unauthenticated intake form of the seeded school.
     return route.path.replace('$slug', 'default-school');
-  }
-  if (route.path.includes('$setId')) {
-    // Platform holiday sets come from an external fetch; render one only if
-    // the seed (or an earlier run) already left one behind.
-    const superAdmin = await superAdminApiSession(request);
-    const sets = await get<{ id: string }[]>(request, superAdmin, '/platform/holiday-sets');
-    if (!sets[0]) test.skip(true, 'no holiday set seeded: needs the external public-holiday fetch');
-    return route.path.replace('$setId', sets[0]!.id);
   }
   if (route.path.includes('$scaleId')) {
     const scales = await get<{ id: string }[]>(request, session, '/grading/scales');

@@ -17,6 +17,7 @@ import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from './app.module';
 import { buildFullPath, RequestMethodName } from '@test/helpers/route-path.helper';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from './validation-pipe';
 import { SEED_TENANT_ID, SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
@@ -26,13 +27,14 @@ const SNAPSHOT_USER_ID = '00000000-0000-4000-8000-0000000e7532';
 const SENTINEL = 299;
 const PLATFORM_EMAIL = 'route-snapshot-platform@biddaloy.test';
 const PLATFORM_USER_ID = '00000000-0000-4000-8000-0000000e7533';
-// Column = who sends the request. TENANT_SA is a SUPER_ADMIN membership on the seed tenant
-// (legacy shape); PLATFORM_SA is SUPER_ADMIN on the platform tenant (slug default-school),
-// sending that tenant's id in X-Tenant-ID, as the real platform console does.
-type Column = { name: string; role?: UserRole; platform?: boolean };
+// Column = who sends the request. COCKPIT_OWNER is a platform owner's cockpit token (no tenant or
+// role header, as the real cockpit sends). HOME_SA is a SUPER_ADMIN membership on the platform home
+// school and TENANT_SA one on the seed tenant: neither is platform authority (Epic 98 wave 5).
+type Column = { name: string; role?: UserRole; kind?: 'cockpit' | 'home' };
 const COLUMNS: Column[] = [
   { name: 'ANON' },
-  { name: 'PLATFORM_SA', role: UserRole.SUPER_ADMIN, platform: true },
+  { name: 'COCKPIT_OWNER', kind: 'cockpit' },
+  { name: 'HOME_SA', role: UserRole.SUPER_ADMIN, kind: 'home' },
   ...Object.values(UserRole).map((role) => ({
     name: role === UserRole.SUPER_ADMIN ? 'TENANT_SA' : role,
     role,
@@ -64,6 +66,7 @@ describe('Route status snapshot (e2e)', () => {
   let dataSource: DataSource;
   let token: string;
   let platformToken: string;
+  let cockpitToken: string;
   let platformId: string;
   let createdPlatformSchool = false;
   let server: ReturnType<INestApplication['getHttpServer']>;
@@ -71,12 +74,16 @@ describe('Route status snapshot (e2e)', () => {
   const send = async (method: string, path: string, c: Column): Promise<string> => {
     let req = supertest(server)
       [method.toLowerCase() as 'get'](path)
-      .set('X-Tenant-ID', c.platform ? platformId : SEED_TENANT_ID)
       .timeout({ response: 15000, deadline: 20000 });
-    if (c.role) {
+    if (c.kind === 'cockpit') {
+      req = req.set('Authorization', `Bearer ${cockpitToken}`);
+    } else if (c.role) {
       req = req
-        .set('Authorization', `Bearer ${c.platform ? platformToken : token}`)
+        .set('X-Tenant-ID', c.kind === 'home' ? platformId : SEED_TENANT_ID)
+        .set('Authorization', `Bearer ${c.kind === 'home' ? platformToken : token}`)
         .set('X-Role', c.role);
+    } else {
+      req = req.set('X-Tenant-ID', SEED_TENANT_ID);
     }
     try {
       const res = await req;
@@ -114,7 +121,7 @@ describe('Route status snapshot (e2e)', () => {
         [SNAPSHOT_USER_ID, SEED_TENANT_ID, role],
       );
     }
-    // Second user, platform authority only, so the TENANT_SA column stays tenant-local.
+    // Second user: SUPER_ADMIN on the platform home school only, so TENANT_SA stays tenant-local.
     await dataSource.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
        VALUES ($1, $2, $3, 'Route Snapshot Platform', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
@@ -143,6 +150,7 @@ describe('Route status snapshot (e2e)', () => {
       ).body.access_token;
     token = await login(SNAPSHOT_EMAIL);
     platformToken = await login(PLATFORM_EMAIL);
+    cockpitToken = await mintCockpitToken(app, dataSource);
     guardsOnly = true;
   }, 60000);
 
@@ -150,6 +158,7 @@ describe('Route status snapshot (e2e)', () => {
     guardsOnly = false;
     // beforeAll may have failed before these were set; do not mask its error.
     if (dataSource) {
+      await removeCockpitOwners(dataSource);
       const ids = [SNAPSHOT_USER_ID, PLATFORM_USER_ID];
       await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [ids]);
       await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [ids]);
@@ -168,14 +177,15 @@ describe('Route status snapshot (e2e)', () => {
 
   it('one row proves both outcomes: attention health is PASS / 403 / 401', async () => {
     const p = '/api/v1/platform/attention/health';
-    expect(await send('GET', p, col('PLATFORM_SA'))).toBe('PASS');
+    expect(await send('GET', p, col('COCKPIT_OWNER'))).toBe('PASS');
     expect(await send('GET', p, col('ADMIN'))).toBe('403');
     expect(await send('GET', p, col('ANON'))).toBe('401');
   });
 
-  it('platform routes: PLATFORM_SA passes, a tenant-local SUPER_ADMIN is denied', async () => {
+  it('platform routes: a cockpit owner passes, no SUPER_ADMIN membership does', async () => {
     const p = '/api/v1/platform/schools';
-    expect(await send('GET', p, col('PLATFORM_SA'))).toBe('PASS');
+    expect(await send('GET', p, col('COCKPIT_OWNER'))).toBe('PASS');
+    expect(await send('GET', p, col('HOME_SA'))).toBe('403');
     expect(await send('GET', p, col('TENANT_SA'))).toBe('403');
   });
 

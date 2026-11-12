@@ -8,7 +8,6 @@ import { PlatformAdmin } from './entities/platform-admin.entity';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { toE164ish } from '../account-access/phone-delivery.util';
 import { isDemoMode } from '../demo/demo-mode';
-import { TenantStatusService } from '../schools/tenant-status.service';
 import { PlatformHomeService } from './platform-home.service';
 import { MfaService } from '../auth/mfa/mfa.service';
 import { hashPassword, verifyPassword } from '../auth/password-hash';
@@ -38,7 +37,6 @@ export class OwnerSeedingService implements OnApplicationBootstrap {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly home: PlatformHomeService,
-    private readonly tenantStatus: TenantStatusService,
     private readonly mfa: MfaService,
   ) {}
 
@@ -70,8 +68,7 @@ export class OwnerSeedingService implements OnApplicationBootstrap {
     await this.ds.transaction(async (em) => {
       await em.query(`SELECT pg_advisory_xact_lock($1)`, [OWNER_SEED_LOCK_KEY]);
       const homeId = await this.home.ensure(em);
-      const oldPlatformId = await this.tenantStatus.platformTenantId();
-      const allowedSchools = [homeId, ...(oldPlatformId ? [oldPlatformId] : [])];
+      const allowedSchools = [homeId];
 
       for (const s of slots) {
         await this.seedOwner(

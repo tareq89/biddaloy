@@ -5,32 +5,22 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
+import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
-import {
-  SEED_TENANT_ID,
-  SEED_ADMIN_EMAIL,
-  SEED_ADMIN_PASSWORD,
-  SEED_ADMIN_PASSWORD_HASH,
-} from '@test/constants';
-import { UserRole } from '@biddaloy/shared';
+import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/constants';
 
 /**
- * [14.12.3/#617] E2E for `GET /platform/backups/health`: SUPER_ADMIN only
- * (403 for ADMIN — `RolesGuard` answers a role mismatch with 403 since
- * #1360 / #729), 401 without an `X-Tenant-ID` (the route keeps the same guard
- * chain as `/schools`, see the controller comment), and the "never backed
- * up" row for a school with no export job.
+ * [14.12.3/#617] E2E for `GET /platform/backups/health`: platform owners only (a cockpit token,
+ * Epic 98 wave 5; 403 for a school ADMIN, 401 without a token), and the "never backed up" row
+ * for a school with no export job.
  */
 describe('Platform Backup Health E2E', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
-  let superAdminToken: string;
-  let platformId: string;
+  let ownerToken: string;
 
   const TENANT_ID = SEED_TENANT_ID;
-  const SUPER_ADMIN_USER_ID = '00000000-0000-4000-8000-0000000c0c01';
-  const SUPER_ADMIN_EMAIL = 'superadmin@platform-backup-health-e2e.example';
   const NEVER_BACKED_UP_TENANT_ID = '00000000-0000-4000-8000-0000000c0c02';
 
   beforeAll(async () => {
@@ -59,51 +49,20 @@ describe('Platform Backup Health E2E', () => {
       [NEVER_BACKED_UP_TENANT_ID],
     );
 
-    await dataSource.query(
-      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
-       VALUES ($1, $2, $3, 'Platform Backup Health Super Admin', 'ACTIVE', NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, SUPER_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH],
-    );
-    await dataSource.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, TENANT_ID, UserRole.SUPER_ADMIN],
-    );
-
-    // Platform authority = SUPER_ADMIN membership on the 'default-school' tenant.
-    await dataSource.query(
-      `INSERT INTO schools (id, name, slug, created_at, updated_at)
-       SELECT gen_random_uuid(), 'Platform', 'default-school', NOW(), NOW()
-       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
-    );
-    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
-      .id;
-    await dataSource.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-      [SUPER_ADMIN_USER_ID, platformId, UserRole.SUPER_ADMIN],
-    );
-
-    const loginAs = async (email: string) => {
-      const res = await supertest(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({ email, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      return res.body.access_token as string;
-    };
-
-    adminToken = await loginAs(SEED_ADMIN_EMAIL);
-    superAdminToken = await loginAs(SUPER_ADMIN_EMAIL);
+    const res = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    adminToken = res.body.access_token as string;
+    ownerToken = await mintCockpitToken(app, dataSource);
   });
 
   afterAll(async () => {
+    await removeCockpitOwners(dataSource);
     await app.close();
   });
 
-  it('rejects ADMIN with 403 (role guard)', async () => {
+  it('rejects a school ADMIN with 403', async () => {
     await supertest(app.getHttpServer())
       .get('/api/v1/platform/backups/health')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -115,18 +74,10 @@ describe('Platform Backup Health E2E', () => {
     await supertest(app.getHttpServer()).get('/api/v1/platform/backups/health').expect(401);
   });
 
-  it('rejects a SUPER_ADMIN with no X-Tenant-ID with 401 — same contract as /schools', async () => {
-    await supertest(app.getHttpServer())
-      .get('/api/v1/platform/backups/health')
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .expect(401);
-  });
-
-  it('allows SUPER_ADMIN and returns one row per school, including a "never backed up" row', async () => {
+  it('allows a platform owner and returns one row per school, including a "never backed up" row', async () => {
     const res = await supertest(app.getHttpServer())
       .get('/api/v1/platform/backups/health')
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', platformId)
+      .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);

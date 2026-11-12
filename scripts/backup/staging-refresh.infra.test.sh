@@ -50,7 +50,6 @@ PG_PASS="$(sed -n 's/^POSTGRES_PASSWORD=//p' <<<"$ENV_OF_DB")"
 TAG="t$$"
 LIVE="biddaloy_staging_${TAG}"
 SRC="biddaloy_staging_${TAG}_src"
-PLATFORM_ID="00000000-0000-4000-8000-000000000001"
 # A bcrypt cost-12 shaped hash: $2b$12$ + 53 characters.
 HASH="\$2b\$12\$$(printf 'a%.0s' $(seq 1 53))"
 # The env carries it base64-encoded (compose would expand the `$`s), as the stack does.
@@ -146,7 +145,7 @@ run_refresh() { # run_refresh VAR=value ... ; output goes to $WORK/out
     BACKUP_S3_ENDPOINT=https://r2.invalid BACKUP_S3_BUCKET=bucket \
     BACKUP_S3_ACCESS_KEY_ID=read-only BACKUP_S3_SECRET_ACCESS_KEY=read-only-secret \
     BACKUP_AGE_PRIVATE_KEY_FILE="$WORK/key.txt" STAGING_PASSWORD_HASH_B64="$(b64 "$HASH")" \
-    SMOKE_SCHOOL_SLUG=smoke-test-school PLATFORM_TENANT_ID="$PLATFORM_ID" \
+    SMOKE_SCHOOL_SLUG=smoke-test-school \
     STAGING_REFRESH_PUSH_URL=https://kuma.invalid/api/push/token STAGING_REFRESH_POLL_SECS=1 \
     STAGING_REFRESH_DEADLINE=23:59 SCRUB_SQL="$WORK/stub-scrub.sql" \
     "$@" bash "$REFRESH" ${RARGS[@]+"${RARGS[@]}"} >"$WORK/out" 2>&1

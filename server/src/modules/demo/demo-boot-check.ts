@@ -7,6 +7,7 @@ type SchoolRow = {
   slug: string;
   has_students?: boolean;
   created_in_demo?: boolean;
+  is_platform?: boolean;
 };
 
 /** Every school row, soft-deleted ones included: a deleted real school still means a real DB. */
@@ -18,7 +19,7 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
     return await ds.query(
       `SELECT s.id, s.slug,
               EXISTS (SELECT 1 FROM students st WHERE st.tenant_id = s.id) AS has_students,
-              s.created_in_demo
+              s.created_in_demo, s.is_platform
          FROM schools s`,
     );
   } finally {
@@ -29,11 +30,11 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
 /**
  * D30: a demo build must never run against a real database. With `DEMO_MODE=true`, any school
  * whose slug is not a demo branch throws. Only `bmsc-*` rows may hold students. Two rows are
- * exempt while they hold none: `default-school`, the platform row every migrated DB holds (random
- * uuid, MultiTenantAuth migration), and the configured `PLATFORM_TENANT_ID`. A pre-multi-tenant
- * install keeps its real data under `default-school`, and its env names that row as the platform
- * tenant, so a students check on the exemption is what refuses it. The seed runner's guard 3
- * exempts `default-school` too; only this boot check adds the no-students condition.
+ * exempt while they hold none: the `is_platform` home school (Epic 98), and `default-school`, the
+ * row every migrated DB holds (random uuid, MultiTenantAuth migration). A pre-multi-tenant
+ * install keeps its real data under `default-school`, so a students check on the exemption is what
+ * refuses it. The seed runner's guard 3 exempts `default-school` too; only this boot check adds
+ * the no-students condition.
  *
  * D3 (Epic 88): a school a visitor registered on the demo (`created_in_demo`) is never foreign, however
  * many students it holds. No size cap: one visitor can add 100 rows per request, so any cap a visitor
@@ -56,13 +57,13 @@ export async function assertDemoDatabase(
     (r) =>
       !demo.has(r.slug) &&
       !r.created_in_demo &&
-      (r.has_students || (r.slug !== 'default-school' && r.id !== env.PLATFORM_TENANT_ID)),
+      (r.has_students || (r.slug !== 'default-school' && !r.is_platform)),
   );
   if (foreign.length > 0) {
     throw new Error(
       `DEMO_MODE refuses to start: database holds non-demo schools (${foreign.map((r) => r.slug).join(', ')}). ` +
         'Only the bmsc-* branches and visitor schools (created_in_demo) may hold students, and besides them only an empty default-school ' +
-        '(the platform row every migration creates) or the empty PLATFORM_TENANT_ID row. ' +
+        '(the platform row every migration creates) or the empty platform home school. ' +
         'Anything else means this is not a demo database.',
     );
   }

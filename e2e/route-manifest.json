@@ -114,6 +114,7 @@
     {
       "path": "/schools",
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "list"
     },
     {
@@ -122,27 +123,32 @@
         "schoolId": "seeded"
       },
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "detail",
       "overlays": ["grant-seats"]
     },
     {
       "path": "/schools/new",
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "wizard"
     },
     {
       "path": "/holiday-sets",
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "list"
     },
     {
       "path": "/subscriptions",
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "list"
     },
     {
       "path": "/reports-usage",
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "list"
     },
     {
@@ -181,6 +187,7 @@
         "setId": "seeded"
       },
       "role": "super_admin",
+      "host": "cockpit",
       "archetype": "detail"
     },
     {

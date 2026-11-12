@@ -9,11 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload } from '@biddaloy/shared';
 import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
 import {
   QuerySmsCreditsDto,
@@ -23,13 +22,13 @@ import { SmsCreditsService } from './sms-credits.service';
 import { GrantSmsCreditsDto } from './dto/grant-sms-credits.dto';
 
 /**
- * [15.6.7/#550] SUPER_ADMIN top-up/correction console for a school's SMS
+ * [15.6.7/#550] Cockpit-owner top-up/correction console for a school's SMS
  * credit balance. Mirrors `SchoolAdminsController`'s shape: platform-only,
- * `PlatformAccessGuard` (cockpit token or platform SUPER_ADMIN; a
- * tenant-local SUPER_ADMIN gets 403; no `@RequirePermissions`).
+ * `PlatformAccessGuard` (a cockpit token only; any school token, SUPER_ADMIN
+ * included, gets 403; no `@RequirePermissions`).
  */
 @ApiTags('schools')
-@ApiTenantAuth()
+@ApiBearerAuth('bearer')
 @Controller('platform/schools/:id/sms-credits')
 @UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class SchoolSmsCreditsController {
