@@ -218,8 +218,19 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   // [58.0.03] actorIsStaffIn: code-constant role list + literal $n / column refs
   'modules/routines/routine-slots.service.ts': ["actorIsStaffIn('$2', 'ft.tenant_id')"],
   'modules/routines/teacher-busy.service.ts': ["actorIsStaffIn('$3', 's.id')"],
-  // column is list === 'shifts' ? 'shift' : 'version'
-  'modules/schools/schools.service.ts': ['column', 'column'],
+  // column is list === 'shifts' ? 'shift' : 'version'; #3805 searchForPlatform: order comes from the fixed
+  // ORDER map, pLimit/pOffset are $n strings from bind(), whereSql joins fixed fragments with $n placeholders
+  'modules/schools/schools.service.ts': [
+    'column',
+    'column',
+    'order',
+    'pLimit',
+    'pOffset',
+    'whereSql',
+    'whereSql',
+  ],
+  // AUDIT_ROWS module constant (10)
+  'modules/platform-control/overview/school-overview.service.ts': ['AUDIT_ROWS'],
   // BN_COLLATION constant
   'modules/students/students.service.ts': ['BN_COLLATION', 'BN_COLLATION'],
   // BN_COLLATION / NOT_SWAPPED_SQL constants
