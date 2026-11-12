@@ -21,7 +21,7 @@ import { STAFF_NAV_GROUPS, STAFF_TOP_NAV_ITEMS } from '../../nav-tree';
 import { PORTAL_NAV_ITEMS } from '../../routes/portal';
 
 export type FeatureKind =
-  'nav' | 'portal' | 'start' | 'admin' | 'administration' | 'dashboard' | 'help';
+  'nav' | 'portal' | 'start' | 'admin' | 'administration' | 'dashboard' | 'help' | 'platformOwner';
 
 export interface Feature {
   id: string;
@@ -115,6 +115,25 @@ const FIXED: Fixed[] = [
     path: 'administration/print-templates/certificates',
     roles: [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.OFFICE_STAFF],
     routes: [],
+  },
+  // [98.5.07] The platform owner cockpit (its own host, SUPER_ADMIN only). Three pages.
+  {
+    id: 'platformOwner.signIn',
+    path: 'platform-owner/sign-in',
+    roles: [UserRole.SUPER_ADMIN],
+    routes: ['/sign-in/forgot', '/sign-in/reset'],
+  },
+  {
+    id: 'platformOwner.recoveryCodes',
+    path: 'platform-owner/recovery-codes',
+    roles: [UserRole.SUPER_ADMIN],
+    routes: ['/owner-security', '/owner-security/two-step'],
+  },
+  {
+    id: 'platformOwner.lockAndApprovals',
+    path: 'platform-owner/lock-and-approvals',
+    roles: [UserRole.SUPER_ADMIN],
+    routes: ['/platform-owners'],
   },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
