@@ -1,0 +1,50 @@
+{
+  "title": "Login as - {{school}}",
+  "description": "Choose who to log in as, say why, and confirm with your code. A new tab opens in the school.",
+  "role": "Role",
+  "roles": {
+    "ADMIN": "Admin",
+    "ACCOUNTANT": "Accountant",
+    "TEACHER": "Teacher",
+    "EXECUTIVE": "Executive",
+    "OFFICE_STAFF": "Office staff",
+    "EXAM_CONTROLLER": "Exam controller",
+    "COMMITTEE": "Committee",
+    "PARENT": "Parent",
+    "STUDENT": "Student"
+  },
+  "person": "Person",
+  "personSearch": "Search by name",
+  "personList": "People you can log in as",
+  "personEmpty": "No one found.",
+  "noLoginAccount": "No login account. They cannot be chosen.",
+  "inactive": "Not active. They cannot be chosen.",
+  "reason": "Reason",
+  "reasonChips": {
+    "supportRequest": "Support request",
+    "bugCheck": "Checking a bug",
+    "setupHelp": "Setup help"
+  },
+  "reasonTooShort": "Write at least {{count}} letters.",
+  "schoolNote": "Note from the school",
+  "viewOnly": "View only (nothing can be changed)",
+  "submit": "Login as",
+  "cancel": "Cancel",
+  "loadError": "Could not load the people. Try again.",
+  "error": "Could not start. Try again.",
+  "blocked": "This school does not allow Biddaloy support access.",
+  "emergencyLink": "Emergency access",
+  "emergencyHelp": "Emergency access is view only and needs the other owner to agree.",
+  "emergencyReason": "Why is this an emergency?",
+  "waiting": {
+    "title": "Waiting for approval",
+    "text": "Waiting for approval. We told the school admins.",
+    "textOwner": "Waiting for the other owner to agree.",
+    "timeLeft": "Time left 24 h",
+    "cancel": "Cancel"
+  },
+  "noAdmin": {
+    "text": "This school has no active admin. Invite one first.",
+    "invite": "Invite admin"
+  }
+}
