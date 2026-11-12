@@ -148,7 +148,24 @@ describe('ImpersonationSessionService (integration)', () => {
       `UPDATE impersonation_sessions SET expires_at = now() - interval '1 minute' WHERE id = $1`,
       [s.id],
     );
-    await Promise.all([service.listLive(w.owner.id), service.listLive(w.owner.id)]);
+    // Deterministic overlap: hold the row lock so both reads block inside the expiry UPDATE,
+    // then release them together once both are waiting.
+    const holder = ds.createQueryRunner();
+    await holder.connect();
+    await holder.startTransaction();
+    await holder.query('SELECT 1 FROM impersonation_sessions WHERE id = $1 FOR UPDATE', [s.id]);
+    const reads = Promise.all([service.listLive(w.owner.id), service.listLive(w.owner.id)]);
+    for (let waiting = 0; waiting < 2; ) {
+      const [{ n }] = await ds.query(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE wait_event_type = 'Lock' AND query ILIKE '%impersonation_sessions%'`,
+      );
+      waiting = n;
+      if (waiting < 2) await new Promise((r) => setImmediate(r));
+    }
+    await holder.commitTransaction();
+    await holder.release();
+    await reads;
     const [row] = await ds.query(
       'SELECT status, ended_by FROM impersonation_sessions WHERE id = $1',
       [s.id],

@@ -113,6 +113,7 @@ export class AuthController {
     response.clearCookie(REFRESH_TOKEN_COOKIE, buildRefreshTokenClearCookieOptions());
   }
 
+  @DenyWhenImpersonating()
   @Post('logout-all')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -174,6 +175,7 @@ export class AuthController {
    * 403 would confirm to the caller that some other user's family id
    * exists. An already-revoked family is an idempotent 204, not a 404.
    */
+  @DenyWhenImpersonating()
   @Delete('sessions/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: STRICT_RATE_LIMIT })

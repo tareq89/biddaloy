@@ -78,23 +78,54 @@ describe('ImpersonationCodeService (unit)', () => {
     );
   });
 
-  it.each([
-    ['unknown code', () => {}],
-    ['session ended', () => (sessionRow!.status = 'ENDED')],
-    ['session expired', () => (sessionRow!.expires_at = new Date(Date.now() - 1000))],
-    ['row missing', () => (sessionRow = null)],
-    ['person suspended', () => (userRow!.status = UserStatus.SUSPENDED)],
-    ['imp key gone', () => store.delete('imp:s-1')],
-  ])('%s answers the identical 401 and runs the same lookups', async (name, breakIt) => {
-    live();
-    if (name !== 'unknown code') seed();
-    breakIt();
+  // Every failure is the same 401 and runs the same lookups (no oracle on which step failed).
+  const expectSame401 = async () => {
     await expect(service.redeem(CODE)).rejects.toMatchObject({
       status: 401,
       message: 'Invalid or expired code',
     });
     expect(redis.exists).toHaveBeenCalledTimes(1);
     expect(sessionsRepo.findOne).toHaveBeenCalledTimes(1);
+  };
+
+  it('unknown code answers the identical 401 and runs the same lookups', async () => {
+    live();
+    await expectSame401();
+  });
+
+  it('session ended answers the identical 401 and runs the same lookups', async () => {
+    live();
+    seed();
+    sessionRow!.status = 'ENDED';
+    await expectSame401();
+  });
+
+  it('session expired answers the identical 401 and runs the same lookups', async () => {
+    live();
+    seed();
+    sessionRow!.expires_at = new Date(Date.now() - 1000);
+    await expectSame401();
+  });
+
+  it('row missing answers the identical 401 and runs the same lookups', async () => {
+    live();
+    seed();
+    sessionRow = null;
+    await expectSame401();
+  });
+
+  it('person suspended answers the identical 401 and runs the same lookups', async () => {
+    live();
+    seed();
+    userRow!.status = UserStatus.SUSPENDED;
+    await expectSame401();
+  });
+
+  it('imp key gone answers the identical 401 and runs the same lookups', async () => {
+    live();
+    seed();
+    store.delete('imp:s-1');
+    await expectSame401();
   });
 
   it('Redis error is 503 without echoing the error', async () => {

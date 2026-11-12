@@ -87,7 +87,7 @@ export interface AlertRuleMeta {
   canDisable: boolean;
   guardianSmsFallback: boolean;
   staffSmsFallback: boolean;
-  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725';
+  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725' | '#3726';
 }
 
 const C = AlertCategory;
@@ -183,8 +183,8 @@ const ROWS: Row[] = [
   ['platform.seats.expiring', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false, '#1649'],
   // Money bKash took that paid no order: critical until refunded, so it cannot be turned off.
   ['platform.bkash.refund_due', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false, '#1649'],
-  ['platform.login_as_burst', C.PLATFORM, S.WARNING, [K.HOURLY], [R.SUPER_ADMIN], true, true, false],
-  ['support.access_request', C.SETUP, S.WARNING, [K.ON_CHANGE], [R.ADMIN], true, false, false],
+  ['platform.login_as_burst', C.PLATFORM, S.WARNING, [K.HOURLY], [R.SUPER_ADMIN], true, true, false, '#3726'],
+  ['support.access_request', C.SETUP, S.WARNING, [K.ON_CHANGE], [R.ADMIN], true, false, false, '#3726'],
 ];
 
 export const ALERT_RULES: readonly AlertRuleMeta[] = ROWS.map(

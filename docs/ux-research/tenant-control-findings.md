@@ -8,7 +8,7 @@ Targets: Login as under 45 s; each school task under 60 s; all unaided. Mockups 
 
 | # | Task                                                       | Who          | Section tested                |
 | - | ---------------------------------------------------------- | ------------ | ----------------------------- |
-| 1 | Sign in as an accountant who cannot see fees               | Owner        | Schools list, Login as dialog |
+| 1 | Sign in as one school's accountant, picking by name   | Owner        | Schools list, Login as dialog |
 | 2 | End the visit (red bar End button)                         | Owner        | Support banner                |
 | 3 | Untick the first-login box                                 | School staff | First-login page              |
 | 4 | Find who from Biddaloy came in last week and what changed  | School staff | Support access settings       |

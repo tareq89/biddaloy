@@ -46,12 +46,15 @@ export function ImpersonationBanner({
   const endedRef = React.useRef(false);
   const onEndRef = React.useRef(onEnd);
   onEndRef.current = onEnd;
+  // One guarded path for both the button and the expiry, so onEnd runs once.
+  const endOnce = React.useCallback(() => {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    onEndRef.current();
+  }, []);
   React.useEffect(() => {
-    if (ended && !endedRef.current) {
-      endedRef.current = true;
-      onEndRef.current();
-    }
-  }, [ended]);
+    if (ended) endOnce();
+  }, [ended, endOnce]);
   return (
     <div
       data-tone="danger"
@@ -62,7 +65,7 @@ export function ImpersonationBanner({
       )}
     >
       <AlertCircleIcon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate sm:whitespace-normal">
+      <span className="min-w-0 flex-1 break-words">
         {message}
         {viewOnlyLabel && <span className="ms-2 font-semibold">{viewOnlyLabel}</span>}
       </span>
@@ -76,7 +79,7 @@ export function ImpersonationBanner({
         type="button"
         variant="outline"
         size="sm"
-        onClick={onEnd}
+        onClick={endOnce}
         className="min-h-11 shrink-0 sm:min-h-0"
       >
         {endLabel}
