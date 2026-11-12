@@ -218,7 +218,14 @@ export class ImpersonationSessionService {
     // in Redis with a locked row. XX: a key that ended meanwhile is never recreated (409).
     // KEEPTTL: the hard cap stays.
     const set = await this.redisOp(() => this.redis.set(impKey(sid), liveJson(live), 'KEEPTTL', 'XX'));
-    if (set !== 'OK') throw notLive();
+    if (set !== 'OK') {
+      // Key gone: the session ended, so put the row back to locked (nothing is granted).
+      await this.repo.manager.query(
+        `UPDATE impersonation_sessions SET write_locked = true, view_only = true WHERE id = $1 AND status = 'ACTIVE'`,
+        [sid],
+      );
+      throw notLive();
+    }
   }
 
   /** Ends one session. Returns false when it was already over (nothing written). */
