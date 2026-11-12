@@ -18,6 +18,17 @@ import type {
 /** The worker renews every 5 min; a lock fresher than this (TTL left) has a live holder. */
 export const LIVE_LOCK_MIN_TTL_SEC = RESTORE_LOCK_TTL_SEC - 600;
 const PROBE_TIMEOUT_MS = 2000;
+/** Deadline for a status-card dependency call: a stalled one degrades, never hangs the card. */
+function bounded<T>(p: Promise<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
+    p,
+    new Promise<never>((_, rej) => {
+      timer = setTimeout(() => rej(new Error('timeout')), PROBE_TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export const RELEASED_BY_OWNER = 'RELEASED_BY_OWNER';
 
 // ponytail: restore-lock.ts does not export lockKey. Kept in step by the integration spec
@@ -62,8 +73,8 @@ export class OpsSystemService {
 
   private async lastMigration(): Promise<string | null> {
     try {
-      const rows: Array<{ name: string }> = await this.dataSource.query(
-        'SELECT name FROM typeorm_migrations ORDER BY id DESC LIMIT 1',
+      const rows: Array<{ name: string }> = await bounded(
+        this.dataSource.query('SELECT name FROM typeorm_migrations ORDER BY id DESC LIMIT 1'),
       );
       return rows[0]?.name ?? null;
     } catch {
@@ -74,19 +85,21 @@ export class OpsSystemService {
   private async restoring(): Promise<OpsRestoringSchoolDto[]> {
     try {
       const rows: Array<{ tenant_id: string; name: string; status: 'QUEUED' | 'RUNNING' }> =
-        await this.dataSource.query(
-          `SELECT DISTINCT ON (j.tenant_id) j.tenant_id, s.name, j.status
+        await bounded(
+          this.dataSource.query(
+            `SELECT DISTINCT ON (j.tenant_id) j.tenant_id, s.name, j.status
              FROM workbook_jobs j JOIN schools s ON s.id = j.tenant_id
             WHERE j.kind = 'RESTORE' AND j.status IN ('QUEUED', 'RUNNING')
             ORDER BY j.tenant_id, j.created_at ASC
             LIMIT 100`,
+          ),
         );
       return await Promise.all(
         rows.map(async (r) => ({
           schoolId: r.tenant_id,
           schoolName: r.name,
           jobStatus: r.status,
-          locked: (await this.redis.exists(restoreLockKey(r.tenant_id))) === 1,
+          locked: (await bounded(this.redis.exists(restoreLockKey(r.tenant_id)))) === 1,
         })),
       );
     } catch (err) {

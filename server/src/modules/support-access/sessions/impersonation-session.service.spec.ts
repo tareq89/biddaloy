@@ -468,14 +468,24 @@ describe('ImpersonationSessionService (unit)', () => {
   });
 
   describe('list limit', () => {
-    it.each([
-      [500, 100],
-      [0, 1],
-      [-3, 1],
-      [25, 25],
-    ])('listRecent limit %i becomes %i', async (given, used) => {
-      await service.listRecent({ limit: given });
-      expect(qb.limit).toHaveBeenCalledWith(used);
+    it('caps a limit of 500 at 100', async () => {
+      await service.listRecent({ limit: 500 });
+      expect(qb.limit).toHaveBeenCalledWith(100);
+    });
+
+    it('raises a limit of 0 to 1', async () => {
+      await service.listRecent({ limit: 0 });
+      expect(qb.limit).toHaveBeenCalledWith(1);
+    });
+
+    it('raises a negative limit to 1', async () => {
+      await service.listRecent({ limit: -3 });
+      expect(qb.limit).toHaveBeenCalledWith(1);
+    });
+
+    it('keeps a limit of 25', async () => {
+      await service.listRecent({ limit: 25 });
+      expect(qb.limit).toHaveBeenCalledWith(25);
     });
   });
 

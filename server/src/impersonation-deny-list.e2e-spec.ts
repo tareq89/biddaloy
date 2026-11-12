@@ -41,6 +41,8 @@ const REQUIRED: Entry[] = [
   { route: 'PATCH /schools/:id/settings', bodyKeys: ['communications'] },
   { route: 'POST /billing/orders' },
   { route: 'POST /billing/orders/:id/pay/bkash' },
+  { route: 'POST /auth/logout-all' },
+  { route: 'DELETE /auth/sessions/:id' },
 ];
 
 /** Routes Wave 3 adds: required only once the route exists. */
@@ -91,6 +93,8 @@ function unmarked(found: Found[], required: Entry[]): string[] {
     if (!hits.length) continue; // not a real route (yet)
     for (const h of hits) {
       if (!h.mark) problems.push(`${r.route} is not marked`);
+      else if (!r.bodyKeys && h.mark !== true)
+        problems.push(`${r.route} must be marked unconditionally`);
       else if (r.bodyKeys && r.bodyKeys.some((k) => !keysOf(h.mark).includes(k)))
         problems.push(`${r.route} must carry bodyKeys=${r.bodyKeys.join(',')}`);
     }
@@ -153,9 +157,8 @@ describe('Impersonation deny-list manifest (Epic 99 safety net)', () => {
     await expect(text).toMatchFileSnapshot('./impersonation-deny-list.snapshot.txt');
   }, 60000);
 
-  it('marks every D4 route that exists (turns on once the snapshot is non-empty)', () => {
+  it('marks every D4 route that exists', () => {
     const found = walk(controllers, scanner);
-    if (!markedLines(found).length) return; // gate until #3793 fills the list
     expect(unmarked(found, [...REQUIRED, ...REQUIRED_WHEN_PRESENT])).toEqual([]);
   });
 
@@ -173,5 +176,9 @@ describe('Impersonation deny-list manifest (Epic 99 safety net)', () => {
       'PATCH /fixture/conditional must carry bodyKeys=c',
     ]);
     expect(unmarked(found, [{ route: 'POST /nowhere' }])).toEqual([]);
+    // A conditional mark does not satisfy an unconditional entry.
+    expect(unmarked(found, [{ route: 'PATCH /fixture/conditional' }])).toEqual([
+      'PATCH /fixture/conditional must be marked unconditionally',
+    ]);
   });
 });

@@ -9,7 +9,9 @@ const OWNER = '11111111-1111-4111-8111-111111111111';
 const KNOWN = OPS_QUEUES[0];
 
 describe('OpsQueuesService', () => {
-  const queue = { getJobCounts: vi.fn(), retryJobs: vi.fn() };
+  const queue = { getJobCounts: vi.fn(), getFailed: vi.fn() };
+  const mkJobs = (n: number) =>
+    Array.from({ length: n }, () => ({ retry: vi.fn().mockResolvedValue(undefined) }));
   const moduleRef = { get: vi.fn() };
   const audit = { recordApproved: vi.fn() };
   let svc: OpsQueuesService;
@@ -18,7 +20,7 @@ describe('OpsQueuesService', () => {
     vi.clearAllMocks();
     moduleRef.get.mockReturnValue(queue);
     queue.getJobCounts.mockResolvedValue({ waiting: 2, active: 1, failed: 3, delayed: 4 });
-    queue.retryJobs.mockResolvedValue(undefined);
+    queue.getFailed.mockResolvedValue(mkJobs(3));
     audit.recordApproved.mockResolvedValue(undefined);
     svc = new OpsQueuesService(moduleRef as never, audit as never);
   });
@@ -59,7 +61,7 @@ describe('OpsQueuesService', () => {
     expect(err).toBeInstanceOf(NotFoundException);
     expect(JSON.stringify(err.getResponse())).not.toContain('secret-probe-name');
     expect(moduleRef.get).not.toHaveBeenCalled();
-    expect(queue.retryJobs).not.toHaveBeenCalled();
+    expect(queue.getFailed).not.toHaveBeenCalled();
     expect(audit.recordApproved).not.toHaveBeenCalled();
   });
 
@@ -72,10 +74,9 @@ describe('OpsQueuesService', () => {
   });
 
   it('retries failed jobs, returns the count and audits with tenant_id null', async () => {
-    queue.getJobCounts.mockResolvedValue({ failed: 3 });
     await expect(svc.retryFailed(KNOWN, OWNER)).resolves.toEqual({ retried: 3 });
     expect(moduleRef.get).toHaveBeenCalledWith(getQueueToken(KNOWN), { strict: false });
-    expect(queue.retryJobs).toHaveBeenCalledWith({ state: 'failed', count: RETRY_BATCH });
+    expect(queue.getFailed).toHaveBeenCalledWith(0, RETRY_BATCH - 1);
     expect(audit.recordApproved).toHaveBeenCalledWith(
       expect.objectContaining({
         action: AuditAction.PLATFORM_QUEUE_RETRY,
@@ -87,9 +88,11 @@ describe('OpsQueuesService', () => {
     );
   });
 
-  it('caps the reported count at the batch size', async () => {
-    queue.getJobCounts.mockResolvedValue({ failed: 5000 });
-    await expect(svc.retryFailed(KNOWN, OWNER)).resolves.toEqual({ retried: RETRY_BATCH });
+  it('counts only jobs actually retried', async () => {
+    const jobs = mkJobs(3);
+    jobs[1].retry.mockRejectedValue(new Error('gone'));
+    queue.getFailed.mockResolvedValue(jobs);
+    await expect(svc.retryFailed(KNOWN, OWNER)).resolves.toEqual({ retried: 2 });
   });
 
   it('audit failure fails the request (never fail-open)', async () => {

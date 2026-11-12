@@ -74,16 +74,33 @@ describe('ImpersonationExchangeController', () => {
     expect(res.headers['set-cookie']).toBeUndefined();
   });
 
-  it.each(['short', 'A'.repeat(42), 'A'.repeat(44), '+'.repeat(43), ''])(
-    'rejects a malformed code %j with 400 before any lookup',
-    async (code) => {
-      await supertest(app.getHttpServer())
-        .post('/auth/impersonation/exchange')
-        .send({ code })
-        .expect(400);
-      expect(codes.redeem).not.toHaveBeenCalled();
-    },
-  );
+  const expectMalformed = async (code: string) => {
+    await supertest(app.getHttpServer())
+      .post('/auth/impersonation/exchange')
+      .send({ code })
+      .expect(400);
+    expect(codes.redeem).not.toHaveBeenCalled();
+  };
+
+  it('rejects a too short code with 400 before any lookup', async () => {
+    await expectMalformed('short');
+  });
+
+  it('rejects a 42-char code with 400 before any lookup', async () => {
+    await expectMalformed('A'.repeat(42));
+  });
+
+  it('rejects a 44-char code with 400 before any lookup', async () => {
+    await expectMalformed('A'.repeat(44));
+  });
+
+  it('rejects a non-base64url code with 400 before any lookup', async () => {
+    await expectMalformed('+'.repeat(43));
+  });
+
+  it('rejects a empty code with 400 before any lookup', async () => {
+    await expectMalformed('');
+  });
 
   it('me returns the banner status; 403 without imp; 401 without token', async () => {
     codes.describe.mockResolvedValue({ sessionId: 's-1' });
