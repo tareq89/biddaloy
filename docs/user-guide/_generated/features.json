@@ -947,6 +947,38 @@
     "routes": ["/platform-owners"]
   },
   {
+    "id": "platformOwner.loginAs",
+    "kind": "platformOwner",
+    "path": "platform-owner/login-as",
+    "route": "/schools/$schoolId",
+    "roles": ["SUPER_ADMIN"],
+    "routes": ["/schools/$schoolId"]
+  },
+  {
+    "id": "platformOwner.schoolControl",
+    "kind": "platformOwner",
+    "path": "platform-owner/school-control",
+    "route": "/operations",
+    "roles": ["SUPER_ADMIN"],
+    "routes": ["/audit", "/operations", "/users"]
+  },
+  {
+    "id": "platformOwner.announcements",
+    "kind": "platformOwner",
+    "path": "platform-owner/announcements",
+    "route": "/announcements",
+    "roles": ["SUPER_ADMIN"],
+    "routes": ["/announcements"]
+  },
+  {
+    "id": "administration.supportAccess",
+    "kind": "administration",
+    "path": "administration/support-access",
+    "route": "/support/enter",
+    "roles": ["ADMIN"],
+    "routes": ["/support-access/requests/$requestId", "/support/enter", "/welcome/support-access"]
+  },
+  {
     "id": "help.glossary",
     "kind": "help",
     "path": "help/glossary",

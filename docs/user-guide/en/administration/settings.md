@@ -700,6 +700,7 @@ See: [**Roles & access**](roles.md).
 **Related pages**
 
 - [**Roles & access**](roles.md) — who can open Settings.
+- [**Biddaloy support access**](support-access.md) — choose who from Biddaloy can sign in to your school.
 - [**Taking attendance**](../attendance/attendance.md) — where the attendance policy applies.
 - [**Creating fee bills**](../finance/generate-fees.md) — where the fee rules apply.
 - [**Ready-made curriculum**](curriculum-preset.md) — put the subjects and classes of a new school in at once.
