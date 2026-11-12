@@ -125,6 +125,10 @@
   - [Applications (parent and student)](portal/applications.md)
   - [Account (parent and student)](portal/account.md)
   - [Alerts and notifications (parent and student)](portal/notifications.md)
+- Platform owners
+  - [Platform owner sign-in](platform-owner/sign-in.md)
+  - [Recovery codes and two-step sign-in](platform-owner/recovery-codes.md)
+  - [Locking an owner and approvals](platform-owner/lock-and-approvals.md)
 - [Help](help/README.md)
   - [What to do when something goes wrong](help/troubleshooting.md)
   - [Why can't I see this?](help/cant-see-this.md)

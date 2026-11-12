@@ -99,5 +99,8 @@
   "administration.printCertificates": "done",
   "portal.notifications": "done",
   "help.cantSeeThis": "done",
-  "help.whatsNew": "done"
+  "help.whatsNew": "done",
+  "platformOwner.signIn": "done",
+  "platformOwner.recoveryCodes": "done",
+  "platformOwner.lockAndApprovals": "done"
 }

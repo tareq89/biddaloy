@@ -1119,7 +1119,6 @@ SKIPPED` line and writes `note: smoke-login-skipped` on the `deploys.log` line a
 > Telegram. So `all` works on the first install, in this order: edge, ops, staging, prod,
 > demo. After part 11, redeploy prod and staging so the login checks run. The first `demo`
 > deploy runs `reset.sh --now` by itself to build the demo school.
-> Still open: nothing creates the first platform super admin ([Known gaps](#known-gaps) #1).
 > **UNVERIFIED on a real VM.**
 
 Now run the doctor, a read-only health table:
@@ -1296,23 +1295,69 @@ messages, so do not copy prod data into staging while it is on. Demo and prod re
 
 ## Part 11. After the first deploy
 
-### 11a. Platform super admin
+### 11a. Platform owners (the cockpit)
 
-The super admin belongs to the **platform school**, whose id is `PLATFORM_TENANT_ID` in
-`prod.enc.env` and `staging.enc.env`. SUPER_ADMINs of that school get platform rights
-(billing, alerts); everyone else does not.
+The platform owners are **two people**, not school users. They sign in on their own host,
+`COCKPIT_DOMAIN` (staging: `COCKPIT_STAGING_DOMAIN`), never on `app.`. The app creates them at
+boot from `COCKPIT_OWNER_1_EMAIL/PHONE` and `COCKPIT_OWNER_2_EMAIL/PHONE` in the stack's sops
+file, so there is nothing to insert by hand. Nobody is given a password: each owner makes
+their own.
 
-**GAP:** there is no script in the repo that creates the first platform super admin on a
-fresh prod database. The decision is the owner's: either insert the first user by hand in
-Postgres, or add a one-off bootstrap command to the app. Whatever you choose, record the
-login somewhere safe (it is no longer a smoke account). See
-[Known gaps](#known-gaps) #1.
+```mermaid
+sequenceDiagram
+  actor O as Owner (new)
+  participant C as Cockpit host
+  participant M as Email and SMS
+  O->>C: Open the host, press "Forgot your password?"
+  C->>M: Link to set a password (email)
+  O->>C: Open link, choose a password
+  O->>C: Sign in with the password
+  C->>M: One code by SMS, one code by email
+  O->>C: Type both codes
+  O->>C: Scan the QR, type the authenticator code
+  C-->>O: Ten recovery codes, shown once
+  O->>O: Save them offline in two places, tick "I saved them"
+```
 
-Find the platform school id and set it:
+**First sign-in, per owner** (the guide page for this is `docs/user-guide/en/platform-owner/sign-in.md`):
+
+1. Put real contacts in `COCKPIT_OWNER_*` ([Part 8](#part-8-secrets)), commit, merge, redeploy. Both owners need an email and a phone in E.164 form, for example `+8801XXXXXXXXX`.
+2. Each owner opens `https://$COCKPIT_DOMAIN`, presses **Forgot your password?**, types their email, and opens the link that arrives.
+3. They sign in with the new password, type the **SMS code and the email code**, add the authenticator app, and **save the ten recovery codes**: two places, away from the phone (a password manager and a paper in a safe). The codes are shown only once.
+4. Check from the other owner's session: **Platform owners** shows the first owner with **Two-step sign-in: On**.
+
+**The other owner locks and unlocks.** In the console, **Platform owners**, **Lock** on the other owner's row, confirm with an authenticator code. Their sessions end at once. With **Ask the other owner first** on and both owners active, a risky action waits under **Approval requests** until the other owner approves. Rule: [Rule 30](08-security.md#rule-30-a-cockpit-sign-in-needs-a-second-factor-and-answers-equally-until-both-proofs-pass).
+
+**Replace an owner** (someone leaves, or an account is lost for good). Run on the VM, in the stack's app image; the new owner then sets their own password with "Forgot password":
 
 ```bash
 ssh deploy@203.0.113.10
-# helper: run docker compose against one stack the way the deploy does
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp prod run --rm -T --no-deps app node server/dist/scripts/cockpit-replace-owner.js \
+  --old-email old.owner@example.com --new-email new.owner@example.com --new-phone +8801700000000
+# prints user ids only, never an email or phone
+```
+
+It refuses unless another owner stays active. After it, change `COCKPIT_OWNER_1_*` or `COCKPIT_OWNER_2_*` in the sops file for that stack, or the next boot warns that the configured owner no longer matches.
+
+**One owner lost the phone.** Sign in with a recovery code (**Use a recovery code**), then **Security**, **Make new codes**. This does not remove the lost authenticator. While an authenticator is enrolled, the Security screen offers no replacement, so the lost device stays a valid second factor. To remove it, use the `cockpit-reset-mfa` procedure below.
+
+**One owner lost the phone and the recovery codes** (break-glass, no screen for it):
+
+```bash
+dcp prod run --rm -T --no-deps app node server/dist/scripts/cockpit-reset-mfa.js --email owner@example.com
+```
+
+It deletes that owner's second factor, recovery codes and remembered devices, ends their sessions, and writes an audit row (`PLATFORM_MFA_RESET`, user id only). The password stays. The owner signs in, types the SMS and email codes, and enrols a new authenticator and codes. It needs shell access to the server, the same trust as the database, so keep the list of people who have it short.
+
+**Both owners lost everything.** `cockpit-reset-mfa` works for any owner by email, and you are on the server, so run it for one owner. They sign in with their password (or set a new one with "Forgot your password?") and enrol again, then lock and re-enrol the other owner. If nobody remembers a password and no email works, and the other owner is still active and unlocked, run `cockpit-replace-owner` with a new email and phone you control. The new owner then sets a password with "Forgot your password?". If no other owner is active and unlocked, restore a backup ([13-backup-restore.md](13-backup-restore.md)) rather than editing rows by hand.
+
+> **UNVERIFIED on a real VM:** the two scripts ran in tests (`cockpit-replace-owner.integration.spec.ts`, `cockpit-reset-mfa.integration.spec.ts`) and the sign-in ran in e2e, not on a live host or with real SMS and email.
+
+`PLATFORM_TENANT_ID` in `prod.enc.env` and `staging.enc.env` is still used for the platform school, whose id you find with:
+
+```bash
+ssh deploy@203.0.113.10
 dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
 dcp prod exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -c "SELECT id, slug FROM schools"'
 # 6f1c2a9e-0b7d-4c1e-9a55-2f3d8e4b7c10|default-school
@@ -1328,7 +1373,7 @@ prod) can run the same checks.
 
 1. Open `https://app.schoolmanagerp.com/register` and register a school named
    **Smoke Test School**.
-2. As the platform super admin, open the platform billing page and **grant the school seats**
+2. As a platform owner (on the cockpit host, [11a](#11a-platform-owners-the-cockpit)), open the platform billing page and **grant the school seats**
    (D20), so its logins are not blocked.
 3. In that school create a **teacher** account.
 4. Write into `prod.enc.env` **and** `staging.enc.env`: `SMOKE_SCHOOL_SLUG` (lowercase
@@ -2415,11 +2460,10 @@ Rollback: remove the host from `STAGING_SITE_HOSTS` and redeploy the edge. The s
 ## Known gaps
 
 Places where the code and a first-time setup disagree. None is fixed by this page; each
-needs a code or owner decision.
+needs a code or owner decision. Gap 1 (no command created the first platform owner) is closed by Epic 98: see [11a](#11a-platform-owners-the-cockpit). The other numbers are kept so links stay valid.
 
 | #   | Gap                                                                                                                                                                                                 | Where                                          | Effect                                                                                                                       |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1   | No command creates the first platform super admin on a fresh prod database                                                                                                                          | none (searched `server/src/scripts`, docs)     | part 11a is a manual step the owner must decide                                                                              |
 | 2   | Ops on its own VM: `edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`                                          | `deploy/edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed                                                                           |
 | 3   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open                                      | `biddaloy-deploy:219-223`                      | harmless; not needed                                                                                                         |
 | 4   | Turnstile only lists hostnames you add: a school's own domain fails the widget check, and a free widget holds at most 10 hostnames                                                                  | 17e step 6                                     | forms on custom domains fail until each ACTIVE domain is added by hand, or the hostname check is dropped (decide with #3649) |

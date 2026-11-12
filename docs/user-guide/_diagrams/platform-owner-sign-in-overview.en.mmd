@@ -1,0 +1,12 @@
+%% title: How a platform owner signs in
+%% desc: The owner gives a password. On a known device the authenticator app code finishes the sign-in. On a new device the owner also types one code from an SMS and one from an email. A lost phone is covered by a recovery code in place of the app code.
+flowchart LR
+  P["Password"] --> K{"Known device?"}
+  K -- yes --> A["Code from the<br/>authenticator app"]:::owner
+  K -- no --> N["Code from SMS<br/>and code from email"]:::owner
+  N --> A
+  A --> S["Signed in"]
+  A -. "phone lost" .-> R["Recovery code<br/>instead of the app code"]:::note
+  R --> S
+  classDef owner fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

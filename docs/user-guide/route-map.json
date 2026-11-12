@@ -7,10 +7,5 @@
   "/schools/$schoolId": "internal: SUPER_ADMIN platform (D15), covered by #2558",
   "/schools/new": "internal: SUPER_ADMIN platform (D15), covered by #2558",
   "/reports-usage": "internal: SUPER_ADMIN platform (D15), covered by #2558",
-  "/subscriptions": "internal: SUPER_ADMIN platform (D15), covered by #2558",
-  "/owner-security": "internal: platform owner cockpit (Epic 98), not a school screen",
-  "/owner-security/two-step": "internal: platform owner cockpit (Epic 98), not a school screen",
-  "/platform-owners": "internal: platform owner cockpit (Epic 98), not a school screen",
-  "/sign-in/forgot": "internal: platform owner cockpit (Epic 98), not a school screen",
-  "/sign-in/reset": "internal: platform owner cockpit (Epic 98), not a school screen"
+  "/subscriptions": "internal: SUPER_ADMIN platform (D15), covered by #2558"
 }

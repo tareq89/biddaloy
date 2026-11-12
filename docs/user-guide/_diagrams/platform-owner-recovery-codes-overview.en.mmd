@@ -1,0 +1,10 @@
+%% title: Turning on two-step sign-in and using recovery codes
+%% desc: Two-step set-up has two steps: add an authenticator app, then save ten recovery codes. Each recovery code works once. When the phone is lost the owner signs in with a recovery code. Making new codes cancels the old ones and needs a confirmation code.
+flowchart LR
+  S1["Step 1<br/>Add authenticator app<br/>scan the picture, type the code"]:::owner --> S2["Step 2<br/>Save ten recovery codes<br/>tick I saved them"]:::owner
+  S2 --> OK["Two-step sign-in is On"]
+  OK --> L["Phone lost"]:::note
+  L --> U["Sign in with one recovery code<br/>each works once"]
+  U --> M["Make new codes<br/>old codes stop working"]:::owner
+  classDef owner fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

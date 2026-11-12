@@ -49,7 +49,11 @@ flowchart TB
 | `app.schoolmanagerp.com`                | prod                                   | real schools               | backed up every hour           |
 | `staging.schoolmanagerp.com`            | staging                                | yesterday's prod, scrubbed | replaced from the 02:00 backup |
 | `demo.schoolmanagerp.com`               | demo                                   | demo seed                  | rebuilt from scripts           |
+| `COCKPIT_DOMAIN`                        | prod platform owner console (Epic 98)  | same database as prod      | backed up with prod            |
+| `COCKPIT_STAGING_DOMAIN`                | staging platform owner console         | same database as staging   | replaced with staging          |
 | `kuma.` / `beszel.` / `logs.`           | ops (uptime, host metrics, log viewer) | ops only                   | —                              |
+
+The two cockpit hosts reach the same app container as `app.` and `staging.`, but nginx serves only the SPA and the `/api/v1/auth/cockpit/*` and `/api/v1/platform/*` paths there, and the app hosts refuse those paths ([Rule 29](08-security.md#rule-29-platform-routes-live-under-platform-and-are-refused-on-the-app-host)). Prod cockpit has no Cloudflare Access app (owners use password plus authenticator); the staging cockpit sits behind the `Staging` Access group like `staging.`. DNS and Access steps: [25-cloudflare.md](25-cloudflare.md) row 25.
 
 ## Edge: two modes, same nginx
 

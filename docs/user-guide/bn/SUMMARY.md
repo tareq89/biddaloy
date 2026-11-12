@@ -125,6 +125,10 @@
   - [আবেদন (অভিভাবক ও শিক্ষার্থী)](portal/applications.md)
   - [অ্যাকাউন্ট (অভিভাবক ও শিক্ষার্থী)](portal/account.md)
   - [সতর্কতা ও বিজ্ঞপ্তি (অভিভাবক ও শিক্ষার্থী)](portal/notifications.md)
+- প্ল্যাটফর্ম মালিক
+  - [প্ল্যাটফর্ম মালিকের সাইন-ইন](platform-owner/sign-in.md)
+  - [জরুরি কোড ও দুই ধাপে সাইন-ইন](platform-owner/recovery-codes.md)
+  - [মালিককে আটকে দেওয়া ও অনুমতি](platform-owner/lock-and-approvals.md)
 - [সহায়তা](help/README.md)
   - [সমস্যা হলে কী করবেন](help/troubleshooting.md)
   - [আমি এটা দেখতে পাচ্ছি না কেন?](help/cant-see-this.md)
