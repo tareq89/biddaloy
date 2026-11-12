@@ -41,34 +41,20 @@ Files: `client-admin/src/routes/_platform/` (layout in `route.tsx`).
 
 ## Who can see it
 
-Two checks, and only the second one is security.
+Platform authority is a row in `platform_admins` (a platform owner). It is used on the cockpit host with a cockpit token, never through a school membership.
 
 ```mermaid
 flowchart TD
-  U[Request] --> UI{UI: RequireRole SUPER_ADMIN?<br/>route.tsx}
-  UI -- no --> R[Redirect to /dashboard<br/>UX only]
-  UI -- yes --> API{Server: @Roles SUPER_ADMIN<br/>+ PlatformSuperAdminGuard}
-  API -- no --> F[403<br/>Requires platform SUPER_ADMIN authority]
-  API -- yes --> OK[Allowed]
+  U[Request on the cockpit host] --> T{Cockpit token?<br/>audience biddaloy:cockpit}
+  T -- "no (school token or none)" --> F[401 / 403]
+  T -- yes --> O{Active row in platform_admins?<br/>PlatformAccessGuard}
+  O -- no --> F
+  O -- yes --> OK[Allowed]
 ```
 
-- The UI gate redirects any other role to `/dashboard`
-  (`_platform/route.tsx`). The file itself says it is UX only.
-- The server gate is `@Roles(SUPER_ADMIN)` plus `PlatformSuperAdminGuard` on
-  the routes below. The guard passes only when the user holds a SUPER_ADMIN
-  membership **in the platform school** (`isPlatformSuperAdmin` in
-  `server/src/modules/auth/guards/context.guard.ts`). A SUPER_ADMIN that only
-  exists inside one ordinary school gets 403.
-- Not every route carries the guard. `POST /schools` (create school),
-  `GET/POST /schools/:id/sms-credits` and the admin-invitation routes under
-  `schools/:id/admins` use `@Roles(SUPER_ADMIN)` only, without
-  `PlatformSuperAdminGuard`
-  (`provisioning.controller.ts`, `sms-credits.controller.ts`; for
-  `school-admins.controller.ts` the guard list is jwt, context, roles, permissions, with no platform guard). In production, a SUPER_ADMIN is created
-  deliberately, so this is a hardening question, not a day-to-day one. See
-  "Gaps for a human" at the end.
-- Platform authority is a row in `platform_admins` (a platform owner on the cockpit host), not a
-  school membership or an environment variable, so there is no platform school id to configure.
+- The server gate is `PlatformAccessGuard` (a cockpit token plus an active, unlocked owner row), for example `platform-schools.controller.ts`. A school `SUPER_ADMIN` token, or an old school membership, never passes. The sign-in sequence is in `02-auth-and-multitenancy.md` ("Cockpit identity").
+- The UI check in `_platform/route.tsx` is UX only. The cockpit host skips the client role check, because a cockpit session has no school role.
+- A boot-time cutover (`PlatformCutoverService`) removed old platform memberships and turned legacy school `SUPER_ADMIN` rows into `ADMIN`. There is no platform school id to configure and no `PLATFORM_TENANT_ID`.
 - Every platform page also shows a **platform alert banner**
   (`PlatformAlertBanner`, fed by `GET /platform/alerts`, for example "Redis is
   down") and the usual attention bar and bell.
@@ -419,16 +405,10 @@ the slip number.
 
 ## Gaps for a human
 
-1. **Guard coverage.** `POST /schools`, the SMS credits routes, and (the
-   `@Roles` line only was read) the school-admin routes are `@Roles(SUPER_ADMIN)`
-   without `PlatformSuperAdminGuard`, while the status, revive, preset,
-   billing and alert routes have it. The comment in `sms-credits.controller.ts`
-   says this is the convention, but `context.guard.ts` explains a tenant-local
-   SUPER_ADMIN is a real escalation risk. Confirm the difference is intended.
-2. **Guard list (checked):** only `schools.controller.ts`, billing, presets, platform alerts and attention health carry `PlatformSuperAdminGuard`.
-3. **Seed data and the guide:** this page is a developer doc only; there is
+1. **Guard coverage:** the old `PlatformSuperAdminGuard` is gone. Platform routes are under `/platform/` and `platform-routes.e2e-spec.ts` guards that; `POST /schools`, the SMS credits routes and the school-admin invitation routes should be re-checked against it.
+2. **Seed data and the guide:** this page is a developer doc only; there is
    no user-guide page and no coverage entry for the platform console by design
    (Epic 42, D15).
-4. **Trial filter:** `GET /schools` still accepts a `trial` query
+3. **Trial filter:** `GET /schools` still accepts a `trial` query
    (`SchoolsController.findAll`) although the trial is retired. Nothing in the
    platform UI sends it.

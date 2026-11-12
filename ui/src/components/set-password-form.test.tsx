@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -83,6 +83,12 @@ describe('SetPasswordForm', () => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Set password' }).disabled).toBe(
       true,
     );
+    // A programmatic submit skips the disabled button, so this reaches the schema's byte check.
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Set password' }).closest('form') as HTMLFormElement,
+      );
+    });
     expect(onSubmit).not.toHaveBeenCalled();
   });
 

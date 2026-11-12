@@ -162,9 +162,21 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
     try {
       await later.down(qr);
       laterReverted = true;
+      // An audit row with the later migration's label must survive its down() (the table has a
+      // write-only row trigger, so a plain UPDATE would fail): it comes back as the generic UPDATE.
+      const [{ id: auditId }] = await ds.query(
+        `INSERT INTO audit_logs (action, entity_type, entity_id, new_values)
+         VALUES ('PLATFORM_RECOVERY_REGENERATED', 'PlatformAdmin', gen_random_uuid(), '{"event":"kept"}')
+         RETURNING id`,
+      );
       // Reverse order: the later migration's label goes first.
       await new AddPlatformRecoveryRegeneratedAudit1792000000100().down(qr);
       await migration.down(qr);
+      const [kept] = await ds.query(
+        `SELECT action::text AS action, new_values FROM audit_logs WHERE id = $1`,
+        [auditId],
+      );
+      expect(kept).toEqual({ action: 'UPDATE', new_values: { event: 'kept' } });
       expect(await count()).toBe(0);
       const gone = await ds.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name='schools' AND column_name='is_platform'`,

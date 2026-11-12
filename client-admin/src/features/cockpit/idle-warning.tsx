@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIdleTimer } from './use-idle-timer';
 
@@ -56,16 +56,37 @@ export function CockpitIdleWarning({
     }
   };
   const lastRenew = useRef(Date.now());
+  const trailing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const renewRef = useRef(renew);
+  useEffect(() => {
+    renewRef.current = renew;
+  }, [renew]);
+  // A dead session ends via the 401 handler, so a failed keepalive is ignored here.
+  const renewNow = () => {
+    lastRenew.current = Date.now();
+    void Promise.resolve(renewRef.current()).catch(() => undefined);
+  };
+  useEffect(() => () => clearTimeout(trailing.current), []);
   const { reset } = useIdleTimer({
     onWarn: () => setOpen(true),
     onExpire: () => void leave(strings.expired),
     onResume: () => setOpen(false),
     // The server renews on real requests only, so activity alone must not let it idle out first.
+    // Activity inside the throttle window schedules ONE trailing renewal for when it ends, so the
+    // server key never expires before the client warning (which counts from the last activity).
     onActive: () => {
-      const now = Date.now();
-      if (leaving.current || now - lastRenew.current < ACTIVE_RENEW_EVERY_MS) return;
-      lastRenew.current = now;
-      void Promise.resolve(renew()).catch(() => undefined); // a dead session ends via the 401 handler
+      if (leaving.current) return;
+      const since = Date.now() - lastRenew.current;
+      if (since >= ACTIVE_RENEW_EVERY_MS) {
+        clearTimeout(trailing.current);
+        trailing.current = undefined;
+        renewNow();
+      } else if (trailing.current === undefined) {
+        trailing.current = setTimeout(() => {
+          trailing.current = undefined;
+          if (!leaving.current) renewNow();
+        }, ACTIVE_RENEW_EVERY_MS - since);
+      }
     },
   });
   const stay = async () => {
