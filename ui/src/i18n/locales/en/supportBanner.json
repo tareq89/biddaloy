@@ -4,5 +4,17 @@
     "failedTitle": "This link cannot be used",
     "failed": "This link has already been used or has run out of time. Close this tab and open it again from Biddaloy.",
     "closeTab": "Close this tab"
+  },
+  "banner": {
+    "message": "Biddaloy support, as {{name}}, {{role}}",
+    "viewOnly": "View only",
+    "end": "End",
+    "warnFive": "5 minutes left. Biddaloy support will close.",
+    "warnOne": "1 minute left."
+  },
+  "ended": {
+    "title": "Biddaloy support has ended",
+    "body": "You can close this tab.",
+    "close": "Close this tab"
   }
 }
