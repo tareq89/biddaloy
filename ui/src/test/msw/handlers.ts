@@ -20,9 +20,11 @@ import { invitationDefaultHandlers } from './handlers/invitations';
 import { invoiceDefaultHandlers } from './handlers/invoices';
 import { paymentDefaultHandlers } from './handlers/payments';
 import { performanceDefaultHandlers } from './handlers/performance';
+import { platformDefaultHandlers } from './handlers/platform';
 import { publicHolidaySetsDefaultHandlers } from './handlers/public-holiday-sets';
 import { schoolsDefaultHandlers } from './handlers/schools';
 import { studentDefaultHandlers } from './handlers/students';
+import { supportAccessDefaultHandlers } from './handlers/support-access';
 import { surveyDefaultHandlers } from './handlers/surveys';
 import { teacherDefaultHandlers } from './handlers/teachers';
 import { userDefaultHandlers } from './handlers/users';
@@ -87,4 +89,6 @@ export const handlers: readonly HttpHandler[] = [
   ...performanceDefaultHandlers,
   ...applicationDefaultHandlers,
   ...cockpitDefaultHandlers,
+  ...platformDefaultHandlers,
+  ...supportAccessDefaultHandlers,
 ];
