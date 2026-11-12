@@ -119,7 +119,10 @@ describe('Login as fence (e2e)', () => {
     await ds
       .getRepository(UserTenant)
       .save({ user_id: user.id, tenant_id: school.id, role: UserRole.ADMIN });
-    const login = await http().post(`${API}/auth/login`).send({ email, password: PASSWORD });
+    const login = await http()
+      .post(`${API}/auth/login`)
+      .send({ email, password: PASSWORD })
+      .expect(200);
     return { user, token: login.body.access_token as string };
   }
 
@@ -172,7 +175,11 @@ describe('Login as fence (e2e)', () => {
     return { sid: row.id, code, token: res.body.access_token as string };
   }
 
-  /** A fresh step-up token per start: the route spends one each time. */
+  /**
+   * A fresh step-up token per start: the route spends one each time. `/platform/step-up` is
+   * limited to 5 requests per 60 s, but the throttler skips itself under NODE_ENV=test
+   * (`app.module.ts` `skipIf`), so six calls in a row are fine here.
+   */
   async function stepUp(): Promise<string> {
     await ds.query(`UPDATE user_mfa SET last_step = NULL WHERE user_id = $1`, [owner.id]);
     const res = await http()

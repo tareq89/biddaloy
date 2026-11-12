@@ -111,7 +111,7 @@ While you are inside, the school sees the banner "Biddaloy support, as (name), (
 
 ### End the visit <a href="#task-end" id="task-end"></a>
 
-Press **End** in the banner. The tab says "Biddaloy support has ended. You can close this tab." A school admin can also end it, and it ends by itself when the time is over. A link that was already used says "This link has already been used or has run out of time"; open Login as again.
+Press **End** in the banner. The tab closes by itself. If the browser does not close it, the tab says "Biddaloy support has ended. You can close this tab." A school admin can also end it, and it ends by itself when the time is over. A link that was already used says "This link has already been used or has run out of time"; open Login as again.
 
 ---
 

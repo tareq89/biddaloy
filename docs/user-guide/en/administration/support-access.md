@@ -87,11 +87,11 @@ If something goes wrong at your school, Biddaloy support can log in to help. You
 
 ### Emergency access <a href="#task-emergency" id="task-emergency"></a>
 
-Even when you choose **Blocked**, emergency access still exists. Biddaloy support must give a reason, and your admins are told right away. It is view only. It shows in the list as **Emergency**.
+Even when you choose **Blocked**, emergency access still exists. Biddaloy support must give a reason, and your admins are told right away. It starts as view only. If Biddaloy support asks to write, a request arrives; when an admin presses **Approve**, the view-only lock on that visit is removed and they can change your school's data. **Not now** keeps the lock. Read the reason before you approve. It shows in the list as **Emergency**.
 
 ### Read the last 90 days <a href="#task-list" id="task-list"></a>
 
-Under **Last 90 days** the table "Biddaloy support logins in the last 90 days" has the columns **Who**, **When**, **Reason**, **Type** (**Normal** or **Emergency**), **Changes** and **Action**. **View only** is written on a visit that could change nothing. A visit that is still going shows **Logged in now**. Below it, **Other actions by Biddaloy support** lists anything else Biddaloy support did in your school in the last 90 days. If the list is empty it says nobody logged in during that time.
+Under **Last 90 days** the table "Biddaloy support logins in the last 90 days" has the columns **Who**, **When**, **Reason**, **Type** (**Normal** or **Emergency**), **Changes** and **Action**. **View only** is written on a visit that could change nothing. A visit that is still going shows **Logged in now**. Below it, **Other actions by Biddaloy support** lists anything else Biddaloy support did in your school in the last 90 days. This page shows at most 100 logins and has no next page, so with more than 100 in the last 90 days you will not see them all. If the list is empty it says nobody logged in during that time.
 
 ### Approve or say Not now to a request <a href="#task-approve" id="task-approve"></a>
 
@@ -110,7 +110,7 @@ In the list, on the row marked **Logged in now**, press **End**, then confirm "E
 
 ### The first sign-in page <a href="#task-welcome" id="task-welcome"></a>
 
-The first time an admin signs in, the page **Biddaloy support access** asks you to tick **Allow Biddaloy support access**, then press **Save and continue**. "You can change this later in Settings."
+The first time an admin signs in, the page **Biddaloy support access** shows **Allow Biddaloy support access**, already ticked. Leave it ticked and Biddaloy support can log in; clear it and they cannot. Decide what you want, then press **Save and continue**. "You can change this later in Settings."
 
 ---
 

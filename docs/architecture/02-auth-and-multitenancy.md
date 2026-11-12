@@ -1043,7 +1043,7 @@ sequenceDiagram
 | Part | Meaning | Example |
 | --- | --- | --- |
 | `sub` | The real school person, with their real memberships | the school Admin's user id |
-| `imp.sid` | `impersonation_sessions.id`, also the Redis key `imp:<sid>` | `imp:5b1c...` |
+| `imp.sid` | `impersonation_sessions.id`; the Redis key is `imp:<sid>`, for example `imp:5b1c...` | `5b1c...` |
 | `imp.pa` | The platform admin (owner) behind it | the owner's id |
 | expiry | Remaining session life, never above 3600 s | 47 minutes left = 2820 s |
 
