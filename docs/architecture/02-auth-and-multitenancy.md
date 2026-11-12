@@ -285,18 +285,18 @@ used as a tiebreak when a caller has multiple roles in one tenant and omits
 `RolesGuard` enforces it after `ContextGuard` has resolved which role the
 caller is acting as.
 
-| Role              | Who it is for                                                                                                                                     | Data scope (`ROLE_SCOPE`) |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `SUPER_ADMIN`     | Legacy school-level role, no platform power. The platform operator is a cockpit owner (below); the boot-time cutover turned old rows into `ADMIN` | `TENANT`                  |
-| `ADMIN`           | School head / IT admin                                                                                                                            | `TENANT`                  |
-| `ACCOUNTANT`      | Fees and payments                                                                                                                                 | `TENANT`                  |
-| `EXECUTIVE`       | Principal / management, read-mostly                                                                                                               | `TENANT`                  |
-| `OFFICE_STAFF`    | Front-office clerk: admissions, records                                                                                                           | `TENANT`                  |
-| `EXAM_CONTROLLER` | Runs exams, marks and results; enters marks as backup for an absent teacher (81 D5b)                                                              | `TENANT`                  |
-| `COMMITTEE`       | Governing / admission committee member                                                                                                            | `TENANT`                  |
-| `TEACHER`         | Classroom teacher                                                                                                                                 | `ASSIGNED_SECTIONS`       |
-| `PARENT`          | Guardian                                                                                                                                          | `FAMILY`                  |
-| `STUDENT`         | Learner                                                                                                                                           | `SELF`                    |
+| Role              | Who it is for                                                                                                                                        | Data scope (`ROLE_SCOPE`) |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `SUPER_ADMIN`     | Legacy school-level role, no platform power. The platform operator is a cockpit owner (below); the explicit cutover step turns old rows into `ADMIN` | `TENANT`                  |
+| `ADMIN`           | School head / IT admin                                                                                                                               | `TENANT`                  |
+| `ACCOUNTANT`      | Fees and payments                                                                                                                                    | `TENANT`                  |
+| `EXECUTIVE`       | Principal / management, read-mostly                                                                                                                  | `TENANT`                  |
+| `OFFICE_STAFF`    | Front-office clerk: admissions, records                                                                                                              | `TENANT`                  |
+| `EXAM_CONTROLLER` | Runs exams, marks and results; enters marks as backup for an absent teacher (81 D5b)                                                                 | `TENANT`                  |
+| `COMMITTEE`       | Governing / admission committee member                                                                                                               | `TENANT`                  |
+| `TEACHER`         | Classroom teacher                                                                                                                                    | `ASSIGNED_SECTIONS`       |
+| `PARENT`          | Guardian                                                                                                                                             | `FAMILY`                  |
+| `STUDENT`         | Learner                                                                                                                                              | `SELF`                    |
 
 `SUPER_ADMIN`'s `TENANT` scope does not open a school's own data (marks,
 attendance, homework, performance): `hasTenantDataScope` in
@@ -1042,17 +1042,17 @@ POST /api/v1/platform/step-up      Authorization: Bearer <cockpit token>
 200 { "approval_token": "...", "expires_at": "2026-11-12T10:05:00Z" }
 ```
 
-- **Why not a school membership?** A membership is per school and a school ADMIN can create them. Platform authority must not be something a school can grant, copy or lose by removing a user. So `SUPER_ADMIN` rows were converted once at boot by `PlatformCutoverService` (flag `cutover.done` in `platform_settings`): owners and platform-school `SUPER_ADMIN`s lose the membership, other schools' `SUPER_ADMIN`s become `ADMIN`. It runs itself in `onApplicationBootstrap` after `OwnerSeedingService` (provider order in `PlatformIdentityModule`), skips on a database with no owners, and retries next boot.
+- **Why not a school membership?** A membership is per school and a school ADMIN can create them. Platform authority must not be something a school can grant, copy or lose by removing a user. So legacy `SUPER_ADMIN` rows are converted once, **by an operator**, with `node server/dist/scripts/platform-cutover.js` (`--dry-run` first; steps in `28-platform-runbook.md`). `PlatformCutoverService` (flag `cutover.done` in `platform_settings`): owners and platform-school `SUPER_ADMIN`s lose the membership, other schools' `SUPER_ADMIN`s become `ADMIN`, those users' sessions end. It does not run on boot: converting real legacy `SUPER_ADMIN`s must wait for the owner sign-off on #3773. It refuses unless a verified owner exists.
 
 ## Learning: cockpit identity, Wave 5
 
 2026-11-12, Epic 98 wave 5 leftovers.
 
-- **A service that "exists" was not wired (2026-11-12).**
-  - Surprise: `PlatformCutoverService` had specs and an integration test but was in no module, so nothing ever ran it in production.
-  - Cost: the cutover would have silently never happened.
-  - Fix: provide it in `PlatformIdentityModule`; `platform-identity.e2e-spec.ts` resolves it from the container.
-  - Rule candidate: a boot-time service's ticket is not done until a test resolves it from the real `AppModule`.
+- **A service that "exists" was not wired, then ran when nobody asked (2026-11-12).**
+  - Surprise: `PlatformCutoverService` had specs but sat in no module. Wiring it as a boot hook fixed that, and then it downgraded the e2e database's dev `SUPER_ADMIN`s on the first boot. That created a second approver, and reversal and step-up e2e specs failed with `SECOND_APPROVER_REQUIRED` (403).
+  - Cost: two e2e shards red; a real production database would have had its legacy `SUPER_ADMIN`s downgraded silently on deploy.
+  - Fix: the cutover is an explicit script (`platform-cutover.js`, with `--dry-run`); `platform-identity.e2e-spec.ts` boots the app with an owner and a legacy `SUPER_ADMIN` present and asserts nothing converts, and still resolves the service from the container.
+  - Rule candidate: a one-time data conversion is an operator step with a dry run, never a boot hook.
 - **Background polling kept an idle session alive.** Every cockpit request touched the idle key, so a polling page never idled out. Polling requests (alert bar, bell, `/platform/alerts`) now send `X-Cockpit-Poll`; `CockpitJwtStrategy` then only checks the session (`touch(fam, false)`) and never renews. The shell sends one real renewal per 5 minutes of user activity, so an active owner who triggers no other request is not idled out by the server first.
 - **Shared DTOs drifted from the server** (`emailMasked`, `summary`): the client type-checked against a stale shape. The shared DTO now matches the server DTO.
 - **What surprised us across the epic.**

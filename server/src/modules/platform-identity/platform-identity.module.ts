@@ -42,7 +42,7 @@ import { PlatformCutoverService } from './platform-cutover.service';
     PlatformAdminService,
     PlatformHomeService,
     OwnerSeedingService,
-    PlatformCutoverService, // runs itself on boot, after OwnerSeedingService (provider order)
+    PlatformCutoverService, // run by `scripts/platform-cutover.ts`, never on boot
     PlatformApprovalsService,
     PlatformSettingsService,
     PlatformOwnersService,

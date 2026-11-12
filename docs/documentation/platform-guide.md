@@ -54,7 +54,7 @@ flowchart TD
 
 - The server gate is `PlatformAccessGuard` (a cockpit token plus an active, unlocked owner row), for example `platform-schools.controller.ts`. A school `SUPER_ADMIN` token, or an old school membership, never passes. The sign-in sequence is in `02-auth-and-multitenancy.md` ("Cockpit identity").
 - The UI check in `_platform/route.tsx` is UX only. The cockpit host skips the client role check, because a cockpit session has no school role.
-- A boot-time cutover (`PlatformCutoverService`) removed old platform memberships and turned legacy school `SUPER_ADMIN` rows into `ADMIN`. There is no platform school id to configure and no `PLATFORM_TENANT_ID`.
+- The cutover (`platform-cutover.js`, run by an operator, see `28-platform-runbook.md`) removes old platform memberships and turns legacy school `SUPER_ADMIN` rows into `ADMIN`. There is no platform school id to configure and no `PLATFORM_TENANT_ID`.
 - Every platform page also shows a **platform alert banner**
   (`PlatformAlertBanner`, fed by `GET /platform/alerts`, for example "Redis is
   down") and the usual attention bar and bell.
