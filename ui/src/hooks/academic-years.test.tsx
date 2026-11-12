@@ -1,11 +1,17 @@
-import { waitFor } from '@testing-library/react';
+import { ApprovalScope } from '@biddaloy/shared';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { academicYearFactory, type AcademicYear } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
-import { createTestQueryClient } from '../test/render-with-providers';
+import {
+  cleanupTestState,
+  createTestQueryClient,
+  renderWithProviders,
+} from '../test/render-with-providers';
 
 import {
   academicYearKeys,
@@ -320,5 +326,75 @@ describe('year close hooks [69.4.02]', () => {
     result.current.reopen.mutate('year-1');
     await waitFor(() => expect(result.current.reopen.isSuccess).toBe(true));
     expect(hits).toEqual(['close', 'reopen']);
+  });
+});
+
+describe('close and reopen step-up approval scope', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  function Harness() {
+    const close = useCloseYear();
+    const reopen = useReopenYear();
+    return (
+      <div>
+        <button onClick={() => close.mutate('year-1')}>close</button>
+        <button onClick={() => reopen.mutate('year-1')}>reopen</button>
+        {(close.isSuccess || reopen.isSuccess) && <span data-testid="done">done</span>}
+      </div>
+    );
+  }
+
+  // The server guards both routes with ACADEMIC_YEAR_CLOSE and the OTP DTO rejects any other
+  // scope with a 400, so a reopen that sent `academic_year.reopen` could never be approved.
+  it.each(['close', 'reopen'] as const)('%s asks for and verifies ACADEMIC_YEAR_CLOSE', async (action) => {
+    let attempt = 0;
+    let otpScope: unknown;
+    let verifyScope: unknown;
+    server.use(
+      http.post('/api/v1/academic-years/:id/:action', ({ params }) => {
+        attempt += 1;
+        if (attempt === 1) {
+          return HttpResponse.json(
+            {
+              statusCode: 403,
+              message: 'Approval required',
+              timestamp: new Date().toISOString(),
+              path: `/academic-years/year-1/${String(params.action)}`,
+              requestId: 'req-1',
+              details: { code: 'APPROVAL_REQUIRED' },
+            },
+            { status: 403 },
+          );
+        }
+        return HttpResponse.json(academicYearFactory({ id: params.id as string }));
+      }),
+      http.post('/api/v1/auth/step-up/otp/request', async ({ request }) => {
+        otpScope = ((await request.json()) as { scope?: unknown }).scope;
+        return HttpResponse.json({}, { status: 202 });
+      }),
+      http.post('/api/v1/auth/step-up', async ({ request }) => {
+        verifyScope = ((await request.json()) as { scope?: unknown }).scope;
+        return HttpResponse.json(
+          { approval_token: 'tok-123', approver: { id: 'u1', name: 'Admin' } },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />, { locale: 'en', tenantId: 'tenant-1' });
+
+    await user.click(screen.getByRole('button', { name: action }));
+    await screen.findByRole('dialog');
+    await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await user.type(await screen.findByLabelText('Verification code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+    await screen.findByTestId('done');
+
+    expect(otpScope).toBe(ApprovalScope.ACADEMIC_YEAR_CLOSE);
+    expect(verifyScope).toBe(ApprovalScope.ACADEMIC_YEAR_CLOSE);
   });
 });

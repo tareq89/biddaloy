@@ -1,3 +1,4 @@
+import { ApprovalScope } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -295,7 +296,9 @@ function useYearStateMutation(action: 'close' | 'reopen') {
       return res.data;
     },
     {
-      approvalScope: `academic_year.${action}`,
+      // The server guards both routes with ACADEMIC_YEAR_CLOSE; there is no reopen scope, and the
+      // OTP-request DTO rejects an unknown scope with a 400.
+      approvalScope: ApprovalScope.ACADEMIC_YEAR_CLOSE,
       retry: false,
       onSuccess: () => {
         void queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
