@@ -58,6 +58,7 @@ import { SignInSection } from './settings/SignInSection';
 import { SmsCreditSection } from './settings/SmsCreditSection';
 import { SmsSection } from './settings/SmsSection';
 import { StudyPlansSection } from './settings/StudyPlansSection';
+import { SupportAccessSection } from './settings/SupportAccessSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
 /**
@@ -293,6 +294,9 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
             />
           )
         );
+      case 'support':
+        // The switch and the list act on the active school (X-Tenant-ID), not a picked one.
+        return !isSuperAdmin || schoolId === ownSchoolId ? <SupportAccessSection /> : null;
       case 'backup':
         return <BackupSection {...(backupJobId !== undefined ? { backupJobId } : {})} />;
     }
