@@ -132,6 +132,12 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   user_recovery_codes: { 'delete-row': ['*'] },
   platform_admin_devices: { 'delete-row': ['*'] },
   platform_approvals: { 'delete-row': ['*'] },
+  // [Epic 99] Cockpit free text: staff notes and announcement text name schools and people.
+  platform_school_notes: { 'delete-row': ['*'] },
+  platform_announcements: { 'delete-row': ['*'] },
+  // The reason is free text and NOT NULL with a non-empty CHECK, so it gets a placeholder. Rows stay:
+  // audit_logs.impersonation_session_id points at them (RESTRICT).
+  impersonation_sessions: { null: ['reason'] },
   // Platform switches (e.g. the two-owner approvals flag): config, no secrets or personal data.
   platform_settings: { 'kept-public': ['value'] },
   // [76.2] upload history keeps the file name and the parsed rows (names, card numbers).

@@ -4,7 +4,25 @@ import { randomUUID } from 'node:crypto';
 import { AuditAction } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { PlatformIdentity1792000000000 } from '../src/migrations/1792000000000-PlatformIdentity';
+import { TenantControlLoginAs1792100000000 } from '../src/migrations/1792100000000-TenantControlLoginAs';
 import { School } from '../src/modules/schools/entities/school.entity';
+
+// The 13 values Epic 98 added. Epic 99 adds more PLATFORM_* values later, so scope to these.
+const EPIC98_AUDIT = [
+  'PLATFORM_LOGIN',
+  'PLATFORM_LOGIN_FAILED',
+  'PLATFORM_OWNER_LOCKED',
+  'PLATFORM_OWNER_UNLOCKED',
+  'PLATFORM_MFA_ENROLLED',
+  'PLATFORM_RECOVERY_USED',
+  'PLATFORM_APPROVAL_REQUESTED',
+  'PLATFORM_APPROVAL_GRANTED',
+  'PLATFORM_APPROVAL_DENIED',
+  'PLATFORM_OWNER_REPLACED',
+  'PLATFORM_MFA_RESET',
+  'PLATFORM_PASSWORD_RESET',
+  'PLATFORM_SETTINGS_CHANGED',
+];
 
 /** [Epic 98 / #3734] Platform identity tables, constraints and audit values, on the migrated test DB. */
 describe('PlatformIdentity1792000000000 (integration)', () => {
@@ -110,14 +128,17 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
       `SELECT enumlabel FROM pg_enum WHERE enumtypid = 'public.audit_logs_action_enum'::regtype`,
     );
     const labels = rows.map((r) => r.enumlabel);
-    const platform = Object.values(AuditAction).filter((a) => a.startsWith('PLATFORM_'));
-    expect(platform).toHaveLength(13);
-    for (const a of platform) expect(labels).toContain(a);
+    expect(EPIC98_AUDIT.every((a) => Object.values(AuditAction).includes(a as AuditAction))).toBe(
+      true,
+    );
+    for (const a of EPIC98_AUDIT) expect(labels).toContain(a);
   });
 
   // Last on purpose: down() drops the audit values and tables, up() restores them.
   it('down() then up() round-trips: tables, column and audit values come back', async () => {
     const migration = new PlatformIdentity1792000000000();
+    // Epic 99's FKs point at platform_admins, so undo it first and redo it last.
+    const login = new TenantControlLoginAs1792100000000();
     const qr = ds.createQueryRunner();
     const count = async (): Promise<number> =>
       (
@@ -136,6 +157,7 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
         )
       )[0].n;
     try {
+      await login.down(qr);
       await migration.down(qr);
       expect(await count()).toBe(0);
       const gone = await ds.query(
@@ -145,10 +167,13 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
       const labels: { enumlabel: string }[] = await ds.query(
         `SELECT enumlabel FROM pg_enum WHERE enumtypid = 'public.audit_logs_action_enum'::regtype`,
       );
-      expect(labels.some((l) => l.enumlabel.startsWith('PLATFORM_'))).toBe(false);
+      expect(labels.some((l) => EPIC98_AUDIT.includes(l.enumlabel))).toBe(false);
     } finally {
       // Always restore, or later specs lose the platform tables.
-      if ((await count()) === 0) await migration.up(qr);
+      if ((await count()) === 0) {
+        await migration.up(qr);
+        await login.up(qr);
+      }
       await qr.release();
     }
     expect(await count()).toBe(6);

@@ -194,6 +194,11 @@ DELETE FROM user_mfa;
 DELETE FROM user_recovery_codes;
 DELETE FROM platform_admin_devices;
 DELETE FROM platform_approvals;
+-- [Epic 99] Cockpit notes and announcements are free text about schools and people. The Login as
+-- reason is NOT NULL with a non-empty CHECK; the rows stay because audit_logs references them.
+DELETE FROM platform_school_notes;
+DELETE FROM platform_announcements;
+UPDATE impersonation_sessions SET reason = '[scrubbed]';
 -- verify_token_hash is CHAR(64) NOT NULL UNIQUE, so it cannot be NULL: 64 hex chars from the id.
 UPDATE print_job_items SET
   verify_token_hash = md5(id::text) || md5(reverse(id::text)),
