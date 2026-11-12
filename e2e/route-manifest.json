@@ -1041,6 +1041,21 @@
       "path": "/reports/alerts",
       "role": "executive",
       "archetype": "list"
+    },
+    {
+      "path": "/sign-in/forgot",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/sign-in/reset",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/platform-owners",
+      "role": "super_admin",
+      "archetype": "list"
     }
   ]
 }
