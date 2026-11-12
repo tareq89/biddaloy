@@ -52,6 +52,9 @@ export function tenantRestoringException(): HttpException {
   );
 }
 
+/** How long the platform home school id is trusted before it is read again (#3902). */
+export const HOME_CACHE_MS = 60_000;
+
 /**
  * Caches each tenant's suspension status in Redis so `ContextGuard` can
  * check it on every authenticated request without a DB hit per request
@@ -64,8 +67,10 @@ export function tenantRestoringException(): HttpException {
 export class TenantStatusService {
   private readonly logger = new Logger(TenantStatusService.name);
   private lastRestoreLockReadReport = 0;
-  // Cached only on a hit: a miss (booted before seeding) must recover without a restart.
+  // Cached only on a hit (a miss, booted before seeding, must recover without a restart), and only
+  // for HOME_CACHE_MS: the flagged row can move (owner replace, a re-flag, another container).
   private cachedHomeSchoolId?: string;
+  private cachedHomeAt = 0;
 
   constructor(
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
@@ -76,12 +81,16 @@ export class TenantStatusService {
   /**
    * Id of the school flagged `is_platform` (the platform home row, Epic 98 D3b): the one place
    * platform alerts and per-school sweeps look. Authority is never decided by it (that is
-   * `platform_admins`). Cached once found; a miss is not cached so a late-created row is picked up.
+   * `platform_admins`). Cached for `HOME_CACHE_MS` once found, so a moved flag is picked up within
+   * a minute; a miss is not cached so a late-created row is picked up at once.
    */
   async platformTenantId(): Promise<string | undefined> {
-    if (this.cachedHomeSchoolId) return this.cachedHomeSchoolId;
+    if (this.cachedHomeSchoolId && Date.now() - this.cachedHomeAt < HOME_CACHE_MS) {
+      return this.cachedHomeSchoolId;
+    }
     const home = await this.schoolRepo.findOne({ where: { is_platform: true } });
-    if (home) this.cachedHomeSchoolId = home.id;
+    this.cachedHomeSchoolId = home?.id;
+    this.cachedHomeAt = Date.now();
     return home?.id;
   }
 

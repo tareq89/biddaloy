@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus } from '@biddaloy/shared';
 import * as Sentry from '@sentry/node';
-import { TenantStatusService } from './tenant-status.service';
+import { HOME_CACHE_MS, TenantStatusService } from './tenant-status.service';
 
 vi.mock('@sentry/node', () => ({
   withScope: (fn: (scope: any) => void) => fn({ setTags: vi.fn() }),
@@ -309,6 +309,32 @@ describe('TenantStatusService', () => {
       schoolRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'home-id' });
       expect(await service.platformSchoolIds()).toEqual([]);
       expect(await service.platformSchoolIds()).toEqual(['home-id']);
+    });
+  });
+
+  describe('platform home school id cache (#3902)', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('serves the cached id, then picks up a moved flag after the TTL', async () => {
+      vi.useFakeTimers();
+      schoolRepo.findOne.mockResolvedValueOnce({ id: 'old' }).mockResolvedValueOnce({ id: 'new' });
+      expect(await service.platformSchoolIds()).toEqual(['old']);
+      expect(await service.platformSchoolIds()).toEqual(['old']);
+      expect(schoolRepo.findOne).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(HOME_CACHE_MS + 1);
+      expect(await service.platformSchoolIds()).toEqual(['new']);
+    });
+
+    it('forgets the id when the flag is gone, and never caches a miss', async () => {
+      vi.useFakeTimers();
+      schoolRepo.findOne
+        .mockResolvedValueOnce({ id: 'old' })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'late' });
+      await service.platformTenantId();
+      vi.advanceTimersByTime(HOME_CACHE_MS + 1);
+      expect(await service.platformSchoolIds()).toEqual([]);
+      expect(await service.platformSchoolIds()).toEqual(['late']);
     });
   });
 });
