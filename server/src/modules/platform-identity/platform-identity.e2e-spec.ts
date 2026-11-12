@@ -31,6 +31,7 @@ describe('Platform identity E2E', () => {
   const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
 
   let app: INestApplication;
+  const extraApps: INestApplication[] = [];
   let ds: DataSource;
   let sentCodes: { kind: string; to: string; code?: string }[] = [];
   // Owners we suspended so the counts are ours; put back afterwards.
@@ -144,6 +145,8 @@ describe('Platform identity E2E', () => {
     await ds.query(`DELETE FROM platform_settings WHERE key = 'approvals.enabled'`);
     vi.restoreAllMocks();
     await app.close();
+    // The pool is already closed by `app`: a second close may complain, which is fine.
+    for (const extra of extraApps) await extra.close().catch(() => undefined);
   });
 
   it('resolves PlatformCutoverService from the container, with no boot hook', () => {
@@ -172,7 +175,9 @@ describe('Platform identity E2E', () => {
 
     const second = await Test.createTestingModule({ imports: [AppModule] }).compile();
     const booted = second.createNestApplication();
-    // Not closed: both apps share the test pool, and closing this one would end it for the file.
+    // Closed in afterAll, after the primary app: both apps share the test pool, and closing this
+    // one now would end it for the rest of the file.
+    extraApps.push(booted);
     await booted.init();
 
     const rows = await ds.query(`SELECT role FROM user_tenants WHERE user_id = $1`, [legacy]);

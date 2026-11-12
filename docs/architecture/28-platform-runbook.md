@@ -1379,9 +1379,13 @@ dcp prod run --rm -T --no-deps app node server/dist/scripts/platform-cutover.js 
 dcp prod run --rm -T --no-deps app node server/dist/scripts/platform-cutover.js
 ```
 
-- It refuses unless at least one active, unlocked owner with a confirmed authenticator exists, so you cannot lock yourself out.
+- It refuses unless at least one owner who can really sign in exists (active, unlocked, confirmed authenticator, with a password, a phone and an email), so you cannot lock yourself out. Anything other than no argument or exactly `--dry-run` is rejected before it starts.
 - Safe to run twice (`cutover.done`). If it stops after the changes but before the sessions are cut, run it again: it resumes from the stored user ids (Rule 8).
-- What it changed: each change is an audit row (`DELETE` or `UPDATE` on the user, school id, actor empty). To undo one, set the membership role back by hand; the audit row names the membership id. No user and no school is ever deleted.
+- What it changed: every change is an audit row on the user (`DELETE` or `UPDATE`, school id, actor empty); `old_values.membership_id` names the `user_tenants` row. To undo one by hand, by action:
+  - `REMOVE_MEMBERSHIP` (and the removed `SUPER_ADMIN` row of `REMOVE_DUPLICATE_SUPER_ADMIN`): the row is soft-deleted, so clear it with `UPDATE user_tenants SET deleted_at = NULL WHERE id = '<membership_id>'`.
+  - `DOWNGRADE_TO_ADMIN`: the row only changed role, so set it back with `UPDATE user_tenants SET role = 'SUPER_ADMIN' WHERE id = '<membership_id>'`.
+  - `RESTORE_ADMIN`: the user's earlier `ADMIN` row was switched back on (the audit row has `restored: true`); if they should not have it, soft-delete it again with `UPDATE user_tenants SET deleted_at = now() WHERE id = '<membership_id>'`.
+  - Nothing here brings back a session; the user signs in again. No user and no school is ever deleted.
 - The dev and e2e seeds never run it. A fresh database has nothing to convert.
 
 `PLATFORM_TENANT_ID` in `prod.enc.env` and `staging.enc.env` is still used for the platform school, whose id you find with:

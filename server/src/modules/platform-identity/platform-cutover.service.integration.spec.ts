@@ -56,6 +56,11 @@ describe('PlatformCutoverService (integration)', () => {
       `INSERT INTO user_mfa (user_id, secret_enc, confirmed_at) VALUES ($1, 'x', now())`,
       [userId],
     );
+    // What cockpit sign-in needs: a password, a phone for the SMS code, and the email (set by mkUser).
+    await ds.query(`UPDATE users SET password_hash = 'x', phone = $2 WHERE id = $1`, [
+      userId,
+      `+88017${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`,
+    ]);
   };
   const join = (userId: string, tenant: string, role: UserRole) =>
     ds.query(`INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1,$2,$3)`, [
@@ -199,6 +204,12 @@ describe('PlatformCutoverService (integration)', () => {
     await ds.query(`UPDATE platform_admins SET locked_at = NULL WHERE user_id = $1`, [locked]);
     await ds.query(`UPDATE user_mfa SET confirmed_at = NULL WHERE user_id = $1`, [locked]);
     await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
+    // Confirmed again, but unable to sign in (no password, then no phone for the SMS code).
+    await ds.query(`UPDATE user_mfa SET confirmed_at = now() WHERE user_id = $1`, [locked]);
+    await ds.query(`UPDATE users SET password_hash = NULL WHERE id = $1`, [locked]);
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
+    await ds.query(`UPDATE users SET password_hash = 'x', phone = NULL WHERE id = $1`, [locked]);
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
 
     expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
     expect(await done()).toBe(0);
@@ -253,6 +264,15 @@ describe('PlatformCutoverService (integration)', () => {
     await ds.query(
       `UPDATE user_tenants SET deleted_at = now() WHERE user_id = $1 AND role = 'ADMIN'`,
       [u],
+    );
+
+    // The dry run shows the restore too, so the operator sees ADMIN access come back.
+    const dry = await make().run({ dryRun: true });
+    expect(dry.plan).toEqual(
+      expect.arrayContaining([
+        { userId: u, tenantId: schoolB, action: 'REMOVE_DUPLICATE_SUPER_ADMIN' },
+        { userId: u, tenantId: schoolB, action: 'RESTORE_ADMIN' },
+      ]),
     );
 
     await make().run();

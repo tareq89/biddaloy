@@ -32,9 +32,24 @@ export function formatCutoverResult(result: CutoverResult): string[] {
   return lines;
 }
 
+/**
+ * Only no argument (a real run) or exactly `--dry-run`. Anything else, such as `--dryrun` or
+ * `--dry-run=true`, is refused so a typo can never fall through to a real cutover.
+ */
+export function parseCutoverArgs(args: string[]): { dryRun: boolean } | null {
+  if (args.length === 0) return { dryRun: false };
+  if (args.length === 1 && args[0] === '--dry-run') return { dryRun: true };
+  return null;
+}
+
 if (require.main === module) {
   void (async () => {
-    const dryRun = process.argv.includes('--dry-run');
+    const parsed = parseCutoverArgs(process.argv.slice(2));
+    if (!parsed) {
+      console.error('usage: platform-cutover [--dry-run]');
+      process.exit(1);
+    }
+    const dryRun = parsed.dryRun;
     let code = 1;
     const app = await createScriptAppContext();
     try {

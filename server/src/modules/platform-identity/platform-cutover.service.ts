@@ -30,7 +30,12 @@ export interface CutoverCounts {
 export interface CutoverPlanRow {
   userId: string;
   tenantId: string;
-  action: 'REMOVE_MEMBERSHIP' | 'DOWNGRADE_TO_ADMIN' | 'REMOVE_DUPLICATE_SUPER_ADMIN';
+  action:
+    | 'REMOVE_MEMBERSHIP'
+    | 'DOWNGRADE_TO_ADMIN'
+    | 'REMOVE_DUPLICATE_SUPER_ADMIN'
+    /** A soft-deleted ADMIN row of the same user and school is switched back on. */
+    | 'RESTORE_ADMIN';
 }
 
 export type CutoverStatus = 'done' | 'already_done' | 'dry_run';
@@ -136,11 +141,16 @@ export class PlatformCutoverService {
     return { status: 'done', counts, plan, sessionsCut: pending.length };
   }
 
-  /** An active, unlocked owner whose authenticator is confirmed: someone who can sign in to the cockpit. */
+  /**
+   * An owner who can really sign in to the cockpit: active, unlocked, confirmed authenticator, and
+   * the password, phone and email the sign-in needs (login checks the password; a new device needs an
+   * SMS and an email code).
+   */
   private async hasVerifiedOwner(em: EntityManager): Promise<boolean> {
     const rows: unknown[] = await em.query(
       `SELECT 1 FROM platform_admins pa
          JOIN users u ON u.id = pa.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+              AND u.password_hash IS NOT NULL AND u.phone IS NOT NULL AND u.email IS NOT NULL
          JOIN user_mfa m ON m.user_id = pa.user_id AND m.confirmed_at IS NOT NULL
         WHERE pa.locked_at IS NULL
         LIMIT 1`,
@@ -227,6 +237,7 @@ export class PlatformCutoverService {
         });
         counts.duplicatesRemoved++;
         if (admin.deleted_at) {
+          plan.push({ userId: m.user_id, tenantId: m.tenant_id, action: 'RESTORE_ADMIN' });
           await em.query(`UPDATE user_tenants SET deleted_at = NULL WHERE id = $1`, [admin.id]);
           await this.record(
             em,

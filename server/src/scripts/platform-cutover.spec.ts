@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCutoverResult } from './platform-cutover';
+import { formatCutoverResult, parseCutoverArgs } from './platform-cutover';
 
 const counts = { removed: 1, downgraded: 2, duplicatesRemoved: 0 };
 const plan = [
@@ -23,5 +23,15 @@ describe('platform-cutover output', () => {
     expect(
       formatCutoverResult({ status: 'already_done', counts, plan: [], sessionsCut: 0 }),
     ).toEqual(['cutover already done: nothing to change']);
+  });
+});
+
+describe('platform-cutover arguments', () => {
+  it('accepts nothing (real run) or exactly --dry-run, and refuses everything else', () => {
+    expect(parseCutoverArgs([])).toEqual({ dryRun: false });
+    expect(parseCutoverArgs(['--dry-run'])).toEqual({ dryRun: true });
+    for (const bad of [['--dryrun'], ['--dry-run=true'], ['--dry-run', 'x'], ['dry-run'], ['-n']]) {
+      expect(parseCutoverArgs(bad)).toBeNull();
+    }
   });
 });
