@@ -1,0 +1,16 @@
+%% title: What a platform owner can do with a school
+%% desc: The owner opens a school and reads its overview, people, support access, notes and health. From School controls the owner can extend the trial, rename the school, archive it after downloading a copy, or help a stuck admin. Operations, Users and Audit are separate pages in the left menu, and every action is written in the audit.
+flowchart LR
+  S["Open a school"]:::owner --> T["Read the tabs<br/>Overview, People, Support access,<br/>Notes, Health"]
+  S --> C["School controls"]:::owner
+  C --> A1["Extend trial"]
+  C --> A2["Rename school"]
+  C --> A3["Archive school<br/>download a copy first"]
+  C --> A4["Help a stuck admin"]
+  A1 --> AU["Written in Audit"]
+  A2 --> AU
+  A3 --> AU
+  A4 --> AU
+  O["Operations and Users<br/>in the left menu"]:::note --> AU
+  classDef owner fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

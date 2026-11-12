@@ -102,5 +102,9 @@
   "help.whatsNew": "done",
   "platformOwner.signIn": "done",
   "platformOwner.recoveryCodes": "done",
-  "platformOwner.lockAndApprovals": "done"
+  "platformOwner.lockAndApprovals": "done",
+  "platformOwner.loginAs": "done",
+  "platformOwner.schoolControl": "done",
+  "platformOwner.announcements": "done",
+  "administration.supportAccess": "done"
 }

@@ -135,6 +135,31 @@ const FIXED: Fixed[] = [
     roles: [UserRole.SUPER_ADMIN],
     routes: ['/platform-owners'],
   },
+  // [99.6.05] Login as and school control (cockpit), and the school-side support access page.
+  {
+    id: 'platformOwner.loginAs',
+    path: 'platform-owner/login-as',
+    roles: [UserRole.SUPER_ADMIN],
+    routes: ['/schools/$schoolId'],
+  },
+  {
+    id: 'platformOwner.schoolControl',
+    path: 'platform-owner/school-control',
+    roles: [UserRole.SUPER_ADMIN],
+    routes: ['/operations', '/users', '/audit'],
+  },
+  {
+    id: 'platformOwner.announcements',
+    path: 'platform-owner/announcements',
+    roles: [UserRole.SUPER_ADMIN],
+    routes: ['/announcements'],
+  },
+  {
+    id: 'administration.supportAccess',
+    path: 'administration/support-access',
+    roles: [UserRole.ADMIN],
+    routes: ['/support/enter', '/welcome/support-access', '/support-access/requests/$requestId'],
+  },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
   { id: 'help.cantSeeThis', roles: EVERYONE, routes: [] },
