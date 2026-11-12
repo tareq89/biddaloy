@@ -3,6 +3,7 @@ import type { APIRequestContext, Browser } from '@playwright/test';
 import {
   adminApiSession,
   createClassSection,
+  currentAcademicYear,
   createTeacher,
   ensureGradingScale,
   get,
@@ -73,8 +74,11 @@ test('class teacher sets groups in bulk from a marks filter; admin sees them; an
   const admin = await adminApiSession(request);
   await ensureGroup(request, admin);
 
-  const source = await createClassSection(request, admin);
-  await ensureGradingScale(request, admin, source.academicYearId);
+  // A homeroom list only covers the CURRENT academic year, so the class goes in that one.
+  const currentYear = await currentAcademicYear(request, admin);
+  const source = await createClassSection(request, admin, currentYear);
+  // Class-specific override: the current year already has a default scale (a second default 409s).
+  await ensureGradingScale(request, admin, source.academicYearId, source.classId);
   await patch(request, admin, `/classes/${source.classId}`, { numeric_grade: 6 });
   const targetYear = await post<{ id: string }>(request, admin, '/academic-years', {
     name: `E2E PG Year ${suffix}`,
@@ -147,7 +151,7 @@ test('class teacher sets groups in bulk from a marks filter; admin sees them; an
   });
 
   const classTeacher = await createTeacher(request, admin, `E2E PG Teacher ${suffix}`, source);
-  const otherSection = await createClassSection(request, admin);
+  const otherSection = await createClassSection(request, admin, currentYear);
   const otherTeacher = await createTeacher(request, admin, `E2E PG Other ${suffix}`, otherSection);
 
   const mine = await teacherPage(browser, url, classTeacher);

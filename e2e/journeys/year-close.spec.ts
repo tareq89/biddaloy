@@ -31,7 +31,7 @@ test('close a year with approval, see it frozen on the marks grid, reopen it', a
   page,
   request,
 }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(900_000); // two step-up codes for one admin; each may burn the full 6 x ~65 s cooldown retry budget
 
   const session = await adminApiSession(request);
   const bounds = { start_date: `${YEAR}-01-01`, end_date: `${YEAR}-12-31` };
