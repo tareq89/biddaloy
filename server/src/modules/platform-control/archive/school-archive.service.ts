@@ -92,7 +92,8 @@ export class SchoolArchiveService {
       status: j.status,
       sizeBytes: j.size_bytes,
       pinned: j.pinned,
-      error: j.error,
+      // Rule 24: never the raw job error (it can carry SQL or paths); one fixed sentence.
+      error: j.error ? 'The export failed. Start a new export.' : null,
       expiresAt: j.expires_at?.toISOString() ?? null,
       finishedAt: j.finished_at?.toISOString() ?? null,
     };

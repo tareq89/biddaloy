@@ -2004,6 +2004,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/schools/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search, filter and sort every school with student count, last activity, trial end and seat limit (Epic 99). A deleted school shows only with status=DELETED. */
+        get: operations["PlatformSchoolsController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/schools/{id}/stats": {
         parameters: {
             query?: never;
@@ -12047,6 +12064,365 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/schools/{id}/admins/{userId}/reset-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a school admin a password reset link. Needs a step-up token. */
+        post: operations["SchoolHelpController_resetLink_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/logout-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign every user of a school out. Needs a step-up token. */
+        post: operations["SchoolHelpController_logoutAll_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a school’s private notes, newest first. */
+        get: operations["SchoolNotesController_list_v1"];
+        put?: never;
+        /** Add a private note to a school. */
+        post: operations["SchoolNotesController_add_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove one note. */
+        delete: operations["SchoolNotesController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find a person by email or phone across all schools. */
+        get: operations["PlatformUsersController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/users/{id}/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign a person out everywhere. Needs a step-up token. */
+        post: operations["PlatformUsersController_logout_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search audit rows across all schools (no old/new values). */
+        get: operations["PlatformAuditController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/audit/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Login as session log across all schools. */
+        get: operations["PlatformAuditController_sessions_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/queues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Waiting, active, failed and delayed counts per queue. */
+        get: operations["PlatformOpsQueuesController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/queues/{name}/retry-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry up to 1000 failed jobs of one queue. Needs a step-up token. */
+        post: operations["PlatformOpsQueuesController_retryFailed_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** App version, last migration, database and Redis state, restoring schools. */
+        get: operations["PlatformOpsSystemController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/ops/restore-lock/{schoolId}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release a stuck restore lock. Needs a step-up token. */
+        post: operations["PlatformOpsSystemController_releaseLock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What was sent, newest first. */
+        get: operations["PlatformAnnouncementsController_list_v1"];
+        put?: never;
+        /** Send to the admins of every school in the filter. Needs a step-up token, the other owner and an Idempotency-Key. */
+        post: operations["PlatformAnnouncementsController_send_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/announcements/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** How many schools and people a send would reach. Writes nothing. */
+        post: operations["PlatformAnnouncementsController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a school: members signed out, Login as sessions ended, not revivable from the app. Needs a step-up token and the other owner. */
+        delete: operations["PlatformSchoolDeleteController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One call for the school 360 header: admins, people, SMS, files, alerts, audit, notes. */
+        get: operations["SchoolOverviewController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a school (name, name_bn). Needs a step-up token. */
+        patch: operations["SchoolRenameController_patch_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue an export of this school's workbook. One running at a time. */
+        post: operations["SchoolArchiveController_startExport_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive/export/{jobId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream the finished workbook. Works after the school is suspended. */
+        get: operations["SchoolArchiveController_download_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive/export/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status and size of an export of this school. */
+        get: operations["SchoolArchiveController_getExport_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend a school as archived once a finished export exists. Needs a step-up token. */
+        post: operations["SchoolArchiveController_archiveSchool_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/cockpit/refresh": {
         parameters: {
             query?: never;
@@ -14723,6 +15099,28 @@ export interface components {
             trial_ends_at: string | null;
             seat_limit: number | null;
             status_reason: string | null;
+        };
+        PlatformSchoolSearchItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            statusReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            studentCount: number;
+            /** Format: date-time */
+            lastActivityAt: string | null;
+            /** Format: date-time */
+            trialEndsAt: string | null;
+            seatLimit: number | null;
+            /** Format: date-time */
+            deletedAt: string | null;
+        };
+        PlatformSchoolSearchPageDto: {
+            items: components["schemas"]["PlatformSchoolSearchItemDto"][];
+            total: number;
         };
         UpdateSchoolStatusDto: {
             /** @enum {string} */
@@ -21404,6 +21802,115 @@ export interface components {
             alert_id: string;
             recipient_count: number;
         };
+        AdminResetLinkResponseDto: {
+            /** @enum {string} */
+            channel: "SMS" | "EMAIL";
+            expiresAt: string;
+        };
+        LogoutAllResponseDto: {
+            usersSignedOut: number;
+        };
+        SchoolNoteResponseDto: {
+            id: string;
+            authorId: string;
+            text: string;
+            createdAt: string;
+        };
+        AddSchoolNoteDto: {
+            text: string;
+        };
+        /** @enum {string} */
+        SchoolStatus: "ACTIVE" | "SUSPENDED";
+        PreviewAnnouncementDto: {
+            statusFilter: components["schemas"]["SchoolStatus"][];
+        };
+        SendAnnouncementDto: {
+            statusFilter: components["schemas"]["SchoolStatus"][];
+            title: string;
+            body: string;
+            /** @enum {string} */
+            severity: "WARNING" | "REMINDER";
+            sms: boolean;
+            email: boolean;
+        };
+        DeleteSchoolDto: {
+            reason: string;
+        };
+        OverviewAdminDto: {
+            userId: string;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            membershipStatus: string;
+        };
+        OverviewRoleCountDto: {
+            role: string;
+            count: number;
+        };
+        OverviewSmsDto: {
+            available: number;
+            reserved: number;
+        };
+        OverviewAlertCountDto: {
+            severity: string;
+            count: number;
+        };
+        OverviewAuditRowDto: {
+            id: string;
+            action: string;
+            entityType: string;
+            createdAt: string;
+            actorName: string | null;
+            viaLoginAs: boolean;
+        };
+        SchoolOverviewDto: {
+            schoolId: string;
+            admins?: components["schemas"]["OverviewAdminDto"][] | null;
+            peopleByRole?: components["schemas"]["OverviewRoleCountDto"][] | null;
+            smsBalance?: components["schemas"]["OverviewSmsDto"] | null;
+            filesBytes?: number | null;
+            openAlerts?: components["schemas"]["OverviewAlertCountDto"][] | null;
+            recentAudit?: components["schemas"]["OverviewAuditRowDto"][] | null;
+            lastActivityAt?: string | null;
+            notesCount?: number | null;
+        };
+        SchoolRenameDto: {
+            name?: string;
+            name_bn?: string | null;
+            reason: string;
+        };
+        SchoolRenameResponseDto: {
+            name: string;
+            name_bn: string | null;
+            changed: boolean;
+        };
+        StartArchiveExportResponseDto: {
+            jobId: string;
+        };
+        ArchiveExportStatusDto: {
+            id: string;
+            /** @enum {string} */
+            status: "QUEUED" | "RUNNING" | "DONE" | "FAILED" | "DELETED";
+            sizeBytes: string | null;
+            pinned: boolean;
+            error: string | null;
+            expiresAt: string | null;
+            finishedAt: string | null;
+        };
+        ArchiveSchoolDto: {
+            /**
+             * Format: uuid
+             * @description A finished export of this school.
+             */
+            exportJobId: string;
+            reason: string;
+        };
+        ArchiveSchoolResponseDto: {
+            id: string;
+            /** @enum {string} */
+            status: "SUSPENDED";
+            exportJobId: string;
+        };
         CockpitLoginDto: {
             /** Format: email */
             email?: string;
@@ -26753,6 +27260,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolsController_search_v1: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "SUSPENDED" | "DELETED";
+                trial?: "active" | "expired";
+                q?: string;
+                sort?: "lastActivity" | "students" | "trialEnd" | "name";
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolSearchPageDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -51027,6 +51572,620 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    SchoolHelpController_resetLink_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminResetLinkResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolHelpController_logoutAll_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoutAllResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolNotesController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolNoteResponseDto"][];
+                };
+            };
+        };
+    };
+    SchoolNotesController_add_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSchoolNoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolNoteResponseDto"];
+                };
+            };
+        };
+    };
+    SchoolNotesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformUsersController_search_v1: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    PlatformUsersController_logout_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformAuditController_search_v1: {
+        parameters: {
+            query?: {
+                tenantId?: string;
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED";
+                actorId?: string;
+                sessionId?: string;
+                from?: string;
+                to?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformAuditController_sessions_v1: {
+        parameters: {
+            query?: {
+                tenantId?: string;
+                ownerId?: string;
+                status?: "REQUESTED" | "APPROVED" | "ACTIVE" | "ENDED" | "EXPIRED" | "DENIED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformOpsQueuesController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformOpsQueuesController_retryFailed_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.ops_action" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformOpsSystemController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformOpsSystemController_releaseLock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.ops_action" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                schoolId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformAnnouncementsController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformAnnouncementsController_send_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.announce_all" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendAnnouncementDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformAnnouncementsController_preview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAnnouncementDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformSchoolDeleteController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.delete_school" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteSchoolDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolOverviewController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolOverviewDto"];
+                };
+            };
+        };
+    };
+    SchoolRenameController_patch_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolRenameDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolRenameResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    SchoolArchiveController_startExport_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartArchiveExportResponseDto"];
+                };
+            };
+        };
+    };
+    SchoolArchiveController_download_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolArchiveController_getExport_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveExportStatusDto"];
+                };
+            };
+        };
+    };
+    SchoolArchiveController_archiveSchool_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveSchoolDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveSchoolResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };

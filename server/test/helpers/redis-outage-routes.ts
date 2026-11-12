@@ -11,6 +11,9 @@ import { CockpitPasswordController } from '../../src/modules/auth/cockpit/cockpi
 import { CockpitSessionController } from '../../src/modules/auth/cockpit/cockpit-session.controller';
 import { ImpersonationExchangeController } from '../../src/modules/support-access/exchange/impersonation-exchange.controller';
 import { UserController } from '../../src/modules/users/users.controller';
+import { PlatformOpsQueuesController } from '../../src/modules/platform-control/ops/ops-queues.controller';
+import { PlatformOpsSystemController } from '../../src/modules/platform-control/ops/ops-system.controller';
+import { PlatformAnnouncementsController } from '../../src/modules/platform-control/announcements/platform-announcements.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -35,6 +38,10 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   CockpitPasswordController,
   CockpitSessionController,
   ImpersonationExchangeController,
+  // [99.4.16] Cockpit routes that spend a Redis-held approval or lock.
+  PlatformOpsQueuesController,
+  PlatformOpsSystemController,
+  PlatformAnnouncementsController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -79,6 +86,10 @@ export const FAIL_CLOSED = [
   // MarksController: the sheet import stages in Redis, so without it validate and commit cannot work.
   'POST /exams/:examId/marks/sheet/validate',
   'POST /exams/:examId/marks/sheet/commit',
+  // [99.4.16] Owner actions that spend a step-up token or a restore lock kept in Redis.
+  'POST /platform/ops/queues/:name/retry-failed',
+  'POST /platform/ops/restore-lock/:schoolId/release',
+  'POST /platform/announcements',
 ];
 
 // Served without a rate limit while Redis is down: keeps signed-in people signed in, reads,
@@ -134,4 +145,9 @@ export const FAIL_OPEN = [
   'POST /exams/:examId/marks/reopen',
   'GET /exams/:examId/marks/progress',
   'GET /exams/:examId/marks/sheet',
+  // [99.4.16] Read-only or preview cockpit routes: Postgres only.
+  'GET /platform/ops/queues',
+  'GET /platform/ops/system',
+  'GET /platform/announcements',
+  'POST /platform/announcements/preview',
 ];
