@@ -33,7 +33,7 @@
       "generic": "Sign-in did not work. Check what you typed and try again.",
       "identifierRequired": "Enter your email or phone number.",
       "passwordRequired": "Enter your password.",
-      "wrongCode": "Code did not match, use the new 30-second code.",
+      "wrongCode": "Code did not match. Check it and try again.",
       "wrongDeviceCode": "A code did not match. Check both codes and try again.",
       "slowDown": "Too many tries. Wait a little and try again."
     }
