@@ -133,6 +133,7 @@ export function useRenameSchool(schoolId: string) {
       }),
     {
       approvalScope: SCOPE.approvalScope,
+      retry: false,
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: schoolControlKeys.all }),
     },
   );
@@ -178,6 +179,7 @@ export function useArchiveSchool(schoolId: string) {
       }),
     {
       approvalScope: SCOPE.approvalScope,
+      retry: false,
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: schoolControlKeys.all }),
     },
   );
