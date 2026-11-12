@@ -1,0 +1,66 @@
+{
+  "title": "Announcements",
+  "caption": "Send one message to the admins of every school. It goes out only when the other owner agrees.",
+  "compose": {
+    "title": "New announcement",
+    "filterLabel": "Send to",
+    "filter": {
+      "ACTIVE": "Only active schools",
+      "SUSPENDED": "Only suspended schools",
+      "ALL": "All schools"
+    },
+    "severityLabel": "Type",
+    "severity": {
+      "REMINDER": "Reminder",
+      "WARNING": "Warning"
+    },
+    "titleLabel": "Title",
+    "messageLabel": "Message",
+    "counter": "{{used}} / {{max}}",
+    "channelsLabel": "How it is sent",
+    "channelBanner": "In-app banner (always on)",
+    "channelSms": "SMS",
+    "channelEmail": "Email",
+    "send": "Send",
+    "needTitle": "Write a title.",
+    "needMessage": "Write a message.",
+    "sendError": "Could not send the announcement. Try again."
+  },
+  "preview": {
+    "loading": "Counting who will get it...",
+    "result": "Schools: {{schools}}. Admins: {{people}}.",
+    "none": "No school matches. Nothing will be sent.",
+    "error": "Could not count. Try again.",
+    "retry": "Count again",
+    "needsAgreement": "The other owner must agree before it is sent."
+  },
+  "waiting": {
+    "pending": "Waiting for the other owner to agree. We will send it as soon as they do.",
+    "granted": "The other owner agreed.",
+    "sending": "Sending...",
+    "sendNow": "Send now",
+    "cancel": "Cancel",
+    "denied": "The other owner said no. Nothing was sent.",
+    "expired": "The request ran out of time. Nothing was sent.",
+    "used": "This request was already sent. See the list below.",
+    "unknown": "This request can no longer be found. Check the list below to see if anything was sent.",
+    "dismiss": "Close"
+  },
+  "sent": {
+    "done": "Sent to {{schools}} schools and {{people}} people.",
+    "another": "Write another"
+  },
+  "list": {
+    "title": "Sent announcements",
+    "caption": "Announcements sent before",
+    "columnDate": "Date",
+    "columnTitle": "Title",
+    "columnSchools": "Reached",
+    "columnBy": "Sent by",
+    "schoolsOf": "{{done}} of {{total}} schools",
+    "emptyTitle": "No announcements yet",
+    "emptyExplanation": "Announcements you send will show here.",
+    "loadError": "Could not load the announcements. Try again.",
+    "announceResults": "Showing {{count}} announcements"
+  }
+}
