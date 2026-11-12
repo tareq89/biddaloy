@@ -18,7 +18,7 @@ describe.each([
   ['bn', bn],
 ])('supportBanner.json (%s)', (_name, tree) => {
   it('has non-empty intake strings', () => {
-    expect(leaves(tree).length).toBeGreaterThanOrEqual(4);
+    expect(leaves(tree).length).toBeGreaterThanOrEqual(12);
     leaves(tree).forEach((s) => expect(s.trim()).not.toBe(''));
   });
 
@@ -28,5 +28,7 @@ describe.each([
 });
 
 it('bn and en have the same keys', () => {
-  expect(Object.keys(bn.intake).sort()).toEqual(Object.keys(en.intake).sort());
+  for (const k of ['intake', 'banner', 'ended'] as const) {
+    expect(Object.keys(bn[k]).sort()).toEqual(Object.keys(en[k]).sort());
+  }
 });
