@@ -93,6 +93,21 @@
     "loadMore": "আরও দেখুন",
     "loadError": "ইতিহাস আনা গেল না।",
     "empty": "এখনো কিছু নেই।",
-    "emptyExplanation": "সাইন-ইন, আটকে দেওয়া ও খুলে দেওয়া এখানে দেখা যাবে।"
+    "emptyExplanation": "সাইন-ইন, আটকে দেওয়া ও খুলে দেওয়া এখানে দেখা যাবে।",
+    "actions": {
+      "PLATFORM_LOGIN": "সাইন-ইন করেছেন",
+      "PLATFORM_LOGIN_FAILED": "সাইন-ইন ব্যর্থ",
+      "PLATFORM_OWNER_LOCKED": "মালিককে আটকে দেওয়া হয়েছে",
+      "PLATFORM_OWNER_UNLOCKED": "মালিকের আটকানো খোলা হয়েছে",
+      "PLATFORM_MFA_ENROLLED": "অথেনটিকেটর চালু হয়েছে",
+      "PLATFORM_RECOVERY_USED": "রিকভারি কোড ব্যবহার হয়েছে",
+      "PLATFORM_APPROVAL_REQUESTED": "অনুমতি চাওয়া হয়েছে",
+      "PLATFORM_APPROVAL_GRANTED": "অনুমতি দেওয়া হয়েছে",
+      "PLATFORM_APPROVAL_DENIED": "অনুমতি দেওয়া হয়নি",
+      "PLATFORM_OWNER_REPLACED": "মালিক বদলানো হয়েছে",
+      "PLATFORM_MFA_RESET": "অথেনটিকেটর রিসেট হয়েছে",
+      "PLATFORM_PASSWORD_RESET": "পাসওয়ার্ড রিসেট হয়েছে",
+      "PLATFORM_SETTINGS_CHANGED": "সেটিং বদলানো হয়েছে"
+    }
   }
 }

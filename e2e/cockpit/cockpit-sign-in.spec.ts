@@ -129,7 +129,7 @@ test('first sign-in: both codes, the wizard, recovery codes, sign out', async ({
   await expect(finish).toBeDisabled();
   await page.getByLabel(tc('ownerSecurity', 'recoveryCodes.acknowledge')).check();
   await finish.click();
-  await expect(page).toHaveURL(/\/schools/);
+  await expect(page).toHaveURL(/\/platform-owners/);
 
   await page
     .getByRole('button', { name: new RegExp(tc('nav', 'userMenu.label')) })
@@ -144,7 +144,7 @@ test('sign in again with the authenticator code, the device is remembered', asyn
   await passwordStep(page, owner.password);
   await typeCode(page, tc('cockpit', 'signIn.code.label'), await freshTotp(owner.secret!));
   await page.getByRole('button', { name: tc('cockpit', 'signIn.signIn') }).click();
-  await expect(page).toHaveURL(/\/schools/);
+  await expect(page).toHaveURL(/\/platform-owners/);
 });
 
 test('a new device asks for both codes; a recovery code signs in', async ({ browser, request }) => {
@@ -161,7 +161,7 @@ test('a new device asks for both codes; a recovery code signs in', async ({ brow
   await typeCode(page, tc('cockpit', 'signIn.device.smsLabel'), await smsCode(request, owner));
   await typeCode(page, tc('cockpit', 'signIn.device.emailLabel'), await emailCode(request, owner));
   await page.getByRole('button', { name: tc('cockpit', 'signIn.signIn') }).click();
-  await expect(page).toHaveURL(/\/schools/);
+  await expect(page).toHaveURL(/\/platform-owners/);
   await page.context().close();
 });
 

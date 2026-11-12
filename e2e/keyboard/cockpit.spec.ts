@@ -68,7 +68,7 @@ test('sign-in by keyboard: password, authenticator code, new-device codes', asyn
   await page.keyboard.press('Tab');
   await page.keyboard.type(await emailCode(request, owner));
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/schools/);
+  await expect(page).toHaveURL(/\/platform-owners/);
 });
 
 test('lock an owner from the command palette, keyboard only', async ({ page, request }) => {

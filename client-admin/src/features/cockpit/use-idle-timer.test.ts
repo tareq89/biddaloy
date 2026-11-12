@@ -1,10 +1,13 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useIdleTimer } from './use-idle-timer';
+import { SHARED_ACTIVITY_KEY, useIdleTimer } from './use-idle-timer';
 
 const MIN = 60_000;
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  localStorage.clear();
+  vi.useFakeTimers();
+});
 afterEach(() => vi.useRealTimers());
 
 function setup() {
@@ -15,6 +18,27 @@ function setup() {
 }
 
 describe('useIdleTimer', () => {
+  it('does not expire while another tab is active, and clears a warning it raised', () => {
+    const onWarn = vi.fn();
+    const onExpire = vi.fn();
+    const onResume = vi.fn();
+    renderHook(() => useIdleTimer({ onWarn, onExpire, onResume }));
+    act(() => {
+      vi.advanceTimersByTime(29 * MIN);
+    });
+    expect(onWarn).toHaveBeenCalledTimes(1);
+    // Another tab reports activity now.
+    act(() => {
+      localStorage.setItem(SHARED_ACTIVITY_KEY, String(Date.now()));
+      window.dispatchEvent(new StorageEvent('storage', { key: SHARED_ACTIVITY_KEY }));
+    });
+    expect(onResume).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(MIN);
+    });
+    expect(onExpire).not.toHaveBeenCalled();
+  });
+
   it('warns at 29 minutes and expires at 30', () => {
     const { onWarn, onExpire } = setup();
     act(() => {

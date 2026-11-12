@@ -11,6 +11,8 @@ import { useRef, useState } from 'react';
 
 import { useIdleTimer } from './use-idle-timer';
 
+const SIGN_OUT_WAIT_MS = 5000;
+
 export interface CockpitIdleWarningProps {
   /** Every string comes in as a prop; #3763 passes the `ownerSecurity` `idle.*` keys. */
   strings: { title: string; body: string; stay: string; signOut: string; expired: string };
@@ -39,7 +41,11 @@ export function CockpitIdleWarning({
     setBusy(true);
     setOpen(false);
     try {
-      await signOut();
+      // Bounded: a stalled logout request must not strand the user on the page.
+      await Promise.race([
+        Promise.resolve(signOut()),
+        new Promise((resolve) => setTimeout(resolve, SIGN_OUT_WAIT_MS)),
+      ]);
     } catch {
       // Sign-out call failed: still leave; the server idle limit ends the session.
     } finally {
@@ -49,6 +55,7 @@ export function CockpitIdleWarning({
   const { reset } = useIdleTimer({
     onWarn: () => setOpen(true),
     onExpire: () => void leave(strings.expired),
+    onResume: () => setOpen(false),
   });
   const stay = async () => {
     setBusy(true);

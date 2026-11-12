@@ -207,7 +207,9 @@ export default defineConfig({
       },
     ]),
   ],
-  workers: CI ? 4 : undefined,
+  // The cockpit suites share one database (owners are reset, the approvals switch is global), so
+  // they run on a single worker: no two cockpit tests ever overlap, across files or projects.
+  workers: process.env.E2E_COCKPIT === '1' ? 1 : CI ? 4 : undefined,
   // Only against a running site: with local servers the build time would eat the budget.
   ...(DEMO_SWEEP_URL ? { globalTimeout: 8 * 60_000 } : {}),
   webServer: DEMO_SWEEP_URL

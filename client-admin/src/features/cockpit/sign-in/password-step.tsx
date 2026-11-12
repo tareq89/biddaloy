@@ -56,7 +56,10 @@ export function PasswordStep({
           autoComplete="username"
           value={identifier}
           aria-invalid={local.identifier ? true : undefined}
-          onChange={(e) => setIdentifier(e.target.value)}
+          onChange={(e) => {
+            setIdentifier(e.target.value);
+            setLocal((l) => ({ ...l, identifier: undefined }));
+          }}
         />
         {local.identifier && (
           <p role="alert" className="text-caption text-destructive">
@@ -74,7 +77,10 @@ export function PasswordStep({
           autoComplete="current-password"
           value={password}
           aria-invalid={local.password || error ? true : undefined}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setLocal((l) => ({ ...l, password: undefined }));
+          }}
         />
         {(local.password ?? error) && (
           <p role="alert" className="text-caption text-destructive">

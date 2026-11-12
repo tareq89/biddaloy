@@ -48,8 +48,8 @@ export interface NotificationBellAttention {
   status: 'loading' | 'error' | 'ready';
   onRetry: () => void;
   onOpen: () => void;
-  /** Route path (may carry `?tab=active`) for "See all to-do". */
-  todoTo: string;
+  /** Route path (may carry `?tab=active`) for "See all to-do". Omitted where no full page is reachable (cockpit). */
+  todoTo?: string | undefined;
 }
 
 export interface NotificationBellProps {
@@ -181,14 +181,16 @@ export function NotificationBell({
                       {t('notifications.attentionOpen')}
                     </Button>
                   )}
-                  <Link
-                    // The raw path: a split `search` object would JSON-quote values like `1`.
-                    to={attention.todoTo}
-                    onClick={() => setOpen(false)}
-                    className="rounded-md p-2 text-sm text-primary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    {t('notifications.attentionTodo')}
-                  </Link>
+                  {attention.todoTo !== undefined && (
+                    <Link
+                      // The raw path: a split `search` object would JSON-quote values like `1`.
+                      to={attention.todoTo}
+                      onClick={() => setOpen(false)}
+                      className="rounded-md p-2 text-sm text-primary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                    >
+                      {t('notifications.attentionTodo')}
+                    </Link>
+                  )}
                 </div>
               </>
             )}

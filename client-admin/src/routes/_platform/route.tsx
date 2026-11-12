@@ -83,7 +83,8 @@ function PlatformLayout() {
   const { t, i18n } = useTranslation('nav');
   const { t: tPlatform } = useTranslation('platform');
   const { t: tAuth } = useTranslation('auth');
-  const attention = useAttentionCenter({ todoTo: '/notifications' });
+  // `/notifications` is a staff route and rejects a cockpit owner (no staff role): no links there on the cockpit host; the bell's list and the attention modal are the worklist.
+  const attention = useAttentionCenter(COCKPIT ? {} : { todoTo: '/notifications' });
   const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
   const PlatformOwnersIcon = PLATFORM_NAV_ICONS['/platform-owners'];
   const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
@@ -158,7 +159,10 @@ function PlatformLayout() {
   const securityTo = COCKPIT ? '/owner-security' : '/security';
   const consoleTitle = tPlatform('breadcrumb.platformAdmin');
   const notificationBell = (
-    <NotificationBell viewAllTo="/notifications" attention={attention.bell} />
+    <NotificationBell
+      {...(COCKPIT ? {} : { viewAllTo: '/notifications' })}
+      attention={attention.bell}
+    />
   );
 
   return (

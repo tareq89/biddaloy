@@ -397,12 +397,14 @@ export async function ensureGradingScale(
   request: APIRequestContext,
   session: ApiSession,
   academicYearId: string,
+  classId?: string,
 ): Promise<void> {
   const scales = await get<{ id: string; bands: unknown[] }[]>(request, session, '/grading/scales');
   const source = scales.find((scale) => scale.bands.length > 0);
   if (!source) throw new Error('No seeded grading scale with bands to copy');
   const scale = await post<{ id: string }>(request, session, '/grading/scales', {
     academic_year_id: academicYearId,
+    ...(classId ? { class_id: classId } : {}),
     name: `E2E Scale ${Date.now()}`,
   });
   await post(request, session, `/grading/scales/${scale.id}/copy`, { source_scale_id: source.id });

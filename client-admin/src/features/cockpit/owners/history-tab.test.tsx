@@ -8,9 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { HistoryTab } from './history-tab';
 
-const row = (id: string, label: string) => ({
+const row = (id: string, label: string, action = 'UNKNOWN_CODE') => ({
   id,
-  action: 'PLATFORM_LOGIN',
+  action,
   actorName: 'Owner One',
   at: '2029-12-31T00:00:00.000Z',
   label,
@@ -61,5 +61,23 @@ describe('HistoryTab', () => {
     );
     renderWithProviders(<HistoryTab />, { locale: 'en' });
     await screen.findByText('Could not load the history.');
+  });
+
+  it('translates a known action code and falls back to the label for an unknown one', async () => {
+    server.use(
+      http.get('*/platform/owners/history', () =>
+        HttpResponse.json({
+          data: [
+            row('h1', 'Server phrase', 'PLATFORM_OWNER_LOCKED'),
+            row('h2', 'Fallback phrase'),
+          ],
+          nextCursor: null,
+        }),
+      ),
+    );
+    renderWithProviders(<HistoryTab />, { locale: 'bn' });
+    await screen.findByText('মালিককে আটকে দেওয়া হয়েছে');
+    expect(screen.queryByText('Server phrase')).toBeNull();
+    expect(screen.getByText('Fallback phrase')).toBeTruthy();
   });
 });

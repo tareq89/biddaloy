@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { ApprovalScope, AuditAction, CockpitMfaStatusDto } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
@@ -42,6 +42,13 @@ export class CockpitMfaController {
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseGuards(AuthGuard('cockpit-jwt'), PlatformAdminGuard)
   @ApiOperation({ summary: "Is the caller's authenticator set up, and how many codes are left." })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      required: ['enrolled', 'recoveryRemaining'],
+      properties: { enrolled: { type: 'boolean' }, recoveryRemaining: { type: 'integer' } },
+    },
+  })
   async status(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -57,6 +64,13 @@ export class CockpitMfaController {
   @UseGuards(AuthGuard('cockpit-jwt'), PlatformAdminGuard, SameOriginGuard, ApprovalGuard)
   @RequireApproval(ApprovalScope.PLATFORM_RECOVERY_CODES)
   @ApiOperation({ summary: 'New recovery codes, shown once; the old ones stop working. Step-up.' })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      required: ['recoveryCodes'],
+      properties: { recoveryCodes: { type: 'array', items: { type: 'string' } } },
+    },
+  })
   async regenerate(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,

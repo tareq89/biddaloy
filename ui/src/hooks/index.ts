@@ -44,6 +44,7 @@ export {
   login,
   logout,
   logoutAll,
+  logoutAllReporting,
   requestOtp,
   resetPassword,
   sessionsQueryOptions,

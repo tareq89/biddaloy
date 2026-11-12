@@ -13,7 +13,7 @@ export function TwoStepRoute() {
   return (
     <TwoStepWizard
       handoff={handoff}
-      onDone={() => void navigate({ to: '/schools' })}
+      onDone={() => void navigate({ to: '/platform-owners' })}
       onStartAgain={() => void navigate({ to: '/sign-in' })}
     />
   );

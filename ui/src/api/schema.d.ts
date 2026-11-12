@@ -50683,7 +50683,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        enrolled: boolean;
+                        recoveryRemaining: number;
+                    };
                 };
             };
         };
@@ -50704,7 +50707,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        recoveryCodes: string[];
+                    };
+                };
             };
             /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
             403: {
