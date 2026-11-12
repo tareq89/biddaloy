@@ -74,7 +74,7 @@ describe('/schools/$schoolId', () => {
 
   it('renders "Never" for a school with no activity yet', async () => {
     server.use(
-      http.get('/api/v1/schools/:id/stats', () =>
+      http.get('/api/v1/platform/schools/:id/stats', () =>
         HttpResponse.json({
           active_users: 0,
           students: 0,
@@ -91,7 +91,7 @@ describe('/schools/$schoolId', () => {
   });
 
   it('shows a retryable error in the stats card when the stats request fails', async () => {
-    server.use(http.get('/api/v1/schools/:id/stats', () => HttpResponse.json({}, { status: 500 })));
+    server.use(http.get('/api/v1/platform/schools/:id/stats', () => HttpResponse.json({}, { status: 500 })));
     renderDetail();
 
     expect(await screen.findByText('Could not load stats.')).toBeTruthy();
@@ -117,7 +117,7 @@ describe('/schools/$schoolId', () => {
   });
 
   it('shows the empty message when the school has no admins', async () => {
-    server.use(http.get('/api/v1/schools/:id/admins', () => HttpResponse.json([])));
+    server.use(http.get('/api/v1/platform/schools/:id/admins', () => HttpResponse.json([])));
     renderDetail();
 
     expect(await screen.findByText('No admins yet.')).toBeTruthy();
@@ -127,7 +127,7 @@ describe('/schools/$schoolId', () => {
 
   it('shows a retryable error in the admins card when the admins request fails', async () => {
     server.use(
-      http.get('/api/v1/schools/:id/admins', () => HttpResponse.json({}, { status: 500 })),
+      http.get('/api/v1/platform/schools/:id/admins', () => HttpResponse.json({}, { status: 500 })),
     );
     renderDetail();
 
@@ -139,7 +139,7 @@ describe('/schools/$schoolId', () => {
     let resendUrl: string | null = null;
     let resendCount = 0;
     server.use(
-      http.post('/api/v1/schools/:id/admins/:userId/resend-invitation', ({ request }) => {
+      http.post('/api/v1/platform/schools/:id/admins/:userId/resend-invitation', ({ request }) => {
         resendUrl = new URL(request.url).pathname;
         resendCount += 1;
         return new HttpResponse(null, { status: 204 });
@@ -152,7 +152,7 @@ describe('/schools/$schoolId', () => {
 
     await waitFor(() =>
       expect(resendUrl).toBe(
-        `/api/v1/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/resend-invitation`,
+        `/api/v1/platform/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/resend-invitation`,
       ),
     );
     // One click sends exactly one invitation.
@@ -162,7 +162,7 @@ describe('/schools/$schoolId', () => {
   it('shows a translated error toast when resend fails', async () => {
     const user = userEvent.setup();
     server.use(
-      http.post('/api/v1/schools/:id/admins/:userId/resend-invitation', () =>
+      http.post('/api/v1/platform/schools/:id/admins/:userId/resend-invitation', () =>
         HttpResponse.json({}, { status: 500 }),
       ),
     );
@@ -180,7 +180,7 @@ describe('/schools/$schoolId', () => {
     const user = userEvent.setup();
     let revokeUrl: string | null = null;
     server.use(
-      http.delete('/api/v1/schools/:id/admins/:userId/invitation', ({ request }) => {
+      http.delete('/api/v1/platform/schools/:id/admins/:userId/invitation', ({ request }) => {
         revokeUrl = new URL(request.url).pathname;
         return new HttpResponse(null, { status: 204 });
       }),
@@ -199,7 +199,7 @@ describe('/schools/$schoolId', () => {
 
     await waitFor(() =>
       expect(revokeUrl).toBe(
-        `/api/v1/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/invitation`,
+        `/api/v1/platform/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/invitation`,
       ),
     );
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
@@ -209,7 +209,7 @@ describe('/schools/$schoolId', () => {
     const user = userEvent.setup();
     let posted: unknown = null;
     server.use(
-      http.post('/api/v1/schools/:id/admins', async ({ request }) => {
+      http.post('/api/v1/platform/schools/:id/admins', async ({ request }) => {
         posted = await request.json();
         return HttpResponse.json(
           {
@@ -262,7 +262,7 @@ describe('/schools/$schoolId', () => {
     const user = userEvent.setup();
     let posted = false;
     server.use(
-      http.post('/api/v1/schools/:id/admins', () => {
+      http.post('/api/v1/platform/schools/:id/admins', () => {
         posted = true;
         return HttpResponse.json({}, { status: 201 });
       }),
@@ -282,13 +282,13 @@ describe('/schools/$schoolId', () => {
   it('keeps the entered values and shows a translated error when adding fails', async () => {
     const user = userEvent.setup();
     server.use(
-      http.post('/api/v1/schools/:id/admins', () =>
+      http.post('/api/v1/platform/schools/:id/admins', () =>
         HttpResponse.json(
           {
             statusCode: 409,
             message: 'User "x" is already an ADMIN of this school',
             timestamp: new Date().toISOString(),
-            path: '/api/v1/schools/x/admins',
+            path: '/api/v1/platform/schools/x/admins',
             requestId: 'r1',
           },
           { status: 409 },
@@ -315,7 +315,7 @@ describe('/schools/$schoolId', () => {
     const user = userEvent.setup();
     let patched: unknown = null;
     server.use(
-      http.patch('/api/v1/schools/:id/status', async ({ request, params }) => {
+      http.patch('/api/v1/platform/schools/:id/status', async ({ request, params }) => {
         patched = await request.json();
         return HttpResponse.json({
           id: params.id,
@@ -351,7 +351,7 @@ describe('/schools/$schoolId', () => {
   it('offers Reactivate for a suspended school and surfaces a failed status update', async () => {
     const user = userEvent.setup();
     server.use(
-      http.patch('/api/v1/schools/:id/status', () => HttpResponse.json({}, { status: 500 })),
+      http.patch('/api/v1/platform/schools/:id/status', () => HttpResponse.json({}, { status: 500 })),
     );
     renderDetail(SUSPENDED_SCHOOL_ID);
 

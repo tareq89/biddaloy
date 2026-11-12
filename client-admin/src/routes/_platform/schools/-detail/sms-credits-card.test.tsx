@@ -16,7 +16,7 @@ describe('SmsCreditsCard', () => {
 
   it('loads and shows the balance the school already has, before any grant', async () => {
     server.use(
-      http.get(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, () =>
+      http.get(`/api/v1/platform/schools/${SCHOOL_ID}/sms-credits`, () =>
         HttpResponse.json({
           metering: 'PLATFORM',
           available: 250,
@@ -39,7 +39,7 @@ describe('SmsCreditsCard', () => {
 
   it('shows the unmetered message rather than a balance when metering is OFF', async () => {
     server.use(
-      http.get(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, () =>
+      http.get(`/api/v1/platform/schools/${SCHOOL_ID}/sms-credits`, () =>
         HttpResponse.json({
           metering: 'OFF',
           available: 0,
@@ -62,7 +62,7 @@ describe('SmsCreditsCard', () => {
   it('opens the grant dialog from the outline button and closes it after a successful grant', async () => {
     let granted: unknown = null;
     server.use(
-      http.get(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, () =>
+      http.get(`/api/v1/platform/schools/${SCHOOL_ID}/sms-credits`, () =>
         HttpResponse.json({
           metering: 'PLATFORM',
           available: 250,
@@ -70,7 +70,7 @@ describe('SmsCreditsCard', () => {
           ledger: { data: [], total: 0, page: 1, limit: 1, totalPages: 1 },
         }),
       ),
-      http.post(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, async ({ request }) => {
+      http.post(`/api/v1/platform/schools/${SCHOOL_ID}/sms-credits`, async ({ request }) => {
         granted = await request.json();
         return HttpResponse.json({ available: 750, reserved: 5 }, { status: 201 });
       }),

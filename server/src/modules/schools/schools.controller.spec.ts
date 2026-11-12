@@ -5,7 +5,6 @@ import type { Request } from 'express';
 import type { JwtPayload } from '@biddaloy/shared';
 import { SchoolsController } from './schools.controller';
 import { SchoolsService } from './schools.service';
-import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 
 const SCHOOL_A = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -16,11 +15,8 @@ const REQUEST = { ip: '127.0.0.1', headers: { 'user-agent': 'vitest' } } as unkn
 
 function fakeService() {
   return {
-    findAll: vi.fn(),
     getMaskedSettings: vi.fn(),
     updateSettings: vi.fn(),
-    getStats: vi.fn(),
-    updateStatus: vi.fn(),
   };
 }
 
@@ -31,42 +27,6 @@ describe('SchoolsController', () => {
   beforeEach(() => {
     service = fakeService();
     controller = new SchoolsController(service as unknown as SchoolsService);
-  });
-
-  describe('findAll', () => {
-    it('delegates to the service', async () => {
-      const school = {
-        id: SCHOOL_A,
-        name: 'A School',
-        slug: 'a-school',
-        status: 'ACTIVE',
-        created_at: new Date('2026-01-01T00:00:00Z'),
-      };
-      service.findAll.mockResolvedValue([school]);
-
-      const result = await controller.findAll({});
-
-      expect(service.findAll).toHaveBeenCalledWith(undefined);
-      expect(result).toEqual([school]);
-    });
-  });
-
-  describe('getStats', () => {
-    it('delegates to the service', async () => {
-      const stats = {
-        active_users: 4,
-        students: 30,
-        communications_queued: 2,
-        communications_failed_7d: 1,
-        last_activity_at: new Date('2026-09-01T00:00:00Z'),
-      };
-      service.getStats.mockResolvedValue(stats);
-
-      const result = await controller.getStats(SCHOOL_A);
-
-      expect(service.getStats).toHaveBeenCalledWith(SCHOOL_A);
-      expect(result).toEqual(stats);
-    });
   });
 
   describe('getSettings', () => {
@@ -180,41 +140,4 @@ describe('SchoolsController', () => {
     });
   });
 
-  describe('updateStatus', () => {
-    it('delegates to the service with actor and request context', async () => {
-      const response = {
-        id: SCHOOL_A,
-        status: 'SUSPENDED' as const,
-        status_reason: 'Non-payment for 60 days',
-        status_changed_at: new Date('2026-09-07T00:00:00Z'),
-      };
-      service.updateStatus.mockResolvedValue(response);
-
-      const result = await controller.updateStatus(
-        SCHOOL_A,
-        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
-        USER,
-        REQUEST,
-      );
-
-      expect(service.updateStatus).toHaveBeenCalledWith(
-        SCHOOL_A,
-        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
-        'user-1',
-        { ip: '127.0.0.1', userAgent: 'vitest' },
-      );
-      expect(result).toEqual(response);
-    });
-  });
-
-  describe('platform-only routes', () => {
-    it.each(['findAll', 'getStats', 'updateStatus'] as const)(
-      '%s is platform-only: SUPER_ADMIN role plus PlatformSuperAdminGuard',
-      (name) => {
-        const handler = SchoolsController.prototype[name];
-        expect(Reflect.getMetadata('roles', handler)).toEqual(['SUPER_ADMIN']);
-        expect(Reflect.getMetadata('__guards__', handler)).toContain(PlatformSuperAdminGuard);
-      },
-    );
-  });
 });

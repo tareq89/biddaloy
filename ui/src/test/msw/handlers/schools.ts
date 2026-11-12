@@ -92,7 +92,7 @@ function mergeAndMask(stored: unknown, patch: unknown): unknown {
 // `id`/`name` (see `SchoolListItemDto`'s own comment) — kept here rather
 // than a second handler so the #8.7.13 picker tests and #533's list tests
 // share the same fixture data.
-const schoolList = http.get('/api/v1/schools', () =>
+const schoolList = http.get('/api/v1/platform/schools', () =>
   HttpResponse.json([
     {
       id: '00000000-0000-4000-8000-000000000001',
@@ -262,7 +262,7 @@ const SCHOOL_ADMIN_FIXTURES = [
   },
 ];
 
-const getStats = http.get('/api/v1/schools/:id/stats', () =>
+const getStats = http.get('/api/v1/platform/schools/:id/stats', () =>
   HttpResponse.json({
     active_users: 4,
     students: 30,
@@ -288,11 +288,11 @@ const getPlatformBilling = http.get('/api/v1/platform/billing/schools/:id', ({ p
   }),
 );
 
-const listAdmins = http.get('/api/v1/schools/:id/admins', () =>
+const listAdmins = http.get('/api/v1/platform/schools/:id/admins', () =>
   HttpResponse.json(SCHOOL_ADMIN_FIXTURES),
 );
 
-const addAdmin = http.post('/api/v1/schools/:id/admins', async ({ request }) => {
+const addAdmin = http.post('/api/v1/platform/schools/:id/admins', async ({ request }) => {
   const body = (await request.json()) as { name: string; email?: string; phone?: string };
   return HttpResponse.json(
     {
@@ -312,24 +312,27 @@ const addAdmin = http.post('/api/v1/schools/:id/admins', async ({ request }) => 
 });
 
 const resendAdminInvitation = http.post(
-  '/api/v1/schools/:id/admins/:userId/resend-invitation',
+  '/api/v1/platform/schools/:id/admins/:userId/resend-invitation',
   () => new HttpResponse(null, { status: 204 }),
 );
 
 const revokeAdminInvitation = http.delete(
-  '/api/v1/schools/:id/admins/:userId/invitation',
+  '/api/v1/platform/schools/:id/admins/:userId/invitation',
   () => new HttpResponse(null, { status: 204 }),
 );
 
-const updateStatus = http.patch('/api/v1/schools/:id/status', async ({ request, params }) => {
-  const body = (await request.json()) as { status: 'ACTIVE' | 'SUSPENDED'; reason: string };
-  return HttpResponse.json({
-    id: params.id,
-    status: body.status,
-    status_reason: body.reason,
-    status_changed_at: '2026-09-08T00:00:00.000Z',
-  });
-});
+const updateStatus = http.patch(
+  '/api/v1/platform/schools/:id/status',
+  async ({ request, params }) => {
+    const body = (await request.json()) as { status: 'ACTIVE' | 'SUSPENDED'; reason: string };
+    return HttpResponse.json({
+      id: params.id,
+      status: body.status,
+      status_reason: body.reason,
+      status_changed_at: '2026-09-08T00:00:00.000Z',
+    });
+  },
+);
 
 /** [15.6.8/#551] The platform grant/adjust console — an in-memory balance
  * per school, seeded at 0/0 so a story/test can watch it move after a
@@ -339,7 +342,7 @@ const updateStatus = http.patch('/api/v1/schools/:id/status', async ({ request, 
 const schoolCreditBalances = new Map<string, { available: number; reserved: number }>();
 
 const grantSmsCredits = http.post(
-  '/api/v1/schools/:id/sms-credits',
+  '/api/v1/platform/schools/:id/sms-credits',
   async ({ params, request }) => {
     const schoolId = params.id as string;
     const body = (await request.json()) as { units: number };
@@ -350,7 +353,7 @@ const grantSmsCredits = http.post(
   },
 );
 
-const grantSmsCreditsError = http.post('/api/v1/schools/:id/sms-credits', ({ request }) =>
+const grantSmsCreditsError = http.post('/api/v1/platform/schools/:id/sms-credits', ({ request }) =>
   HttpResponse.json(
     {
       statusCode: 400,

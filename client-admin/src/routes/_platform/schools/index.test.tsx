@@ -144,7 +144,7 @@ describe('/schools', () => {
     const { server } = await import('@biddaloy/ui/test');
     server.use(
       http.get(
-        '/api/v1/schools',
+        '/api/v1/platform/schools',
         () => new Promise((resolve) => setTimeout(() => resolve(HttpResponse.json([])), 50)),
       ),
     );

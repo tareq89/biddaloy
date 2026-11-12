@@ -10,11 +10,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, UserRole } from '@biddaloy/shared';
-import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtPayload } from '@biddaloy/shared';
+import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
@@ -24,35 +21,23 @@ import {
 } from '../../communications/credits/dto/sms-credits.dto';
 import { SmsCreditsService } from './sms-credits.service';
 import { GrantSmsCreditsDto } from './dto/grant-sms-credits.dto';
-import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * [15.6.7/#550] SUPER_ADMIN top-up/correction console for a school's SMS
  * credit balance. Mirrors `SchoolAdminsController`'s shape: platform-only,
- * `@Roles(SUPER_ADMIN)` plus `PlatformSuperAdminGuard` (a tenant-local
- * SUPER_ADMIN must get 403; no `@RequirePermissions` — same convention
- * as every other SUPER_ADMIN-only route on `SchoolsController`, where
- * `ROLE_PERMISSIONS[SUPER_ADMIN]` already grants everything and the role
- * check is the whole gate).
+ * `PlatformAccessGuard` (cockpit token or platform SUPER_ADMIN; a
+ * tenant-local SUPER_ADMIN gets 403; no `@RequirePermissions`).
  */
 @ApiTags('schools')
 @ApiTenantAuth()
-@Controller('schools/:id/sms-credits')
-@UseGuards(
-  AuthGuard('jwt'),
-  ContextGuard,
-  RolesGuard,
-  PermissionsGuard,
-  PlatformSuperAdminGuard,
-)
-@Roles(UserRole.SUPER_ADMIN)
+@Controller('platform/schools/:id/sms-credits')
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class SchoolSmsCreditsController {
   constructor(
     private readonly smsCredits: SmsCreditsService,
     private readonly smsCreditService: SmsCreditService,
   ) {}
 
-  @AuthenticatedOnly()
   @Get()
   @ApiOperation({
     summary:
@@ -86,7 +71,6 @@ export class SchoolSmsCreditsController {
     };
   }
 
-  @AuthenticatedOnly()
   @Post()
   @ApiOperation({
     summary:

@@ -12,16 +12,12 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, UserRole } from '@biddaloy/shared';
-import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtPayload } from '@biddaloy/shared';
+import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { SchoolAdminsService } from './school-admins.service';
 import { AddSchoolAdminDto } from './dto/add-school-admin.dto';
-import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * SUPER_ADMIN recovery console for a school's ADMIN access (#531): list
@@ -31,19 +27,11 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
  */
 @ApiTags('schools')
 @ApiTenantAuth()
-@Controller('schools/:id/admins')
-@UseGuards(
-  AuthGuard('jwt'),
-  ContextGuard,
-  RolesGuard,
-  PermissionsGuard,
-  PlatformSuperAdminGuard,
-)
-@Roles(UserRole.SUPER_ADMIN)
+@Controller('platform/schools/:id/admins')
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class SchoolAdminsController {
   constructor(private readonly schoolAdmins: SchoolAdminsService) {}
 
-  @AuthenticatedOnly()
   @Get()
   @ApiOperation({ summary: "List a school's ADMIN memberships and their invitation status." })
   @ApiOkResponse({ description: 'Array of ADMIN memberships.' })
@@ -51,7 +39,6 @@ export class SchoolAdminsController {
     return this.schoolAdmins.list(schoolId);
   }
 
-  @AuthenticatedOnly()
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -67,7 +54,6 @@ export class SchoolAdminsController {
     return this.schoolAdmins.addAdmin(schoolId, dto, user.sub);
   }
 
-  @AuthenticatedOnly()
   @Post(':userId/resend-invitation')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -84,7 +70,6 @@ export class SchoolAdminsController {
     return this.schoolAdmins.resendInvitation(schoolId, userId, user.sub);
   }
 
-  @AuthenticatedOnly()
   @Delete(':userId/invitation')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Revoke an ADMIN's pending invitation." })

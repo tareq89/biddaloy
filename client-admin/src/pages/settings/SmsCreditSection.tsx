@@ -24,7 +24,7 @@ export interface SmsCreditSectionProps {
   schoolId: string;
   /** `true` when `schoolId` is a SUPER_ADMIN's *picked* school rather than
    * their own active tenant — routes reads through the SUPER_ADMIN
-   * cross-school endpoint (`GET /schools/:id/sms-credits`, #570) instead
+   * cross-school endpoint (`GET /platform/schools/:id/sms-credits`, #570) instead
    * of the tenant-scoped one, which would otherwise resolve to whatever
    * tenant is on the caller's JWT, not the picked school. */
   isSuperAdmin?: boolean;

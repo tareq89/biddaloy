@@ -14,6 +14,8 @@ import { ClassModule } from '../classes/classes.module';
 import { AttentionHealthService } from './health/attention-health.service';
 import { PlatformAttentionHealthController } from './health/platform-attention-health.controller';
 import { AttentionController } from './api/attention.controller';
+import { PlatformAttentionController } from './api/platform-attention.controller';
+import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { AttentionQueryService } from './api/attention-query.service';
 import { CreditsModule } from '../communications/credits/credits.module';
 import {
@@ -70,6 +72,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     ClassModule,
     AuditModule,
     CreditsModule,
+    PlatformIdentityModule, // PlatformAttentionController: PlatformAdminGuard + home id
     SetupRulesModule,
     SystemRulesModule,
     StructureRulesModule,
@@ -92,6 +95,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     ManualAlertsController,
     AlertsReportController,
     PlatformAttentionHealthController,
+    PlatformAttentionController,
   ],
   providers: [
     RuleRegistryService,

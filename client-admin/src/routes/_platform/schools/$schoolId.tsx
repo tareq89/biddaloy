@@ -7,7 +7,7 @@
  * #533) — the header's name/slug/status come from `useSchools()`,
  * filtered to this `schoolId`, same "find in the already-fetched list"
  * approach `index.tsx`'s own row-click already relies on implicitly.
- * Stats (`GET /schools/:id/stats`, #532) and admins (`GET
+ * Stats (`GET /platform/schools/:id/stats`, #532) and admins (`GET
  * /schools/:id/admins`, #531) are fetched separately since neither is on
  * the list response.
  *
