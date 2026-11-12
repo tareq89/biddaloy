@@ -591,6 +591,8 @@ What the ten new cockpit namespaces and their screens taught:
 - **Wave-end gates that only the close sees (2026-11-12, #3833).** `platform-school-control.ts` spread `...SCOPE` into mutation options without `retry: false` (mutation-retry guard), two new alert rules were missing from the `ownerEpic` list in `rule-catalogue.spec.ts`, and the server's SQL-interpolation and bare-`@IsDateString` guards flagged `schools.service.ts`, `school-overview.service.ts` and `platform-audit.dto.ts`. Lane branches skip the full unit suite, so run `yarn ci:local` once per wave close. -> no rule.
 - **`docs/user-guide/route-map.json` carries seven `internal:` placeholder entries for the new pages.** Wave 6 writes the pages and replaces them.
 
+- **Open questions left by the close (2026-11-12, #3842).** (1) The banner's End closes the tab, so the `?ended` page is never seen. (2) Whether an accountant session hides a fee amount has no written rule (#3835). (3) The request alert did not appear within 30 s because nothing emits the attention recheck (see `27-qa-audit-lessons.md`); the e2e opens the request from Settings instead of the alert link. -> no rule.
+
 ### UX lint stragglers
 
 `ui/eslint-rules/ux-guards.mjs` holds four rules (`no-native-picker`,
