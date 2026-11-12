@@ -1053,7 +1053,7 @@ POST /api/v1/platform/step-up      Authorization: Bearer <cockpit token>
   - Cost: the cutover would have silently never happened.
   - Fix: provide it in `PlatformIdentityModule`; `platform-identity.e2e-spec.ts` resolves it from the container.
   - Rule candidate: a boot-time service's ticket is not done until a test resolves it from the real `AppModule`.
-- **Background polling kept an idle session alive.** Every cockpit request touched the idle key, so a polling page never idled out. Polling requests now send `X-Cockpit-Poll` and do not renew it.
+- **Background polling kept an idle session alive.** Every cockpit request touched the idle key, so a polling page never idled out. Polling requests (alert bar, bell, `/platform/alerts`) now send `X-Cockpit-Poll`; `CockpitJwtStrategy` then only checks the session (`touch(fam, false)`) and never renews. The shell sends one real renewal per 5 minutes of user activity, so an active owner who triggers no other request is not idled out by the server first.
 - **Shared DTOs drifted from the server** (`emailMasked`, `summary`): the client type-checked against a stale shape. The shared DTO now matches the server DTO.
 - **What surprised us across the epic.**
   - Authority and "home school" are different things: `is_platform` marks where alerts live, `platform_admins` decides who may act.

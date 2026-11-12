@@ -143,6 +143,18 @@ describe('CockpitSessionService', () => {
     expect(redis.store.has(`cockpit:idle:${familyId}`)).toBe(false);
   });
 
+  it('touch(renew=false) checks both keys and leaves the idle key untouched', async () => {
+    const { familyId } = await svc.start('u1', ctx);
+    redis.set.mockClear();
+    await svc.touch(familyId, false);
+    expect(redis.set).not.toHaveBeenCalled();
+    redis.store.delete(`cockpit:idle:${familyId}`);
+    await expect(svc.touch(familyId, false)).rejects.toBeInstanceOf(UnauthorizedException);
+    await svc.start('u1', ctx);
+    redis.exists.mockRejectedValue(new Error('down'));
+    await expect(svc.touch('f', false)).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
   it('Redis down refuses (503), never lets a session start or touch', async () => {
     redis.set.mockRejectedValue(new Error('down'));
     redis.exists.mockRejectedValue(new Error('down'));

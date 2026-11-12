@@ -176,3 +176,15 @@ describe('CockpitIdleWarning', () => {
     expect(onSignedOut).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('CockpitIdleWarning keepalive (#4075)', () => {
+  it('sends one renewal per 5 minutes of activity, none while only polling', async () => {
+    const { renew } = mount();
+    fireEvent.pointerDown(window);
+    expect(renew).not.toHaveBeenCalled(); // renewed moments ago by the mount
+    await act(() => vi.advanceTimersByTimeAsync(6 * MIN));
+    fireEvent.pointerDown(window);
+    fireEvent.pointerDown(window);
+    expect(renew).toHaveBeenCalledTimes(1);
+  });
+});

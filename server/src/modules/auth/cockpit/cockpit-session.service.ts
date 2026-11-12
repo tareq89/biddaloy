@@ -146,11 +146,16 @@ export class CockpitSessionService {
     return (await this.admins.count({ where: { user_id: userId } })) > 0;
   }
 
-  /** Renews the idle key only; a missing key (idle or absolute passed) is a refusal. */
-  async touch(fam: string): Promise<void> {
+  /**
+   * Renews the idle key; a missing key (idle or absolute passed) is a refusal. `renew: false` only
+   * checks that both keys are alive, for background polling that must not keep an idle owner
+   * signed in (#4075). Redis down is a 503 either way (Rule 15).
+   */
+  async touch(fam: string, renew = true): Promise<void> {
     const ok = await this.redisCall(async () => {
       const abs = await this.redis.exists(this.absKey(fam));
       if (abs !== 1) return false;
+      if (!renew) return (await this.redis.exists(this.idleKey(fam))) === 1;
       // XX: never resurrect an idle key that already expired.
       return (
         (await this.redis.set(this.idleKey(fam), '1', 'PX', this.limits.idleMs, 'XX')) === 'OK'

@@ -18,6 +18,9 @@ import {
   jwtVerifySecrets,
 } from '../jwt-secrets';
 
+/** Background polls (alert bar, bell) send this; they check the session but never renew it (#4075). */
+export const COCKPIT_POLL_HEADER = 'x-cockpit-poll';
+
 /** Every refusal here is this one sentence (Rule 23). */
 const REFUSED = 'Invalid token';
 
@@ -48,6 +51,7 @@ export class CockpitJwtStrategy extends PassportStrategy(Strategy, 'cockpit-jwt'
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
+      passReqToCallback: true,
       algorithms: [JWT_ALGORITHM],
       issuer: JWT_ISSUER,
       audience: COCKPIT_ACCESS_TOKEN_AUDIENCE,
@@ -65,7 +69,10 @@ export class CockpitJwtStrategy extends PassportStrategy(Strategy, 'cockpit-jwt'
     });
   }
 
-  async validate(payload: CockpitPayload): Promise<CockpitPrincipal> {
+  async validate(
+    req: { headers?: Record<string, string | string[] | undefined> },
+    payload: CockpitPayload,
+  ): Promise<CockpitPrincipal> {
     if (!payload.sub || !payload.jti || !payload.fam || payload.typ !== 'cockpit') {
       throw new UnauthorizedException(REFUSED);
     }
@@ -94,8 +101,8 @@ export class CockpitJwtStrategy extends PassportStrategy(Strategy, 'cockpit-jwt'
       if (revoked) throw new UnauthorizedException(REFUSED);
     }
 
-    // Renews the idle key; throws 401 when idle or absolute time has passed.
-    await this.sessions.touch(payload.fam);
+    // Renews the idle key (not for a background poll); throws 401 when idle or absolute time has passed.
+    await this.sessions.touch(payload.fam, req.headers?.[COCKPIT_POLL_HEADER] === undefined);
     return { sub: payload.sub, jti: payload.jti, fam: payload.fam, typ: 'cockpit' };
   }
 }

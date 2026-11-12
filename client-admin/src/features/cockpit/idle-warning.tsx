@@ -12,6 +12,8 @@ import { useRef, useState } from 'react';
 import { useIdleTimer } from './use-idle-timer';
 
 const SIGN_OUT_WAIT_MS = 5000;
+/** While the owner is active, renew the server's idle key at most this often (polls do not). */
+export const ACTIVE_RENEW_EVERY_MS = 5 * 60_000;
 
 export interface CockpitIdleWarningProps {
   /** Every string comes in as a prop; #3763 passes the `ownerSecurity` `idle.*` keys. */
@@ -53,10 +55,18 @@ export function CockpitIdleWarning({
       onSignedOut(notice);
     }
   };
+  const lastRenew = useRef(Date.now());
   const { reset } = useIdleTimer({
     onWarn: () => setOpen(true),
     onExpire: () => void leave(strings.expired),
     onResume: () => setOpen(false),
+    // The server renews on real requests only, so activity alone must not let it idle out first.
+    onActive: () => {
+      const now = Date.now();
+      if (leaving.current || now - lastRenew.current < ACTIVE_RENEW_EVERY_MS) return;
+      lastRenew.current = now;
+      void Promise.resolve(renew()).catch(() => undefined); // a dead session ends via the 401 handler
+    },
   });
   const stay = async () => {
     setRenewing(true);
