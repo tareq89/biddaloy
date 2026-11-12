@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   clearAuthState,
+  isSupportSession,
+  readSupportEntry,
+  setSupportSession,
+  writeSupportEntry,
   notifySessionExpired,
   registerSessionExpiredHandler,
   setAccessToken,
@@ -77,5 +81,45 @@ describe('auth-state never writes to localStorage or sessionStorage', () => {
     // [13.5.3]: and the first-password gate, so the next account does not inherit it.
     expect(localStorageRemoveSpy).toHaveBeenCalledWith('biddaloy:firstPasswordRequired');
     expect(localStorageSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('[99.G4.01] support tab flag', () => {
+  afterEach(() => {
+    clearAuthState();
+    sessionStorage.clear();
+  });
+
+  it('is off by default, set by setSupportSession, reset by clearAuthState', () => {
+    expect(isSupportSession()).toBe(false);
+    setSupportSession(true);
+    expect(isSupportSession()).toBe(true);
+    clearAuthState();
+    expect(isSupportSession()).toBe(false);
+  });
+
+  it('clearAuthState removes the tab entry', () => {
+    writeSupportEntry({
+      token: 't',
+      sessionId: 's',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      tenantId: null,
+      role: null,
+    });
+    expect(readSupportEntry()).not.toBeNull();
+    clearAuthState();
+    expect(readSupportEntry()).toBeNull();
+  });
+
+  it('an expired entry reads as expired and is removed', () => {
+    writeSupportEntry({
+      token: 't',
+      sessionId: 's',
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+      tenantId: null,
+      role: null,
+    });
+    expect(readSupportEntry()).toBe('expired');
+    expect(readSupportEntry()).toBeNull();
   });
 });
