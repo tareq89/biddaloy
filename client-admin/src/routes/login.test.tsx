@@ -109,6 +109,33 @@ describe('/login', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
   });
 
+  it('an unconfirmed admin is sent to the support-access welcome page, keeping the target', async () => {
+    server.use(
+      authHandlers.refreshFailure,
+      authHandlers.login,
+      http.get('/api/v1/support-access/settings', () =>
+        HttpResponse.json({
+          mode: 'allowed',
+          confirmedAt: null,
+          confirmedByName: null,
+          textVersion: 0,
+          currentTextVersion: 1,
+          needsConfirmation: true,
+        }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/login?redirect=%2Fstudents'],
+      locale: 'en',
+    });
+
+    await signIn();
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/welcome/support-access'));
+    expect(router.state.location.search).toMatchObject({ redirect: '/students' });
+  });
+
   it('a failed sign-in shows plain copy, never the raw server message or JSON', async () => {
     server.use(authHandlers.refreshFailure, authHandlers.loginInvalidCredentials);
 
