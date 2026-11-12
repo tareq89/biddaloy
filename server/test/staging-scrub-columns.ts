@@ -134,6 +134,14 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   platform_approvals: { 'delete-row': ['*'] },
   // Platform switches (e.g. the two-owner approvals flag): config, no secrets or personal data.
   platform_settings: { 'kept-public': ['value'] },
+  // [Epic 99] Free text an owner typed about a school: it can name its staff or families, so it
+  // becomes '[scrubbed]' (the columns are NOT NULL). Filters and channels are config only.
+  impersonation_sessions: { null: ['reason'] },
+  platform_school_notes: { null: ['body'] },
+  platform_announcements: {
+    null: ['title', 'body'],
+    'kept-public': ['status_filter', 'channels'],
+  },
   // [76.2] upload history keeps the file name and the parsed rows (names, card numbers).
   attendance_imports: { 'delete-row': ['*'] },
   // [76.1] the ID card number can identify a person.
