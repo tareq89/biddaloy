@@ -210,6 +210,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/roles/': Permission.USER_READ,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
+  // [99.5.15] A school admin answers a Biddaloy support request, same gate as the Settings tab.
+  '/_staff/support-access/requests/$requestId': Permission.SETTINGS_MANAGE,
   // [35.5.1] Preset read + apply (D36).
   '/_staff/curriculum-preset': Permission.CURRICULUM_PRESET_APPLY,
   // [40.2.04] The school website: ADMIN (and SUPER_ADMIN) only, like `/website` in the API.

@@ -681,12 +681,17 @@ describe('DEMO_SWITCH_ROLE_ACTION', () => {
 });
 
 describe('PLATFORM_ACTIONS [98.4.07]', () => {
-  it('lists the five cockpit actions, none of them in the school palette', () => {
+  it('lists the ten cockpit actions, none of them in the school palette', () => {
     expect(PLATFORM_ACTIONS.map((a) => a.id)).toEqual([
       'platform-owners.open',
       'platform-owners.lock',
       'platform-owners.unlock',
       'approvals.open',
+      'schools.login-as',
+      'sessions.end',
+      'users.search',
+      'announcements.new',
+      'ops.queues',
       'security.new-recovery-codes',
     ]);
     const schoolIds = new Set(ACTIONS.map((a) => a.id));
@@ -702,7 +707,9 @@ describe('PLATFORM_ACTIONS [98.4.07]', () => {
       const calls: string[] = [];
       a.run({ navigate: (opts) => calls.push(opts.to) });
       expect(calls).toEqual([a.to]);
-      expect(a.to).toMatch(/^\/(platform-owners|owner-security)(\?tab=(owners|approvals))?$/);
+      expect(a.to).toMatch(
+        /^\/(platform-owners|owner-security|schools|users|announcements|operations)(\?tab=(owners|approvals))?$/,
+      );
     },
   );
 });
