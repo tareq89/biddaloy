@@ -181,11 +181,33 @@ describe('Cockpit MFA routes E2E', () => {
     const o = await makeOwner();
     const t1 = await stepUp(o);
     const t2 = await stepUp(o);
-    const [r1, r2] = await Promise.all(
-      [t1, t2].map((t) =>
-        http().post(`${COCKPIT}/recovery-codes`).set(o.auth).set('X-Approval-Token', t),
-      ),
-    );
+    // Deterministic hold: both requests sit inside their transaction at `replaceCodes` (before the
+    // row lock) until both have arrived, so the lock, not request timing, orders them.
+    type Proto = { replaceCodes: (...a: unknown[]) => Promise<string[]> };
+    const proto = MfaService.prototype as unknown as Proto;
+    const real = proto.replaceCodes;
+    let arrived = 0;
+    let release!: () => void;
+    const both = new Promise<void>((resolve) => (release = resolve));
+    const hold = vi.spyOn(proto, 'replaceCodes').mockImplementation(function (
+      this: unknown,
+      ...args: unknown[]
+    ) {
+      if (++arrived === 2) release();
+      return both.then(() => real.apply(this, args));
+    });
+    let r1: supertest.Response;
+    let r2: supertest.Response;
+    try {
+      [r1, r2] = await Promise.all(
+        [t1, t2].map((t) =>
+          http().post(`${COCKPIT}/recovery-codes`).set(o.auth).set('X-Approval-Token', t),
+        ),
+      );
+    } finally {
+      hold.mockRestore();
+    }
+    expect(arrived).toBe(2);
     expect([r1.status, r2.status]).toEqual([200, 200]);
     const rows = await ds.query(
       `SELECT count(*)::int AS n FROM user_recovery_codes WHERE user_id = $1 AND used_at IS NULL`,

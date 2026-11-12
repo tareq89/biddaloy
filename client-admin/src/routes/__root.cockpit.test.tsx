@@ -37,7 +37,7 @@ describe('root beforeLoad: cockpit host', () => {
   );
 
   it.each(['/dashboard', '/portal'])(
-    'cockpit host: signed-in owner on %s goes to /schools',
+    'cockpit host: signed-in owner on %s goes to /platform-owners',
     async (path) => {
       host.cockpit = true;
       const { router } = renderWithRouter(routeTree, {
@@ -45,7 +45,7 @@ describe('root beforeLoad: cockpit host', () => {
         accessToken: 'test-token',
         locale: 'en',
       });
-      await waitFor(() => expect(router.state.location.pathname).toBe('/schools'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/platform-owners'));
     },
   );
 });

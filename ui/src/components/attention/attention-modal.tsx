@@ -46,7 +46,8 @@ export interface AttentionModalProps {
   /** Per-card busy flag / error line, keyed by `recipientId`. */
   itemState?: Record<string, { busy?: boolean; error?: string }>;
   /** Where "See all to-do" goes, and how many that list holds. */
-  todoHref: string;
+  /** Omitted where no full worklist page is reachable (cockpit): the footer link is dropped. */
+  todoHref?: string | undefined;
   todoCount: number;
   /** Focus falls back here on close when the opener is gone (normally the bar's button). */
   returnFocusRef?: React.RefObject<HTMLElement | null>;
@@ -219,11 +220,13 @@ export function AttentionModal({
           )}
         </div>
 
-        <DialogFooter>
-          <span className="text-label font-medium text-primary underline-offset-2 hover:underline">
-            {renderLink(todoHref, t('modal.seeAll', { n: numbers.format(todoCount) }))}
-          </span>
-        </DialogFooter>
+        {todoHref !== undefined && (
+          <DialogFooter>
+            <span className="text-label font-medium text-primary underline-offset-2 hover:underline">
+              {renderLink(todoHref, t('modal.seeAll', { n: numbers.format(todoCount) }))}
+            </span>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

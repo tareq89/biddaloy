@@ -39,7 +39,7 @@ function SignInPage() {
           </Button>
         }
         notice={search.reset ? t('signIn.passwordSaved') : undefined}
-        onSignedIn={() => void navigate({ to: search.redirect ?? '/schools' })}
+        onSignedIn={() => void navigate({ to: search.redirect ?? '/platform-owners' })}
         onEnrol={() => void navigate({ to: '/owner-security/two-step' })}
       />
     </AuthLayout>

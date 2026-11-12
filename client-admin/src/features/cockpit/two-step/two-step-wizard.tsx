@@ -13,6 +13,9 @@ import * as React from 'react';
 
 import type { EnrolHandoff } from '../sign-in/enrol-handoff';
 
+/** Mirror of `COCKPIT_STEP_REFUSED` in `server/.../cockpit-step-token.ts` (pinned by the wizard test). */
+const STEP_REFUSED = 'Sign-in failed. Please start again.';
+
 /** True on a phone-width screen; the QR cannot be scanned by the phone that shows it. */
 function useIsPhone(): boolean {
   const query = '(max-width: 767px)';
@@ -58,9 +61,12 @@ export function TwoStepWizard({ handoff, onDone, onStartAgain }: TwoStepWizardPr
   ];
   const current = codes ? 'codes' : 'add';
 
+  // The server answers a bad hand-off token with its "start again" sentence and a wrong code with
+  // its "check your details" one, both 401 (`cockpit-step-token.ts`): only the first ends the wizard.
   const expired =
     confirm.error instanceof ApiError &&
-    (confirm.error.statusCode === 401 || confirm.error.statusCode === 410);
+    (confirm.error.statusCode === 410 ||
+      (confirm.error.statusCode === 401 && confirm.error.message === STEP_REFUSED));
 
   if (!handoff || expired) {
     return (
@@ -84,7 +90,10 @@ export function TwoStepWizard({ handoff, onDone, onStartAgain }: TwoStepWizardPr
     ? confirm.error instanceof RateLimitedError ||
       (confirm.error instanceof ApiError && confirm.error.statusCode === 429)
       ? t('wizard.slowDown')
-      : t('wizard.wrongCode')
+      : confirm.error instanceof ApiError &&
+          (confirm.error.statusCode === 400 || confirm.error.statusCode === 401)
+        ? t('wizard.wrongCode')
+        : t('wizard.generic')
     : undefined;
 
   function submit(event: React.FormEvent): void {

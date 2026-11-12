@@ -1,4 +1,3 @@
-import { setAccessToken } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
@@ -10,7 +9,8 @@ import {
 } from '@biddaloy/ui/components';
 import {
   ApprovalCancelledError,
-  logoutAll,
+  logout,
+  logoutAllReporting,
   useCockpitMfaStatus,
   useCockpitSessions,
   useRegenerateRecoveryCodes,
@@ -63,15 +63,12 @@ export function TwoStepCard({
               {enrolled ? t('twoStep.onBody') : t('twoStep.offBody')}
             </span>
           </p>
-          <Button
-            asChild
-            variant={enrolled ? 'outline' : 'default'}
-            className="min-h-11 self-start"
-          >
-            <Link to={'/owner-security/two-step'}>
-              {enrolled ? t('twoStep.replace') : t('twoStep.setUp')}
-            </Link>
-          </Button>
+          {/* No "Replace" while enrolled: the server refuses to enrol over a confirmed authenticator. */}
+          {!enrolled && (
+            <Button asChild className="min-h-11 self-start">
+              <Link to={'/owner-security/two-step'}>{t('twoStep.setUp')}</Link>
+            </Button>
+          )}
         </>
       )}
       <CardHelp id="twoStep" />
@@ -173,7 +170,7 @@ export function RecoveryCodesSection({ remaining }: { remaining: number | undefi
   );
 }
 
-/** Signed-in devices and "Sign out everywhere" (`logoutAll` is pointed at the cockpit endpoint in `main.tsx`). */
+/** Signed-in devices and "Sign out everywhere" (`logoutAllReporting` is pointed at the cockpit endpoint in `main.tsx`). */
 export function DevicesSection({ onSignedOutEverywhere }: { onSignedOutEverywhere: () => void }) {
   const { t } = useTranslation('ownerSecurity');
   const config = useRegionConfig();
@@ -191,13 +188,10 @@ export function DevicesSection({ onSignedOutEverywhere }: { onSignedOutEverywher
   );
 
   async function signOutEverywhere(): Promise<void> {
-    try {
-      await logoutAll(queryClient);
-    } catch {
-      // `logoutAll` clears local auth state in its own `finally`; leave either way.
-    } finally {
-      onSignedOutEverywhere();
-    }
+    // Local state is cleared either way; only the server result decides whether to warn.
+    const reached = await logoutAllReporting(queryClient);
+    if (!reached) toast.error(t('devices.signOutAllFailed'), { duration: 15_000 });
+    onSignedOutEverywhere();
   }
 
   return (
@@ -229,8 +223,8 @@ export function DevicesSection({ onSignedOutEverywhere }: { onSignedOutEverywher
               revoke.mutate(id, {
                 onSuccess: () => {
                   if (current) {
-                    setAccessToken(null);
-                    onSignedOutEverywhere();
+                    // Full teardown (refresh timer, bootstrap memo, query cache), not just the token.
+                    void logout(queryClient).then(onSignedOutEverywhere);
                   } else toast.success(t('devices.revokedToast'));
                 },
               });

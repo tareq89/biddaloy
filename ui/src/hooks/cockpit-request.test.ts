@@ -40,6 +40,20 @@ describe('cockpitRequest 401', () => {
     expect(expired).not.toHaveBeenCalled();
   });
 
+  it('ignores a 401 for a token a newer sign-in already replaced', async () => {
+    const expired = vi.fn();
+    registerSessionExpiredHandler(expired);
+    setAccessToken('old');
+    server.use(
+      http.get('*/platform/owners', () => {
+        setAccessToken('new');
+        return HttpResponse.json({ message: 'x' }, { status: 401 });
+      }),
+    );
+    await expect(cockpitRequest({ url: '/platform/owners' })).rejects.toBeDefined();
+    expect(expired).not.toHaveBeenCalled();
+  });
+
   it('leaves a call that brings its own Authorization header (hand-off token) as a plain error', async () => {
     const expired = vi.fn();
     registerSessionExpiredHandler(expired);

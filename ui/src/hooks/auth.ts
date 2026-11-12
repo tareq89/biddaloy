@@ -239,7 +239,8 @@ const UNSUBSCRIBE_TIMEOUT_MS = 2500;
 async function endSession(
   queryClient: QueryClient,
   endpoint: '/auth/logout' | '/auth/logout-all',
-): Promise<void> {
+): Promise<boolean> {
+  let revoked = false;
   try {
     // [JOBS-12] Best-effort and time-boxed so a hung push service can never
     // stop the logout POST below.
@@ -252,6 +253,7 @@ async function endSession(
       // Swallowed on purpose.
     }
     await postAuthLogout(endpoint);
+    revoked = true;
   } catch {
     // Best-effort: see this function's own doc comment above.
   } finally {
@@ -259,13 +261,20 @@ async function endSession(
     clearAuthState();
     queryClient.clear();
   }
+  return revoked;
 }
 
-export function logout(queryClient: QueryClient): Promise<void> {
-  return endSession(queryClient, '/auth/logout');
+export async function logout(queryClient: QueryClient): Promise<void> {
+  await endSession(queryClient, '/auth/logout');
 }
 
-export function logoutAll(queryClient: QueryClient): Promise<void> {
+export async function logoutAll(queryClient: QueryClient): Promise<void> {
+  await endSession(queryClient, '/auth/logout-all');
+}
+
+/** Like `logoutAll`, but says whether the server heard it. Local teardown happens either way; the
+ * caller warns when this is `false` (other devices may still be signed in). */
+export function logoutAllReporting(queryClient: QueryClient): Promise<boolean> {
   return endSession(queryClient, '/auth/logout-all');
 }
 

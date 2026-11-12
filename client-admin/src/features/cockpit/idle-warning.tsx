@@ -49,6 +49,7 @@ export function CockpitIdleWarning({
   const { reset } = useIdleTimer({
     onWarn: () => setOpen(true),
     onExpire: () => void leave(strings.expired),
+    onResume: () => setOpen(false),
   });
   const stay = async () => {
     setBusy(true);

@@ -70,7 +70,7 @@ describe('TwoStepWizard', () => {
   it('a wrong code shows the error and stays on step 1', async () => {
     server.use(
       http.post('*/auth/cockpit/enrol/confirm', () =>
-        HttpResponse.json({ message: 'no' }, { status: 400 }),
+        HttpResponse.json(body(400), { status: 400 }),
       ),
     );
     view();
@@ -78,6 +78,52 @@ describe('TwoStepWizard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(await screen.findByText('Code did not match, use the new 30-second code.')).toBeTruthy();
     expect(screen.queryByText('Save your recovery codes')).toBeNull();
+  });
+
+  const enter = async () => {
+    await userEvent.type(await screen.findByLabelText(/6-digit code/), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+  };
+
+  it('a 401 for a wrong code lets the owner retry, not start again', async () => {
+    server.use(
+      http.post('*/auth/cockpit/enrol/confirm', () =>
+        HttpResponse.json(
+          { ...body(401), message: 'Sign-in failed. Check your details and try again.' },
+          { status: 401 },
+        ),
+      ),
+    );
+    view();
+    await enter();
+    expect(await screen.findByText('Code did not match, use the new 30-second code.')).toBeTruthy();
+    expect(screen.queryByText('Start again')).toBeNull();
+  });
+
+  it('a 401 for a refused hand-off token shows start again', async () => {
+    server.use(
+      http.post('*/auth/cockpit/enrol/confirm', () =>
+        HttpResponse.json(
+          { ...body(401), message: 'Sign-in failed. Please start again.' },
+          { status: 401 },
+        ),
+      ),
+    );
+    view();
+    await enter();
+    expect(await screen.findByRole('button', { name: 'Start again' })).toBeTruthy();
+  });
+
+  it('a server failure says so generally, not "code did not match"', async () => {
+    server.use(
+      http.post('*/auth/cockpit/enrol/confirm', () =>
+        HttpResponse.json(body(500), { status: 500 }),
+      ),
+    );
+    view();
+    await enter();
+    expect(await screen.findByText(en.wizard.generic)).toBeTruthy();
+    expect(screen.queryByText(en.wizard.wrongCode)).toBeNull();
   });
 
   it('cannot finish without the tick, then finishes', async () => {
@@ -128,23 +174,20 @@ describe('TwoStepWizard', () => {
     expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain('AAAA');
   });
 
-  it.each([401, 410])(
-    'an expired enrolment (%i) offers start again, not the wrong-code line',
-    async (status) => {
-      server.use(
-        http.post('*/auth/cockpit/enrol/confirm', () =>
-          HttpResponse.json(body(status), { status }),
-        ),
-      );
-      const onStartAgain = vi.fn();
-      view({ onStartAgain });
-      await userEvent.type(await screen.findByLabelText(/6-digit code/), '123456');
-      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-      await userEvent.click(await screen.findByRole('button', { name: 'Start again' }));
-      expect(onStartAgain).toHaveBeenCalled();
-      expect(screen.queryByText('Code did not match, use the new 30-second code.')).toBeNull();
-    },
-  );
+  it('an expired enrolment (410) offers start again, not the wrong-code line', async () => {
+    server.use(
+      http.post('*/auth/cockpit/enrol/confirm', () =>
+        HttpResponse.json(body(410), { status: 410 }),
+      ),
+    );
+    const onStartAgain = vi.fn();
+    view({ onStartAgain });
+    await userEvent.type(await screen.findByLabelText(/6-digit code/), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Start again' }));
+    expect(onStartAgain).toHaveBeenCalled();
+    expect(screen.queryByText('Code did not match, use the new 30-second code.')).toBeNull();
+  });
 
   it('a 429 says to slow down', async () => {
     server.use(

@@ -124,7 +124,11 @@ export async function getStudentAttention(
 export async function getPlatformAttentionHealth(
   signal: AbortSignal,
 ): Promise<PlatformAttentionHealth> {
-  return (await sourceGet<PlatformAttentionHealth>('/platform/attention/health', signal)).data;
+  // Always `apiClient`, never the cockpit source: `/platform/attention/health` still rejects a
+  // cockpit token (401), and a 401 on the cockpit transport ends the owner's whole session. On the
+  // cockpit host this fails fast (no active school) and the card shows its retry state instead.
+  return (await apiClient.get<PlatformAttentionHealth>('/platform/attention/health', { signal }))
+    .data;
 }
 
 // [67.5.07] Wave-5 types come straight from the regenerated schema.

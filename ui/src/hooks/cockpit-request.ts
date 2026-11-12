@@ -29,6 +29,8 @@ export async function cockpitRequest<T = void>(
   } catch (error) {
     if (
       token &&
+      // A newer sign-in replaced this call's token: its 401 is about the old session.
+      getAccessToken() === token &&
       axios.isAxiosError(error) &&
       error.response?.status === 401 &&
       !config.headers?.Authorization &&
