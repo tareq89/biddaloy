@@ -11,6 +11,8 @@
 export const SEED_PASSWORD_ENV = 'SEED_ADMIN_PASSWORD';
 
 export const SEED_ROLE_EMAILS = {
+  // [98.5.09] The platform (cockpit) owner. Not a school login: it cannot sign in on the app host,
+  // so only `cockpitSignIn` / `platformApiSession` in `e2e/api.ts` and the cockpit specs use it.
   super_admin: 'superadmin@biddaloy.test',
   admin: 'admin@biddaloy.test',
   accountant: 'accountant@biddaloy.test',

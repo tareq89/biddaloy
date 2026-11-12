@@ -80,6 +80,9 @@ text, the reason and the enforcing test live in
 - **Money compares in whole paisa.** `toPaisa()`, no tolerance, DB CHECKs behind it (2642). → [08-security §Rules 26](docs/architecture/08-security.md#rule-26-money-is-compared-in-whole-paisa-with-db-checks-behind-it)
 - **Guard parent deletes.** No `remove()` while a child row exists; new FKs join the delete-guard registry (2642). → [08-security §Rules 27](docs/architecture/08-security.md#rule-27-a-parent-row-cannot-be-deleted-while-a-child-row-references-it)
 - **A closed year is read-only.** Writes to a closed year's rows call `assertYearOpen` and get `409 ACADEMIC_YEAR_CLOSED`; new year-scoped entities join `YEAR_SCOPED_WRITES` (69.3.99, D1, D11). → [08-security §Rules 28](docs/architecture/08-security.md#rule-28-a-closed-year-is-read-only)
+- **Platform routes live under `/platform/`.** Platform-only routes take a cockpit token and are refused on the app host (`404` at nginx); any exception is on `ALLOWED_OUTSIDE` (Epic 98, D2, D4). → [08-security §Rules 29](docs/architecture/08-security.md#rule-29-platform-routes-live-under-platform-and-are-refused-on-the-app-host)
+- **Cockpit sign-in needs two proofs.** Password, then authenticator code (new device: SMS + email too); every failure before both pass is the same answer (D3b, D6, D7, D23). → [08-security §Rules 30](docs/architecture/08-security.md#rule-30-a-cockpit-sign-in-needs-a-second-factor-and-answers-equally-until-both-proofs-pass)
+- **Platform tables are not school data.** Owner rows have no school, audit rows carry user ids only, and no school screen lists or edits an owner (D3b, D4). → [08-security §Rules 31](docs/architecture/08-security.md#rule-31-platform-tables-are-not-school-data)
 
 ## Documentation style (always, for any doc in this repo)
 

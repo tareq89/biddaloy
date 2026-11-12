@@ -373,6 +373,50 @@ flowchart LR
 
 - **Test.** `server/test/year-open-guard-registry.integration.spec.ts` (coverage, and every listed service calls the guard); each service's own integration spec proves the 409.
 
+### Rule 29: Platform routes live under `/platform/` and are refused on the app host
+
+- **Rule.** A route guarded as platform-only (`PlatformAdminGuard` or `PlatformAccessGuard`) lives under `/platform/`, or is on the short, reviewed `ALLOWED_OUTSIDE` list (the `/auth/cockpit/*` owner-session routes). The app host's nginx answers `404` for `/api/v1/platform/*` and `/api/v1/auth/cockpit/*`. Only the cockpit host serves them. A platform route takes a cockpit token only; a school token, even a school `SUPER_ADMIN`'s, is refused.
+- **Why.** Epic 98 (D2, D4): the platform owners are not school users, and a school login must never reach platform power. Before, `@Roles(SUPER_ADMIN)` let any school's super admin through.
+- **Example.** `GET https://app.schoolmanagerp.com/api/v1/platform/alerts` is `404` at the edge. The same path on the cockpit host with a school token is `401`; with a cockpit token it is `200`.
+
+```mermaid
+flowchart LR
+  R["Request to /api/v1/platform/..."] --> H{"Which host?"}
+  H -- "app host" --> N1["nginx 404"]
+  H -- "cockpit host" --> T{"Cockpit token?"}
+  T -- "no, or a school token" --> N2["401"]
+  T -- yes --> OK["PlatformAccessGuard passes"]
+```
+
+- **Test.** `server/src/platform-routes.e2e-spec.ts` (guarded as platform means under `platform/`), `server/src/platform-authority.e2e-spec.ts` (a school token never passes), `nginx/test/cockpit.infra.test.sh` (the app host refuses, the cockpit host serves), and the snapshot columns in `route-status.snapshot.txt` (Rule 20).
+
+### Rule 30: A cockpit sign-in needs a second factor, and answers equally until both proofs pass
+
+- **Rule.** `/auth/cockpit/login` never signs an owner in on the password alone. It returns an `mfaToken`, and `/auth/cockpit/mfa` finishes the sign-in with an authenticator code (or a recovery code). A new device also needs one SMS code and one email code. Until both proofs pass, every failure is the same answer (same text, same status, same time, Rule 18): wrong email, wrong password, locked owner and unknown owner look alike. A TOTP code works once per 30 s step (`last_step`). Lock, replace and reset cut sessions (Rule 8).
+- **Why.** Epic 98 (D3b, D6, D7, D23): a stolen password alone must not reach the platform. A different answer per failure would tell a thief which owner exists.
+- **Example.** Wrong password and unknown email on `POST /auth/cockpit/login` both answer `401` with the same body. Right password and an old, already-used code on `/auth/cockpit/mfa` is `401`, not a hint.
+
+```mermaid
+sequenceDiagram
+  actor O as Owner
+  participant API as /auth/cockpit/*
+  O->>API: login (email, password)
+  API-->>O: mfaToken (or the same 401 for any failure)
+  O->>API: mfa (authenticator code, new device: SMS + email codes)
+  API-->>O: access token + refresh cookie
+```
+
+- **Test.** `server/src/modules/auth/cockpit/cockpit-auth.e2e-spec.ts`, `cockpit-mfa.e2e-spec.ts`, `cockpit-session.service.integration.spec.ts`; the UI side in `e2e/cockpit/cockpit-sign-in.spec.ts`.
+
+### Rule 31: Platform tables are not school data
+
+- **Rule.** The platform identity tables (`platform_admins`, `platform_admin_devices`, `user_mfa`, `user_recovery_codes`, the platform approvals and their audit rows) carry no school: owner audit rows have `tenant_id` NULL and hold user ids only, never an email, phone, code or secret. No school-scoped read or export includes them, and a school never lists, edits or deletes an owner. Owners are created from `COCKPIT_OWNER_*` at boot or by the `cockpit-replace-owner` script, not through a school screen.
+- **Why.** Epic 98 (D3b, D4): mixing platform rows into school queries is how one school's admin would see or change the platform's owners.
+- **Example.** A school Admin opens the activity log: no `PLATFORM_LOGIN` row appears, because those rows have no school. `GET /platform/owners` needs a cockpit token.
+- **Test.** `server/test/platform-identity-migration.integration.spec.ts` (the tables and their constraints), `server/src/platform-authority.e2e-spec.ts`, `server/src/scripts/cockpit-replace-owner.integration.spec.ts` (audit row has no email or phone).
+
+> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. These three are 29 to 31, so Epic 96's rules start at 32.
+
 ## Login brute-force protection
 
 `POST /auth/login` layers three controls, defined in
