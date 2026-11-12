@@ -56,6 +56,33 @@ describe('/select-school', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
   });
 
+  it('an unconfirmed admin goes to the support-access welcome page after choosing', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/support-access/settings', () =>
+        HttpResponse.json({
+          mode: 'allowed',
+          confirmedAt: null,
+          confirmedByName: null,
+          textVersion: 0,
+          currentTextVersion: 1,
+          needsConfirmation: true,
+        }),
+      ),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school?redirect=%2Fstudents'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Choose a school' });
+
+    await user.click(screen.getByText('Greenview School'));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/welcome/support-access'));
+  });
+
   it('auto-activates a lone membership and navigates away without showing a picker', async () => {
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/select-school'],

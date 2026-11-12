@@ -1,7 +1,9 @@
 import {
   ApiError,
   getAccessToken,
+  getActiveRole,
   getFirstPasswordGate,
+  isSupportSession,
   NoMembershipsError,
   RateLimitedError,
   requireFirstPassword,
@@ -43,6 +45,7 @@ import { DemoRoleCards } from '../features/demo/demo-role-cards';
 import { TestInboxHint } from '../features/demo/test-environment-notice';
 import { useDemoMode, type DemoRoleCard } from '../features/demo/use-demo-mode';
 import { FirstPasswordStep } from '../features/first-password/first-password-step';
+import { afterSignInTarget } from '../features/support-access/first-login-gate';
 import { isSameAppRedirect } from '../same-app-redirect';
 
 /**
@@ -140,6 +143,13 @@ function LoginPage() {
   const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
 
+  /** [99.G4.03] The target, or the support-access welcome page for an unconfirmed admin. */
+  function goAfterSignIn(): void {
+    void afterSignInTarget(getActiveRole(), isSupportSession(), search.redirect).then((dest) =>
+      navigate(dest),
+    );
+  }
+
   function handleSuccess(result: { memberships: { tenantId: string }[] }): void {
     // [8.9.5]: `login()`/`verifyOtp()` deliberately leave the active tenant
     // unset for 2+ memberships (no silent pick) — send that visitor to the
@@ -148,7 +158,7 @@ function LoginPage() {
     if (result.memberships.length > 1) {
       void navigate({ to: '/select-school', search: { redirect: search.redirect } });
     } else {
-      void navigate({ to: search.redirect ?? '/' });
+      goAfterSignIn();
     }
   }
 
@@ -229,7 +239,7 @@ function LoginPage() {
         <FirstPasswordStep
           roles={owedRoles}
           passwordRequired
-          onDone={() => void navigate({ to: search.redirect ?? '/' })}
+          onDone={goAfterSignIn}
           onSignOut={signOut}
         />
       </AuthLayout>
