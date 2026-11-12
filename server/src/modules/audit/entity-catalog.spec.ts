@@ -31,7 +31,20 @@ const PENDING_EPIC_67_ENTRIES = new Set(['Alert']);
 const PENDING_EPIC_68_ENTRIES = new Set(['PromotionRun']);
 
 // first written by Epic 99 (#3789) — delete this set then
-const PENDING_EPIC_99_ENTRIES = new Set(['ImpersonationSession', 'PlatformAnnouncement', 'PlatformSchoolNote']);
+const PENDING_EPIC_99_ENTRIES = new Set([
+  'ImpersonationSession',
+  'PlatformAnnouncement',
+  'PlatformSchoolNote',
+]);
+// first written by Epic 100 cockpit money services (#3851 onward) — delete this set then
+const PENDING_EPIC_100_ENTRIES = new Set([
+  'Coupon',
+  'Plan',
+  'SeatOrder',
+  'SmsBundleCatalog',
+  'SmsBundleOrder',
+  'SmsStockEntry',
+]);
 
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
@@ -80,6 +93,7 @@ describe('audit entity-type catalog contract', () => {
         !PENDING_EPIC_67_ENTRIES.has(type) &&
         !PENDING_EPIC_68_ENTRIES.has(type) &&
         !PENDING_EPIC_99_ENTRIES.has(type),
+      !PENDING_EPIC_100_ENTRIES.has(type),
     );
     expect(deadEntries).toEqual([]);
   });
