@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { registerSessionExpiredHandler, setAccessToken } from '../api/auth-state';
+import { RateLimitedError } from '../api/errors';
 import { server } from '../test/msw/server';
 
 import { cockpitRequest } from './cockpit-request';
@@ -63,5 +64,31 @@ describe('cockpitRequest 401', () => {
       cockpitRequest({ url: '/platform/owners', headers: { Authorization: 'Bearer handoff' } }),
     ).rejects.toBeDefined();
     expect(expired).not.toHaveBeenCalled();
+  });
+});
+
+describe('cockpitRequest 429', () => {
+  it('throws RateLimitedError with the parsed Retry-After', async () => {
+    server.use(
+      http.post('*/auth/cockpit/login', () =>
+        HttpResponse.json({ message: 'x' }, { status: 429, headers: { 'Retry-After': '45' } }),
+      ),
+    );
+    const error = await cockpitRequest({ method: 'POST', url: '/auth/cockpit/login' }).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBe(45);
+  });
+
+  it('has a null wait when Retry-After is missing', async () => {
+    server.use(
+      http.post('*/auth/cockpit/login', () => HttpResponse.json({ message: 'x' }, { status: 429 })),
+    );
+    const error = await cockpitRequest({ method: 'POST', url: '/auth/cockpit/login' }).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(RateLimitedError);
+    expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
   });
 });
