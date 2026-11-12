@@ -131,6 +131,36 @@ describe('SchoolSettingsPage', () => {
     ).toBeNull();
   });
 
+  it('has a Biddaloy support access tab that opens the support access card', async () => {
+    server.use(
+      http.get('/api/v1/support-access/settings', () =>
+        HttpResponse.json({
+          mode: 'ask',
+          confirmedAt: null,
+          confirmedByName: null,
+          textVersion: 1,
+          currentTextVersion: 1,
+          needsConfirmation: false,
+        }),
+      ),
+      http.get('/api/v1/support-access/sessions', () => HttpResponse.json([])),
+      http.get('/api/v1/support-access/platform-actions', () => HttpResponse.json([])),
+      http.get('/api/v1/support-access/requests', () => HttpResponse.json([])),
+    );
+    renderWithProviders(<PageWithRouter url="/settings?section=support" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Biddaloy support access' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Biddaloy support access' })).toBeTruthy();
+    expect(await screen.findByRole('radio', { name: /Ask each time/ })).toBeTruthy();
+  });
+
   it('keeps unsaved edits when switching category and back', async () => {
     const { user } = renderWithProviders(<PageWithRouter />, {
       locale: 'en',
@@ -291,7 +321,9 @@ describe('SchoolSettingsPage', () => {
     // A 4xx, not a 5xx — shouldRetryQuery doesn't retry 4xx responses, so
     // this settles isError immediately instead of after two backoff delays.
     server.use(
-      http.get('/api/v1/platform/schools', () => HttpResponse.json(apiErrorBody(400), { status: 400 })),
+      http.get('/api/v1/platform/schools', () =>
+        HttpResponse.json(apiErrorBody(400), { status: 400 }),
+      ),
     );
 
     renderWithProviders(<PageWithRouter />, {
@@ -327,7 +359,9 @@ describe('SchoolSettingsPage', () => {
   it('a tenant-local SUPER_ADMIN (school list 403) configures their own school, no picker', async () => {
     // GET /schools is platform-only; a SUPER_ADMIN on an ordinary school gets 403.
     server.use(
-      http.get('/api/v1/platform/schools', () => HttpResponse.json(apiErrorBody(403), { status: 403 })),
+      http.get('/api/v1/platform/schools', () =>
+        HttpResponse.json(apiErrorBody(403), { status: 403 }),
+      ),
     );
     renderWithProviders(<PageWithRouter />, {
       locale: 'en',

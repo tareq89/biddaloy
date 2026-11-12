@@ -9,6 +9,7 @@ import {
   Building2Icon,
   DatabaseIcon,
   GraduationCapIcon,
+  LifeBuoyIcon,
   LockIcon,
   MessageSquareIcon,
   PrinterIcon,
@@ -25,6 +26,7 @@ export const SETTINGS_CATEGORY_IDS = [
   'alerts',
   'printing',
   'security',
+  'support',
   'backup',
 ] as const;
 export type SettingsCategoryId = (typeof SETTINGS_CATEGORY_IDS)[number];
@@ -49,6 +51,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { id: 'alerts', icon: BellDotIcon, anchors: ['alerts-section'] },
   { id: 'printing', icon: PrinterIcon, anchors: ['printers-section'] },
   { id: 'security', icon: LockIcon, anchors: [] },
+  { id: 'support', icon: LifeBuoyIcon, anchors: ['support-access-section'] },
   { id: 'backup', icon: DatabaseIcon, anchors: [] },
 ];
 
