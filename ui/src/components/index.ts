@@ -120,6 +120,14 @@ export { RadioRows, type RadioRowOption, type RadioRowsProps } from './radio-row
 export { PersonPicker, type PersonPickerItem, type PersonPickerProps } from './person-picker';
 export { ReasonChips, type ReasonChipsProps } from './reason-chips';
 export { ChoiceCards, type ChoiceCardOption, type ChoiceCardsProps } from './choice-cards';
+export {
+  ActionLinesCard,
+  type ActionLine,
+  type ActionLineTone,
+  type ActionLinesCardProps,
+} from './action-lines-card';
+export { PackageCard, type PackageCardProps } from './package-card';
+export { LotExpiryList, type LotExpiryRow, type LotExpiryListProps } from './lot-expiry-list';
 export { SchoolPicker, type SchoolPickerOption, type SchoolPickerProps } from './school-picker';
 export { TenantBar } from './tenant-bar';
 export {
