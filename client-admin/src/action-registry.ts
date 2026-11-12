@@ -1265,6 +1265,43 @@ export const PLATFORM_ACTIONS: readonly PlatformPaletteAction[] = [
     kind: 'navigate',
     ...platformGo('/platform-owners?tab=approvals'),
   },
+  // [99.5.15] D12. `ActionRunContext` carries no school id, so Login as lands on the schools list,
+  // where each row's own button opens the dialog (school, role, reason, code).
+  {
+    id: 'schools.login-as',
+    label: { en: 'Login as', bn: 'হিসেবে ঢুকুন' },
+    synonyms: ['support', 'enter school', 'সহায়তা'],
+    kind: 'inline',
+    ...platformGo('/schools'),
+  },
+  {
+    id: 'sessions.end',
+    label: { en: 'End a Login as', bn: 'হিসেবে ঢোকা শেষ করুন' },
+    synonyms: ['stop', 'live'],
+    kind: 'navigate',
+    ...platformGo('/schools'),
+  },
+  {
+    id: 'users.search',
+    label: { en: 'Find a user', bn: 'ব্যবহারকারী খুঁজুন' },
+    synonyms: ['person', 'phone', 'email'],
+    kind: 'navigate',
+    ...platformGo('/users'),
+  },
+  {
+    id: 'announcements.new',
+    label: { en: 'New announcement', bn: 'নতুন ঘোষণা' },
+    synonyms: ['notice', 'banner'],
+    kind: 'navigate',
+    ...platformGo('/announcements'),
+  },
+  {
+    id: 'ops.queues',
+    label: { en: 'Queues', bn: 'কিউ' },
+    synonyms: ['jobs', 'backlog'],
+    kind: 'navigate',
+    ...platformGo('/operations'),
+  },
   {
     id: 'security.new-recovery-codes',
     label: { en: 'Get new recovery codes', bn: 'নতুন জরুরি কোড নিন' },
