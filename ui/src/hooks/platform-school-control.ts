@@ -133,6 +133,7 @@ export function useRenameSchool(schoolId: string) {
       }),
     {
       ...SCOPE,
+      retry: false,
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: schoolControlKeys.all }),
     },
   );
@@ -178,6 +179,7 @@ export function useArchiveSchool(schoolId: string) {
       }),
     {
       ...SCOPE,
+      retry: false,
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: schoolControlKeys.all }),
     },
   );

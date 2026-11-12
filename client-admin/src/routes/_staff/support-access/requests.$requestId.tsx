@@ -80,9 +80,7 @@ function SupportRequestPage() {
   } else if (!request) {
     body = (
       <>
-        <p role="alert" className="font-medium">
-          {t('reqNotFound')}
-        </p>
+        <h1 className="text-h2">{t('reqNotFound')}</h1>
         <Link
           to="/settings"
           search={{ section: 'support' }}
