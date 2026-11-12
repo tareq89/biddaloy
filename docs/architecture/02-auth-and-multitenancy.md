@@ -991,3 +991,24 @@ flowchart LR
 - **Admin notices are logged, not delivered through the delivery spy.** `AdminNoticeService` writes `communication_logs` rows (`metadata.kind`); assert on those, not on `AccountAccessDeliveryService.deliver`.
 - **Shared DTOs followed the server.** `SupportAccessSettingsDto` now has `confirmedByName` and `needsConfirmation`; `StartImpersonationRequest` gained `ticketId?`; `RequestWriteRequest` is new. `schema.d.ts` regenerated.
 - **Deviation.** No i18n keys were added for `supportAccess.platformAction.*`: no UI renders them yet, so they ship with the admin screen ticket.
+
+## Learning: tenant control and Login as, Wave 4
+
+2026-11-12, Epic 99 wave 4 close (#3816). Eleven controller families (#3805 to #3815) were built as loose files; `PlatformControlModule` wires them and is the only place that does.
+
+```mermaid
+flowchart LR
+  T[Request with owner token] --> C{cockpit-jwt}
+  C -- school or Login as token --> X[401: wrong audience]
+  C -- cockpit owner --> P[PlatformAdminGuard]
+  P --> R[read routes: done]
+  P --> A[ApprovalGuard: step-up token]
+  A -- delete school / announce --> Q[TwoPersonGuard: second owner]
+```
+
+- **A Login as token hits the same wall as a school token.** Both carry the school audience, and `cockpit-jwt` only accepts the cockpit audience, so every `/platform/**` route answers 401 for them. The e2e spec proves the wall with a real school login on every route; a real Login as token is not minted in it (same audience, same strategy check).
+- **Real gap found at wiring: step-up could not be minted.** `PLATFORM_APPROVAL_SCOPES` (`step-up.service.ts`) only listed Epic 98 scopes, so `platform.delete_school`, `platform.announce_all`, `platform.ops_action` and `platform.school_control` were refused with 401. Every approval-gated Wave 4 route was unreachable until the four scopes were added. A new platform scope joins that list in the same ticket as its route.
+- **Wiring needed three tiny exports:** `SupportAccessModule` exports `ImpersonationSessionService`, `HealthModule` exports `HealthService`, `SchoolsModule` exports `SchoolAdminsService`. Session cut-off, refresh tokens, `ApprovalGuard` and the Redis clients arrive through @Global modules.
+- **Route lists.** All 24 new routes are `ALLOWLIST` rows (cockpit bearer, no tenant); each is 401 for ANON and every school role in the route-status snapshot. Retry-failed, restore-lock release and the announcement send are `@FailClosedWithoutRedis()` and listed in the Redis outage table; the read and preview routes are fail-open.
+- **No extend route.** #3808 added no extend route, so none exists to wire.
+- **Archive status never returns the raw job error** (Rule 24): a fixed sentence replaces it.

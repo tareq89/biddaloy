@@ -1,7 +1,7 @@
 import type Redis from 'ioredis';
 import { RESTORE_LOCK_TTL_SEC } from './restore.constants';
 
-function lockKey(tenantId: string): string {
+export function lockKey(tenantId: string): string {
   return `workbook:restore-lock:${tenantId}`;
 }
 

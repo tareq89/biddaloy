@@ -66,6 +66,7 @@ import { School } from '../schools/entities/school.entity';
     SupportSessionsService,
     { provide: APP_INTERCEPTOR, useClass: DenyWhenImpersonatingInterceptor },
   ],
+  exports: [ImpersonationSessionService],
 })
 export class SupportAccessModule implements NestModule {
   // One request-actor store per request, filled by JwtStrategy when the token is a Login as token.
