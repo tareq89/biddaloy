@@ -29,7 +29,8 @@ export interface ImpersonationLiveSession {
 export type ImpersonatedJwtPayload = JwtPayload & { impSession: ImpersonationLiveSession };
 
 export interface LoginAsCandidateDto {
-  userId: string;
+  /** null for a student or parent with no login account (`NO_LOGIN_ACCOUNT`). */
+  userId: string | null;
   name: string;
   role: UserRole;
   email: string | null;
@@ -41,23 +42,33 @@ export interface LoginAsCandidateDto {
 export interface LoginAsCandidatesResponse {
   candidates: LoginAsCandidateDto[];
   noActiveAdmin: boolean;
+  schoolStatus: 'ACTIVE' | 'SUSPENDED';
+  supportAccessMode: SupportAccessMode;
 }
 
+/** `POST /platform/impersonation`. The `platform.login_as` approval token goes in `X-Approval-Token`. */
 export interface StartImpersonationRequest {
   schoolId: string;
-  userId: string;
+  role: UserRole;
+  targetUserId: string;
   reason: string;
-  viewOnly?: boolean;
-  kind?: ImpersonationEntryKind;
-  /** The approval token for `platform.login_as`. */
-  approvalToken?: string;
+  viewOnly: boolean;
+  /** An approved `ask` request to redeem (single use). */
+  ticketId?: string;
 }
 
+/** `POST /platform/impersonation/:id/request-write`: the owner of an emergency session asks to write. */
+export interface RequestWriteRequest {
+  reason: string;
+}
+
+/** `code` and `expiresAt` are present only when the session is already ACTIVE. */
 export interface StartImpersonationResponse {
-  sessionId: string;
+  id: string;
   status: ImpersonationStatus;
-  /** One-time code for the exchange, present once the session is APPROVED/ACTIVE. */
-  exchangeCode?: string;
+  /** One-time exchange code. */
+  code?: string;
+  expiresAt?: string;
 }
 
 export interface ImpersonationSessionDto {
@@ -99,9 +110,11 @@ export interface ImpersonationMeResponse {
 export interface SupportAccessSettingsDto {
   mode: SupportAccessMode;
   confirmedAt: string | null;
-  confirmedBy: string | null;
+  confirmedByName: string | null;
   textVersion: number;
   currentTextVersion: number;
+  /** True until an admin has ticked the box for the current text version. */
+  needsConfirmation: boolean;
 }
 
 export interface SupportRequestDto {

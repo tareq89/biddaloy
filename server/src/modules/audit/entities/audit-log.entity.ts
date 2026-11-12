@@ -10,6 +10,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { School } from '../../schools/entities/school.entity';
 import { AuditAction } from '@biddaloy/shared';
+import type { ImpersonationSession } from '../../support-access/entities/impersonation-session.entity';
 
 /**
  * Immutable record of every significant action in the system.
@@ -81,6 +82,9 @@ export class AuditLog {
   @Index('IDX_al_impersonation_session', { where: '"impersonation_session_id" IS NOT NULL' })
   @Column({ type: 'uuid', nullable: true })
   impersonation_session_id: string | null;
+
+  /** [Epic 99] Transient: set only by AuditService.findAll's join (role only). Not a column, no migration. */
+  impersonation_session?: Pick<ImpersonationSession, 'id' | 'role'> | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

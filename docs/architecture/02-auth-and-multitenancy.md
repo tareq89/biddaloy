@@ -950,3 +950,65 @@ sequenceDiagram
   - `JwtStrategy` (#3791) must call `setImpersonation` exactly once per request.
 - **Open follow-ups.** #4081 (`SMOKE_IMPERSONATION` not forwarded in CI), #4087 (workbook restore race).
 - **`ci:local` caught a stale `schema.d.ts` (#3788).** No route changed, but the 16 new `AuditAction` values reached the OpenAPI schema; `client-admin` audit-logs failed `tsc -b`. Fix: `yarn api:types` and commit `schema.d.ts`. Rule candidate: a shared enum used in a DTO means regenerate the API types.
+
+## Learning: tenant control and Login as, Wave 2
+
+2026-11-12, Epic 99 wave 2 core (#3797). The server pieces from #3789 to #3796 are now wired.
+
+```mermaid
+flowchart LR
+  A[Owner starts a session<br/>POST /platform/impersonation] --> B[one-time code]
+  B --> C[POST /auth/impersonation/exchange<br/>public, code is the credential]
+  C --> D[short imp token]
+  D --> E[JwtStrategy checks imp:sid in Redis<br/>and fills the request actor store]
+  E --> F[ContextGuard, deny interceptor, audit stamp]
+```
+
+- **One Redis client.** `AuthModule` provides and exports `IMPERSONATION_REDIS` (fail-fast, 1 s command timeout). `SupportAccessModule` imports `AuthModule` instead of opening a second connection. `JwtStrategy` was already waiting for the token as `@Optional()`.
+- **The per-request store comes from a middleware.** `SupportAccessModule.configure` applies `requestActorContextMiddleware` to every route. `JwtStrategy` fills the store once per request; with no store it answers 401, so a missing middleware fails closed. Nothing else in the repo implements `configure`.
+- **Route lists.** `POST /auth/impersonation/exchange` is public by design (ALLOWLIST) and fail-closed without Redis. `GET /auth/impersonation/me` and `POST /auth/impersonation/end` are bearer-only like `/auth/logout-all` and fail-open. The four `/platform/*` routes are cockpit-jwt + `PlatformAdminGuard` rows, like `/platform/approvals`.
+- **No-store on exchange.** `main.ts` sets `no-store` for `/api/*`, but e2e apps do not run `main.ts`, so the exchange route sets the header itself (`@Header`).
+- **Test reset order.** `impersonation_sessions` (RESTRICT FK to `platform_admins` and `users`) was missing from `test/reset-order.ts`. One leftover row made the next spec file's setup fail with a foreign key error. `platform_school_notes` and `platform_announcements` were missing too, and the reset-order coverage guard caught them. Any new RESTRICT-FK table joins that list in the same ticket.
+- **Stale header.** The deny-list snapshot header said "empty until #3793"; it now lists marked routes, and the generating string in the e2e spec was changed to match.
+- **Open.** `SMOKE_IMPERSONATION=1` still reaches no workflow in this branch (#4081).
+
+## Learning: tenant control and Login as, Wave 3
+
+2026-11-12, Epic 99 wave 3 close (#3804). The consent, request, notice and rule files from #3798 to #3803 were built as loose files; #3804 wired them.
+
+```mermaid
+flowchart LR
+  O[Owner start<br/>POST /platform/impersonation] --> G{school mode}
+  G -- allowed --> A[ACTIVE + code, admins emailed]
+  G -- ask --> R[REQUESTED, admins asked]
+  R -- admin approves --> T[owner redeems ticketId once]
+  G -- blocked --> E[reason + two-owner approval,<br/>view-only emergency session]
+```
+
+- **Wire-only ticket, one real gap.** Seven providers and three controllers joined `SupportAccessModule`, two attention rules joined their rules modules. The module also needed `School` in `TypeOrmModule.forFeature`, plus `TrialModule` (for `AdminNoticeService`) and `AccountAccessModule` (for the delivery service).
+- **Two approval layers on one start.** `ApprovalGuard` always wants a `platform.login_as` step-up token (even with one owner). Only in `blocked` mode does `TwoPersonGuard` then add the second owner (`APPROVAL_REQUESTED`). The e2e spec mints a fresh step-up token per start and suspends other seeded owners so the owner count is its own.
+- **New route classification.** `POST /platform/impersonation/:id/request-write` needed an `ALLOWLIST` entry in `test/helpers/route-path.helper.ts`; `permission-matrix.e2e-spec.ts` fails on any unclassified cockpit route.
+- **Admin notices are logged, not delivered through the delivery spy.** `AdminNoticeService` writes `communication_logs` rows (`metadata.kind`); assert on those, not on `AccountAccessDeliveryService.deliver`.
+- **Shared DTOs followed the server.** `SupportAccessSettingsDto` now has `confirmedByName` and `needsConfirmation`; `StartImpersonationRequest` gained `ticketId?`; `RequestWriteRequest` is new. `schema.d.ts` regenerated.
+- **Deviation.** No i18n keys were added for `supportAccess.platformAction.*`: no UI renders them yet, so they ship with the admin screen ticket.
+
+## Learning: tenant control and Login as, Wave 4
+
+2026-11-12, Epic 99 wave 4 close (#3816). Eleven controller families (#3805 to #3815) were built as loose files; `PlatformControlModule` wires them and is the only place that does.
+
+```mermaid
+flowchart LR
+  T[Request with owner token] --> C{cockpit-jwt}
+  C -- school or Login as token --> X[401: wrong audience]
+  C -- cockpit owner --> P[PlatformAdminGuard]
+  P --> R[read routes: done]
+  P --> A[ApprovalGuard: step-up token]
+  A -- delete school / announce --> Q[TwoPersonGuard: second owner]
+```
+
+- **A Login as token hits the same wall as a school token.** Both carry the school audience, and `cockpit-jwt` only accepts the cockpit audience, so every `/platform/**` route answers 401 for them. The e2e spec proves the wall with a real school login on every route; a real Login as token is not minted in it (same audience, same strategy check).
+- **Real gap found at wiring: step-up could not be minted.** `PLATFORM_APPROVAL_SCOPES` (`step-up.service.ts`) only listed Epic 98 scopes, so `platform.delete_school`, `platform.announce_all`, `platform.ops_action` and `platform.school_control` were refused with 401. Every approval-gated Wave 4 route was unreachable until the four scopes were added. A new platform scope joins that list in the same ticket as its route.
+- **Wiring needed three tiny exports:** `SupportAccessModule` exports `ImpersonationSessionService`, `HealthModule` exports `HealthService`, `SchoolsModule` exports `SchoolAdminsService`. Session cut-off, refresh tokens, `ApprovalGuard` and the Redis clients arrive through @Global modules.
+- **Route lists.** All 24 new routes are `ALLOWLIST` rows (cockpit bearer, no tenant); each is 401 for ANON and every school role in the route-status snapshot. Retry-failed, restore-lock release and the announcement send are `@FailClosedWithoutRedis()` and listed in the Redis outage table; the read and preview routes are fail-open.
+- **No extend route.** #3808 added no extend route, so none exists to wire.
+- **Archive status never returns the raw job error** (Rule 24): a fixed sentence replaces it.

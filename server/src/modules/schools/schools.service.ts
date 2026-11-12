@@ -55,6 +55,13 @@ import { attentionEvents } from '../attention/attention.constants';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 import { ReviveSchoolDto } from './dto/revive-school.dto';
+import {
+  PlatformSchoolSearchItemDto,
+  PlatformSchoolSearchPageDto,
+  PlatformSchoolSearchQueryDto,
+  PlatformSchoolSort,
+} from './dto/platform-school-search.dto';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { IDLE_REVIVE_WINDOW_DAYS } from '../billing/idle-account.constants';
 import { DAY_MS } from './trial/trial.constants';
 import { Class } from '../academics/entities/class.entity';
@@ -175,6 +182,81 @@ export class SchoolsService {
             : undefined,
       order: { name: 'ASC' },
     });
+  }
+
+  /**
+   * [Epic 99 #3805] The owner's school search: filters, sort and the numbers that matter in ONE
+   * query (grouped joins, never a query per school). `findAll` stays as it is for the picker and
+   * the schedulers. Every value is a bind parameter; `sort` picks from a fixed map (Rule 4).
+   */
+  async searchForPlatform(
+    query: PlatformSchoolSearchQueryDto,
+  ): Promise<PlatformSchoolSearchPageDto> {
+    const limit = Math.min(query.limit ?? 25, 100);
+    const offset = ((query.page ?? 1) - 1) * limit;
+    const params: unknown[] = [];
+    const where: string[] = [];
+    const bind = (v: unknown) => `$${params.push(v)}`;
+
+    where.push(query.status === 'DELETED' ? 's.deleted_at IS NOT NULL' : 's.deleted_at IS NULL');
+    if (query.status === 'ACTIVE' || query.status === 'SUSPENDED') {
+      where.push(`s.status = ${bind(query.status)}`);
+    }
+    if (query.trial === 'active') where.push('s.trial_ends_at > now()');
+    if (query.trial === 'expired') where.push(`s.status_reason = ${bind(TRIAL_EXPIRED_REASON)}`);
+    const term = normalizeSearchTerm(query.q);
+    if (term) {
+      const p = bind(`%${term}%`);
+      where.push(`(s.name ILIKE ${p} OR s.slug ILIKE ${p} OR s.phone ILIKE ${p})`);
+    }
+    const whereSql = where.join(' AND ');
+
+    const ORDER: Record<PlatformSchoolSort, string> = {
+      lastActivity: 'al.last_at DESC NULLS LAST',
+      students: 'student_count DESC',
+      trialEnd: 's.trial_ends_at ASC NULLS LAST',
+      name: 's.name ASC',
+    };
+    const order = ORDER[query.sort ?? 'name'] ?? ORDER.name;
+
+    const countParams = [...params];
+    const pLimit = bind(limit);
+    const pOffset = bind(offset);
+    const manager = this.repo.manager;
+    const [rows, [{ total }]] = await Promise.all([
+      manager.query(
+        `SELECT s.id, s.name, s.slug, s.status, s.status_reason, s.created_at, s.trial_ends_at,
+                s.seat_limit, s.deleted_at,
+                COALESCE(st.c, 0)::int AS student_count, al.last_at AS last_activity_at
+           FROM schools s
+           LEFT JOIN (SELECT tenant_id, COUNT(*) AS c FROM students
+                       WHERE deleted_at IS NULL GROUP BY tenant_id) st ON st.tenant_id = s.id
+           LEFT JOIN (SELECT tenant_id, MAX(created_at) AS last_at FROM audit_logs
+                       WHERE tenant_id IS NOT NULL GROUP BY tenant_id) al ON al.tenant_id = s.id
+          WHERE ${whereSql}
+          ORDER BY ${order}, s.id
+          LIMIT ${pLimit} OFFSET ${pOffset}`,
+        params,
+      ) as Promise<Record<string, any>[]>,
+      manager.query(`SELECT COUNT(*)::int AS total FROM schools s WHERE ${whereSql}`, countParams),
+    ]);
+
+    return {
+      total,
+      items: rows.map((r): PlatformSchoolSearchItemDto => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        status: r.status,
+        statusReason: r.status_reason,
+        createdAt: r.created_at,
+        studentCount: r.student_count,
+        lastActivityAt: r.last_activity_at,
+        trialEndsAt: r.trial_ends_at,
+        seatLimit: r.seat_limit,
+        deletedAt: r.deleted_at,
+      })),
+    };
   }
 
   /**

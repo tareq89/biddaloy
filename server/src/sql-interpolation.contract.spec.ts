@@ -48,6 +48,18 @@ const JOIN_COND = new RegExp(
 /** Per file (path relative to server/src): the sorted `${...}` expressions that
  * appear in direct query arguments. Audited 2026-10-13: none is request input. */
 const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
+  // [99.3] IS_ASK / IS_WRITE are module-level SQL constants; `filter` picks between two fixed
+  // fragments built from them; the `approve` ternary yields one of two fixed strings. No request input.
+  'modules/support-access/requests/support-requests.service.ts': [
+    'INCOMPLETE: approve ?',
+    'IS_ASK',
+    'IS_ASK',
+    'IS_WRITE',
+    'IS_WRITE',
+    'filter',
+  ],
+  // [99.3] built from the PLATFORM_ACTIONS constant table (fixed test SQL and labels), no input
+  'modules/support-access/school-view/support-sessions.service.ts': ['any', 'labelCase'],
   // table/column are code constants (JSDoc: constants only; callers pass literals)
   'common/utils/next-serial.util.ts': ['column', 'column', 'column', 'table'],
   // column/relation names and join aliases read from TypeORM entity metadata (#2703 M4)
@@ -57,6 +69,16 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
     'other.propertyName',
     'pk',
     'rel.joinColumns[0].databaseName',
+  ],
+  // Login as (#3797): nameCol picks one of two literal columns; values are always bound ($n / :s)
+  'modules/support-access/candidates/login-as-candidates.service.ts': ['nameCol'],
+  // status list and RETURNING list are module constants; where/conds hold literal column names with $n placeholders
+  'modules/support-access/sessions/impersonation-session.service.ts': [
+    'OPEN_STATUSES',
+    'RETURNING',
+    'RETURNING',
+    "conds.join(' AND ')",
+    'where',
   ],
   // SCHOOL_TZ / STALE_DAYS constants
   'modules/applications/application-reports.service.ts': ['SCHOOL_TZ', 'SCHOOL_TZ', 'STALE_DAYS'],

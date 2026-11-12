@@ -23,6 +23,9 @@ export function auditEntryFactory(overrides: Partial<AuditEntry> = {}): AuditEnt
     new_values: null,
     ip_address: faker.internet.ip(),
     user_agent: faker.internet.userAgent(),
+    impersonated_by_support: false,
+    impersonation_session_id: null,
+    acting_role: null,
     created_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     ...overrides,
   };

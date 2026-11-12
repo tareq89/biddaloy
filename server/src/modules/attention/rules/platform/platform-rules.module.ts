@@ -7,6 +7,7 @@ import { PlatformBackupFailingRule } from './platform-backup-failing.rule';
 import { PlatformBkashRefundDueRule } from './platform-bkash-refund-due.rule';
 import { PlatformProviderFailuresRule } from './platform-provider-failures.rule';
 import { PlatformTenantResolver } from './platform-tenant';
+import { PlatformLoginAsBurstRule } from './platform-login-as-burst.rule';
 import { PlatformSeatsExpiringRule } from './platform-seats-expiring.rule';
 
 /** Rules of category PLATFORM (TenantStatusModule is @Global). */
@@ -18,6 +19,7 @@ import { PlatformSeatsExpiringRule } from './platform-seats-expiring.rule';
     PlatformSeatsExpiringRule,
     PlatformProviderFailuresRule,
     PlatformBkashRefundDueRule,
+    PlatformLoginAsBurstRule,
     PlatformRecoveryCodesLowRule,
     PlatformApprovalPendingRule,
   ],

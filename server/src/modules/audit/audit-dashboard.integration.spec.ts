@@ -231,12 +231,14 @@ describe('AuditService.findRecentForDashboard (integration)', () => {
     });
     const res = await service.findRecentForDashboard(t, CALLER_ID);
     expect(Object.keys(res.items[0]).sort()).toEqual([
+      'acting_role',
       'action',
       'changed_field_count',
       'created_at',
       'entity_label',
       'entity_type',
       'id',
+      'impersonated_by_support',
       'performed_by_name',
     ]);
     expect(typeof res.items[0].created_at).toBe('string');
