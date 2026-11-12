@@ -85,6 +85,7 @@ export class PlatformSchoolRestoreController {
       staging_id: dto.staging_id,
       confirmation: dto.confirmation,
       invite_users: dto.invite_users,
+      from_platform: true,
     });
     return { job_id: job.id, snapshot_job_id: snapshotJob.id };
   }

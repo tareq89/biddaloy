@@ -32,6 +32,8 @@ export interface RequestRestoreInput {
   staging_id: string;
   confirmation: string;
   invite_users?: boolean;
+  /** Set only by the platform route (a cockpit owner): a backup from another school is allowed. */
+  from_platform?: boolean;
 }
 
 export interface RequestRestoreResult {
@@ -86,7 +88,11 @@ export class RestoreService {
     }
 
     const school = await this.schools.findOneOrFail({ where: { id: tenantId } });
-    if (staged.meta.kind !== 'TEMPLATE' && staged.meta.source_school_slug !== school.slug) {
+    if (
+      !input.from_platform &&
+      staged.meta.kind !== 'TEMPLATE' &&
+      staged.meta.source_school_slug !== school.slug
+    ) {
       throw new ForbiddenException({
         code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY',
         details: { code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY' },

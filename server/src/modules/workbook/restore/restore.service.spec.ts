@@ -95,6 +95,17 @@ describe('RestoreService', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
+    it('accepts a backup from another school when the platform route asks for it', async () => {
+      staging.peek.mockResolvedValue(other());
+      await expect(
+        service.request(TENANT, USER, {
+          staging_id: STAGING_ID,
+          confirmation: SCHOOL_NAME,
+          from_platform: true,
+        }),
+      ).resolves.toBeDefined();
+    });
+
     it('accepts a template and the same slug', async () => {
       staging.peek.mockResolvedValue({
         ...other(),
