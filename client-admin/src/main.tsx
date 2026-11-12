@@ -4,6 +4,7 @@ import {
   getActiveTenant,
   initSentry,
   registerSessionExpiredHandler,
+  setTenantless,
   startQueueReplay,
   subscribeAuthState,
   updateSentryRouteTag,
@@ -29,6 +30,7 @@ import './index.css';
 // [98.4.01]: on the cockpit host the session lives behind the cockpit
 // endpoints. Must run before the router renders (the root guard refreshes).
 if (isCockpitHost()) {
+  setTenantless(true);
   configureSessionEndpoints({
     refresh: '/auth/cockpit/refresh',
     logout: '/auth/cockpit/logout',
