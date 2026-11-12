@@ -1,5 +1,5 @@
 /**
- * #535's five-number stats card — `GET /schools/:id/stats` (#532),
+ * #535's five-number stats card — `GET /platform/schools/:id/stats` (#532),
  * presentational only (`SchoolDetailPage` wires the live query) so it can
  * be storied on its own, same split every other `-detail/*` component in
  * this codebase follows (`-schools-list-view.tsx`, `-create-school-wizard.tsx`).

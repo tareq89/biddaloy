@@ -53,7 +53,7 @@ const ROLE_PRIORITY: Record<string, number> = {
  * this stays undefined forever; outside production it's discovered from the
  * database instead.
  */
-function isPlatformSuperAdmin(
+export function isPlatformSuperAdmin(
   memberships: JwtMembership[],
   platformTenantId: string | undefined,
 ): boolean {

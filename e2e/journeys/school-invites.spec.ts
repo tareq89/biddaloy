@@ -27,7 +27,7 @@ import { SchoolPickerPage } from '../pages/school-picker';
  *
  * Seed, all over the API: a teacher of school A (invite activated, so the
  * email is verified), and an unrelated school B. The platform admin adds the
- * teacher's email to B (`POST /schools/:id/admins`), which files the request.
+ * teacher's email to B (`POST /platform/schools/:id/admins`), which files the request.
  * Both schools are the spec's own: a join mutates membership.
  */
 test.describe('school invitations', () => {
