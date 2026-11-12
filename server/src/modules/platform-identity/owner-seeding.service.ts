@@ -10,7 +10,7 @@ import { toE164ish } from '../account-access/phone-delivery.util';
 import { isDemoMode } from '../demo/demo-mode';
 import { PlatformHomeService } from './platform-home.service';
 import { MfaService } from '../auth/mfa/mfa.service';
-import { hashPassword } from '../auth/password-hash';
+import { hashPassword, verifyPassword } from '../auth/password-hash';
 import { hashSecret } from '../auth/token-hash.util';
 
 /** Arbitrary constant: two app containers booting together queue on it. */
@@ -109,7 +109,9 @@ export class OwnerSeedingService implements OnApplicationBootstrap {
       );
       return;
     }
-    if (!owner.password_hash) {
+    // The staging scrub gives every user the shared staging hash, so "has a hash" is not "has the
+    // smoke password": write it unless it already verifies.
+    if (!owner.password_hash || !(await verifyPassword(password, owner.password_hash))) {
       await this.ds.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [
         owner.id,
         await hashPassword(password),
