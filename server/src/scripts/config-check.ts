@@ -136,7 +136,6 @@ const EXTRA_REQUIRED: Record<Stack, string[]> = {
   staging: [
     'STAGING_PASSWORD',
     'STAGING_PASSWORD_HASH_B64',
-    'PLATFORM_TENANT_ID',
     'SMOKE_SCHOOL_SLUG',
     'BACKUP_S3_ENDPOINT',
     'BACKUP_S3_BUCKET',
@@ -146,7 +145,6 @@ const EXTRA_REQUIRED: Record<Stack, string[]> = {
   demo: ['DEMO_PASSWORD'],
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // The shape staging-refresh.sh accepts: bcrypt, cost 12 (Rule 9).
 const BCRYPT_12 = /^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/;
 
@@ -158,9 +156,6 @@ const BCRYPT_12 = /^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/;
  */
 async function stagingRefreshErrors(val: (k: string) => string): Promise<string[]> {
   const errors: string[] = [];
-  if (val('PLATFORM_TENANT_ID') && !UUID.test(val('PLATFORM_TENANT_ID'))) {
-    errors.push('PLATFORM_TENANT_ID must be a uuid on staging');
-  }
   if (val('SMOKE_SCHOOL_SLUG') && !/^[a-z0-9-]+$/.test(val('SMOKE_SCHOOL_SLUG'))) {
     errors.push('SMOKE_SCHOOL_SLUG must be lowercase letters, digits and dashes');
   }

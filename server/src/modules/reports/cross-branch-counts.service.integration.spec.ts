@@ -85,7 +85,6 @@ describe('CrossBranchCountsService (integration)', () => {
         ],
       } as never,
       {
-        platformTenantId: async () => undefined,
         platformSchoolIds: async () => platformIds,
         getStatus: async (id: string) => statuses[id] ?? SchoolStatus.ACTIVE,
       } as never,

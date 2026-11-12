@@ -363,9 +363,10 @@
                 next: '{{ dc_hint }} run --rm -T demo-reset /app/reset.sh --now; then rerun the deploy',
               }
           when: stack == 'demo'
+        # A volume from before Epic 98 holds platform-tenant-id, not last-built: it is built, never rebuild it.
         # 42, not 1: compose exits 1 for its own errors too, and those must not start a rebuild.
         - name: Has the demo been built yet?
-          ansible.builtin.command: '{{ dc }} run --rm --no-deps -T demo-reset sh -c "test -s /demo-state/platform-tenant-id || exit 42"'
+          ansible.builtin.command: '{{ dc }} run --rm --no-deps -T demo-reset sh -c "test -s /demo-state/last-built || test -s /demo-state/platform-tenant-id || exit 42"'
           register: demo_built
           changed_when: false
           failed_when: demo_built.rc not in [0, 42]

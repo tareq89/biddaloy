@@ -226,8 +226,7 @@ function PlatformLayout() {
               navLabel={t('navLabel')}
               skipLinkLabel={t('skipToContent')}
             >
-              {/* Off on the cockpit host: GET /platform/alerts still rejects a cockpit token (401), and a 401 ends the whole session. Back on when #4071 moves that controller to PlatformAccessGuard. */}
-              <PlatformAlertBanner enabled={!COCKPIT} />
+              <PlatformAlertBanner enabled />
               {attention.bar}
               {attention.modal}
               {breadcrumbItems.length > 0 && (

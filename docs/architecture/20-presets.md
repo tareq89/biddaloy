@@ -165,16 +165,15 @@ transaction rolls back and nothing is left behind.
 | Fresh only            | No academic years, classes, subjects, students, exams, grading scales or exam templates, and no preset block (`FRESH_TENANT_ENTITIES`) | `409`, `details.code = 'PRESET_NOT_FRESH'`     |
 | Once                  | A school with a preset block cannot apply again                                                                                        | same `PRESET_NOT_FRESH`                        |
 | One at a time         | The `School` row is locked (`pessimistic_write`) so two applies serialise                                                              | second one sees the first's result             |
-| Reset: super-admin    | **Platform** `SUPER_ADMIN` only (`PlatformSuperAdminGuard`), mandatory `reason` (10 to 500 characters), audited                        | `403` wrong role or not platform (see below)   |
+| Reset: super-admin    | **Platform owner** only (cockpit token, `PlatformAccessGuard`), mandatory `reason` (10 to 500 characters), audited                        | `403` wrong role or not platform (see below)   |
 | Reset: needs a preset | Nothing to reset                                                                                                                       | `409`, `details.code = 'PRESET_NOT_APPLIED'`   |
 | Reset blockers        | Any operational data exists (list below)                                                                                               | `409`, `details.code = 'PRESET_RESET_BLOCKED'` |
 
 A wrong **role** is `403`: `RolesGuard` throws `ForbiddenException`
 (`Requires one of roles: …`, since #1360 / #729), so an `ADMIN` calling reset
-gets `403`. The reset route also runs `PlatformSuperAdminGuard`
-(added in #1310): it needs genuine platform authority (`isPlatformSuperAdmin`,
-set by `ContextGuard`), so a legacy tenant-local `SUPER_ADMIN` passes the role
-check but gets `403`. (`presets.e2e-spec.ts` asserts these.)
+gets `403`. The reset route sits under `/platform/schools/:id/preset/reset` behind
+`PlatformAccessGuard` (Epic 98 wave 5): it needs a cockpit token, so any school
+token, `SUPER_ADMIN` included, gets `403`. (`presets.e2e-spec.ts` asserts these.)
 
 The error payload is under `details` (the global error filter forwards only
 `message` and `details`):

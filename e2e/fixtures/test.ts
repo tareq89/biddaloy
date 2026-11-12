@@ -1,6 +1,7 @@
 import { request, test as base } from '@playwright/test';
 
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-contract';
+import { cockpitSignIn } from '../api';
 import { shells } from '../config';
 
 export { expect } from '@playwright/test';
@@ -118,7 +119,25 @@ async function freshLogin(
   }
 }
 
+/** The platform console's own host (`isCockpitHost()` in the SPA): `*.localhost` is loopback. */
+export const COCKPIT_URL = process.env.E2E_COCKPIT_URL ?? 'http://cockpit.localhost:5174';
+
+/** [98.5.09] A fresh cockpit sign-in of the seeded platform owner: cookies on the cockpit host. */
+async function cockpitLogin(locale: string): Promise<StorageState> {
+  const ctx = await request.newContext({ baseURL: COCKPIT_URL });
+  try {
+    await cockpitSignIn(ctx);
+    const state = await ctx.storageState();
+    if (locale === 'bn') return state;
+    return { ...state, origins: [{ origin: COCKPIT_URL, localStorage: [localeEntry(locale)] }] };
+  } finally {
+    await ctx.dispose();
+  }
+}
+
 interface AuthOptions {
+  /** Signed in as the platform owner on the cockpit host (instead of a school role). */
+  e2eCockpit: boolean;
   e2eRole: SeedRole | null;
   e2eTenant: 'persisted' | 'none';
   /** UI locale seeded into localStorage — 'bn' is the app default and
@@ -127,10 +146,18 @@ interface AuthOptions {
 }
 
 export const test = base.extend<AuthOptions>({
+  e2eCockpit: [false, { option: true }],
   e2eRole: [null, { option: true }],
   e2eTenant: ['persisted', { option: true }],
   e2eLocale: ['bn', { option: true }],
-  storageState: async ({ e2eRole, e2eTenant, e2eLocale }, use) => {
+  baseURL: async ({ baseURL, e2eCockpit }, use) => {
+    await use(e2eCockpit ? COCKPIT_URL : baseURL);
+  },
+  storageState: async ({ e2eRole, e2eTenant, e2eLocale, e2eCockpit }, use) => {
+    if (e2eCockpit) {
+      await use(await cockpitLogin(e2eLocale));
+      return;
+    }
     if (!e2eRole) {
       if (e2eLocale === 'bn') {
         await use(undefined);
@@ -154,6 +181,9 @@ export const test = base.extend<AuthOptions>({
 export function loggedIn(role: SeedRole, options: { tenant?: 'none' } = {}): Partial<AuthOptions> {
   return { e2eRole: role, e2eTenant: options.tenant === 'none' ? 'none' : 'persisted' };
 }
+
+/** The platform owner on the cockpit host: `test.use(cockpitOwner)`. School specs never use it. */
+export const cockpitOwner: Partial<AuthOptions> = { e2eCockpit: true };
 
 /** Fresh, signed-out browser — login-page specs. */
 export const guest: Partial<AuthOptions> = { e2eRole: null };

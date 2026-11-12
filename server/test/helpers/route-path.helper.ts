@@ -253,81 +253,200 @@ export const ALLOWLIST: AllowlistEntry[] = [
       '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Needs a step-up token; the last active owner cannot lock themself.',
   },
   {
+    controller: 'PlatformBillingController',
+    method: 'GET',
+    path: '/platform/billing/schools',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'GET',
+    path: '/platform/billing/schools/:id',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'POST',
+    path: '/platform/billing/orders/:id/offline-payment',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'POST',
+    path: '/platform/billing/schools/:id/grant',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  ...(
+    [
+      ['POST', '/platform/schools/:id/restore'],
+      ['POST', '/platform/schools/:id/restore/validate'],
+      ['GET', '/platform/schools/:id/restore/template'],
+      ['GET', '/platform/schools/:id/restore/jobs/:jobId'],
+    ] as const
+  ).map(([method, path]) => ({
+    controller: 'PlatformSchoolRestoreController',
+    method,
+    path,
+    reason:
+      '[4101] Platform route, no tenant header: the school comes from the path. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only). The school-side restore rules (staging, confirmation name, lock) run in the same RestoreService.',
+  })),
+  {
+    controller: 'PlatformPresetsController',
+    method: 'POST',
+    path: '/platform/schools/:id/preset/reset',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformBackupHealthController',
+    method: 'GET',
+    path: '/platform/backups/health',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformAttentionHealthController',
+    method: 'GET',
+    path: '/platform/attention/health',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformReportUsageController',
+    method: 'GET',
+    path: '/platform/reports/usage',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformAlertsController',
+    method: 'GET',
+    path: '/platform/alerts',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformHolidaySetsController',
+    method: 'GET',
+    path: '/platform/holiday-sets',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformHolidaySetsController',
+    method: 'GET',
+    path: '/platform/holiday-sets/:id',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformHolidaySetsController',
+    method: 'POST',
+    path: '/platform/holiday-sets/fetch',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformHolidaySetsController',
+    method: 'PUT',
+    path: '/platform/holiday-sets/:id/entries',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformHolidaySetsController',
+    method: 'POST',
+    path: '/platform/holiday-sets/:id/publish',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
+    controller: 'PlatformHolidaySetsController',
+    method: 'POST',
+    path: '/platform/holiday-sets/:id/unpublish',
+    reason:
+      '[98.5.4/#3769] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+  },
+  {
     controller: 'PlatformSchoolsController',
     method: 'GET',
     path: '/platform/schools',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'ProvisioningController',
     method: 'POST',
     path: '/platform/schools',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'SchoolAdminsController',
     method: 'GET',
     path: '/platform/schools/:id/admins',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'SchoolAdminsController',
     method: 'POST',
     path: '/platform/schools/:id/admins',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'SchoolAdminsController',
     method: 'POST',
     path: '/platform/schools/:id/admins/:userId/resend-invitation',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'SchoolAdminsController',
     method: 'DELETE',
     path: '/platform/schools/:id/admins/:userId/invitation',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'PlatformSchoolsController',
     method: 'GET',
     path: '/platform/schools/:id/stats',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'PlatformSchoolsController',
     method: 'PATCH',
     path: '/platform/schools/:id/status',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'PlatformSchoolsController',
     method: 'POST',
     path: '/platform/schools/:id/revive',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'SchoolSmsCreditsController',
     method: 'POST',
     path: '/platform/schools/:id/sms-credits',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'SchoolSmsCreditsController',
     method: 'GET',
     path: '/platform/schools/:id/sms-credits',
     reason:
-      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (cockpit owner, or platform-tenant SUPER_ADMIN until the Wave 5 cutover). Not tenant-scoped; PlatformAccessGuard is the whole check.',
+      '[98.4.1/#3752] Moved platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check.',
   },
   {
     controller: 'PlatformAttentionController',

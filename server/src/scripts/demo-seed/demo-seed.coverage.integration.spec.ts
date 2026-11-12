@@ -256,6 +256,7 @@ describe('demo seed coverage', () => {
   let fpB: Record<string, string> = {};
   let openAlerts: Record<string, number> = {};
   let finalBackedRuns = 0;
+  let platformHomes = 0;
   let web: Record<string, unknown> = {};
   let cardNoteCounts = { teacher: 0, guardian: 0 };
 
@@ -304,6 +305,11 @@ describe('demo seed coverage', () => {
             )[0].n,
           )
         : 0,
+      platformHomes: keepOpen
+        ? Number(
+            (await run.ds.query(`SELECT count(*)::int AS n FROM schools WHERE is_platform`))[0].n,
+          )
+        : 0,
     };
     if (keepOpen) closeMain = () => run.app.close();
     else await run.app.close();
@@ -321,6 +327,7 @@ describe('demo seed coverage', () => {
     rows = main.counts;
     openAlerts = main.openAlerts;
     finalBackedRuns = main.finalBackedRuns;
+    platformHomes = main.platformHomes;
     web = main.web;
     cardNoteCounts = main.cardNotes;
     fpA = (await seedInto(dbs[1], SMALL, false)).fp;
@@ -424,6 +431,10 @@ describe('demo seed coverage', () => {
     // The demo class teacher's grid is partly filled; the guardian sees a remark on a final.
     expect(cardNoteCounts.teacher, 'notes in class-teacher-8a homeroom').toBeGreaterThan(0);
     expect(cardNoteCounts.guardian, "notes on the guardian's children's finals").toBeGreaterThan(0);
+  });
+
+  it('leaves exactly one flagged platform home, so registration can deliver', () => {
+    expect(platformHomes).toBe(1);
   });
 
   it('every invariant holds on the seeded data', () => {

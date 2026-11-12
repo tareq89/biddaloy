@@ -76,53 +76,12 @@ describe('SchoolsController', () => {
         expect.any(TenantSettingsDto),
         'user-1',
         { ip: '127.0.0.1', userAgent: 'vitest' },
-        false,
       );
       // updateSettings already returns the masked shape — no follow-up
       // getMaskedSettings call, which would be a redundant query and a
       // window for the response to reflect someone else's write.
       expect(service.getMaskedSettings).not.toHaveBeenCalled();
       expect(result).toEqual({ version: 1, masked: true });
-    });
-
-    it('delegates for a SUPER_ADMIN writing a school outside their own tenant', async () => {
-      service.updateSettings.mockResolvedValue({ version: 1 });
-
-      await controller.updateSettings(
-        SCHOOL_A,
-        patch(),
-        { id: SCHOOL_B, role: 'SUPER_ADMIN' },
-        USER,
-        { ...REQUEST, isPlatformSuperAdmin: true },
-      );
-
-      expect(service.updateSettings).toHaveBeenCalledWith(
-        SCHOOL_A,
-        expect.any(TenantSettingsDto),
-        'user-1',
-        { ip: '127.0.0.1', userAgent: 'vitest' },
-        true,
-      );
-    });
-
-    it('does not treat a legacy tenant-local SUPER_ADMIN as the platform (#3346)', async () => {
-      service.updateSettings.mockResolvedValue({ version: 1 });
-
-      await controller.updateSettings(
-        SCHOOL_A,
-        patch(),
-        { id: SCHOOL_A, role: 'SUPER_ADMIN' },
-        USER,
-        { ...REQUEST, isPlatformSuperAdmin: false },
-      );
-
-      expect(service.updateSettings).toHaveBeenCalledWith(
-        SCHOOL_A,
-        expect.any(TenantSettingsDto),
-        'user-1',
-        { ip: '127.0.0.1', userAgent: 'vitest' },
-        false,
-      );
     });
 
     it('rejects an ADMIN writing a different school, without touching the service', async () => {
@@ -139,5 +98,4 @@ describe('SchoolsController', () => {
       expect(service.getMaskedSettings).not.toHaveBeenCalled();
     });
   });
-
 });

@@ -376,8 +376,7 @@ describe('POST /backup/restore E2E', () => {
     return res.body.access_token as string;
   }
 
-  // #2225: the cross-school rule wired end to end (ContextGuard sets
-  // isPlatformSuperAdmin; a tenant ADMIN never has it).
+  // #2225: the cross-school rule wired end to end (no school token may restore another school's backup).
   it('403 RESTORE_OTHER_SCHOOL_PLATFORM_ONLY for a tenant ADMIN restoring another school; no job row', async () => {
     const token = await loginAs(JOIN_ADMIN_EMAIL);
     const workbook = await writeWorkbook({

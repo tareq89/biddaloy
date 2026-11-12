@@ -36,7 +36,10 @@ import { AcademicTermsService } from './academic-terms.service';
 import { AcademicTermsController } from './academic-terms.controller';
 import { CalendarSettingsController } from './calendar-settings.controller';
 import { PublicHolidaysService } from './public-holidays.service';
-import { PublicHolidaysController } from './public-holidays.controller';
+import {
+  PlatformHolidaySetsController,
+  PublicHolidaysController,
+} from './public-holidays.controller';
 import { PublicHolidayFetchService } from './public-holiday-fetch.service';
 import { CalendarImportService } from './calendar-import.service';
 import { CalendarImportController } from './calendar-import.controller';
@@ -118,6 +121,7 @@ import { CalendarFeedController, CalendarFeedPublicController } from './calendar
     AcademicTermsController,
     CalendarSettingsController,
     PublicHolidaysController,
+    PlatformHolidaySetsController,
     CalendarImportController,
     CalendarExportController,
     CalendarFeedController,

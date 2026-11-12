@@ -1,9 +1,9 @@
 import { clearPlatformAlerts, openPlatformAlert } from '../api';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { cockpitOwner, expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
 /**
- * [75.35] The red platform-alert banner: SUPER_ADMIN only, sticky, not
+ * [75.35] The red platform-alert banner: platform owners only (cockpit session), sticky, not
  * dismissable, gone after the alert clears. The e2e server runs with
  * NODE_ENV=test, so the live probe is off and the rows below are the truth.
  */
@@ -18,8 +18,8 @@ test.afterEach(async () => {
   await clearPlatformAlerts();
 });
 
-test.describe('as SUPER_ADMIN', () => {
-  test.use(loggedIn('super_admin'));
+test.describe('as the platform owner (cockpit)', () => {
+  test.use(cockpitOwner);
 
   test('platform console shows the banner and keeps it in view on scroll', async ({ page }) => {
     await openPlatformAlert();
@@ -35,9 +35,9 @@ test.describe('as SUPER_ADMIN', () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
   });
 
-  test('staff shell shows it too, and a reload after clearing shows none', async ({ page }) => {
+  test('a reload after clearing shows none', async ({ page }) => {
     await openPlatformAlert();
-    await page.goto('/dashboard');
+    await page.goto('/schools');
     const banner = page.getByRole('status').filter({ hasText: BANNER });
     await expect(banner).toBeVisible({ timeout: 15_000 });
 

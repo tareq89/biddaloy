@@ -71,14 +71,12 @@ describe('RestoreService', () => {
     overrides: Partial<{
       confirmation: string;
       invite_users: boolean;
-      isPlatformSuperAdmin: boolean;
     }> = {},
   ) =>
     service.request(TENANT, USER, {
       staging_id: STAGING_ID,
       confirmation: overrides.confirmation ?? SCHOOL_NAME,
       invite_users: overrides.invite_users,
-      isPlatformSuperAdmin: overrides.isPlatformSuperAdmin,
     });
 
   describe('cross-school (D13)', () => {
@@ -97,10 +95,18 @@ describe('RestoreService', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
-    it('accepts another school for a platform SUPER_ADMIN, a template, and the same slug', async () => {
+    it('accepts a backup from another school when the platform route asks for it', async () => {
       staging.peek.mockResolvedValue(other());
-      await expect(request({ isPlatformSuperAdmin: true })).resolves.toBeDefined();
-      redis.store.clear();
+      await expect(
+        service.request(TENANT, USER, {
+          staging_id: STAGING_ID,
+          confirmation: SCHOOL_NAME,
+          from_platform: true,
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('accepts a template and the same slug', async () => {
       staging.peek.mockResolvedValue({
         ...other(),
         meta: { kind: 'TEMPLATE', source_school_slug: 'other-school' },
