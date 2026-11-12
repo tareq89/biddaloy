@@ -389,6 +389,7 @@ flowchart LR
 ```
 
 - **Test.** `server/src/platform-routes.e2e-spec.ts` (guarded as platform means under `platform/`), `server/src/platform-authority.e2e-spec.ts` (a school token never passes), `nginx/test/cockpit.infra.test.sh` (the app host refuses, the cockpit host serves), and the snapshot columns in `route-status.snapshot.txt` (Rule 20).
+- **No Referer leak.** Both cockpit hosts (prod `host-cockpit.conf.template`, staging `staging.conf.template`) send `Referrer-Policy: no-referrer`, because the reset link carries `?token=`. Pinned by `nginx/test/cockpit-referrer.infra.test.sh`.
 
 ### Rule 30: A cockpit sign-in needs a second factor, and answers equally until both proofs pass
 
