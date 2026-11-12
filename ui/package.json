@@ -47,7 +47,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4",
-    "i18next": "^26",
+    "i18next": "^27",
     "i18next-resources-to-backend": "^1",
     "lucide-react": "^1.70",
     "qrcode": "1.5.4",
