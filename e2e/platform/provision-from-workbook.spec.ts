@@ -32,10 +32,8 @@ import { DetailShellPage } from '../pages/detail-shell';
  *
  * [98.5.09] Platform authority is cockpit-only now: a platform owner has no membership in a
  * school, so `ContextGuard` refuses every school-scoped call that carries their token. The
- * source tenant is therefore populated by its own admin. The two UI legs below still send the
- * target school's id as `X-Tenant-ID` with the cockpit token (`useRestoreBackup({ tenantId })`
- * in `RestoreWizard`), which the server now answers 401, so they are `test.fixme` until the
- * restore moves to a platform route (reported on the stack, see the PR notes).
+ * source tenant is therefore populated by its own admin. The two UI legs below drive the target
+ * school's restore through `/platform/schools/:id/restore/*` (#4101).
  */
 test.use(cockpitOwner);
 
@@ -116,7 +114,7 @@ test.describe.serial('provision a school from a workbook', () => {
     }
   });
 
-  test.fixme('create-wizard success step imports the workbook into the new school', async ({
+  test('create-wizard success step imports the workbook into the new school', async ({
     page,
     request,
   }) => {
@@ -135,8 +133,12 @@ test.describe.serial('provision a school from a workbook', () => {
     );
     await page.getByRole('button', { name: t('platform.createWizard.submitAction') }).click();
     const response = await provisionResponse;
-    const body = (await response.json()) as { school: { id: string } };
+    const body = (await response.json()) as {
+      school: { id: string };
+      admin: { user_id: string };
+    };
     targetSchoolId = body.school.id;
+    const targetAdminUserId = body.admin.user_id;
 
     await expect(
       page.getByRole('heading', { name: t('platform.createWizard.successTitle') }),
@@ -160,8 +162,15 @@ test.describe.serial('provision a school from a workbook', () => {
     // Proves the import landed in the NEW tenant, not the SUPER_ADMIN's own
     // platform tenant nor the source tenant — the multi-tenancy contract
     // this whole ticket exists to enforce.
+    // A platform owner cannot read school data (98.5.09), so read it as the new school's admin.
     const superAdmin = await platformApiSession(request);
-    const targetSession = { token: superAdmin.token, tenantId: targetSchoolId };
+    const inviteToken = await resendSchoolAdminInvitation(
+      request,
+      superAdmin,
+      targetSchoolId,
+      targetAdminUserId,
+    );
+    const targetSession = await activateInvite(request, inviteToken, E2E_PASSWORD);
     const students = await get<{ data: { full_name: string }[] }>(
       request,
       targetSession,
@@ -170,7 +179,7 @@ test.describe.serial('provision a school from a workbook', () => {
     expect(students.data.some((s) => s.full_name === studentName)).toBe(true);
   });
 
-  test.fixme('school detail page also reaches the same restore wizard, scoped to that school', async ({
+  test('school detail page also reaches the same restore wizard, scoped to that school', async ({
     page,
   }) => {
     await page.goto(`/schools/${targetSchoolId}`);
