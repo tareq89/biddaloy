@@ -18,6 +18,7 @@ import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformAdminService } from './platform-admin.service';
 import { PlatformHomeService } from './platform-home.service';
 import { OwnerSeedingService } from './owner-seeding.service';
+import { PlatformCutoverService } from './platform-cutover.service';
 
 /**
  * [Epic 98] Platform owners, their guard, the platform home school, boot-time owner seeding.
@@ -41,6 +42,7 @@ import { OwnerSeedingService } from './owner-seeding.service';
     PlatformAdminService,
     PlatformHomeService,
     OwnerSeedingService,
+    PlatformCutoverService, // runs itself on boot, after OwnerSeedingService (provider order)
     PlatformApprovalsService,
     PlatformSettingsService,
     PlatformOwnersService,

@@ -285,18 +285,18 @@ used as a tiebreak when a caller has multiple roles in one tenant and omits
 `RolesGuard` enforces it after `ContextGuard` has resolved which role the
 caller is acting as.
 
-| Role              | Who it is for                                                                        | Data scope (`ROLE_SCOPE`) |
-| ----------------- | ------------------------------------------------------------------------------------ | ------------------------- |
-| `SUPER_ADMIN`     | Platform operator                                                                    | `TENANT`                  |
-| `ADMIN`           | School head / IT admin                                                               | `TENANT`                  |
-| `ACCOUNTANT`      | Fees and payments                                                                    | `TENANT`                  |
-| `EXECUTIVE`       | Principal / management, read-mostly                                                  | `TENANT`                  |
-| `OFFICE_STAFF`    | Front-office clerk: admissions, records                                              | `TENANT`                  |
-| `EXAM_CONTROLLER` | Runs exams, marks and results; enters marks as backup for an absent teacher (81 D5b) | `TENANT`                  |
-| `COMMITTEE`       | Governing / admission committee member                                               | `TENANT`                  |
-| `TEACHER`         | Classroom teacher                                                                    | `ASSIGNED_SECTIONS`       |
-| `PARENT`          | Guardian                                                                             | `FAMILY`                  |
-| `STUDENT`         | Learner                                                                              | `SELF`                    |
+| Role              | Who it is for                                                                                                                                     | Data scope (`ROLE_SCOPE`) |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `SUPER_ADMIN`     | Legacy school-level role, no platform power. The platform operator is a cockpit owner (below); the boot-time cutover turned old rows into `ADMIN` | `TENANT`                  |
+| `ADMIN`           | School head / IT admin                                                                                                                            | `TENANT`                  |
+| `ACCOUNTANT`      | Fees and payments                                                                                                                                 | `TENANT`                  |
+| `EXECUTIVE`       | Principal / management, read-mostly                                                                                                               | `TENANT`                  |
+| `OFFICE_STAFF`    | Front-office clerk: admissions, records                                                                                                           | `TENANT`                  |
+| `EXAM_CONTROLLER` | Runs exams, marks and results; enters marks as backup for an absent teacher (81 D5b)                                                              | `TENANT`                  |
+| `COMMITTEE`       | Governing / admission committee member                                                                                                            | `TENANT`                  |
+| `TEACHER`         | Classroom teacher                                                                                                                                 | `ASSIGNED_SECTIONS`       |
+| `PARENT`          | Guardian                                                                                                                                          | `FAMILY`                  |
+| `STUDENT`         | Learner                                                                                                                                           | `SELF`                    |
 
 `SUPER_ADMIN`'s `TENANT` scope does not open a school's own data (marks,
 attendance, homework, performance): `hasTenantDataScope` in
@@ -1012,3 +1012,50 @@ flowchart LR
 - **Route lists.** All 24 new routes are `ALLOWLIST` rows (cockpit bearer, no tenant); each is 401 for ANON and every school role in the route-status snapshot. Retry-failed, restore-lock release and the announcement send are `@FailClosedWithoutRedis()` and listed in the Redis outage table; the read and preview routes are fail-open.
 - **No extend route.** #3808 added no extend route, so none exists to wire.
 - **Archive status never returns the raw job error** (Rule 24): a fixed sentence replaces it.
+
+## Cockpit identity
+
+Platform power (suspend a school, lock an owner, change approvals) does **not** come from a school membership. It comes from a row in `platform_admins`, and it is used only on the cockpit host with a cockpit token.
+
+```mermaid
+flowchart LR
+    subgraph School hosts
+      SH[school host] -->|bearer aud biddaloy:access| API1[/api/v1/* school routes/]
+    end
+    subgraph Cockpit host
+      CH[cockpit host] -->|bearer aud biddaloy:cockpit| API2[/api/v1/platform/*/]
+      CH -->|password + TOTP| LOGIN[/auth/cockpit/login/]
+    end
+    OWN[(platform_admins<br/>owners)] --> LOGIN
+    API2 -->|risky action| STEP[step-up token, single use]
+    STEP -->|2+ owners and gate ON| APPR[other owner approves]
+```
+
+- **Two token audiences.** A school token is refused on `/platform/*`, and a cockpit token is refused on school routes, both ways (`cockpit-auth.e2e-spec.ts`).
+- **Owners.** Seeded at boot from `COCKPIT_OWNER_*` by `OwnerSeedingService`. Each owner has a password, an authenticator (TOTP) and recovery codes.
+- **Step-up and approval.** A risky route needs `X-Approval-Token` from `POST /platform/step-up`; with two active owners and the gate ON it also needs the other owner's grant (`X-Platform-Approval`).
+- **Example.**
+
+```
+POST /api/v1/platform/step-up      Authorization: Bearer <cockpit token>
+{ "scope": "platform.owner_lock", "code": "123456" }
+200 { "approval_token": "...", "expires_at": "2026-11-12T10:05:00Z" }
+```
+
+- **Why not a school membership?** A membership is per school and a school ADMIN can create them. Platform authority must not be something a school can grant, copy or lose by removing a user. So `SUPER_ADMIN` rows were converted once at boot by `PlatformCutoverService` (flag `cutover.done` in `platform_settings`): owners and platform-school `SUPER_ADMIN`s lose the membership, other schools' `SUPER_ADMIN`s become `ADMIN`. It runs itself in `onApplicationBootstrap` after `OwnerSeedingService` (provider order in `PlatformIdentityModule`), skips on a database with no owners, and retries next boot.
+
+## Learning: cockpit identity, Wave 5
+
+2026-11-12, Epic 98 wave 5 leftovers.
+
+- **A service that "exists" was not wired (2026-11-12).**
+  - Surprise: `PlatformCutoverService` had specs and an integration test but was in no module, so nothing ever ran it in production.
+  - Cost: the cutover would have silently never happened.
+  - Fix: provide it in `PlatformIdentityModule`; `platform-identity.e2e-spec.ts` resolves it from the container.
+  - Rule candidate: a boot-time service's ticket is not done until a test resolves it from the real `AppModule`.
+- **Background polling kept an idle session alive.** Every cockpit request touched the idle key, so a polling page never idled out. Polling requests now send `X-Cockpit-Poll` and do not renew it.
+- **Shared DTOs drifted from the server** (`emailMasked`, `summary`): the client type-checked against a stale shape. The shared DTO now matches the server DTO.
+- **What surprised us across the epic.**
+  - Authority and "home school" are different things: `is_platform` marks where alerts live, `platform_admins` decides who may act.
+  - Every negative-path check must name the outcomes that count as success.
+  - Cached "found once" ids need an invalidation story, not only a miss story.

@@ -15,6 +15,7 @@ import { PlatformAdmin } from './entities/platform-admin.entity';
 import { hashPassword } from '../auth/password-hash';
 import { MfaService } from '../auth/mfa/mfa.service';
 import { PlatformHomeService } from './platform-home.service';
+import { PlatformCutoverService } from './platform-cutover.service';
 import { AccountAccessDeliveryService } from '../account-access/account-access-delivery.service';
 
 /**
@@ -143,6 +144,12 @@ describe('Platform identity E2E', () => {
     await ds.query(`DELETE FROM platform_settings WHERE key = 'approvals.enabled'`);
     vi.restoreAllMocks();
     await app.close();
+  });
+
+  it('boots PlatformCutoverService from the container (runs itself on bootstrap)', () => {
+    const svc = app.get(PlatformCutoverService);
+    expect(svc.run).toBeTypeOf('function');
+    expect(svc.onApplicationBootstrap).toBeTypeOf('function');
   });
 
   it('step-up gives a token for an owner, refuses a wrong code, a school scope and no bearer', async () => {
