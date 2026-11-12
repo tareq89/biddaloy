@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Open platform alerts (e.g. Redis down). SUPER_ADMIN only. */
+        /** Open platform alerts (e.g. Redis down). Cockpit owners only. */
         get: operations["PlatformAlertsController_list_v1"];
         put?: never;
         post?: never;
@@ -2011,7 +2011,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only. */
+        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. Cockpit owners only. */
         get: operations["PlatformSchoolsController_getStats_v1"];
         put?: never;
         post?: never;
@@ -2034,7 +2034,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
+        /** Suspend or reactivate a school (#530). Cockpit owners only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
         patch: operations["PlatformSchoolsController_updateStatus_v1"];
         trace?: never;
     };
@@ -2047,7 +2047,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Revive a school paused or soft-deleted for having no students (Epic 49 D5). Platform SUPER_ADMIN only; within 90 days of the soft delete; audited REACTIVATE. */
+        /** Revive a school paused or soft-deleted for having no students (Epic 49 D5). Cockpit owners only; within 90 days of the soft delete; audited REACTIVATE. */
         post: operations["PlatformSchoolsController_revive_v1"];
         delete?: never;
         options?: never;
@@ -4475,7 +4475,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List every platform public-holiday set. SUPER_ADMIN only. */
+        /** List every platform public-holiday set. Cockpit owners only. */
         get: operations["PlatformHolidaySetsController_listSets_v1"];
         put?: never;
         post?: never;
@@ -4492,7 +4492,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get one platform public-holiday set. SUPER_ADMIN only. */
+        /** Get one platform public-holiday set. Cockpit owners only. */
         get: operations["PlatformHolidaySetsController_getSet_v1"];
         put?: never;
         post?: never;
@@ -4511,7 +4511,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fetch (or re-fetch) a country/year holiday set from an external source. SUPER_ADMIN only. */
+        /** Fetch (or re-fetch) a country/year holiday set from an external source. Cockpit owners only. */
         post: operations["PlatformHolidaySetsController_fetchSet_v1"];
         delete?: never;
         options?: never;
@@ -4527,7 +4527,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Replace a holiday set's entries. SUPER_ADMIN only. */
+        /** Replace a holiday set's entries. Cockpit owners only. */
         put: operations["PlatformHolidaySetsController_updateEntries_v1"];
         post?: never;
         delete?: never;
@@ -4545,7 +4545,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish a holiday set for tenants to import from. SUPER_ADMIN only. */
+        /** Publish a holiday set for tenants to import from. Cockpit owners only. */
         post: operations["PlatformHolidaySetsController_publish_v1"];
         delete?: never;
         options?: never;
@@ -4562,7 +4562,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Unpublish a holiday set. SUPER_ADMIN only. */
+        /** Unpublish a holiday set. Cockpit owners only. */
         post: operations["PlatformHolidaySetsController_unpublish_v1"];
         delete?: never;
         options?: never;
@@ -6000,7 +6000,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Per-school backup schedule, last attempt outcome, last success time and storage usage. SUPER_ADMIN only. */
+        /** Per-school backup schedule, last attempt outcome, last success time and storage usage. Cockpit owners only. */
         get: operations["PlatformBackupHealthController_health_v1"];
         put?: never;
         post?: never;
@@ -6188,7 +6188,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Attention engine last sweeps, durations and failing rules. SUPER_ADMIN only. */
+        /** Attention engine last sweeps, durations and failing rules. Cockpit owners only. */
         get: operations["PlatformAttentionHealthController_health_v1"];
         put?: never;
         post?: never;
@@ -6896,7 +6896,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Which reports are used and found useful, counts only. Platform SUPER_ADMIN only. */
+        /** Which reports are used and found useful, counts only. Cockpit owners only. */
         get: operations["PlatformReportUsageController_usage_v1"];
         put?: never;
         post?: never;
@@ -8449,7 +8449,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Undo a school's curriculum preset (SUPER_ADMIN only). 409 PRESET_NOT_APPLIED if none is applied, 409 PRESET_RESET_BLOCKED while operational data exists. A reason is mandatory and audited. */
+        /** Undo a school's curriculum preset (Cockpit owners only). 409 PRESET_NOT_APPLIED if none is applied, 409 PRESET_RESET_BLOCKED while operational data exists. A reason is mandatory and audited. */
         post: operations["PlatformPresetsController_run_v1"];
         delete?: never;
         options?: never;
@@ -26448,12 +26448,7 @@ export interface operations {
             query?: {
                 trial?: "active" | "expired";
             };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -26467,24 +26462,12 @@ export interface operations {
                     "application/json": components["schemas"]["SchoolListItemDto"][];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     ProvisioningController_provision_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -26508,24 +26491,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformSchoolsController_getStats_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26541,24 +26512,12 @@ export interface operations {
                     "application/json": Record<string, never>;
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformSchoolsController_updateStatus_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26578,24 +26537,12 @@ export interface operations {
                     "application/json": Record<string, never>;
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformSchoolsController_revive_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26614,13 +26561,6 @@ export interface operations {
                 content: {
                     "application/json": Record<string, never>;
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -26795,12 +26735,7 @@ export interface operations {
     SchoolAdminsController_list_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26815,24 +26750,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     SchoolAdminsController_addAdmin_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26852,24 +26775,12 @@ export interface operations {
                     "application/json": Record<string, never>;
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     SchoolAdminsController_resendInvitation_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
                 userId: string;
@@ -26886,24 +26797,12 @@ export interface operations {
                     "application/json": Record<string, never>;
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     SchoolAdminsController_revokeInvitation_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
                 userId: string;
@@ -26918,13 +26817,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     SchoolSmsCreditsController_getSmsCredits_v1: {
@@ -26933,12 +26825,7 @@ export interface operations {
                 page?: number;
                 limit?: number;
             };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26954,24 +26841,12 @@ export interface operations {
                     "application/json": components["schemas"]["SmsCreditsResponseDto"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     SchoolSmsCreditsController_grantOrAdjust_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -26985,13 +26860,6 @@ export interface operations {
         responses: {
             /** @description The new balance: { available, reserved }. */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -32523,12 +32391,7 @@ export interface operations {
     PlatformHolidaySetsController_listSets_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -32542,24 +32405,12 @@ export interface operations {
                     "application/json": components["schemas"]["PublicHolidaySet"][];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformHolidaySetsController_getSet_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -32575,24 +32426,12 @@ export interface operations {
                     "application/json": components["schemas"]["PublicHolidaySet"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformHolidaySetsController_fetchSet_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -32610,24 +32449,12 @@ export interface operations {
                     "application/json": components["schemas"]["PublicHolidaySet"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformHolidaySetsController_updateEntries_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -32647,24 +32474,12 @@ export interface operations {
                     "application/json": components["schemas"]["PublicHolidaySet"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformHolidaySetsController_publish_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -32679,25 +32494,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicHolidaySet"];
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
     PlatformHolidaySetsController_unpublish_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -32712,13 +32515,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicHolidaySet"];
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -35899,12 +35695,7 @@ export interface operations {
                 limit?: number;
                 offset?: number;
             };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -35918,24 +35709,12 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformSchoolBillingPageDto"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformBillingController_detail_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -35951,24 +35730,12 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformBillingController_offlinePayment_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -35988,24 +35755,12 @@ export interface operations {
                     "application/json": components["schemas"]["OfflinePaymentResultDto"];
                 };
             };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     PlatformBillingController_grant_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -36024,13 +35779,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -38334,12 +38082,7 @@ export interface operations {
                 /** @description Inclusive. Default: today (UTC). */
                 to?: string;
             };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -38352,13 +38095,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformReportUsageDto"];
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -42188,12 +41924,7 @@ export interface operations {
     PlatformPresetsController_run_v1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -42212,13 +41943,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ResetPresetResponseDto"];
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
