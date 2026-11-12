@@ -36,6 +36,7 @@ Why the setup looks like this: [30-deployment-target.md](30-deployment-target.md
 - [Part 15. Move ops to its own VM](#part-15-move-ops-to-its-own-vm)
 - [Part 16. Rotate a secret, lose a key](#part-16-rotate-a-secret-lose-a-key)
 - [Part 17. School websites](#part-17-school-websites)
+- [Part 18. Login as and school control](#part-18-login-as-and-school-control-owners)
 - [Known gaps](#known-gaps)
 
 ## Part 0. The picture and the order
@@ -2456,6 +2457,34 @@ audience tag (and that the catch-all has none).
 
 Rollback: remove the host from `STAGING_SITE_HOSTS` and redeploy the edge. The site is then refused
 (`444`) rather than public.
+
+## Part 18. Login as and school control (owners)
+
+Owners do these from the cockpit (`COCKPIT_DOMAIN`), never from `app.`. Every risky action asks for an authenticator code first (a "step-up"). Rules: [Rule 32](08-security.md#rule-32-login-as-is-stamped-and-deny-listed), [Rule 29](08-security.md#rule-29-platform-routes-live-under-platform-and-are-refused-on-the-app-host).
+
+```mermaid
+flowchart TD
+  P[A school phones] --> M{school's support-access mode}
+  M -- allowed --> A[Start Login as: admins are emailed]
+  M -- ask --> R[Start: request waits for a school admin]
+  R -- admin approves --> A
+  M -- blocked --> E[Emergency entry: reason + second owner, view only]
+  A --> N[Banner shows in the app tab; 60 minutes at most]
+```
+
+| Situation | What you do | Route behind it |
+| --- | --- | --- |
+| **A school phones and needs help** | School page, **Login as**, pick the person, type a reason of 10 to 500 characters, confirm with the authenticator code. The app opens in a new tab with a banner. Press **End** when done. | `POST /api/v1/platform/impersonation`, then `POST /api/v1/auth/impersonation/exchange` (the one-time code lives 60 s) |
+| **A school blocked access** | Ask them to switch the mode to `ask` or `allowed` (school settings, support access). Only if they cannot: **Emergency entry**, a reason, then the other owner approves. The session is view only; **Ask for write access** sends the school's admins a request. | same start route (`blocked` mode needs the second owner); `POST /api/v1/platform/impersonation/:id/request-write` |
+| **A queue is stuck** | **Operations, Queues**: look at the failed count, press **Retry failed** (up to 1000 jobs, authenticator code needed). See [12-operations 3.11](12-operations.md#311-a-queue-is-stuck-or-a-restore-lock-will-not-clear). | `GET /api/v1/platform/ops/queues`, `POST /api/v1/platform/ops/queues/:name/retry-failed` |
+| **Kill a live session** | **Login as sessions**, the live list shows both owners' sessions. **End** on the row. Either owner can end any session; no code is needed to end. The next request of that tab is `401`. A school Admin can also end it from their own **Support access** page. | `GET /api/v1/platform/impersonation`, `DELETE /api/v1/platform/impersonation/:id` |
+| **A person must be signed out everywhere** | **People**, search, **Sign out everywhere** (authenticator code). | `POST /api/v1/platform/users/:id/logout` |
+
+**What the people are told.** In `allowed` mode every school Admin gets an email when a session starts. In `ask` mode every Admin gets a request with a link to answer. In `blocked` mode (emergency) they are told too, and the school sees every session and Biddaloy action for 90 days under **Support access** (`GET /api/v1/support-access/sessions`, `GET /api/v1/support-access/platform-actions`). The other owner sees every session in the live list, and a burst of starts raises a cockpit attention item (`platform-login-as-burst`).
+
+**Limits to know.** 3 live sessions per owner, 10 starts per hour, 60 minutes per session. Some actions are refused while you are signed in as someone (password, contact, billing, user create and delete): `403 IMPERSONATION_DENIED`. Do them as yourself in the cockpit, or ask the person.
+
+**Emergency example.** School X blocked support, its only Admin lost their phone. Owner 1 starts an emergency entry with the reason "Admin lost phone, needs fee report"; Owner 2 approves with their own code; Owner 1 reads the report view-only; both owners are listed on the school's Support access page afterwards.
 
 ## Known gaps
 
