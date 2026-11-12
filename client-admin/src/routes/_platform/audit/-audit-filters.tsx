@@ -42,7 +42,7 @@ const dateOf = (iso: string | undefined) => {
 
 /** School, action, who, date range, and the one Login as visit being looked at. */
 export function AuditFilters({ value, onChange }: AuditFiltersProps) {
-  const { t } = useTranslation(['platformAudit', 'auditLogs']);
+  const { t } = useTranslation('platformAudit');
   const config = useRegionConfig();
   const schools = useSchools();
   const [query, setQuery] = React.useState('');
@@ -63,25 +63,25 @@ export function AuditFilters({ value, onChange }: AuditFiltersProps) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
       <Combobox
-        aria-label={t('platformAudit:filters.school')}
-        placeholder={t('platformAudit:filters.allSchools')}
-        emptyText={t('platformAudit:filters.noMatch')}
+        aria-label={t('filters.school')}
+        placeholder={t('filters.allSchools')}
+        emptyText={t('filters.noMatch')}
         options={schoolOptions}
         value={value.tenantId ?? null}
         onValueChange={(v) => onChange({ tenantId: v ?? undefined })}
       />
       <Combobox
-        aria-label={t('platformAudit:filters.action')}
-        placeholder={t('platformAudit:filters.allActions')}
-        emptyText={t('platformAudit:filters.noMatch')}
+        aria-label={t('filters.action')}
+        placeholder={t('filters.allActions')}
+        emptyText={t('filters.noMatch')}
         options={actionOptions}
         value={value.action ?? null}
         onValueChange={(v) => onChange({ action: v ?? undefined })}
       />
       <Combobox
-        aria-label={t('platformAudit:filters.who')}
-        placeholder={t('platformAudit:filters.whoPlaceholder', { count: PLATFORM_USER_SEARCH_MIN })}
-        emptyText={t('platformAudit:filters.noMatch')}
+        aria-label={t('filters.who')}
+        placeholder={t('filters.whoPlaceholder', { count: PLATFORM_USER_SEARCH_MIN })}
+        emptyText={t('filters.noMatch')}
         options={peopleOptions}
         value={value.actorId ?? null}
         onQueryChange={setQuery}
@@ -91,14 +91,14 @@ export function AuditFilters({ value, onChange }: AuditFiltersProps) {
         }}
       />
       <DatePicker
-        aria-label={t('platformAudit:filters.from')}
+        aria-label={t('filters.from')}
         config={config}
         value={dateOf(value.from)}
         max={dateOf(value.to)}
         onValueChange={(d) => onChange({ from: d ? toIsoDate(d) : undefined })}
       />
       <DatePicker
-        aria-label={t('platformAudit:filters.to')}
+        aria-label={t('filters.to')}
         config={config}
         value={dateOf(value.to)}
         min={dateOf(value.from)}
@@ -106,12 +106,12 @@ export function AuditFilters({ value, onChange }: AuditFiltersProps) {
       />
       {value.sessionId && (
         <Button variant="outline" onClick={() => onChange({ sessionId: undefined })}>
-          {t('platformAudit:filters.visit')}: {t('platformAudit:filters.clearVisit')}
+          {t('filters.visit')}: {t('filters.clearVisit')}
         </Button>
       )}
       {filtered && (
         <Button variant="ghost" onClick={() => onChange(CLEARED)}>
-          {t('platformAudit:filters.clearAll')}
+          {t('filters.clearAll')}
         </Button>
       )}
     </div>

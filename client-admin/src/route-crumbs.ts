@@ -94,6 +94,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_platform/reports-usage': [{ label: { key: 'reportsUsage' } }],
   '/_platform/platform-owners/': [{ label: { key: 'platformOwners' } }],
   '/_platform/owner-security/': [{ label: { key: 'security' } }],
+  '/_platform/users/': [{ label: { key: 'platformUsers' } }],
+  '/_platform/operations/': [{ label: { key: 'platformOperations' } }],
+  '/_platform/audit/': [{ label: { key: 'platformAudit' } }],
   '/_platform/schools/': [{ label: { key: 'schools' } }],
   '/_platform/schools/new': [{ label: { key: 'schools' } }, { label: { key: 'new' } }],
   '/_platform/schools/$schoolId': [
