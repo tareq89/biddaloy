@@ -7,6 +7,7 @@ import { Queue } from 'bullmq';
 import { DataSource, IsNull } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { AttendanceService } from './attendance.service';
@@ -249,11 +250,7 @@ describe('AbsenceNoticeService (integration)', () => {
     );
     await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
     if (availableCredit !== null) {
-      await dataSource.query(
-        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at)
-         VALUES ($1, $2, 0, now())`,
-        [TENANT_ID, availableCredit],
-      );
+      await fundMeteredTenant(dataSource, TENANT_ID, availableCredit);
     }
   }
 
