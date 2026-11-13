@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../../audit/audit.module';
+import { SchoolsModule } from '../../schools/schools.module';
 import { StorageModule } from '../../storage/storage.module';
 import { PrintAsset } from '../entities/print-asset.entity';
 import { PrintTemplate } from '../entities/print-template.entity';
@@ -14,6 +15,7 @@ import { PrintTemplatesService } from './print-templates.service';
     TypeOrmModule.forFeature([PrintTemplate, PrintTemplateVersion, PrintAsset]),
     StorageModule,
     AuditModule,
+    SchoolsModule,
   ],
   controllers: [PrintTemplatesController],
   providers: [PrintTemplatesService],
