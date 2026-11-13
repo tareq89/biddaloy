@@ -419,8 +419,10 @@ now comes from the school's entity words, stock text unchanged` to the PR body.
 - **Generated guide tables must not contain `$t(...)`.** `guide:gen` copies strings from
   `nav`, `dashboard` and `teacherAssignments` into the pages, and it does not resolve
   nesting. So those three namespaces are never converted (`SKIP_NS` in
-  `scripts/codemods/entity-words.mjs`), and `--check` fails if a converted namespace is
-  read by the generator.
+  `scripts/codemods/entity-words.mjs`). Nothing automatic enforces this beyond the
+  guide-gen test: `--check` looks only for bare stock words, not for what the generator
+  reads. So re-run `npx vitest run client-admin/src/help/guide-gen` after every batch; it
+  fails if converting a namespace would change a committed guide file.
 - **The guide itself always shows stock words.** A guide page cannot know the school's
   words. Write "section" in the guide; the screen may say "Batch" for a renamed school.
 
