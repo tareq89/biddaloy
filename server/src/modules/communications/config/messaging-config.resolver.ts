@@ -145,10 +145,15 @@ export class MessagingConfigResolver {
     // Epic 100 D9: while the school's SMS source is SchoolManagerP its own saved block is kept
     // but not read, so a stored own value never beats the platform env. Only an explicit source
     // does this; a legacy PLATFORM-metered school with no `source` resolves as before.
+    // Same reading as `readSmsSource` (used by `SmsCreditService.isMetered`), so what is billed and
+    // who sends cannot disagree: an explicit OWN is never PLATFORM-metered, SCHOOLMANAGERP always is.
+    const explicit = medium === CommunicationMedium.SMS ? storedMedium.source : undefined;
     const tenantMedium: Record<string, unknown> =
-      medium === CommunicationMedium.SMS && storedMedium.source === 'SCHOOLMANAGERP'
+      explicit === 'SCHOOLMANAGERP'
         ? { metering: 'PLATFORM' }
-        : storedMedium;
+        : explicit === 'OWN'
+          ? { ...storedMedium, metering: 'OFF' }
+          : storedMedium;
     const override = opts.override ?? {};
 
     // Platform env keys serve PLATFORM-metered SMS schools and account-access sends (D11). The

@@ -19,6 +19,7 @@ import { SchoolsService } from '../../schools/schools.service';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLot } from './entities/sms-credit-lot.entity';
 import { SmsCreditLotDraw } from './entities/sms-credit-lot-draw.entity';
+import { readSmsSource } from '../sms-source/sms-source.util';
 import { planDraw, planReturn, sortByExpiry, usableSum } from './sms-credit-lot-plan';
 import {
   SmsCreditLedger,
@@ -109,11 +110,12 @@ export class SmsCreditService {
     private readonly schoolsService: SchoolsService,
   ) {}
 
-  /** `communications.sms.metering === 'PLATFORM'`. Absent/`OFF` (or no
-   * `communications.sms` section at all) reads as unmetered. */
+  /** True when the school's SMS source is SchoolManagerP (`readSmsSource`: explicit `source`, else
+   * derived from `metering`). Absent/`OFF` (or no `communications.sms` section) reads as unmetered. */
   async isMetered(tenantId: string): Promise<boolean> {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
-    return settings.communications?.sms?.metering === 'PLATFORM';
+    // One read of the source, shared with the provider resolver (Epic 100 D9).
+    return readSmsSource(settings as unknown as Record<string, unknown>) === 'SCHOOLMANAGERP';
   }
 
   async getBalance(tenantId: string): Promise<CreditBalance> {

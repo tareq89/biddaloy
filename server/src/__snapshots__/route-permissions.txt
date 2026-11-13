@@ -40,6 +40,7 @@ DELETE /platform/impersonation/:id | PlatformImpersonationController | allowlist
 DELETE /platform/schools/:id | PlatformSchoolDeleteController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.delete_school
 DELETE /platform/schools/:id/admins/:userId/invitation | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 DELETE /platform/schools/:id/notes/:noteId | SchoolNotesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+DELETE /platform/sms-stock/:id | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.sms_stock
 DELETE /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
@@ -164,6 +165,7 @@ GET /communications/reminder/bulk/:id | CommunicationsController | perm: COMMUNI
 GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT_READ
 GET /communications/sms-credits/readiness | CreditsController | perm: COMMUNICATION_SEND
+GET /communications/sms-source | SmsSourceController | perm: SETTINGS_MANAGE
 GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /coordination/overview | CoordinationController | perm: COORDINATION_VIEW
 GET /coordinators | CoordinatorsController | perm: CLASS_MANAGE
@@ -338,6 +340,9 @@ GET /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: 
 GET /platform/schools/:id/stats | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/search | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/sms-packages | PlatformSmsCatalogController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/users | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
 GET /portal/students/:studentId/statement | StudentStatementController | perm: FEE_READ
@@ -414,6 +419,10 @@ GET /schools/me/profile | SchoolProfileController | identity
 GET /search | SearchController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
 GET /seat-plans | SeatPlansController | perm: SEAT_PLAN_MANAGE
 GET /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
+GET /sms-bundles/catalog | SmsBundleOrdersController | perm: SETTINGS_MANAGE
+GET /sms-bundles/orders | SmsBundleOrdersController | perm: SETTINGS_MANAGE
+GET /sms-bundles/orders/:id | SmsBundleOrdersController | perm: SETTINGS_MANAGE
+GET /sms-bundles/orders/:id/receipt | SmsBundleReceiptController | perm: SETTINGS_MANAGE
 GET /staff-attendance/register | StaffAttendanceController | perm: STAFF_ATTENDANCE_READ
 GET /staff-attendance/summary | StaffAttendanceController | perm: STAFF_ATTENDANCE_READ
 GET /staff-documents/:staffUserId | StaffDocumentController | perm: STAFF_HR_READ
@@ -536,6 +545,7 @@ PATCH /platform/coupons/:id | PlatformCouponsController | allowlist: AuthGuard('
 PATCH /platform/schools/:id/name | SchoolRenameController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
 PATCH /platform/schools/:id/status | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 PATCH /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.approvals_switch
+PATCH /platform/sms-packages/:id | PlatformSmsCatalogController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
 PATCH /print-jobs/:id/confirm | PrintJobActionsController | perm: DOCUMENT_PRINT
 PATCH /print-templates/:id | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
 PATCH /printers/:id | PrintersController | perm: PRINT_TEMPLATE_MANAGE
@@ -756,6 +766,7 @@ POST /platform/attention/items/:recipientId/snooze | PlatformAttentionController
 POST /platform/attention/items/seen | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/billing/orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/billing/schools/:id/grant | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/billing/sms-bundle-orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/coupons | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.coupon
 POST /platform/coupons/free | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard, TwoPersonGuard | approval: platform.coupon_free
 POST /platform/holiday-sets/:id/publish | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
@@ -780,6 +791,10 @@ POST /platform/schools/:id/restore | PlatformSchoolRestoreController | allowlist
 POST /platform/schools/:id/restore/validate | PlatformSchoolRestoreController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/revive | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/sms-packages | PlatformSmsCatalogController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
+POST /platform/sms-packages/:id/active | PlatformSmsCatalogController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+POST /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+POST /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/step-up | PlatformStepUpController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/users/:id/logout | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
 POST /presets/apply | PresetApplyController | perm: CURRICULUM_PRESET_APPLY
@@ -834,6 +849,8 @@ POST /seat-plans/:id/publish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/rooms/:roomId/reshuffle | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/unpublish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/generate | SeatPlansController | perm: SEAT_PLAN_MANAGE
+POST /sms-bundles/orders | SmsBundleOrdersController | perm: SETTINGS_MANAGE
+POST /sms-bundles/orders/:id/pay/bkash | SmsBundlePayController | perm: SETTINGS_MANAGE
 POST /staff-documents/:staffUserId/:documentType | StaffDocumentController | perm: STAFF_HR_MANAGE
 POST /staff-hr-records | StaffHrController | perm: STAFF_HR_MANAGE
 POST /staff-hr-records/:userId/promote | StaffHrController | perm: STAFF_HR_MANAGE
@@ -892,6 +909,7 @@ POST /website/publish | SiteConfigController | perm: WEBSITE_MANAGE
 PUT /acr/criteria | AcrCriteriaController | perm: ACR_WRITE
 PUT /attendance/sections/:sectionId/register | AttendanceController | perm: ATTENDANCE_MARK
 PUT /attendance/sections/:sectionId/register-matrix | AttendanceController | perm: ATTENDANCE_MARK
+PUT /communications/sms-source | SmsSourceController | perm: SETTINGS_MANAGE
 PUT /exams/:examId/report-card-notes | ReportCardNotesController | perm: RESULT_PROCESS
 PUT /final-results/:id/report-card-notes | ReportCardNotesController | perm: RESULT_PROCESS
 PUT /leave/policies/:type | LeaveController | perm: LEAVE_APPROVE
