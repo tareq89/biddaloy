@@ -17,7 +17,7 @@
   },
   "filters": {
     "typesLabel": "Event type",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
     "allTypes": "All types"
   },
