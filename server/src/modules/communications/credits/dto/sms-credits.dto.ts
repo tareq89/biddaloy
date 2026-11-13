@@ -60,13 +60,43 @@ export class SmsCreditLedgerListResponseDto extends SmsCreditLedgerPageDto {
   data: SmsCreditLedgerItemDto[];
 }
 
+export class SmsCreditLotItemDto {
+  id: string;
+  source: string;
+  units_total: number;
+  remaining: number;
+  expires_at: Date | null;
+}
+
+export class SmsBundleOrderItemDto {
+  id: string;
+  name: string;
+  sms_count: number;
+  price_paisa: number;
+  status: string;
+  paid_at: Date | null;
+  receipt_available: boolean;
+}
+
 /** `GET /communications/sms-credits` response. `metering` mirrors
  * `SmsCreditService.isMetered` — `OFF` still returns the (always 0/0)
  * balance and an empty ledger rather than a different shape, so the UI
  * doesn't need two response contracts. */
-export class SmsCreditsResponseDto {
+export class SmsCreditsBalanceResponseDto {
   metering: 'OFF' | 'PLATFORM';
   available: number;
   reserved: number;
   ledger: SmsCreditLedgerListResponseDto;
+}
+
+/** Tenant-facing page payload: the balance shape plus lots, orders, source and flags. */
+export class SmsCreditsResponseDto extends SmsCreditsBalanceResponseDto {
+  /** [100.2.gB-02] Unexpired lots, soonest expiry first. Empty when metering is OFF. */
+  lots: SmsCreditLotItemDto[];
+  /** The school's last 20 bundle orders, newest first. Empty when metering is OFF. */
+  orders: SmsBundleOrderItemDto[];
+  source: 'OWN' | 'SCHOOLMANAGERP';
+  /** The "red notice" flag (D20). */
+  almostFinished: boolean;
+  stopped: boolean;
 }

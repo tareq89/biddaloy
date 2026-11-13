@@ -8,6 +8,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { SmsCreditService } from './sms-credit.service';
+import { SmsCreditSummaryService } from './sms-credit-summary.service';
 import {
   QuerySmsCreditsDto,
   SmsCreditsResponseDto,
@@ -30,6 +31,7 @@ export class CreditsController {
   constructor(
     private readonly smsCredits: SmsCreditService,
     private readonly providerConfig: MessagingConfigResolver,
+    private readonly creditSummary: SmsCreditSummaryService,
   ) {}
 
   /** [78 D37/D38] Can an SMS go out right now? Same resolver and credit check
@@ -79,10 +81,14 @@ export class CreditsController {
   ): Promise<SmsCreditsResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const summary = await this.smsCredits.getCreditsSummary(tenant.id, page, limit);
+    const [summary, extra] = await Promise.all([
+      this.smsCredits.getCreditsSummary(tenant.id, page, limit),
+      this.creditSummary.forSchool(tenant.id),
+    ]);
 
     return {
       ...summary,
+      ...extra,
       ledger: {
         ...summary.ledger,
         data: summary.ledger.data.map((row) => ({
