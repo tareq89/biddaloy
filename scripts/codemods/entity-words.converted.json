@@ -1,12 +1,22 @@
 {
   "converted": [
+    "attendance",
+    "attendanceImport",
     "classes",
+    "examDocuments",
+    "examTemplates",
+    "exams",
+    "grading",
     "guardians",
+    "homework",
     "myClass",
     "onboardingSetup",
+    "promotions",
+    "routines",
     "setupChecklist",
     "student-lifecycle",
-    "students"
+    "students",
+    "studyPlans"
   ],
   "allow": {}
 }
