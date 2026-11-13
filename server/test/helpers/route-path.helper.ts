@@ -421,6 +421,76 @@ export const ALLOWLIST: AllowlistEntry[] = [
       '[Epic 100 #3866] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401.',
   },
   {
+    controller: 'PlatformVatController',
+    method: 'GET',
+    path: '/platform/money/vat',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401.',
+  },
+  {
+    controller: 'PlatformVatController',
+    method: 'PUT',
+    path: '/platform/money/vat',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs step-up token.',
+  },
+  {
+    controller: 'PlatformPlansController',
+    method: 'GET',
+    path: '/platform/plans',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401.',
+  },
+  {
+    controller: 'PlatformPlansController',
+    method: 'POST',
+    path: '/platform/plans',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs step-up token.',
+  },
+  {
+    controller: 'PlatformPlansController',
+    method: 'PATCH',
+    path: '/platform/plans/:id',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs step-up token.',
+  },
+  {
+    controller: 'PlatformPlansController',
+    method: 'POST',
+    path: '/platform/plans/:id/make-default',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs step-up token.',
+  },
+  {
+    controller: 'PlatformPlansController',
+    method: 'POST',
+    path: '/platform/billing/schools/:id/plan',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs step-up token.',
+  },
+  {
+    controller: 'PlatformSmsReportController',
+    method: 'GET',
+    path: '/platform/money/sms',
+    reason:
+      '[Epic 100 #3875] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401.',
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'POST',
+    path: '/platform/billing/orders/:id/refund',
+    reason:
+      '[Epic 100 #3875] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check. plus ApprovalGuard: needs step-up token (scope PLATFORM_REFUND). Redis down: fail closed.',
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'POST',
+    path: '/platform/billing/sms-bundle-orders/:id/refund',
+    reason:
+      '[Epic 100 #3875] Platform route, no tenant header. AuthGuard(jwt or cockpit-jwt) plus PlatformAccessGuard (a cockpit owner only; no SUPER_ADMIN membership passes). Not tenant-scoped; PlatformAccessGuard is the whole check. plus ApprovalGuard: needs step-up token (scope PLATFORM_REFUND). Redis down: fail closed.',
+  },
+  {
     controller: 'PlatformBillingController',
     method: 'POST',
     path: '/platform/billing/schools/:id/grant',

@@ -3070,6 +3070,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/orders/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Price a seat purchase, with an optional coupon. No write. */
+        post: operations["BillingController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/bkash/callback": {
         parameters: {
             query?: never;
@@ -3155,6 +3172,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/billing/orders/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refund a PAID seat order: entitlement is recomputed, the coupon use is kept. Needs an `Idempotency-Key` header. Money goes back through the bKash panel. */
+        post: operations["PlatformBillingController_refundSeatOrder_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/sms-bundle-orders/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refund an ACTIVE SMS package order while no unit was used (409 BUNDLE_ALREADY_USED after). Needs an `Idempotency-Key` header. Money goes back through the bKash panel. */
+        post: operations["PlatformBillingController_refundBundleOrder_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/billing/schools/{id}/grant": {
         parameters: {
             query?: never;
@@ -3166,6 +3217,162 @@ export interface paths {
         put?: never;
         /** Grant seats for free (a GRANT order, unit price 0). Audited with the reason; idempotent per key. */
         post: operations["PlatformBillingController_grant_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/money/vat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The VAT setting. */
+        get: operations["PlatformVatController_get_v1"];
+        /** Set or switch off VAT. Needs a step-up token. */
+        put: operations["PlatformVatController_update_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/coupons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List coupons, newest first (keyset, limit <= 100). */
+        get: operations["PlatformCouponsController_list_v1"];
+        put?: never;
+        /** Create a coupon (percent 1-99 or fixed). Needs a step-up token and an `Idempotency-Key`; 409 COUPON_CODE_TAKEN for a different body on a taken code. */
+        post: operations["PlatformCouponsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/coupons/free": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a 100 percent coupon. Needs a step-up token, the other owner and an `Idempotency-Key`. */
+        post: operations["PlatformCouponsController_createFree_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/coupons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change active, ends_at, max_uses (not below the uses so far) or the school list. Code, kind and percent never change. */
+        patch: operations["PlatformCouponsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/coupons/{id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uses, total discount and per-school rows (keyset, limit <= 100). */
+        get: operations["PlatformCouponsController_usage_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All plans, at most 100. */
+        get: operations["PlatformPlansController_list_v1"];
+        put?: never;
+        /** Create a plan. Needs a step-up token. */
+        post: operations["PlatformPlansController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit or deactivate a plan. Needs a step-up token. */
+        patch: operations["PlatformPlansController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/plans/{id}/make-default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make an active plan the default. Needs a step-up token. */
+        post: operations["PlatformPlansController_makeDefault_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools/{id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a school to an active plan. Prices only its next order. */
+        post: operations["PlatformPlansController_assign_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6256,6 +6463,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/money/sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SMS state report as JSON, or per-school CSV with format=csv. */
+        get: operations["PlatformSmsReportController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sms-bundles/catalog": {
         parameters: {
             query?: never;
@@ -6334,75 +6558,6 @@ export interface paths {
         };
         /** Download the receipt of a paid SMS package order. */
         get: operations["SmsBundleReceiptController_receipt_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/coupons": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List coupons, newest first (keyset, limit <= 100). */
-        get: operations["PlatformCouponsController_list_v1"];
-        put?: never;
-        /** Create a coupon (percent 1-99 or fixed). Needs a step-up token and an `Idempotency-Key`; 409 COUPON_CODE_TAKEN for a different body on a taken code. */
-        post: operations["PlatformCouponsController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/coupons/free": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a 100 percent coupon. Needs a step-up token, the other owner and an `Idempotency-Key`. */
-        post: operations["PlatformCouponsController_createFree_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/coupons/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Change active, ends_at, max_uses (not below the uses so far) or the school list. Code, kind and percent never change. */
-        patch: operations["PlatformCouponsController_update_v1"];
-        trace?: never;
-    };
-    "/api/v1/platform/coupons/{id}/usage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Uses, total discount and per-school rows (keyset, limit <= 100). */
-        get: operations["PlatformCouponsController_usage_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15930,6 +16085,11 @@ export interface components {
             /** @description The bKash checkout page to send the admin to. */
             bkash_url: string;
         };
+        OrderPreviewDto: {
+            seats: number;
+            months: number;
+            coupon_code?: string;
+        };
         CreateOrderDto: {
             seats: number;
             months: number;
@@ -15938,6 +16098,8 @@ export interface components {
              * @description Client-made; a retry with the same key returns the first order.
              */
             idempotency_key: string;
+            /** @description One coupon. Checked in the service, so a bad code gets the one fixed sentence. */
+            coupon_code?: string;
         };
         PlatformSchoolBillingDto: {
             id: string;
@@ -15969,6 +16131,12 @@ export interface components {
             pending_orders: number;
             /** @description SeatOrderDto[] */
             orders: Record<string, never>[];
+            /** @description The school plan: { id, name, unit_price_paisa }, or null. */
+            plan: {
+                [key: string]: unknown;
+            } | null;
+            /** @description SMS package orders with units bought / used and a `refundable` flag. */
+            bundle_orders: Record<string, never>[];
         };
         OfflinePaymentDto: {
             /** @enum {string} */
@@ -15981,11 +16149,123 @@ export interface components {
             applied: boolean;
             school_id: string;
         };
+        RefundDto: {
+            reason: string;
+        };
+        RefundResultDto: {
+            /** @description false when the order was already refunded. */
+            applied: boolean;
+            order_id: string;
+            /** @description bKash transaction id; null offline. */
+            gateway_ref: string | null;
+            /** @description Money goes back through the bKash panel, not this app. */
+            note: string;
+        };
         GrantSeatsDto: {
             seats: number;
             months: number;
             reason: string;
             idempotency_key: string;
+        };
+        VatSettingDto: {
+            enabled: boolean;
+            /** @description Percent with two decimals; null when off. */
+            rate_percent: number | null;
+            label: string;
+            registration: string | null;
+        };
+        UpdateVatDto: {
+            enabled: boolean;
+            /** @description Required when enabled. */
+            rate_percent?: number;
+            /** @description Omitted keeps the current label. */
+            label?: string;
+            /** @description Omitted keeps it; null or empty clears it. */
+            registration?: string | null;
+        };
+        CreateCouponDto: {
+            /**
+             * @description 4-20 of A-Z, 0-9, "-"; upper-cased.
+             * @example WELCOME10
+             */
+            code: string;
+            /** @enum {string} */
+            discount_kind: "PERCENT" | "FIXED";
+            /** @description PERCENT only; 100 needs /free. */
+            percent?: number;
+            /** @description FIXED only, whole paisa off each month. */
+            fixed_paisa?: number;
+            max_months?: number;
+            max_discount_paisa?: number;
+            min_order_paisa?: number;
+            /**
+             * @default ALL
+             * @enum {string}
+             */
+            scope: "ALL" | "SCHOOLS";
+            /** @description Required (non-empty) for SCHOOLS. */
+            schools?: string[];
+            max_uses?: number;
+            /** @default 1 */
+            per_school_max: number;
+            starts_at: string;
+            ends_at: string;
+        };
+        CreateFreeCouponDto: {
+            /**
+             * @description 4-20 of A-Z, 0-9, "-"; upper-cased.
+             * @example WELCOME10
+             */
+            code: string;
+            max_months?: number;
+            min_order_paisa?: number;
+            /**
+             * @default ALL
+             * @enum {string}
+             */
+            scope: "ALL" | "SCHOOLS";
+            /** @description Required (non-empty) for SCHOOLS. */
+            schools?: string[];
+            max_uses?: number;
+            /** @default 1 */
+            per_school_max: number;
+            starts_at: string;
+            ends_at: string;
+        };
+        UpdateCouponDto: {
+            active?: boolean;
+            ends_at?: string;
+            /** @description Not below the uses so far. */
+            max_uses?: number;
+            /** @description Replaces the school list (SCHOOLS scope). */
+            schools?: string[];
+        };
+        PlanDto: {
+            id: string;
+            name: string;
+            unit_price_paisa: number;
+            active: boolean;
+            is_default: boolean;
+        };
+        CreatePlanDto: {
+            name: string;
+            /** @description Whole paisa per seat per month. */
+            unit_price_paisa: number;
+        };
+        UpdatePlanDto: {
+            name?: string;
+            unit_price_paisa?: number;
+            active?: boolean;
+        };
+        AssignPlanDto: {
+            /** Format: uuid */
+            plan_id: string;
+            reason: string;
+        };
+        PlanPriceDto: {
+            planId: string;
+            name: string;
+            unitPricePaisa: number;
         };
         CreateAcademicYearDto: {
             name: string;
@@ -17968,63 +18248,6 @@ export interface components {
             package_id: string;
             /** Format: uuid */
             idempotency_key: string;
-        };
-        CreateCouponDto: {
-            /**
-             * @description 4-20 of A-Z, 0-9, "-"; upper-cased.
-             * @example WELCOME10
-             */
-            code: string;
-            /** @enum {string} */
-            discount_kind: "PERCENT" | "FIXED";
-            /** @description PERCENT only; 100 needs /free. */
-            percent?: number;
-            /** @description FIXED only, whole paisa off each month. */
-            fixed_paisa?: number;
-            max_months?: number;
-            max_discount_paisa?: number;
-            min_order_paisa?: number;
-            /**
-             * @default ALL
-             * @enum {string}
-             */
-            scope: "ALL" | "SCHOOLS";
-            /** @description Required (non-empty) for SCHOOLS. */
-            schools?: string[];
-            max_uses?: number;
-            /** @default 1 */
-            per_school_max: number;
-            starts_at: string;
-            ends_at: string;
-        };
-        CreateFreeCouponDto: {
-            /**
-             * @description 4-20 of A-Z, 0-9, "-"; upper-cased.
-             * @example WELCOME10
-             */
-            code: string;
-            max_months?: number;
-            min_order_paisa?: number;
-            /**
-             * @default ALL
-             * @enum {string}
-             */
-            scope: "ALL" | "SCHOOLS";
-            /** @description Required (non-empty) for SCHOOLS. */
-            schools?: string[];
-            max_uses?: number;
-            /** @default 1 */
-            per_school_max: number;
-            starts_at: string;
-            ends_at: string;
-        };
-        UpdateCouponDto: {
-            active?: boolean;
-            ends_at?: string;
-            /** @description Not below the uses so far. */
-            max_uses?: number;
-            /** @description Replaces the school list (SCHOOLS scope). */
-            schools?: string[];
         };
         ImportPreviewRowDto: {
             /** @description 1-based row number in the file */
@@ -29779,6 +30002,40 @@ export interface operations {
             };
         };
     };
+    BillingController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderPreviewDto"];
+            };
+        };
+        responses: {
+            /** @description OrderPreviewResponse */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     BkashCallbackController_callback_v1: {
         parameters: {
             query?: never;
@@ -29891,6 +30148,80 @@ export interface operations {
             };
         };
     };
+    PlatformBillingController_refundSeatOrder_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.refund" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundResultDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformBillingController_refundBundleOrder_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.refund" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundResultDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     PlatformBillingController_grant_v1: {
         parameters: {
             query?: never;
@@ -29912,6 +30243,374 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
+                };
+            };
+        };
+    };
+    PlatformVatController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VatSettingDto"];
+                };
+            };
+        };
+    };
+    PlatformVatController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.vat" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVatDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VatSettingDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformCouponsController_list_v1: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformCouponsController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.coupon" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCouponDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformCouponsController_createFree_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.coupon_free" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFreeCouponDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformCouponsController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.coupon" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCouponDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformCouponsController_usage_v1: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformPlansController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanDto"][];
+                };
+            };
+        };
+    };
+    PlatformPlansController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.plan" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePlanDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformPlansController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.plan" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformPlansController_makeDefault_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.plan" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformPlansController_assign_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.plan" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignPlanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanPriceDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -38031,6 +38730,30 @@ export interface operations {
             };
         };
     };
+    PlatformSmsReportController_get_v1: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+                limit?: number;
+                /** @description Opaque cursor from the previous page (margin, school id). */
+                after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     SmsBundleOrdersController_listCatalog_v1: {
         parameters: {
             query?: never;
@@ -38223,157 +38946,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    PlatformCouponsController_list_v1: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PlatformCouponsController_create_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.coupon" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateCouponDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformCouponsController_createFree_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.coupon_free" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateFreeCouponDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformCouponsController_update_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.coupon" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateCouponDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformCouponsController_usage_v1: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
             };
         };
     };

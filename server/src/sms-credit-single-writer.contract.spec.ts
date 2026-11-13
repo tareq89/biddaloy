@@ -37,6 +37,10 @@ export const ALLOWED: Record<string, string> = {
   'modules/attention/rules/system/comms-sms-low.rule.ts': 'read-only SELECT on lots',
   'modules/attention/rules/system/comms-sms-expiring.rule.ts': 'read-only SELECT on lots',
   'scripts/demo-seed/slices/sms-bundles.ts': 'fresh-database demo seed, a reviewed exception',
+  'modules/sms-bundles/stock/sms-allocation.service.ts':
+    'read-only SELECT on sms_credit_lots for the stock allocation figure; writes nothing',
+  'modules/sms-bundles/report/sms-state-report.service.ts':
+    'read-only report SELECTs over the credit tables; writes nothing',
   'modules/calendar/calendar.module.ts': 'comment mention',
   'modules/calendar/calendar-notify.service.ts': 'comment mention',
   'modules/push/entities/push-subscription.entity.ts': 'comment mention',

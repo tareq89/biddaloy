@@ -4,7 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { AuditModule } from '../audit/audit.module';
 import { CouponsModule } from '../coupons/coupons.module';
-import { PlansService } from '../plans/plans.service';
+import { PlansModule } from '../plans/plans.module';
+import { MoneyNoticesModule } from './money-notices.module';
 import { CreditsModule } from '../communications/credits/credits.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
@@ -26,7 +27,6 @@ import { PlatformBillingController } from './platform-billing.controller';
 import { RefundService } from './refund.service';
 import { PlatformBillingService } from './platform-billing.service';
 import { PlatformVatController } from './platform-vat.controller';
-import { MoneyNoticesService } from './money-notices.service';
 import { VatService } from './vat.service';
 import { SeatNoticesService } from './seat-notices.service';
 
@@ -36,6 +36,8 @@ import { SeatNoticesService } from './seat-notices.service';
     AccountAccessModule, // OTP_REDIS: the bKash token cache
     AuditModule,
     CouponsModule, // CouponRedemptionService for OrdersService
+    PlansModule, // PlansService
+    MoneyNoticesModule, // MoneyNoticesService
     PlatformIdentityModule, // PlatformSettingsService for VatService
     SchoolsModule,
     CommunicationsModule,
@@ -56,9 +58,6 @@ import { SeatNoticesService } from './seat-notices.service';
     OrdersService,
     ReceiptService,
     VatService,
-    // ponytail: provided here until #3875 wires a leaf module (PlansService needs MoneyNoticesService; a PlansModule import would cycle).
-    PlansService,
-    MoneyNoticesService,
     PlatformBillingService,
     RefundService,
     BillingScheduler,

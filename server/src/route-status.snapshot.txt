@@ -169,6 +169,7 @@ GET    /api/v1/billing/orders                                                   
 POST   /api/v1/billing/orders                                                    401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/billing/orders/:id/pay/bkash                                      401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/billing/orders/:id/receipt                                        401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/billing/orders/preview                                            401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/billing/summary                                                   401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/calendar-import/commit                                            401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/calendar-import/template                                          401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
@@ -516,10 +517,13 @@ GET    /api/v1/platform/audit                                                   
 GET    /api/v1/platform/audit/sessions                                           401 PASS 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/backups/health                                           401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/billing/orders/:id/offline-payment                       401 PASS 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/orders/:id/refund                                401 403 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/billing/schools                                          401 PASS 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/billing/schools/:id                                      401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/billing/schools/:id/grant                                401 PASS 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/schools/:id/plan                                 401 403 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/billing/sms-bundle-orders/:id/offline-payment            401 PASS 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/sms-bundle-orders/:id/refund                     401 403 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/coupons                                                  401 PASS 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/coupons                                                  401 403 401 401 401 401 401 401 401 401 401 401 401
 PATCH  /api/v1/platform/coupons/:id                                              401 403 401 401 401 401 401 401 401 401 401 401 401
@@ -536,6 +540,9 @@ POST   /api/v1/platform/impersonation                                           
 DELETE /api/v1/platform/impersonation/:id                                        401 PASS 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/impersonation/:id/request-write                          401 403 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/money/revenue                                            401 PASS 401 401 401 401 401 401 401 401 401 401 401
+GET    /api/v1/platform/money/sms                                                401 PASS 401 401 401 401 401 401 401 401 401 401 401
+GET    /api/v1/platform/money/vat                                                401 PASS 401 401 401 401 401 401 401 401 401 401 401
+PUT    /api/v1/platform/money/vat                                                401 403 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/ops/queues                                               401 PASS 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/ops/queues/:name/retry-failed                            401 403 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/ops/restore-lock/:schoolId/release                       401 403 401 401 401 401 401 401 401 401 401 401 401
@@ -544,6 +551,10 @@ GET    /api/v1/platform/owners                                                  
 POST   /api/v1/platform/owners/:userId/lock                                      401 403 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/owners/:userId/unlock                                    401 403 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/owners/history                                           401 PASS 401 401 401 401 401 401 401 401 401 401 401
+GET    /api/v1/platform/plans                                                    401 PASS 401 401 401 401 401 401 401 401 401 401 401
+POST   /api/v1/platform/plans                                                    401 403 401 401 401 401 401 401 401 401 401 401 401
+PATCH  /api/v1/platform/plans/:id                                                401 403 401 401 401 401 401 401 401 401 401 401 401
+POST   /api/v1/platform/plans/:id/make-default                                   401 403 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/reports/usage                                            401 PASS 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/schools                                                  401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/schools                                                  401 PASS 403 403 403 403 403 403 403 403 403 403 403
