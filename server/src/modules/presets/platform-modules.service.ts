@@ -23,6 +23,8 @@ export const PLATFORM_MODULES_INVALID = {
   lockKey: 'Unknown module',
 } as const;
 
+export type SchoolModuleState = Record<string, { on?: boolean; lock?: 'on' | 'off' }>;
+
 const KEYS = new Set<string>(Object.values(ModuleKey));
 // ponytail: a global flip scans the whole keyspace once, capped; past this the 60 s TTL wins.
 const MAX_SCAN_ROUNDS = 500;
@@ -57,6 +59,31 @@ export class PlatformModulesService {
   async get(): Promise<{ modules: PlatformModules }> {
     const row = await this.settings.findOne({ where: { key: PLATFORM_MODULES_KEY } });
     return { modules: sanitizePlatformModules(row?.value) };
+  }
+
+  /**
+   * One school's own module choices and locks, for the owner screen. Straight from the row (no
+   * cache; a read failure fails the request, never an empty answer). Only `on` and `lock` of known
+   * module keys leave here: `offForRoles` and anything unknown stay behind (Rule 31).
+   */
+  async getForSchool(schoolId: string): Promise<{ modules: SchoolModuleState }> {
+    const rows: { modules: unknown }[] = await this.dataSource.query(
+      `SELECT settings->'modules' AS modules FROM schools WHERE id = $1`,
+      [schoolId],
+    );
+    if (rows.length === 0) throw new NotFoundException('School not found');
+    const raw = rows[0].modules;
+    const out: SchoolModuleState = {};
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return { modules: out };
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (!KEYS.has(k) || v === null || typeof v !== 'object') continue;
+      const { on, lock } = v as { on?: unknown; lock?: unknown };
+      const entry: SchoolModuleState[string] = {};
+      if (typeof on === 'boolean') entry.on = on;
+      if (lock === 'on' || lock === 'off') entry.lock = lock;
+      if (Object.keys(entry).length) out[k] = entry;
+    }
+    return { modules: out };
   }
 
   /** Replaces the whole map. An absent key is on. Schools' own choices are never touched. */

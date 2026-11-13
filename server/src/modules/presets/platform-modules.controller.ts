@@ -15,6 +15,7 @@ import {
   ModuleLockResponseDto,
   PlatformModulesDto,
   PlatformModulesResponseDto,
+  SchoolModulesResponseDto,
 } from './dto/platform-modules.dto';
 import { PlatformModulesService } from './platform-modules.service';
 
@@ -37,6 +38,13 @@ export class PlatformModulesController {
   @ApiOkResponse({ type: PlatformModulesResponseDto })
   get(): Promise<PlatformModulesResponseDto> {
     return this.modules.get();
+  }
+
+  @Get('schools/:id/modules')
+  @ApiOperation({ summary: "One school's own module choices and platform locks." })
+  @ApiOkResponse({ type: SchoolModulesResponseDto })
+  getForSchool(@Param('id', ParseUUIDPipe) id: string): Promise<SchoolModulesResponseDto> {
+    return this.modules.getForSchool(id);
   }
 
   @Put('modules')

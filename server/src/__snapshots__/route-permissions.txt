@@ -329,6 +329,7 @@ GET /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard
 GET /platform/schools/:id/archive/export/:jobId | SchoolArchiveController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/archive/export/:jobId/download | SchoolArchiveController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/login-as/candidates | LoginAsCandidatesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/schools/:id/modules | PlatformModulesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/notes | SchoolNotesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/overview | SchoolOverviewController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/restore/jobs/:jobId | PlatformSchoolRestoreController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard

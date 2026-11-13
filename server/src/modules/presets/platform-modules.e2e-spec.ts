@@ -263,9 +263,57 @@ describe('[77.6.01] platform modules E2E', () => {
     });
   });
 
+  describe('GET schools/:id/modules', () => {
+    const read = (id: string) => http().get(`${API}/platform/schools/${id}/modules`).set(owner());
+
+    it('returns on and lock per known key, drops offForRoles and unknown keys/fields', async () => {
+      await setModules(app, SEED_TENANT_ID, { homework: { on: false, offForRoles: ['TEACHER'] } });
+      await putLock(SEED_TENANT_ID, 'homework', 'on');
+      await ds.query(
+        `UPDATE schools SET settings = jsonb_set(settings, '{modules,zzz-secret}', '{"on":true}') WHERE id = $1`,
+        [SEED_TENANT_ID],
+      );
+      let res: Awaited<ReturnType<typeof read>>;
+      try {
+        res = await read(SEED_TENANT_ID);
+      } finally {
+        await ds.query(
+          `UPDATE schools SET settings = settings #- '{modules,zzz-secret}' WHERE id = $1`,
+          [SEED_TENANT_ID],
+        );
+      }
+      expect(res.status).toBe(200);
+      expect(res.body.modules.homework).toEqual({ on: false, lock: 'on' });
+      expect(JSON.stringify(res.body)).not.toContain('offForRoles');
+      expect(JSON.stringify(res.body)).not.toContain('zzz-secret');
+    });
+
+    it("never returns another school's data; no modules block is an empty map", async () => {
+      await putLock(SEED_TENANT_ID, 'homework', 'off');
+      expect((await read(otherSchool)).body).toEqual({ modules: { homework: { on: true } } });
+      const bare = randomUUID();
+      await ds.query(
+        `INSERT INTO schools (id, name, slug, settings, created_at, updated_at)
+         VALUES ($1, 'Bare', $2, '{}'::jsonb, NOW(), NOW())`,
+        [bare, `bare-${bare.slice(0, 8)}`],
+      );
+      const res = await read(bare);
+      await ds.query(`DELETE FROM schools WHERE id = $1`, [bare]);
+      expect(res.body).toEqual({ modules: {} });
+    });
+
+    it('unknown school is the fixed 404, a non-UUID id is 400', async () => {
+      const missing = await read(randomUUID());
+      expect(missing.status).toBe(404);
+      expect(missing.body.message).toBe('School not found');
+      expect((await read('not-a-uuid')).status).toBe(400);
+    });
+  });
+
   describe('who can call', () => {
     const routes: [string, string][] = [
       ['get', `${API}/platform/modules`],
+      ['get', `${API}/platform/schools/${SEED_TENANT_ID}/modules`],
       ['put', `${API}/platform/modules`],
       ['put', `${API}/platform/schools/${SEED_TENANT_ID}/modules/homework/lock`],
     ];
