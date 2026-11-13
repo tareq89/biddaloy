@@ -7,6 +7,7 @@ import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
 import { ContextGuard, RolesGuard } from './guards/context.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { ModuleStateReader } from './guards/module-state.reader';
 import { ApprovalGuard, ApprovalService, APPROVAL_REDIS } from './guards/approval.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -116,6 +117,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     ContextGuard,
     RolesGuard,
     PermissionsGuard,
+    ModuleStateReader,
     ApprovalGuard,
     ApprovalService,
     SessionCutoffService,
@@ -193,6 +195,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     ContextGuard,
     RolesGuard,
     PermissionsGuard,
+    ModuleStateReader,
     ApprovalGuard,
     ApprovalService,
     StepUpService, // Epic 98: PlatformStepUpController

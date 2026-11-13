@@ -326,18 +326,14 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   }
 
   // [Epic 77, D10] moduleRefusal: an off module's route answers 403 with a fixed sentence.
-  // ponytail: asserts 403 + a non-empty message that does not echo the path; pin the exact
-  // sentence here once 77.1.03 defines it.
+  // Sentence pinned: MODULE_OFF_MESSAGE in server/src/common/filters/known-errors.ts.
   if (!env.SMOKE_MODULE_OFF_PATH) {
     out('moduleRefusal: skipped: SMOKE_MODULE_OFF_PATH not set');
   } else {
     await check('GET', env.SMOKE_MODULE_OFF_PATH, 'moduleRefusal', {
       headers: sessions.admin,
       expect: 403,
-      ok: (b) =>
-        typeof b.message === 'string' &&
-        b.message.length > 0 &&
-        !b.message.includes(env.SMOKE_MODULE_OFF_PATH),
+      ok: (b) => b.message === 'This part is not turned on for your institution',
     });
   }
 
