@@ -25,7 +25,7 @@ import { SmsBundleOrder } from '../../../sms-bundles/entities/sms-bundle-order.e
   where: '"bundle_order_id" IS NOT NULL',
 })
 @Check('CHK_sms_credit_lots_source', `"source" IN ('BUNDLE','MANUAL','LEGACY')`)
-@Check('CHK_sms_credit_lots_status', `"status" IN ('ACTIVE','USED_UP','EXPIRED')`)
+@Check('CHK_sms_credit_lots_status', `"status" IN ('ACTIVE','USED_UP','EXPIRED','REFUNDED')`)
 @Check('CHK_sms_credit_lots_total', '"units_total" > 0')
 @Check(
   'CHK_sms_credit_lots_counters',

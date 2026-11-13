@@ -7,8 +7,11 @@ import {
   DeleteDateColumn,
   Index,
   Check,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { SchoolStatus } from '@biddaloy/shared';
+import { Plan, DEFAULT_PLAN_ID } from '../../plans/entities/plan.entity';
 
 /**
  * A school / tenant in the multi-tenant system.
@@ -86,6 +89,14 @@ export class School {
   /** Trial end; NULL = no trial. */
   @Column({ type: 'timestamptz', nullable: true })
   trial_ends_at: Date | null;
+
+  /** The plan this school pays by (D42: new schools land on the fixed default via the column default). */
+  @ManyToOne(() => Plan, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'plan_id', foreignKeyConstraintName: 'FK_schools_plan' })
+  plan: Plan;
+
+  @Column({ type: 'uuid', default: DEFAULT_PLAN_ID })
+  plan_id: string;
 
   /** Max active seats; NULL = unlimited. DB CHECK >= 0. */
   @Column({ type: 'integer', nullable: true })

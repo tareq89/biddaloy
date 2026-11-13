@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule, getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { School } from '../../src/modules/schools/entities/school.entity';
+import { SeatOrder } from '../../src/modules/billing/entities/seat-order.entity';
+import { Plan, DEFAULT_PLAN_ID } from '../../src/modules/plans/entities/plan.entity';
+import { Coupon } from '../../src/modules/coupons/entities/coupon.entity';
 import { TeacherStaffProfileSubscriber } from '../../src/modules/staff-profiles/teacher-staff-profile.subscriber';
 
 /**
@@ -20,6 +24,10 @@ export async function createTestModule(
   imports: any[] = [],
   options?: { synchronize?: boolean; dropSchema?: boolean },
 ): Promise<TestingModule> {
+  // School -> Plan and SeatOrder -> Coupon are relations, so TypeORM needs the target registered.
+  // Add them here once instead of in every spec that lists School or SeatOrder.
+  if (entities.includes(School) && !entities.includes(Plan)) entities = [...entities, Plan];
+  if (entities.includes(SeatOrder) && !entities.includes(Coupon)) entities = [...entities, Coupon];
   const testModule = await Test.createTestingModule({
     imports: [
       TypeOrmModule.forRoot({
@@ -77,6 +85,22 @@ export async function createTestModule(
       );
       await ds.query(
         `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_tcs_teacher_section_homeroom" ON "teacher_class_sections" ("teacher_id", "section_id") WHERE "assignment_type" IN ('CLASS_TEACHER','ASSISTANT_CLASS_TEACHER')`,
+      );
+    }
+  }
+
+  // Plans (Epic 100): the lower(name) unique index is migration-only, and every school
+  // points at the fixed default plan, so the row must exist before any school is inserted.
+  if (options?.synchronize) {
+    const ds = testModule.get<DataSource>(getDataSourceToken());
+    const [{ exists }] = await ds.query(`SELECT to_regclass('plans') IS NOT NULL AS exists`);
+    if (exists) {
+      await ds.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_plans_name_lower" ON "plans" (lower("name"))`,
+      );
+      await ds.query(
+        `INSERT INTO "plans" ("id", "name", "unit_price_paisa", "active", "is_default") VALUES ($1, 'Standard', 1000, true, true) ON CONFLICT DO NOTHING`,
+        [DEFAULT_PLAN_ID],
       );
     }
   }

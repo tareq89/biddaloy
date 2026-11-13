@@ -94,6 +94,16 @@ export class SmsBundleOrder {
   refund_reason: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'refunded_by_user_id',
+    foreignKeyConstraintName: 'FK_sms_bundle_orders_refunded_by',
+  })
+  refunded_by: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  refunded_by_user_id: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_user_id' })
   created_by: User | null;
 

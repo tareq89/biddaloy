@@ -188,7 +188,9 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   payments: { null: ['remarks', 'reversal_reason', 'issuer_snapshot', 'transaction_reference'] },
   payment_allocations: { null: ['notes'] },
   student_fees: { null: ['note'] },
-  seat_orders: { null: ['receipt_snapshot'] },
+  // [100.3.gC-01] refund_reason is text the owner types; plan names are the owner's catalog text.
+  seat_orders: { null: ['receipt_snapshot', 'refund_reason'] },
+  plans: { 'kept-public': ['name'] },
   platform_payments: { null: ['raw', 'gateway_ref'] },
   // [100.1.02] Package names are the owner's catalog text, not personal. Free text the owner
   // types (refund reason, stock note, delete reason) and the frozen receipt are cleared.
