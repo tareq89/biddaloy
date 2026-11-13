@@ -25,7 +25,7 @@ describe('SmsBundleOrdersService (integration)', () => {
       weightedAverageCostPaisaPerSms: async () => 12.5,
     };
     svc = new SmsBundleOrdersService(ds, allocation as never, module.get(AuditService));
-    sweep = new SmsBundleOrderSweepService(ds);
+    sweep = new SmsBundleOrderSweepService(ds, { paymentMayBeLive: async () => false } as never);
     [{ id: user }] = await ds.query(
       `INSERT INTO users (id, email, password_hash, full_name) VALUES (gen_random_uuid(), 'ord-' || substr(gen_random_uuid()::text,1,8) || '@example.test', 'x', 'Admin') RETURNING id`,
     );
