@@ -82,17 +82,11 @@ function money(paisa: number, locale: 'en' | 'bn'): string {
   return digits(`৳${taka}`, locale);
 }
 
-/** A4, print-ready HTML (the browser saves it as PDF). Every value is escaped; no scripts run. */
-export function renderReceiptHtml(d: ReceiptData): string {
+const row = (k: string, v: string) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`;
+
+/** The A4 page both receipts share: `rows` fill the table, `notes` follow it. */
+function page(d: { locale: 'en' | 'bn'; receiptNumber: string }, rows: string, notes: string) {
   const c = COPY[d.locale];
-  const n = (v: number | string) => digits(String(v), d.locale);
-  const paid = new Intl.DateTimeFormat(d.locale === 'bn' ? 'bn-BD' : 'en-GB', {
-    timeZone: 'Asia/Dhaka',
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(d.paidAt);
-  const row = (k: string, v: string) =>
-    `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`;
   return `<!doctype html>
 <html lang="${d.locale}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
@@ -110,8 +104,26 @@ td{padding:6px 0}
 <h1>Biddaloy</h1>
 <div class="muted">${escapeHtml(c.title)}</div>
 <table>
-${row(c.receipt, d.receiptNumber)}
-${row(c.date, n(paid))}
+${rows}
+</table>
+${notes}
+<p class="muted">${escapeHtml(c.legal)}</p>
+</body></html>`;
+}
+
+const dhaka = (d: Date, locale: 'en' | 'bn') =>
+  new Intl.DateTimeFormat(locale === 'bn' ? 'bn-BD' : 'en-GB', {
+    timeZone: 'Asia/Dhaka',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(d);
+
+/** A4, print-ready HTML (the browser saves it as PDF). Every value is escaped; no scripts run. */
+export function renderReceiptHtml(d: ReceiptData): string {
+  const c = COPY[d.locale];
+  const n = (v: number | string) => digits(String(v), d.locale);
+  const rows = `${row(c.receipt, d.receiptNumber)}
+${row(c.date, n(dhaka(d.paidAt, d.locale)))}
 ${row(c.billedTo, [d.schoolName, d.schoolAddress].filter(Boolean).join(', '))}
 ${row(c.order, d.orderId)}
 ${row(c.item, c.detail(n(d.seats), n(d.months), money(d.unitPricePaisa, d.locale)))}
@@ -119,9 +131,64 @@ ${row(c.period, n(`${d.periodStart} - ${d.periodEnd}`))}
 ${row(c.method, c.methods[d.method] ?? d.method)}
 ${d.reference ? row(c.ref, d.reference) : ''}
 ${d.vatRegistration ? row(c.vat, d.vatRegistration) : ''}
-<tr class="total"><th>${escapeHtml(c.total)}</th><td>${escapeHtml(money(d.amountPaisa, d.locale))}</td></tr>
-</table>
-${d.vatRegistration ? `<p class="muted">${escapeHtml(c.vatLine)}</p>` : ''}
-<p class="muted">${escapeHtml(c.legal)}</p>
-</body></html>`;
+<tr class="total"><th>${escapeHtml(c.total)}</th><td>${escapeHtml(money(d.amountPaisa, d.locale))}</td></tr>`;
+  return page(d, rows, d.vatRegistration ? `<p class="muted">${escapeHtml(c.vatLine)}</p>` : '');
+}
+
+export interface BundleReceiptData {
+  receiptNumber: string;
+  orderId: string;
+  schoolName: string;
+  schoolAddress: string | null;
+  packageName: string;
+  smsCount: number;
+  validityDays: number;
+  amountPaisa: number;
+  /** Last day the SMS can be used (`paid_at + validity_days`), already formatted `YYYY-MM-DD`. */
+  expiresOn: string;
+  method: string;
+  reference: string | null;
+  paidAt: Date;
+  locale: 'en' | 'bn';
+  /** Live VAT summary line; null until #3869 fills it, then it prints. */
+  vatLine: string | null;
+  /** Coupon discount line; null today (seat-only until a later wave). */
+  couponLine: string | null;
+}
+
+const BUNDLE_COPY = {
+  en: {
+    item: 'SMS package',
+    detail: (name: string, sms: string, days: string) => `${name}, ${sms} SMS, valid ${days} days`,
+    validUntil: 'Valid until',
+    vat: 'VAT',
+    coupon: 'Coupon',
+  },
+  bn: {
+    item: 'এসএমএস প্যাকেজ',
+    detail: (name: string, sms: string, days: string) =>
+      `${name}, ${sms}টি এসএমএস, মেয়াদ ${days} দিন`,
+    validUntil: 'মেয়াদ শেষ',
+    vat: 'ভ্যাট',
+    coupon: 'কুপন',
+  },
+};
+
+/** Same layout and `SMR-` series as the seat receipt; the item and validity rows differ. */
+export function renderBundleReceiptHtml(d: BundleReceiptData): string {
+  const c = COPY[d.locale];
+  const b = BUNDLE_COPY[d.locale];
+  const n = (v: number | string) => digits(String(v), d.locale);
+  const rows = `${row(c.receipt, d.receiptNumber)}
+${row(c.date, n(dhaka(d.paidAt, d.locale)))}
+${row(c.billedTo, [d.schoolName, d.schoolAddress].filter(Boolean).join(', '))}
+${row(c.order, d.orderId)}
+${row(b.item, b.detail(d.packageName, n(d.smsCount), n(d.validityDays)))}
+${row(b.validUntil, n(d.expiresOn))}
+${row(c.method, c.methods[d.method] ?? d.method)}
+${d.reference ? row(c.ref, d.reference) : ''}
+${d.couponLine ? row(b.coupon, d.couponLine) : ''}
+${d.vatLine ? row(b.vat, d.vatLine) : ''}
+<tr class="total"><th>${escapeHtml(c.total)}</th><td>${escapeHtml(money(d.amountPaisa, d.locale))}</td></tr>`;
+  return page(d, rows, '');
 }
