@@ -14,6 +14,7 @@ import {
   MessageSquareIcon,
   PrinterIcon,
   ReceiptTextIcon,
+  ToggleRightIcon,
   WalletIcon,
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export const SETTINGS_CATEGORY_IDS = [
   'printing',
   'security',
   'support',
+  'modulesWords',
   'backup',
 ] as const;
 export type SettingsCategoryId = (typeof SETTINGS_CATEGORY_IDS)[number];
@@ -52,6 +54,8 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { id: 'printing', icon: PrinterIcon, anchors: ['printers-section'] },
   { id: 'security', icon: LockIcon, anchors: [] },
   { id: 'support', icon: LifeBuoyIcon, anchors: ['support-access-section'] },
+  // D29: ADMIN only (the page filters it); `?tab=` and `?kind=` are its own search params.
+  { id: 'modulesWords', icon: ToggleRightIcon, anchors: ['modules-words-section'] },
   { id: 'backup', icon: DatabaseIcon, anchors: [] },
 ];
 

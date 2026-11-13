@@ -1,5 +1,6 @@
 import { Button, RouteStatusState } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { Link } from '@tanstack/react-router';
 import { PowerOffIcon } from 'lucide-react';
 
 /**
@@ -17,9 +18,9 @@ export function ModuleOffState({ isAdmin }: { isAdmin: boolean }) {
     >
       {isAdmin && (
         <Button asChild>
-          {/* Plain href: the `modules` settings section arrives with the wave-4 screen,
-              so a typed router Link to it cannot compile yet. */}
-          <a href="/settings?section=modules">{t('moduleOff.turnOn')}</a>
+          <Link to="/settings" search={{ section: 'modulesWords' }}>
+            {t('moduleOff.turnOn')}
+          </Link>
         </Button>
       )}
     </RouteStatusState>

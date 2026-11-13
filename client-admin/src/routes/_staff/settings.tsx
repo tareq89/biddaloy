@@ -21,6 +21,10 @@ const settingsSearchSchema = z.object({
   order: z.string().uuid().optional().catch(undefined),
   /** 76.5: `?section=academics&devices=new` opens the Add attendance machine dialog (palette action). */
   devices: z.literal('new').optional().catch(undefined),
+  /** D29: the Modules & words tab. */
+  tab: z.enum(['modules', 'words']).optional().catch(undefined),
+  /** D28: `?kind=<id>` opens that institution kind's preview (a full-page overlay). */
+  kind: z.string().max(64).optional().catch(undefined),
   /** How the bKash return went; `error` = the server could not confirm it (generic). */
   payment: z.enum(['success', 'cancel', 'failure', 'error']).optional().catch(undefined),
 });

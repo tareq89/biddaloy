@@ -18,7 +18,8 @@
     "security": "Sign-in & security",
     "backup": "Backup",
     "alerts": "Alerts & reminders",
-    "support": "Biddaloy support access"
+    "support": "Biddaloy support access",
+    "modulesWords": "Modules & words"
   },
   "advanced": "Advanced settings",
   "unnamedSchool": "this school",
@@ -594,7 +595,11 @@
     "conductItems": "Each line gets a grade from A to D on the report card, for example Discipline or Neatness. Renaming a line keeps the grades already given.",
     "dailySource": "Decides who can save the daily register: any assigned teacher, the class teacher, the first-period teacher, or the attendance machine.",
     "staffSmsFallback": "If daily attendance is still not taken late in the day, send the admin a text message. Off by default.",
-    "deviceSecretKey": "The machine's secret key. It is shown once, so copy it now and keep it safe."
+    "deviceSecretKey": "The machine's secret key. It is shown once, so copy it now and keep it safe.",
+    "modulesSource": "Shows who decides if this module is On. If the platform turned it off or locked it, you cannot change it here.",
+    "modulesWhoCantSee": "Pick the roles that should not see this module. Admins always see it.",
+    "modulesBnWord": "The Bangla word. Leave it empty to keep the usual word.",
+    "modulesApplyKind": "Apply changes your modules and words to match the institution kind. Your data stays as it is."
   },
   "helpRequired": {
     "schoolName": "Yes",
@@ -716,6 +721,142 @@
       "confirm": "Revoke",
       "done": "Machine revoked",
       "error": "Could not revoke the machine. Try again."
+    }
+  },
+  "modulesWords": {
+    "title": "Modules & words",
+    "intro": "Choose which parts are On and which words show on screen.",
+    "tabs": {
+      "label": "Modules and words",
+      "modules": "Modules",
+      "words": "Words"
+    },
+    "kinds": {
+      "title": "Institution kind",
+      "intro": "Choose your institution kind. You see what changes first, then you apply it.",
+      "loading": "Loading institution kinds",
+      "loadError": "Could not load the institution kinds. Try again.",
+      "unverified": "Not verified yet",
+      "lines": {
+        "primary": "Class 1 to 5",
+        "secondary": "Class 6 to 10",
+        "college": "Class 11 and 12",
+        "alia-madrasa": "Dakhil and Alim",
+        "qawmi-madrasa": "Hifz and Kitab sections",
+        "english-medium": "O level and A level",
+        "coaching": "Batches, regular classes and monthly fees",
+        "technical": "Trade and practical work"
+      }
+    },
+    "preview": {
+      "title": "Institution kind: {{kind}}",
+      "note": "This is only a preview. Nothing has changed yet.",
+      "stays": "Your students, fees and other data, platform locks and \"Who can't see it\" stay as they are.",
+      "willBeOn": "Will be On",
+      "willBeOff": "Will be Off",
+      "wordsChange": "Words that will change",
+      "now": "Now",
+      "willBe": "Will be",
+      "nothingToChange": "Your modules and words already match {{kind}}. There is nothing to apply.",
+      "nothingToApply": "Nothing to apply",
+      "loading": "Loading the preview",
+      "loadError": "Could not show this preview. Try again.",
+      "applyError": "Could not apply this. Nothing was changed. Try again.",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "applied": "{{kind}} applied"
+    },
+    "groups": {
+      "study": "Study",
+      "money": "Money",
+      "people": "People",
+      "communication": "Communication"
+    },
+    "moduleNames": {
+      "attendance": "Attendance",
+      "staffAttendance": "Staff attendance",
+      "fees": "Fees",
+      "fines": "Fines",
+      "exams": "Exams and results",
+      "seatPlans": "Seat plans",
+      "evaluations": "Evaluations",
+      "homework": "Homework",
+      "syllabus": "Syllabus",
+      "studyPlans": "Study plans",
+      "routines": "Routines",
+      "programs": "Programs",
+      "admission": "Admissions",
+      "applications": "Applications",
+      "notices": "Notice board",
+      "messaging": "Messages and SMS",
+      "website": "Website"
+    },
+    "moduleLines": {
+      "attendance": "Daily attendance of students.",
+      "staffAttendance": "Daily attendance of staff.",
+      "fees": "Fee list, collection and receipts.",
+      "fines": "Fines for late or absent days.",
+      "exams": "Exams, marks and results.",
+      "seatPlans": "Seating for exams.",
+      "evaluations": "Student and class evaluations.",
+      "homework": "Teachers give work, students see it.",
+      "syllabus": "Subject-wise syllabus.",
+      "studyPlans": "Study plans from the routine.",
+      "routines": "Class routine.",
+      "programs": "Programs and milestones.",
+      "admission": "Admission rounds and applicants.",
+      "applications": "Leave and other applications.",
+      "notices": "Notices for guardians and teachers.",
+      "messaging": "Messages and SMS to guardians.",
+      "website": "The school's public website."
+    },
+    "labelNames": {
+      "class": "Class",
+      "section": "Section",
+      "student": "Student",
+      "guardian": "Guardian",
+      "staff": "Staff",
+      "teacher": "Teacher",
+      "academicYear": "Academic year",
+      "subject": "Subject",
+      "fee": "Fee"
+    },
+    "modules": {
+      "on": "On",
+      "off": "Off",
+      "offBecause": "Off because {{base}} is Off",
+      "cannotTurnOff": "This cannot be turned off.",
+      "source": {
+        "school": "Your institution",
+        "platformOff": "Platform turned it off",
+        "platformLock": "Platform locked it"
+      },
+      "whoCantSee": "Who can't see it",
+      "whoCantSeeSome": "Hidden from {{count}} roles",
+      "saved": "{{module}} turned {{state}}",
+      "undo": "Undo",
+      "notSaved": "Not saved — try again"
+    },
+    "dialog": {
+      "title": "Who can't see it — {{module}}",
+      "intro": "People you pick will not see {{module}} in the menu or anywhere else.",
+      "adminNote": "Admins can always see it.",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "words": {
+      "intro": "The word you change shows in menus, pages, prints and SMS. A word you leave alone stays as it was.",
+      "listTitle": "Words",
+      "now": "Word now",
+      "enOne": "English (one)",
+      "enMany": "English (many)",
+      "bn": "Bangla",
+      "suggestion": "Suggestion",
+      "example": "shows as:",
+      "exampleValue": "3 {{word}}",
+      "save": "Save",
+      "saved": "Words saved",
+      "notSaved": "Not saved — try again"
     }
   }
 }
