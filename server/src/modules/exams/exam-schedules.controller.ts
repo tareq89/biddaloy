@@ -25,7 +25,8 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { ExamSchedulesService } from './exam-schedules.service';
 import { CreateExamScheduleDto, UpdateExamScheduleDto } from './dto/exam-schedules.dto';
-import { Permission, JwtPayload, isGuardianRole } from '@biddaloy/shared';
+import { Permission, JwtPayload, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -40,6 +41,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
  */
 @ApiTags('exam-schedules')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams/:examId/schedule')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ExamSchedulesController {
@@ -110,6 +112,7 @@ export class ExamSchedulesController {
  */
 @ApiTags('exam-schedules')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('students/:studentId/exam-schedule')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentExamScheduleController {

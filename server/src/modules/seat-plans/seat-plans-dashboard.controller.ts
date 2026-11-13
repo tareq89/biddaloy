@@ -1,7 +1,8 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { DashboardWidgetKey, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -15,6 +16,7 @@ import { SeatPlanStatusDto } from './dto/seat-plans-dashboard.dto';
 /** `GET /dashboard/widgets/seat-plan-status` (Epic 169 D35/D46). */
 @ApiTags('dashboard')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.seatPlans)
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SeatPlansDashboardController {
