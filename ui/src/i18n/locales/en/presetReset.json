@@ -19,7 +19,7 @@
   "blocked": {
     "heading": "Cannot reset: this school already has data",
     "entities": {
-      "students": "Students",
+      "students": "$t(common:entities.student_other)",
       "enrolments": "Enrolments",
       "exams": "Exams",
       "fee_structures": "Fee structures",
@@ -29,7 +29,7 @@
       "calendar_events": "Calendar events",
       "promotion_runs": "Promotion lists",
       "attendance_sessions": "Attendance sessions",
-      "teacher_assignments": "Teacher assignments",
+      "teacher_assignments": "$t(common:entities.teacher_one) assignments",
       "routines": "Routines",
       "admission_intakes": "Admission rounds",
       "recurring_fee_schedules": "Recurring fee schedules",

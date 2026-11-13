@@ -55,7 +55,7 @@
     "SETTINGS_TEST": "Connection tested"
   },
   "entityTypes": {
-    "Student": "Student",
+    "Student": "$t(common:entities.student_one)",
     "FeeStructure": "Fee structure",
     "Payment": "Payment",
     "Invoice": "Invoice",
@@ -68,10 +68,10 @@
     "AttendanceDevice": "Attendance device",
     "AttendanceRecord": "Attendance record",
     "AttendanceSession": "Attendance session",
-    "Class": "Class",
-    "ClassSection": "Class section",
+    "Class": "$t(common:entities.class_one)",
+    "ClassSection": "$t(common:entities.class_one) section",
     "Enrollment": "Enrollment",
-    "Guardian": "Guardian",
+    "Guardian": "$t(common:entities.guardian_one)",
     "InvitationBatch": "Invitation round",
     "RefreshToken": "Session",
     "SchoolHoliday": "School holiday",

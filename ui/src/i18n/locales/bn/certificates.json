@@ -55,8 +55,8 @@
     "title": "পুরো শ্রেণির জন্য একসাথে?",
     "help": "একই তথ্য দিয়ে সবার সনদ একবারে ইস্যু হবে, ক্রমিক নম্বর পরপর বসবে।",
     "action": "পুরো {{className}}-র জন্য",
-    "count_other": "{{n}} জন শিক্ষার্থী",
-    "count_one": "{{n}} জন শিক্ষার্থী",
+    "count_other": "{{n}} জন $t(common:entities.student_one)",
+    "count_one": "{{n}} জন $t(common:entities.student_one)",
     "ineligible_other": "{{n}} জন এই সনদ পাবে না, তাদের বাদ দেওয়া হয়েছে:",
     "ineligible_one": "{{n}} জন এই সনদ পাবে না, তাদের বাদ দেওয়া হয়েছে:",
     "single": "শুধু {{name}}",
@@ -97,7 +97,7 @@
     "valid": "বৈধ"
   },
   "header": {
-    "line": "{{class}} · শাখা {{section}} · রোল {{roll}} · {{reg}}"
+    "line": "{{class}} · $t(common:entities.section_one) {{section}} · রোল {{roll}} · {{reg}}"
   },
   "help": {
     "certKind": "যে সনদটি দেবেন। ছাড়পত্রের জন্য আগে বদলি বা চলে যাওয়ার তথ্য লিখে রাখতে হয়।",
