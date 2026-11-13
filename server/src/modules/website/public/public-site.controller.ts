@@ -50,6 +50,8 @@ const MEDIA_ERROR_PATH = '/api/v1/public/site/by-host/:host/media/:key';
  * (`site.not_found`); a renamed subdomain inside its 30 days answers 301 `{ to }` (D34).
  * Redis down: these still answer, the cache just falls through to the database (D42).
  */
+// core: not tagged with @RequiresModule - public host routes, no PermissionsGuard/tenant context, so the tag would not be enforced.
+// PublicSiteService.live reads the website state (island/page the notices state) after the host lookup, 404 when off [77.2.06].
 @ApiTags('public-site')
 @Controller('public/site/by-host/:host')
 @Throttle({ default: SITE_READ_RATE_LIMIT })

@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -14,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -30,6 +31,7 @@ type Tenant = { id: string };
 @ApiTags('website')
 @ApiTenantAuth()
 @Controller('website/posts')
+@RequiresModule(ModuleKey.website)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.WEBSITE_MANAGE)
 export class SitePostsController {

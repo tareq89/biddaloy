@@ -24,6 +24,11 @@ async function load(root: HTMLElement) {
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(MAX_WAIT_MS),
     });
+    if (res.status === 404) {
+      // notices module off (or site gone): render nothing, no error box [77.2.06]
+      root.closest('section')?.remove();
+      return;
+    }
     if (res.ok) {
       const body = (await res.json()) as Item[] | { items?: Item[] };
       items = Array.isArray(body) ? body : (body.items ?? []);
