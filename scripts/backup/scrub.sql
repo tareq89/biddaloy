@@ -260,7 +260,7 @@ UPDATE student_public_exams SET
   registration_no = CASE WHEN registration_no IS NULL THEN NULL ELSE left(id::text, 8) END,
   roll_no = CASE WHEN roll_no IS NULL THEN NULL ELSE left(id::text, 8) END;
 UPDATE homework_submissions SET attachments = '[]'::jsonb;
-UPDATE seat_orders SET receipt_snapshot = NULL;
+UPDATE seat_orders SET receipt_snapshot = NULL, refund_reason = NULL;
 UPDATE platform_payments SET raw = NULL, gateway_ref = NULL;
 UPDATE sms_bundle_orders SET receipt_snapshot = NULL, refund_reason = NULL;
 UPDATE sms_stock_entries SET note = NULL, delete_reason = NULL;

@@ -11,6 +11,8 @@ import {
 } from 'typeorm';
 import { SeatOrderStatus } from '@biddaloy/shared';
 import { School } from '../../schools/entities/school.entity';
+import { Plan } from '../../plans/entities/plan.entity';
+import { Coupon } from '../../coupons/entities/coupon.entity';
 import { User } from '../../users/entities/user.entity';
 
 /**
@@ -33,6 +35,11 @@ import { User } from '../../users/entities/user.entity';
 @Check('CHK_seat_orders_months', '"months" BETWEEN 1 AND 24')
 @Check('CHK_seat_orders_unit_price', '"unit_price_paisa" >= 0')
 @Check('CHK_seat_orders_amount', '"amount_paisa" BETWEEN 0 AND 9999999999')
+@Check('CHK_seat_orders_discount_nonneg', '"discount_paisa" >= 0')
+@Check(
+  'CHK_seat_orders_discount',
+  '"amount_paisa" = "seats"::bigint * "months" * "unit_price_paisa" - "discount_paisa"',
+)
 @Check('CHK_seat_orders_period', '"period_end" >= "period_start"')
 export class SeatOrder {
   @PrimaryGeneratedColumn('uuid')
@@ -84,6 +91,41 @@ export class SeatOrder {
   /** What the receipt shows, frozen at payment: `{ name, address, vat }`. */
   @Column({ type: 'jsonb', nullable: true })
   receipt_snapshot: { name: string; address: string | null; vat: string | null } | null;
+
+  /** The plan priced from; NULL for orders that predate plans. `unit_price_paisa` stays the LIST price (D42). */
+  @ManyToOne(() => Plan, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'plan_id', foreignKeyConstraintName: 'FK_seat_orders_plan' })
+  plan: Plan | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  plan_id: string | null;
+
+  @ManyToOne(() => Coupon, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'coupon_id', foreignKeyConstraintName: 'FK_seat_orders_coupon' })
+  coupon: Coupon | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  coupon_id: string | null;
+
+  /** Whole paisa off the list price; `amount_paisa = seats * months * unit_price - discount`. */
+  @Column({ type: 'bigint', default: 0 })
+  discount_paisa: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  refunded_at: Date | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  refund_reason: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'refunded_by_user_id',
+    foreignKeyConstraintName: 'FK_seat_orders_refunded_by',
+  })
+  refunded_by: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  refunded_by_user_id: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   paid_at: Date | null;

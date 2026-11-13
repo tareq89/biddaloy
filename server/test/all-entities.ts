@@ -147,6 +147,10 @@ import { AcrAssessment } from '../src/modules/acr/entities/acr-assessment.entity
 import { AcrScore } from '../src/modules/acr/entities/acr-score.entity';
 import { StaffIncident } from '../src/modules/incidents/entities/staff-incident.entity';
 import { Alert } from '../src/modules/attention/entities/alert.entity';
+import { Plan } from '../src/modules/plans/entities/plan.entity';
+import { Coupon } from '../src/modules/coupons/entities/coupon.entity';
+import { CouponSchool } from '../src/modules/coupons/entities/coupon-school.entity';
+import { CouponRedemption } from '../src/modules/coupons/entities/coupon-redemption.entity';
 import { SeatOrder } from '../src/modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from '../src/modules/billing/entities/platform-payment.entity';
 import { PlatformAlert } from '../src/modules/health/platform-alerts/platform-alert.entity';
@@ -331,6 +335,10 @@ export const ALL_ENTITIES = [
   NoticeRecipient,
   PlatformAlert,
   SeatOrder,
+  Plan,
+  Coupon,
+  CouponSchool,
+  CouponRedemption,
   PlatformPayment,
   Survey,
   SurveyQuestion,
