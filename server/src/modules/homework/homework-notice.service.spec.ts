@@ -70,6 +70,7 @@ describe('HomeworkNoticeService', () => {
         homework: { notifyOnAssign: true, notifyDefaulters: true },
         region: { locale: 'en-US' },
       })),
+      getSchoolLabels: vi.fn(async () => ({})),
     };
     service = new HomeworkNoticeService(studentRepo, logRepo, queue, smsCredit, schoolsService);
   });
@@ -320,6 +321,54 @@ describe('HomeworkNoticeService', () => {
       expect(logRepo.save.mock.calls[0][0].message_body).toBe(
         'প্রিয় অভিভাবক, Rahim Uddin-এর বাড়ির কাজ "Chapter 3 exercises"-এর জমার শেষ তারিখ এখন ৮ জানুয়ারি।',
       );
+    });
+  });
+
+  describe('the school own word for guardian (77.5)', () => {
+    const bnSettings = {
+      homework: { notifyOnAssign: true, notifyDefaulters: true },
+      region: { locale: 'bn-BD' },
+    };
+    it('en: Parent replaces Guardian in every change body, title untouched', async () => {
+      schoolsService.getSchoolLabels.mockResolvedValue({ guardian: { en: { one: 'Parent' } } });
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'WITHDRAWN');
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'Dear Parent, homework "Chapter 3 exercises" for Rahim Uddin has been withdrawn. It does not need to be submitted.',
+      );
+    });
+    it('bn word applied to the assignment and defaulter notices', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue(bnSettings);
+      schoolsService.getSchoolLabels.mockResolvedValue({ guardian: { bn: 'বাবা-মা' } });
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+      for (const call of logRepo.save.mock.calls) {
+        expect(call[0].message_body.startsWith('প্রিয় বাবা-মা, ')).toBe(true);
+      }
+    });
+    it('blank or other-language entry keeps the stock word', async () => {
+      schoolsService.getSchoolLabels.mockResolvedValue({
+        guardian: { en: { one: '  ' }, bn: 'বাবা-মা' },
+      });
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'DUE_CHANGED');
+      expect(logRepo.save.mock.calls[0][0].message_body.startsWith('Dear Guardian, ')).toBe(true);
+    });
+    it('a word with $& or {{x}} stays literal text', async () => {
+      schoolsService.getSchoolLabels.mockResolvedValue({ guardian: { en: { one: 'A$&{{x}}' } } });
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'WITHDRAWN');
+      expect(logRepo.save.mock.calls[0][0].message_body.startsWith('Dear A$&x, homework')).toBe(
+        true,
+      );
+    });
+    it('labels are read once per job and for this tenant only', async () => {
+      studentRepo.find.mockResolvedValue([
+        student({ id: 's-1', guardians: [guardian({ id: 'g-1' })] }),
+        student({ id: 's-2', guardians: [guardian({ id: 'g-2', phone: '01799999999' })] }),
+        student({ id: 's-3', guardians: [guardian({ id: 'g-3', phone: '01788888888' })] }),
+      ]);
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(logRepo.save).toHaveBeenCalledTimes(3);
+      expect(schoolsService.getSchoolLabels).toHaveBeenCalledTimes(1);
+      expect(schoolsService.getSchoolLabels).toHaveBeenCalledWith(TENANT);
     });
   });
 
