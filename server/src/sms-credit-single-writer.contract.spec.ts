@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 export const ALLOWED: Record<string, string> = {
   'modules/communications/credits/sms-credit.service.ts': 'the one writer',
   'modules/communications/credits/entities/': 'the entity files',
+  'modules/communications/credits/sms-credit-lot-invariants.ts': 'read-only invariant check, writes nothing',
   'modules/communications/credits/sms-credit-reconcile.ts': 'reads and delegates to the service',
   'scripts/reconcile-sms-credit.ts': 'reads and delegates to the service',
   'modules/communications/credits/credits.module.ts': 'entity list',
