@@ -37,7 +37,7 @@
     "heading": "Who is this for?",
     "forStudent": "I am writing a student's paper application",
     "self": "For myself",
-    "student": "Student",
+    "student": "$t(common:entities.student_one)",
     "studentSearch": "Search by name or roll",
     "studentChange": "Change student",
     "studentRequired": "Choose a student",

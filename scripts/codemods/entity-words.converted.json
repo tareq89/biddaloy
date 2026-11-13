@@ -1,5 +1,14 @@
 {
   "converted": [
+    "admission-public",
+    "admission-reports",
+    "admission-staff-applicants",
+    "admission-staff-intakes",
+    "applications",
+    "applicationsDetail",
+    "applicationsList",
+    "applicationsNew",
+    "applicationsReports",
     "attendance",
     "attendanceImport",
     "attention",
@@ -21,6 +30,7 @@
     "onboardingSetup",
     "payments",
     "portal",
+    "portalApplications",
     "programs",
     "promotions",
     "reports",
