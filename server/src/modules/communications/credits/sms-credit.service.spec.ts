@@ -490,4 +490,65 @@ describe('SmsCreditService', () => {
       });
     });
   });
+
+  describe('closeUntouchedLot [100.3.06]', () => {
+    const lot = (over: Record<string, unknown> = {}) => ({
+      id: 'lot-9',
+      status: 'ACTIVE',
+      units_total: 50,
+      remaining: 50,
+      reserved_units: 0,
+      debited_units: 0,
+      expired_units: 0,
+      ...over,
+    });
+    const mgr = (found: unknown, draws = 0) => ({
+      findOne: vi.fn(async (entity: any) => (entity?.name === 'SmsCreditLot' ? found : null)),
+      count: vi.fn(async () => draws),
+      insert: vi.fn(),
+      query: vi.fn(),
+    });
+
+    it('writes one negative ADJUST, closes the lot and lowers the balance', async () => {
+      const m = mgr(lot());
+      await expect(service.closeUntouchedLot(m as any, TENANT_ID, 'o1')).resolves.toEqual({
+        closed: true,
+        units: 50,
+      });
+      expect(m.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          kind: SmsCreditLedgerKind.ADJUST,
+          units: -50,
+          idempotency_key: 'refund:o1',
+        }),
+      );
+      expect(m.query).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      ['a reserved unit', lot({ remaining: 49, reserved_units: 1 }), 0],
+      ['a debited unit', lot({ remaining: 49, debited_units: 1 }), 0],
+      ['an open draw row', lot(), 1],
+      ['a used-up lot', lot({ status: 'USED_UP', remaining: 0 }), 0],
+    ])('refuses %s with BUNDLE_ALREADY_USED and writes nothing', async (_n, l, draws) => {
+      const m = mgr(l, draws);
+      await expect(service.closeUntouchedLot(m as any, TENANT_ID, 'o1')).rejects.toMatchObject({
+        response: { details: { code: 'BUNDLE_ALREADY_USED' } },
+      });
+      expect(m.insert).not.toHaveBeenCalled();
+      expect(m.query).not.toHaveBeenCalled();
+    });
+
+    it('an already refunded lot is closed:false; no lot is ORDER_NOT_REFUNDABLE', async () => {
+      const done = mgr(lot({ status: 'REFUNDED', remaining: 0 }));
+      await expect(service.closeUntouchedLot(done as any, TENANT_ID, 'o1')).resolves.toEqual({
+        closed: false,
+        units: 0,
+      });
+      await expect(
+        service.closeUntouchedLot(mgr(null) as any, TENANT_ID, 'o1'),
+      ).rejects.toMatchObject({ response: { details: { code: 'ORDER_NOT_REFUNDABLE' } } });
+    });
+  });
 });

@@ -109,6 +109,39 @@ export class PlatformSchoolBillingPageDto {
 export class PlatformSchoolBillingDetailDto extends PlatformSchoolBillingDto {
   @ApiProperty({ type: 'array', items: { type: 'object' }, description: 'SeatOrderDto[]' })
   orders: unknown[];
+
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description: 'The school plan: { id, name, unit_price_paisa }, or null.',
+  })
+  plan: { id: string; name: string; unit_price_paisa: number } | null;
+
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'object' },
+    description: 'SMS package orders with units bought / used and a `refundable` flag.',
+  })
+  bundle_orders: unknown[];
+}
+
+/** Body for the two refund routes. */
+export class RefundDto {
+  @ApiProperty({ minLength: 5, maxLength: 300 })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @Length(5, 300)
+  reason: string;
+}
+
+export class RefundResultDto {
+  @ApiProperty({ description: 'false when the order was already refunded.' }) applied: boolean;
+  @ApiProperty() order_id: string;
+  @ApiProperty({ nullable: true, type: String, description: 'bKash transaction id; null offline.' })
+  gateway_ref: string | null;
+  @ApiProperty({ description: 'Money goes back through the bKash panel, not this app.' })
+  note: string;
 }
 
 export class OfflinePaymentResultDto {
