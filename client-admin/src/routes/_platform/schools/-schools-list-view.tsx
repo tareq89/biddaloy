@@ -7,7 +7,7 @@ import { LogInIcon, PlusIcon } from 'lucide-react';
 
 /**
  * Presentational half of `index.tsx` (mockup "Schools list"), storied on its own. Filters and
- * sort live in the URL; the server returns one page of at most 100 schools.
+ * sort and page live in the URL; the server returns 25 schools a page.
  */
 export interface SchoolsListFilterValues {
   q?: string | undefined;
@@ -23,6 +23,8 @@ export interface SchoolsListViewProps {
   error?: string;
   filters: SchoolsListFilterValues;
   onFiltersChange: (patch: Record<string, string | null>) => void;
+  page: number;
+  onPageChange: (page: number) => void;
   sorting: DataTableSort | null;
   onSortingChange: (sorting: DataTableSort | null) => void;
   onNew: () => void;
@@ -37,6 +39,8 @@ export function SchoolsListView({
   error,
   filters,
   onFiltersChange,
+  page,
+  onPageChange,
   sorting,
   onSortingChange,
   onNew,
@@ -129,7 +133,9 @@ export function SchoolsListView({
       columns={columns}
       data={schools}
       getRowId={(row) => row.id}
-      paginated={false}
+      page={page}
+      pageSize={25}
+      onPageChange={onPageChange}
       totalCount={total}
       rowActions={(row) => [
         {

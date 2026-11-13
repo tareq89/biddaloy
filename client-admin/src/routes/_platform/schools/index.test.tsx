@@ -20,6 +20,20 @@ const render = (path = '/schools') =>
 const schoolsRegion = () =>
   screen.findByRole('region', { name: 'Table of all schools on the platform' });
 
+const PAGE_ONE_SCHOOL = {
+  id: '11111111-1111-4111-8111-111111111111',
+  name: 'Page One School',
+  slug: 'page-one',
+  status: 'ACTIVE',
+  statusReason: null,
+  createdAt: '2029-01-01T00:00:00.000Z',
+  studentCount: 1,
+  lastActivityAt: null,
+  trialEndsAt: null,
+  seatLimit: null,
+  deletedAt: null,
+};
+
 describe('/schools', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -53,6 +67,36 @@ describe('/schools', () => {
     expect(last.get('status')).toBe('SUSPENDED');
     expect(last.get('trial')).toBe('expired');
     expect(last.get('sort')).toBe('students');
+  });
+
+  it('pages through the list: the page is in the URL and in the query', async () => {
+    const user = userEvent.setup();
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('*/platform/schools/search', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('page'));
+        const items = [PAGE_ONE_SCHOOL];
+        return HttpResponse.json({ items, total: 60 });
+      }),
+    );
+    render();
+    await user.click(await screen.findByRole('button', { name: /next/i }));
+    await waitFor(() => expect(seen).toContain('2'));
+  });
+
+  it('clicking the sorted column again clears the sort', async () => {
+    const user = userEvent.setup();
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('*/platform/schools/search', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('sort'));
+        return HttpResponse.json({ items: [PAGE_ONE_SCHOOL], total: 1 });
+      }),
+    );
+    render('/schools?sort=name');
+    await screen.findByText('Page One School');
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+    await waitFor(() => expect(seen[seen.length - 1]).toBeNull());
   });
 
   it('typing in search changes the query', async () => {
@@ -107,6 +151,22 @@ describe('/schools', () => {
     );
     await user.click(await screen.findByRole('button', { name: 'End' }));
     await waitFor(() => expect(ended).toHaveLength(1));
+  });
+
+  it('ending a visit takes it off the strip (mock state)', async () => {
+    const user = userEvent.setup();
+    render();
+    await user.click(
+      await screen.findByRole('button', { name: "End Anika Rahman's visit to Rose Valley School" }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'End' }));
+    await waitFor(() => expect(screen.queryByText(/Anika Rahman, Teacher/)).toBeNull());
+  });
+
+  it('says the live list failed to load instead of hiding it', async () => {
+    server.use(http.get('*/platform/impersonation', () => HttpResponse.json({}, { status: 500 })));
+    render();
+    expect(await screen.findByText('Could not load who is signed in.')).toBeTruthy();
   });
 
   it('hides the live strip when no one is signed in', async () => {

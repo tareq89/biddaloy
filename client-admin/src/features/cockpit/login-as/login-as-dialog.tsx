@@ -115,9 +115,14 @@ export function LoginAsDialog({
   const waiting = flow.state.kind === 'waiting';
   const close = React.useCallback(
     (next: boolean) => {
-      // Dismissing while waiting must also end the pending request on the server.
-      if (!next) (waiting ? cancelFlow : resetFlow)();
-      onOpenChange(next);
+      if (next) return onOpenChange(true);
+      // Dismissing while waiting must also end the pending request on the server. If that
+      // fails, the dialog stays open on the waiting card with a retry; nothing is lost.
+      if (waiting) void cancelFlow().then((ended) => ended && onOpenChange(false));
+      else {
+        resetFlow();
+        onOpenChange(false);
+      }
     },
     [onOpenChange, resetFlow, cancelFlow, waiting],
   );
@@ -141,7 +146,13 @@ export function LoginAsDialog({
         </DialogHeader>
 
         {flow.state.kind === 'waiting' ? (
-          <WaitingState ownerWait={flow.state.blocked} onCancel={flow.cancel} />
+          <WaitingState
+            ownerWait={flow.state.blocked}
+            outcome={flow.outcome}
+            cancelFailed={flow.state.cancelFailed === true}
+            onCancel={() => void flow.cancel()}
+            onOpen={flow.openApproved}
+          />
         ) : data?.noActiveAdmin ? (
           <NoAdminState onInvite={onInviteAdmin} />
         ) : (

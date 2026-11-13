@@ -165,6 +165,12 @@ const announcementFixture: Announcement = {
 
 const noContent = () => new HttpResponse(null, { status: 204 });
 
+/** Sessions ended through the mock DELETE; the live list leaves them out. Reset after each test. */
+const endedSessionIds = new Set<string>();
+export function resetPlatformStore(): void {
+  endedSessionIds.clear();
+}
+
 export const platformDefaultHandlers = [
   // Login as
   http.get('*/platform/schools/:id/login-as/candidates', ({ params }) => {
@@ -176,7 +182,9 @@ export const platformDefaultHandlers = [
       supportAccessMode: s.mode,
     });
   }),
-  http.get('*/platform/impersonation', () => HttpResponse.json([loginAsSessionFixture()])),
+  http.get('*/platform/impersonation', () =>
+    HttpResponse.json([loginAsSessionFixture()].filter((x) => !endedSessionIds.has(String(x.id)))),
+  ),
   http.post('*/platform/impersonation', async ({ request }) => {
     const body = (await request.json()) as { schoolId: string };
     const s = loginAsSchoolFixtures.find((x) => x.id === body.schoolId);
@@ -190,7 +198,10 @@ export const platformDefaultHandlers = [
     });
   }),
   http.post('*/platform/impersonation/:id/request-write', noContent),
-  http.delete('*/platform/impersonation/:id', noContent),
+  http.delete('*/platform/impersonation/:id', ({ params }) => {
+    endedSessionIds.add(String(params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
 
   // School control
   http.get('*/platform/schools/search', () =>

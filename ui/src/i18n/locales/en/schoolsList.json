@@ -24,6 +24,8 @@
     "endFor": "End {{person}}'s visit to {{school}}",
     "confirmTitle": "End this visit?",
     "confirmDescription": "{{person}} will be signed out of {{school}} right away.",
-    "error": "Could not end it. Try again."
+    "error": "Could not end it. Try again.",
+    "readError": "Could not load who is signed in.",
+    "retry": "Try again"
   }
 }

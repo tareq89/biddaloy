@@ -45,7 +45,10 @@ export interface StartLoginAsInput extends StartImpersonationRequest {
   supportMode?: 'allowed' | 'ask' | 'blocked';
 }
 
-export function useLoginAsSessions(params: { scope?: 'live' | 'recent'; limit?: number } = {}) {
+export function useLoginAsSessions(
+  params: { scope?: 'live' | 'recent'; limit?: number } = {},
+  options: { enabled?: boolean; refetchInterval?: number } = {},
+) {
   const query = { scope: params.scope ?? 'live', limit: clampLimit(params.limit) };
   return useQuery({
     queryKey: impersonationKeys.list(query),
@@ -56,6 +59,8 @@ export function useLoginAsSessions(params: { scope?: 'live' | 'recent'; limit?: 
         signal,
       }),
     retry: shouldRetryQuery,
+    ...(options.enabled !== undefined ? { enabled: options.enabled } : {}),
+    ...(options.refetchInterval ? { refetchInterval: options.refetchInterval } : {}),
   });
 }
 

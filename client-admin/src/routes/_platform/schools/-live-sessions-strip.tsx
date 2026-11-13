@@ -15,6 +15,9 @@ export interface LiveSessionsStripViewProps {
   onEnd: (id: string) => void;
   busyId?: string | undefined;
   error?: boolean;
+  /** The sessions list itself could not be read (not the same as "nobody is signed in"). */
+  readError?: boolean;
+  onRetry?: () => void;
 }
 
 export function LiveSessionsStripView({
@@ -23,12 +26,29 @@ export function LiveSessionsStripView({
   onEnd,
   busyId,
   error,
+  readError,
+  onRetry,
 }: LiveSessionsStripViewProps) {
   const { t } = useTranslation('schoolsList');
   const { t: tRole } = useTranslation('loginAs');
   const config = useRegionConfig();
   const [pending, setPending] = React.useState<ImpersonationSessionDto | null>(null);
 
+  if (readError && sessions.length === 0) {
+    return (
+      <section
+        role="alert"
+        className="flex items-center gap-3 rounded-lg border border-border-functional bg-surface p-3 text-destructive"
+      >
+        <p>{t('live.readError')}</p>
+        {onRetry && (
+          <Button variant="outline" size="sm" className="min-h-11 md:min-h-8" onClick={onRetry}>
+            {t('live.retry')}
+          </Button>
+        )}
+      </section>
+    );
+  }
   if (sessions.length === 0) return null;
   const role = (r: string) => tRole(`roles.${r}`, { defaultValue: r });
 
@@ -117,6 +137,8 @@ export function LiveSessionsStrip() {
       onEnd={(id) => end.mutate({ id })}
       busyId={end.isPending ? end.variables?.id : undefined}
       error={end.isError}
+      readError={query.isError}
+      onRetry={() => void query.refetch()}
     />
   );
 }

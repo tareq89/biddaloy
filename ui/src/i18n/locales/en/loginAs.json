@@ -41,7 +41,15 @@
     "text": "Waiting for approval. We told the school admins.",
     "textOwner": "Waiting for the other owner to agree.",
     "timeLeft": "Time left 24 h",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "approvedTitle": "Approved",
+    "approvedText": "Approved. Open the visit when you are ready.",
+    "overTitle": "No longer waiting",
+    "overText": "The school did not approve this request, or it ran out of time.",
+    "cancelError": "Could not cancel the request. Try again.",
+    "open": "Open visit",
+    "back": "Back",
+    "retry": "Try again"
   },
   "noAdmin": {
     "text": "This school has no active admin. Invite one first.",

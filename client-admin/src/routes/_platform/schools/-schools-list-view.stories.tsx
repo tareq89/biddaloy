@@ -17,6 +17,8 @@ const meta: Meta<typeof SchoolsListView> = {
   args: {
     filters: {},
     onFiltersChange: () => {},
+    page: 1,
+    onPageChange: () => {},
     sorting: null,
     onSortingChange: () => {},
     onNew: () => {},

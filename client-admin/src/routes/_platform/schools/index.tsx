@@ -20,7 +20,7 @@ import { SchoolsListView } from './-schools-list-view';
 
 /**
  * The owner's schools list (mockup "Cockpit: Schools list"). Search, filters and sort live in
- * the URL and drive `usePlatformSchoolList` (`GET /platform/schools/search`, at most 100 rows);
+ * the URL and drive `usePlatformSchoolList` (`GET /platform/schools/search`, 25 rows a page);
  * the live strip above it lists who is signed in to a school right now. Login as on a row opens
  * the shared dialog.
  */
@@ -31,6 +31,7 @@ const schoolsSearchSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED']).optional().catch(undefined),
   trial: z.enum(['active', 'expired']).optional().catch(undefined),
   sort: z.enum(SORT_KEYS).optional().catch(undefined),
+  page: z.number().int().min(1).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_platform/schools/')({
@@ -51,15 +52,18 @@ function SchoolsListPage() {
     ...(search.status ? { status: search.status } : {}),
     ...(search.trial ? { trial: search.trial } : {}),
     ...(search.sort ? { sort: search.sort } : {}),
+    ...(search.page ? { page: search.page } : {}),
   });
   const backupHealthQuery = usePlatformBackupHealth();
   const engineHealth = usePlatformAttentionHealth();
   const [loginAsFor, setLoginAsFor] = React.useState<PlatformSchoolSearchItem | null>(null);
 
-  const setSearch = (patch: Record<string, string | null>) =>
+  // Any change other than a page change goes back to page 1.
+  const setSearch = (patch: Record<string, string | number | null>) =>
     void navigate({
       search: (prev) => {
         const next: Record<string, unknown> = { ...prev };
+        if (!('page' in patch)) delete next.page;
         for (const [key, value] of Object.entries(patch)) {
           if (value === null || value === '') delete next[key];
           else next[key] = value;
@@ -81,9 +85,14 @@ function SchoolsListPage() {
         {...(schoolsQuery.isError ? { error: t('schools.errorMessage') } : {})}
         filters={search}
         onFiltersChange={setSearch}
-        // The server picks the direction for each sort key, so `desc` here is display-only.
+        page={search.page ?? 1}
+        onPageChange={(page) => setSearch({ page })}
+        // The server picks the direction for each sort key, so `desc` here is display-only. The
+        // header cycle is therefore on -> off: clicking the active column clears the sort.
         sorting={search.sort ? { id: search.sort, desc: false } : null}
-        onSortingChange={(sorting) => setSearch({ sort: sorting?.id ?? null })}
+        onSortingChange={(sorting) =>
+          setSearch({ sort: sorting && sorting.id !== search.sort ? sorting.id : null })
+        }
         onNew={() => void navigate({ to: '/schools/new' })}
         onLoginAs={setLoginAsFor}
       />

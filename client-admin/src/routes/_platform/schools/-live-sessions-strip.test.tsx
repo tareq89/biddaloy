@@ -53,4 +53,24 @@ describe('LiveSessionsStripView', () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
     expect(onEnd).toHaveBeenCalledWith('s1');
   });
+
+  it('says the list could not be read, with Try again, instead of hiding the strip', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    await useEnglish();
+    renderWithProviders(
+      <LiveSessionsStripView
+        sessions={[]}
+        now={NOW}
+        onEnd={() => {}}
+        readError
+        onRetry={onRetry}
+      />,
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Could not load who is signed in.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
 });
