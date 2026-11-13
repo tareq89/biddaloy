@@ -112,6 +112,7 @@ describe('AbsenceNoticeService', () => {
       })),
       // English by default so the template tests read in English; no stored locale = bn-BD (#3136).
       findById: vi.fn(async () => ({ id: TENANT, settings: { region: { locale: 'en-US' } } })),
+      getSchoolLabels: vi.fn(async () => ({})),
     };
     // Unmetered by default: reserveForLog returns no extra job data.
     smsCreditService = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
@@ -403,6 +404,60 @@ describe('AbsenceNoticeService', () => {
       date: DATE,
     });
     expect(template).toBe(ABSENCE_NOTICE_TEMPLATE_BN);
+  });
+
+  describe('school words (77.5)', () => {
+    it("en: uses the school's guardian word; read once, for this tenant only", async () => {
+      schoolsService.getSchoolLabels = vi.fn(async () => ({
+        guardian: { en: { one: 'Par\nent', other: 'Parents' } },
+      }));
+      const { template } = await service.buildRecipients({
+        tenantId: TENANT,
+        sectionId: SECTION,
+        date: DATE,
+      });
+      // newline stripped, rest of the text and every placeholder untouched
+      expect(template).toBe(DEFAULT_ABSENCE_NOTICE_TEMPLATE.replace('Guardian', 'Par ent'));
+      expect(schoolsService.getSchoolLabels).toHaveBeenCalledTimes(1);
+      expect(schoolsService.getSchoolLabels).toHaveBeenCalledWith(TENANT);
+    });
+
+    it('a word with $& or {{placeholder}} stays literal text, never a pattern or live placeholder', async () => {
+      schoolsService.getSchoolLabels = vi.fn(async () => ({
+        guardian: { en: { one: 'A$&B {{student_names}}' } },
+      }));
+      const { template } = await service.buildRecipients({
+        tenantId: TENANT,
+        sectionId: SECTION,
+        date: DATE,
+      });
+      expect(template).toBe(
+        DEFAULT_ABSENCE_NOTICE_TEMPLATE.replace('Guardian', () => 'A$&B student_names'),
+      );
+    });
+
+    it("bn: uses the school's bn guardian word", async () => {
+      schoolsService.findById = vi.fn(async () => ({ id: TENANT, settings: {} }));
+      schoolsService.getSchoolLabels = vi.fn(async () => ({ guardian: { bn: 'পিতামাতা' } }));
+      const { template } = await service.buildRecipients({
+        tenantId: TENANT,
+        sectionId: SECTION,
+        date: DATE,
+      });
+      expect(template).toBe(ABSENCE_NOTICE_TEMPLATE_BN.replace('অভিভাবক', 'পিতামাতা'));
+    });
+
+    it('no labels, or a blank/partial entry: byte-identical stock text', async () => {
+      for (const labels of [{}, { guardian: { en: { one: ' ' } } }, { guardian: { bn: 'x' } }]) {
+        schoolsService.getSchoolLabels = vi.fn(async () => labels);
+        const { template } = await service.buildRecipients({
+          tenantId: TENANT,
+          sectionId: SECTION,
+          date: DATE,
+        });
+        expect(template).toBe(DEFAULT_ABSENCE_NOTICE_TEMPLATE);
+      }
+    });
   });
 
   describe('notifyCorrection does nothing when there was no notice to correct', () => {
