@@ -9,6 +9,7 @@ function build(row: Record<string, unknown> | undefined, oversold = false) {
     ds as never,
     { purchase: vi.fn() } as never,
     { isOversold: async () => oversold } as never,
+    { emailReceipt: vi.fn() } as never,
   );
   return { svc, m };
 }

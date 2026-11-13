@@ -6,7 +6,7 @@ import { resolveAppBaseUrl } from '../account-access/app-base-url.util';
 import { resolveTemplateLocale } from '../account-access/account-access-templates';
 import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
-import { renderReceiptHtml } from './receipt.template';
+import { renderBundleReceiptHtml, renderReceiptHtml } from './receipt.template';
 
 interface ReceiptRow {
   school_id: string;
@@ -75,27 +75,84 @@ export class ReceiptService {
     });
   }
 
+  /** Bundle twin of `renderForSchool`. Paid means numbered: ACTIVE, EXPIRED and REFUNDED keep their receipt. */
+  async renderBundleForSchool(schoolId: string, orderId: string): Promise<string> {
+    const [r]: {
+      id: string;
+      receipt_number: string;
+      name_snapshot: string;
+      sms_count: number;
+      validity_days: number;
+      price_paisa: string;
+      expires_on: string;
+      paid_at: Date;
+      receipt_snapshot: { name: string; address: string | null } | null;
+      name: string;
+      address: string | null;
+      locale: string | null;
+      method: string | null;
+      reference: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT o.id, o.receipt_number, o.name_snapshot, o.sms_count, o.validity_days,
+              o.price_paisa::text AS price_paisa, o.paid_at, o.receipt_snapshot,
+              ((o.paid_at + make_interval(days => o.validity_days)) AT TIME ZONE 'Asia/Dhaka')::date::text AS expires_on,
+              s.name, s.address, s.settings #>> '{region,locale}' AS locale,
+              p.method, p.gateway_ref AS reference
+         FROM sms_bundle_orders o
+         JOIN schools s ON s.id = o.school_id
+         LEFT JOIN LATERAL (SELECT method, gateway_ref FROM platform_payments
+                             WHERE bundle_order_id = o.id AND (raw->>'orphan') IS DISTINCT FROM 'true'
+                             ORDER BY created_at DESC LIMIT 1) p ON true
+        WHERE o.id = $1 AND o.school_id = $2 AND o.receipt_number IS NOT NULL`,
+      [orderId, schoolId],
+    );
+    if (!r) throw new NotFoundException('Receipt not found');
+    return renderBundleReceiptHtml({
+      receiptNumber: r.receipt_number,
+      orderId: r.id,
+      schoolName: r.receipt_snapshot?.name ?? r.name,
+      schoolAddress: r.receipt_snapshot ? r.receipt_snapshot.address : r.address,
+      packageName: r.name_snapshot,
+      smsCount: r.sms_count,
+      validityDays: r.validity_days,
+      amountPaisa: Number(r.price_paisa),
+      expiresOn: r.expires_on,
+      method: r.method ?? '',
+      reference: r.reference,
+      paidAt: r.paid_at,
+      locale: resolveTemplateLocale(r.locale ?? DEFAULT_REGION_SETTINGS.locale),
+      vatLine: null, // #3869
+      couponLine: null,
+    });
+  }
+
   /** Emails the school's admins a link to the receipt. Never throws: the payment already stands. */
   async emailReceipt(orderId: string): Promise<void> {
     try {
-      const [o]: { school_id: string; receipt_number: string | null }[] =
+      // An id lives in one table only (both are random uuids): seat order first, then bundle.
+      const [o]: { school_id: string; receipt_number: string | null; bundle: boolean }[] =
         await this.dataSource.query(
-          'SELECT school_id, receipt_number FROM seat_orders WHERE id = $1',
+          `SELECT school_id, receipt_number, false AS bundle FROM seat_orders WHERE id = $1
+           UNION ALL
+           SELECT school_id, receipt_number, true FROM sms_bundle_orders WHERE id = $1`,
           [orderId],
         );
       if (!o?.receipt_number) return;
+      const base = resolveAppBaseUrl(this.config);
       await this.notices.notifyAdmins(
         o.school_id,
         'receipt',
         {
-          link: `${resolveAppBaseUrl(this.config)}/settings?section=billing`,
+          link: o.bundle
+            ? `${base}/settings?section=communication&smsOrder=${orderId}`
+            : `${base}/settings?section=billing`,
           receipt: o.receipt_number,
         },
         { emailOnly: true },
       );
     } catch (err) {
       this.logger.error(
-        `Receipt email failed for order ${orderId}: ${err instanceof Error ? err.message : String(err)}`,
+        `Receipt email failed order ${orderId}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

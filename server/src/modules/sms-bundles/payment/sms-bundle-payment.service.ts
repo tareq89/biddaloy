@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { PlatformPaymentMethod, SmsBundleOrderStatus as S } from '@biddaloy/shared';
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
+import { ReceiptService } from '../../billing/receipt.service';
 import { nextReceiptNumber } from '../../billing/receipt-number.util';
 import { SmsAllocationService } from '../stock/sms-allocation.service';
 import { canMove } from '../orders/sms-bundle-orders.service';
@@ -26,6 +27,7 @@ export class SmsBundlePaymentService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly credits: SmsCreditService,
     private readonly allocation: SmsAllocationService,
+    private readonly receipts: ReceiptService,
   ) {}
 
   /** Just what a payment route needs; undefined for an unknown id. */
@@ -119,8 +121,10 @@ export class SmsBundlePaymentService {
       await payment.onApplied?.(m);
       return { applied: true };
     };
-    // ponytail: #3859 (ReceiptService.emailReceipt for bundle orders) is the next ticket; call it
-    // here, after commit and never failing the payment, once it exists.
-    return manager ? run(manager) : this.ds.transaction(run);
+    if (manager) return run(manager); // the caller owns the commit, so it sends the email
+    const res = await this.ds.transaction(run);
+    // After commit; emailReceipt never throws, so the payment is never failed by the email.
+    if (res.applied) await this.receipts.emailReceipt(orderId);
+    return res;
   }
 }
