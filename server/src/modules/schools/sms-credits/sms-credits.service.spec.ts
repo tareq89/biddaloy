@@ -106,4 +106,35 @@ describe('SmsCreditsService', () => {
     expect(auditService.record).not.toHaveBeenCalled();
     expect(result).toEqual({ available: 500, reserved: 0 });
   });
+
+  describe('expires_at', () => {
+    const base = { units: 500, reason: 'Top-up for term', idempotency_key: 'key-e' };
+    const inDays = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString();
+
+    it('passes a valid expiry to grant()', async () => {
+      smsCreditService.grant.mockResolvedValue({ available: 500, reserved: 0, applied: true });
+      const expires_at = inDays(30);
+
+      await service.grantOrAdjust(SCHOOL_ID, { ...base, expires_at }, ACTOR_ID);
+
+      expect(smsCreditService.grant).toHaveBeenCalledWith(
+        SCHOOL_ID,
+        500,
+        expect.objectContaining({ expiresAt: new Date(expires_at) }),
+      );
+    });
+
+    it('rejects a past expiry with 400 and writes nothing', async () => {
+      await expect(
+        service.grantOrAdjust(SCHOOL_ID, { ...base, expires_at: inDays(-1) }, ACTOR_ID),
+      ).rejects.toThrow(BadRequestException);
+      expect(smsCreditService.grant).not.toHaveBeenCalled();
+    });
+
+    it('rejects an expiry more than 3 years out', async () => {
+      await expect(
+        service.grantOrAdjust(SCHOOL_ID, { ...base, expires_at: inDays(365 * 3 + 10) }, ACTOR_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });
