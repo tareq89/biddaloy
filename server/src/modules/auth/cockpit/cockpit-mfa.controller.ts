@@ -82,7 +82,7 @@ export class CockpitMfaController {
     // The row and the log line never carry the codes (Rule 13).
     try {
       await this.audit.record({
-        action: AuditAction.UPDATE,
+        action: AuditAction.PLATFORM_RECOVERY_REGENERATED,
         entity_type: 'PlatformAdmin',
         entity_id: me.sub,
         tenant_id: null,

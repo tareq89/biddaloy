@@ -37,6 +37,8 @@ export interface IdleTimerOptions {
   onExpire: () => void;
   /** Another tab was active after this one warned: the warning no longer applies. */
   onResume?: () => void;
+  /** Called on user activity while not warned (every event; the caller throttles). */
+  onActive?: () => void;
   /** Stop tracking (e.g. signed out). */
   enabled?: boolean;
 }
@@ -48,11 +50,18 @@ export interface IdleTimerOptions {
  * throttled background tab re-checks on wake (`visibilitychange`) and jumps
  * straight to the right state. Once warned, plain activity no longer resets:
  * only the returned `reset` (the "Stay signed in" call) does, because the
- * server renews its idle key on authenticated requests, not on mouse moves.
+ * server renews its idle key on authenticated requests, not on mouse moves
+ * (background polls do not renew it either, #4075: `onActive` lets the shell send a throttled renewal).
  * Client activity is therefore not the server's clock: #3763 must handle a 401
  * globally (sign out + redirect) for a session the server ended first.
  */
-export function useIdleTimer({ onWarn, onExpire, onResume, enabled = true }: IdleTimerOptions): {
+export function useIdleTimer({
+  onWarn,
+  onExpire,
+  onResume,
+  onActive,
+  enabled = true,
+}: IdleTimerOptions): {
   reset: () => void;
 } {
   const last = useRef(Date.now());
@@ -60,10 +69,10 @@ export function useIdleTimer({ onWarn, onExpire, onResume, enabled = true }: Idl
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const active = useRef(false);
   const check = useRef<() => void>(() => undefined);
-  const handlers = useRef({ onWarn, onExpire, onResume });
+  const handlers = useRef({ onWarn, onExpire, onResume, onActive });
   useLayoutEffect(() => {
-    handlers.current = { onWarn, onExpire, onResume };
-  }, [onWarn, onExpire, onResume]);
+    handlers.current = { onWarn, onExpire, onResume, onActive };
+  }, [onWarn, onExpire, onResume, onActive]);
 
   useEffect(() => {
     active.current = enabled;
@@ -104,6 +113,7 @@ export function useIdleTimer({ onWarn, onExpire, onResume, enabled = true }: Idl
       // At most one write a second: pointermove fires constantly.
       if (now - last.current >= 1000) writeShared(now);
       last.current = now;
+      handlers.current.onActive?.();
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === SHARED_ACTIVITY_KEY) check.current();

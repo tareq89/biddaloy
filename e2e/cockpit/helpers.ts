@@ -3,7 +3,6 @@ import {
   test as base,
   type APIRequestContext,
   type Browser,
-  type BrowserContext,
   type Locator,
   type Page,
 } from '@playwright/test';
@@ -246,24 +245,7 @@ async function clearOtpLimits(): Promise<void> {
   }
 }
 
-/**
- * Stack issue #4071: `GET /platform/attention/health` (the Schools page, where sign-in lands) still
- * rejects a cockpit token with 401, and a 401 ends the whole session. Until that controller moves
- * to `PlatformAccessGuard`, this one route is answered with an empty health so the flows under
- * test (sign-in, wizard, owners, security) stay real. Delete this stub when #4071 is fixed.
- */
-export async function stubLegacyPlatformRoutes(context: BrowserContext): Promise<void> {
-  await context.route('**/api/v1/platform/attention/health', (route) =>
-    route.fulfill({ json: { lastSweep: {}, durationsMs: {}, failingRules: [] } }),
-  );
-}
-
-export const test = base.extend({
-  context: async ({ context }, use) => {
-    await stubLegacyPlatformRoutes(context);
-    await use(context);
-  },
-});
+export const test = base;
 export { expect };
 
 /** Turns the two-owner approval rule on or off directly (the UI switch itself needs the other owner). */
@@ -321,7 +303,6 @@ export async function apiEnrol(request: APIRequestContext, owner: Owner): Promis
 export async function warmUp(browser: Browser, paths: string[]): Promise<void> {
   const { baseURL } = test.info().project.use;
   const context = await browser.newContext({ baseURL: baseURL! });
-  await stubLegacyPlatformRoutes(context);
   const page = await context.newPage();
   for (const path of paths) {
     await page.goto(path);

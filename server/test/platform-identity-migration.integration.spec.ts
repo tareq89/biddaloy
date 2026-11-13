@@ -5,6 +5,7 @@ import { AuditAction } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { PlatformIdentity1792000000000 } from '../src/migrations/1792000000000-PlatformIdentity';
 import { TenantControlLoginAs1792100000000 } from '../src/migrations/1792100000000-TenantControlLoginAs';
+import { AddPlatformRecoveryRegeneratedAudit1792000000100 } from '../src/migrations/1792000000100-AddPlatformRecoveryRegeneratedAudit';
 import { School } from '../src/modules/schools/entities/school.entity';
 
 /** The 13 audit values this migration adds. Later epics add more PLATFORM_ values of their own. */
@@ -129,8 +130,8 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
     );
     const labels = rows.map((r) => r.enumlabel);
     const platform = Object.values(AuditAction).filter((a) => a.startsWith('PLATFORM_'));
-    // Epic 99's own migration adds more PLATFORM_ values, so this is a floor, not an exact count.
-    expect(platform.length).toBeGreaterThanOrEqual(13);
+    // Epic 99's own migration adds more PLATFORM_ values, so this is a floor, not an exact count (13 here + 1 from AddPlatformRecoveryRegeneratedAudit).
+    expect(platform.length).toBeGreaterThanOrEqual(14);
     for (const a of platform) expect(labels).toContain(a);
   });
 
@@ -161,7 +162,21 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
     try {
       await later.down(qr);
       laterReverted = true;
+      // An audit row with the later migration's label must survive its down() (the table has a
+      // write-only row trigger, so a plain UPDATE would fail): it comes back as the generic UPDATE.
+      const [{ id: auditId }] = await ds.query(
+        `INSERT INTO audit_logs (action, entity_type, entity_id, new_values)
+         VALUES ('PLATFORM_RECOVERY_REGENERATED', 'PlatformAdmin', gen_random_uuid(), '{"event":"kept"}')
+         RETURNING id`,
+      );
+      // Reverse order: the later migration's label goes first.
+      await new AddPlatformRecoveryRegeneratedAudit1792000000100().down(qr);
       await migration.down(qr);
+      const [kept] = await ds.query(
+        `SELECT action::text AS action, new_values FROM audit_logs WHERE id = $1`,
+        [auditId],
+      );
+      expect(kept).toEqual({ action: 'UPDATE', new_values: { event: 'kept' } });
       expect(await count()).toBe(0);
       const gone = await ds.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name='schools' AND column_name='is_platform'`,
@@ -173,7 +188,10 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
       expect(labels.some((l) => EPIC_98_AUDIT_VALUES.includes(l.enumlabel))).toBe(false);
     } finally {
       // Always restore, or later specs lose the platform tables.
-      if ((await count()) === 0) await migration.up(qr);
+      if ((await count()) === 0) {
+        await migration.up(qr);
+        await new AddPlatformRecoveryRegeneratedAudit1792000000100().up(qr);
+      }
       if (laterReverted) await later.up(qr);
       await qr.release();
     }

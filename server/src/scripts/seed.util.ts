@@ -32,7 +32,14 @@ import type { OrganisationSettings } from '@biddaloy/shared';
 import { EnrollmentStatus } from '@biddaloy/shared';
 import type { PlatformHomeService } from '../modules/platform-identity/platform-home.service';
 import type { MfaService } from '../modules/auth/mfa/mfa.service';
-import { DataSource, EntityManager, FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  FindOptionsWhere,
+  IsNull,
+  ObjectLiteral,
+  Repository,
+} from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';

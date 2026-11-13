@@ -23,7 +23,7 @@ function mount(over: { renew?: () => Promise<unknown>; signOut?: () => Promise<u
   const renew = vi.fn(over.renew ?? (() => Promise.resolve()));
   const signOut = vi.fn(over.signOut ?? (() => Promise.resolve()));
   const onSignedOut = vi.fn();
-  renderWithProviders(
+  const { unmount } = renderWithProviders(
     <CockpitIdleWarning
       strings={strings}
       renew={renew}
@@ -32,7 +32,7 @@ function mount(over: { renew?: () => Promise<unknown>; signOut?: () => Promise<u
     />,
     { locale: 'en', tenantId: 'tenant-1' },
   );
-  return { renew, signOut, onSignedOut };
+  return { renew, signOut, onSignedOut, unmount };
 }
 
 const warn = () => act(() => vi.advanceTimersByTimeAsync(29 * MIN));
@@ -174,5 +174,42 @@ describe('CockpitIdleWarning', () => {
     });
     await act(() => vi.advanceTimersByTimeAsync(2 * MIN));
     expect(onSignedOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('CockpitIdleWarning keepalive (#4075)', () => {
+  it('sends one renewal per 5 minutes of activity, none while only polling', async () => {
+    const { renew } = mount();
+    fireEvent.pointerDown(window);
+    expect(renew).not.toHaveBeenCalled(); // renewed moments ago by the mount
+    await act(() => vi.advanceTimersByTimeAsync(6 * MIN));
+    fireEvent.pointerDown(window);
+    fireEvent.pointerDown(window);
+    expect(renew).toHaveBeenCalledTimes(1);
+  });
+
+  it('renews again after a throttled last activity (renew at 5, last activity at 9)', async () => {
+    const { renew } = mount();
+    await act(() => vi.advanceTimersByTimeAsync(5 * MIN));
+    fireEvent.pointerDown(window); // minute 5: renews now
+    expect(renew).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(4 * MIN));
+    fireEvent.pointerDown(window); // minute 9: throttled, so a trailing renewal is scheduled
+    expect(renew).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(MIN + 1000));
+    expect(renew).toHaveBeenCalledTimes(2); // minute 10: before the server key (minute 35) can lapse
+    await act(() => vi.advanceTimersByTimeAsync(4 * MIN));
+    expect(renew).toHaveBeenCalledTimes(2); // nothing further without more activity
+  });
+
+  it('drops the trailing renewal when the component unmounts', async () => {
+    const { renew, unmount } = mount();
+    await act(() => vi.advanceTimersByTimeAsync(5 * MIN));
+    fireEvent.pointerDown(window);
+    await act(() => vi.advanceTimersByTimeAsync(MIN));
+    fireEvent.pointerDown(window);
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(10 * MIN));
+    expect(renew).toHaveBeenCalledTimes(1);
   });
 });

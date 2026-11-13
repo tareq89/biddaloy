@@ -1354,6 +1354,40 @@ It deletes that owner's second factor, recovery codes and remembered devices, en
 
 > **UNVERIFIED on a real VM:** the two scripts ran in tests (`cockpit-replace-owner.integration.spec.ts`, `cockpit-reset-mfa.integration.spec.ts`) and the sign-in ran in e2e, not on a live host or with real SMS and email.
 
+**Run the platform cutover (once, by hand).** Before this, a school's `SUPER_ADMIN` still looks like an administrator and old platform memberships still exist. The cutover turns every legacy school `SUPER_ADMIN` into an `ADMIN`, removes platform memberships, and ends those users' sessions. It is **not** automatic: do it only after both owners are verified on production and the owner has commented "cockpit verified on production" on #3773.
+
+```mermaid
+flowchart TD
+  A["#3773: both owners verified on production"] --> B["Run with --dry-run"]
+  B --> C{"Plan looks right?<br/>(only people you expect)"}
+  C -- no --> X["Stop. Fix the data or ask. Nothing was changed."]
+  C -- yes --> D["Run without --dry-run"]
+  D --> E["Summary printed; cutover.done set"]
+  E --> F["Run again: 'already done', nothing changes"]
+```
+
+```bash
+ssh deploy@203.0.113.10
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp prod run --rm -T --no-deps app node server/dist/scripts/platform-cutover.js --dry-run
+# DRY RUN: nothing was changed
+# memberships removed: 1
+# SUPER_ADMIN downgraded to ADMIN: 3
+# duplicate SUPER_ADMIN rows removed: 0
+# users whose sessions would be cut off: 4
+#   DOWNGRADE_TO_ADMIN user <user id> school <school id>   (one line per change, ids only)
+dcp prod run --rm -T --no-deps app node server/dist/scripts/platform-cutover.js
+```
+
+- It refuses unless at least one owner who can really sign in exists (active, unlocked, confirmed authenticator, with a password, a phone and an email), so you cannot lock yourself out. Anything other than no argument or exactly `--dry-run` is rejected before it starts.
+- Safe to run twice (`cutover.done`). If it stops after the changes but before the sessions are cut, run it again: it resumes from the stored user ids (Rule 8).
+- What it changed: every change is an audit row on the user (`DELETE` or `UPDATE`, school id, actor empty); `old_values.membership_id` names the `user_tenants` row. To undo one by hand, by action:
+  - `REMOVE_MEMBERSHIP` (and the removed `SUPER_ADMIN` row of `REMOVE_DUPLICATE_SUPER_ADMIN`): the row is soft-deleted, so clear it with `UPDATE user_tenants SET deleted_at = NULL WHERE id = '<membership_id>'`.
+  - `DOWNGRADE_TO_ADMIN`: the row only changed role, so set it back with `UPDATE user_tenants SET role = 'SUPER_ADMIN' WHERE id = '<membership_id>'`.
+  - `RESTORE_ADMIN`: the user's earlier `ADMIN` row was switched back on (the audit row has `restored: true`); if they should not have it, soft-delete it again with `UPDATE user_tenants SET deleted_at = now() WHERE id = '<membership_id>'`.
+  - Nothing here brings back a session; the user signs in again. No user and no school is ever deleted.
+- The dev and e2e seeds never run it. A fresh database has nothing to convert.
+
 `PLATFORM_TENANT_ID` in `prod.enc.env` and `staging.enc.env` is still used for the platform school, whose id you find with:
 
 ```bash

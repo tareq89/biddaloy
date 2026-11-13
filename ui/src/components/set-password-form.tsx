@@ -42,6 +42,11 @@ export interface SetPasswordFormProps {
   tooLong?: boolean | undefined;
 }
 
+/** Rule 9: bcrypt reads 72 bytes; a Bangla letter is 3 bytes, so count bytes, not characters. */
+const MAX_PASSWORD_BYTES = 72;
+const overLimit = (password: string): boolean =>
+  new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES;
+
 interface SetPasswordFormValues {
   password: string;
   confirm: string;
@@ -192,6 +197,11 @@ export function SetPasswordForm({
               message: t(`passwordRules.${failed.id}`),
             });
           }
+          if (overLimit(values.password)) {
+            // Blocks a programmatic submit; the visible message is the checklist's `tooLong`
+            // line, so the field message stays empty (FormMessage renders nothing for '').
+            ctx.addIssue({ code: 'custom', path: ['password'], message: '' });
+          }
           if (values.password !== values.confirm) {
             ctx.addIssue({ code: 'custom', path: ['confirm'], message: t('setPassword.mismatch') });
           }
@@ -208,7 +218,9 @@ export function SetPasswordForm({
 
   const [password, confirm] = form.watch(['password', 'confirm']);
   const matches = password === confirm;
-  const canSubmit = checkPassword(password, audience).every((rule) => rule.ok) && matches;
+  const localTooLong = overLimit(password);
+  const canSubmit =
+    checkPassword(password, audience).every((rule) => rule.ok) && matches && !localTooLong;
 
   const submitted = React.useRef('');
 
@@ -256,7 +268,7 @@ export function SetPasswordForm({
             loading={loading}
             audience={audience}
             failed={password === submitted.current ? failedRules : undefined}
-            tooLong={password === submitted.current ? tooLong : undefined}
+            tooLong={localTooLong || (password === submitted.current ? tooLong : undefined)}
           />
           <PasswordField
             id="set-password-confirm"

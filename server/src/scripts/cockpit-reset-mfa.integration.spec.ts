@@ -113,10 +113,12 @@ describe('cockpit-reset-mfa (integration)', () => {
       ds.getRepository(PlatformAdmin),
     );
     const token = { sub: id, jti: 'j', fam: 'f', typ: 'cockpit', iat_ms: Date.now() };
-    await expect(strategy.validate(token)).resolves.toMatchObject({ sub: id });
+    await expect(strategy.validate({ headers: {} }, token)).resolves.toMatchObject({ sub: id });
     await new Promise((r) => setTimeout(r, 10));
     await resetOwnerMfa(ds, mail('jwt'));
-    await expect(strategy.validate(token)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(strategy.validate({ headers: {} }, token)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('a refresh rotation in flight cannot leave a live successor after the reset', async () => {

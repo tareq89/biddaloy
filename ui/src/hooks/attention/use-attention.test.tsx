@@ -185,9 +185,11 @@ describe('cockpit attention source', () => {
   it('reads /platform/attention with no school role and no role param', async () => {
     configureCockpitAttention();
     let seen: URLSearchParams | null = null;
+    let pollHeader: string | null = null;
     server.use(
       http.get('*/platform/attention/summary', ({ request }) => {
         seen = new URL(request.url).searchParams;
+        pollHeader = request.headers.get('x-cockpit-poll');
         return HttpResponse.json(attentionSummaryFactory());
       }),
     );
@@ -196,6 +198,8 @@ describe('cockpit attention source', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(seen).not.toBeNull();
     expect((seen as unknown as URLSearchParams).has('role')).toBe(false);
+    // A background poll: the server must not renew the cockpit idle key for it (#4075).
+    expect(pollHeader).toBe('1');
   });
 
   it('hide, snooze and seen post under /platform/attention; the school source stays on /attention', async () => {

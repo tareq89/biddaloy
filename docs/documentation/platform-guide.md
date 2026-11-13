@@ -28,48 +28,33 @@ Three menu items, six routes. The ticket said "5 pages"; the route manifest
 (`e2e/route-manifest.json`) lists six `super_admin` routes, so all six are
 covered here.
 
-| Route | Page | Archetype |
-| --- | --- | --- |
-| `/schools` | Schools list | list |
-| `/schools/new` | New school wizard | wizard |
-| `/schools/$schoolId` | School detail | detail |
-| `/holiday-sets` | Holiday sets list | list |
-| `/holiday-sets/$setId` | Holiday set detail | detail |
-| `/subscriptions` | Subscriptions list | list |
+| Route                  | Page               | Archetype |
+| ---------------------- | ------------------ | --------- |
+| `/schools`             | Schools list       | list      |
+| `/schools/new`         | New school wizard  | wizard    |
+| `/schools/$schoolId`   | School detail      | detail    |
+| `/holiday-sets`        | Holiday sets list  | list      |
+| `/holiday-sets/$setId` | Holiday set detail | detail    |
+| `/subscriptions`       | Subscriptions list | list      |
 
 Files: `client-admin/src/routes/_platform/` (layout in `route.tsx`).
 
 ## Who can see it
 
-Two checks, and only the second one is security.
+Platform authority is a row in `platform_admins` (a platform owner). It is used on the cockpit host with a cockpit token, never through a school membership.
 
 ```mermaid
 flowchart TD
-  U[Request] --> UI{UI: RequireRole SUPER_ADMIN?<br/>route.tsx}
-  UI -- no --> R[Redirect to /dashboard<br/>UX only]
-  UI -- yes --> API{Server: @Roles SUPER_ADMIN<br/>+ PlatformSuperAdminGuard}
-  API -- no --> F[403<br/>Requires platform SUPER_ADMIN authority]
-  API -- yes --> OK[Allowed]
+  U[Request on the cockpit host] --> T{Cockpit token?<br/>audience biddaloy:cockpit}
+  T -- "no (school token or none)" --> F[401 / 403]
+  T -- yes --> O{Active row in platform_admins?<br/>PlatformAccessGuard}
+  O -- no --> F
+  O -- yes --> OK[Allowed]
 ```
 
-- The UI gate redirects any other role to `/dashboard`
-  (`_platform/route.tsx`). The file itself says it is UX only.
-- The server gate is `@Roles(SUPER_ADMIN)` plus `PlatformSuperAdminGuard` on
-  the routes below. The guard passes only when the user holds a SUPER_ADMIN
-  membership **in the platform school** (`isPlatformSuperAdmin` in
-  `server/src/modules/auth/guards/context.guard.ts`). A SUPER_ADMIN that only
-  exists inside one ordinary school gets 403.
-- Not every route carries the guard. `POST /schools` (create school),
-  `GET/POST /schools/:id/sms-credits` and the admin-invitation routes under
-  `schools/:id/admins` use `@Roles(SUPER_ADMIN)` only, without
-  `PlatformSuperAdminGuard`
-  (`provisioning.controller.ts`, `sms-credits.controller.ts`; for
-  `school-admins.controller.ts` the guard list is jwt, context, roles, permissions, with no platform guard). In production, a SUPER_ADMIN is created
-  deliberately, so this is a hardening question, not a day-to-day one. See
-  "Gaps for a human" at the end.
-- If the platform school id is not configured, no one passes the guard
-  (fails closed). In production, set `PLATFORM_TENANT_ID` (comment in
-  `context.guard.ts`).
+- The server gate is `PlatformAccessGuard` (a cockpit token plus an active, unlocked owner row), for example `platform-schools.controller.ts`. A school `SUPER_ADMIN` token, or an old school membership, never passes. The sign-in sequence is in `02-auth-and-multitenancy.md` ("Cockpit identity").
+- The UI check in `_platform/route.tsx` is UX only. The cockpit host skips the client role check, because a cockpit session has no school role.
+- The cutover (`platform-cutover.js`, run by an operator, see `28-platform-runbook.md`) removes old platform memberships and turns legacy school `SUPER_ADMIN` rows into `ADMIN`. There is no platform school id to configure and no `PLATFORM_TENANT_ID`.
 - Every platform page also shows a **platform alert banner**
   (`PlatformAlertBanner`, fed by `GET /platform/alerts`, for example "Redis is
   down") and the usual attention bar and bell.
@@ -86,6 +71,7 @@ glance.
 it.
 
 **Steps**
+
 1. Open **Schools** in the menu.
 2. Search by name or link name (a client-side filter over the full list;
    `index.tsx`).
@@ -124,6 +110,7 @@ sequenceDiagram
 ```
 
 **Steps**
+
 1. **Step 1, School details:** name, and the link name (lowercase English
    letters, numbers and single hyphens). It auto-fills when the name is typed
    in English.
@@ -166,10 +153,12 @@ data from a backup file.
 **Who can see it:** platform SUPER_ADMIN.
 
 ### 3.1 Stats (read only)
+
 Active users, students, messages waiting to send, failed messages in the last
 7 days, last activity (`GET /schools/:id/stats`).
 
 ### 3.2 Seats and billing (same panel as Subscriptions, section 6)
+
 Seats bought, seats used, paid until, and the orders list.
 
 - **Grant seats:** 1 to 100000 seats, 1 to 24 months, a reason of 10 to 500
@@ -182,7 +171,9 @@ Seats bought, seats used, paid until, and the orders list.
   see section 6.
 
 ### 3.3 Admins
+
 Lists the school's ADMIN members and invitation status.
+
 - **Add admin:** name plus an email or phone. An existing user matched by
   email or phone is not duplicated (`school-admins.controller.ts`).
 - **Send invitation again:** re-issues a pending invitation.
@@ -191,6 +182,7 @@ Lists the school's ADMIN members and invitation status.
   undone, but a new invitation can be sent.
 
 ### 3.4 SMS credits
+
 Shows `Available` and `Held for sending`. If the school is not on platform SMS
 credits it shows "This school isn't on platform SMS credits." and nothing can
 be granted.
@@ -206,6 +198,7 @@ be granted.
   grant you make an opposite adjustment. There is no "delete ledger row".
 
 ### 3.5 Ready-made curriculum, "Undo ready-made curriculum"
+
 Undoes the preset applied to the school (`POST /platform/schools/:id/preset/reset`,
 with `PlatformSuperAdminGuard`).
 
@@ -217,6 +210,7 @@ students, exams, fees or homework, and 409 `PRESET_NOT_APPLIED` if no preset
 was applied. A reason is required and audited.
 
 ### 3.6 Suspend and Reactivate
+
 `PATCH /schools/:id/status`, guarded by `PlatformSuperAdminGuard`.
 
 ```mermaid
@@ -240,6 +234,7 @@ stateDiagram-v2
   one).
 
 ### 3.7 Restore data from a backup file
+
 Opens the same `RestoreWizard` used in school settings, but pointed at this
 school through an `X-Tenant-ID` override (`restore-workbook-dialog.tsx`,
 `restore-wizard.tsx`).
@@ -291,6 +286,7 @@ import from.
 import the 2027 holidays.
 
 **Steps**
+
 1. Open **Holiday sets**. Columns: country, year, source, number of holidays,
    Published or Draft.
 2. Click **Fetch a set**: two-letter country code (for example `BD`) and a year
@@ -322,6 +318,7 @@ live to schools the whole time. Fetch before you edit, never after.
 fill the date and the English and Bangla names, **Save**, then **Publish**.
 
 **Steps**
+
 1. Edit rows: start date, end date (the same date for a one-day holiday),
    English name, optional Bangla name (without it schools see the English
    name).
@@ -335,6 +332,7 @@ fill the date and the English and Bangla names, **Save**, then **Publish**.
 **Who can see it:** same as section 4.
 
 **What cannot be undone**
+
 - Publish and Unpublish are reversible, and audited.
 - **Holidays a school has already imported stay in that school.** Unpublishing
   stops new imports only (the import creates calendar events in the school's
@@ -355,6 +353,7 @@ row, find the PENDING order, click **Record payment**, choose Bank, enter
 the slip number.
 
 **Steps**
+
 1. Open **Subscriptions**. Columns: school, status, seats used / bought,
    paid until, pending orders. Search by school name. The filter is saved in
    the URL (`?filter=expiring`): All schools, Expiring in 14 days, All seats
@@ -371,6 +370,7 @@ the slip number.
 `@Roles(SUPER_ADMIN)` plus `PlatformSuperAdminGuard`).
 
 **Seat orders, read from code**
+
 - **Statuses:** Pending, Paid, Failed, Cancelled, Refunded. Only PENDING can be
   marked paid. FAILED, CANCELLED and REFUNDED can never be paid (409
   `ORDER_NOT_PENDING`).
@@ -386,6 +386,7 @@ the slip number.
   school has no trial end date. There is no trial control on these pages.
 
 **Revive school** (`POST /schools/:id/revive`, `PlatformSuperAdminGuard`)
+
 - Shown only when the school was paused for having no students (reason
   `IDLE`) or is soft-deleted.
 - Needs a reason of 5 to 500 characters. Audited as `REACTIVATE`.
@@ -394,26 +395,20 @@ the slip number.
 
 **Dangerous actions in this page**
 
-| Action | Can it be undone? |
-| --- | --- |
-| Mark as paid | **No undo control exists in the UI.** A PAID order gives the school its seats. Refunds exist as a status, and no refund action or route exists (REFUNDED is only a badge colour). Check the slip before you click. |
-| Grant seats | **No undo control in the UI.** A grant only adds seats and cannot lower the limit (`schools/trial/trial.service.ts`). It also reactivates a school suspended for a billing reason. |
-| Revive school | Reversible by suspending again, but after the 90 day window the school cannot be revived at all. |
+| Action        | Can it be undone?                                                                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Mark as paid  | **No undo control exists in the UI.** A PAID order gives the school its seats. Refunds exist as a status, and no refund action or route exists (REFUNDED is only a badge colour). Check the slip before you click. |
+| Grant seats   | **No undo control in the UI.** A grant only adds seats and cannot lower the limit (`schools/trial/trial.service.ts`). It also reactivates a school suspended for a billing reason.                                 |
+| Revive school | Reversible by suspending again, but after the 90 day window the school cannot be revived at all.                                                                                                                   |
 
 ---
 
 ## Gaps for a human
 
-1. **Guard coverage.** `POST /schools`, the SMS credits routes, and (the
-   `@Roles` line only was read) the school-admin routes are `@Roles(SUPER_ADMIN)`
-   without `PlatformSuperAdminGuard`, while the status, revive, preset,
-   billing and alert routes have it. The comment in `sms-credits.controller.ts`
-   says this is the convention, but `context.guard.ts` explains a tenant-local
-   SUPER_ADMIN is a real escalation risk. Confirm the difference is intended.
-2. **Guard list (checked):** only `schools.controller.ts`, billing, presets, platform alerts and attention health carry `PlatformSuperAdminGuard`.
-3. **Seed data and the guide:** this page is a developer doc only; there is
+1. **Guard coverage:** the old `PlatformSuperAdminGuard` is gone. Platform routes are under `/platform/` and `platform-routes.e2e-spec.ts` guards that; `POST /schools`, the SMS credits routes and the school-admin invitation routes should be re-checked against it.
+2. **Seed data and the guide:** this page is a developer doc only; there is
    no user-guide page and no coverage entry for the platform console by design
    (Epic 42, D15).
-4. **Trial filter:** `GET /schools` still accepts a `trial` query
+3. **Trial filter:** `GET /schools` still accepts a `trial` query
    (`SchoolsController.findAll`) although the trial is retired. Nothing in the
    platform UI sends it.

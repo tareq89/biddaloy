@@ -45,6 +45,7 @@ const LABELS: Record<string, string> = {
   PLATFORM_MFA_RESET: 'Authenticator reset',
   PLATFORM_PASSWORD_RESET: 'Password reset',
   PLATFORM_SETTINGS_CHANGED: 'Setting changed',
+  PLATFORM_RECOVERY_REGENERATED: 'Recovery codes regenerated',
 };
 
 interface OwnerRow {

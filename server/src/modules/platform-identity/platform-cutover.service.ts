@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { AuditAction, UserRole } from '@biddaloy/shared';
@@ -26,13 +26,49 @@ export interface CutoverCounts {
   duplicatesRemoved: number;
 }
 
+/** One planned (dry run) or made change. Ids only: never an email or phone (Rule 13). */
+export interface CutoverPlanRow {
+  userId: string;
+  tenantId: string;
+  action:
+    | 'REMOVE_MEMBERSHIP'
+    | 'DOWNGRADE_TO_ADMIN'
+    | 'REMOVE_DUPLICATE_SUPER_ADMIN'
+    /** A soft-deleted ADMIN row of the same user and school is switched back on. */
+    | 'RESTORE_ADMIN';
+}
+
+export type CutoverStatus = 'done' | 'already_done' | 'dry_run';
+
+export interface CutoverResult {
+  status: CutoverStatus;
+  counts: CutoverCounts;
+  plan: CutoverPlanRow[];
+  /** Users whose sessions are cut off by this run (including a resumed earlier run). */
+  sessionsCut: number;
+}
+
+/** The cutover will not start: a precondition is missing. The message is fixed text (Rule 23). */
+export class CutoverRefusedError extends Error {}
+
+const ZERO: CutoverCounts = { removed: 0, downgraded: 0, duplicatesRemoved: 0 };
+
+/** Thrown inside the dry-run transaction to roll it back; carries what the run would have done. */
+class DryRunRollback extends Error {
+  constructor(readonly outcome: { counts: CutoverCounts; plan: CutoverPlanRow[]; ids: string[] }) {
+    super('dry run');
+  }
+}
+
 /**
  * [Epic 98 / D18, D23] One-time conversion of the old platform authority: nobody keeps platform
- * power through a school membership. Idempotent (`cutover.done`), one transaction under an
- * advisory lock. Logs counts only, never emails (Rule 13). Never deletes a user or a school.
+ * power through a school membership. NOT run on boot: an operator starts it with
+ * `server/dist/scripts/platform-cutover.js` after the #3773 sign-off (28-platform-runbook.md).
+ * Idempotent (`cutover.done`), one transaction under an advisory lock, `--dry-run` rolls the same
+ * transaction back. Logs counts only, never emails (Rule 13). Never deletes a user or a school.
  */
 @Injectable()
-export class PlatformCutoverService implements OnApplicationBootstrap {
+export class PlatformCutoverService {
   private readonly logger = new Logger(PlatformCutoverService.name);
 
   constructor(
@@ -42,46 +78,84 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
     private readonly audit: AuditService,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
-    await this.run();
-  }
-
-  /** Returns null when skipped (demo, already done, or no owners yet). */
-  async run(): Promise<CutoverCounts | null> {
-    if (isDemoMode()) return null;
-    if (await this.isDone(this.ds.manager)) return null;
-    // A fresh database has nothing to convert; the next boot retries once owners exist.
-    const [{ n }] = await this.ds.query(`SELECT count(*)::int AS n FROM platform_admins`);
-    if (n === 0) return null;
-
+  async run(opts: { dryRun?: boolean } = {}): Promise<CutoverResult> {
+    if (isDemoMode()) throw new CutoverRefusedError('the demo has no cockpit and no cutover');
+    if (await this.isDone(this.ds.manager)) {
+      return { status: 'already_done', counts: ZERO, plan: [], sessionsCut: 0 };
+    }
+    // Without a working owner, removing the old authority would leave nobody in charge.
+    if (!(await this.hasVerifiedOwner(this.ds.manager))) {
+      throw new CutoverRefusedError(
+        'no active, unlocked cockpit owner with a confirmed authenticator exists',
+      );
+    }
     // D18/D3b: "the platform school" is BOTH the legacy platform tenant and the `is_platform` home
     // row. Owners and SUPER_ADMINs lose membership on either. If neither resolves we cannot tell
-    // platform rows from ordinary ones, so do nothing and leave `cutover.done` unset (retry next boot).
+    // platform rows from ordinary ones, so refuse.
     const platformIds = await this.tenantStatus.platformSchoolIds();
     if (platformIds.length === 0) {
-      this.logger.warn('Platform cutover skipped: no platform school could be resolved');
-      return null;
+      throw new CutoverRefusedError('no platform school could be resolved');
     }
+
+    if (opts.dryRun) {
+      try {
+        await this.ds.transaction(async (em) => {
+          await em.query(`SELECT pg_advisory_xact_lock($1)`, [CUTOVER_LOCK_KEY]);
+          const c = await this.convert(em, platformIds);
+          const ids = [...new Set([...(await this.pending(em)), ...c.affected])];
+          throw new DryRunRollback({ counts: c.counts, plan: c.plan, ids });
+        });
+      } catch (error) {
+        if (!(error instanceof DryRunRollback)) throw error;
+        const { counts, plan, ids } = error.outcome;
+        return { status: 'dry_run', counts, plan, sessionsCut: ids.length };
+      }
+    }
+
     // Conversion + the affected user ids commit together; `cutover.done` is written only after the
-    // post-commit session cutoff, so a crash in between is retried on the next boot (Rule 8).
-    const { counts, pending } = await this.ds.transaction(async (em) => {
+    // post-commit session cutoff, so a crash in between is resumed by the next run (Rule 8).
+    const { counts, plan, pending, skipped } = await this.ds.transaction(async (em) => {
       await em.query(`SELECT pg_advisory_xact_lock($1)`, [CUTOVER_LOCK_KEY]);
-      if (await this.isDone(em)) return { counts: null, pending: [] as string[] }; // another container finished
+      if (await this.isDone(em)) {
+        return {
+          counts: ZERO,
+          plan: [] as CutoverPlanRow[],
+          pending: [] as string[],
+          skipped: true as boolean,
+        };
+      }
       const c = await this.convert(em, platformIds);
       const ids = new Set([...(await this.pending(em)), ...c.affected]);
       if (ids.size === 0) await this.setKey(em, CUTOVER_DONE_KEY, true);
       else await this.setKey(em, CUTOVER_PENDING_KEY, [...ids]);
-      return { counts: c.counts, pending: [...ids] };
+      return { counts: c.counts, plan: c.plan, pending: [...ids], skipped: false as boolean };
     });
+    // Another operator finished while this one waited on the lock.
+    if (skipped) return { status: 'already_done', counts: ZERO, plan: [], sessionsCut: 0 };
     await this.finishCutoff(pending);
-    if (counts) {
-      this.logger.log(
-        `Platform cutover done: ${counts.removed} memberships removed, ` +
-          `${counts.downgraded} SUPER_ADMIN downgraded to ADMIN, ` +
-          `${counts.duplicatesRemoved} duplicate ADMIN rows removed`,
-      );
-    }
-    return counts;
+    this.logger.log(
+      `Platform cutover done: ${counts.removed} memberships removed, ` +
+        `${counts.downgraded} SUPER_ADMIN downgraded to ADMIN, ` +
+        `${counts.duplicatesRemoved} duplicate ADMIN rows removed`,
+    );
+    return { status: 'done', counts, plan, sessionsCut: pending.length };
+  }
+
+  /**
+   * An owner who can really sign in to the cockpit: active, unlocked, confirmed authenticator, and
+   * the password, phone and email the sign-in needs (login checks the password; a new device needs an
+   * SMS and an email code).
+   */
+  private async hasVerifiedOwner(em: EntityManager): Promise<boolean> {
+    const rows: unknown[] = await em.query(
+      `SELECT 1 FROM platform_admins pa
+         JOIN users u ON u.id = pa.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+              AND u.password_hash IS NOT NULL AND u.phone IS NOT NULL AND u.email IS NOT NULL
+         JOIN user_mfa m ON m.user_id = pa.user_id AND m.confirmed_at IS NOT NULL
+        WHERE pa.locked_at IS NULL
+        LIMIT 1`,
+    );
+    return rows.length > 0;
   }
 
   /** Takes the cutoff time AFTER the commit, so a token issued off the old memberships is refused. */
@@ -122,9 +196,10 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
   private async convert(
     em: EntityManager,
     platformIds: string[],
-  ): Promise<{ counts: CutoverCounts; affected: string[] }> {
+  ): Promise<{ counts: CutoverCounts; affected: string[]; plan: CutoverPlanRow[] }> {
     const counts: CutoverCounts = { removed: 0, downgraded: 0, duplicatesRemoved: 0 };
     const affected = new Set<string>();
+    const plan: CutoverPlanRow[] = [];
 
     {
       // Owners lose any membership on a platform school (D2); so does every SUPER_ADMIN.
@@ -137,6 +212,7 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
       for (const m of rows) {
         await this.softDelete(em, m);
         affected.add(m.user_id);
+        plan.push({ userId: m.user_id, tenantId: m.tenant_id, action: 'REMOVE_MEMBERSHIP' });
         counts.removed++;
       }
     }
@@ -154,8 +230,14 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
       );
       if (admin) {
         await this.softDelete(em, m);
+        plan.push({
+          userId: m.user_id,
+          tenantId: m.tenant_id,
+          action: 'REMOVE_DUPLICATE_SUPER_ADMIN',
+        });
         counts.duplicatesRemoved++;
         if (admin.deleted_at) {
+          plan.push({ userId: m.user_id, tenantId: m.tenant_id, action: 'RESTORE_ADMIN' });
           await em.query(`UPDATE user_tenants SET deleted_at = NULL WHERE id = $1`, [admin.id]);
           await this.record(
             em,
@@ -167,12 +249,13 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
       } else {
         await em.query(`UPDATE user_tenants SET role = $2 WHERE id = $1`, [m.id, UserRole.ADMIN]);
         await this.record(em, m, { role: UserRole.ADMIN }, AuditAction.UPDATE);
+        plan.push({ userId: m.user_id, tenantId: m.tenant_id, action: 'DOWNGRADE_TO_ADMIN' });
         counts.downgraded++;
       }
       affected.add(m.user_id);
     }
 
-    return { counts, affected: [...affected] };
+    return { counts, affected: [...affected], plan };
   }
 
   private async softDelete(em: EntityManager, m: Membership): Promise<void> {
