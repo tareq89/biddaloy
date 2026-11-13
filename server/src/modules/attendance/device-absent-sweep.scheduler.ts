@@ -14,6 +14,9 @@ import { assertDateNotInClosedYear } from '../../common/utils/year-open.guard';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { sectionRosterIdsBySection } from '../enrollments/section-roster';
 import { AuditService } from '../audit/audit.service';
+import { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import {
@@ -49,6 +52,7 @@ export class DeviceAbsentSweepScheduler extends WorkerHost implements OnModuleIn
     private readonly schoolsService: SchoolsService,
     private readonly schoolCalendarService: SchoolCalendarService,
     private readonly auditService: AuditService,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -74,6 +78,8 @@ export class DeviceAbsentSweepScheduler extends WorkerHost implements OnModuleIn
   }
 
   async sweepTenant(tenantId: string): Promise<number> {
+    // [77.2.10] D9: module off -> skip the school. A read failure throws into process()'s per-tenant catch.
+    if (!(await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.attendance))) return 0;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);
     if (policy.dailySource !== DailyAttendanceSource.DEVICE) return 0;

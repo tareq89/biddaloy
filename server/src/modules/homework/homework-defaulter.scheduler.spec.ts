@@ -15,6 +15,7 @@ describe('HomeworkDefaulterScheduler', () => {
   let studentRepo: any;
   let schoolsService: any;
   let homeworkNoticeService: any;
+  let moduleState: any;
   let scheduler: HomeworkDefaulterScheduler;
 
   const ASSIGNMENT = {
@@ -40,6 +41,8 @@ describe('HomeworkDefaulterScheduler', () => {
       })),
     };
     homeworkNoticeService = { notifyDefaulters: vi.fn(async () => undefined) };
+    // [77.2.10] every module on unless a test says otherwise
+    moduleState = { forTenant: vi.fn(async () => ({ platform: {}, school: {} })) };
 
     scheduler = new HomeworkDefaulterScheduler(
       queue,
@@ -48,6 +51,7 @@ describe('HomeworkDefaulterScheduler', () => {
       studentRepo,
       schoolsService,
       homeworkNoticeService,
+      moduleState,
     );
   });
 
@@ -158,5 +162,29 @@ describe('HomeworkDefaulterScheduler', () => {
 
     await expect(scheduler.process()).resolves.not.toThrow();
     expect(homeworkNoticeService.notifyDefaulters).toHaveBeenCalledTimes(2);
+  });
+
+  // [77.2.10] D9: Homework off for tenant A -> A skipped, B still swept.
+  it('skips a school with homework off and still sweeps the next', async () => {
+    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    moduleState.forTenant.mockImplementation(async (id: string) => ({
+      platform: {},
+      school: id === 'A' ? { homework: { on: false } } : {},
+    }));
+    await scheduler.process();
+    const swept = assignmentRepo.find.mock.calls.map((c: any[]) => c[0].where.tenant_id);
+    expect(swept).toEqual(['B']);
+  });
+
+  // Fail closed: unreadable state is skipped (and logged), never treated as on.
+  it('skips a school whose module state cannot be read and still sweeps the next', async () => {
+    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    moduleState.forTenant.mockImplementation(async (id: string) => {
+      if (id === 'A') throw new Error('db down');
+      return { platform: {}, school: {} };
+    });
+    await expect(scheduler.process()).resolves.toBeUndefined();
+    const swept = assignmentRepo.find.mock.calls.map((c: any[]) => c[0].where.tenant_id);
+    expect(swept).toEqual(['B']);
   });
 });

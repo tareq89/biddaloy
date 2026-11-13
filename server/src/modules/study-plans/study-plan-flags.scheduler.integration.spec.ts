@@ -132,6 +132,8 @@ describe('StudyPlanFlagsScheduler (integration)', () => {
       push as never,
       {} as never,
       {} as never,
+      // [77.2.10] every module on
+      { forTenant: async () => ({ platform: {}, school: {} }) } as never,
     );
   }, 60000);
 
