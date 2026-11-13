@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Param, ParseEnumPipe, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { EMPLOYEE_ROLES, LeaveType, Permission, UserRole } from '@biddaloy/shared';
+import { EMPLOYEE_ROLES, LeaveType, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -31,6 +32,7 @@ const LEAVE_SELF_SERVICE_ROLES = EMPLOYEE_ROLES;
 @ApiTags('leave')
 @ApiTenantAuth()
 @Controller('leave')
+@RequiresModule(ModuleKey.staffAttendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}

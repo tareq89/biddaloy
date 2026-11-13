@@ -45,6 +45,9 @@ const DEVICE_INGEST_RATE_LIMIT = { limit: 120, ttl: 60_000 };
  * (without `ThrottlerModule`) and would break on. Not worth the
  * complexity for a rate-limit tier, not an authorization boundary.
  */
+// module: attendance, but NOT tagged `@RequiresModule` here. This controller runs on
+// `DeviceAuthGuard`, not `PermissionsGuard`, so the tag would not be enforced. The device
+// gate needs its own follow-up.
 @ApiTags('attendance-devices')
 @ApiHeader({ name: 'X-Device-Key', required: true, description: "The device's credential." })
 @Controller('attendance')
