@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
-import { PromotionRunStatus } from '@biddaloy/shared';
+import { PromotionRunStatus, type SchoolLabels, type SchoolModules } from '@biddaloy/shared';
 import type {
   TenantSettings,
   OrganisationSettings,
@@ -28,7 +28,7 @@ import { School } from './entities/school.entity';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { localToday } from '../attendance/attendance-policy.util';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
-import { resolveTenantSettings } from './settings/tenant-settings-resolver';
+import { mergeModulesLabels, resolveTenantSettings } from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
@@ -280,6 +280,18 @@ export class SchoolsService {
     return resolveTenantSettings(school.settings);
   }
 
+  /** [77.1.02] Typed `modules` block of a school (absent = every module on). */
+  async getSchoolModules(schoolId: string): Promise<SchoolModules> {
+    const s = (await this.getResolvedSettings(schoolId)) as { modules?: SchoolModules };
+    return s.modules ?? {};
+  }
+
+  /** [77.1.02] Typed `labels` block of a school. */
+  async getSchoolLabels(schoolId: string): Promise<SchoolLabels> {
+    const s = (await this.getResolvedSettings(schoolId)) as { labels?: SchoolLabels };
+    return s.labels ?? {};
+  }
+
   /** D32: schema + selected + configured per medium. Reads stored (encrypted) settings, presence only. Never returns a value. */
   async getMessagingProviders(schoolId: string): Promise<MessagingProvidersResponse> {
     return buildMessagingProvidersResponse(await this.getResolvedSettings(schoolId));
@@ -400,7 +412,15 @@ export class SchoolsService {
     const rawPlainPatch = toPlainSettingsPatch(dto) as Record<string, unknown> & {
       organisationRenames?: unknown;
     };
-    const { organisationRenames: _organisationRenames, ...plainPatch } = rawPlainPatch;
+    const {
+      organisationRenames: _organisationRenames,
+      modules: modulesPatch,
+      labels: labelsPatch,
+      ...plainPatch
+    } = rawPlainPatch as Record<string, unknown> & {
+      modules?: Record<string, unknown>;
+      labels?: Record<string, unknown>;
+    };
     const renames = dto.organisationRenames ?? [];
     const encryptedPatch = encryptSecretFields(plainPatch, this.encryption);
 
@@ -455,8 +475,48 @@ export class SchoolsService {
         );
       }
 
-      school.settings = mergeTenantSettings(school.settings, encryptedPatch);
+      const mergedSettings = mergeTenantSettings(school.settings, encryptedPatch);
+      // [77.1.02] `modules` / `labels`: deep merge per key, `null` removes a key. Each block
+      // that actually changed gets its own audit row (D45) instead of riding SETTINGS_CHANGE.
+      const blockAudits: Array<{ action: AuditAction; before: unknown; after: unknown }> = [];
+      const storedBlocks = (school.settings ?? {}) as Record<string, unknown>;
+      for (const [name, patch, action] of [
+        ['modules', modulesPatch, AuditAction.MODULES_UPDATED],
+        ['labels', labelsPatch, AuditAction.WORDS_UPDATED],
+      ] as const) {
+        if (patch === undefined) continue;
+        const before = storedBlocks[name] ?? {};
+        const after = mergeModulesLabels(before, patch);
+        mergedSettings[name] = after;
+        if (JSON.stringify(before) !== JSON.stringify(after)) {
+          blockAudits.push({ action, before, after });
+        }
+      }
+      school.settings = mergedSettings;
       await schoolRepo.save(school);
+      for (const b of blockAudits) {
+        await this.auditService.record(
+          {
+            action: b.action,
+            entity_type: 'School',
+            entity_id: schoolId,
+            tenant_id: schoolId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: b.before as Record<string, unknown>,
+            new_values: b.after as Record<string, unknown>,
+          },
+          manager,
+        );
+      }
+      // Nothing but `version` left means the PATCH was only modules/labels: already audited.
+      if (
+        (modulesPatch !== undefined || labelsPatch !== undefined) &&
+        Object.keys(plainPatch).every((k) => k === 'version')
+      ) {
+        return school.settings;
+      }
 
       // [money-tier review] `organisationRenames` is stripped from
       // `plainPatch` before it ever reaches the stored settings (it's a

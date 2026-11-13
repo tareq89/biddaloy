@@ -185,4 +185,8 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   dashboard: DEFAULT_DASHBOARD_SETTINGS,
   exams: DEFAULT_EXAMS_SETTINGS,
   supportAccess: DEFAULT_SUPPORT_ACCESS_SETTINGS,
-};
+  // [77.1.02] D40: nothing off, no renamed words. The shared `TenantSettings`
+  // type does not carry these two blocks yet, hence the cast.
+  modules: {},
+  labels: {},
+} as TenantSettings;
