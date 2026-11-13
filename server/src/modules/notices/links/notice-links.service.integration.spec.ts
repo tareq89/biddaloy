@@ -7,6 +7,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { SchoolsService } from '../../schools/schools.service';
 import { StorageService } from '../../storage/storage.service';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { NoticeLinksService } from './notice-links.service';
 
 /** [53.2.02] Notice links: hash-only storage, dead-link cases, read-only resolve, tenant isolation. */
@@ -26,6 +27,10 @@ describe('NoticeLinksService (integration)', () => {
       NoticeLinksService,
       // the school's "today" is pinned to the same day dayOffset counts from
       { provide: SchoolsService, useValue: { todayFor: async () => dayOffset(0) } },
+      {
+        provide: ModuleStateReader,
+        useValue: { forTenant: async () => ({ platform: {}, school: {} }) },
+      },
       {
         provide: StorageService,
         useValue: {

@@ -35,6 +35,7 @@ function make(siteLogo: { id: string; storage_key: string } | null, profileKey: 
     { findOne: mediaFindOne } as never,
     {} as never,
     {} as never,
+    { forTenant: async () => ({ platform: {}, school: {} }) } as never,
   );
   return { svc, mediaFindOne, getForTenant };
 }
