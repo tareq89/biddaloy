@@ -6,6 +6,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID as TENANT_ID } from '@test/constants';
 import {
   balanceFor,
+  fundMeteredTenant,
   ledgerFor,
   makeMeteredCreditService,
   makeProcessor,
@@ -249,7 +250,7 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     const student = await mkStudent('Rahim');
     await mkGuardian(student);
     await mkAlert(student);
-    await ds.query(`UPDATE sms_credit_balance SET available = 0 WHERE tenant_id = $1`, [TENANT_ID]);
+    await fundMeteredTenant(ds, TENANT_ID, 0);
     expect(await service.runTenant(school(), new Date())).toBe(0);
     expect(queued).toEqual([]);
     expect(await logs()).toHaveLength(0);
