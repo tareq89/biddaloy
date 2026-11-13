@@ -7,8 +7,8 @@
     "addYear": "Add academic year",
     "columnYear": "Academic year",
     "columnCurrent": "Status",
-    "columnClasses": "Classes",
-    "columnStudents": "Students",
+    "columnClasses": "$t(common:entities.class_other)",
+    "columnStudents": "$t(common:entities.student_other)",
     "edit": "Edit",
     "delete": "Delete",
     "setCurrent": "Set as current",
@@ -17,13 +17,13 @@
     "subtitle": "One year is current at a time.",
     "columnPeriod": "Period",
     "view": "View",
-    "emptyExplanation": "Classes, fee structures and admissions belong to a year — add one first.",
+    "emptyExplanation": "$t(common:entities.class_other), fee structures and admissions belong to a year — add one first.",
     "emptyAction": "Add the first academic year"
   },
   "form": {
     "createTitle": "Add academic year",
     "editTitle": "Edit academic year",
-    "description": "Classes, fee structures and enrolments attach to whichever year they're created in.",
+    "description": "$t(common:entities.class_other), fee structures and enrolments attach to whichever year they're created in.",
     "nameLabel": "Name",
     "namePlaceholder": "e.g. 2026-2027",
     "startDateLabel": "Start date",
@@ -63,7 +63,7 @@
     "errorMessage": "Failed to set the current academic year"
   },
   "detail": {
-    "tabClasses": "Classes",
+    "tabClasses": "$t(common:entities.class_other)",
     "tabFeeStructures": "Fee Structures",
     "tabTerms": "Terms",
     "forbidden": "You don't have permission to view this.",
@@ -73,12 +73,12 @@
       "emptyMessage": "No classes in this academic year",
       "errorMessage": "Failed to load classes",
       "view": "View",
-      "emptyExplanation": "Classes created for this year will appear here."
+      "emptyExplanation": "$t(common:entities.class_other) created for this year will appear here."
     },
     "feeStructures": {
       "columnName": "Name",
       "columnType": "Type",
-      "columnClass": "Class",
+      "columnClass": "$t(common:entities.class_one)",
       "columnAmount": "Amount",
       "wholeSchool": "Whole school",
       "emptyMessage": "No fee structures in this academic year",
@@ -86,8 +86,8 @@
       "emptyExplanation": "Fee structures for this year will appear here."
     },
     "statistics": {
-      "classes": "Classes",
-      "students": "Students",
+      "classes": "$t(common:entities.class_other)",
+      "students": "$t(common:entities.student_other)",
       "feeStructures": "Fee structures"
     },
     "terms": {
@@ -152,7 +152,11 @@
     "fromThisOne": "Create next year from this one",
     "title": "Create next year",
     "subtitle": "Make {{name}}'s setup ready for the new year.",
-    "steps": { "name": "Name and dates", "preview": "What will be copied", "done": "Done" },
+    "steps": {
+      "name": "Name and dates",
+      "preview": "What will be copied",
+      "done": "Done"
+    },
     "nameLabel": "Name of the new year",
     "startLabel": "First day",
     "endLabel": "Last day",
@@ -168,14 +172,14 @@
     "retry": "Try again",
     "noBlockChosen": "Tick at least one thing to copy.",
     "tile": "New {{created}} · Already there {{existing}} · Skipped {{skipped}}",
-    "skippedStaffTitle": "Teachers left out",
+    "skippedStaffTitle": "$t(common:entities.teacher_other) left out",
     "skippedStaffRow": "{{teacher}} — {{section}}, {{subject}}",
     "createFailed": "Nothing was created. Try again.",
     "blocks": {
-      "classes": "Classes",
-      "sections": "Sections",
-      "class_subjects": "Class subjects",
-      "teacher_assignments": "Teacher assignments",
+      "classes": "$t(common:entities.class_other)",
+      "sections": "$t(common:entities.section_other)",
+      "class_subjects": "$t(common:entities.class_one) subjects",
+      "teacher_assignments": "$t(common:entities.teacher_one) assignments",
       "fee_structures": "Fee structures",
       "grading_scales": "Grading scales",
       "terms": "Terms"
@@ -184,7 +188,7 @@
       "title": "{{name}} is ready",
       "counts": "New {{created}} · Already there {{existing}} · Skipped {{skipped}}",
       "alsoCopy": "Also copy from {{name}}:",
-      "routines": "Class routine",
+      "routines": "$t(common:entities.class_one) routine",
       "calendar": "Calendar",
       "fineRules": "Fine rules",
       "schedules": "Recurring fee schedules",
@@ -210,8 +214,8 @@
     },
     "freezesEmpty": "Nothing has been recorded in this year yet.",
     "freezes": {
-      "classes": "Classes",
-      "class_subjects": "Class subjects",
+      "classes": "$t(common:entities.class_other)",
+      "class_subjects": "$t(common:entities.class_one) subjects",
       "academic_terms": "Terms",
       "calendar_events": "Calendar events",
       "exams": "Exams",
@@ -222,9 +226,9 @@
       "student_fees": "Bills",
       "grading_scales": "Grading scales",
       "promotion_runs": "Promotion runs",
-      "routines": "Class routines",
+      "routines": "$t(common:entities.class_one) routines",
       "enrollments": "Enrolments",
-      "student_lifecycle_events": "Student status changes",
+      "student_lifecycle_events": "$t(common:entities.student_one) status changes",
       "student_subject_choices": "Subject choices",
       "study_plans": "Study plans",
       "acr_assessments": "Staff evaluations",
@@ -244,8 +248,8 @@
     "reopenError": "Could not reopen the year"
   },
   "readiness": {
-    "summary": "Classes: {{classes}} · Teacher assignments: {{teachers}} · Promotions committed: {{runs}}",
-    "noTeachers": "Teachers will see no students until assignments exist in this year.",
+    "summary": "$t(common:entities.class_other): {{classes}} · $t(common:entities.teacher_one) assignments: {{teachers}} · Promotions committed: {{runs}}",
+    "noTeachers": "$t(common:entities.teacher_other) will see no students until assignments exist in this year.",
     "loadError": "Could not check this year's setup."
   },
   "fields": {

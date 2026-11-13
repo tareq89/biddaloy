@@ -1,5 +1,6 @@
 {
   "converted": [
+    "academicYears",
     "admission-public",
     "admission-reports",
     "admission-staff-applicants",
@@ -43,7 +44,8 @@
     "student-lifecycle",
     "studentImport",
     "students",
-    "studyPlans"
+    "studyPlans",
+    "syllabus"
   ],
   "allow": {}
 }
