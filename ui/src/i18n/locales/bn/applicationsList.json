@@ -22,7 +22,7 @@
     "step": "ধাপ",
     "status": "অবস্থা"
   },
-  "paper": "অভিভাবক · কাগজে জমা",
+  "paper": "$t(common:entities.guardian_one) · কাগজে জমা",
   "stepShort": "{{current}}/{{total}} · {{label}}",
   "rowActions": {
     "view": "আবেদন {{serial}} খুলুন",
@@ -36,8 +36,8 @@
     "allTypes": "সব ধরন",
     "status": "অবস্থা",
     "allStatuses": "সব অবস্থা",
-    "class": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
+    "class": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
     "date": "জমার তারিখ",
     "from": "থেকে",
     "to": "পর্যন্ত"
