@@ -56,8 +56,9 @@ export class RevenueService {
          FROM seat_orders GROUP BY school_id
        ), p AS (
          SELECT school_id,
-           COALESCE(SUM(price_paisa) FILTER (WHERE paid_at >= $1 AND paid_at < $2), 0) AS inc,
-           COALESCE(SUM(price_paisa) FILTER (WHERE paid_at IS NOT NULL
+           COALESCE(SUM(price_paisa) FILTER (WHERE status IN ('PAID','ACTIVE','USED_UP','EXPIRED','REFUNDED')
+             AND paid_at >= $1 AND paid_at < $2), 0) AS inc,
+           COALESCE(SUM(price_paisa) FILTER (WHERE status = 'REFUNDED' AND paid_at IS NOT NULL
              AND refunded_at >= $1 AND refunded_at < $2), 0) AS ref
          FROM sms_bundle_orders GROUP BY school_id
        )
