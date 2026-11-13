@@ -25,7 +25,8 @@ import { nextOwnerCode, ownerSession, tc } from './support-helpers';
  * Every write by the owner needs a step-up code (`platform.school_control`): the UI asks for
  * the authenticator code, the API calls take an approval token (`approvedPut`). Seed data only:
  * `Default School` (the one school admin's tests use) and `Rose Valley School` (same admin, a
- * second school, untouched by the locks below).
+ * second school, untouched by the locks below). The seed sets no module choice and no lock, so
+ * the school choices and the lock are put back to "none"; the global map to the value read first.
  */
 test.use({ ...cockpitOwner, actionTimeout: 15_000 });
 
@@ -177,6 +178,19 @@ async function schoolAdminPage(
   }
 }
 
+/** Runs every restore step even when one throws, then rethrows the first error. */
+async function restoreAll(steps: Array<() => Promise<unknown>>) {
+  const errors: unknown[] = [];
+  for (const step of steps) {
+    try {
+      await step();
+    } catch (e) {
+      errors.push(e);
+    }
+  }
+  if (errors.length) throw errors[0];
+}
+
 /** The owner's code prompt: wait for it, then enter a code from a fresh step. */
 async function enterCode(page: Page) {
   const field = page.getByLabel(tc('approval', 'codeOnly.label'));
@@ -244,9 +258,11 @@ test.describe('platform modules', () => {
       await school.page.goto('/students');
       await shell.expectNavItem('nav.items.fines', true);
     } finally {
-      await putPlatformMap(request, owner, before);
-      await setModules(request, admin, { fines: null });
-      await school.close();
+      await restoreAll([
+        () => putPlatformMap(request, owner, before),
+        () => setModules(request, admin, { fines: null }),
+        () => school.close(),
+      ]);
     }
   });
 
@@ -266,8 +282,10 @@ test.describe('platform modules', () => {
       expect((await getSchoolStates(request, owner, admin.tenantId)).fines?.on).toBe(false);
       expect((await status(request, admin, '/fees/fines')).code).toBe(403);
     } finally {
-      await putPlatformMap(request, owner, before);
-      await setModules(request, admin, { fines: null });
+      await restoreAll([
+        () => putPlatformMap(request, owner, before),
+        () => setModules(request, admin, { fines: null }),
+      ]);
     }
   });
 
@@ -322,10 +340,12 @@ test.describe('platform modules', () => {
       await school.page.goto('/students');
       await shell.expectNavItem('nav.items.homework', true);
     } finally {
-      await putLock(request, owner, admin.tenantId, 'homework', null);
-      await setModules(request, admin, { homework: null });
-      await setModules(request, rose, { homework: null });
-      await school.close();
+      await restoreAll([
+        () => putLock(request, owner, admin.tenantId, 'homework', null),
+        () => setModules(request, admin, { homework: null }),
+        () => setModules(request, rose, { homework: null }),
+        () => school.close(),
+      ]);
     }
   });
 

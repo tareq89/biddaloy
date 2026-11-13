@@ -2540,7 +2540,7 @@ Precedence: **platform off > lock > school's own choice**. A lock is for one sch
 **Worked example.** The owner turns Fines off for all schools, then locks Homework On for Rose Valley:
 
 1. Cockpit, **Operations**, card **Modules for all schools**. Switch **Fines** to off. A dialog asks "Turn off Fines?"; confirm, then type the authenticator code. Every school's Fines menu item disappears, and `GET /api/v1/fees/fines` answers `403 This part is not turned on for your institution`.
-2. **Schools**, open Rose Valley, tab **Modules**. On the **Homework** row pick "Locked on". Type the code. Rose Valley's admin cannot turn Homework off any more. Other schools are untouched.
+2. **Schools**, open Rose Valley, tab **Modules**. On the **Homework** row pick "Locked On". Type the code. Rose Valley's admin cannot turn Homework off any more. Other schools are untouched.
 3. To undo: switch Fines on again (code only, no dialog) and set the Homework row back to "No lock".
 
 **Step-up.** Both writes (`PUT /api/v1/platform/modules`, `PUT /api/v1/platform/schools/:id/modules/:key/lock`) need an approval token for scope `platform.school_control`. The cockpit asks for the authenticator code; an API call sends the token in `X-Approval-Token`. The reads (`GET /api/v1/platform/modules`, `GET /api/v1/platform/schools/:id/modules`) need none. A school admin gets `401` or `403` on all four.
