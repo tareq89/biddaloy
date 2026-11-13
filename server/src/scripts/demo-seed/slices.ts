@@ -43,6 +43,12 @@ export const SLICES: DemoSlice[] = [
 /** Entities that no slice fills, with the reason. `demo-seed.coverage.integration.spec.ts` reads this. */
 export const EXEMPT: Record<string, string> = {
   PlatformAlert: 'platform incident state, not school data',
+  SmsCreditLot: 'rows land in #3854 (Epic 100 W1); #3854 moves it into a slice',
+  SmsCreditLotDraw: 'rows land in #3854 (Epic 100 W1); #3854 moves it into a slice',
+  SmsBundleCatalog: 'rows land in #3854 (Epic 100 W1); #3854 moves it into a slice',
+  SmsBundleOrder: 'rows land in #3854 (Epic 100 W1); #3854 moves it into a slice',
+  SmsStockEntry: 'rows land in #3854 (Epic 100 W1); #3854 moves it into a slice',
+  SmsProviderBalanceReading: 'rows land in #3854 (Epic 100 W1); #3854 moves it into a slice',
   PlatformAdmin: 'platform data, no cockpit on demo',
   PlatformAdminDevice: 'platform data, no cockpit on demo',
   PlatformApproval: 'platform data, no cockpit on demo',

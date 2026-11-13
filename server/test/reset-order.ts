@@ -27,6 +27,13 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'platform_alerts',
   // [49.4] billing; payments FK orders, so they clear first.
   'platform_payments',
+  // [100.1.02] lots FK bundle orders (RESTRICT), draws FK lots, orders FK catalog.
+  'sms_credit_lot_draws',
+  'sms_credit_lots',
+  'sms_bundle_orders',
+  'sms_bundle_catalog',
+  'sms_stock_entries',
+  'sms_provider_balance_readings',
   'seat_orders',
   // [67.1.02] attention engine; recipients FK alerts, so they clear first.
   'alert_recipients',
