@@ -20,7 +20,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { CommitHomeworkBulkUploadDto } from './dto/homework-bulk-upload.dto';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -29,6 +30,7 @@ const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 @ApiTags('homework')
 @ApiTenantAuth()
 @Controller('homework/bulk')
+@RequiresModule(ModuleKey.homework)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class HomeworkBulkUploadController {
   constructor(

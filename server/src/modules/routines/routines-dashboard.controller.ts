@@ -1,7 +1,7 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey, JwtPayload } from '@biddaloy/shared';
+import { DashboardWidgetKey, JwtPayload, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -11,11 +11,13 @@ import { DashboardWidgetRoute } from '../dashboard/widget-permission.decorator';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { RoutinesDashboardService } from './routines-dashboard.service';
 import { MyRoutineTodayDto } from './dto/routines-dashboard.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [8.10.7.3.01] "My routine today" teacher widget. Cached per user (the answer is personal). */
 @ApiTags('dashboard')
 @ApiTenantAuth()
 @Controller()
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class RoutinesDashboardController {
   constructor(

@@ -15,7 +15,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -35,6 +35,7 @@ import {
   UpdateStudyPlanTemplateDto,
 } from './dto/study-plan-template.dto';
 import { StudyPlanDetailDto } from './dto/study-plan.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 type Tenant = { id: string; role: string };
 
@@ -46,6 +47,7 @@ type Tenant = { id: string; role: string };
 @ApiTags('study-plan-templates')
 @ApiTenantAuth()
 @Controller('study-plan-templates')
+@RequiresModule(ModuleKey.studyPlans)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudyPlanTemplatesController {
   constructor(private readonly service: StudyPlanTemplatesService) {}
