@@ -983,7 +983,9 @@ describe('Permission matrix (regression)', () => {
   });
 
   it('[75.7-b] the fail-closed PermissionsGuard admits every PermissionsGuard route (nothing that works today turns into a 403)', () => {
-    const guard = new PermissionsGuard(new Reflector());
+    const guard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as any);
     const refused: string[] = [];
     let walked = 0;
 

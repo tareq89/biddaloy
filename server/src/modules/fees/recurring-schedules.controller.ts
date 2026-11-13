@@ -37,7 +37,8 @@ import {
 // [16.8.2] Family-facing shape from the one allow-list module.
 import { FamilyStudentScheduleDto } from './dto/family.dto';
 import { FamilyAccessService } from '../students/family-access.service';
-import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * [16.7.1] CRUD + exclusions + clone-to-next-year for `RecurringSchedule`,
@@ -54,6 +55,7 @@ import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shar
 @ApiExtraModels(StudentScheduleItemDto, FamilyStudentScheduleDto)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @Controller()
+@RequiresModule(ModuleKey.fees)
 export class RecurringSchedulesController {
   constructor(
     private readonly service: RecurringSchedulesService,

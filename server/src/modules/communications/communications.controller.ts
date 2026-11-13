@@ -44,7 +44,8 @@ import {
 } from './dto/reminders.dto';
 import { DeliveryStatusService } from './delivery-status.service';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
-import { JwtPayload, Permission, RoleScope, roleScope } from '@biddaloy/shared';
+import { JwtPayload, ModuleKey, Permission, RoleScope, roleScope } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { requestContext } from '../../common/request-context.util';
@@ -67,6 +68,7 @@ export class CommunicationsController {
   // below, so there's no route-ordering ambiguity — declared first to read
   // preview-before-send, matching the issue's "shows preview before sending."
   @Post('reminder/single/:studentId/preview')
+  @RequiresModule(ModuleKey.fees)
   @HttpCode(HttpStatus.OK)
   // [68.1.fix] No @Roles: once TEACHER lost COMMUNICATION_SEND (JOBS-03) the permission alone
   // admits exactly ADMIN/ACCOUNTANT/OFFICE_STAFF, so the role list narrowed nothing (#1357).
@@ -83,6 +85,7 @@ export class CommunicationsController {
   }
 
   @Post('reminder/single/:studentId')
+  @RequiresModule(ModuleKey.fees)
   @UseInterceptors(IdempotencyInterceptor)
   // [68.1.fix] No @Roles — see the preview route above.
   @RequirePermissions(Permission.COMMUNICATION_SEND)
@@ -113,6 +116,7 @@ export class CommunicationsController {
   // the tenant's whole guardian directory out through it; the fact that
   // nothing is sent makes it cheaper to abuse, not safer.
   @Post('reminder/bulk/preview')
+  @RequiresModule(ModuleKey.fees)
   @HttpCode(HttpStatus.OK)
   // [10.4] G1 — E tightened off: lacks COMMUNICATION_BULK_SEND.
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
@@ -134,6 +138,7 @@ export class CommunicationsController {
   // 'reminder' would otherwise be swallowed by the UUID param route and
   // rejected by its ParseUUIDPipe.
   @Post('reminder/bulk')
+  @RequiresModule(ModuleKey.fees)
   @UseInterceptors(IdempotencyInterceptor)
   // [10.4] G1 — E tightened off.
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
@@ -153,6 +158,7 @@ export class CommunicationsController {
   // Declared before @Get(':id') — same reasoning as the POST above:
   // 'reminder' would otherwise be swallowed by the UUID param route.
   @Get('reminder/bulk')
+  @RequiresModule(ModuleKey.fees)
   // [10.4] G1 — E tightened off.
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
@@ -166,6 +172,7 @@ export class CommunicationsController {
   }
 
   @Get('reminder/bulk/:id/logs')
+  @RequiresModule(ModuleKey.fees)
   // [10.4] G1 — E tightened off.
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
@@ -180,6 +187,7 @@ export class CommunicationsController {
   }
 
   @Get('reminder/bulk/:id')
+  @RequiresModule(ModuleKey.fees)
   // [10.4] G1 — E tightened off.
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
@@ -195,6 +203,7 @@ export class CommunicationsController {
   // Declared before @Get(':id') — 'logs' would otherwise hit the UUID param route.
   // BULK_SEND, not LOG_READ: teachers hold LOG_READ and this list is tenant-wide (Rule 2).
   @Get('logs')
+  @RequiresModule(ModuleKey.messaging)
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary: 'Message log — every message this tenant sent, newest first, filter by status.',
@@ -209,6 +218,7 @@ export class CommunicationsController {
   // [97.4.02] D22: the Company and Sent-by filter choices, on the log's own permission, so
   // Accountant and Office staff (no SETTINGS_MANAGE / USER_READ) get them too.
   @Get('logs/filter-options')
+  @RequiresModule(ModuleKey.messaging)
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({ summary: 'Message log — the Company and Sent-by filter choices.' })
   @ApiOkResponse({ type: MessageLogFilterOptionsDto })
@@ -220,6 +230,7 @@ export class CommunicationsController {
   // double click instead of asking the vendor twice (Rule 25). The cooldown is per log, so the
   // route also carries STRICT_RATE_LIMIT: many logs in a row cannot flood the vendor.
   @Post('logs/:id/check-status')
+  @RequiresModule(ModuleKey.messaging)
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(IdempotencyInterceptor)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -236,6 +247,7 @@ export class CommunicationsController {
   }
 
   @Post('send')
+  @RequiresModule(ModuleKey.messaging)
   @UseInterceptors(IdempotencyInterceptor)
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a freeform (non-reminder) message.' })
@@ -251,6 +263,7 @@ export class CommunicationsController {
   // above: 'last-reminders' would otherwise be swallowed by the UUID
   // param route and rejected by its ParseUUIDPipe.
   @Get('last-reminders')
+  @RequiresModule(ModuleKey.fees)
   // [10.4] G5 — per-student communication history; visible via STUDENT_READ.
   @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   @ApiOperation({
@@ -285,6 +298,7 @@ export class CommunicationsController {
   // above: 'student' would otherwise be swallowed by the UUID param route
   // and rejected by its ParseUUIDPipe.
   @Get('student/:studentId')
+  @RequiresModule(ModuleKey.messaging)
   // [10.4] G5 — per-student communication history.
   @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   @ApiOperation({
@@ -304,6 +318,7 @@ export class CommunicationsController {
   // Declared before `@Get(':id')` — same reasoning as `student/:studentId`
   // above.
   @Get('guardian/:guardianId')
+  @RequiresModule(ModuleKey.messaging)
   // [10.4] G5 — per-student communication history.
   @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   @ApiOperation({
@@ -322,6 +337,7 @@ export class CommunicationsController {
   }
 
   @Get(':id')
+  @RequiresModule(ModuleKey.messaging)
   // [10.4] G5 — per-student communication history.
   @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
   async findOne(

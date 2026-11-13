@@ -10,7 +10,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -32,6 +33,7 @@ type Tenant = { id: string; role: string };
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.fees)
 export class StudentStatementController {
   constructor(
     private readonly statements: StudentStatementService,
