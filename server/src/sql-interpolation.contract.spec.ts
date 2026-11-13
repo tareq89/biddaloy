@@ -48,14 +48,14 @@ const JOIN_COND = new RegExp(
 /** Per file (path relative to server/src): the sorted `${...}` expressions that
  * appear in direct query arguments. Audited 2026-10-13: none is request input. */
 const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
-  // [99.3] IS_ASK / IS_WRITE are module-level SQL constants; `filter` picks between two fixed
+  // [99.3] IS_WRITE / SELECT_REQUEST are module-level SQL constants; `filter` picks between two fixed
   // fragments built from them; the `approve` ternary yields one of two fixed strings. No request input.
   'modules/support-access/requests/support-requests.service.ts': [
     'INCOMPLETE: approve ?',
-    'IS_ASK',
-    'IS_ASK',
     'IS_WRITE',
     'IS_WRITE',
+    'SELECT_REQUEST',
+    'SELECT_REQUEST',
     'filter',
   ],
   // [99.3] built from the PLATFORM_ACTIONS constant table (fixed test SQL and labels), no input
