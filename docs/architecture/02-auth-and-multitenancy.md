@@ -1130,3 +1130,30 @@ next time the tab regains focus after 30 s, or on any reload.
 - 2026-11-13. **A test fixture sent a body the server rejects.** `setModules` omitted `version: 1`, so every settings PATCH was a 400 and no e2e had ever run it. Fix: the fixture sends the version. Rule candidate: run a new fixture once against the real endpoint in the ticket that adds it.
 - 2026-11-13. **A hidden portal URL shows a load error, not the refusal page.** Only the staff shell renders `ModuleOffState`. In the portal, `/portal/routine` with Routines off shows the generic "could not load" card (the server still answers 403). Cost: the e2e asserts only that the link is gone. Fix: tracked in #4127. Rule candidate: when a decision names "the URL shows the refusal page", list every shell it must hold in.
 - 2026-11-13. **Modules are school-wide, so a browser test that flips one disturbs its neighbours.** Each test restores in `finally` and keeps the off window short; the spec uses Fines, Homework and Routines only. Rule candidate: a spec that changes school settings says so in its header comment.
+
+### Wave 4 (the screen, #3923 to #3928)
+
+What an admin does on Settings › Modules & words, and what each click saves:
+
+```mermaid
+flowchart LR
+  C[Kind card] -->|click 1| V[Preview<br/>read only, GET preview]
+  V -->|click 2: Apply| A[POST apply<br/>modules + words in one PATCH]
+  M[Modules switch] -->|one click| P1[PATCH modules<br/>Undo toast]
+  W[Words tab] -->|Save| P2[PATCH labels<br/>only changed rows]
+  A --> R[profile refetch]
+  P1 --> R
+  P2 --> R
+  R --> U[sidebar, titles, words change<br/>in the same tab, no reload]
+```
+
+Example: the admin of a coaching centre opens the screen, clicks "Coaching centre", reads
+"Off: Fines, Programs; Section becomes Batch", clicks Apply. Two clicks. The sidebar loses
+Fines and "Classes" reads "Courses". Apply only turns modules off or renames; to turn Fines
+back on the admin uses its switch.
+
+- 2026-11-13. **The preview is a full-page modal, so the sidebar is behind it.** The first run of the journey asserted "Fines still in the sidebar" while the preview was open and failed: the shell is inert behind the modal. Fix: assert the sidebar before opening and after Apply only. Rule candidate: say in the ticket which surface is reachable while a full-page modal is open.
+- 2026-11-13. **No screen prints the Section word yet.** Only the nav and breadcrumbs go through `useEntityLabel`, and none of them uses `section` (the section crumbs in `route-crumbs.ts` read a fixed `nav` string). So "a page title with the Section word changes" cannot be asserted. Cost: the journey asserts the Words tab's own field plus the Class word in the sidebar. Fix: reported with the epic wrap-up. Rule candidate: before writing "the title changes", grep for a caller of the word.
+- 2026-11-13. **Apply never turns a module on, so a test cannot undo it through the screen.** The journey resets with `setModules`/`setLabels` (`null` removes a key) in `finally`. Rule candidate: any spec that changes school settings resets over the API and says so in its header.
+- 2026-11-13. **The built app's service worker hides requests from `page.route`.** The failed-save test blocks service workers (`test.use({ serviceWorkers: 'block' })`) before routing the PATCH to 500. Without it the switch would save for real.
+- 2026-11-13. **A second browser needs its nav groups opened by hand.** The `loggedIn` fixture seeds the "expanded" preference; a context built by `loginAsFreshUser` does not, so the teacher's Homework link sat in a collapsed group. Fix: the teacher context writes the same localStorage keys.
