@@ -15,7 +15,6 @@ import { PageContainer } from '@biddaloy/ui/shells';
 import { formatDateTime } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 
-import { roleLabel } from '../../../pages/settings/SupportAccessSessionsList';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 export const Route = createFileRoute('/_staff/support-access/requests/$requestId')({
@@ -49,6 +48,7 @@ function closedText(
 function SupportRequestPage() {
   const { requestId } = Route.useParams();
   const { t } = useTranslation('supportAccess');
+  const { t: tAuth } = useTranslation('auth');
   const region = useRegionConfig();
   // The list defaults to waiting requests only; an answered or run-out link is in "decided".
   const pending = useSupportRequests({ status: 'pending', limit: 100 });
@@ -91,7 +91,8 @@ function SupportRequestPage() {
       </>
     );
   } else {
-    const answered = decide.data?.status;
+    // The mutation result outlives navigation to another request: only this request's counts.
+    const answered = decide.data?.id === request.id ? decide.data.status : undefined;
     const closed = answered
       ? answered === 'APPROVED'
         ? t('reqApproved')
@@ -102,7 +103,10 @@ function SupportRequestPage() {
         <h1 className="text-h2">
           {request.kind === 'WRITE'
             ? t('reqWrite')
-            : t('reqAsk', { person: request.personName, role: roleLabel(request.role) })}
+            : t('reqAsk', {
+                person: request.personName,
+                role: tAuth(`schoolPicker.roles.${request.role}`),
+              })}
         </h1>
         <dl className="mt-4 space-y-1">
           <div>

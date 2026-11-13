@@ -15,12 +15,6 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
-/** `TEACHER` -> `Teacher`; the role comes from the server as a code. */
-export function roleLabel(role: string): string {
-  const lower = role.toLowerCase().replace(/_/g, ' ');
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
 export interface SupportAccessSessionsListProps {
   sessions: SupportSessionItem[] | undefined;
   platformActions: PlatformActionItem[] | undefined;
@@ -44,6 +38,7 @@ export function SupportAccessSessionsList({
   endFailed = false,
 }: SupportAccessSessionsListProps) {
   const { t } = useTranslation('supportAccess');
+  const { t: tAuth } = useTranslation('auth');
   const region = useRegionConfig();
   const [endTarget, setEndTarget] = React.useState<SupportSessionItem | null>(null);
   const when = (iso: string) => formatDateTime(new Date(iso), region);
@@ -53,7 +48,8 @@ export function SupportAccessSessionsList({
     {
       id: 'who',
       header: t('colWho'),
-      accessorFn: (r) => t('who', { person: r.personName, role: roleLabel(r.role) }),
+      accessorFn: (r) =>
+        t('who', { person: r.personName, role: tAuth(`schoolPicker.roles.${r.role}`) }),
     },
     { id: 'when', header: t('colWhen'), accessorFn: (r) => when(r.startedAt) },
     { id: 'reason', header: t('colReason'), accessorFn: (r) => r.reason },

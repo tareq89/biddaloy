@@ -1,10 +1,12 @@
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { cleanupTestState, renderWithProviders, renderWithRouter, server } from '@biddaloy/ui/test';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
+
+import { SupportWelcomeForm } from './welcome.support-access';
 
 function fakeJwt(): string {
   const payload = btoa(
@@ -100,5 +102,16 @@ describe('/welcome/support-access', () => {
 
     expect((await screen.findByRole('alert')).textContent).toBe('Could not save. Try again.');
     expect(router.state.location.pathname).toBe('/welcome/support-access');
+  });
+
+  it('while saving, the checkbox is off and Enter does not send a second request', async () => {
+    const onSave = vi.fn();
+    const { container } = renderWithProviders(<SupportWelcomeForm onSave={onSave} saving />, {
+      locale: 'en',
+    });
+    const box = await screen.findByRole('checkbox', { name: 'Allow Biddaloy support access' });
+    expect((box as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.submit(container.querySelector('form') as HTMLFormElement);
+    expect(onSave).not.toHaveBeenCalled();
   });
 });

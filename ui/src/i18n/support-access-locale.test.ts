@@ -10,7 +10,7 @@ import bn from './locales/bn/supportAccess.json';
 import en from './locales/en/supportAccess.json';
 
 /** The glossary's "Never say" column plus its "Also never say" line, one-word entries and
- * the two hyphen/space phrases; longer phrases hold a word that is already listed. */
+ * every phrase (a phrase is matched whole, so none can slip past a word filter). */
 function neverWords(): string[] {
   const doc = readFileSync(
     resolve(__dirname, '../../../docs/ux-research/tenant-control-glossary.md'),
@@ -25,15 +25,23 @@ function neverWords(): string[] {
   const also = /Also never say:\s*\*\*(.+?)\*\*/.exec(doc)?.[1]?.split(',') ?? [];
   // D14 words the glossary table does not spell out (the ticket's acceptance list).
   const d14 = ['mode', 'policy', 'justification', 'kill', 'user_id'];
-  return [...column, ...also, ...d14]
-    .map((w) => w.trim().toLowerCase())
-    .filter((w) => w !== '' && (!w.includes(' ') || w === 'act as'));
+  return [...column, ...also, ...d14].map((w) => w.trim().toLowerCase()).filter((w) => w !== '');
 }
 
 describe('supportAccess.json', () => {
   it('reads a real never-say list from the glossary', () => {
     const words = neverWords();
-    for (const w of ['impersonate', 'consent', 'revoke', 'break-glass', 'act as', 'session']) {
+    for (const w of [
+      'impersonate',
+      'consent',
+      'revoke',
+      'break-glass',
+      'act as',
+      'session',
+      'log out',
+      'no user',
+      'expires in',
+    ]) {
       expect(words).toContain(w);
     }
   });

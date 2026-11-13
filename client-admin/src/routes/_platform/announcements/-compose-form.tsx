@@ -68,7 +68,9 @@ export function ComposeForm({
     : !body.trim()
       ? t('compose.needMessage')
       : undefined;
-  const disabled = busy || locked || reason !== undefined || preview.kind !== 'ready' || nobody;
+  // Sending or awaiting approval: freeze the fields so the form always matches the pending payload.
+  const frozen = !!(busy || locked);
+  const disabled = frozen || reason !== undefined || preview.kind !== 'ready' || nobody;
 
   return (
     <Card padded aria-labelledby="ann-compose-title" className="flex flex-col gap-4">
@@ -95,7 +97,7 @@ export function ComposeForm({
           <label htmlFor="ann-filter" className="text-label">
             {t('compose.filterLabel')}
           </label>
-          <Select value={filter} onValueChange={(v) => setFilter(v as Filter)} disabled={locked}>
+          <Select value={filter} onValueChange={(v) => setFilter(v as Filter)} disabled={frozen}>
             <SelectTrigger id="ann-filter">
               <SelectValue />
             </SelectTrigger>
@@ -131,7 +133,7 @@ export function ComposeForm({
           <Select
             value={severity}
             onValueChange={(v) => setSeverity(v as Severity)}
-            disabled={locked}
+            disabled={frozen}
           >
             <SelectTrigger id="ann-severity">
               <SelectValue />
@@ -154,7 +156,7 @@ export function ComposeForm({
             id="ann-title"
             value={title}
             maxLength={TITLE_MAX}
-            disabled={locked}
+            disabled={frozen}
             onChange={(e) => setTitle(e.target.value)}
           />
           <span className="text-caption text-text-secondary">
@@ -171,7 +173,7 @@ export function ComposeForm({
             value={body}
             rows={4}
             maxLength={MESSAGE_MAX}
-            disabled={locked}
+            disabled={frozen}
             onChange={(e) => setBody(e.target.value)}
           />
           <span className="text-caption text-text-secondary">
@@ -189,7 +191,7 @@ export function ComposeForm({
             <Checkbox
               id="ann-sms"
               checked={sms}
-              disabled={locked}
+              disabled={frozen}
               onCheckedChange={(v) => setSms(v === true)}
             />
             <label htmlFor="ann-sms">{t('compose.channelSms')}</label>
@@ -198,7 +200,7 @@ export function ComposeForm({
             <Checkbox
               id="ann-email"
               checked={email}
-              disabled={locked}
+              disabled={frozen}
               onCheckedChange={(v) => setEmail(v === true)}
             />
             <label htmlFor="ann-email">{t('compose.channelEmail')}</label>

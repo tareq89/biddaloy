@@ -39,7 +39,7 @@ export function SupportWelcomeForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSave(allowed);
+        if (!saving) onSave(allowed);
       }}
     >
       <h1 className="text-h2">{t('title')}</h1>
@@ -48,6 +48,7 @@ export function SupportWelcomeForm({
         <Checkbox
           id="support-access-allowed"
           checked={allowed}
+          disabled={saving}
           onCheckedChange={(v) => setAllowed(v === true)}
           // Radix swallows Enter on its checkbox button; D3 wants Enter to confirm.
           onKeyDown={(e) => {

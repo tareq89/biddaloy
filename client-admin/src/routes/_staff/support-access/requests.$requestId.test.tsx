@@ -111,6 +111,38 @@ describe('/support-access/requests/$requestId', () => {
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 
+  it('a decision on one request is not shown on another request', async () => {
+    const other = '22222222-2222-4222-8222-222222222222';
+    mockList([request(), request({ id: other, personName: 'Karim' })]);
+    mockDecision('approve');
+    const user = userEvent.setup();
+    const { router } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Approve' }));
+    await screen.findByText('Approved. Biddaloy support can log in now.');
+    await router.navigate({
+      to: '/support-access/requests/$requestId',
+      params: { requestId: other },
+    });
+
+    expect(await screen.findByRole('heading', { name: /Karim/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy();
+    expect(screen.queryByText('Approved. Biddaloy support can log in now.')).toBeNull();
+  });
+
+  it('writes the role in the language of the page', async () => {
+    mockList([request()]);
+    renderWithRouter(routeTree, {
+      initialEntries: [PAGE_URL],
+      accessToken: fakeJwt(),
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+
+    expect(await screen.findByRole('heading', { name: /শিক্ষক/ })).toBeTruthy();
+  });
+
   it('Not now posts deny', async () => {
     mockList([request()]);
     const posted = mockDecision('deny');

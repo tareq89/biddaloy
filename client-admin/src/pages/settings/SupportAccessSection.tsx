@@ -19,13 +19,14 @@ import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { SettingsSaved, SettingsSection } from './settings-layout';
-import { roleLabel, SupportAccessSessionsList } from './SupportAccessSessionsList';
+import { SupportAccessSessionsList } from './SupportAccessSessionsList';
 
 const DAYS = 90;
 const MODES: readonly SupportAccessMode[] = ['allowed', 'ask', 'blocked'];
 
 export function SupportAccessSection() {
   const { t } = useTranslation('supportAccess');
+  const { t: tAuth } = useTranslation('auth');
   const settings = useSupportAccessSettings();
   const change = useChangeSupportAccessMode();
   const sessions = useSupportSessions({ days: DAYS, limit: 100 });
@@ -112,7 +113,10 @@ export function SupportAccessSection() {
                 <span>
                   {r.kind === 'WRITE'
                     ? t('reqWrite')
-                    : t('reqAsk', { person: r.personName, role: roleLabel(r.role) })}
+                    : t('reqAsk', {
+                        person: r.personName,
+                        role: tAuth(`schoolPicker.roles.${r.role}`),
+                      })}
                 </span>
                 <Link
                   to="/support-access/requests/$requestId"

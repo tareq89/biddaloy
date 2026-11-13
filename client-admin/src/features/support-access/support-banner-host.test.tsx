@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import {
+  apiClient,
   clearAuthState,
   isSupportSession,
   setSupportSession,
@@ -122,6 +123,38 @@ describe('SupportBannerHost', () => {
     });
     expect(container.textContent).toBe('');
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/support/enter?ended=1'));
+    vi.unstubAllGlobals();
+  });
+
+  it('a 500 from the status check keeps the session instead of ending the tab', async () => {
+    enter();
+    const asked = vi.fn();
+    server.use(
+      http.get('/api/v1/auth/impersonation/me', () => {
+        asked();
+        return HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 });
+      }),
+    );
+    vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const replace = stubReplace();
+    renderWithProviders(<SupportBannerHost />, { locale: 'en', tenantId: 't-1' });
+    await waitFor(() => expect(asked).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 150));
+    expect(replace).not.toHaveBeenCalled();
+    expect(isSupportSession()).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it('End bounds the server call with a timeout so a stalled request cannot hold the tab', async () => {
+    mockMe(false);
+    enter();
+    const post = vi.spyOn(apiClient, 'post').mockRejectedValue(new Error('timeout of 5000ms'));
+    vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const replace = stubReplace();
+    renderWithProviders(<SupportBannerHost />, { locale: 'en', tenantId: 't-1' });
+    await userEvent.click(await screen.findByRole('button', { name: 'End' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/support/enter?ended=1'));
+    expect(post).toHaveBeenCalledWith('/auth/impersonation/end', undefined, { timeout: 5000 });
     vi.unstubAllGlobals();
   });
 });

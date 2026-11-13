@@ -94,4 +94,10 @@ describe('ComposeForm', () => {
     await user.click(await screen.findByRole('button', { name: 'Count again' }));
     expect(onRetryPreview).toHaveBeenCalled();
   });
+
+  it('freezes every field while the send request runs', async () => {
+    await setup({ busy: true });
+    expect(screen.getByLabelText<HTMLInputElement>('Title').disabled).toBe(true);
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Message').disabled).toBe(true);
+  });
 });

@@ -55,6 +55,8 @@ function SelectSchoolPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const signOutToLogin = useSignOutToLogin();
+  // Newest school choice: an older settings lookup that settles late must not navigate.
+  const newestChoice = React.useRef(0);
   const invites = useSchoolInvitesCardProps();
   const { isPending: invitesPending, data: pendingInvites } = useSchoolInvites();
   // Unsettled counts as "may have invites": the refresh cookie must outlive the list so Accept can refresh.
@@ -92,9 +94,10 @@ function SelectSchoolPage() {
 
   /** [99.G4.03] An unconfirmed admin goes to the support-access welcome page first. */
   function goAfterSelect(role: string): void {
-    void afterSignInTarget(role, isSupportSession(), search.redirect).then((dest) =>
-      navigate(dest),
-    );
+    const mine = ++newestChoice.current;
+    void afterSignInTarget(role, isSupportSession(), search.redirect).then((dest) => {
+      if (mine === newestChoice.current) void navigate(dest);
+    });
   }
 
   function handleSelect(tenantId: string, role: UserRole): void {
