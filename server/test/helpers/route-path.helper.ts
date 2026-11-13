@@ -1043,6 +1043,27 @@ export const ALLOWLIST: AllowlistEntry[] = [
       '[99.4.16/#3816] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token or a Login as token gets 401. plus ApprovalGuard: needs a step-up token. Renames a school.',
   },
   {
+    controller: 'PlatformModulesController',
+    method: 'GET',
+    path: '/platform/modules',
+    reason:
+      '[77.6.01] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token gets 401. Reads the platform module map, which holds no school data.',
+  },
+  {
+    controller: 'PlatformModulesController',
+    method: 'PUT',
+    path: '/platform/modules',
+    reason:
+      '[77.6.01] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token gets 401. plus ApprovalGuard: needs a step-up token. Turns a module off for every school; school rows are not written.',
+  },
+  {
+    controller: 'PlatformModulesController',
+    method: 'PUT',
+    path: '/platform/schools/:id/modules/:key/lock',
+    reason:
+      '[77.6.01] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token gets 401. plus ApprovalGuard: needs a step-up token. Locks one module on or off for ONE school (writes only modules.<key>.lock of that school id).',
+  },
+  {
     controller: 'SchoolArchiveController',
     method: 'POST',
     path: '/platform/schools/:id/archive/export',

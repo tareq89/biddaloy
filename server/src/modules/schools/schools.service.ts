@@ -28,7 +28,11 @@ import { School } from './entities/school.entity';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { localToday } from '../attendance/attendance-policy.util';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
-import { mergeModulesLabels, resolveTenantSettings } from './settings/tenant-settings-resolver';
+import {
+  keepModuleLocks,
+  mergeModulesLabels,
+  resolveTenantSettings,
+} from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
@@ -508,7 +512,8 @@ export class SchoolsService {
       ] as const) {
         if (patch === undefined) continue;
         const before = storedBlocks[name] ?? {};
-        const after = mergeModulesLabels(before, patch);
+        const merged = mergeModulesLabels(before, patch);
+        const after = name === 'modules' ? keepModuleLocks(before, merged) : merged;
         mergedSettings[name] = after;
         if (JSON.stringify(before) !== JSON.stringify(after)) {
           blockAudits.push({ action, before, after });
