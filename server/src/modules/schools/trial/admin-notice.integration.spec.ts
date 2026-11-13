@@ -10,6 +10,7 @@ import { User } from '../../users/entities/user.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
 import { AdminNoticeService } from './admin-notice.service';
+import { renderNotice } from './admin-notice-templates';
 
 describe('AdminNoticeService (integration)', () => {
   let ds: DataSource;
@@ -154,5 +155,35 @@ describe('AdminNoticeService (integration)', () => {
     expect(send.mock.calls[0][0].body).toContain('স্বাগতম');
     expect(send.mock.calls[1][0].body).toContain('স্বাগতম');
     expect(send.mock.calls[2][0].body).toContain('Welcome!');
+  });
+});
+
+describe('sms_expiring notices and receipt wording', () => {
+  it('both keys render in en and bn, with and without link', () => {
+    for (const key of ['sms_expiring_d7', 'sms_expiring_d1'] as const) {
+      for (const locale of ['en', 'bn'] as const) {
+        const withLink = renderNotice(key, locale, {
+          school: 'X',
+          date: '2027-01-08',
+          units: 40,
+          link: 'https://a.test/l',
+        });
+        expect(withLink.subject).toContain('X');
+        expect(withLink.body).toContain('2027-01-08');
+        expect(withLink.body).toContain('https://a.test/l');
+        expect(withLink.body).not.toMatch(/ledger|\blot\b/i);
+        const noLink = renderNotice(key, locale, { school: 'X' });
+        expect(noLink.body).not.toContain('undefined');
+      }
+    }
+  });
+
+  it('receipt keeps receipt number and link and no longer says seats only', () => {
+    for (const locale of ['en', 'bn'] as const) {
+      const r = renderNotice('receipt', locale, { school: 'X', receipt: 'SMR-1', link: 'L1' });
+      expect(r.body).toContain('SMR-1');
+      expect(r.body).toContain('L1');
+      expect(r.body).not.toMatch(/seats of|সিটের/);
+    }
   });
 });

@@ -21,7 +21,8 @@ import { describe, expect, it } from 'vitest';
 export const ALLOWED: Record<string, string> = {
   'modules/communications/credits/sms-credit.service.ts': 'the one writer',
   'modules/communications/credits/entities/': 'the entity files',
-  'modules/communications/credits/sms-credit-lot-invariants.ts': 'read-only invariant check, writes nothing',
+  'modules/communications/credits/sms-credit-lot-invariants.ts':
+    'read-only invariant check, writes nothing',
   'modules/communications/credits/sms-credit-reconcile.ts': 'reads and delegates to the service',
   'scripts/reconcile-sms-credit.ts': 'reads and delegates to the service',
   'modules/communications/credits/credits.module.ts': 'entity list',
@@ -29,6 +30,13 @@ export const ALLOWED: Record<string, string> = {
   'modules/workbook/codec/entity-coverage.ts': 'coverage table',
   'scripts/demo-seed/slices/comms-print.ts': 'fresh-database demo seed, a reviewed exception',
   'scripts/demo-seed/slices.ts': 'EXEMPT list names SmsCreditLotDraw; no write',
+  'modules/sms-bundles/expiry/sms-expiry.service.ts':
+    'reads sms_credit_lots; its only UPDATE is on sms_bundle_orders; lots expire via SmsCreditService.expireDue',
+  'modules/communications/credits/sms-credit-summary.service.ts':
+    'read-only school summary, never writes',
+  'modules/attention/rules/system/comms-sms-low.rule.ts': 'read-only SELECT on lots',
+  'modules/attention/rules/system/comms-sms-expiring.rule.ts': 'read-only SELECT on lots',
+  'scripts/demo-seed/slices/sms-bundles.ts': 'fresh-database demo seed, a reviewed exception',
   'modules/calendar/calendar.module.ts': 'comment mention',
   'modules/calendar/calendar-notify.service.ts': 'comment mention',
   'modules/push/entities/push-subscription.entity.ts': 'comment mention',
