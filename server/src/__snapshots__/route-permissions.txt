@@ -271,6 +271,7 @@ GET /homework/analytics/section/:sectionId | HomeworkController | perm: HOMEWORK
 GET /homework/analytics/student/:studentId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /incidents | IncidentsController | perm: ACR_READ
 GET /incidents/:id | IncidentsController | perm: ACR_READ
+GET /institution-kinds | InstitutionKindController | perm: SETTINGS_MANAGE
 GET /invoices | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id/print | InvoicesController | perm: INVOICE_READ
@@ -722,6 +723,8 @@ POST /homework/bulk/commit | HomeworkBulkUploadController | perm: HOMEWORK_IMPOR
 POST /homework/bulk/validate | HomeworkBulkUploadController | perm: HOMEWORK_IMPORT
 POST /incidents | IncidentsController | perm: ACR_WRITE
 POST /incidents/:id/withdraw | IncidentsController | perm: ACR_WRITE
+POST /institution-kinds/:id/apply | InstitutionKindController | perm: SETTINGS_MANAGE
+POST /institution-kinds/:id/preview | InstitutionKindController | perm: SETTINGS_MANAGE
 POST /invoices | InvoicesController | perm: INVOICE_CREATE
 POST /invoices/:id/send | InvoicesController | perm: INVOICE_SEND
 POST /invoices/:id/share | InvoicesController | perm: INVOICE_SEND

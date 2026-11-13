@@ -9,12 +9,25 @@ import { PresetApplyService } from './preset-apply.service';
 import { PresetResetService } from './preset-reset.service';
 import { PlatformPresetsController } from './platform-presets.controller';
 import { PresetStatusService } from './preset-status.service';
+import { InstitutionKindController } from './institution-kind.controller';
+import { InstitutionKindService } from './institution-kind.service';
 
 /** [35.2.1] Read side of curriculum presets: registry, preview, status. */
 @Module({
   imports: [SchoolsModule, AuditModule, StorageModule],
-  controllers: [PresetsController, PresetApplyController, PlatformPresetsController],
-  providers: [PresetRegistryService, PresetStatusService, PresetApplyService, PresetResetService],
+  controllers: [
+    PresetsController,
+    PresetApplyController,
+    PlatformPresetsController,
+    InstitutionKindController,
+  ],
+  providers: [
+    PresetRegistryService,
+    PresetStatusService,
+    PresetApplyService,
+    PresetResetService,
+    InstitutionKindService,
+  ],
   exports: [PresetRegistryService, PresetStatusService],
 })
 export class PresetsModule {}
