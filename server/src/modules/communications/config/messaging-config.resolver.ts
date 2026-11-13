@@ -141,7 +141,14 @@ export class MessagingConfigResolver {
   ): Promise<ResolvedMessaging> {
     const settings = await this.loadSettings(tenantId);
     const mediumKey = medium.toLowerCase() as 'sms' | 'whatsapp' | 'email' | 'messenger';
-    const tenantMedium: Record<string, unknown> = settings.communications?.[mediumKey] ?? {};
+    const storedMedium: Record<string, unknown> = settings.communications?.[mediumKey] ?? {};
+    // Epic 100 D9: while the school's SMS source is SchoolManagerP its own saved block is kept
+    // but not read, so a stored own value never beats the platform env. Only an explicit source
+    // does this; a legacy PLATFORM-metered school with no `source` resolves as before.
+    const tenantMedium: Record<string, unknown> =
+      medium === CommunicationMedium.SMS && storedMedium.source === 'SCHOOLMANAGERP'
+        ? { metering: 'PLATFORM' }
+        : storedMedium;
     const override = opts.override ?? {};
 
     // Platform env keys serve PLATFORM-metered SMS schools and account-access sends (D11). The
