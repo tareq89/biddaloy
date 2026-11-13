@@ -61,6 +61,10 @@ describe('e2e route manifest', () => {
   it('keeps the cockpit-only routes out of the school-host sweeps', () => {
     const cockpit = [
       '/platform-owners',
+      '/operations',
+      '/users',
+      '/audit',
+      '/announcements',
       '/owner-security',
       '/owner-security/two-step',
       '/sign-in/forgot',

@@ -3,7 +3,13 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { clearAuthState, getActiveRole, getActiveTenant } from './auth-state';
+import {
+  clearAuthState,
+  getActiveRole,
+  getActiveTenant,
+  isSupportSession,
+  writeSupportEntry,
+} from './auth-state';
 import { postAuthLogout } from './client';
 import { configureSessionEndpoints, ensureSessionLoaded, resetSessionBootstrap } from './session';
 import { clearPersistedTenant, persistTenant } from './tenant-storage';
@@ -26,6 +32,7 @@ afterEach(() => {
   mock.restore();
   clearAuthState();
   clearPersistedTenant();
+  sessionStorage.clear();
   resetSessionBootstrap();
 });
 
@@ -184,5 +191,43 @@ describe('configureSessionEndpoints [98.4.01]', () => {
       '/api/v1/auth/cockpit/logout',
       '/api/v1/auth/cockpit/logout-all',
     ]);
+  });
+});
+
+describe('[99.G4.01] support tab', () => {
+  it('a live tab entry restores with no refresh call and arms no timer', async () => {
+    writeSupportEntry({
+      token: fakeJwt(9_999_999_999, []),
+      sessionId: 's-1',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      tenantId: 'tenant-a',
+      role: 'ADMIN',
+    });
+    expect(await ensureSessionLoaded()).toBe(true);
+    expect(isSupportSession()).toBe(true);
+    expect(getActiveTenant()).toBe('tenant-a');
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it('an expired tab entry signs out, with no refresh call', async () => {
+    writeSupportEntry({
+      token: 't',
+      sessionId: 's-1',
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+      tenantId: null,
+      role: null,
+    });
+    expect(await ensureSessionLoaded()).toBe(false);
+    expect(mock.history.post).toHaveLength(0);
+    // Reload again: the entry is gone but the ended marker keeps it from using the refresh cookie.
+    resetSessionBootstrap();
+    expect(await ensureSessionLoaded()).toBe(false);
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it('with no tab entry the cold-boot refresh is unchanged', async () => {
+    mock.onPost('/api/v1/auth/refresh').reply(200, { access_token: fakeJwt(9_999_999_999, []) });
+    expect(await ensureSessionLoaded()).toBe(true);
+    expect(mock.history.post).toHaveLength(1);
   });
 });

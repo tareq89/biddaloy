@@ -1,5 +1,6 @@
 import {
   apiEnrol,
+  apiSignIn,
   clearCodes,
   devOwner,
   emailCode,
@@ -10,6 +11,7 @@ import {
   resetOwners,
   setApprovals,
   smsCode,
+  stubLegacyPlatformRoutes,
   tc,
   test,
   warmUp,
@@ -129,3 +131,34 @@ test('lock an owner from the command palette, keyboard only', async ({ page, req
   await page.keyboard.press('Enter');
   await expect(page.getByText(tc('platformOwners', 'owners.locked', { name }))).toBeVisible();
 });
+
+/**
+ * [99.5.16] The five Epic 99 palette actions (D12), owner on the cockpit host, keyboard only. Labels
+ * are the bn ones from `action-registry.ts`; the session comes from the API so each case is one
+ * palette run. "Login as" only opens the schools list (the palette has no school id).
+ */
+const PLATFORM_ACTION_CASES = [
+  { query: 'হিসেবে ঢুকুন', url: /\/schools$/ },
+  { query: 'হিসেবে ঢোকা শেষ করুন', url: /\/schools$/ },
+  { query: 'ব্যবহারকারী খুঁজুন', url: /\/users$/ },
+  { query: 'নতুন ঘোষণা', url: /\/announcements$/ },
+  { query: 'কিউ', url: /\/operations$/ },
+];
+
+for (const { query, url } of PLATFORM_ACTION_CASES) {
+  test(`palette action "${query}" opens its page, keyboard only`, async ({ page }) => {
+    await apiSignIn(page.request, owner);
+    await stubLegacyPlatformRoutes(page.context());
+    await page.goto('/platform-owners');
+    await page.waitForLoadState('networkidle');
+
+    const palette = page.getByRole('combobox', { name: tc('nav', 'commandPalette.ariaLabel') });
+    await expect(async () => {
+      if (!(await palette.isVisible())) await page.keyboard.press('ControlOrMeta+k');
+      await expect(palette).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+    await page.keyboard.type(query);
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(url);
+  });
+}

@@ -28,6 +28,7 @@ import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
+import { SupportBannerHost } from '../features/support-access/support-banner-host';
 import { AppHelpProvider } from '../help/help-provider';
 import { MORE_ICON, PORTAL_NAV_ICONS } from '../nav-icons';
 import { isPathUnder } from '../nav-tree';
@@ -257,6 +258,7 @@ function PortalLayout() {
     <AppHelpProvider>
       <DemoCornerFrame>
         <RequireRole allow={GUARDIAN_ROLES} redirectTo="/dashboard">
+          <SupportBannerHost />
           <AppShell
             reserveCorner={demo.enabled}
             navItems={navItems}

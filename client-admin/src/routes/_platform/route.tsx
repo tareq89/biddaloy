@@ -90,6 +90,10 @@ function PlatformLayout() {
   const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
   const SubscriptionsIcon = PLATFORM_NAV_ICONS['/subscriptions'];
   const ReportsUsageIcon = PLATFORM_NAV_ICONS['/reports-usage'];
+  const OperationsIcon = PLATFORM_NAV_ICONS['/operations'];
+  const UsersIcon = PLATFORM_NAV_ICONS['/users'];
+  const AuditIcon = PLATFORM_NAV_ICONS['/audit'];
+  const AnnouncementsIcon = PLATFORM_NAV_ICONS['/announcements'];
   const DashboardIcon = STAFF_NAV_ICONS.dashboard;
 
   const matches = useMatches();
@@ -97,11 +101,21 @@ function PlatformLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const { items: breadcrumbItems, title: breadcrumbTitle } = useBreadcrumbs(t('brand'));
+  // [99.5.15] School 360's tab title is "{school} · Overview · Cockpit", the tab being `?tab=`.
+  const { t: t360 } = useTranslation('school360');
+  const leafRouteId = matches[matches.length - 1]?.routeId;
+  const tab = useRouterState({ select: (s) => (s.location.search as { tab?: unknown }).tab });
+  const lastCrumb = breadcrumbItems[breadcrumbItems.length - 1];
+  const school360Name = lastCrumb && !lastCrumb.loading ? lastCrumb.label : undefined;
   React.useEffect(() => {
-    if (breadcrumbTitle !== undefined) {
+    if (leafRouteId === '/_platform/schools/$schoolId' && school360Name) {
+      const known = ['overview', 'people', 'supportAccess', 'notes', 'health'];
+      const id = typeof tab === 'string' && known.includes(tab) ? tab : 'overview';
+      document.title = [school360Name, t360(`tabs.${id}`), t('items.cockpit')].join(' · ');
+    } else if (breadcrumbTitle !== undefined) {
       document.title = breadcrumbTitle;
     }
-  }, [breadcrumbTitle]);
+  }, [breadcrumbTitle, leafRouteId, school360Name, t, t360, tab]);
 
   const navItems = [
     {
@@ -111,6 +125,26 @@ function PlatformLayout() {
     },
     ...(COCKPIT
       ? [
+          {
+            to: '/operations',
+            label: t('items.operations'),
+            icon: <OperationsIcon aria-hidden="true" />,
+          },
+          {
+            to: '/users',
+            label: t('items.platformUsers'),
+            icon: <UsersIcon aria-hidden="true" />,
+          },
+          {
+            to: '/audit',
+            label: t('items.platformAudit'),
+            icon: <AuditIcon aria-hidden="true" />,
+          },
+          {
+            to: '/announcements',
+            label: t('items.platformAnnouncements'),
+            icon: <AnnouncementsIcon aria-hidden="true" />,
+          },
           {
             to: '/platform-owners',
             label: t('items.platformOwners'),

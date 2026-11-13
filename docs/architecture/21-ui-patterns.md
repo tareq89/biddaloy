@@ -578,6 +578,21 @@ First time the cockpit screens ran end to end in a browser (`E2E_COCKPIT=1`, pro
 - **The seeded dev owner has no phone.** `devOwner()` gives it one so the new-device step can send the SMS code.
 - **The cockpit specs do not run in CI yet.** They need their own database (`SEED_COCKPIT_OWNER=true`, which makes the legacy `/auth/login` refuse `superadmin@biddaloy.test`, so it cannot share a run with the `setup` project) and a Mailpit. They are an opt-in project like `demo`.
 
+### Login as and tenant control learnings (Epic #3726, Wave 5 close, 2026-11-12)
+
+What the ten new cockpit namespaces and their screens taught:
+
+- **`check:i18n` could not read `t('ns:key')` under a multi-namespace hook (2026-11-12, #3833).** `useTranslation(['platformAudit', 'auditLogs'])` plus `t('platformAudit:filters.who')` was reported as 25 missing keys in `common`, so the check had been blind for those files. The checker now takes the first namespace of an array and splits a `ns:` prefix when it names a real namespace. A `t([a, b])` fallback array is still not checked. -> no rule.
+- **`ui/src/api/schema.d.ts` drifted across the wave (2026-11-12, #3833).** Each ticket added routes and DTOs on the server and the lane branches left the file alone (the close regenerates it), so only the close sees the full diff: run `yarn test-env run -- yarn workspace @biddaloy/server docs:generate`, then `yarn workspace @biddaloy/ui api:types`, then `node ui/scripts/check-api-types.mjs`. `server/openapi.json` is not committed, so the check fails with a missing file until `docs:generate` has run. -> no rule.
+- **The palette has no school id (2026-11-12, #3831).** `ActionRunContext` carries only `navigate`, so "Login as" can only open the schools list; the row's own button opens the dialog. Picking a school from the palette needs the context to grow a picker step. -> no rule.
+- **Palette actions of the cockpit run only in the `cockpit` project (2026-11-12, #3833).** The five D12 cases live in `e2e/keyboard/cockpit.spec.ts` (owner, host `cockpit.localhost`), not in `command-palette.spec.ts`, which runs as a school admin and never lists `PLATFORM_ACTIONS`.
+- **A route with a `$requestId` param needs a made-up id for the sweeps.** `e2e/responsive/routes.ts` resolves it to an all-zero UUID, so the axe and reflow sweeps scan the page's own "not found" card. A new param name needs a line there, or the sweep opens a literal `$param` path.
+- **A "not found" card still needs its `<h1>` (2026-11-12, #3833).** `/support-access/requests/$requestId` showed its not-found sentence as a `<p role="alert">`, so the route sweeps (which wait for a level-1 heading) failed at every width. The sentence is now the `<h1>`. -> no rule.
+- **Wave-end gates that only the close sees (2026-11-12, #3833).** `platform-school-control.ts` spread `...SCOPE` into mutation options without `retry: false` (mutation-retry guard), two new alert rules were missing from the `ownerEpic` list in `rule-catalogue.spec.ts`, and the server's SQL-interpolation and bare-`@IsDateString` guards flagged `schools.service.ts`, `school-overview.service.ts` and `platform-audit.dto.ts`. Lane branches skip the full unit suite, so run `yarn ci:local` once per wave close. -> no rule.
+- **`docs/user-guide/route-map.json` carries seven `internal:` placeholder entries for the new pages.** Wave 6 writes the pages and replaces them.
+
+- **Open questions left by the close (2026-11-12, #3842).** (1) The banner's End closes the tab, so the `?ended` page is never seen. (2) Whether an accountant session hides a fee amount has no written rule (#3835). (3) The request alert did not appear within 30 s because nothing emitted the attention recheck. The services now emit it and the rule also runs `HOURLY` (see `27-qa-audit-lessons.md`); the end-to-end alert result is still unverified, and the e2e opens the request from Settings instead of the alert link. -> no rule.
+
 ### UX lint stragglers
 
 `ui/eslint-rules/ux-guards.mjs` holds four rules (`no-native-picker`,

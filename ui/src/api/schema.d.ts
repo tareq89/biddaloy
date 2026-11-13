@@ -2571,6 +2571,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/support-access/requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One request of this school by id. */
+        get: operations["SupportRequestsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support-access/requests/{id}/approve": {
         parameters: {
             query?: never;
@@ -28309,6 +28326,7 @@ export interface operations {
             query?: {
                 status?: "pending" | "decided";
                 limit?: number;
+                page?: number;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -28327,6 +28345,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SupportRequestItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SupportRequestsController_get_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportRequestItemDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

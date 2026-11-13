@@ -20,9 +20,9 @@ import { routeTree } from '../../../routeTree.gen';
 const ACTIVE_SCHOOL_ID = '00000000-0000-4000-8000-000000000001'; // Ananta School
 const SUSPENDED_SCHOOL_ID = '00000000-0000-4000-8000-000000000002'; // Zenith School
 
-function renderDetail(schoolId = ACTIVE_SCHOOL_ID) {
+function renderDetail(schoolId = ACTIVE_SCHOOL_ID, tab?: string) {
   return renderWithRouter(routeTree, {
-    initialEntries: [`/schools/${schoolId}`],
+    initialEntries: [`/schools/${schoolId}${tab ? `?tab=${tab}` : ''}`],
     tenantId: 'tenant-1',
     role: UserRole.SUPER_ADMIN,
     locale: 'en',
@@ -42,8 +42,8 @@ describe('/schools/$schoolId', () => {
     // Facts: link name + long-form created date.
     expect(screen.getByText('Link name')).toBeTruthy();
     expect(screen.getByText(formatDate('2026-01-15', REGION_BD_BN))).toBeTruthy();
-    // No tab bar, no back link, no settings link.
-    expect(screen.queryByRole('tablist')).toBeNull();
+    // #3820: five tabs, no back link, no settings link.
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
     expect(screen.queryByRole('link', { name: 'Back to schools' })).toBeNull();
     expect(screen.queryByRole('link', { name: /settings/i })).toBeNull();
 
@@ -57,6 +57,32 @@ describe('/schools/$schoolId', () => {
       '১',
     );
     expect(screen.getByText('Last used').nextElementSibling?.textContent).not.toBe('Never');
+  });
+
+  it('opens the tab named in the URL and switches tabs', async () => {
+    const user = userEvent.setup();
+    renderDetail(ACTIVE_SCHOOL_ID, 'notes');
+
+    const notesTab = await screen.findByRole('tab', { name: 'Notes' });
+    expect(notesTab.getAttribute('aria-selected')).toBe('true');
+    await user.click(screen.getByRole('tab', { name: 'People' }));
+    expect(screen.getByRole('tab', { name: 'People' }).getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByText('Fatima Rahman')).toBeTruthy();
+  });
+
+  it('falls back to Overview for an unknown tab', async () => {
+    renderDetail(ACTIVE_SCHOOL_ID, 'nope');
+    const tab = await screen.findByRole('tab', { name: 'Overview' });
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('opens the Login as dialog from the header', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole('heading', { name: 'Ananta School', level: 1 });
+    await user.click(screen.getAllByRole('button', { name: 'Login as' })[0] as HTMLElement);
+    expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
   it('has exactly one filled button; suspend and restore live in the More menu', async () => {
@@ -91,16 +117,18 @@ describe('/schools/$schoolId', () => {
   });
 
   it('shows a retryable error in the stats card when the stats request fails', async () => {
-    server.use(http.get('/api/v1/platform/schools/:id/stats', () => HttpResponse.json({}, { status: 500 })));
+    server.use(
+      http.get('/api/v1/platform/schools/:id/stats', () => HttpResponse.json({}, { status: 500 })),
+    );
     renderDetail();
 
     expect(await screen.findByText('Could not load stats.')).toBeTruthy();
-    // The rest of the page (admins) is unaffected by the stats failure.
-    await screen.findByText('Fatima Rahman');
+    // The rest of the page (seats card) is unaffected by the stats failure.
+    expect(screen.getByRole('tab', { name: 'People' })).toBeTruthy();
   });
 
   it('lists admins, offering resend/revoke only for an actionable invitation', async () => {
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
     expect(within(pendingRow).getByText('Invitation pending')).toBeTruthy();
@@ -118,7 +146,7 @@ describe('/schools/$schoolId', () => {
 
   it('shows the empty message when the school has no admins', async () => {
     server.use(http.get('/api/v1/platform/schools/:id/admins', () => HttpResponse.json([])));
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     expect(await screen.findByText('No admins yet.')).toBeTruthy();
     // The empty state offers its own way to add the first admin.
@@ -129,7 +157,7 @@ describe('/schools/$schoolId', () => {
     server.use(
       http.get('/api/v1/platform/schools/:id/admins', () => HttpResponse.json({}, { status: 500 })),
     );
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     expect(await screen.findByText('Could not load admins.')).toBeTruthy();
   });
@@ -145,7 +173,7 @@ describe('/schools/$schoolId', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
     await user.click(within(pendingRow).getByRole('button', { name: 'Send invitation again' }));
@@ -167,7 +195,7 @@ describe('/schools/$schoolId', () => {
       ),
     );
     const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
     await user.click(within(pendingRow).getByRole('button', { name: 'Send invitation again' }));
@@ -185,7 +213,7 @@ describe('/schools/$schoolId', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
     await user.click(within(pendingRow).getByRole('button', { name: 'Cancel invitation' }));
@@ -224,7 +252,7 @@ describe('/schools/$schoolId', () => {
         );
       }),
     );
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
@@ -239,7 +267,7 @@ describe('/schools/$schoolId', () => {
 
   it('asks before discarding typed values when the add-admin dialog is cancelled', async () => {
     const user = userEvent.setup();
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
@@ -267,7 +295,7 @@ describe('/schools/$schoolId', () => {
         return HttpResponse.json({}, { status: 201 });
       }),
     );
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
@@ -295,7 +323,7 @@ describe('/schools/$schoolId', () => {
         ),
       ),
     );
-    renderDetail();
+    renderDetail(ACTIVE_SCHOOL_ID, 'people');
 
     await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
@@ -351,7 +379,9 @@ describe('/schools/$schoolId', () => {
   it('offers Reactivate for a suspended school and surfaces a failed status update', async () => {
     const user = userEvent.setup();
     server.use(
-      http.patch('/api/v1/platform/schools/:id/status', () => HttpResponse.json({}, { status: 500 })),
+      http.patch('/api/v1/platform/schools/:id/status', () =>
+        HttpResponse.json({}, { status: 500 }),
+      ),
     );
     renderDetail(SUSPENDED_SCHOOL_ID);
 

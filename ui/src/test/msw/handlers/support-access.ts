@@ -57,6 +57,9 @@ export const supportAccessDefaultHandlers = [
   }),
   http.post('*/support-access/confirm', () => HttpResponse.json(supportSettingsFixture())),
   http.get('*/support-access/requests', () => HttpResponse.json([supportRequestFixture])),
+  http.get('*/support-access/requests/:id', ({ params }) =>
+    HttpResponse.json({ ...supportRequestFixture, id: String(params.id) }),
+  ),
   http.post('*/support-access/requests/:id/approve', ({ params }) =>
     HttpResponse.json({ id: params.id, status: 'APPROVED' }, { status: 201 }),
   ),

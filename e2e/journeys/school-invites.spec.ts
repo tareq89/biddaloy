@@ -95,7 +95,9 @@ test.describe('school invitations', () => {
         const picker = new SchoolPickerPage(page);
         await picker.expectLoaded();
         await picker.choose(schoolB.schoolName);
-        await expect(page).toHaveURL(/\/dashboard/);
+        // [99.G4.03] A new school's admin sees the one-time support-access page first; both mean
+        // "the school can be used".
+        await expect(page).toHaveURL(/\/(dashboard|welcome\/support-access)/);
       });
     } finally {
       await person.context.close();

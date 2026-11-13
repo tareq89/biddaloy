@@ -5096,6 +5096,49 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 0,
   },
+  'platformOwner.loginAs': {
+    title: { bn: 'স্কুলের কারও হিসেবে ঢোকা', en: "Logging in as a school's person" },
+    summary: {
+      bn: 'স্কুলের কারও হিসেবে ঢুকে তাঁকে সাহায্য করুন, কারণ লিখুন, স্কুল চাইলে অনুমোদনের অপেক্ষা করুন এবং কাজ শেষে বেরিয়ে আসুন।',
+      en: 'Open a school as one of its people to help them, choose why, wait for approval when the school asks for it, and end the visit.',
+    },
+    path: 'platform-owner/login-as',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'platformOwner.schoolControl': {
+    title: {
+      bn: 'স্কুল নিয়ন্ত্রণ, অপারেশন, ব্যবহারকারী ও অডিট',
+      en: 'School control, operations, users and audit',
+    },
+    summary: {
+      bn: 'একটি স্কুলকে এক নজরে দেখুন, তার ট্রায়াল বাড়ান, নাম বদলান বা আর্কাইভ করুন, আটকে থাকা অ্যাডমিনকে সাহায্য করুন, কিউ দেখুন, সব স্কুলে একজনকে খুঁজুন এবং অডিট খুঁজুন।',
+      en: 'Read one school at a glance, extend its trial, rename or archive it, help a stuck admin, watch the queues, find a person in every school and search the audit.',
+    },
+    path: 'platform-owner/school-control',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'platformOwner.announcements': {
+    title: { bn: 'স্কুলগুলোতে ঘোষণা পাঠানো', en: 'Sending an announcement to schools' },
+    summary: {
+      bn: 'অনেক স্কুলের অ্যাডমিনের জন্য একটি বার্তা লিখুন, কতজন পাবেন দেখুন, অন্য মালিকের সম্মতি নিন এবং আগে কী পাঠানো হয়েছে পড়ুন।',
+      en: "Write one message for the admins of many schools, see how many will get it, get the other owner's agreement, and read what was sent before.",
+    },
+    path: 'platform-owner/announcements',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.supportAccess': {
+    title: { bn: 'বিডডালয় সহায়তা প্রবেশ', en: 'Biddaloy support access' },
+    summary: {
+      bn: 'বিডডালয় সহায়তা আপনার স্কুলে ঢুকতে পারবে কি না ঠিক করুন, ৯০ দিনের তালিকা পড়ুন, অনুরোধে অনুমোদন দিন বা "এখন নয়" বলুন, আর চলতি প্রবেশ শেষ করুন।',
+      en: 'Decide whether Biddaloy support may log in to your school, read the 90-day list, approve or turn down a request, and end a login that is live.',
+    },
+    path: 'administration/support-access',
+    anchor: '',
+    knownIssues: 0,
+  },
   'help.glossary': {
     title: { bn: 'শব্দের তালিকা', en: 'Glossary' },
     summary: {
@@ -5318,6 +5361,14 @@ export const HELP_ROUTES = {
   '/owner-security': 'platformOwner.recoveryCodes',
   '/owner-security/two-step': 'platformOwner.recoveryCodes',
   '/platform-owners': 'platformOwner.lockAndApprovals',
+  '/schools/$schoolId': 'platformOwner.loginAs',
+  '/audit': 'platformOwner.schoolControl',
+  '/operations': 'platformOwner.schoolControl',
+  '/users': 'platformOwner.schoolControl',
+  '/announcements': 'platformOwner.announcements',
+  '/support-access/requests/$requestId': 'administration.supportAccess',
+  '/support/enter': 'administration.supportAccess',
+  '/welcome/support-access': 'administration.supportAccess',
   '/portal/notifications': 'portal.notifications',
 } as const;
 

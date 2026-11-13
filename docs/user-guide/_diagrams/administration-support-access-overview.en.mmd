@@ -1,0 +1,14 @@
+%% title: Who from Biddaloy can sign in to your school
+%% desc: The school admin chooses one of three settings. Allowed lets Biddaloy support log in. Ask each time makes support ask and an admin approves or says Not now. Blocked stops all normal logins and ends anyone logged in. Emergency access always exists, needs a reason and tells the admins at once. Every login shows in a list for the last 90 days.
+flowchart LR
+  A["School admin chooses<br/>in Settings"]:::admin --> C{"Choice"}
+  C -- Allowed --> L1["Support can log in"]
+  C -- Ask each time --> Q["Support asks<br/>an admin approves or says Not now"]:::admin
+  Q -- Approves --> L1
+  Q -- Not now --> N["No login"]
+  C -- Blocked --> X["No normal login<br/>anyone inside is ended"]
+  X --> EM["Emergency access<br/>needs a reason<br/>admins are told at once"]:::note
+  EM --> L1
+  L1 --> H["Every login shows<br/>in the last 90 days list"]
+  classDef admin fill:#e7f5ff,stroke:#1971c2,color:#0b3d66
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

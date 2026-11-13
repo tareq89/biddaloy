@@ -1,9 +1,35 @@
-import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
+import { clearAuthState, setSupportSession, writeSupportEntry } from '@biddaloy/ui/api';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
+
+function enterSupportTab(role: string) {
+  server.use(
+    http.get('/api/v1/auth/impersonation/me', () =>
+      HttpResponse.json({
+        sessionId: 's',
+        adminName: 'Owner',
+        userName: 'Rahim',
+        role,
+        viewOnly: false,
+        writeLocked: false,
+        expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+      }),
+    ),
+  );
+  setSupportSession(true);
+  writeSupportEntry({
+    token: 't',
+    sessionId: 's',
+    expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+    tenantId: 'tenant-1',
+    role,
+  });
+}
 
 /** [31.3.2] The portal shell wiring, exercised through the real route tree as a PARENT. */
 describe('portal layout shell', () => {
@@ -64,5 +90,18 @@ describe('portal layout shell', () => {
     await user.click((await screen.findAllByRole('button', { name: /Account menu/ }))[0]!);
     await user.click(await screen.findByRole('menuitem', { name: 'Security' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/portal/account'));
+  });
+
+  // [99.G4.02]
+  it('shows the red bar in a support tab and not in a normal tab', async () => {
+    const first = render('/portal/fees');
+    await screen.findAllByRole('navigation', { name: /main|menu|navigation/i });
+    expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
+    first.unmount();
+
+    enterSupportTab('PARENT');
+    render('/portal/fees');
+    expect(await screen.findByRole('button', { name: 'End' })).toBeTruthy();
+    clearAuthState();
   });
 });

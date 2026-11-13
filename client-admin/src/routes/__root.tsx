@@ -107,6 +107,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login' });
     }
+    // [99.G4.01] A support tab has no refresh cookie: never cold-boot refresh here.
+    if (location.pathname.replace(/\/+$/, '') === '/support/enter') return;
     if (PUBLIC_PATH_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))) return;
     const authenticated = await ensureSessionLoaded();
     if (cockpit) {

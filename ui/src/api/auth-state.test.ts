@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   clearAuthState,
+  isSupportSession,
+  readSupportEntry,
+  setSupportSession,
+  writeSupportEntry,
   notifySessionExpired,
   registerSessionExpiredHandler,
   setAccessToken,
@@ -77,5 +81,76 @@ describe('auth-state never writes to localStorage or sessionStorage', () => {
     // [13.5.3]: and the first-password gate, so the next account does not inherit it.
     expect(localStorageRemoveSpy).toHaveBeenCalledWith('biddaloy:firstPasswordRequired');
     expect(localStorageSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('[99.G4.01] support tab flag', () => {
+  afterEach(() => {
+    clearAuthState();
+    sessionStorage.clear();
+  });
+
+  it('is off by default, set by setSupportSession, reset by clearAuthState', () => {
+    expect(isSupportSession()).toBe(false);
+    setSupportSession(true);
+    expect(isSupportSession()).toBe(true);
+    clearAuthState();
+    expect(isSupportSession()).toBe(false);
+  });
+
+  it('clearAuthState removes the tab entry', () => {
+    writeSupportEntry({
+      token: 't',
+      sessionId: 's',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      tenantId: null,
+      role: null,
+    });
+    expect(readSupportEntry()).not.toBeNull();
+    clearAuthState();
+    expect(readSupportEntry()).toBeNull();
+  });
+
+  it('an expired entry reads as expired and is removed', () => {
+    writeSupportEntry({
+      token: 't',
+      sessionId: 's',
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+      tenantId: null,
+      role: null,
+    });
+    expect(readSupportEntry()).toBe('expired');
+    // The ended marker stays across reloads: no fall back to the refresh cookie.
+    expect(readSupportEntry()).toBe('expired');
+  });
+
+  it('a normal sign-in lifts the ended marker', () => {
+    setSupportSession(true);
+    clearAuthState(); // a support tab ended
+    expect(readSupportEntry()).toBe('expired');
+    setAccessToken('normal-token');
+    expect(readSupportEntry()).toBeNull();
+  });
+
+  it('a normal logout leaves no ended marker', () => {
+    setAccessToken('normal-token');
+    clearAuthState();
+    expect(readSupportEntry()).toBeNull();
+  });
+
+  it('keeps the entry in memory when sessionStorage refuses the write', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const entry = {
+      token: 't',
+      sessionId: 's',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      tenantId: 'tenant-a',
+      role: 'ADMIN',
+    };
+    writeSupportEntry(entry);
+    spy.mockRestore();
+    expect(readSupportEntry()).toEqual(entry);
   });
 });
