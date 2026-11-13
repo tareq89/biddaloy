@@ -77,7 +77,7 @@ because it derives alerts from everything before it.
 
 ```mermaid
 flowchart LR
-  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> applications --> billing --> reports --> notices --> website --> attention
+  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> sms-bundles --> applications --> billing --> reports --> notices --> website --> attention
 ```
 
 The `website` slice (Epic 40, #3621) gives the demo school (`bmsc-high`) a published, switched-on Basic
@@ -94,6 +94,11 @@ are 1200x800 WebP gradients from `ctx.rng`, then the first album is shown on the
 The `billing` slice (Epic 49) gives each of the three branches one PAID seat order (1,400 seats, 12 months, period
 anchor -6 months to +6 months) and one `OFFLINE_BANK` payment for the full amount (`seats * 12 * 1000` paisa).
 It leaves `schools.seat_limit` and `trial_ends_at` NULL, so the demo stays unlimited.
+
+The `sms-bundles` slice (Epic 100, #3854) seeds three Bangla packages (1,000 / 5,000 / 20,000 SMS), and per branch one
+`ACTIVE` order for the 5,000 package (receipt `SMR-<year>-NNNNNN`, continuing after billing's), its `BUNDLE` lot, an
+`OFFLINE_BANK` payment, plus one stock entry and one provider reading. The balance `comms-print` left becomes a `LEGACY`
+no-expiry lot, so `balance.available = sum(lot remaining)`. `sms_credit_lot_draws` stays empty (EXEMPT): nothing is in flight.
 
 The `exams` slice (Epic 70, #3407) also builds **final results** through `FinalResultsService`
 (`create`, `update`, `build`, `publish`), after the term exams are published:
