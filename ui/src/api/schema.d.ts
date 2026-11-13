@@ -8817,6 +8817,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/schools/{id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own module choices and platform locks. */
+        get: operations["PlatformModulesController_getForSchool_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/schools/{id}/modules/{key}/lock": {
         parameters: {
             query?: never;
@@ -19787,6 +19804,20 @@ export interface components {
         PlatformModulesResponseDto: {
             modules: {
                 [key: string]: boolean;
+            };
+        };
+        SchoolModuleStateDto: {
+            /** @description The school's own choice. */
+            on?: boolean;
+            /**
+             * @description Platform lock, if any.
+             * @enum {string}
+             */
+            lock?: "on" | "off";
+        };
+        SchoolModulesResponseDto: {
+            modules: {
+                [key: string]: components["schemas"]["SchoolModuleStateDto"];
             };
         };
         PlatformModulesDto: {
@@ -43674,6 +43705,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformModulesController_getForSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolModulesResponseDto"];
                 };
             };
         };
