@@ -81,7 +81,7 @@
     "subjectLabel": "Subject specialization",
     "joiningDateLabel": "Joining date",
     "designations": {
-      "CLASS_TEACHER": "$t(common:entities.class_one) teacher",
+      "CLASS_TEACHER": "Class teacher",
       "SUBJECT_TEACHER": "Subject teacher",
       "HEAD_TEACHER": "Head teacher",
       "ASSISTANT_TEACHER": "Assistant teacher",

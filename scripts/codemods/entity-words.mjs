@@ -26,7 +26,19 @@ const root = resolve(here, '../..');
 const LOCALES = join(root, 'ui/src/i18n/locales');
 const STATE = join(here, 'entity-words.converted.json');
 const LANGS = ['en', 'bn'];
-const SKIP_SEGMENTS = new Set(['help', 'fields', 'glossary', 'legal', 'terms', 'privacy', 'roles']);
+// `designations`: server/src/modules/users/staff-bulk-upload.parser.ts accepts these exact label
+// strings in an uploaded staff file (staff-bulk-upload.labels.spec.ts guards the drift), so they are
+// workbook values (D5) and must stay stock text.
+const SKIP_SEGMENTS = new Set([
+  'help',
+  'fields',
+  'glossary',
+  'legal',
+  'terms',
+  'privacy',
+  'roles',
+  'designations',
+]);
 // common: entities.* lives here. dashboard, nav, teacherAssignments: the guide generator
 // (client-admin/src/help/guide-gen) copies their strings into docs/user-guide/**, where a
 // `$t(...)` would print raw and regenerate committed files. Convert once the generator resolves nesting.

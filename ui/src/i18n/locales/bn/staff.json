@@ -81,10 +81,10 @@
     "subjectLabel": "বিষয়ের বিশেষত্ব",
     "joiningDateLabel": "যোগদানের তারিখ",
     "designations": {
-      "CLASS_TEACHER": "$t(common:entities.class_one) $t(common:entities.teacher_one)",
-      "SUBJECT_TEACHER": "বিষয় $t(common:entities.teacher_one)",
-      "HEAD_TEACHER": "প্রধান $t(common:entities.teacher_one)",
-      "ASSISTANT_TEACHER": "সহকারী $t(common:entities.teacher_one)",
+      "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+      "SUBJECT_TEACHER": "বিষয় শিক্ষক",
+      "HEAD_TEACHER": "প্রধান শিক্ষক",
+      "ASSISTANT_TEACHER": "সহকারী শিক্ষক",
       "PRINCIPAL": "অধ্যক্ষ",
       "VICE_PRINCIPAL": "উপাধ্যক্ষ",
       "COORDINATOR": "সমন্বয়ক"
