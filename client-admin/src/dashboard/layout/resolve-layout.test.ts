@@ -28,6 +28,28 @@ const run = (
 const withFiles = ROLE_DEFAULT_LAYOUTS.ADMIN.filter((k) => !WIDGET_CATALOGUE[k].needsEpic);
 const keys = (items: { key: string }[]) => items.map((i) => i.key);
 
+describe('resolveLayout modules (D37)', () => {
+  const files = new Set<K>([K.ATTENDANCE_TODAY, K.SETUP_CHECKLIST]);
+  const base = {
+    role: UserRole.ADMIN,
+    pref: undefined,
+    catalogue: WIDGET_CATALOGUE,
+    defaults: ROLE_DEFAULT_LAYOUTS,
+    can: allow,
+    available: files,
+  };
+
+  it('drops a widget whose module is off and keeps core ones', () => {
+    const off = resolveLayout({ ...base, moduleOn: (m) => m !== 'attendance' });
+    expect(keys(off.visible)).not.toContain(K.ATTENDANCE_TODAY);
+    expect(keys(off.visible)).toContain(K.SETUP_CHECKLIST);
+  });
+
+  it('keeps every widget when all modules are on', () => {
+    expect(keys(resolveLayout(base).visible)).toContain(K.ATTENDANCE_TODAY);
+  });
+});
+
 describe('resolveLayout', () => {
   it('uses the role default with each default size when there is no pref', () => {
     const { visible, hidden } = run();

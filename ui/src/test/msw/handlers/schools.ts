@@ -158,6 +158,9 @@ const schoolProfileStore: {
   email: string | null;
   registration_id: string | null;
   logo_url: string | null;
+  /** [77.3] The real profile always carries these (all on, no labels). */
+  modules: { platform: Record<string, boolean>; school: Record<string, unknown> };
+  labels: Record<string, unknown>;
 } = {
   name: 'Ananta School',
   name_bn: null,
@@ -166,6 +169,8 @@ const schoolProfileStore: {
   email: null,
   registration_id: null,
   logo_url: null,
+  modules: { platform: {}, school: {} },
+  labels: {},
 };
 
 const getProfile = http.get('/api/v1/schools/me/profile', () =>
