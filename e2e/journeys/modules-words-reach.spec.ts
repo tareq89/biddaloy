@@ -3,12 +3,14 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { adminApiSession, createClassSection, post, type ApiSession } from '../api';
 import { setLabels } from '../fixtures/modules';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { test } from '../fixtures/settings-lock';
+import { expect, loggedIn } from '../fixtures/test';
 
 /**
  * [Epic 77 / #3932] Where a renamed word reaches: screens, printed documents and SMS.
  *
- * THIS SPEC CHANGES SCHOOL SETTINGS. Words are school-wide, so every test puts each word it
+ * THIS SPEC CHANGES SCHOOL SETTINGS and takes the school-settings lock (fixtures/settings-lock.ts)
+ * for each test, so specs that also change them never overlap across workers. Words are school-wide, so every test puts each word it
  * touched back in `finally` (straight over the API, `null` per key). The tests run in order,
  * one at a time.
  *
@@ -125,7 +127,10 @@ test.describe('print and SMS', () => {
       expect(reset.text).toContain('"Section:"');
     } finally {
       await setLabels(request, session, RESET);
-      for (const id of ids) await post(request, session, `/print-templates/${id}/archive`, {});
+      // Newest first: archiving the default (the first one made) is refused while another
+      // template of the kind is live, so it has to go last.
+      for (const id of [...ids].reverse())
+        await post(request, session, `/print-templates/${id}/archive`, {});
     }
   });
 
