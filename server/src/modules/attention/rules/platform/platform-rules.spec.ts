@@ -160,6 +160,9 @@ describe('PlatformBkashRefundDueRule', () => {
     // Only orphans not yet stamped refunded are money still owed back.
     expect(d.query.mock.calls[0][0]).toContain(`raw->>'orphan' = 'true'`);
     expect(d.query.mock.calls[0][0]).toContain(`raw->>'refunded_at' IS NULL`);
+    // A package (SMS bundle) payment has no seat order; it must join through its bundle order.
+    expect(d.query.mock.calls[0][0]).toContain('LEFT JOIN sms_bundle_orders b');
+    expect(d.query.mock.calls[0][0]).toContain('COALESCE(o.school_id, b.school_id)');
     expect(f.params).toEqual({ count: 4, refs: 'T1, T2, T3 …', schools: 'A' });
     expect(f.dedupeKey).toBe('platform:bkash-refund');
     expect(f.recipients).toEqual([{ userId: 'sa1', role: UserRole.SUPER_ADMIN }]);

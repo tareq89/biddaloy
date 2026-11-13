@@ -45,8 +45,9 @@ export class PlatformBkashRefundDueRule implements AttentionRuleShape {
     // ponytail: no index on raw; platform_payments is one row per paid order, so the scan is small. Add a partial index if it ever shows up.
     const rows: { ref: string; name: string }[] = await this.dataSource.query(
       `SELECT p.gateway_ref AS ref, s.name FROM platform_payments p
-         JOIN seat_orders o ON o.id = p.seat_order_id
-         JOIN schools s ON s.id = o.school_id
+         LEFT JOIN seat_orders o ON o.id = p.seat_order_id
+         LEFT JOIN sms_bundle_orders b ON b.id = p.bundle_order_id
+         JOIN schools s ON s.id = COALESCE(o.school_id, b.school_id)
         WHERE p.raw->>'orphan' = 'true' AND p.raw->>'refunded_at' IS NULL
         ORDER BY p.created_at`,
     );
