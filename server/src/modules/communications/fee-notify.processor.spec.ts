@@ -34,9 +34,9 @@ describe('FeeNotifyProcessor', () => {
   it('rethrows a handler error so BullMQ retries', async () => {
     const { processor, fees } = make();
     fees.handleFeesGenerated.mockRejectedValue(new Error('boom'));
-    await expect(processor.process({ name: 'fees.generated', data: {} } as any)).rejects.toThrow(
-      'boom',
-    );
+    await expect(
+      processor.process({ name: 'fees.generated', data: { tenantId: 'A' } } as any),
+    ).rejects.toThrow('boom');
   });
 
   // Money: fees off for the school -> no new automatic notice, either event.
@@ -72,6 +72,14 @@ describe('FeeNotifyProcessor', () => {
   it('rejects an unknown job name', async () => {
     const { processor } = make();
     await expect(processor.process({ name: 'nope', data: {} } as any)).rejects.toThrow(/Unknown/);
+  });
+
+  it('fails a job that carries no tenant id instead of running it ungated', async () => {
+    const { processor, fees } = make();
+    await expect(processor.process({ name: 'fees.generated', data: {} } as any)).rejects.toThrow(
+      /no tenant id/,
+    );
+    expect(fees.handleFeesGenerated).not.toHaveBeenCalled();
   });
 });
 
