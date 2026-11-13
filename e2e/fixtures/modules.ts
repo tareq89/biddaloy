@@ -12,7 +12,7 @@ export async function setModules(
   session: ApiSession,
   modules: { [K in keyof SchoolModules]: SchoolModules[K] | null },
 ): Promise<void> {
-  await patch(request, session, `/schools/${session.tenantId}/settings`, { modules });
+  await patch(request, session, `/schools/${session.tenantId}/settings`, { version: 1, modules });
 }
 
 /** Same for renamed words. */
@@ -21,5 +21,5 @@ export async function setLabels(
   session: ApiSession,
   labels: { [K in keyof SchoolLabels]: SchoolLabels[K] | null },
 ): Promise<void> {
-  await patch(request, session, `/schools/${session.tenantId}/settings`, { labels });
+  await patch(request, session, `/schools/${session.tenantId}/settings`, { version: 1, labels });
 }

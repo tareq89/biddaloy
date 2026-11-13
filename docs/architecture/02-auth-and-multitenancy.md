@@ -1104,3 +1104,29 @@ Example: the school switches Fees off. `GET /api/v1/fee-structures` answers 403 
 - 2026-11-13. **"Unreadable state" quietly became "success".** Fees-daily logged and returned when it could not read the module state, so a run-now or restore catch-up job finished green and that day was never retried. Fix: it throws; the nightly loop already reports per school to Sentry, the other two jobs fail visibly. Rule candidate: a job that skips on purpose says so; a job that cannot decide fails.
 - 2026-11-13. **One file can hold two modules.** `POST /fees/bills/:id/waive` lives in the fines controller but is tagged fees; the reminder routes live in the communications controller but are tagged fees (D39), while message history is messaging. The tag is per handler, so the table-driven spec (`modules-off.e2e-spec.ts`) pins these by name. `SYLLABUS_VS_PLAN` stays on `syllabus`: it is a syllabus card that only adds the plan line when a plan exists.
 - 2026-11-13. **The table is driven by the key list.** `ROUTES` is a `Record<ModuleKey, string>`, so a new key without a row does not compile, and a row whose route is not tagged with that key in `route-status.snapshot.txt` fails the drift test. The snapshot MODULE column was already filled by earlier tickets, so the wave close changed no snapshot line (D48).
+
+### Wave 3 (client hiding, #3920 to #3922)
+
+How a switch reaches a page that is already open:
+
+```mermaid
+sequenceDiagram
+  participant A as Admin (settings PATCH)
+  participant S as Server
+  participant P as Open page (profile cached)
+  A->>S: modules: fines off
+  Note over S: next request reads the school row, refuses at once
+  P->>P: still shows Fines (cached profile, staleTime 30 s)
+  P->>S: window focus after 30 s: GET /schools/me/profile
+  S-->>P: modules.school.fines.on = false
+  P->>P: sidebar, tab, palette drop Fines
+```
+
+Example: ADMIN switches Fines off while a teacher has the student page open. The
+teacher's `PUT /fines` is refused with 403 right away. The Fines tab disappears the
+next time the tab regains focus after 30 s, or on any reload.
+
+- 2026-11-13. **The page does not hear about a switch; it asks again.** The profile query has `staleTime` 30 s and refetches on window focus. So "hidden within 30 s" is true only when something wakes the page; the server is the only instant gate. Fix: `modules-hiding.spec.ts` moves the page clock 31 s, fires a bubbling `visibilitychange` and polls. Rule candidate: say which event makes a cached value refresh, not only how long it lives.
+- 2026-11-13. **A test fixture sent a body the server rejects.** `setModules` omitted `version: 1`, so every settings PATCH was a 400 and no e2e had ever run it. Fix: the fixture sends the version. Rule candidate: run a new fixture once against the real endpoint in the ticket that adds it.
+- 2026-11-13. **A hidden portal URL shows a load error, not the refusal page.** Only the staff shell renders `ModuleOffState`. In the portal, `/portal/routine` with Routines off shows the generic "could not load" card (the server still answers 403). Cost: the e2e asserts only that the link is gone. Fix: follow-up to be filed from the lane report. Rule candidate: when a decision names "the URL shows the refusal page", list every shell it must hold in.
+- 2026-11-13. **Modules are school-wide, so a browser test that flips one disturbs its neighbours.** Each test restores in `finally` and keeps the off window short; the spec uses Fines, Homework and Routines only. Rule candidate: a spec that changes school settings says so in its header comment.

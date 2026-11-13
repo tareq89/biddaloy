@@ -72,6 +72,18 @@ the nav tree under _Academics › Timetable & routines_, (c) register
 workbook tab for `routine_slots`. Any of those missing fails CI, not code
 review.
 
+**Module guards (Epic 77).** Two more drift tests join the registry guards. They
+keep an off module from leaving a stray link behind:
+
+| Guard                                        | Fails when                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `client-admin/src/module-coverage.test.ts`   | a nav item, palette action or staff route has no `module` (and is not a core area), or its module differs from its route's |
+| `client-admin/src/tab-card-coverage.test.ts` | a detail-page tab, portal page, dashboard widget or coded report has no valid `module`                                     |
+
+Example: a new "Library" tab on the student page with no `module:` line fails
+`tab-card-coverage.test.ts` with `tab "library" has no module`. The browser
+proof is `e2e/journeys/modules-hiding.spec.ts`.
+
 ## 3. Navigation tree
 
 Built from a full inventory (672 rows: the reference ERP's nav, its
