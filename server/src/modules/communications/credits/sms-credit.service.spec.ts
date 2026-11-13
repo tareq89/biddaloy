@@ -48,6 +48,26 @@ describe('SmsCreditService', () => {
     };
     ledgerRepo = {};
 
+    const lotsAndDraws = (entity: any): unknown[] | undefined => {
+      if (entity?.name === 'SmsCreditLot') {
+        return [
+          {
+            id: 'lot-1',
+            remaining: balanceRow?.available ?? 0,
+            reserved_units: 1000,
+            debited_units: 0,
+            expired_units: 0,
+            expires_at: null,
+            created_at: new Date(0),
+          },
+        ];
+      }
+      if (entity?.name === 'SmsCreditLotDraw') {
+        return [{ id: 'draw-1', lot_id: 'lot-1', units: 1000, open_units: 1000 }];
+      }
+      return undefined;
+    };
+
     manager = {
       findOne: vi.fn(async (entity: any) => {
         // The transaction manager fields two kinds of findOne calls: a
@@ -65,7 +85,10 @@ describe('SmsCreditService', () => {
       }),
       insert: vi.fn(async () => ({})),
       query: vi.fn(async () => balanceQueryResult),
-      find: vi.fn(async () => ledgerFindResult),
+      // Lots and draws (#3852): one no-expiry lot holding the whole balance, with one
+      // draw big enough for any key, so the ledger-side assertions stay what they were.
+      findBy: vi.fn(async (entity: any) => lotsAndDraws(entity) ?? []),
+      find: vi.fn(async (entity: any) => lotsAndDraws(entity) ?? ledgerFindResult),
     };
 
     dataSource = {

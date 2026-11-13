@@ -99,16 +99,14 @@ describe('SmsCreditService characterization (integration)', () => {
     expect(await svc.getBalance(a)).toEqual({ available: 10, reserved: 0 });
   });
 
-  it('characterization: a positive adjust adds to available; a negative one is rejected even within the balance', async () => {
+  it('a positive adjust adds to available; a negative one within the balance now succeeds (#3852)', async () => {
     await svc.grant(a, 10, { idempotencyKey: `g-${a}` });
     await svc.adjust(a, 4, { idempotencyKey: `adj-up-${a}` });
     expect(await svc.getBalance(a)).toEqual({ available: 14, reserved: 0 });
-    // Today's upsert proposes a negative balance row, and the CHECK refuses it before the
-    // conflict clause runs, so any negative adjust is a 400. Pinned as-is.
-    await expect(svc.adjust(a, -4, { idempotencyKey: `adj-down-${a}` })).rejects.toThrow(
-      "Adjustment would drive this school's SMS credit balance below zero.",
-    );
-    expect(await svc.getBalance(a)).toEqual({ available: 14, reserved: 0 });
+    // Deliberate change: the old upsert refused every negative adjust; lots now take it
+    // from `remaining`. Below zero stays a 400 (test above).
+    await svc.adjust(a, -4, { idempotencyKey: `adj-down-${a}` });
+    expect(await svc.getBalance(a)).toEqual({ available: 10, reserved: 0 });
   });
 
   it('characterization: refundForLog is once per log id and returns units to available', async () => {
