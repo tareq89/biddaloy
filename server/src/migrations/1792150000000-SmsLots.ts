@@ -34,8 +34,8 @@ const AUDIT_LABELS = [
 const KIND_LABELS = ['PURCHASE', 'EXPIRE'];
 const REF_LABELS = ['bundle_order', 'lot'];
 
-export class SmsLots1792100000000 implements MigrationInterface {
-  name = 'SmsLots1792100000000';
+export class SmsLots1792150000000 implements MigrationInterface {
+  name = 'SmsLots1792150000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     for (const l of AUDIT_LABELS) {
@@ -218,7 +218,7 @@ export class SmsLots1792100000000 implements MigrationInterface {
       `ALTER TABLE "platform_payments" ADD CONSTRAINT "CHK_platform_payments_one_order" CHECK (("seat_order_id" IS NOT NULL) <> ("bundle_order_id" IS NOT NULL))`,
     );
 
-    await SmsLots1792100000000.backfill(queryRunner);
+    await SmsLots1792150000000.backfill(queryRunner);
   }
 
   /** D27: every funded balance becomes one no-expiry LEGACY lot. Re-runnable. */
@@ -266,7 +266,7 @@ export class SmsLots1792100000000 implements MigrationInterface {
 
     // Postgres has no DROP VALUE: recreate each enum without the labels this migration added.
     // A row still using a removed label makes the cast fail loudly, which is intended.
-    const R = SmsLots1792100000000.recreateEnum;
+    const R = SmsLots1792150000000.recreateEnum;
     await R(queryRunner, 'platform_payments', 'method', 'platform_payments_method_enum', [
       'COUPON',
     ]);

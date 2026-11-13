@@ -2,17 +2,17 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
-import { SmsLots1792100000000 } from '../src/migrations/1792100000000-SmsLots';
+import { SmsLots1792150000000 } from '../src/migrations/1792150000000-SmsLots';
 
 /**
  * [100.1.02/#3851] up/down/up of the SMS lots migration, the D27 backfill, every CHECK, and RESTRICT.
  * Ends with the migration applied so later specs on this worker see the tables.
  */
-describe('SmsLots1792100000000 (integration)', () => {
+describe('SmsLots1792150000000 (integration)', () => {
   let ds: DataSource;
   let qr: QueryRunner;
   let schoolId: string;
-  const migration = new SmsLots1792100000000();
+  const migration = new SmsLots1792150000000();
 
   beforeAll(async () => {
     const module = await createTestModule([School], []);
@@ -131,8 +131,8 @@ describe('SmsLots1792100000000 (integration)', () => {
       `INSERT INTO sms_credit_balance (tenant_id, available, reserved) VALUES ($1, 70, 30)`,
       [schoolId],
     );
-    await SmsLots1792100000000.backfill(qr);
-    await SmsLots1792100000000.backfill(qr); // second run changes nothing
+    await SmsLots1792150000000.backfill(qr);
+    await SmsLots1792150000000.backfill(qr); // second run changes nothing
     const lots = await ds.query(`SELECT * FROM sms_credit_lots WHERE tenant_id = $1`, [schoolId]);
     expect(lots).toHaveLength(1);
     expect(lots[0]).toMatchObject({
@@ -166,12 +166,12 @@ describe('SmsLots1792100000000 (integration)', () => {
       `INSERT INTO sms_credit_balance (tenant_id, available, reserved) VALUES ($1, 0, 0)`,
       [schoolId],
     );
-    await SmsLots1792100000000.backfill(qr);
+    await SmsLots1792150000000.backfill(qr);
     expect(
       await ds.query(`SELECT 1 FROM sms_credit_lots WHERE tenant_id = $1`, [schoolId]),
     ).toHaveLength(0);
     await ds.query(`UPDATE sms_credit_balance SET available = 5 WHERE tenant_id = $1`, [schoolId]);
-    await SmsLots1792100000000.backfill(qr);
+    await SmsLots1792150000000.backfill(qr);
     expect(
       await ds.query(`SELECT 1 FROM sms_credit_lot_draws WHERE tenant_id = $1`, [schoolId]),
     ).toHaveLength(0);
