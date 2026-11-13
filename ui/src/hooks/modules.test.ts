@@ -9,7 +9,7 @@ const h = vi.hoisted(() => ({ get: vi.fn(), role: String('TEACHER') }));
 vi.mock('../api/client', () => ({ apiClient: { get: h.get } }));
 vi.mock('./auth-state', () => ({ useActiveRole: () => h.role }));
 
-import { useModuleEnabled, useModuleState } from './modules';
+import { useModuleEnabled, useModuleResolver, useModuleState } from './modules';
 
 function wrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -70,5 +70,14 @@ describe('useModuleState', () => {
     });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current).toMatchObject({ on: true, source: 'default' });
+  });
+
+  it('useModuleResolver answers for many keys from one profile fetch', async () => {
+    h.get.mockResolvedValue(profile({ fines: { on: false } }));
+    const { result } = renderHook(() => useModuleResolver(), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current(ModuleKey.fines).loading).toBe(false));
+    expect(result.current(ModuleKey.fines).on).toBe(false);
+    expect(result.current(ModuleKey.homework).on).toBe(true);
+    expect(h.get).toHaveBeenCalledTimes(1);
   });
 });

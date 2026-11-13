@@ -1,4 +1,4 @@
-import { Permission } from '@biddaloy/shared';
+import { ModuleKey, Permission } from '@biddaloy/shared';
 
 /**
  * [8.14.17]'s one map: every staff route's TanStack **route ID** (not
@@ -282,3 +282,51 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/print/document': Permission.DOCUMENT_PRINT,
   '/_staff/reports/printables': Permission.PRINT_HISTORY_READ,
 };
+
+/**
+ * Epic 77 (D16, D46): the switchable module a staff route belongs to. First
+ * match wins, so a more specific prefix sits above its parent (`/fees/fines`
+ * before `/fees`). A route id matches a prefix when it equals it or continues
+ * past a `/`, `_` or `$` boundary. No match = a core route, never hidden.
+ * Mirrors the server's `@RequiresModule` tags, which stay the authority.
+ */
+const ROUTE_MODULE_PREFIXES: readonly (readonly [string, ModuleKey])[] = [
+  ['/_staff/fees/fines', ModuleKey.fines],
+  ['/_staff/fees', ModuleKey.fees],
+  ['/_staff/fee-structures', ModuleKey.fees],
+  ['/_staff/invoices', ModuleKey.fees],
+  ['/_staff/payments', ModuleKey.fees],
+  ['/_staff/reports/collections', ModuleKey.fees],
+  ['/_staff/communications/reminders', ModuleKey.fees],
+  ['/_staff/communications/notices', ModuleKey.notices],
+  ['/_staff/communications/send', ModuleKey.messaging],
+  ['/_staff/communications/batches', ModuleKey.messaging],
+  ['/_staff/communications/message-log', ModuleKey.messaging],
+  ['/_staff/applications', ModuleKey.applications],
+  ['/_staff/programs', ModuleKey.programs],
+  ['/_staff/admissions', ModuleKey.admission],
+  ['/_staff/staff/evaluations', ModuleKey.evaluations],
+  ['/_staff/staff/$userId_/acr', ModuleKey.evaluations],
+  ['/_staff/academics/homework', ModuleKey.homework],
+  ['/_staff/academics/syllabus', ModuleKey.syllabus],
+  ['/_staff/academics/study-plans', ModuleKey.studyPlans],
+  ['/_staff/routines', ModuleKey.routines],
+  ['/_staff/exams/seat-plans', ModuleKey.seatPlans],
+  ['/_staff/exams', ModuleKey.exams],
+  ['/_staff/grading-scales', ModuleKey.exams],
+  ['/_staff/marks', ModuleKey.exams],
+  ['/_staff/results', ModuleKey.exams],
+  ['/_staff/analysis', ModuleKey.exams],
+  ['/_staff/promotions', ModuleKey.exams],
+  ['/_staff/attendance/staff', ModuleKey.staffAttendance],
+  ['/_staff/attendance', ModuleKey.attendance],
+  ['/_staff/website', ModuleKey.website],
+];
+
+export function routeModule(routeId: string): ModuleKey | undefined {
+  return ROUTE_MODULE_PREFIXES.find(
+    ([prefix]) =>
+      routeId === prefix ||
+      (routeId.startsWith(prefix) && /^[/_$]/.test(routeId.slice(prefix.length))),
+  )?.[1];
+}
