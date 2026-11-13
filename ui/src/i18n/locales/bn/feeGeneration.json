@@ -4,21 +4,21 @@
     "cancel": "বাতিল করুন"
   },
   "audience": {
-    "heading": "শিক্ষার্থী",
+    "heading": "$t(common:entities.student_one)",
     "selectedCount": "{{n}} জন নির্বাচিত",
-    "searchLabel": "শিক্ষার্থী খুঁজুন",
+    "searchLabel": "$t(common:entities.student_one) খুঁজুন",
     "searchPlaceholder": "নাম বা রোল নম্বর দিয়ে খুঁজুন",
-    "classLabel": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
-    "sectionLabel": "শাখা",
-    "allSections": "সব শাখা",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "allSections": "সব $t(common:entities.section_one)",
     "programLabel": "প্রোগ্রাম",
     "anyProgram": "যেকোনো প্রোগ্রাম",
     "includeInactiveLabel": "নিষ্ক্রিয় শিক্ষার্থীও দেখান",
     "selectAllMatching": "মিলে যাওয়া {{n}} জন সবাইকে বাছুন",
-    "loading": "শিক্ষার্থী লোড হচ্ছে…",
-    "empty": "এই ফিল্টারে কোনো শিক্ষার্থী মেলেনি।",
-    "unknownStudentName": "নির্বাচিত শিক্ষার্থী (নাম লোড হচ্ছে…)",
+    "loading": "$t(common:entities.student_one) লোড হচ্ছে…",
+    "empty": "এই ফিল্টারে কোনো $t(common:entities.student_one) মেলেনি।",
+    "unknownStudentName": "নির্বাচিত $t(common:entities.student_one) (নাম লোড হচ্ছে…)",
     "selectAllTooManyMatches": "অনেক বেশি ফলাফল মিলেছে — ফিল্টার সংকুচিত করে আবার চেষ্টা করুন।",
     "selectAllRetry": "আবার চেষ্টা করুন",
     "matchCount_one": "{{n}} জন মিলেছে",
@@ -31,7 +31,7 @@
     "loading": "ফি কাঠামো লোড হচ্ছে…",
     "empty": "এই শিক্ষাবর্ষের জন্য এখনো কোনো ফি কাঠামো নেই।",
     "description": "{{year}} শিক্ষাবর্ষের ফি কাঠামো থেকে বাছুন।",
-    "perStudent": "প্রতি শিক্ষার্থী {{amount}}"
+    "perStudent": "প্রতি $t(common:entities.student_one) {{amount}}"
   },
   "notify": {
     "label": "বিল তৈরি হলে পরিবারকে জানান"
@@ -39,13 +39,13 @@
   "summary": {
     "bills_one": "{{n}}টি বিল তৈরি হবে",
     "bills_other": "{{n}}টি বিল তৈরি হবে",
-    "detail": "{{students}} জন শিক্ষার্থী × {{fees}}টি ফি",
+    "detail": "{{students}} জন $t(common:entities.student_one) × {{fees}}টি ফি",
     "programAudience": "নির্বাচিত প্রোগ্রামের সব সক্রিয় শিক্ষার্থীর ফি তৈরি হবে।"
   },
   "duplicates": {
     "heading": "এই মেয়াদের কিছু বিল আগে থেকেই আছে",
     "row": "{{student}} — {{fee}}",
-    "inactiveCount": "নির্বাচিত {{n}} জন শিক্ষার্থী সক্রিয় নয়।",
+    "inactiveCount": "নির্বাচিত {{n}} জন $t(common:entities.student_one) সক্রিয় নয়।",
     "skipLabel": "যাদের আগে থেকেই আছে তাদের বাদ দিন",
     "skipHint": "যাদের এই মেয়াদের বিল নেই, শুধু তাদের বিল তৈরি হবে।",
     "removeOlderLabel": "আগের বিলটি মুছে নতুন তৈরি করুন",
@@ -57,7 +57,7 @@
   },
   "steps": {
     "year": "শিক্ষাবর্ষ",
-    "scope": "শ্রেণি ও শাখা",
+    "scope": "$t(common:entities.class_one) ও $t(common:entities.section_one)",
     "period": "মাস ও বছর",
     "review": "যাচাই"
   },
@@ -68,10 +68,10 @@
     "range": "{{start}} থেকে {{end}}"
   },
   "scope": {
-    "classLabel": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
-    "sectionLabel": "শাখা",
-    "allSections": "সব শাখা",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "allSections": "সব $t(common:entities.section_one)",
     "hint": "পুরো স্কুলের জন্য চালাতে দুটোতেই \"সব\" রেখে দিন।"
   },
   "period": {
@@ -88,11 +88,11 @@
   "review": {
     "heading": "তৈরি করার আগে এটি দেখে নিন",
     "academicYearLabel": "শিক্ষাবর্ষ",
-    "classLabel": "শ্রেণি",
-    "sectionLabel": "শাখা",
+    "classLabel": "$t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
     "periodLabel": "মাস",
     "period": "{{month}} {{year}}",
-    "countLoading": "পরিসরের শিক্ষার্থী গোনা হচ্ছে…",
+    "countLoading": "পরিসরের $t(common:entities.student_one) গোনা হচ্ছে…",
     "countFailed": "শিক্ষার্থীর সংখ্যা আনা যায়নি। তবুও ফি তৈরি করা যাবে — সংখ্যাটি কেবল একটি পূর্বাভাস।",
     "count_one": "পরিসরে {{count}} জন সক্রিয় শিক্ষার্থী আছে, তাকে যাচাই করা হবে।",
     "count_other": "পরিসরে {{count}} জন সক্রিয় শিক্ষার্থী আছে, তাদের যাচাই করা হবে।",
