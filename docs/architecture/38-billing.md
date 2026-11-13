@@ -200,8 +200,12 @@ flowchart LR
 - **Download**: `ParseUUIDPipe`, `SETTINGS_MANAGE`, `@AllowWhenSuspendedForBilling` (a school that
   is read-only or paused must still reach its receipt). Another school's order, an unpaid order
   and a grant all answer the same 404.
-- **VAT**: set `BILLING_VAT_REGISTRATION` and the receipt shows the number and a VAT line; unset,
-  neither shows.
+- **VAT**: the owner sets rate, label and registration in the cockpit (`GET/PUT /platform/money/vat`,
+  platform setting `billing.vat`, write needs a step-up token). Prices include VAT. The receipt shows
+  the registration whenever it is set, and a VAT amount line only when a rate is set. Everything is
+  frozen into `receipt_snapshot` at payment (`receipt-snapshot.ts`), so a later change never edits a
+  printed receipt. `BILLING_VAT_REGISTRATION` is only a one-time seed read by the migration; no
+  runtime code reads it.
 - **Email**: the `receipt` admin notice (en/bn). A failed send is logged and never fails the payment.
 - **Orders paid before receipts shipped**: if #1820/#1821 deploy before #1822, the receipt
   migration (`1791900000400`) numbers those `PAID` bKash/offline orders in `paid_at` order per

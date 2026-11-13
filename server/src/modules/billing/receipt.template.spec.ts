@@ -7,6 +7,21 @@ import {
   type ReceiptData,
 } from './receipt.template';
 
+const reg = (registration: string) => ({
+  registration,
+  rate_bp: null,
+  label: 'VAT',
+  vat_paisa: 0,
+  net_paisa: 0,
+});
+const withRate = {
+  registration: 'B1',
+  rate_bp: 1500,
+  label: 'VAT',
+  vat_paisa: 391_304,
+  net_paisa: 2_608_696,
+};
+
 const base: ReceiptData = {
   receiptNumber: 'SMR-2026-000012',
   orderId: '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e6f',
@@ -22,7 +37,7 @@ const base: ReceiptData = {
   reference: 'TRX123',
   paidAt: new Date('2027-01-01T06:00:00Z'),
   locale: 'en',
-  vatRegistration: null,
+  vat: null,
 };
 
 describe('renderReceiptHtml', () => {
@@ -36,9 +51,40 @@ describe('renderReceiptHtml', () => {
 
   it('prints the VAT line and number only when the registration is configured', () => {
     expect(renderReceiptHtml(base)).not.toContain('VAT');
-    const withVat = renderReceiptHtml({ ...base, vatRegistration: 'BIN-001234567' });
+    const withVat = renderReceiptHtml({ ...base, vat: reg('BIN-001234567') });
     expect(withVat).toContain('VAT registration');
     expect(withVat).toContain('BIN-001234567');
+  });
+
+  it('VAT amount line only when a rate is set and the amount is above 0', () => {
+    expect(renderReceiptHtml({ ...base, vat: reg('B1') })).not.toContain('VAT (');
+    expect(renderReceiptHtml({ ...base, vat: { ...withRate, vat_paisa: 0 } })).not.toContain(
+      'VAT (',
+    );
+    const html = renderReceiptHtml({ ...base, vat: withRate });
+    expect(html).toContain('VAT (15.00%)');
+    expect(html).toContain('৳3,913.04');
+    expect(html).toContain('B1');
+  });
+
+  it('discount and coupon code print only when the discount is above 0', () => {
+    const html = renderReceiptHtml({ ...base, discountPaisa: 500_000, couponCode: 'EID10' });
+    expect(html).toContain('Discount');
+    expect(html).toContain('-৳5,000.00');
+    expect(html).toContain('EID10');
+    const zero = renderReceiptHtml({ ...base, discountPaisa: 0, couponCode: 'EID10' });
+    expect(zero).not.toContain('Discount');
+    expect(zero).not.toContain('EID10');
+  });
+
+  it('COUPON method reads Free by coupon (en) and Bangla (bn), digits in bn', () => {
+    expect(renderReceiptHtml({ ...base, method: 'COUPON', amountPaisa: 0 })).toContain(
+      'Free by coupon',
+    );
+    const bn = renderReceiptHtml({ ...base, locale: 'bn', method: 'COUPON', vat: withRate });
+    expect(bn).toContain('কুপনে বিনামূল্যে');
+    expect(bn).toContain('VAT (১৫.০০%)');
+    expect(bn).toContain('৳৩,৯১৩.০৪');
   });
 
   it('renders Bangla copy with Bangla numerals when the school locale is bn', () => {
@@ -67,9 +113,9 @@ describe('renderReceiptHtml golden', () => {
   };
   it('seat receipts render byte for byte as before', () => {
     expect(h(seat)).toBe('db28addda06f7801');
-    expect(h({ ...seat, vatRegistration: 'BIN-1' })).toBe('a8903a03f246a23b');
+    expect(h({ ...seat, vat: reg('BIN-1') })).toBe('a8903a03f246a23b');
     expect(h({ ...seat, locale: 'bn' })).toBe('bedbf1d52212438d');
-    expect(h({ ...seat, locale: 'bn', vatRegistration: 'BIN-1' })).toBe('2993c66982fd3dc2');
+    expect(h({ ...seat, locale: 'bn', vat: reg('BIN-1') })).toBe('2993c66982fd3dc2');
   });
 });
 
@@ -87,8 +133,7 @@ const bundle: BundleReceiptData = {
   reference: 'TRX9',
   paidAt: new Date('2027-01-01T06:00:00Z'),
   locale: 'en',
-  vatLine: null,
-  couponLine: null,
+  vat: null,
 };
 
 describe('renderBundleReceiptHtml', () => {
@@ -109,13 +154,20 @@ describe('renderBundleReceiptHtml', () => {
     expect(html).toContain('৳১০০.০০');
   });
 
-  it('prints VAT and coupon lines only when given', () => {
+  it('prints VAT, discount and coupon lines only when frozen in the snapshot', () => {
     const none = renderBundleReceiptHtml(bundle);
     expect(none).not.toContain('VAT');
     expect(none).not.toContain('Coupon');
-    const both = renderBundleReceiptHtml({ ...bundle, vatLine: '15% incl.', couponLine: '-৳10' });
-    expect(both).toContain('15% incl.');
-    expect(both).toContain('Coupon');
+    const all = renderBundleReceiptHtml({
+      ...bundle,
+      vat: withRate,
+      discountPaisa: 1000,
+      couponCode: 'EID',
+    });
+    expect(all).toContain('VAT (15.00%)');
+    expect(all).toContain('৳3,913.04');
+    expect(all).toContain('-৳10.00');
+    expect(all).toContain('EID');
   });
 
   it('escapes the school name', () => {
