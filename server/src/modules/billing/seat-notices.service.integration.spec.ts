@@ -91,7 +91,7 @@ describe('SeatNoticesService (integration)', () => {
   const paid = (schoolId: string, daysAhead: number, seats = 20, length = 60) =>
     ds.query(
       `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
-       VALUES ($1, $2, 1, 1000, 5000, DATE '2026-12-01' + $3::int - $4::int, DATE '2026-12-01' + $3::int, 'PAID', gen_random_uuid()::text, NOW())`,
+       VALUES ($1, $2, 1, 1000, $2::int * 1000, DATE '2026-12-01' + $3::int - $4::int, DATE '2026-12-01' + $3::int, 'PAID', gen_random_uuid()::text, NOW())`,
       [schoolId, seats, daysAhead, length],
     );
   const addStudent = (tenantId: string) =>

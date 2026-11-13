@@ -8,6 +8,7 @@ import { CommunicationLog } from '../communications/entities/communication-log.e
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { School } from '../schools/entities/school.entity';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
+import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { BkashCallbackController } from './bkash/bkash.controller';
 import { BkashClient } from './bkash/bkash.client';
@@ -20,6 +21,8 @@ import { OrdersService } from './orders.service';
 import { ReceiptService } from './receipt.service';
 import { PlatformBillingController } from './platform-billing.controller';
 import { PlatformBillingService } from './platform-billing.service';
+import { PlatformVatController } from './platform-vat.controller';
+import { VatService } from './vat.service';
 import { SeatNoticesService } from './seat-notices.service';
 
 /** Billing (Epic 49): seat orders, the entitlement that sets `schools.seat_limit`, the daily recompute. */
@@ -27,18 +30,25 @@ import { SeatNoticesService } from './seat-notices.service';
   imports: [
     AccountAccessModule, // OTP_REDIS: the bKash token cache
     AuditModule,
+    PlatformIdentityModule, // PlatformSettingsService for VatService
     SchoolsModule,
     CommunicationsModule,
     TypeOrmModule.forFeature([School, UserTenant, CommunicationLog]),
     BullModule.registerQueue({ name: BILLING_QUEUE }, { name: BKASH_RECONCILE_QUEUE }),
   ],
-  controllers: [BillingController, BkashCallbackController, PlatformBillingController],
+  controllers: [
+    BillingController,
+    BkashCallbackController,
+    PlatformBillingController,
+    PlatformVatController,
+  ],
   // AdminNoticeService is provided here as well as in TrialModule: TrialModule imports this module,
   // so importing it back would be a cycle. The service is stateless.
   providers: [
     EntitlementService,
     OrdersService,
     ReceiptService,
+    VatService,
     PlatformBillingService,
     BillingScheduler,
     SeatNoticesService,
@@ -47,6 +57,13 @@ import { SeatNoticesService } from './seat-notices.service';
     BkashService,
     BkashReconciler,
   ],
-  exports: [EntitlementService, OrdersService, BkashService, ReceiptService, AdminNoticeService],
+  exports: [
+    EntitlementService,
+    OrdersService,
+    BkashService,
+    ReceiptService,
+    AdminNoticeService,
+    VatService,
+  ],
 })
 export class BillingModule {}
