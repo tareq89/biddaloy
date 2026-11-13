@@ -45,6 +45,7 @@ import { FeesSection } from './settings/FeesSection';
 import { HomeworkSection } from './settings/HomeworkSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { ModulesTab } from './settings/modules-words/ModulesTab';
+import { WordsTab } from './settings/modules-words/WordsTab';
 import { ModulesWordsSection } from './settings/ModulesWordsSection';
 import { OrganisationSection } from './settings/OrganisationSection';
 import { PresetLinkCard } from './settings/PresetLinkCard';
@@ -321,7 +322,10 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
             // The list reads the active school's profile (X-Tenant-ID), so it is not shown while
             // a super admin has another school picked.
             {...(schoolId && (!isSuperAdmin || schoolId === ownSchoolId)
-              ? { modulesTab: <ModulesTab schoolId={schoolId} /> }
+              ? {
+                  modulesTab: <ModulesTab schoolId={schoolId} />,
+                  wordsTab: <WordsTab schoolId={schoolId} />,
+                }
               : {})}
             onTabChange={(next) =>
               void navigate({

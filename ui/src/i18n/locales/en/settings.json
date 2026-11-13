@@ -857,7 +857,8 @@
       "exampleValue": "3 {{word}}",
       "save": "Save",
       "saved": "Words saved",
-      "notSaved": "Not saved — try again"
+      "notSaved": "Not saved — try again",
+      "invalid": "Use 1 to 40 characters, with no < or >."
     }
   }
 }
