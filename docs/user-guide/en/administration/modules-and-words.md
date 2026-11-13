@@ -20,7 +20,7 @@ labels:
     common:moduleOff.*,
     onboardingSetup:guided.curriculum.kind.*,
   ]
-helpIds: []
+helpIds: [administration.modulesWords]
 devices: [desktop]
 entry: [sidebar, palette]
 keywords: [modules, words, institution kind, coaching, madrasa, batch, course, turn off, who can't see it, মডিউল, শব্দ, প্রতিষ্ঠানের ধরন, ব্যাচ, কোর্স, চালু, বন্ধ]
