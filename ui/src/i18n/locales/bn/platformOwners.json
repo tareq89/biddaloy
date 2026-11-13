@@ -110,7 +110,8 @@
       "PLATFORM_OWNER_REPLACED": "মালিক বদলানো হয়েছে",
       "PLATFORM_MFA_RESET": "অথেনটিকেটর রিসেট হয়েছে",
       "PLATFORM_PASSWORD_RESET": "পাসওয়ার্ড রিসেট হয়েছে",
-      "PLATFORM_SETTINGS_CHANGED": "সেটিং বদলানো হয়েছে"
+      "PLATFORM_SETTINGS_CHANGED": "সেটিং বদলানো হয়েছে",
+      "PLATFORM_RECOVERY_REGENERATED": "রিকভারি কোড নতুন করে তৈরি হয়েছে"
     },
     "loadMoreError": "আরও লোড করা যায়নি।"
   }

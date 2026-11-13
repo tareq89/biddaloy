@@ -84,6 +84,9 @@ server {
 
     client_max_body_size 1M;
     add_header Strict-Transport-Security $edge_hsts always;
+    # The reset link carries ?token=; never leak it (or any cockpit path) in a Referer header (#4069).
+    proxy_hide_header Referrer-Policy;
+    add_header Referrer-Policy "no-referrer" always;
     proxy_hide_header X-Robots-Tag;
     add_header X-Robots-Tag "noindex, nofollow" always;
 

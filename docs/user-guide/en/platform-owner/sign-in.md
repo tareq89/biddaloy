@@ -52,7 +52,7 @@ The platform owner console is where the owners of the whole system work: schools
 ## How you arrive here <a href="#arrive" id="arrive"></a>
 
 - You open the console's address, and the sign-in card **Platform owner sign-in** appears.
-- You are also sent back to this card when the console signs you out, for example after 30 minutes with no activity (a warning comes one minute before).
+- You are also sent back to this card when the console signs you out, for example after 30 minutes with no activity (a warning comes one minute before). Only your own activity counts: the alert bar refreshing by itself does not keep you signed in.
 
 ---
 

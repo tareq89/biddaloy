@@ -15,6 +15,7 @@ import { PlatformAdmin } from './entities/platform-admin.entity';
 import { hashPassword } from '../auth/password-hash';
 import { MfaService } from '../auth/mfa/mfa.service';
 import { PlatformHomeService } from './platform-home.service';
+import { PlatformCutoverService } from './platform-cutover.service';
 import { AccountAccessDeliveryService } from '../account-access/account-access-delivery.service';
 
 /**
@@ -30,6 +31,7 @@ describe('Platform identity E2E', () => {
   const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
 
   let app: INestApplication;
+  const extraApps: INestApplication[] = [];
   let ds: DataSource;
   let sentCodes: { kind: string; to: string; code?: string }[] = [];
   // Owners we suspended so the counts are ours; put back afterwards.
@@ -143,7 +145,50 @@ describe('Platform identity E2E', () => {
     await ds.query(`DELETE FROM platform_settings WHERE key = 'approvals.enabled'`);
     vi.restoreAllMocks();
     await app.close();
+    // The pool is already closed by `app`: a second close may complain, which is fine.
+    for (const extra of extraApps) await extra.close().catch(() => undefined);
   });
+
+  it('resolves PlatformCutoverService from the container, with no boot hook', () => {
+    const svc = app.get(PlatformCutoverService);
+    expect(svc.run).toBeTypeOf('function');
+    expect((svc as unknown as { onApplicationBootstrap?: unknown }).onApplicationBootstrap).toBe(
+      undefined,
+    );
+  });
+
+  it('booting the app with a verified owner and a legacy SUPER_ADMIN converts nothing', async () => {
+    const owner = await makeOwner(); // active owner with a confirmed authenticator
+    const [{ id: school }] = await ds.query(
+      `INSERT INTO schools (slug, name) VALUES ($1, 'Cutover boot school') RETURNING id`,
+      [`cutover-boot-${Date.now()}`],
+    );
+    const [{ id: legacy }] = await ds.query(
+      `INSERT INTO users (email, full_name, status) VALUES ($1, 'Legacy SA', 'ACTIVE') RETURNING id`,
+      [`cutover-boot-${Date.now()}@biddaloy.test`],
+    );
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'SUPER_ADMIN')`,
+      [legacy, school],
+    );
+    await ds.query(`DELETE FROM platform_settings WHERE key LIKE 'cutover.%'`);
+
+    const second = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const booted = second.createNestApplication();
+    // Closed in afterAll, after the primary app: both apps share the test pool, and closing this
+    // one now would end it for the rest of the file.
+    extraApps.push(booted);
+    await booted.init();
+
+    const rows = await ds.query(`SELECT role FROM user_tenants WHERE user_id = $1`, [legacy]);
+    const flag = await ds.query(`SELECT 1 FROM platform_settings WHERE key = 'cutover.done'`);
+    await ds.query(`DELETE FROM user_tenants WHERE user_id = $1`, [legacy]);
+    await ds.query(`DELETE FROM users WHERE id = $1`, [legacy]);
+    await ds.query(`DELETE FROM schools WHERE id = $1`, [school]);
+    expect(owner.id).toBeTruthy();
+    expect(rows).toEqual([{ role: 'SUPER_ADMIN' }]);
+    expect(flag).toHaveLength(0);
+  }, 90000);
 
   it('step-up gives a token for an owner, refuses a wrong code, a school scope and no bearer', async () => {
     const a = await makeOwner();

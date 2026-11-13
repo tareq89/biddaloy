@@ -59,11 +59,12 @@ export interface CockpitMfaStatusDto {
 
 export type PlatformOwnerStatus = 'ACTIVE' | 'LOCKED';
 
+/** Mirrors the server `PlatformOwnerDto`. `email` and `phone` arrive already masked. */
 export interface PlatformOwnerDto {
   userId: string;
-  name: string;
-  emailMasked: string | null;
-  phoneMasked: string | null;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
   status: PlatformOwnerStatus;
   lockedAt: string | null;
   lockedByName: string | null;
@@ -71,26 +72,36 @@ export interface PlatformOwnerDto {
   mfaEnrolled: boolean;
 }
 
-export type PlatformApprovalStatus = 'PENDING' | 'GRANTED' | 'DENIED' | 'EXPIRED';
+export type PlatformApprovalStatus = 'PENDING' | 'GRANTED' | 'DENIED' | 'USED' | 'EXPIRED';
 
+/** Mirrors the server `PlatformApprovalRow` (snake_case, `summary` is an object). */
 export interface PlatformApprovalDto {
   id: string;
   scope: string;
-  summary: string;
-  requestedByName: string;
+  summary: Record<string, unknown>;
   status: PlatformApprovalStatus;
-  createdAt: string;
-  expiresAt: string;
+  requested_by: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  expires_at: string;
+  created_at: string;
 }
 
 export interface PlatformApprovalSettingDto {
   enabled: boolean;
 }
 
+/** Mirrors the server `PlatformHistoryRowDto`. `label` is fixed text, never a contact or code. */
 export interface PlatformHistoryRowDto {
   id: string;
   action: string;
   actorName: string | null;
-  summary: string;
-  createdAt: string;
+  at: string;
+  label: string;
+}
+
+/** Mirrors the server `PlatformHistoryPageDto`. */
+export interface PlatformHistoryPageDto {
+  data: PlatformHistoryRowDto[];
+  nextCursor: string | null;
 }

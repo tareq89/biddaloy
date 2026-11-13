@@ -14,6 +14,7 @@ import {
 const config = {
   get: (k: string) => (k === 'JWT_SECRET' ? 'test-secret-test-secret-test-1234' : undefined),
 } as any;
+const REQ = { headers: {} as Record<string, string> };
 const good = { sub: 'u1', jti: 'j1', fam: 'f1', typ: 'cockpit', iat_ms: Date.now() };
 
 describe('CockpitJwtStrategy.validate', () => {
@@ -44,19 +45,24 @@ describe('CockpitJwtStrategy.validate', () => {
   });
 
   async function refusal(payload: any): Promise<string> {
-    const err = await strategy.validate(payload).catch((e) => e);
+    const err = await strategy.validate(REQ, payload).catch((e) => e);
     expect(err).toBeInstanceOf(UnauthorizedException);
     return (err as UnauthorizedException).message;
   }
 
   it('returns the principal and renews the idle key', async () => {
-    expect(await strategy.validate(good)).toEqual({
+    expect(await strategy.validate(REQ, good)).toEqual({
       sub: 'u1',
       jti: 'j1',
       fam: 'f1',
       typ: 'cockpit',
     });
-    expect(touch).toHaveBeenCalledWith('f1');
+    expect(touch).toHaveBeenCalledWith('f1', true);
+  });
+
+  it('a background poll checks the session but does not renew the idle key', async () => {
+    await strategy.validate({ headers: { 'x-cockpit-poll': '1' } }, good);
+    expect(touch).toHaveBeenCalledWith('f1', false);
   });
 
   it('every refusal is a 401 with the same body', async () => {
@@ -86,7 +92,7 @@ describe('CockpitJwtStrategy.validate', () => {
 
   it('a session the idle/absolute clock ended is refused by touch', async () => {
     touch.mockRejectedValueOnce(new UnauthorizedException('ended'));
-    await expect(strategy.validate(good)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(REQ, good)).rejects.toThrow(UnauthorizedException);
   });
 });
 

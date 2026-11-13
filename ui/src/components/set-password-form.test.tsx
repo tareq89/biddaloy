@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -67,6 +67,30 @@ describe('SetPasswordForm', () => {
     await user.type(screen.getByLabelText('Confirm password'), 'Strong-pass1');
     expect(screen.getByText('Passwords match')).toBeTruthy();
     expect(submit.disabled).toBe(false);
+  });
+
+  it('blocks a password over 72 bytes before submit (Bangla letters are 3 bytes)', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={onSubmit} />, {
+      locale: 'en',
+    });
+    // 25 Bangla letters = 75 bytes but only 25 characters.
+    const long = `Aa1-${'ক'.repeat(25)}`;
+    await user.type(await screen.findByLabelText('New password'), long);
+    await user.type(screen.getByLabelText('Confirm password'), long);
+    expect(screen.getByText(/shorter password/i)).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Set password' }).disabled).toBe(
+      true,
+    );
+    // A programmatic submit skips the disabled button, so this reaches the schema's byte check.
+    await act(() => {
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Set password' }).closest('form') as HTMLFormElement,
+      );
+      return Promise.resolve();
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('shows five rules for staff and two for family', async () => {

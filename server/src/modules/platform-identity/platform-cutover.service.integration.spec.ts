@@ -10,6 +10,7 @@ import {
   PlatformCutoverService,
   CUTOVER_DONE_KEY,
   CUTOVER_PENDING_KEY,
+  CutoverRefusedError,
 } from './platform-cutover.service';
 
 describe('PlatformCutoverService (integration)', () => {
@@ -48,6 +49,19 @@ describe('PlatformCutoverService (integration)', () => {
     );
     return u.id;
   };
+  /** An owner who can sign in: a platform_admins row and a confirmed authenticator. */
+  const addOwner = async (userId: string): Promise<void> => {
+    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [userId]);
+    await ds.query(
+      `INSERT INTO user_mfa (user_id, secret_enc, confirmed_at) VALUES ($1, 'x', now())`,
+      [userId],
+    );
+    // What cockpit sign-in needs: a password, a phone for the SMS code, and the email (set by mkUser).
+    await ds.query(`UPDATE users SET password_hash = 'x', phone = $2 WHERE id = $1`, [
+      userId,
+      `+88017${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`,
+    ]);
+  };
   const join = (userId: string, tenant: string, role: UserRole) =>
     ds.query(`INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1,$2,$3)`, [
       userId,
@@ -68,6 +82,10 @@ describe('PlatformCutoverService (integration)', () => {
     await ds.query(`DELETE FROM platform_settings WHERE key = ANY($1)`, [
       [CUTOVER_DONE_KEY, CUTOVER_PENDING_KEY],
     ]);
+    await ds.query(
+      `DELETE FROM user_mfa WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)`,
+      [`${tag}%`],
+    );
     await ds.query(`DELETE FROM platform_admins`);
     await ds.query(
       `DELETE FROM user_tenants WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)`,
@@ -107,7 +125,7 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('an owner loses the old platform membership and stays an owner', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     await join(owner, oldPlatform, UserRole.SUPER_ADMIN);
 
     await make().run();
@@ -121,7 +139,7 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('a non-owner SUPER_ADMIN of the platform school loses it and their sessions end', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const sa = await mkUser('sa');
     await join(sa, oldPlatform, UserRole.SUPER_ADMIN);
 
@@ -143,7 +161,7 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('a legacy SUPER_ADMIN of another school becomes ADMIN; a duplicate ADMIN row is removed', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const plain = await mkUser('plain');
     await join(plain, schoolB, UserRole.SUPER_ADMIN);
     const dup = await mkUser('dup');
@@ -162,22 +180,37 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('a second run changes nothing', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const sa = await mkUser('sa');
     await join(sa, schoolB, UserRole.SUPER_ADMIN);
 
-    expect(await make().run()).not.toBeNull();
+    expect((await make().run()).status).toBe('done');
     audit.record.mockClear();
     const first = await validAfter(sa);
-    expect(await make().run()).toBeNull();
+    expect((await make().run()).status).toBe('already_done');
     expect(audit.record).not.toHaveBeenCalled();
     expect(await validAfter(sa)).toEqual(first);
   });
 
-  it('a fresh database (no owners) is skipped and cutover.done stays unset', async () => {
+  it('refuses without a verified owner (none, locked, or authenticator unconfirmed) and changes nothing', async () => {
     const sa = await mkUser('sa');
     await join(sa, schoolB, UserRole.SUPER_ADMIN);
-    expect(await make().run()).toBeNull();
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError); // no owner at all
+
+    const locked = await mkUser('locked');
+    await addOwner(locked);
+    await ds.query(`UPDATE platform_admins SET locked_at = now() WHERE user_id = $1`, [locked]);
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
+    await ds.query(`UPDATE platform_admins SET locked_at = NULL WHERE user_id = $1`, [locked]);
+    await ds.query(`UPDATE user_mfa SET confirmed_at = NULL WHERE user_id = $1`, [locked]);
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
+    // Confirmed again, but unable to sign in (no password, then no phone for the SMS code).
+    await ds.query(`UPDATE user_mfa SET confirmed_at = now() WHERE user_id = $1`, [locked]);
+    await ds.query(`UPDATE users SET password_hash = NULL WHERE id = $1`, [locked]);
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
+    await ds.query(`UPDATE users SET password_hash = 'x', phone = NULL WHERE id = $1`, [locked]);
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
+
     expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
     expect(await done()).toBe(0);
     expect(await validAfter(sa)).toBeNull();
@@ -185,7 +218,7 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('a failure midway rolls everything back and leaves cutover.done unset', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const sa = await mkUser('sa');
     await join(sa, schoolB, UserRole.SUPER_ADMIN);
     failAudit = true;
@@ -198,7 +231,7 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('removes owner and SUPER_ADMIN rows on the is_platform home school too', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     await join(owner, homeSchool, UserRole.ADMIN);
     const sa = await mkUser('sa');
     await join(sa, homeSchool, UserRole.SUPER_ADMIN);
@@ -211,12 +244,12 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('with no platform school resolved it changes nothing and leaves cutover.done unset', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const sa = await mkUser('sa');
     await join(sa, schoolB, UserRole.SUPER_ADMIN);
     platformIds = [];
 
-    expect(await make().run()).toBeNull();
+    await expect(make().run()).rejects.toBeInstanceOf(CutoverRefusedError);
 
     expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
     expect(await done()).toBe(0);
@@ -224,13 +257,22 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('restores a soft-deleted ADMIN row, audits the restore, and loses nothing', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const u = await mkUser('u');
     await join(u, schoolB, UserRole.SUPER_ADMIN);
     await join(u, schoolB, UserRole.ADMIN);
     await ds.query(
       `UPDATE user_tenants SET deleted_at = now() WHERE user_id = $1 AND role = 'ADMIN'`,
       [u],
+    );
+
+    // The dry run shows the restore too, so the operator sees ADMIN access come back.
+    const dry = await make().run({ dryRun: true });
+    expect(dry.plan).toEqual(
+      expect.arrayContaining([
+        { userId: u, tenantId: schoolB, action: 'REMOVE_DUPLICATE_SUPER_ADMIN' },
+        { userId: u, tenantId: schoolB, action: 'RESTORE_ADMIN' },
+      ]),
     );
 
     await make().run();
@@ -253,7 +295,7 @@ describe('PlatformCutoverService (integration)', () => {
 
   it('a failure after the commit keeps the ids, leaves cutover.done unset, and a retry cuts off', async () => {
     const owner = await mkUser('owner');
-    await ds.query(`INSERT INTO platform_admins (user_id) VALUES ($1)`, [owner]);
+    await addOwner(owner);
     const sa = await mkUser('sa');
     await join(sa, schoolB, UserRole.SUPER_ADMIN);
     failCutoff = true;
@@ -265,11 +307,41 @@ describe('PlatformCutoverService (integration)', () => {
     expect(await validAfter(sa)).toBeNull();
 
     failCutoff = false;
-    expect(await make().run()).not.toBeNull();
+    expect((await make().run()).status).toBe('done');
     expect(await validAfter(sa)).not.toBeNull();
     expect(await done()).toBe(1);
     expect(
       await ds.query(`SELECT 1 FROM platform_settings WHERE key = $1`, [CUTOVER_PENDING_KEY]),
     ).toHaveLength(0);
+  });
+
+  it('--dry-run reports who would change and writes nothing (no rows, audit, sessions or done key)', async () => {
+    const owner = await mkUser('owner');
+    await addOwner(owner);
+    await join(owner, oldPlatform, UserRole.SUPER_ADMIN);
+    const sa = await mkUser('sa');
+    await join(sa, schoolB, UserRole.SUPER_ADMIN);
+
+    const result = await make().run({ dryRun: true });
+
+    expect(result.status).toBe('dry_run');
+    expect(result.counts).toEqual({ removed: 1, downgraded: 1, duplicatesRemoved: 0 });
+    expect(result.plan).toEqual(
+      expect.arrayContaining([
+        { userId: owner, tenantId: oldPlatform, action: 'REMOVE_MEMBERSHIP' },
+        { userId: sa, tenantId: schoolB, action: 'DOWNGRADE_TO_ADMIN' },
+      ]),
+    );
+    expect(result.sessionsCut).toBe(2);
+    expect(await live(sa)).toEqual([{ tenant_id: schoolB, role: 'SUPER_ADMIN' }]);
+    expect(await live(owner)).toEqual([{ tenant_id: oldPlatform, role: 'SUPER_ADMIN' }]);
+    expect(await validAfter(sa)).toBeNull();
+    expect(await done()).toBe(0);
+    expect(
+      await ds.query(`SELECT 1 FROM platform_settings WHERE key = $1`, [CUTOVER_PENDING_KEY]),
+    ).toHaveLength(0);
+
+    // The real run afterwards does the same work.
+    expect((await make().run()).counts).toEqual(result.counts);
   });
 });

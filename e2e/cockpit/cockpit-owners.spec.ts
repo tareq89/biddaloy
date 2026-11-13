@@ -12,7 +12,6 @@ import {
   resetOwners,
   setApprovals,
   expectAccessiblePage,
-  stubLegacyPlatformRoutes,
   tc,
   test,
   warmUp,
@@ -50,7 +49,6 @@ async function openAs(browser: Browser, owner: Owner, path: string): Promise<Pag
     storageState: await api.storageState(),
   });
   await api.dispose();
-  await stubLegacyPlatformRoutes(context);
   const page = await context.newPage();
   await page.goto(path);
   await page.waitForLoadState('networkidle');

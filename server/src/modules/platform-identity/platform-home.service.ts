@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { School } from '../schools/entities/school.entity';
+import { HOME_CACHE_MS } from '../schools/tenant-status.service';
 
 export const PLATFORM_HOME_SLUG = 'biddaloy-platform';
 
@@ -9,17 +10,19 @@ export const PLATFORM_HOME_SLUG = 'biddaloy-platform';
 @Injectable()
 export class PlatformHomeService {
   private cachedId: string | undefined;
+  private cachedAt = 0;
 
   constructor(@InjectDataSource() private readonly ds: DataSource) {}
 
   /** The flagged school's id, or undefined. A miss is not cached. */
   async id(): Promise<string | undefined> {
-    if (this.cachedId) return this.cachedId;
+    if (this.cachedId && Date.now() - this.cachedAt < HOME_CACHE_MS) return this.cachedId;
     const row = await this.ds.getRepository(School).findOne({
       where: { is_platform: true },
       select: { id: true },
     });
-    if (row) this.cachedId = row.id;
+    this.cachedId = row?.id;
+    this.cachedAt = Date.now();
     return row?.id;
   }
 
@@ -33,7 +36,7 @@ export class PlatformHomeService {
       where: { is_platform: true },
       select: { id: true },
     });
-    if (flagged) return (this.cachedId = flagged.id);
+    if (flagged) return this.remember(flagged.id);
 
     // ponytail: a concurrent insert would lose to UQ_schools_one_platform; OwnerSeedingService
     // serialises boots with an advisory lock, so the race does not arise there.
@@ -42,6 +45,11 @@ export class PlatformHomeService {
     const created = await em.save(
       em.create(School, { slug: PLATFORM_HOME_SLUG, name: 'Biddaloy Platform', is_platform: true }),
     );
-    return (this.cachedId = created.id);
+    return this.remember(created.id);
+  }
+
+  private remember(id: string): string {
+    this.cachedAt = Date.now();
+    return (this.cachedId = id);
   }
 }
