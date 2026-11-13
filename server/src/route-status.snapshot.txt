@@ -430,6 +430,9 @@ GET    /api/v1/incidents                                                        
 POST   /api/v1/incidents                                                         401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/incidents/:id                                                     401 401 PASS PASS PASS 403 403 403 403 403 403 403 PASS -
 POST   /api/v1/incidents/:id/withdraw                                            401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
+GET    /api/v1/institution-kinds                                                 401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
+POST   /api/v1/institution-kinds/:id/apply                                       401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
+POST   /api/v1/institution-kinds/:id/preview                                     401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/invoices                                                          401 401 PASS PASS PASS PASS 403 PASS PASS 403 PASS 403 403 -
 POST   /api/v1/invoices                                                          401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 -
 GET    /api/v1/invoices/:id                                                      401 401 PASS PASS PASS PASS 403 PASS PASS 403 PASS 403 403 -
