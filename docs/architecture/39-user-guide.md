@@ -400,6 +400,30 @@ The index already has an optional `video` per language, read from
 shows "ভিডিও দেখুন · m:ss" as a YouTube link; no code change is needed. A story
 and a test already cover that state.
 
+### Converted i18n strings and the guide (Epic 77)
+
+Page copy in 29 namespaces now says `$t(common:entities.section_one)` instead of "Section".
+A school can rename that word, so the guide pipeline treats it like this:
+
+```mermaid
+flowchart LR
+  J[locale json<br/>"Open the $t(common:entities.class_one)"] --> I[guide:impact<br/>sees a label value change]
+  J --> R[the app renders the SAME text<br/>under stock words]
+  J -. converted ns skipped .-> G[guide:gen<br/>never copies a $t string]
+```
+
+- **A label value changed, the screen did not.** `guide:impact` compares i18n keys, so a
+  converted string can touch a page's `labels`. Under stock words the app renders the old
+  text, so the guide stays true: add the line `User guide: not affected — wording
+now comes from the school's entity words, stock text unchanged` to the PR body.
+- **Generated guide tables must not contain `$t(...)`.** `guide:gen` copies strings from
+  `nav`, `dashboard` and `teacherAssignments` into the pages, and it does not resolve
+  nesting. So those three namespaces are never converted (`SKIP_NS` in
+  `scripts/codemods/entity-words.mjs`), and `--check` fails if a converted namespace is
+  read by the generator.
+- **The guide itself always shows stock words.** A guide page cannot know the school's
+  words. Write "section" in the guide; the screen may say "Batch" for a renamed school.
+
 ### Learning
 
 Each bullet: surprise, cost, fix, rule candidate.
