@@ -272,7 +272,7 @@ describe('NoticeAlertsService (integration)', () => {
     const q = new AttentionQueryService(
       ds,
       { get: () => undefined, all: () => [] } as any,
-      ...([{}, {}, {}, {}, {}, {}] as [any, any, any, any, any, any]),
+      ...([{}, {}, {}, {}, {}, {}, {}] as [any, any, any, any, any, any, any]),
     );
     const text = q.renderAlert(
       {
