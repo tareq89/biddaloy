@@ -388,6 +388,11 @@ describe('MessagingConfigResolver', () => {
       });
     });
 
+    it('source OWN wins over a stale metering PLATFORM (agrees with isMetered)', async () => {
+      const r = await resolveWith({ ...sms, onecodesoft: own, source: 'OWN', metering: 'PLATFORM' });
+      expect(r.source).toBe('tenant');
+    });
+
     it('the same school back on OWN resolves its own account again', async () => {
       const r = await resolveWith({ ...sms, onecodesoft: own, source: 'OWN', metering: 'OFF' });
       expect(r.source).toBe('tenant');

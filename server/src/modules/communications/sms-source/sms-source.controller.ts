@@ -9,6 +9,7 @@ import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { DenyWhenImpersonating } from '../../auth/decorators/deny-when-impersonating.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../../common/request-context.util';
@@ -42,6 +43,7 @@ export class SmsSourceController {
     return this.service.get(tenant.id);
   }
 
+  @DenyWhenImpersonating()
   @Put()
   @HttpCode(200)
   @Throttle({ default: SETTINGS_RATE_LIMIT })

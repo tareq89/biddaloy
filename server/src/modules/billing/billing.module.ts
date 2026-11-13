@@ -47,6 +47,6 @@ import { SeatNoticesService } from './seat-notices.service';
     BkashService,
     BkashReconciler,
   ],
-  exports: [EntitlementService, OrdersService],
+  exports: [EntitlementService, OrdersService, BkashService, ReceiptService, AdminNoticeService],
 })
 export class BillingModule {}

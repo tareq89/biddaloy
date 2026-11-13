@@ -106,6 +106,9 @@ import { Alert } from './modules/attention/entities/alert.entity';
 import { SeatOrder } from './modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from './modules/billing/entities/platform-payment.entity';
 import { BillingModule } from './modules/billing/billing.module';
+import { SmsBundlesModule } from './modules/sms-bundles/sms-bundles.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { RevenueModule } from './modules/revenue/revenue.module';
 import { IdleAccountModule } from './modules/billing/idle-account.module';
 import { PlatformAlert } from './modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
@@ -128,6 +131,10 @@ import { SmsCreditBalance } from './modules/communications/credits/entities/sms-
 import { SmsCreditLot } from './modules/communications/credits/entities/sms-credit-lot.entity';
 import { SmsCreditLotDraw } from './modules/communications/credits/entities/sms-credit-lot-draw.entity';
 import { SmsBundleCatalog } from './modules/sms-bundles/entities/sms-bundle-catalog.entity';
+import { Plan } from './modules/plans/entities/plan.entity';
+import { Coupon } from './modules/coupons/entities/coupon.entity';
+import { CouponSchool } from './modules/coupons/entities/coupon-school.entity';
+import { CouponRedemption } from './modules/coupons/entities/coupon-redemption.entity';
 import { SmsBundleOrder } from './modules/sms-bundles/entities/sms-bundle-order.entity';
 import { SmsStockEntry } from './modules/sms-bundles/entities/sms-stock-entry.entity';
 import { SmsProviderBalanceReading } from './modules/sms-bundles/entities/sms-provider-balance-reading.entity';
@@ -477,6 +484,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             SmsStockEntry,
             SmsProviderBalanceReading,
             SmsCreditLedger,
+            Plan,
+            Coupon,
+            CouponSchool,
+            CouponRedemption,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -546,6 +557,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     InvoicesModule,
     CommunicationsModule,
     BillingModule,
+    SmsBundlesModule,
+    CouponsModule,
+    RevenueModule,
     IdleAccountModule,
     SchoolsModule,
     AttendanceModule,
