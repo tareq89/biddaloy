@@ -173,8 +173,10 @@ const schoolProfileStore: {
   labels: {},
 };
 
+// [77.3.1] `modules` / `labels` ride on the real profile; the staff shell reads `modules` to
+// hide off modules, so the default fixture has every module on and no renames.
 const getProfile = http.get('/api/v1/schools/me/profile', () =>
-  HttpResponse.json(schoolProfileStore),
+  HttpResponse.json({ ...schoolProfileStore, modules: { platform: {}, school: {} }, labels: {} }),
 );
 
 const updateProfile = http.patch('/api/v1/schools/me/profile', async ({ request }) => {

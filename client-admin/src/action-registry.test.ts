@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { Permission } from '@biddaloy/shared';
+import { moduleEnabled, Permission, UserRole } from '@biddaloy/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -712,4 +712,28 @@ describe('PLATFORM_ACTIONS [98.4.07]', () => {
       );
     },
   );
+});
+
+describe('action modules [77.3.1]', () => {
+  const offIds = (school: object, role: UserRole = UserRole.ADMIN) =>
+    ACTIONS.filter((a) => a.module !== undefined && !moduleEnabled({ school, role }, a.module)).map(
+      (a) => a.id,
+    );
+
+  it('fines off hides the fines actions only', () => {
+    const off = offIds({ fines: { on: false } });
+    expect(off).toEqual(expect.arrayContaining(['fines.log', 'fines.generate', 'fines.waive']));
+    expect(off.every((id) => id.startsWith('fines.'))).toBe(true);
+  });
+
+  it('TEACHER with homework role-off loses homework actions; ADMIN keeps them', () => {
+    const school = { homework: { offForRoles: [UserRole.TEACHER] } };
+    expect(offIds(school, UserRole.TEACHER)).toEqual(['homework.assign', 'homework.import']);
+    expect(offIds(school, UserRole.ADMIN)).toEqual([]);
+  });
+
+  it('a nav-group page and its action agree on the module', () => {
+    // The seat-plan actions land on the seat-plan page; both hide together.
+    expect(ACTIONS.find((a) => a.id === 'seatPlans.generate')?.module).toBe('seatPlans');
+  });
 });

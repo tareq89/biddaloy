@@ -26,6 +26,7 @@ import {
   studyPlanQueryOptions,
   surveyKeys,
   useEntityLabel,
+  useModuleResolver,
   userQueryOptions,
   websiteContentKeys,
 } from '@biddaloy/ui/hooks';
@@ -38,7 +39,7 @@ import * as React from 'react';
 import { applicantQueryOptions } from './features/admission/hooks/useApplicants';
 import { intakeQueryOptions } from './features/admission/hooks/useIntakes';
 import { noticeKeys } from './features/notices/manage/use-notices';
-import { STAFF_NAV_ITEMS, type StaffNavLabel } from './nav-tree';
+import { STAFF_NAV_ITEMS, type StaffNavItemDef, type StaffNavLabel } from './nav-tree';
 import { ROUTE_CRUMBS, type RouteCrumbs } from './route-crumbs';
 import { studyPlanTitle } from './routes/_staff/academics/study-plans/-detail/plan-title';
 import { examTemplateQueryOptions } from './routes/_staff/exams/-use-exam-templates';
@@ -275,12 +276,17 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
  * `STAFF_NAV_ITEMS` data `_staff.tsx` renders the sidebar from, so a
  * breadcrumb link and its matching nav item can never point two
  * different places for the same entity. */
-function findNavPath(label: StaffNavLabel): string | undefined {
+function findNavItem(label: StaffNavLabel): StaffNavItemDef | undefined {
   const sameLabel = (a: StaffNavLabel, b: StaffNavLabel): boolean =>
     ('entity' in a && 'entity' in b && a.entity === b.entity) ||
     ('key' in a && 'key' in b && a.key === b.key);
-  const match = Object.values(STAFF_NAV_ITEMS).find((item) => sameLabel(item.label, label));
-  return match?.to;
+  return Object.values<StaffNavItemDef>(STAFF_NAV_ITEMS).find((item) =>
+    sameLabel(item.label, label),
+  );
+}
+
+function findNavPath(label: StaffNavLabel): string | undefined {
+  return findNavItem(label)?.to;
 }
 
 /** Reads the cached name for a dynamic segment. Never fetches. */
@@ -325,6 +331,7 @@ export interface UseBreadcrumbsResult {
 }
 
 export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
+  const moduleState = useModuleResolver();
   const { t, i18n } = useTranslation('nav');
   const region = useRegionConfig();
   const matches = useMatches();
@@ -380,26 +387,32 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
     return { items: [], title: undefined };
   }
 
-  const items: BreadcrumbItem[] = segments.map((segment, index) => {
-    const isLast = index === lastIndex;
-    if (segment.dynamic === 'entity') {
-      if (resolvedName !== undefined) {
-        const to = !isLast && dynamicId ? deriveEntityPath(segment.label, dynamicId) : undefined;
-        return to ? { label: resolvedName, to } : { label: resolvedName };
+  const items: BreadcrumbItem[] = segments
+    .map((segment, index) => {
+      const isLast = index === lastIndex;
+      if (segment.dynamic === 'entity') {
+        if (resolvedName !== undefined) {
+          const to = !isLast && dynamicId ? deriveEntityPath(segment.label, dynamicId) : undefined;
+          return to ? { label: resolvedName, to } : { label: resolvedName };
+        }
+        const noun =
+          'entity' in segment.label
+            ? (entityNouns[segment.label.entity] ?? '')
+            : t(`items.${segment.label.key}`);
+        return hasResolver ? { label: noun, loading: true } : { label: noun };
       }
-      const noun =
+      const label =
         'entity' in segment.label
-          ? (entityNouns[segment.label.entity] ?? '')
+          ? (entityLabels[segment.label.entity] ?? '')
           : t(`items.${segment.label.key}`);
-      return hasResolver ? { label: noun, loading: true } : { label: noun };
-    }
-    const label =
-      'entity' in segment.label
-        ? (entityLabels[segment.label.entity] ?? '')
-        : t(`items.${segment.label.key}`);
-    const to = !isLast ? (segment.to ?? findNavPath(segment.label)) : undefined;
-    return to ? { label, to } : { label };
-  });
+      const to = !isLast ? (segment.to ?? findNavPath(segment.label)) : undefined;
+      return to ? { label, to } : { label };
+    })
+    // [77.3.1] D16: a crumb that links into a module that is off is dropped (the page itself stays).
+    .filter((_, index) => {
+      const module = segments[index] ? findNavItem(segments[index].label)?.module : undefined;
+      return index === lastIndex || module === undefined || moduleState(module).on;
+    });
 
   const title = items
     .filter((item) => !item.loading)

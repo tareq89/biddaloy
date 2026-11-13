@@ -9,7 +9,12 @@ const KEYS: LabelKey[] = ['class', 'section', 'student', 'guardian', 'teacher'];
 // restore them. Keyed per instance (tests build their own).
 const stock = new WeakMap<I18nInstance, Map<string, string | undefined>>();
 
-function setWord(i18n: I18nInstance, lang: string, path: string, word: string | undefined): void {
+function setWord(
+  i18n: I18nInstance,
+  lang: string,
+  path: string,
+  word: string | undefined,
+): boolean {
   const memo = stock.get(i18n) ?? new Map<string, string | undefined>();
   stock.set(i18n, memo);
   const id = `${lang}.${path}`;
@@ -17,7 +22,9 @@ function setWord(i18n: I18nInstance, lang: string, path: string, word: string | 
     memo.set(id, i18n.getResource(lang, COMMON_NAMESPACE, path) as string | undefined);
   }
   const value = word?.trim() ? word.trim() : memo.get(id);
-  if (value !== undefined) i18n.addResource(lang, COMMON_NAMESPACE, path, value);
+  if (value === undefined || value === i18n.getResource(lang, COMMON_NAMESPACE, path)) return false;
+  i18n.addResource(lang, COMMON_NAMESPACE, path, value);
+  return true;
 }
 
 /**
@@ -26,13 +33,16 @@ function setWord(i18n: I18nInstance, lang: string, path: string, word: string | 
  * shift/version/group are not here: they stay on `settings.organisation`.
  */
 export function applyTenantWords(i18n: I18nInstance, labels: SchoolLabels | undefined): void {
+  let changed = false;
   for (const key of KEYS) {
     const entry = labels?.[key];
-    setWord(i18n, 'en', `entities.${key}_one`, entry?.en?.one);
-    setWord(i18n, 'en', `entities.${key}_other`, entry?.en?.other);
-    setWord(i18n, 'bn', `entities.${key}_one`, entry?.bn);
-    setWord(i18n, 'bn', `entities.${key}_other`, entry?.bn);
+    changed = setWord(i18n, 'en', `entities.${key}_one`, entry?.en?.one) || changed;
+    changed = setWord(i18n, 'en', `entities.${key}_other`, entry?.en?.other) || changed;
+    changed = setWord(i18n, 'bn', `entities.${key}_one`, entry?.bn) || changed;
+    changed = setWord(i18n, 'bn', `entities.${key}_other`, entry?.bn) || changed;
   }
+  // Stock words and no change: nothing to re-render (the shell loads the profile on every page).
+  if (!changed) return;
   // Resource edits alone do not re-render `useTranslation` consumers. The
   // emit also re-runs the locale-persist listener with the current language:
   // accepted, it is idempotent.
