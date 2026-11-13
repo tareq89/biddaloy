@@ -118,6 +118,35 @@ describe('WordsTab', () => {
     expect(patch).toHaveBeenCalledWith({ version: 1, labels: { section: null } });
   });
 
+  it('a half-cleared row blocks Save, says why, and sends nothing', async () => {
+    const { patch } = mockApi({
+      section: { en: { one: 'Batch', other: 'Batches' }, bn: 'ব্যাচ' },
+    });
+    renderTab();
+    await screen.findByRole('heading', { name: 'Batch' });
+    await userEvent.clear(field('section', 'bn'));
+    const msg = await screen.findByRole('alert');
+    expect(msg.textContent).toBe(
+      'Fill all three words, or clear the whole row to go back to the stock word',
+    );
+    expect(field('section', 'bn').getAttribute('aria-invalid')).toBe('true');
+    const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    await userEvent.click(save);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('changing one word sends only that word (the server merges per word)', async () => {
+    const { patch } = mockApi();
+    renderTab();
+    await screen.findByRole('button', { name: 'Save' });
+    await userEvent.clear(field('teacher', 'bn'));
+    await userEvent.type(field('teacher', 'bn'), 'গুরু');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    expect(patch).toHaveBeenCalledWith({ version: 1, labels: { teacher: { bn: 'গুরু' } } });
+  });
+
   it('41 characters blocks the save and says why under the field', async () => {
     const { patch } = mockApi();
     renderTab();
