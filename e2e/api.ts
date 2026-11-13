@@ -83,6 +83,14 @@ export async function trustOwnerDevice(): Promise<string> {
   return secret;
 }
 
+/** Clears the owner's TOTP replay marker so the next code is accepted even inside the step another sign-in used. */
+export async function clearOwnerTotpStep(): Promise<void> {
+  await runSql(
+    `UPDATE user_mfa SET last_step = NULL WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+    [SEED_ROLE_EMAILS.super_admin],
+  );
+}
+
 /**
  * Signs the seeded platform owner in through the cockpit (`/auth/cockpit/login` + `/mfa` with the
  * dev TOTP secret) and returns the access token. The refresh cookie lands in `request`'s jar, so
@@ -91,23 +99,37 @@ export async function trustOwnerDevice(): Promise<string> {
 export async function cockpitSignIn(request: APIRequestContext): Promise<string> {
   const password = process.env[SEED_PASSWORD_ENV];
   if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
-  const secret = await trustOwnerDevice();
-  const login = await request.post('/api/v1/auth/cockpit/login', {
-    data: { email: SEED_ROLE_EMAILS.super_admin, password },
-  });
-  if (!login.ok()) throw new Error(`cockpit login failed: ${login.status()} ${await login.text()}`);
-  const { mfaToken } = (await login.json()) as { mfaToken?: string };
-  if (!mfaToken) throw new Error('cockpit login gave no mfaToken: is the owner enrolled?');
-  const mfa = await request.post('/api/v1/auth/cockpit/mfa', {
-    headers: { Cookie: `${COCKPIT_DEVICE_COOKIE}=${secret}` },
-    data: { mfaToken, code: totpNow() },
-  });
-  if (!mfa.ok()) throw new Error(`cockpit mfa failed: ${mfa.status()} ${await mfa.text()}`);
-  const done = (await mfa.json()) as { step: string; access_token?: string };
-  if (done.step !== 'done' || !done.access_token) {
-    throw new Error(`cockpit mfa ended at step "${done.step}": the device was not trusted`);
+  // Parallel workers share one owner and one single-use TOTP step: another worker can consume
+  // the step between our `last_step` reset and our verify, which reads as a 401. A retry resets
+  // the marker again, so give it a few jittered goes before failing (kept small: failed codes count toward the lockout).
+  // ponytail: retry, not a cross-worker lock; revisit if three attempts ever stop being enough.
+  let lastFailure = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 200 + Math.random() * 800));
+    const secret = await trustOwnerDevice();
+    const login = await request.post('/api/v1/auth/cockpit/login', {
+      data: { email: SEED_ROLE_EMAILS.super_admin, password },
+    });
+    if (!login.ok())
+      throw new Error(`cockpit login failed: ${login.status()} ${await login.text()}`);
+    const { mfaToken } = (await login.json()) as { mfaToken?: string };
+    if (!mfaToken) throw new Error('cockpit login gave no mfaToken: is the owner enrolled?');
+    const mfa = await request.post('/api/v1/auth/cockpit/mfa', {
+      headers: { Cookie: `${COCKPIT_DEVICE_COOKIE}=${secret}` },
+      data: { mfaToken, code: totpNow() },
+    });
+    if (mfa.status() === 401) {
+      lastFailure = await mfa.text();
+      continue;
+    }
+    if (!mfa.ok()) throw new Error(`cockpit mfa failed: ${mfa.status()} ${await mfa.text()}`);
+    const done = (await mfa.json()) as { step: string; access_token?: string };
+    if (done.step !== 'done' || !done.access_token) {
+      throw new Error(`cockpit mfa ended at step "${done.step}": the device was not trusted`);
+    }
+    return done.access_token;
   }
-  return done.access_token;
+  throw new Error(`cockpit mfa failed: 401 after 3 attempts ${lastFailure}`);
 }
 
 /** Same shape as `adminApiSession`, for the platform console (`/platform/*`): a cockpit session. */

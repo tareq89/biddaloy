@@ -464,6 +464,7 @@ GET /subjects | SubjectController | perm: ACADEMIC_STRUCTURE_READ
 GET /subjects/:id | SubjectController | perm: ACADEMIC_STRUCTURE_READ
 GET /support-access/platform-actions | SupportSessionsController | perm: SETTINGS_MANAGE
 GET /support-access/requests | SupportRequestsController | perm: SETTINGS_MANAGE
+GET /support-access/requests/:id | SupportRequestsController | perm: SETTINGS_MANAGE
 GET /support-access/sessions | SupportSessionsController | perm: SETTINGS_MANAGE
 GET /support-access/settings | SupportAccessSettingsController | perm: SETTINGS_MANAGE
 GET /surveys | SurveysController | perm: ACR_READ

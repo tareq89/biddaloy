@@ -531,6 +531,24 @@ cat /opt/biddaloy/staging/last-drill
   `docker compose ... exec db psql -U "$POSTGRES_USER" -d postgres -c 'DROP DATABASE "biddaloy_staging_drill" WITH (FORCE)'`.
 - Run again: `sudo systemctl start biddaloy-nightly@restore-drill.service`.
 
+### 3.11 A queue is stuck, or a restore lock will not clear
+
+Owner, in the cockpit (steps for the owner: [28 Part 18](28-platform-runbook.md#part-18-login-as-and-school-control-owners)).
+
+```mermaid
+flowchart LR
+  Q[Operations: Queues] --> F{failed count > 0?}
+  F -- yes --> R[Retry failed: up to 1000 jobs, authenticator code]
+  F -- no, still stuck --> D[run biddaloy-doctor, see 3.3]
+  S[Operations: System] --> L{school stuck as restoring?}
+  L -- yes --> U[Release restore lock, authenticator code]
+```
+
+1. `GET /api/v1/platform/ops/queues` shows waiting, active, failed and delayed per queue. `POST /api/v1/platform/ops/queues/:name/retry-failed` retries what failed. An unknown `:name` is `404`. Both audit as `PLATFORM_QUEUE_RETRY`.
+2. `GET /api/v1/platform/ops/system` lists app version, last migration, database and Redis state and any school marked as restoring. If a restore died and the school stays locked, `POST /api/v1/platform/ops/restore-lock/:schoolId/release` frees it (audit `PLATFORM_RESTORE_LOCK_RELEASED`). Release only after you confirmed no restore is still running (`biddaloy-doctor`).
+3. Both write routes are refused with Redis down (fail closed, [Rule 15](08-security.md#rule-15-redis-down-has-a-written-answer-per-route)): fix Redis first ([3.6](#36-platform-alert-redis-down)).
+4. An owner announcement to all schools (`POST /api/v1/platform/announcements`) needs the second owner; preview first with `POST /api/v1/platform/announcements/preview`.
+
 ## 4. Env var reference
 
 | Variable                                                         | Required in prod?  | What it does                                                                                                                                        |

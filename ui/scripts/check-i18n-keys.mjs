@@ -117,7 +117,8 @@ function walkFiles(dir, out = []) {
   return out;
 }
 
-const USE_TRANSLATION_RE = /useTranslation\(\s*(['"])([^'"]+)\1/;
+// `useTranslation(['a', 'b'])` resolves to its first namespace, like i18next's own default.
+const USE_TRANSLATION_RE = /useTranslation\(\s*\[?\s*(['"])([^'"]+)\1/;
 // Captures the key (group 2) and, if present, a same-call single-level
 // `{ ... }` options object (group 3) to look for `ns: '...'` in. Doesn't
 // handle an options object containing its own nested braces — none of
@@ -199,7 +200,13 @@ export function runCheck({ localesDir, sourceDirs, displayRoot = localesDir }) {
   // plural-suffixed locale key (`key_one`/`key_other`) counts as used.
   const pluralReferenced = new Set();
 
-  for (const { file, key, ns, hasCount } of callSites) {
+  for (const site of callSites) {
+    const { file, hasCount } = site;
+    // `t('ns:key')` names its namespace in the key (multi-namespace hooks).
+    const colon = site.key.indexOf(':');
+    const prefixed = colon > 0 && namespaces.has(site.key.slice(0, colon));
+    const ns = prefixed ? site.key.slice(0, colon) : site.ns;
+    const key = prefixed ? site.key.slice(colon + 1) : site.key;
     referenced.add(`${ns} ${key}`);
     if (hasCount) pluralReferenced.add(`${ns} ${key}`);
 

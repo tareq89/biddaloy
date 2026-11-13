@@ -1,7 +1,7 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -54,6 +54,66 @@ describe('/select-school', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
+  });
+
+  it('an unconfirmed admin goes to the support-access welcome page after choosing', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/support-access/settings', () =>
+        HttpResponse.json({
+          mode: 'allowed',
+          confirmedAt: null,
+          confirmedByName: null,
+          textVersion: 0,
+          currentTextVersion: 1,
+          needsConfirmation: true,
+        }),
+      ),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school?redirect=%2Fstudents'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Choose a school' });
+
+    await user.click(screen.getByText('Greenview School'));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/welcome/support-access'));
+  });
+
+  it('a slow lookup for an earlier choice does not navigate over the newer choice', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/support-access/settings', async () => {
+        await delay(400);
+        return HttpResponse.json({
+          mode: 'allowed',
+          confirmedAt: null,
+          confirmedByName: null,
+          textVersion: 0,
+          currentTextVersion: 1,
+          needsConfirmation: true,
+        });
+      }),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school?redirect=%2Fstudents'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Choose a school' });
+
+    // The admin school starts a slow lookup; the teacher school (no lookup) is chosen after it.
+    await user.click(screen.getByText('Greenview School'));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(screen.getByText('Rose Valley School'));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
+    await new Promise((r) => setTimeout(r, 700));
+    expect(router.state.location.pathname).toBe('/students');
   });
 
   it('auto-activates a lone membership and navigates away without showing a picker', async () => {

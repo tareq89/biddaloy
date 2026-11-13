@@ -20,6 +20,8 @@ import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import { ImpersonationSession } from '../entities/impersonation-session.entity';
 import { IMPERSONATION_REDIS, impKey, rateKey } from './impersonation-redis';
+import { attentionEvents } from '../../attention/attention.constants';
+import { emitRecheck } from '../../attention/engine/attention-events';
 
 /** D6: the hard cap of one session. */
 export const IMPERSONATION_MAX_MINUTES = 60;
@@ -112,7 +114,7 @@ export class ImpersonationSessionService {
     if (emergency && mode !== SupportAccessMode.BLOCKED) {
       throw fail(HttpStatus.CONFLICT, 'EMERGENCY_NOT_ALLOWED', 'Emergency entry is not allowed.');
     }
-    return this.repo.manager.transaction(async (m) => {
+    const row = await this.repo.manager.transaction(async (m) => {
       await this.lockOwner(m, input.platformAdminId);
       await this.finalizeExpired(m, { platformAdminId: input.platformAdminId });
       await this.assertEligible(m, input);
@@ -143,6 +145,11 @@ export class ImpersonationSessionService {
       if (active) await this.goLive(m, row, now);
       return row;
     });
+    // After commit: a pending ask is what support.access_request alerts on.
+    if (row.status === 'REQUESTED') {
+      emitRecheck(attentionEvents, { tenantId: input.schoolId, ruleKey: 'support.access_request' });
+    }
+    return row;
   }
 
   /** W3: an `ask` ticket was redeemed. Same live write and STARTED row as `create`. */

@@ -1,5 +1,6 @@
-import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -66,6 +67,30 @@ describe('/auth/social/done', () => {
     });
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/select-school'));
+    expect(router.state.location.search).toEqual({ redirect: '/students' });
+  });
+
+  it('an unconfirmed admin lands on the support-access welcome page, keeping the link', async () => {
+    server.use(
+      http.get('*/support-access/settings', () =>
+        HttpResponse.json({
+          mode: 'allowed',
+          confirmedAt: null,
+          confirmedByName: null,
+          textVersion: 0,
+          currentTextVersion: 1,
+          needsConfirmation: true,
+        }),
+      ),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/auth/social/done?redirect=%2Fstudents'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/welcome/support-access'));
     expect(router.state.location.search).toEqual({ redirect: '/students' });
   });
 });

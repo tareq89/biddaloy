@@ -1,5 +1,10 @@
 import type { UserRole } from '@biddaloy/shared';
-import { decodeAccessTokenMemberships, getAccessToken, postAuthLogout } from '@biddaloy/ui/api';
+import {
+  decodeAccessTokenMemberships,
+  getAccessToken,
+  isSupportSession,
+  postAuthLogout,
+} from '@biddaloy/ui/api';
 import {
   AuthLayout,
   Button,
@@ -20,6 +25,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { useSignOutToLogin } from '../features/demo/use-sign-out-to-login';
+import { afterSignInTarget } from '../features/support-access/first-login-gate';
 import { runtimeConfig } from '../runtime-config';
 import { isSameAppRedirect } from '../same-app-redirect';
 
@@ -49,6 +55,8 @@ function SelectSchoolPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const signOutToLogin = useSignOutToLogin();
+  // Newest school choice: an older settings lookup that settles late must not navigate.
+  const newestChoice = React.useRef(0);
   const invites = useSchoolInvitesCardProps();
   const { isPending: invitesPending, data: pendingInvites } = useSchoolInvites();
   // Unsettled counts as "may have invites": the refresh cookie must outlive the list so Accept can refresh.
@@ -75,7 +83,7 @@ function SelectSchoolPage() {
       const [only] = memberships;
       if (only) {
         switchActiveTenant(queryClient, only.tenantId, only.role);
-        void navigate({ to: search.redirect ?? '/' });
+        goAfterSelect(only.role);
       }
     }
     // `memberships`/`search` are derived from module-scoped state read at render
@@ -84,9 +92,17 @@ function SelectSchoolPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasInvitesOrUnknown, memberships.length]);
 
+  /** [99.G4.03] An unconfirmed admin goes to the support-access welcome page first. */
+  function goAfterSelect(role: string): void {
+    const mine = ++newestChoice.current;
+    void afterSignInTarget(role, isSupportSession(), search.redirect).then((dest) => {
+      if (mine === newestChoice.current) void navigate(dest);
+    });
+  }
+
   function handleSelect(tenantId: string, role: UserRole): void {
     switchActiveTenant(queryClient, tenantId, role);
-    void navigate({ to: search.redirect ?? '/' });
+    goAfterSelect(role);
   }
 
   function handleSignOut(): void {

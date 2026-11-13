@@ -26,6 +26,14 @@ export class ListSupportRequestsQueryDto {
   @Min(1)
   @Max(SUPPORT_REQUESTS_LIMIT_MAX)
   limit?: number;
+
+  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  page?: number;
 }
 
 export class SupportRequestItemDto {

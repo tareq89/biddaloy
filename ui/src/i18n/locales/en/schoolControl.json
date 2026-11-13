@@ -1,0 +1,86 @@
+{
+  "extendTrial": {
+    "title": "Extend trial",
+    "description": "Give {{name}} free seats for some months. This moves the trial end date out.",
+    "seatsLabel": "Number of seats",
+    "seatsHelp": "A whole number from 1 to 100,000.",
+    "monthsLabel": "For how many months",
+    "monthsHelp": "A whole number from 1 to 24.",
+    "reasonLabel": "Reason",
+    "submit": "Extend trial",
+    "success": "Trial extended.",
+    "errors": {
+      "seats": "Enter a whole number from 1 to 100,000.",
+      "months": "Enter a whole number from 1 to 24.",
+      "reasonLength": "Write the reason in at least 10 characters.",
+      "reasonTooLong": "The reason can be at most 500 characters.",
+      "generic": "Could not extend the trial. Try again."
+    }
+  },
+  "rename": {
+    "title": "Rename school",
+    "description": "Current name: {{name}}",
+    "nameLabel": "New name",
+    "reasonLabel": "Reason",
+    "submit": "Rename",
+    "codeNote": "You will be asked to confirm with a code.",
+    "success": "School renamed.",
+    "errors": {
+      "nameRequired": "Enter the new name.",
+      "reasonLength": "Write the reason in at least 5 characters.",
+      "generic": "Could not rename the school. Try again."
+    }
+  },
+  "archive": {
+    "title": "Archive school",
+    "description": "{{name}} will stop working. First download a copy of all its data.",
+    "step1": "Step 1: What will be downloaded",
+    "exports": {
+      "students": "Students and guardians",
+      "staff": "Teachers and staff",
+      "fees": "Fees, payments and invoices",
+      "results": "Attendance, exams and results"
+    },
+    "step2": "Step 2: Download the copy",
+    "prepare": "Prepare the copy",
+    "preparing": "Preparing the copy…",
+    "ready": "The copy is ready.",
+    "download": "Download the copy",
+    "downloading": "Downloading…",
+    "downloaded": "The copy is downloaded.",
+    "step3": "Step 3: Archive",
+    "needDownload": "Download the copy first to archive.",
+    "reasonLabel": "Reason",
+    "codeNote": "You will be asked to confirm with a code.",
+    "confirm": "Archive school",
+    "success": "School archived.",
+    "errors": {
+      "reasonLength": "Write the reason in at least 5 characters.",
+      "exportFailed": "Could not prepare the copy. Try again.",
+      "downloadFailed": "Could not download the copy. Try again.",
+      "generic": "Could not archive the school. Try again."
+    }
+  },
+  "stuckAdmin": {
+    "title": "Help an admin",
+    "description": "Help an admin of {{name}} who cannot get in.",
+    "pickAdmin": "Choose an admin",
+    "noAdmin": "This school has no active admin. Invite one first.",
+    "loadError": "Could not load the admins.",
+    "sendLink": "Send password reset link",
+    "linkSent": {
+      "EMAIL": "Link sent by email.",
+      "SMS": "Link sent by SMS."
+    },
+    "invite": "Invite another admin",
+    "logoutAll": "Log out everyone in this school",
+    "logoutAllTitle": "Log out everyone in this school?",
+    "logoutAllDescription": "Everyone in {{name}} leaves right now and must sign in again. You will be asked to confirm with a code.",
+    "logoutAllConfirm": "Log out everyone",
+    "logoutAllDone": "{{count}} people logged out.",
+    "errors": {
+      "link": "Could not send the link. Try again.",
+      "logoutAll": "Could not log everyone out. Try again."
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "supportAccess": {
+    "title": "Biddaloy support access",
+    "settingLabel": "School's setting",
+    "mode": {
+      "allowed": "Allowed",
+      "ask": "Ask each time",
+      "blocked": "Blocked"
+    },
+    "adminOnly": "Only a school admin can change this setting.",
+    "loadError": "Could not load the school's setting.",
+    "visitsTitle": "Recent visits",
+    "caption": "The last 20 Login as visits to this school",
+    "columns": {
+      "who": "Who",
+      "person": "As",
+      "when": "When",
+      "reason": "Reason",
+      "viewOnly": "View only"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "empty": "Nobody has come into this school yet.",
+    "emptyExplanation": "When someone uses Login as, it shows here.",
+    "loadVisitsError": "Could not load the visits.",
+    "loginAs": "Login as",
+    "retry": "Try again"
+  },
+  "notes": {
+    "title": "Notes",
+    "label": "New note",
+    "placeholder": "Write a note about this school",
+    "counter": "{{n}} / {{max}}",
+    "add": "Add note",
+    "added": "Note added.",
+    "empty": "No notes yet.",
+    "emptyExplanation": "Add the first note. It shows when someone uses Login as.",
+    "delete": "Delete note",
+    "deleteTitle": "Delete this note?",
+    "deleteDescription": "The note is removed for everyone.",
+    "deleted": "Note deleted.",
+    "mine": "Your note",
+    "errors": {
+      "tooLong": "A note can be at most 2000 characters.",
+      "load": "Could not load the notes.",
+      "add": "Could not add the note. Try again.",
+      "delete": "Could not delete the note. Try again."
+    },
+    "retry": "Try again"
+  },
+  "health": {
+    "title": "School health",
+    "alertsTitle": "Open alerts",
+    "alertsNone": "No open alerts.",
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "warning": "Warning",
+      "medium": "Medium",
+      "info": "Info",
+      "reminder": "Reminder"
+    },
+    "loadError": "Could not load the school's health.",
+    "retry": "Try again"
+  }
+}

@@ -35,11 +35,16 @@ export {
   getAccessToken,
   getActiveRole,
   getActiveTenant,
+  isSupportSession,
+  readSupportEntry,
   registerSessionExpiredHandler,
   setAccessToken,
   setActiveRole,
   setActiveTenant,
+  setSupportSession,
   subscribeAuthState,
+  writeSupportEntry,
+  type SupportTabEntry,
 } from './auth-state';
 export {
   clearFirstPasswordGate,

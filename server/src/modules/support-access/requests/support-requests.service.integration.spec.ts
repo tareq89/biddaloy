@@ -132,6 +132,17 @@ describe('SupportRequestsService (integration)', () => {
     expect((await row(id)).status).toBe('REQUESTED');
     expect(await svc.list(a.school.id)).toHaveLength(0);
     expect((await svc.list(b.school.id)).map((x) => x.id)).toEqual([id]);
+    await expect(svc.get(a.school.id, id)).rejects.toMatchObject({ status: 404 });
+    expect(await svc.get(b.school.id, id)).toMatchObject({ id, status: 'REQUESTED' });
+  });
+
+  it('get reaches a request past the first list page; list pages with offset', async () => {
+    const w = await world();
+    const first = await w.seed({ requestedAgo: '3 hours' });
+    const second = await w.seed({ requestedAgo: '2 hours' });
+    expect((await svc.list(w.school.id, undefined, 1, 1)).map((x) => x.id)).toEqual([second]);
+    expect((await svc.list(w.school.id, undefined, 1, 2)).map((x) => x.id)).toEqual([first]);
+    expect(await svc.get(w.school.id, first)).toMatchObject({ id: first });
   });
 
   it('an expired (over 24 h) row is shown EXPIRED and cannot be approved', async () => {

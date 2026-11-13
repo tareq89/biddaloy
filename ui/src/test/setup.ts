@@ -22,6 +22,7 @@ import './jsdom-polyfills';
 
 import { resetOnlineStatus } from './connectivity';
 import { resetFactorySeed } from './factories/faker';
+import { resetPlatformStore } from './msw/handlers/platform';
 import { resetHolidaySetsStore } from './msw/handlers/public-holiday-sets';
 import { resetSchoolsStore } from './msw/handlers/schools';
 import { server } from './msw/server';
@@ -56,6 +57,7 @@ afterEach(resetFactorySeed);
 afterEach(resetOnlineStatus);
 afterEach(resetSchoolsStore);
 afterEach(resetHolidaySetsStore);
+afterEach(resetPlatformStore);
 afterEach(resetSystemPrefersDark);
 
 // onUnhandledRequest: 'error' is the important setting here — silent
