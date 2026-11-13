@@ -417,7 +417,7 @@ describe('FeesDailyScheduler', () => {
       expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
     });
 
-    it('fail closed: unreadable module state skips A (logged), B still billed', async () => {
+    it('fail closed: unreadable state skips A (reported by the nightly loop), B still billed', async () => {
       schoolsService.findAllActive = vi.fn(async () => [{ id: 'A' }, { id: 'B' }]);
       moduleState.forTenant.mockImplementation(async (id: string) => {
         if (id === 'A') throw new Error('db down');
@@ -425,6 +425,21 @@ describe('FeesDailyScheduler', () => {
       });
       await expect(scheduler.process()).resolves.toBeUndefined();
       expect(queriedTenants()).toEqual(['B']);
+    });
+
+    it('run-now and restore-catch-up reject on unreadable state, so the job fails instead of succeeding', async () => {
+      moduleState.forTenant.mockRejectedValue(new Error('db down'));
+      await expect(
+        scheduler.process({ name: 'run-now', data: { tenantId: TENANT } } as any),
+      ).rejects.toThrow('db down');
+      schoolsService.findById = vi.fn(async () => ({ id: TENANT, status: 'ACTIVE' }));
+      await expect(
+        scheduler.process({
+          name: 'restore-catch-up',
+          data: { tenantId: TENANT, today: '2026-03-01' },
+        } as any),
+      ).rejects.toThrow('db down');
+      expect(feeGenerationService.generate).not.toHaveBeenCalled();
     });
 
     it('the run-now path is gated too', async () => {
@@ -487,6 +502,17 @@ describe('FeesDailyScheduler', () => {
         expect(feeGenerationService.generate).not.toHaveBeenCalled();
         expect(lateFee.applyDue).not.toHaveBeenCalled();
         expect(fineSweep.runDue).not.toHaveBeenCalled();
+      });
+
+      it('unreadable state at the fines read fails the job before any bill is written', async () => {
+        moduleState.forTenant
+          .mockResolvedValueOnce({ platform: {}, school: {} }) // fees read
+          .mockRejectedValueOnce(new Error('db down')); // fines read
+        await expect(
+          withSweeps.process({ name: 'run-now', data: { tenantId: TENANT } } as any),
+        ).rejects.toThrow('db down');
+        expect(feeGenerationService.generate).not.toHaveBeenCalled();
+        expect(lateFee.applyDue).not.toHaveBeenCalled();
       });
 
       it('all on: everything runs as before', async () => {

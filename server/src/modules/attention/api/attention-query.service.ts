@@ -95,8 +95,9 @@ export class AttentionQueryService {
   /**
    * D9/D37: rule keys whose module is off for this role. Their alert rows stay in the table and
    * come back when the module is switched on. D27: an unreadable state hides every module rule.
+   * Public: the push delivery asks it too, so a switched-off module never pushes.
    */
-  private async hiddenRuleKeys(tenantId: string, role?: string): Promise<string[]> {
+  async hiddenRuleKeys(tenantId: string, role?: string): Promise<string[]> {
     const mods: [string, ModuleKey][] = [];
     for (const r of this.registry.all()) {
       const m = this.registry.moduleOf(r.meta.key);

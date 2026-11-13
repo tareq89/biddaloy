@@ -7,12 +7,12 @@ import {
   EnrollmentStatus,
   HomeworkAssignmentStatus,
   HomeworkSubmissionStatus,
+  ModuleKey,
 } from '@biddaloy/shared';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
 import { Student } from '../students/entities/student.entity';
 import { HomeworkNoticeService } from './homework-notice.service';
-import { ModuleKey } from '@biddaloy/shared';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';

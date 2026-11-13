@@ -31,6 +31,7 @@ describe('AlertDeliveryService (integration)', () => {
   let tenantB: string;
   let userId: string;
   let locale = 'en';
+  let schoolModules: Record<string, unknown> = {};
   const sendToUser = vi.fn();
   const queueAdd = vi.fn();
 
@@ -39,14 +40,18 @@ describe('AlertDeliveryService (integration)', () => {
     ds = module.get(DataSource);
     const query = new AttentionQueryService(
       ds,
-      { get: (k: string) => rules.get(k), all: () => [] } as never,
+      {
+        get: (k: string) => rules.get(k),
+        all: () => [rules.get(SMS_LOW)],
+        moduleOf: (k: string) => (k === SMS_LOW ? 'messaging' : 'core'),
+      } as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      { forTenant: async () => ({ platform: {}, school: schoolModules }) } as never,
     );
     const schools = {
       getResolvedSettings: async () => ({
@@ -83,6 +88,7 @@ describe('AlertDeliveryService (integration)', () => {
 
   beforeEach(async () => {
     locale = 'en';
+    schoolModules = {};
     sendToUser.mockReset().mockResolvedValue({ accepted: 1, transient: 0, pruned: 0 });
     queueAdd.mockReset();
     await ds.query(`DELETE FROM alerts WHERE tenant_id IN ($1, $2)`, [SEED_TENANT_ID, tenantB]);
@@ -144,6 +150,18 @@ describe('AlertDeliveryService (integration)', () => {
       svc.deliver(SEED_TENANT_ID, [id], new Date(DAY)),
       svc.deliver(SEED_TENANT_ID, [id], new Date(DAY)),
     ]);
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('[77.2.10] does not push an alert whose module was switched off after it was queued; pushes once on again', async () => {
+    const id = await add();
+    schoolModules = { messaging: { on: false } };
+    await svc.deliver(SEED_TENANT_ID, [id], new Date(DAY));
+    expect(sendToUser).not.toHaveBeenCalled();
+    expect(await pushedAt(id)).toBeNull(); // row kept, still pushable later
+
+    schoolModules = {};
+    await svc.deliver(SEED_TENANT_ID, [id], new Date(DAY));
     expect(sendToUser).toHaveBeenCalledTimes(1);
   });
 

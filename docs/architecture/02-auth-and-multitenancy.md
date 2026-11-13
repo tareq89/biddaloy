@@ -1080,3 +1080,27 @@ flowchart LR
 - 2026-11-13. **The ticket text said a missing tenant is a 400; it is a 401.** `PermissionsGuard` throws `UnauthorizedException('No active tenant context')`. Fix: corrected on the issue. Rule candidate: write status codes in tickets from the guard's code, not from memory.
 - 2026-11-13. **The workbook needed no code.** `settings` is one JSON cell and only secret paths and `supportAccess` are stripped, so `modules` and `labels` already round-trip. Cost: none, but nothing proved it. Fix: a round-trip integration test and a line in `14-school-workbook.md`. Rule candidate: for a new key inside an existing JSON column, add the round-trip test, not a new column spec.
 - 2026-11-13. **The demo seed has no table obligation here.** Settings is jsonb, so no column or table changed. The primary branch still shows Fines off, Homework off for teachers, and "Batch" for section, so the feature has data in the demo school (written next to the vocabulary save, after the preset apply, so it is not reset).
+
+### Wave 2 (server tagging, #3910 to #3919)
+
+Where one switch is read, and who reacts when it flips:
+
+```mermaid
+flowchart LR
+  A[admin saves modules] --> W[SchoolsService.updateSettings]
+  W --> C[tenant settings cache cleared]
+  W --> B[attention bar cache of that school dropped]
+  R[ModuleStateReader<br/>reads the school row, no cache] --> G[guard: route tagged]
+  R --> J[jobs: skip an off school]
+  R --> Q[attention queries: hide off-module rules]
+  R --> D[push delivery: skip off-module rules]
+```
+
+Example: the school switches Fees off. `GET /api/v1/fee-structures` answers 403 `MODULE_OFF_MESSAGE` on the next request. The nightly fees job skips the school. A "fees overdue" alert already waiting for push is not sent, and is not counted on the bar. Switch Fees on again and all of it comes back; no row was deleted (D9).
+
+- 2026-11-13. **The 30 s cache claim in D27 was wrong for modules.** `ModuleStateReader` goes through `SchoolsService.getSchoolModules`, which reads the school row (`findById`), not `TenantSettingsCache`. So a switch applies to the very next request, at the price of one small query per tagged request. Fix: none needed; this note replaces the "up to 30 s" wording for modules. Rule candidate: when a decision names a cache, check which reader the new code really calls.
+- 2026-11-13. **One module-off check was missing from the push path.** The bar and the lists hid off-module alerts, but `AlertDeliveryService.deliver` did not, so an alert queued before the switch could still push once. Fix: it asks `AttentionQueryService.hiddenRuleKeys` (the same list the bar uses). Rule candidate: a new "hide when off" rule lists every reader of the data (screen, count, push, export), not only the screen.
+- 2026-11-13. **The bar count lagged a switch by up to 60 s.** The bar summary is cached in Redis for `ATTENTION_SUMMARY_TTL_SECONDS`. Fix: a `modules` write now deletes that school's cached summaries (best effort; Redis down means the old 60 s lag). Words (`labels`) do not touch it.
+- 2026-11-13. **"Unreadable state" quietly became "success".** Fees-daily logged and returned when it could not read the module state, so a run-now or restore catch-up job finished green and that day was never retried. Fix: it throws; the nightly loop already reports per school to Sentry, the other two jobs fail visibly. Rule candidate: a job that skips on purpose says so; a job that cannot decide fails.
+- 2026-11-13. **One file can hold two modules.** `POST /fees/bills/:id/waive` lives in the fines controller but is tagged fees; the reminder routes live in the communications controller but are tagged fees (D39), while message history is messaging. The tag is per handler, so the table-driven spec (`modules-off.e2e-spec.ts`) pins these by name. `SYLLABUS_VS_PLAN` stays on `syllabus`: it is a syllabus card that only adds the plan line when a plan exists.
+- 2026-11-13. **The table is driven by the key list.** `ROUTES` is a `Record<ModuleKey, string>`, so a new key without a row does not compile, and a row whose route is not tagged with that key in `route-status.snapshot.txt` fails the drift test. The snapshot MODULE column was already filled by earlier tickets, so the wave close changed no snapshot line (D48).
