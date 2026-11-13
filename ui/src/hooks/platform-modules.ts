@@ -40,7 +40,8 @@ export function useSetPlatformModules() {
         headers,
       }),
     {
-      ...SCOPE,
+      approvalScope: SCOPE.approvalScope,
+      retry: false,
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: platformModulesKeys.all }),
     },
   );
@@ -73,7 +74,8 @@ export function useSetSchoolModuleLock(schoolId: string) {
         headers,
       }),
     {
-      ...SCOPE,
+      approvalScope: SCOPE.approvalScope,
+      retry: false,
       onSuccess: () =>
         void queryClient.invalidateQueries({ queryKey: schoolPlatformModulesKeys.all }),
     },
