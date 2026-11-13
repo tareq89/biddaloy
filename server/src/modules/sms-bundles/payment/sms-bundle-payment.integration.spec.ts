@@ -31,7 +31,12 @@ describe('SmsBundlePaymentService (integration)', () => {
         return real.purchase(...a);
       },
     } as never;
-    svc = new SmsBundlePaymentService(ds, credits, { isOversold: async () => false } as never);
+    svc = new SmsBundlePaymentService(
+      ds,
+      credits,
+      { isOversold: async () => false } as never,
+      { emailReceipt: async () => undefined } as never,
+    );
   }, 60000);
 
   afterAll(async () => {
