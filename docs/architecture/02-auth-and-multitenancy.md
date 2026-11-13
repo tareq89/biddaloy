@@ -1157,3 +1157,29 @@ back on the admin uses its switch.
 - 2026-11-13. **Apply never turns a module on, so a test cannot undo it through the screen.** The journey resets with `setModules`/`setLabels` (`null` removes a key) in `finally`. Rule candidate: any spec that changes school settings resets over the API and says so in its header.
 - 2026-11-13. **The built app's service worker hides requests from `page.route`.** The failed-save test blocks service workers (`test.use({ serviceWorkers: 'block' })`) before routing the PATCH to 500. Without it the switch would save for real.
 - 2026-11-13. **A second browser needs its nav groups opened by hand.** The `loggedIn` fixture seeds the "expanded" preference; a context built by `loginAsFreshUser` does not, so the teacher's Homework link sat in a collapsed group. Fix: the teacher context writes the same localStorage keys.
+
+### Wave 5 (words reach screens, print and SMS, #3929 to #3932)
+
+Where a renamed word shows up, and where it does not yet:
+
+```mermaid
+flowchart LR
+  L[school labels<br/>section = Batch, student = Trainee] --> UI[page copy<br/>$t common:entities.*]
+  L --> SMS[SMS body<br/>smsWord at send time]
+  L --> PR[print template<br/>copied in ONCE, when created]
+  UI --> Y[29 converted namespaces:<br/>Students, Classes, Fees ...]
+  UI -. not yet .-> N[nav, dashboard, teacherAssignments<br/>+ 42 namespaces still stock]
+  PR -. old templates keep stock .-> O[template made BEFORE the rename]
+```
+
+Example: the admin renames Section to Batch (bn: ব্যাচ) and Student to Trainee.
+`/students` now has the heading "Trainees" and `/classes` has a column "Batches". The
+sidebar still says "Students", because `nav` is not converted. An admit card made from
+the suggestion after the rename says "Batch:"; the one made yesterday still says "Section:".
+The absence-notice SMS starts "Dear Parent," once Guardian is renamed to Parent.
+
+- 2026-11-14. **The sidebar, dashboard and teacher-assignments pages still show stock words.** The guide generator (`client-admin/src/help/guide-gen`) copies the `nav`, `dashboard` and `teacherAssignments` strings into `docs/user-guide/**`, where a `$t(...)` would print raw and rewrite committed files. So `entity-words.mjs` skips those three (`SKIP_NS`). Cost: the e2e (`modules-words-reach.spec.ts`) cannot assert the sidebar word and asserts the Students and Classes pages instead. Fix: convert them once the generator resolves nesting. Rule candidate: before converting a namespace, grep who else reads its JSON.
+- 2026-11-14. **A printed template is a copy, not a view.** The words are swapped into the template when it is created from a suggestion (`applyPrintWords` in `PrintTemplatesService.create`). A template made before the rename keeps "Section:" and does not follow later renames. Cost: none yet, but an admin may expect it to follow. Fix: documented, pinned by the e2e (before keeps stock, after carries the word). Rule candidate: any "word baked into stored content" feature states whether old rows follow.
+- 2026-11-14. **The absence-notice preview is the SMS check.** `POST /attendance/sections/:id/absence-notice/preview` returns `message_preview`, built by the same `absenceTemplate()` the send uses, so Playwright can assert the text with no new endpoint. The text follows the school's locale: "Dear Parent," (en) or "প্রিয় পিতামাতা," (bn).
+- 2026-11-14. **Only 29 namespaces are converted; 42 more still have stock words, plus the 3 skipped.** Continue with `node scripts/codemods/entity-words.mjs --dry` (lists what is left), then `--apply ns1,ns2` per batch, then `--check` (fails if a bare word is left in a converted namespace). State lives in `scripts/codemods/entity-words.converted.json`.
+- 2026-11-14. **Mixed words are visible.** While a namespace is unconverted, one screen can say "Trainees" in the title and "Student" in a button from a stock string. Cost: looks odd for a school that renamed early. Fix: finish the conversion before the feature is announced. Rule candidate: ship a rename feature with the conversion of every screen it names, or hide it.
