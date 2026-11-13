@@ -1183,3 +1183,26 @@ The absence-notice SMS starts "Dear Parent," once Guardian is renamed to Parent.
 - 2026-11-14. **The absence-notice preview is the SMS check.** `POST /attendance/sections/:id/absence-notice/preview` returns `message_preview`, built by the same `absenceTemplate()` the send uses, so Playwright can assert the text with no new endpoint. The text follows the school's locale: "Dear Parent," (en) or "প্রিয় পিতামাতা," (bn).
 - 2026-11-14. **Only 29 namespaces are converted; 42 more still have stock words, plus the 3 skipped (`nav`, `dashboard`, `teacherAssignments`; `common` is skipped too, because it holds the words themselves).** Continue with `node scripts/codemods/entity-words.mjs --dry` (lists what is left), then `--apply ns1,ns2` per batch, then `--check` (fails if a capitalised stock word is left in a converted namespace; it does not catch lowercase words, "a/an" forms or Bangla case suffixes like শাখায় — `--dry` counts over 1,100 lowercase English words that `--check` never flags, so read the review list too). State lives in `scripts/codemods/entity-words.converted.json`.
 - 2026-11-14. **Mixed words are visible.** While a namespace is unconverted, one screen can say "Trainees" in the title and "Student" in a button from a stock string. Cost: looks odd for a school that renamed early. Fix: finish the conversion before the feature is announced. Rule candidate: ship a rename feature with the conversion of every screen it names, or hide it.
+
+### Wave 6 (the platform layer, #3933 to #3935)
+
+Who can say "off", and which one wins:
+
+```mermaid
+flowchart LR
+  O[owner, step-up code] --> M[global map<br/>PUT /platform/modules]
+  O --> K[per-school lock<br/>PUT /platform/schools/:id/modules/:key/lock]
+  A[school admin] --> C[own choice<br/>PATCH school settings]
+  M --> R[resolveModuleState]
+  K --> R
+  C --> R
+  R --> Z[platform off, then lock, then own choice]
+```
+
+Example: the owner turns Fines off for everyone. The school's own choice stays On in the database, and `GET /platform/schools/:id/modules` still shows `fines.on = true`. Turned back on, the school has Fines again with no action from its admin.
+
+- 2026-11-14. **The cockpit had no way to read a school's own module choices.** #3934 (the school 360 Modules tab) stopped: the plan listed the writes but no read, so the tab could not show "your school: On". A lane found it, not the planner. Cost: a stop and one new route. Fix: addendum `GET /platform/schools/:id/modules` (own choice and lock only, no platform map). Rule candidate: for every owner write screen, the plan names the read that fills it.
+- 2026-11-14. **A school PATCH of `null` deleted a platform lock.** The lock lives inside the same `modules.<key>` entry as the school's own choice, so `{ homework: null }` (the "remove my choice" call) removed the lock too. Cost: found before merge. Fix: `keepModuleLocks` (`tenant-settings-resolver.ts`) puts a stored lock back after the merge; the school's own choice still goes. Rule candidate: for a block two owners write, add a test where the weaker owner deletes its own part.
+- 2026-11-14. **The route-status snapshot once showed extra rows, and nobody found out why.** During a long loop `route-status.snapshot.txt` listed extra `platform/alerts` and `platform/announcements` rows that this branch did not add; the next run was clean. Cost: a re-run; the cause is unexplained. Fix: none yet, watch CI on the stacked PRs. Rule candidate: when the snapshot test differs on a clean tree, save the diff before re-running.
+- 2026-11-14. **Some words are still unconverted.** Wave 5 left the nav, the dashboard and teacher assignments on stock words, and the cockpit screens use stock words by design (the cockpit has no school, so no labels). Cost: none, but a reader may think it is a bug. Rule candidate: say in the ticket which surfaces are owner-side (stock words) and which are school-side.
+- 2026-11-14. **The e2e changes PLATFORM-WIDE state.** `e2e/platform/modules.spec.ts` flips the global map and a lock, so it takes the school-settings lock and restores the map (to the value it read first, not to empty), the lock and both schools' choices in `finally`. It was run together with `modules-hiding.spec.ts` to show they do not collide. Rule candidate: a spec that writes platform state says so in its header and restores the previous value.
