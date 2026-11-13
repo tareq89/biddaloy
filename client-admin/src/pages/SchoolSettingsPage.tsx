@@ -16,6 +16,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useAccessToken,
+  useActiveRole,
   useHasPermission,
   useMessagingProviders,
   useSchoolSettings,
@@ -43,6 +44,7 @@ import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
 import { HomeworkSection } from './settings/HomeworkSection';
 import { MessengerSection } from './settings/MessengerSection';
+import { ModulesWordsSection } from './settings/ModulesWordsSection';
 import { OrganisationSection } from './settings/OrganisationSection';
 import { PresetLinkCard } from './settings/PresetLinkCard';
 import { PrintersSection } from './settings/PrintersSection';
@@ -122,14 +124,19 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   const canApplyPreset = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
   const canManagePrinting = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
+  // D29/D31: choosing a kind and turning modules on or off is the school admin's job, not staff's.
+  const isAdmin = useActiveRole() === 'ADMIN';
 
-  const { section, buy, order, payment, devices } = useSearch({ from: '/_staff/settings' });
-  const navigate = useNavigate();
+  const { section, buy, order, payment, devices, tab, kind } = useSearch({
+    from: '/_staff/settings',
+  });
+  const navigate = useNavigate({ from: '/settings' });
   const hash = useLocation().hash;
   const categories = SETTINGS_CATEGORIES.filter(
     (c) =>
       (c.id !== 'printing' || canManagePrinting) &&
       (c.id !== 'backup' || canManageBackup) &&
+      (c.id !== 'modulesWords' || isAdmin) &&
       (c.id !== 'billing' || !isSuperAdmin),
   );
   const allowed = new Set<SettingsCategoryId>(categories.map((c) => c.id));
@@ -297,6 +304,28 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
       case 'support':
         // The switch and the list act on the active school (X-Tenant-ID), not a picked one.
         return !isSuperAdmin || schoolId === ownSchoolId ? <SupportAccessSection /> : null;
+      case 'modulesWords':
+        return (
+          <ModulesWordsSection
+            kindId={kind}
+            onKindChange={(id) =>
+              void navigate({
+                to: '/settings',
+                search: (prev) => ({ ...prev, kind: id }),
+                // Opening pushes (Back closes the preview); a fallback close replaces.
+                replace: id === undefined,
+              })
+            }
+            tab={tab ?? 'modules'}
+            onTabChange={(next) =>
+              void navigate({
+                to: '/settings',
+                search: (prev) => ({ ...prev, tab: next }),
+                replace: true,
+              })
+            }
+          />
+        );
       case 'backup':
         return <BackupSection {...(backupJobId !== undefined ? { backupJobId } : {})} />;
     }
