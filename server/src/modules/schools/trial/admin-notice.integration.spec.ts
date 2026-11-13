@@ -156,6 +156,46 @@ describe('AdminNoticeService (integration)', () => {
     expect(send.mock.calls[1][0].body).toContain('স্বাগতম');
     expect(send.mock.calls[2][0].body).toContain('Welcome!');
   });
+
+  it.each([
+    ['coupon_applied', { coupon: 'E2E-HALF', amount: '500.00' }, 'E2E-HALF', 'কুপন'],
+    ['refund_done', { amount: '1500.00' }, '1500.00', 'ফেরত'],
+    ['plan_changed', { plan: 'Plus' }, 'Plus', 'প্ল্যান'],
+  ] as const)(
+    '%s renders en and bn, goes by email only, logs a row, and never throws on a provider failure',
+    async (key, vars, token, bnWord) => {
+      expect(renderNotice(key, 'en', { school: 'S', ...vars }).body).toContain(token);
+      expect(renderNotice(key, 'bn', { school: 'S', ...vars }).body).toContain(bnWord);
+
+      const id = await school('bn');
+      const uid = randomUUID();
+      await ds.getRepository(User).save({
+        id: uid,
+        email: `money-${uid}@notice.test`,
+        phone: `017${uid.replace(/\D/g, '').padEnd(8, '1').slice(0, 8)}`,
+        password_hash: 'x',
+        full_name: 'money',
+        status: UserStatus.ACTIVE,
+      });
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: uid, tenant_id: id, role: UserRole.ADMIN });
+
+      send.mockClear();
+      await svc.notifyAdmins(id, key, vars, { emailOnly: true });
+      expect(send).toHaveBeenCalledTimes(1); // email only, no SMS
+      expect(send.mock.calls[0][0].to).toBe(`money-${uid}@notice.test`);
+      expect(send.mock.calls[0][0].body).toContain(bnWord);
+      const logs = await ds.query(
+        `SELECT metadata->>'kind' AS kind FROM communication_logs WHERE tenant_id = $1`,
+        [id],
+      );
+      expect(logs).toEqual([{ kind: key }]);
+
+      send.mockRejectedValueOnce(new Error('provider down'));
+      await expect(svc.notifyAdmins(id, key, vars, { emailOnly: true })).resolves.toBeUndefined();
+    },
+  );
 });
 
 describe('sms_expiring notices and receipt wording', () => {
