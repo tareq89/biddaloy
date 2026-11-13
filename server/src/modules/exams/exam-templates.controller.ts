@@ -28,13 +28,15 @@ import {
   ExamTemplateSummaryDto,
   UpdateExamTemplateDto,
 } from './dto/exam-template.dto';
-import { Permission, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 type Tenant = { id: string; role: string };
 
 /** [35.4.1] Exam templates CRUD (D36: EXAM_MANAGE). */
 @ApiTags('exam-templates')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exam-templates')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.EXAM_MANAGE)

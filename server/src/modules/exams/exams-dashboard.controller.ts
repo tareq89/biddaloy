@@ -1,7 +1,8 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey, JwtPayload } from '@biddaloy/shared';
+import { DashboardWidgetKey, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -17,6 +18,7 @@ import { CommitteePassRateDto, ResultsStateDto } from './dto/exams-dashboard-gro
 /** `GET /dashboard/widgets/mark-entry-progress` (Epic 169 D40/D46). */
 @ApiTags('dashboard')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ExamsDashboardController {
