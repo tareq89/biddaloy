@@ -322,10 +322,13 @@ GET /platform/holiday-sets | PlatformHolidaySetsController | allowlist: AuthGuar
 GET /platform/holiday-sets/:id | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/impersonation | PlatformImpersonationController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/money/revenue | RevenueController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/money/sms | PlatformSmsReportController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/money/vat | PlatformVatController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/ops/queues | PlatformOpsQueuesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/ops/system | PlatformOpsSystemController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/owners | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/owners/history | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/plans | PlatformPlansController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/reports/usage | PlatformReportUsageController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
@@ -542,6 +545,7 @@ PATCH /notices/:id | NoticesController | perm: NOTICE_POST
 PATCH /notices/:id/sms/recipients | NoticeSmsController | perm: NOTICE_SMS_APPROVE
 PATCH /onboarding | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /platform/coupons/:id | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.coupon
+PATCH /platform/plans/:id | PlatformPlansController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
 PATCH /platform/schools/:id/name | SchoolRenameController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
 PATCH /platform/schools/:id/status | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 PATCH /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.approvals_switch
@@ -661,6 +665,7 @@ POST /backup/restore | RestoreController | perm: BACKUP_MANAGE
 POST /backup/validate | ImportController | perm: BACKUP_MANAGE
 POST /billing/orders | BillingController | perm: SETTINGS_MANAGE
 POST /billing/orders/:id/pay/bkash | BillingController | perm: SETTINGS_MANAGE
+POST /billing/orders/preview | BillingController | perm: SETTINGS_MANAGE
 POST /calendar-import/commit | CalendarImportController | perm: CALENDAR_MANAGE
 POST /calendar-import/validate | CalendarImportController | perm: CALENDAR_MANAGE
 POST /calendar/clone | CalendarExportController | perm: CALENDAR_MANAGE
@@ -765,8 +770,11 @@ POST /platform/attention/items/:recipientId/hide | PlatformAttentionController |
 POST /platform/attention/items/:recipientId/snooze | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/attention/items/seen | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/billing/orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/billing/orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard, ApprovalGuard | approval: platform.refund
 POST /platform/billing/schools/:id/grant | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/billing/schools/:id/plan | PlatformPlansController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
 POST /platform/billing/sms-bundle-orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/billing/sms-bundle-orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard, ApprovalGuard | approval: platform.refund
 POST /platform/coupons | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.coupon
 POST /platform/coupons/free | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard, TwoPersonGuard | approval: platform.coupon_free
 POST /platform/holiday-sets/:id/publish | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
@@ -778,6 +786,8 @@ POST /platform/ops/queues/:name/retry-failed | PlatformOpsQueuesController | all
 POST /platform/ops/restore-lock/:schoolId/release | PlatformOpsSystemController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.ops_action
 POST /platform/owners/:userId/lock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_lock
 POST /platform/owners/:userId/unlock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_unlock
+POST /platform/plans | PlatformPlansController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
+POST /platform/plans/:id/make-default | PlatformPlansController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
 POST /platform/schools | ProvisioningController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
@@ -916,6 +926,7 @@ PUT /leave/policies/:type | LeaveController | perm: LEAVE_APPROVE
 PUT /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 PUT /my-class/sections/:sectionId/report-card-notes | ReportCardNotesController | perm: MY_CLASS_VIEW
 PUT /platform/holiday-sets/:id/entries | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+PUT /platform/money/vat | PlatformVatController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.vat
 PUT /portal/arrival-subscriptions/:studentId | PortalArrivalSubscriptionsController | identity | roles: PARENT
 PUT /programs/:id/milestones/order | ProgramsController | perm: PROGRAM_MANAGE
 PUT /routines/shifts/:id/period-slots | ShiftsController | perm: ROUTINE_MANAGE

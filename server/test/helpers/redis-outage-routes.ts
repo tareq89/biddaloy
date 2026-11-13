@@ -15,6 +15,8 @@ import { UserController } from '../../src/modules/users/users.controller';
 import { PlatformOpsQueuesController } from '../../src/modules/platform-control/ops/ops-queues.controller';
 import { PlatformOpsSystemController } from '../../src/modules/platform-control/ops/ops-system.controller';
 import { PlatformAnnouncementsController } from '../../src/modules/platform-control/announcements/platform-announcements.controller';
+import { BillingController } from '../../src/modules/billing/billing.controller';
+import { PlatformBillingController } from '../../src/modules/billing/platform-billing.controller';
 import { SmsBundleOrdersController } from '../../src/modules/sms-bundles/orders/sms-bundle-orders.controller';
 import { SmsBundlePayController } from '../../src/modules/sms-bundles/payment/sms-bundle-pay.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
@@ -50,6 +52,9 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   // [Epic 100 D29] Buying and paying an SMS package are money writes.
   SmsBundleOrdersController,
   SmsBundlePayController,
+  // [Epic 100 #3875] Seat orders, coupons and refunds.
+  BillingController,
+  PlatformBillingController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -103,6 +108,10 @@ export const FAIL_CLOSED = [
   // [Epic 100 D29] SMS package buy and pay: no rate limit, no money moved.
   'POST /sms-bundles/orders',
   'POST /sms-bundles/orders/:id/pay/bkash',
+  // [Epic 100 #3875] Pay and both refunds move money: no Redis, no step-up or rate limit, no money moved.
+  'POST /billing/orders/:id/pay/bkash',
+  'POST /platform/billing/orders/:id/refund',
+  'POST /platform/billing/sms-bundle-orders/:id/refund',
   // The code is the credential; a missing rate limit would allow unlimited guessing.
   'POST /auth/impersonation/exchange',
 ];
@@ -172,4 +181,17 @@ export const FAIL_OPEN = [
   'GET /sms-bundles/catalog',
   'GET /sms-bundles/orders',
   'GET /sms-bundles/orders/:id',
+  // [Epic 100 #3875] Seat billing reads and writes that need no Redis. Create and preview fail OPEN at
+  // the guard on purpose: with no coupon code they never touch Redis, and a request that sends a
+  // code fails closed inside CouponAttemptLimiter (503), so a coupon is never tried without a limit.
+  'GET /billing/summary',
+  'GET /billing/orders',
+  'GET /billing/orders/:id/receipt',
+  'POST /billing/orders/preview',
+  'POST /billing/orders',
+  'GET /platform/billing/schools',
+  'GET /platform/billing/schools/:id',
+  'POST /platform/billing/orders/:id/offline-payment',
+  'POST /platform/billing/sms-bundle-orders/:id/offline-payment',
+  'POST /platform/billing/schools/:id/grant',
 ];
