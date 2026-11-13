@@ -8,6 +8,10 @@ export type AdminNoticeKey =
   | 'seats_expired'
   | 'seats_suspended'
   | 'receipt'
+  /** [100.3.gD-01] Money events: coupon applied, refund done, plan changed. Email only. */
+  | 'coupon_applied'
+  | 'refund_done'
+  | 'plan_changed'
   /** [100.2.gB.04] Unused SMS package credit ends in 7 / 1 days. */
   | 'sms_expiring_d7'
   | 'sms_expiring_d1'
@@ -26,6 +30,12 @@ export interface NoticeVars {
   seats?: number;
   /** Receipt number (SMR-YYYY-NNNNNN), for the `receipt` notice. */
   receipt?: string;
+  /** Coupon code, for `coupon_applied`. */
+  coupon?: string;
+  /** Amount already formatted for the reader (e.g. `500.00`), for `coupon_applied` (discount) and `refund_done`. */
+  amount?: string;
+  /** New plan name, for `plan_changed`. */
+  plan?: string;
   /** Unused SMS that end on `date`, for the `sms_expiring_*` notices. */
   units?: number;
   /** The seats that end are the free period (the school never paid for later seats). */
@@ -152,6 +162,41 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
       subject: (v) => `${v.school}: পেমেন্ট রসিদ ${v.receipt ?? ''}`,
       body: (v) =>
         `ধন্যবাদ। ${v.school}-এর পেমেন্ট পেয়েছি। রসিদ ${v.receipt ?? ''}: যে পেজে পেমেন্ট করেছেন সেখান থেকে ডাউনলোড করুন। ${v.link ?? ''}`.trim(),
+    },
+  },
+  coupon_applied: {
+    en: {
+      subject: (v) => `${v.school}: coupon ${v.coupon ?? ''} applied`,
+      body: (v) =>
+        `Coupon ${v.coupon ?? ''} was applied to the payment for ${v.school}. You saved Tk ${v.amount ?? ''}. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: কুপন ${v.coupon ?? ''} প্রয়োগ হয়েছে`,
+      body: (v) =>
+        `${v.school}-এর পেমেন্টে কুপন ${v.coupon ?? ''} প্রয়োগ হয়েছে। আপনি ${v.amount ?? ''} টাকা ছাড় পেয়েছেন। ${v.link ?? ''}`.trim(),
+    },
+  },
+  refund_done: {
+    en: {
+      subject: (v) => `${v.school}: refund done`,
+      body: (v) =>
+        `We refunded Tk ${v.amount ?? ''} for ${v.school}. It may take a few days to reach you. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: টাকা ফেরত দেওয়া হয়েছে`,
+      body: (v) =>
+        `${v.school}-এর ${v.amount ?? ''} টাকা ফেরত দেওয়া হয়েছে। আপনার কাছে পৌঁছাতে কয়েক দিন লাগতে পারে। ${v.link ?? ''}`.trim(),
+    },
+  },
+  plan_changed: {
+    en: {
+      subject: (v) => `${v.school}: your plan changed`,
+      body: (v) =>
+        `The plan of ${v.school} is now ${v.plan ?? ''}. See it in Settings, Seats & billing.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: আপনার প্ল্যান বদলেছে`,
+      body: (v) => `${v.school}-এর প্ল্যান এখন ${v.plan ?? ''}। সেটিংস, সিট ও বিলিং-এ দেখুন।`,
     },
   },
   sms_expiring_d7: {
