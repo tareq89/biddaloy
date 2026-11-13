@@ -78,6 +78,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 - **Example.** `GET /users/me` carries `@AuthenticatedOnly()` and the entry `{ path: '/users/me', reason: '10.4 — self-service: the id comes from the JWT, never the path' }`.
 - **Also.** `GET /portal/arrival-subscriptions` and `PUT /portal/arrival-subscriptions/:studentId` (Epic 84) are `@AuthenticatedOnly()` + `@Roles(PARENT)` with `IDENTITY_SCOPED` entries: the guardian is read from the JWT, and a child not linked to that guardian is a 404. Their six rows (four staff `attendance/arrival-subscriptions`, two portal) were added to `route-status.snapshot.txt` by 84.2.1; the lock route is `403` for teachers and every other school role.
 - **Test.** `server/src/permission-matrix.e2e-spec.ts` (marker and list match one-for-one), `route-guard-coverage.e2e-spec.ts`.
+- **`@RequiresModule` is an extra refusal, not a way in (Epic 77).** A route tagged `@RequiresModule('<key>')` is refused with `403` and the fixed sentence `MODULE_OFF_MESSAGE` when the school's module is off. `PermissionsGuard` checks the permission first, so a caller without the permission still gets the usual answer and never learns the module state. The tag never grants anything. A tag change is a reachability change: it shows in the `MODULE` column of `route-status.snapshot.txt` (Rule 20). Tests: `server/src/modules/auth/modules-off.e2e-spec.ts`, `permission-matrix.e2e-spec.ts`.
 
 ### Rule 2: Teacher reads are scoped to assigned sections
 

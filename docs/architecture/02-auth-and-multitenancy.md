@@ -1208,3 +1208,44 @@ Example: the owner turns Fines off for everyone. The school's own choice stays O
 - 2026-11-14. **The route-status snapshot once showed extra rows, and nobody found out why.** During a long loop `route-status.snapshot.txt` listed extra `platform/alerts` and `platform/announcements` rows that this branch did not add; the next run was clean. Cost: a re-run; the cause is unexplained. Fix: none yet, watch CI on the stacked PRs. Rule candidate: when the snapshot test differs on a clean tree, save the diff before re-running.
 - 2026-11-14. **Some words are still unconverted.** Wave 5 left the nav, the dashboard and teacher assignments on stock words, and the cockpit screens use stock words by design (the cockpit has no school, so no labels). Cost: none, but a reader may think it is a bug. Rule candidate: say in the ticket which surfaces are owner-side (stock words) and which are school-side.
 - 2026-11-14. **The e2e changes PLATFORM-WIDE state.** `e2e/platform/modules.spec.ts` flips the global map and a lock, so it takes the school-settings lock and restores the map (to the value it read first, not to empty), the lock and both schools' choices in `finally`. It was run together with `modules-hiding.spec.ts` to show they do not collide. Rule candidate: a spec that writes platform state says so in its header and restores the previous value.
+
+### Epic close (#3937)
+
+What Epic 77 shipped: a school can switch whole parts of the product off (Modules), hide one part from one role, and rename core words (Words). An owner can lock a module for one school or for all. Ready-made starting points ("institution kinds") set both at once.
+
+Who wins when the three owners disagree:
+
+| Order | Who                         | What it can do                                                          |
+| ----- | --------------------------- | ----------------------------------------------------------------------- |
+| 1     | Platform, all schools       | Off here means off everywhere.                                          |
+| 2     | Platform, one school (lock) | Off here means off for that school; the school cannot undo it.          |
+| 3     | The school's own choice     | On or Off, plus "who can't see it" (roles). Used only if 1 and 2 allow. |
+
+Example: the owner locks Homework off for school A. Admin of A sets Homework On. Teachers of A still get `403 This part is not turned on for your institution`. The owner lifts the lock: Homework is On again, with no action by A.
+
+The demo shows it. One demo branch (`bmsc-primary`) runs the Coaching kind through `InstitutionKindService.apply`, so Fines, Programs, Evaluations and Seat plans are off, Class reads "Course" and Section reads "Batch". Homework is also off for teachers (a role switch the kind never defines). The other two branches keep everything on, in stock words.
+
+```mermaid
+flowchart LR
+  K[shared INSTITUTION_KINDS<br/>coaching] --> A[InstitutionKindService.apply]
+  A --> U[SchoolsService.updateSettings<br/>audit rows]
+  U --> S[bmsc-primary settings]
+```
+
+- 2026-11-14. **The seed copied the kind by hand.** Wave 1 wrote Fines off and "Batch" straight into the demo branch, so the demo would drift the day the Coaching kind changed. Fix (#3937): the seed applies the kind and the spec reads the expected switches and words from `INSTITUTION_KINDS`. Rule candidate: a demo that shows a definition applies the definition, never a copy.
+
+Deferred, and where each item is tracked (nothing here is silently dropped):
+
+| Item                                                                                                                     | Where                                          |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| 42 namespaces still on stock words (the codemod continues)                                                               | #3929 (open)                                   |
+| `nav` text, `dashboard` and `teacherAssignments` strings still stock; the guide generator must resolve nesting first     | #3929, see Wave 5                              |
+| At-risk widget and `/reports/catalogue` ignore the module switch                                                         | #4125                                          |
+| Portal: a hidden-module URL shows a load error, not the refusal page                                                     | #4127                                          |
+| Attendance device routes ignore the Attendance module switch                                                             | #4120                                          |
+| e2e specs that read visibility or words are not protected from the settings-mutating journeys                            | #4132                                          |
+| CI production audit fails on the `@astrojs/node` advisory (site). Found while running the epic's CI, not caused by it    | #4133                                          |
+| Usability test with real admins (D36, four tasks, one coaching centre) is still open; no real user has tried the screens | #3904                                          |
+| Apply never turns a module On (D24), so "undo a kind" is done by hand on the Modules tab                                 | by design, Wave 4 note above                   |
+| Unchecked kinds: College, Qawmi madrasa, Technical (`verified: false`)                                                   | `docs/architecture/20-presets.md`              |
+| Route-status snapshot once showed extra rows, cause unknown                                                              | Wave 6 note above; watch CI on the stacked PRs |
