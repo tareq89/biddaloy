@@ -33,6 +33,7 @@ import {
   ReminderTemplateVars,
 } from '../communications/reminder-template.util';
 import { resolveTemplateLocale } from '../account-access/account-access-templates';
+import { smsWord } from '../communications/sms-words.util';
 import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
@@ -219,7 +220,7 @@ export class AbsenceNoticeService {
     const recordRepo = manager.getRepository(AttendanceRecord);
     const studentRepo = manager.getRepository(Student);
     const locale = await this.noticeLocale(tenantId);
-    const template = locale === 'bn' ? ABSENCE_NOTICE_TEMPLATE_BN : DEFAULT_ABSENCE_NOTICE_TEMPLATE;
+    const template = await this.absenceTemplate(tenantId);
 
     const absentRecords = await recordRepo.find({
       where: {
@@ -334,10 +335,21 @@ export class AbsenceNoticeService {
     return resolveTemplateLocale(school.settings?.region?.locale);
   }
 
+  /** The stock text with the school's word for "guardian" (77.5, D5). Built once per
+   * batch, before any segment estimate sees it; no labels = byte-identical stock text. */
   private async absenceTemplate(tenantId: string): Promise<string> {
-    return (await this.noticeLocale(tenantId)) === 'bn'
-      ? ABSENCE_NOTICE_TEMPLATE_BN
-      : DEFAULT_ABSENCE_NOTICE_TEMPLATE;
+    const locale = await this.noticeLocale(tenantId);
+    const labels = await this.schoolsService.getSchoolLabels(tenantId);
+    return locale === 'bn'
+      ? // function replacers: a `$&` in the word must stay literal text
+        ABSENCE_NOTICE_TEMPLATE_BN.replace(
+          'প্রিয় অভিভাবক',
+          () => `প্রিয় ${smsWord(labels, 'guardian', 'bn', 'অভিভাবক')}`,
+        )
+      : DEFAULT_ABSENCE_NOTICE_TEMPLATE.replace(
+          'Dear Guardian',
+          () => `Dear ${smsWord(labels, 'guardian', 'en', 'Guardian')}`,
+        );
   }
 
   private async loadSectionContext(
@@ -623,7 +635,7 @@ export class AbsenceNoticeService {
     if (recipients.length === 0) return;
     const body = isAbsent
       ? template
-      : template === ABSENCE_NOTICE_TEMPLATE_BN
+      : (await this.noticeLocale(tenantId)) === 'bn'
         ? ABSENCE_CORRECTION_TEMPLATE_BN
         : ABSENCE_CORRECTION_TEMPLATE_EN;
 
