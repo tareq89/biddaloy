@@ -1058,6 +1058,13 @@ export const ALLOWLIST: AllowlistEntry[] = [
   },
   {
     controller: 'PlatformModulesController',
+    method: 'GET',
+    path: '/platform/schools/:id/modules',
+    reason:
+      "[77.6.01] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, so a school-app token gets 401. Read only: returns one school's own module on/lock entries and nothing else of its settings.",
+  },
+  {
+    controller: 'PlatformModulesController',
     method: 'PUT',
     path: '/platform/schools/:id/modules/:key/lock',
     reason:

@@ -555,6 +555,7 @@ GET    /api/v1/platform/schools/:id/archive/export/:jobId                       
 GET    /api/v1/platform/schools/:id/archive/export/:jobId/download               401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/login-as/candidates                          401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/schools/:id/logout-all                                   401 403 401 401 401 401 401 401 401 401 401 401 401 -
+GET    /api/v1/platform/schools/:id/modules                                      401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 PUT    /api/v1/platform/schools/:id/modules/:key/lock                            401 403 401 401 401 401 401 401 401 401 401 401 401 -
 PATCH  /api/v1/platform/schools/:id/name                                         401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/notes                                        401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
