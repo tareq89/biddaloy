@@ -130,7 +130,7 @@ describe('WordsTab', () => {
       'Fill all three words, or clear the whole row to go back to the stock word',
     );
     expect(field('section', 'bn').getAttribute('aria-invalid')).toBe('true');
-    const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save' });
     expect(save.disabled).toBe(true);
     await userEvent.click(save);
     expect(patch).not.toHaveBeenCalled();
