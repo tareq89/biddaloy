@@ -1,4 +1,4 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, forwardRef } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { SmsCreditService, CreditBalance } from '../../communications/credits/sms-credit.service';
@@ -35,7 +35,17 @@ export class SmsCreditsService {
     // describes — a retry that returns `applied: false` never needs to
     // repair a missing audit row, because there's no window where the
     // ledger commits without it.
+    const expiresAt = dto.expires_at ? new Date(dto.expires_at) : undefined;
+    if (expiresAt) {
+      const max = new Date();
+      max.setFullYear(max.getFullYear() + 3);
+      // Expiry only means something for a grant (units > 0), and must be 0 < now..3y.
+      if (dto.units < 0 || !(expiresAt > new Date()) || expiresAt > max) {
+        throw new BadRequestException('expires_at must be in the future, within 3 years');
+      }
+    }
     const opts = {
+      ...(expiresAt && { expiresAt }),
       reason: dto.reason,
       actorUserId,
       idempotencyKey: dto.idempotency_key,

@@ -1,4 +1,14 @@
-import { IsInt, IsNotEmpty, IsString, Length, Max, Min, NotEquals } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+  NotEquals,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /** Body for `POST /schools/:id/sms-credits` (#550). `units` signs the
@@ -28,4 +38,12 @@ export class GrantSmsCreditsDto {
   @IsString()
   @IsNotEmpty()
   idempotency_key: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'ISO date the granted lot expires. Future, at most 3 years ahead. Default: never.',
+  })
+  @IsOptional()
+  @IsDateString()
+  expires_at?: string;
 }
