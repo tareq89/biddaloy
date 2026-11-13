@@ -17,6 +17,7 @@ import {
   useEndSupportSession,
   useSupportAccessSettings,
   useSupportPlatformActions,
+  useSupportRequest,
   useSupportRequests,
   useSupportSessions,
 } from './support-access';
@@ -67,6 +68,21 @@ describe('support access hooks (school side)', () => {
     const p = renderHookWithProviders(() => useSupportPlatformActions());
     await waitFor(() => expect(s.result.current.data).toHaveLength(1));
     await waitFor(() => expect(p.result.current.data).toHaveLength(1));
+  });
+
+  it('useSupportRequest: reads one request by id; useSupportRequests sends page', async () => {
+    let page: string | null = null;
+    server.use(
+      http.get('*/support-access/requests', ({ request }) => {
+        page = new URL(request.url).searchParams.get('page');
+        return HttpResponse.json([]);
+      }),
+    );
+    const one = renderHookWithProviders(() => useSupportRequest('r-250'));
+    await waitFor(() => expect(one.result.current.data?.id).toBe('r-250'));
+    const list = renderHookWithProviders(() => useSupportRequests({ page: 2 }));
+    await waitFor(() => expect(list.result.current.isSuccess).toBe(true));
+    expect(page).toBe('2');
   });
 
   it('useDecideSupportRequest: a 404 is an ApiError and is not retried', async () => {

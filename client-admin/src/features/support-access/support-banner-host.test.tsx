@@ -4,6 +4,7 @@ import {
   apiClient,
   clearAuthState,
   isSupportSession,
+  readSupportEntry,
   setSupportSession,
   writeSupportEntry,
 } from '@biddaloy/ui/api';
@@ -45,6 +46,7 @@ function mockMe(viewOnly: boolean) {
 describe('SupportBannerHost', () => {
   afterEach(async () => {
     clearAuthState();
+    sessionStorage.clear();
     vi.restoreAllMocks();
     await cleanupTestState();
   });
@@ -103,7 +105,9 @@ describe('SupportBannerHost', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/support/enter?ended=1'));
     expect(ended).toHaveBeenCalledTimes(1);
     expect(isSupportSession()).toBe(false);
-    expect(sessionStorage.length).toBe(0);
+    // The entry is gone; only the ended marker stays, so a reload cannot refresh as a normal tab.
+    expect(sessionStorage.getItem('biddaloy:supportTab')).toBeNull();
+    expect(readSupportEntry()).toBe('expired');
     expect(close).toHaveBeenCalled();
     vi.unstubAllGlobals();
   });

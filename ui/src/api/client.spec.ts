@@ -911,3 +911,27 @@ describe('postAuthResetPassword', () => {
     expect((error as RateLimitedError).retryAfterSeconds).toBeNull();
   });
 });
+
+describe('[99.G4.01] a 401 that outlives its session', () => {
+  it('does not refresh when the session that sent it was cleared meanwhile', async () => {
+    setActiveTenant('tenant-1');
+    setAccessToken('support-token');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    apiMock.onGet('/students').reply(async () => {
+      await gate;
+      return [
+        401,
+        { statusCode: 401, message: 'expired', timestamp: 't', path: '/', requestId: 'r' },
+      ];
+    });
+
+    const pending = apiClient.get('/students').catch((err: unknown) => err);
+    await Promise.resolve();
+    clearAuthState(); // another request's failure ended the support tab
+    release();
+
+    expect(await pending).toBeInstanceOf(ApiError);
+    expect(globalMock.history.post).toHaveLength(0);
+  });
+});

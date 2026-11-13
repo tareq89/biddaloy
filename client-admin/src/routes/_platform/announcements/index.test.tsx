@@ -100,6 +100,7 @@ async function fill(user: ReturnType<typeof userEvent.setup>) {
 }
 
 afterEach(async () => {
+  sessionStorage.removeItem('biddaloy:announcementPending');
   await cleanupTestState();
 });
 
@@ -166,6 +167,48 @@ describe('/announcements', () => {
     expect(sends[1]!.key).toBe(sends[0]!.key);
     expect(sends[1]!.body).toEqual(sends[0]!.body);
   }, 15000);
+
+  it('a waiting approval survives leaving the page: on return a granted one is sent', async () => {
+    const { sends } = serve({ approvalStatus: 'GRANTED' });
+    sessionStorage.setItem(
+      'biddaloy:announcementPending',
+      JSON.stringify({
+        input: {
+          statusFilter: ['ACTIVE'],
+          title: 'Planned maintenance',
+          body: 'We restart.',
+          severity: 'REMINDER',
+          sms: false,
+          email: false,
+        },
+        approvalId: 'ap-1',
+        at: Date.now(),
+      }),
+    );
+    render();
+
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(sends[0]!.approval).toBe('ap-1');
+    expect(sends[0]!.body).toMatchObject({ title: 'Planned maintenance' });
+    expect(await screen.findByText('Sent to 4 schools and 6 people.')).toBeTruthy();
+    expect(sessionStorage.getItem('biddaloy:announcementPending')).toBeNull();
+  });
+
+  it('the list pages: more than 25 announcements shows a next page', async () => {
+    const offsets: (string | null)[] = [];
+    serve();
+    server.use(
+      http.get('*/platform/announcements', ({ request }) => {
+        offsets.push(new URL(request.url).searchParams.get('offset'));
+        return HttpResponse.json({ items: [SENT], total: 60 });
+      }),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole('button', { name: /next/i }));
+    await waitFor(() => expect(offsets).toContain('25'));
+  });
 
   async function sendAndWait(user: ReturnType<typeof userEvent.setup>) {
     await fill(user);

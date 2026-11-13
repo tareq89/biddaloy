@@ -45,7 +45,14 @@ export class SupportRequestsController {
   @ApiOperation({ summary: "Biddaloy's requests to this school (pending or decided)." })
   @ApiOkResponse({ type: SupportRequestItemDto, isArray: true })
   list(@CurrentTenant() tenant: Tenant, @Query() q: ListSupportRequestsQueryDto) {
-    return this.requests.list(tenant.id, q.status, q.limit);
+    return this.requests.list(tenant.id, q.status, q.limit, q.page);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'One request of this school by id.' })
+  @ApiOkResponse({ type: SupportRequestItemDto })
+  get(@CurrentTenant() tenant: Tenant, @Param('id', ParseUUIDPipe) id: string) {
+    return this.requests.get(tenant.id, id);
   }
 
   @Post(':id/approve')

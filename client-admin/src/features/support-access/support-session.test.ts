@@ -127,7 +127,7 @@ describe('reload', () => {
     const { ensureSessionLoaded } = await import('@biddaloy/ui/api');
     expect(await ensureSessionLoaded()).toBe(false);
     expect(getAccessToken()).toBeNull();
-    expect(readSupportEntry()).toBeNull();
+    expect(readSupportEntry()).toBe('expired'); // the ended marker stays: no refresh on reload
     expect(mock.history.post).toHaveLength(0);
   });
 

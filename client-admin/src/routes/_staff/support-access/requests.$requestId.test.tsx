@@ -34,20 +34,26 @@ const request = (over: Record<string, unknown> = {}) => ({
 
 const PAGE_URL = '/support-access/requests/11111111-1111-4111-8111-111111111111';
 
-/** Status-aware like the API: `pending` returns waiting requests, `decided` the rest. */
+/** Like the API: `GET /requests/:id` finds this school's request or answers 404. Counts list calls. */
 function mockList(items: unknown[]) {
-  const queries: string[] = [];
+  const calls = { byId: 0, list: 0 };
   server.use(
-    http.get('/api/v1/support-access/requests', ({ request: req }) => {
-      const url = new URL(req.url);
-      queries.push(`${url.searchParams.get('status')}:${url.searchParams.get('limit')}`);
-      const waiting = url.searchParams.get('status') === 'pending';
-      return HttpResponse.json(
-        items.filter((i) => ((i as { status: string }).status === 'REQUESTED') === waiting),
-      );
+    http.get('/api/v1/support-access/requests/:id', ({ params }) => {
+      calls.byId += 1;
+      const hit = items.find((i) => (i as { id: string }).id === params.id);
+      return hit
+        ? HttpResponse.json(hit)
+        : HttpResponse.json(
+            { statusCode: 404, message: 'x', timestamp: '', path: '/', requestId: 'r' },
+            { status: 404 },
+          );
+    }),
+    http.get('/api/v1/support-access/requests', () => {
+      calls.list += 1;
+      return HttpResponse.json([]);
     }),
   );
-  return queries;
+  return calls;
 }
 
 function mockDecision(decision: 'approve' | 'deny') {
@@ -168,13 +174,28 @@ describe('/support-access/requests/$requestId', () => {
     expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
   });
 
-  it('finds an answered request only through the decided list, asking for 100 of each', async () => {
-    const queries = mockList([request({ status: 'APPROVED' })]);
+  it('loads the request by id, never through a capped list', async () => {
+    const calls = mockList([request({ status: 'APPROVED' })]);
     render();
 
     expect(await screen.findByText('This request was already approved.')).toBeTruthy();
-    expect(queries).toContain('pending:100');
-    expect(queries).toContain('decided:100');
+    expect(calls.byId).toBe(1);
+    expect(calls.list).toBe(0);
+  });
+
+  it('a failed load shows an error with Retry, not "not found"', async () => {
+    server.use(
+      http.get('/api/v1/support-access/requests/:id', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'x', timestamp: '', path: '/', requestId: 'r' },
+          { status: 500 },
+        ),
+      ),
+    );
+    render();
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByText('We could not find this request.')).toBeNull();
   });
 
   it('a waiting request past its end time reads as run out', async () => {
@@ -185,7 +206,7 @@ describe('/support-access/requests/$requestId', () => {
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 
-  it("a link for another school's request (not in this school's list) says not found", async () => {
+  it("a link for another school's request (the server answers 404) says not found", async () => {
     mockList([]);
     render();
 

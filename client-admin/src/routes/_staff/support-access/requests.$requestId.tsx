@@ -4,10 +4,11 @@
  * reads: state changes on a button press, and the first answer is final (the server refuses a
  * second one). A request that is not this school's is "not found", never a hint it exists.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import { Button, Card, RoutePending } from '@biddaloy/ui/components';
 import {
   useDecideSupportRequest,
-  useSupportRequests,
+  useSupportRequest,
   type SupportRequestItem,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -50,34 +51,29 @@ function SupportRequestPage() {
   const { t } = useTranslation('supportAccess');
   const { t: tAuth } = useTranslation('auth');
   const region = useRegionConfig();
-  // The list defaults to waiting requests only; an answered or run-out link is in "decided".
-  const pending = useSupportRequests({ status: 'pending', limit: 100 });
-  const decided = useSupportRequests({ status: 'decided', limit: 100 });
-  const requests = {
-    isError: pending.isError || decided.isError,
-    refetch: () => Promise.all([pending.refetch(), decided.refetch()]),
-    data: pending.data && decided.data ? [...pending.data, ...decided.data] : undefined,
-  };
+  // By id on the server (this school only), so a request outside any list page still opens.
+  const found = useSupportRequest(requestId);
   const decide = useDecideSupportRequest();
-  const request = requests.data?.find((r) => r.id === requestId);
+  const request = found.data;
+  const missing = found.error instanceof ApiError && found.error.statusCode === 404;
 
   let body: React.ReactNode;
-  if (requests.isError) {
+  if (found.isError && !missing) {
     body = (
       <div role="alert">
         <p>{t('loadError')}</p>
-        <Button type="button" className="mt-4 h-11" onClick={() => void requests.refetch()}>
+        <Button type="button" className="mt-4 h-11" onClick={() => void found.refetch()}>
           {t('retry')}
         </Button>
       </div>
     );
-  } else if (!requests.data) {
+  } else if (found.isPending) {
     body = (
       <p role="status" className="text-text-secondary">
         {t('reqLoading')}
       </p>
     );
-  } else if (!request) {
+  } else if (!request || missing) {
     body = (
       <>
         <h1 className="text-h2">{t('reqNotFound')}</h1>

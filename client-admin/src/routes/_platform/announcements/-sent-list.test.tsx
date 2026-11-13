@@ -1,6 +1,7 @@
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SentList } from './-sent-list';
 
@@ -24,7 +25,16 @@ const ROW = {
 
 async function show(props: Partial<React.ComponentProps<typeof SentList>>) {
   const { localeReady } = renderWithProviders(
-    <SentList rows={[]} loading={false} isFetching={false} {...props} />,
+    <SentList
+      rows={[]}
+      loading={false}
+      isFetching={false}
+      page={1}
+      pageSize={25}
+      total={0}
+      onPageChange={() => {}}
+      {...props}
+    />,
     { locale: 'en' },
   );
   await localeReady;
@@ -46,5 +56,12 @@ describe('SentList', () => {
   it('error', async () => {
     await show({ error: 'Could not load the announcements. Try again.' });
     expect(await screen.findByText('Could not load the announcements. Try again.')).toBeTruthy();
+  });
+
+  it('pages past the first 25: shows the total and asks for the next page', async () => {
+    const onPageChange = vi.fn();
+    await show({ rows: [ROW], total: 60, onPageChange });
+    await userEvent.setup().click(await screen.findByRole('button', { name: /next/i }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
   });
 });

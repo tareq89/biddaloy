@@ -26,6 +26,7 @@ import { SentList } from './-sent-list';
  * kept by `useSendAnnouncement`) with the approval id once it is granted.
  */
 const POLL_MS = 5_000;
+const LIST_PAGE_SIZE = 25;
 
 export const Route = createFileRoute('/_platform/announcements/')({
   loader: () => loadRouteNamespaces('platformAnnouncements', 'approval'),
@@ -34,16 +35,49 @@ export const Route = createFileRoute('/_platform/announcements/')({
 
 type Pending = { input: SendAnnouncementInput; approvalId: string; at: number };
 
+// The waiting approval survives leaving or reloading the page (this tab only): the server sends
+// nothing by itself, so a granted approval must be re-sent from here when the page comes back.
+const PENDING_KEY = 'biddaloy:announcementPending';
+
+function loadPending(): Pending | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    const p = raw ? (JSON.parse(raw) as Partial<Pending>) : null;
+    return p && typeof p.approvalId === 'string' && typeof p.at === 'number' && p.input
+      ? (p as Pending)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePending(p: Pending | null): void {
+  try {
+    if (p) sessionStorage.setItem(PENDING_KEY, JSON.stringify(p));
+    else sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Storage blocked: the wait still works until the page is left.
+  }
+}
+
 function AnnouncementsPage() {
   const { t } = useTranslation('platformAnnouncements');
-  const list = useAnnouncements();
+  const [listPage, setListPage] = React.useState(1);
+  const list = useAnnouncements({
+    limit: LIST_PAGE_SIZE,
+    offset: (listPage - 1) * LIST_PAGE_SIZE,
+  });
   const previewMutation = usePreviewAnnouncement();
   const send = useSendAnnouncement();
   const approvals = usePlatformApprovals();
 
   const [formKey, setFormKey] = React.useState(0);
   const [preview, setPreview] = React.useState<PreviewState>({ kind: 'loading' });
-  const [pending, setPending] = React.useState<Pending | null>(null);
+  const [pending, setPendingState] = React.useState<Pending | null>(loadPending);
+  const setPending = React.useCallback((p: Pending | null) => {
+    setPendingState(p);
+    savePending(p);
+  }, []);
   const [sent, setSent] = React.useState<Announcement | null>(null);
   const [usedNote, setUsedNote] = React.useState(false);
 
@@ -128,7 +162,7 @@ function AnnouncementsPage() {
       setUsedNote(true);
       void refetchList();
     }
-  }, [pending, status, refetchList]);
+  }, [pending, status, refetchList, setPending]);
 
   return (
     <PageContainer>
@@ -193,6 +227,10 @@ function AnnouncementsPage() {
           rows={list.data?.items ?? []}
           loading={list.isLoading}
           isFetching={list.isFetching}
+          page={listPage}
+          pageSize={LIST_PAGE_SIZE}
+          total={list.data?.total ?? 0}
+          onPageChange={setListPage}
         />
       )}
     </PageContainer>

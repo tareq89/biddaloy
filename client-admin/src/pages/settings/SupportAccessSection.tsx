@@ -19,9 +19,10 @@ import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { SettingsSaved, SettingsSection } from './settings-layout';
-import { SupportAccessSessionsList } from './SupportAccessSessionsList';
+import { Pager, SupportAccessSessionsList } from './SupportAccessSessionsList';
 
 const DAYS = 90;
+const LIMIT = 100;
 const MODES: readonly SupportAccessMode[] = ['allowed', 'ask', 'blocked'];
 
 export function SupportAccessSection() {
@@ -29,9 +30,17 @@ export function SupportAccessSection() {
   const { t: tAuth } = useTranslation('auth');
   const settings = useSupportAccessSettings();
   const change = useChangeSupportAccessMode();
-  const sessions = useSupportSessions({ days: DAYS, limit: 100 });
-  const platformActions = useSupportPlatformActions({ days: DAYS, limit: 100 });
-  const requests = useSupportRequests({ status: 'pending', limit: 100 });
+  // The server pages each list (100 a page); a full page offers Next so no record is out of reach.
+  const [sessionsPage, setSessionsPage] = React.useState(1);
+  const [actionsPage, setActionsPage] = React.useState(1);
+  const [requestsPage, setRequestsPage] = React.useState(1);
+  const sessions = useSupportSessions({ days: DAYS, limit: LIMIT, page: sessionsPage });
+  const platformActions = useSupportPlatformActions({
+    days: DAYS,
+    limit: LIMIT,
+    page: actionsPage,
+  });
+  const requests = useSupportRequests({ status: 'pending', limit: LIMIT, page: requestsPage });
   const end = useEndSupportSession();
   const [picked, setPicked] = React.useState<SupportAccessMode | undefined>(undefined);
   const [warnOpen, setWarnOpen] = React.useState(false);
@@ -104,7 +113,13 @@ export function SupportAccessSection() {
 
       <div className="mt-6 border-t border-border-subtle pt-4">
         <h3 className="text-h3">{t('requestsTitle')}</h3>
-        {waiting.length === 0 ? (
+        {requests.isError ? (
+          <ErrorState message={t('requestsLoadError')} onRetry={() => void requests.refetch()} />
+        ) : requests.isPending ? (
+          <p role="status" className="mt-2 text-text-secondary">
+            {t('loading')}
+          </p>
+        ) : waiting.length === 0 && requestsPage === 1 ? (
           <p className="mt-2 text-text-secondary">{t('requestsNone')}</p>
         ) : (
           <ul className="mt-2 space-y-2">
@@ -129,14 +144,31 @@ export function SupportAccessSection() {
             ))}
           </ul>
         )}
+        <Pager
+          page={requestsPage}
+          hasMore={(requests.data?.length ?? 0) === LIMIT}
+          onPage={setRequestsPage}
+        />
       </div>
 
       <div className="mt-6 border-t border-border-subtle pt-4">
         <SupportAccessSessionsList
           sessions={sessions.data}
           platformActions={platformActions.data}
-          loading={sessions.isPending || platformActions.isPending}
-          error={sessions.isError || platformActions.isError}
+          sessionsLoading={sessions.isPending}
+          sessionsError={sessions.isError}
+          actionsLoading={platformActions.isPending}
+          actionsError={platformActions.isError}
+          sessionsPager={{
+            page: sessionsPage,
+            hasMore: (sessions.data?.length ?? 0) === LIMIT,
+            onPage: setSessionsPage,
+          }}
+          actionsPager={{
+            page: actionsPage,
+            hasMore: (platformActions.data?.length ?? 0) === LIMIT,
+            onPage: setActionsPage,
+          }}
           ending={end.isPending}
           endFailed={end.isError}
           onEnd={(id) => end.mutate({ id })}

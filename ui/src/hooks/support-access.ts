@@ -48,9 +48,9 @@ export function useConfirmSupportAccess() {
 }
 
 export function useSupportRequests(
-  params: { status?: 'pending' | 'decided'; limit?: number } = {},
+  params: { status?: 'pending' | 'decided'; limit?: number; page?: number } = {},
 ) {
-  const query = { status: params.status, limit: clampLimit(params.limit) };
+  const query = { status: params.status, limit: clampLimit(params.limit), page: params.page };
   return useQuery({
     queryKey: supportAccessKeys.list({ kind: 'requests', ...query }),
     queryFn: async ({ signal }) =>
@@ -60,6 +60,16 @@ export function useSupportRequests(
           signal,
         })
       ).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** One request of this school by id (tenant-scoped on the server), not a slot in a capped list. */
+export function useSupportRequest(id: string) {
+  return useQuery({
+    queryKey: supportAccessKeys.detail(`request-${id}`),
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<SupportRequestItem>(`/support-access/requests/${id}`, { signal })).data,
     retry: shouldRetryQuery,
   });
 }

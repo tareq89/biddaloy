@@ -120,6 +120,37 @@ describe('[99.G4.01] support tab flag', () => {
       role: null,
     });
     expect(readSupportEntry()).toBe('expired');
+    // The ended marker stays across reloads: no fall back to the refresh cookie.
+    expect(readSupportEntry()).toBe('expired');
+  });
+
+  it('a normal sign-in lifts the ended marker', () => {
+    setSupportSession(true);
+    clearAuthState(); // a support tab ended
+    expect(readSupportEntry()).toBe('expired');
+    setAccessToken('normal-token');
     expect(readSupportEntry()).toBeNull();
+  });
+
+  it('a normal logout leaves no ended marker', () => {
+    setAccessToken('normal-token');
+    clearAuthState();
+    expect(readSupportEntry()).toBeNull();
+  });
+
+  it('keeps the entry in memory when sessionStorage refuses the write', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const entry = {
+      token: 't',
+      sessionId: 's',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      tenantId: 'tenant-a',
+      role: 'ADMIN',
+    };
+    writeSupportEntry(entry);
+    spy.mockRestore();
+    expect(readSupportEntry()).toEqual(entry);
   });
 });
