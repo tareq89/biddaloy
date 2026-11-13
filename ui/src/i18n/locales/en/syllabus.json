@@ -2,7 +2,7 @@
   "list": {
     "title": "Syllabus",
     "caption": "Syllabus topics for the selected class and subject",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "subjectLabel": "Subject",
     "columnName": "Topic",
     "columnStatus": "Status",

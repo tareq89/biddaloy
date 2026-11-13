@@ -24,11 +24,15 @@ function Strings() {
   const classesT = useTranslation('classes').t;
   const fees = useTranslation('fees').t;
   const students = useTranslation('students').t;
+  const comms = useTranslation('communications').t;
+  const years = useTranslation('academicYears').t;
   return (
     <ul>
       <li data-testid="fees">{fees('dues.columnSection')}</li>
       <li data-testid="classes">{classesT('list.columnSections')}</li>
       <li data-testid="students">{students('list.columnSection')}</li>
+      <li data-testid="comms">{comms('send.guardianListLabel', { name: 'X' })}</li>
+      <li data-testid="years">{years('list.columnStudents')}</li>
     </ul>
   );
 }
@@ -38,6 +42,7 @@ describe('entity words in converted namespaces', () => {
     i18n.addResource('en', 'common', 'entities.section_one', 'Section');
     i18n.addResource('en', 'common', 'entities.section_other', 'Sections');
     i18n.addResource('en', 'common', 'entities.student_other', 'Students');
+    i18n.addResource('en', 'common', 'entities.guardian_other', 'Guardians');
     await cleanupTestState();
   });
 
@@ -46,6 +51,8 @@ describe('entity words in converted namespaces', () => {
     renderWithProviders(<Strings />, opts);
     expect((await screen.findByTestId('classes')).textContent).toBe('Sections');
     expect(screen.getByTestId('students').textContent).toBe('Section');
+    expect(screen.getByTestId('comms').textContent).toBe('Guardians of X');
+    expect(screen.getByTestId('years').textContent).toBe('Students');
   });
 
   it('section -> Batch, student -> Trainee reach classes, students and fees copy', async () => {
@@ -57,5 +64,6 @@ describe('entity words in converted namespaces', () => {
     expect(await screen.findByText('Batches')).toBeTruthy();
     expect(screen.getByTestId('students').textContent).toBe('Batch');
     expect(screen.getByTestId('fees').textContent).toBe('Batch');
+    expect(screen.getByTestId('years').textContent).toBe('Trainees');
   });
 });
