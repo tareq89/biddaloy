@@ -27,6 +27,7 @@ export const ALLOWED: Record<string, string> = {
   'app.module.ts': 'entity list',
   'modules/workbook/codec/entity-coverage.ts': 'coverage table',
   'scripts/demo-seed/slices/comms-print.ts': 'fresh-database demo seed, a reviewed exception',
+  'scripts/demo-seed/slices.ts': 'EXEMPT list names SmsCreditLotDraw; no write',
   'modules/calendar/calendar.module.ts': 'comment mention',
   'modules/calendar/calendar-notify.service.ts': 'comment mention',
   'modules/push/entities/push-subscription.entity.ts': 'comment mention',
