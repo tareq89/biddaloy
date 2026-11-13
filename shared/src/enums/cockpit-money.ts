@@ -19,6 +19,7 @@ export enum SmsLotStatus {
   ACTIVE = 'ACTIVE',
   USED_UP = 'USED_UP',
   EXPIRED = 'EXPIRED',
+  REFUNDED = 'REFUNDED',
 }
 
 export enum CouponDiscountKind {

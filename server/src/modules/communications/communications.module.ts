@@ -32,6 +32,8 @@ import {
 import { FeeNotifyProcessor } from './fee-notify.processor';
 import { CreditsModule } from './credits/credits.module';
 import { CreditsController } from './credits/credits.controller';
+import { SmsSourceController } from './sms-source/sms-source.controller';
+import { SmsSourceService } from './sms-source/sms-source.service';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
 import { InvoicesModule } from '../invoices/invoices.module';
@@ -104,6 +106,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     InvoiceNotificationsListener,
     FeeNotifyProcessor,
     CommunicationsDashboardService,
+    SmsSourceService,
   ],
   // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
   // matches routes in registration order and `CommunicationsController` has
@@ -111,6 +114,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
   // registered from another module. `SmsCreditService` comes from `CreditsModule`.
   controllers: [
     CreditsController,
+    SmsSourceController, // literal path: before `CommunicationsController` `:id`
     CommunicationsController,
     ProviderConnectionTestController,
     CommunicationsDashboardController,

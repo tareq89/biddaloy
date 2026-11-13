@@ -15,6 +15,8 @@ import { UserController } from '../../src/modules/users/users.controller';
 import { PlatformOpsQueuesController } from '../../src/modules/platform-control/ops/ops-queues.controller';
 import { PlatformOpsSystemController } from '../../src/modules/platform-control/ops/ops-system.controller';
 import { PlatformAnnouncementsController } from '../../src/modules/platform-control/announcements/platform-announcements.controller';
+import { SmsBundleOrdersController } from '../../src/modules/sms-bundles/orders/sms-bundle-orders.controller';
+import { SmsBundlePayController } from '../../src/modules/sms-bundles/payment/sms-bundle-pay.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -45,6 +47,9 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   PlatformOpsSystemController,
   PlatformAnnouncementsController,
   CockpitMfaController,
+  // [Epic 100 D29] Buying and paying an SMS package are money writes.
+  SmsBundleOrdersController,
+  SmsBundlePayController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -95,6 +100,9 @@ export const FAIL_CLOSED = [
   'POST /platform/ops/queues/:name/retry-failed',
   'POST /platform/ops/restore-lock/:schoolId/release',
   'POST /platform/announcements',
+  // [Epic 100 D29] SMS package buy and pay: no rate limit, no money moved.
+  'POST /sms-bundles/orders',
+  'POST /sms-bundles/orders/:id/pay/bkash',
   // The code is the credential; a missing rate limit would allow unlimited guessing.
   'POST /auth/impersonation/exchange',
 ];
@@ -160,4 +168,8 @@ export const FAIL_OPEN = [
   'GET /platform/ops/system',
   'GET /platform/announcements',
   'POST /platform/announcements/preview',
+  // [Epic 100] SMS package reads: Postgres only.
+  'GET /sms-bundles/catalog',
+  'GET /sms-bundles/orders',
+  'GET /sms-bundles/orders/:id',
 ];

@@ -386,6 +386,16 @@ describe('SmsCreditService', () => {
       expect(await service.isMetered(TENANT_ID)).toBe(false);
     });
 
+    it.each([
+      [{ source: 'SCHOOLMANAGERP', metering: 'OFF' }, true],
+      [{ source: 'OWN', metering: 'PLATFORM' }, false],
+      [{ metering: 'PLATFORM' }, true],
+    ])('reads the source like the resolver: %j is metered=%s', async (sms, expected) => {
+      schoolsService.getResolvedSettings.mockResolvedValue({ communications: { sms } });
+
+      expect(await service.isMetered(TENANT_ID)).toBe(expected);
+    });
+
     it('false when no communications.sms section is set at all', async () => {
       schoolsService.getResolvedSettings.mockResolvedValue({});
 
