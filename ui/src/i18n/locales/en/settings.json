@@ -858,7 +858,8 @@
       "save": "Save",
       "saved": "Words saved",
       "notSaved": "Not saved — try again",
-      "invalid": "Use 1 to 40 characters, with no < or >."
+      "invalid": "Use 1 to 40 characters, with no < or >.",
+      "partialRow": "Fill all three words, or clear the whole row to go back to the stock word"
     }
   }
 }

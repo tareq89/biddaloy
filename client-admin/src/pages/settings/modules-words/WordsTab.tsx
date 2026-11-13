@@ -43,6 +43,12 @@ export function WordsTab({ schoolId }: WordsTabProps) {
   const rowOf = (key: LabelKey): Row => draft[key] ?? current(key);
   const changed = KEYS.filter((k) => FIELDS.some((f) => rowOf(k)[f].trim() !== current(k)[f]));
   const invalid = KEYS.some((k) => FIELDS.some((f) => fieldInvalid(rowOf(k)[f].trim())));
+  /** Some of the three words filled, some blank: cannot be saved (clear the whole row instead). */
+  const partial = (k: LabelKey) => {
+    const n = FIELDS.filter((f) => rowOf(k)[f].trim() !== '').length;
+    return n > 0 && n < FIELDS.length;
+  };
+  const anyPartial = KEYS.some(partial);
 
   const edit = (key: LabelKey, patch: Partial<Row>) =>
     setDraft((d) => ({ ...d, [key]: { ...rowOf(key), ...patch } }));
@@ -52,18 +58,24 @@ export function WordsTab({ schoolId }: WordsTabProps) {
       setShowInvalid(true);
       return;
     }
-    // ponytail: the server cannot drop one word (`{en:{one:null}}`), so a row is either all
-    // blank (the whole key goes, null) or sends the words that are filled.
+    // The server deep-merges a `labels` entry per field (mergeModulesLabels, tenant-settings-resolver.ts),
+    // so only fields that differ from what the screen says now are sent; the rest stay stock.
+    // An all-blank row sends null (back to the stock word). A half-blank row never gets here.
     const labels: Record<string, LabelEntry | null> = {};
     for (const key of changed) {
       const r = rowOf(key);
+      const cur = current(key);
       const [one, other, word] = [r.one.trim(), r.other.trim(), r.bn.trim()];
+      const en = {
+        ...(one !== cur.one && { one }),
+        ...(other !== cur.other && { other }),
+      };
       labels[key] =
         !one && !other && !word
           ? null
           : {
-              ...(one || other ? { en: { ...(one && { one }), ...(other && { other }) } } : {}),
-              ...(word && { bn: word }),
+              ...(Object.keys(en).length > 0 && { en }),
+              ...(word !== cur.bn && { bn: word }),
             };
     }
     setFailed(false);
@@ -120,6 +132,7 @@ export function WordsTab({ schoolId }: WordsTabProps) {
                 </span>
                 {FIELDS.map((f) => {
                   const bad = showInvalid && fieldInvalid(r[f].trim());
+                  const blank = partial(key) && r[f].trim() === '';
                   const id = `word-${key}-${f}`;
                   return (
                     <div key={f} role="cell" className="flex flex-col gap-1.5">
@@ -130,7 +143,7 @@ export function WordsTab({ schoolId }: WordsTabProps) {
                         id={id}
                         className="min-h-11 md:min-h-8"
                         value={r[f]}
-                        aria-invalid={bad || undefined}
+                        aria-invalid={bad || blank || undefined}
                         aria-describedby={bad ? `${id}-err` : undefined}
                         onChange={(e) => edit(key, { [f]: e.target.value })}
                       />
@@ -143,6 +156,11 @@ export function WordsTab({ schoolId }: WordsTabProps) {
                   );
                 })}
                 <div role="cell" className="flex flex-col items-start gap-2">
+                  {partial(key) && (
+                    <p role="alert" className="text-destructive">
+                      {t('modulesWords.words.partialRow')}
+                    </p>
+                  )}
                   {(LABEL_SUGGESTIONS[key] ?? []).map((s) => (
                     <Button
                       key={s.en?.one}
@@ -184,7 +202,7 @@ export function WordsTab({ schoolId }: WordsTabProps) {
       <div className="flex justify-end">
         <Button
           className="min-h-11 w-full md:w-auto"
-          disabled={changed.length === 0 || update.isPending}
+          disabled={changed.length === 0 || anyPartial || update.isPending}
           onClick={() => void save()}
         >
           {t('modulesWords.words.save')}
