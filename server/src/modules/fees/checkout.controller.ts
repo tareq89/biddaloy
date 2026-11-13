@@ -46,7 +46,8 @@ import {
 } from './dto/checkout.dto';
 import { Payment } from './entities/payment.entity';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
-import { ApprovalScope, JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** `POST /payments/:id/reverse` (16.6.1) body — just the audit-trail
  * reason, everything else about the reversal is derived server-side from
@@ -76,6 +77,7 @@ class ReversePaymentDto {
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
+@RequiresModule(ModuleKey.fees)
 export class CheckoutController {
   constructor(
     @Inject(CheckoutCartService) private readonly checkoutCartService: CheckoutCartService,

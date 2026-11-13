@@ -44,6 +44,7 @@ import { ConnectionTestResultDto } from './connection-test-result.dto';
  * `MessagingConfigResolver`'s dependencies since #8.7.10), so the
  * controller has to live on this side.
  */
+// core: settings route (schools/:id/settings/test, SETTINGS_MANAGE), not a manual send page
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools')
