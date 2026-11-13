@@ -3,12 +3,12 @@
   "stepOf": "ধাপ {{current}} / {{total}}",
   "pick": {
     "title": "কী পূরণ করবেন বেছে নিন",
-    "description": "শাখা আর তারিখ বেছে নিন। আপনার শিক্ষার্থীদের নাম বসানো একটি শীট তৈরি হবে।",
-    "section": "শাখা",
-    "sections": "শাখা",
+    "description": "$t(common:entities.section_one) আর তারিখ বেছে নিন। আপনার শিক্ষার্থীদের নাম বসানো একটি শীট তৈরি হবে।",
+    "section": "$t(common:entities.section_one)",
+    "sections": "$t(common:entities.section_one)",
     "date": "তারিখ",
-    "sectionsLimit": "একবারে সর্বোচ্চ {{max}}টি শাখা বাছা যায়।",
-    "noSection": "অন্তত একটি শাখা বেছে নিন।",
+    "sectionsLimit": "একবারে সর্বোচ্চ {{max}}টি $t(common:entities.section_one) বাছা যায়।",
+    "noSection": "অন্তত একটি $t(common:entities.section_one) বেছে নিন।",
     "sectionsLoading": "আপনার শাখাগুলো আনা হচ্ছে…",
     "sectionsFailed": "আপনার শাখাগুলো আনা যায়নি।"
   },
@@ -17,7 +17,7 @@
     "button": "শীট নামান",
     "downloading": "শীট তৈরি হচ্ছে…",
     "failed": "শীট তৈরি করা যায়নি। আবার চেষ্টা করুন।",
-    "denied": "এই দিনে এই শাখাগুলোর একটির হাজিরা আপনি দিতে পারবেন না। কম শাখা বা অন্য তারিখ বেছে নিন।",
+    "denied": "এই দিনে এই শাখাগুলোর একটির হাজিরা আপনি দিতে পারবেন না। কম $t(common:entities.section_one) বা অন্য তারিখ বেছে নিন।",
     "hint": "উপস্থিত হলে উ, অনুপস্থিত হলে অ, দেরি হলে দে, ছুটি হলে ছু লিখুন। যেমন আছে তেমন রাখতে ঘরটি খালি রাখুন।"
   },
   "upload": {
@@ -34,8 +34,8 @@
     "title": "সেভ করার আগে দেখে নিন",
     "caption": "শীটের প্রতিটি সারি — ভুলগুলো আগে",
     "columnDate": "তারিখ",
-    "columnClass": "শ্রেণি",
-    "columnSection": "শাখা",
+    "columnClass": "$t(common:entities.class_one)",
+    "columnSection": "$t(common:entities.section_one)",
     "columnRoll": "রোল",
     "columnName": "নাম",
     "columnChange": "অবস্থা: আগে → পরে",
@@ -72,14 +72,14 @@
   },
   "rowError": {
     "ROLL_NOT_IN_SECTION": "এই রোলটি {{section}}-এ নেই — রোল দেখে নিন।",
-    "SECTION_NOT_FOUND": "এই শাখা পাওয়া যায়নি — শাখার নাম দেখে নিন।",
+    "SECTION_NOT_FOUND": "এই $t(common:entities.section_one) পাওয়া যায়নি — শাখার নাম দেখে নিন।",
     "NOT_ALLOWED_SECTION": "এই শাখার হাজিরা নেওয়ার অনুমতি আপনার নেই।",
     "DATE_OUTSIDE_YEAR": "তারিখটি শিক্ষাবর্ষের বাইরে — তারিখ দেখে নিন।",
     "NON_WORKING_DAY": "এই তারিখে স্কুল বন্ধ — কাজের দিন বেছে নিন।",
     "FUTURE_DATE": "এই তারিখ এখনো আসেনি — শুধু আজ আর আগের তারিখ পূরণ করা যায়।",
     "NEEDS_CORRECT_PERMISSION": "আপনি শুধু নতুন দিন পূরণ করতে পারবেন। লেখা হাজিরা বদলাতে প্রশাসককে বলুন।",
     "BAD_STATUS": "অবস্থাটি বোঝা যায়নি — উ, অ, দে বা ছু লিখুন, অথবা খালি রাখুন।",
-    "DUPLICATE_ROW": "এই শিক্ষার্থী আর তারিখ দুইবার আছে — একটি সারি রাখুন।",
+    "DUPLICATE_ROW": "এই $t(common:entities.student_one) আর তারিখ দুইবার আছে — একটি সারি রাখুন।",
     "NAME_MISMATCH": "নামটি এই রোলের সাথে মেলে না — রোল দেখে নিন।"
   },
   "done": {

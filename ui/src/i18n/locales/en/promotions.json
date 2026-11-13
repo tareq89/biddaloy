@@ -1,6 +1,6 @@
 {
   "list": {
-    "title": "Class promotion",
+    "title": "$t(common:entities.class_one) promotion",
     "newRun": "New promotion list",
     "caption": "Promotion lists",
     "columnTargetYear": "Next academic year",
@@ -13,7 +13,7 @@
     "statusDraft": "Draft",
     "statusCommitted": "Finalised",
     "subtitle": "Move students up to the next class based on their results.",
-    "columnSourceTarget": "Class → next class",
+    "columnSourceTarget": "$t(common:entities.class_one) → next class",
     "cardSubtitle": "Next academic year {{year}}",
     "view": "View",
     "emptyValue": "—",
@@ -51,7 +51,7 @@
     "retainClassMissing": "No class is set up to retain students who didn't pass — add one first."
   },
   "grid": {
-    "columnStudent": "Student",
+    "columnStudent": "$t(common:entities.student_one)",
     "columnMeritRank": "Rank",
     "columnMeanGpa": "Mean GPA",
     "columnSuggested": "Suggested",
@@ -103,7 +103,7 @@
       "unknown": "Could not place in a section"
     },
     "errorsTitle": "Fix {{n}} problem(s) before finalising",
-    "errorsBody": "Students marked in red could not be placed in any section of the next class. Raise the section capacity and update from results, or change their decision.",
+    "errorsBody": "$t(common:entities.student_other) marked in red could not be placed in any section of the next class. Raise the section capacity and update from results, or change their decision.",
     "countsLabel": "Summary",
     "countBadge": "{{label}} {{n}}",
     "footerHint": "{{n}} students · Keyboard: press P, R or G on a decision, ↑ ↓ to move between rows, Ctrl+Enter to finalise.",
@@ -115,7 +115,7 @@
       "exams": "Exams averaged",
       "examCount": "{{n}}",
       "algorithm": "Placement",
-      "students": "Students",
+      "students": "$t(common:entities.student_other)",
       "studentCount": "{{n}}",
       "committedAt": "Finalised on",
       "committedBy": "Finalised by",
@@ -167,7 +167,7 @@
     "legend": "Rank students by",
     "exams": "Average of chosen exams",
     "final": "Final result",
-    "finalHelp": "Students are ranked by their position in the published final result.",
+    "finalHelp": "$t(common:entities.student_other) are ranked by their position in the published final result.",
     "finalNone": "This class's final result is not published yet.",
     "finalLink": "Go to final results",
     "finalLoadError": "Couldn't load the final result. Please try again."
@@ -176,9 +176,9 @@
     "title": "Set groups",
     "setGroupsAction": "Set groups",
     "loadError": "Couldn't load the students. Please try again.",
-    "caption": "Students and their groups",
-    "columnStudent": "Student",
-    "columnSection": "Section",
+    "caption": "$t(common:entities.student_other) and their groups",
+    "columnStudent": "$t(common:entities.student_one)",
+    "columnSection": "$t(common:entities.section_one)",
     "columnGpa": "GPA",
     "columnMarks": "{{subject}} marks",
     "columnSource": "Result",

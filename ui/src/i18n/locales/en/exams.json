@@ -11,9 +11,9 @@
     "errorMessage": "Couldn't load exams.",
     "announceResults": "Showing {{visible}} of {{total}} exams",
     "subtitle": "Every exam belongs to one class and one academic year.",
-    "columnClass": "Class",
+    "columnClass": "$t(common:entities.class_one)",
     "columnAcademicYear": "Academic year",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
     "classNeedsYear": "Pick an academic year first",
     "view": "View",
@@ -44,7 +44,7 @@
     "kindLabel": "Kind",
     "academicYearLabel": "Academic year",
     "academicYearPlaceholder": "Select",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "classPlaceholder": "Select",
     "errorNameRequired": "Name is required.",
     "errorAcademicYearClassRequired": "Academic year and class are required.",
@@ -55,7 +55,7 @@
     "classNeedsYear": "Pick an academic year first",
     "deadlineLabel": "Mark entry deadline",
     "deadlinePlaceholder": "Pick a date",
-    "deadlineHelp": "Teachers see the days left on their dashboard. Leave empty if there is none.",
+    "deadlineHelp": "$t(common:entities.teacher_other) see the days left on their dashboard. Leave empty if there is none.",
     "deadlineClear": "Clear date",
     "errorPublished": "This exam's results are published. Reopen the results before changing its type.",
     "errorClassNoGrade": "This class has no grade set, so an exam structure can't be used. Set the class grade first, or create the exam without a structure."
@@ -72,7 +72,7 @@
     },
     "edit": "Edit",
     "facts": {
-      "class": "Class",
+      "class": "$t(common:entities.class_one)",
       "academicYear": "Academic year",
       "kind": "Type",
       "publishedAt": "Results published"
@@ -114,13 +114,13 @@
     "loadError": "Couldn't load submission progress.",
     "submittedOf": "{{submitted}} of {{total}} marks lists submitted",
     "tableCaption": "Outstanding section-subject marks lists",
-    "columnSection": "Section",
+    "columnSection": "$t(common:entities.section_one)",
     "title": "Marks submission progress",
     "hint": "Process the results once every list is submitted.",
     "outstandingTitle": "Lists not submitted yet",
     "outstandingHelp": "The pencil opens marks entry for that section and subject.",
     "columnSubject": "Subject",
-    "sectionValue": "Section {{name}}",
+    "sectionValue": "$t(common:entities.section_one) {{name}}",
     "enterMarks": "Enter marks",
     "allSubmittedTitle": "Every marks list is submitted",
     "allSubmittedText": "You can process the results now.",
@@ -215,7 +215,7 @@
     "examPlaceholder": "Select an exam",
     "stateDraft": "Draft",
     "tableCaption": "Marks lists you may enter",
-    "columnSection": "Section · Subject",
+    "columnSection": "$t(common:entities.section_one) · Subject",
     "columnState": "State",
     "loadError": "Couldn't load marks lists.",
     "empty": "No marks lists for this exam yet — check back once components are set up.",
@@ -340,11 +340,11 @@
     "examsHeading": "Result by exam",
     "workingDays": "Working days",
     "presentDays": "Days present",
-    "remarkLabel": "Class teacher's remark",
+    "remarkLabel": "$t(common:entities.class_one) teacher's remark",
     "conductLabel": "Conduct",
     "noGrade": "—",
     "attendance": "Attendance",
-    "guardian": "Guardian"
+    "guardian": "$t(common:entities.guardian_one)"
   },
   "analysis": {
     "tabs": {
@@ -352,7 +352,7 @@
       "defaulted": "Defaulters",
       "passFail": "Pass / fail"
     },
-    "sectionFilter": "Section",
+    "sectionFilter": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "print": "Print",
     "downloadCsv": "Download CSV",
@@ -366,9 +366,9 @@
     },
     "merit": {
       "columnPosition": "Position",
-      "columnSectionPosition": "Section position",
+      "columnSectionPosition": "$t(common:entities.section_one) position",
       "columnStudent": "Roll · Name",
-      "columnSection": "Section",
+      "columnSection": "$t(common:entities.section_one)",
       "columnTotal": "Total",
       "columnGpa": "GPA",
       "columnGrade": "Grade",
@@ -378,7 +378,7 @@
     },
     "defaulted": {
       "columnStudent": "Roll · Name",
-      "columnSection": "Section",
+      "columnSection": "$t(common:entities.section_one)",
       "columnReasons": "Reasons",
       "columnTotal": "Total",
       "columnGpa": "GPA",
@@ -462,7 +462,7 @@
     "yearLabel": "Academic year",
     "loadError": "Couldn't load final results.",
     "list": {
-      "classColumn": "Class",
+      "classColumn": "$t(common:entities.class_one)",
       "statusColumn": "Status",
       "publishedColumn": "Published on",
       "start": "Start",
@@ -543,7 +543,7 @@
     },
     "publishDialog": {
       "title": "Publish the final results?",
-      "description": "Guardians can see the result once it is published.",
+      "description": "$t(common:entities.guardian_other) can see the result once it is published.",
       "warning": "{{remark}} students have no remark and {{conduct}} have no conduct grades.",
       "warningLink": "Go to section",
       "confirm": "Publish",
@@ -551,7 +551,7 @@
     },
     "reopenDialog": {
       "title": "Reopen the final results?",
-      "description": "Guardians will no longer see the result. Remarks and marks can be changed again.",
+      "description": "$t(common:entities.guardian_other) will no longer see the result. Remarks and marks can be changed again.",
       "confirm": "Reopen",
       "errorMessage": "Couldn't reopen the final results."
     },
@@ -564,7 +564,7 @@
       "errorMessage": "Couldn't send the SMS."
     },
     "results": {
-      "sectionFilter": "Section",
+      "sectionFilter": "$t(common:entities.section_one)",
       "allSections": "All sections",
       "roll": "Roll",
       "name": "Name",
@@ -586,15 +586,15 @@
     "detail": {
       "loadError": "Couldn't load this final result.",
       "facts": {
-        "class": "Class",
+        "class": "$t(common:entities.class_one)",
         "academicYear": "Academic year",
-        "students": "Students",
+        "students": "$t(common:entities.student_other)",
         "failed": "Failed",
         "publishedAt": "Published on"
       }
     },
     "print": {
-      "studentLabel": "Student",
+      "studentLabel": "$t(common:entities.student_one)",
       "printAll": "Print all cards",
       "tabulation": "Tabulation sheet",
       "notBuilt": "Build the results first, then you can print the cards.",
@@ -613,8 +613,8 @@
     "showNamesHelp": "If this is off, the website shows only roll number and marks.",
     "publishTitle": "Show these results on the school website?",
     "publishBody": "Everyone who visits your website will see this exam, its classes, roll numbers and grades.",
-    "publishNamesOn": " Student names will also be shown.",
-    "publishNamesOff": " Student names will not be shown.",
+    "publishNamesOn": " $t(common:entities.student_one) names will also be shown.",
+    "publishNamesOff": " $t(common:entities.student_one) names will not be shown.",
     "publishConfirm": "Show on website",
     "unpublishTitle": "Take these results off the website?",
     "unpublishBody": "The results will no longer be visible to visitors. You can show them again later.",
