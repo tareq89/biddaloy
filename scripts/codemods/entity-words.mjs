@@ -38,6 +38,11 @@ const SKIP_SEGMENTS = new Set([
   'privacy',
   'roles',
   'designations',
+  // settings.json Words tab: the 'Stock word' column and the module/word/kind NAMES must stay
+  // stock text; a nested word would show the school's own word where the stock one is meant.
+  'modulesWords',
+  'kinds',
+  'kindNames',
 ]);
 // common: entities.* lives here. dashboard, nav, teacherAssignments: the guide generator
 // (client-admin/src/help/guide-gen) copies their strings into docs/user-guide/**, where a

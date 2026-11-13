@@ -54,7 +54,7 @@
     "ATTENDANCE": "উপস্থিতি",
     "PERIOD": "পিরিয়ড",
     "HOMEWORK": "বাড়ির কাজ",
-    "CLASS": "আমার শ্রেণি",
+    "CLASS": "আমার $t(common:entities.class_one)",
     "STUDY_PLAN": "পাঠ পরিকল্পনা",
     "FEES": "ফি",
     "EXAMS": "পরীক্ষা",
@@ -82,15 +82,15 @@
     "tabHistory": "ইতিহাস",
     "filterCategory": "ধরন",
     "allCategories": "সব ধরন",
-    "filterClass": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
-    "filterSection": "শাখা",
-    "allSections": "সব শাখা",
+    "filterClass": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
+    "filterSection": "$t(common:entities.section_one)",
+    "allSections": "সব $t(common:entities.section_one)",
     "filterChild": "সন্তান",
     "allChildren": "সব সন্তান",
     "colSeverity": "ধরন",
     "colTitle": "বিষয়",
-    "colWho": "শিক্ষার্থী / শাখা",
+    "colWho": "$t(common:entities.student_one) / $t(common:entities.section_one)",
     "colWhen": "সময়",
     "colState": "অবস্থা",
     "colActions": "কাজ",
@@ -137,7 +137,7 @@
     "quietEnd": "নীরব সময় শেষ",
     "guardianTitle": "যে অভিভাবকের অ্যাপ নেই",
     "smsFallback": "অ্যাপে না পৌঁছালে এসএমএস পাঠান",
-    "smsFallbackHelp": "প্রতিটি এসএমএস-এ ক্রেডিট খরচ হয়। বন্ধ থাকলে অভিভাবক শুধু অ্যাপে দেখবেন।",
+    "smsFallbackHelp": "প্রতিটি এসএমএস-এ ক্রেডিট খরচ হয়। বন্ধ থাকলে $t(common:entities.guardian_one) শুধু অ্যাপে দেখবেন।",
     "smsDailyCap": "একজন অভিভাবককে দিনে সর্বোচ্চ এসএমএস",
     "unitMinutes": "মিনিট",
     "unitMessages": "টি বার্তা",
@@ -191,7 +191,7 @@
     },
     "promotion": {
       "groups_pending": {
-        "name": "গ্রুপ ছাড়া প্রমোশন পাওয়া শিক্ষার্থী",
+        "name": "গ্রুপ ছাড়া প্রমোশন পাওয়া $t(common:entities.student_one)",
         "help": "খসড়া প্রমোশনে কতজনের গ্রুপ ঠিক করা বাকি, তা শ্রেণি শিক্ষক ও অ্যাডমিনকে জানায়।"
       }
     },
@@ -207,7 +207,7 @@
         "help": "এ বছরের রুটিন প্রকাশ না হলে জানায়।"
       },
       "subject_no_teacher": {
-        "name": "শিক্ষক ছাড়া রুটিনের পিরিয়ড",
+        "name": "$t(common:entities.teacher_one) ছাড়া রুটিনের পিরিয়ড",
         "help": "যে পিরিয়ডে শিক্ষক নেই তা জানায়।"
       },
       "substitution_today": {
@@ -215,7 +215,7 @@
         "help": "আজ কোন পিরিয়ড বদলি হিসেবে নিতে হবে তা জানায়।"
       },
       "uncovered_periods": {
-        "name": "আজ শিক্ষক ছাড়া পিরিয়ড",
+        "name": "আজ $t(common:entities.teacher_one) ছাড়া পিরিয়ড",
         "help": "ছুটিতে থাকা শিক্ষকের বদলি না থাকলে জানায়।"
       },
       "changed_today": {
@@ -225,13 +225,13 @@
     },
     "section": {
       "no_class_teacher": {
-        "name": "শ্রেণি শিক্ষক ছাড়া শাখা",
+        "name": "$t(common:entities.class_one) $t(common:entities.teacher_one) ছাড়া $t(common:entities.section_one)",
         "help": "যে শাখায় শ্রেণি শিক্ষক নেই তা জানায়।"
       }
     },
     "guardian": {
       "contact_missing": {
-        "name": "মোবাইল নম্বর ছাড়া অভিভাবক",
+        "name": "মোবাইল নম্বর ছাড়া $t(common:entities.guardian_one)",
         "help": "অভিভাবকের ফোন নম্বর না থাকলে জানায়।"
       },
       "profile_incomplete": {
@@ -287,7 +287,7 @@
         "help": "যে বকেয়ার রিমাইন্ডার যায়নি তা মনে করায়।"
       },
       "unassigned_students": {
-        "name": "এ মাসে ফি ছাড়া শিক্ষার্থী",
+        "name": "এ মাসে ফি ছাড়া $t(common:entities.student_one)",
         "help": "যাদের ফি ঠিক করা হয়নি তাদের কথা জানায়।"
       },
       "structure_missing_new_year": {
@@ -345,7 +345,7 @@
         "help": "ছবি বা জন্ম নিবন্ধন নম্বর না থাকলে মনে করায়।"
       },
       "at_risk": {
-        "name": "ঝুঁকিতে থাকা শিক্ষার্থী",
+        "name": "ঝুঁকিতে থাকা $t(common:entities.student_one)",
         "help": "যাদের উপস্থিতি বা নম্বর কমছে তাদের তালিকা দেয়।"
       }
     },
@@ -542,9 +542,9 @@
     "whoHelp": "এক বা একাধিক দল বাছুন।",
     "byRole": "রোল অনুযায়ী",
     "addRole": "রোল যোগ করুন",
-    "studentsOfSections": "শাখার শিক্ষার্থী",
-    "guardiansOfSections": "শাখার অভিভাবক",
-    "addSection": "শাখা যোগ করুন",
+    "studentsOfSections": "শাখার $t(common:entities.student_one)",
+    "guardiansOfSections": "শাখার $t(common:entities.guardian_one)",
+    "addSection": "$t(common:entities.section_one) যোগ করুন",
     "namedPeople": "নির্দিষ্ট ব্যক্তি",
     "findPerson": "নাম বা ফোন দিয়ে খুঁজুন",
     "removeChip": "{{label}} সরান",
@@ -607,8 +607,8 @@
     "month": "মাস",
     "rule": "নিয়ম",
     "allRules": "সব নিয়ম",
-    "section": "শাখা",
-    "allSections": "সব শাখা",
+    "section": "$t(common:entities.section_one)",
+    "allSections": "সব $t(common:entities.section_one)",
     "factTotal": "মোট সতর্কতা",
     "fewerThan": "{{month}}-এর চেয়ে {{n}}টি কম",
     "moreThan": "{{month}}-এর চেয়ে {{n}}টি বেশি",
@@ -620,11 +620,11 @@
     "hours": "{{n}} ঘণ্টা",
     "factOpen": "এখনো খোলা",
     "openUrgent": "{{n}}টি জরুরি",
-    "byRuleTitle": "নিয়ম ও শাখা অনুযায়ী",
+    "byRuleTitle": "নিয়ম ও $t(common:entities.section_one) অনুযায়ী",
     "colRule": "নিয়ম",
     "colType": "ধরন",
     "colTotal": "মোট",
-    "noSection": "শাখা নেই",
+    "noSection": "$t(common:entities.section_one) নেই",
     "totalRules_one": "মোট {{n}}টি নিয়ম",
     "totalRules_other": "মোট {{n}}টি নিয়ম",
     "emptyTitle": "{{month}}-এ কোনো সতর্কতা নেই",
@@ -639,7 +639,7 @@
     "categoryHelp": {
       "SETUP": "স্কুলের সেটআপ ও ট্রায়াল",
       "SYSTEM": "এসএমএস ক্রেডিট, ব্যর্থ বার্তা, ব্যাকআপ",
-      "STRUCTURE": "রুটিন, শ্রেণি শিক্ষক, যোগাযোগ",
+      "STRUCTURE": "রুটিন, $t(common:entities.class_one) $t(common:entities.teacher_one), যোগাযোগ",
       "ATTENDANCE": "উপস্থিতি নেওয়া হয়নি",
       "PERIOD": "পিরিয়ড শুরু, বদলি",
       "HOMEWORK": "বাড়ির কাজ জমার দিন বা জমা না দেওয়া",
