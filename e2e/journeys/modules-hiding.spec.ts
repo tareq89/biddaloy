@@ -2,7 +2,8 @@ import { UserRole } from '@biddaloy/shared';
 
 import { adminApiSession, createClassSection, post } from '../api';
 import { setModules } from '../fixtures/modules';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { test } from '../fixtures/settings-lock';
+import { expect, loggedIn } from '../fixtures/test';
 import { t } from '../i18n';
 import { AppShellPage } from '../pages/app-shell';
 
@@ -10,6 +11,9 @@ import { AppShellPage } from '../pages/app-shell';
  * [Epic 77 / #3922] A module that is off disappears from every surface and its URL shows the
  * refusal page. Modules are school-wide, so each test puts them back in `finally`, and the
  * "off" window is kept short for the specs running beside this one.
+ *
+ * Takes the school-settings lock (fixtures/settings-lock.ts) per test: modules are school-wide
+ * and other specs change them too, so they must not overlap across workers.
  *
  * Propagation (D27): the server reads the module state from the school row on every request,
  * so a switch applies at once. The page learns of it when the school-profile query refetches:
