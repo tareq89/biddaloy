@@ -19,9 +19,8 @@ export class ModuleStateReader {
     return {};
   }
 
-  private async schoolModules(tenantId: string): Promise<SchoolModules> {
-    const settings = await this.schools.getResolvedSettings(tenantId);
-    // typed once 77.1.02 lands; no modules block means every module is on.
-    return (settings as { modules?: SchoolModules }).modules ?? {};
+  private schoolModules(tenantId: string): Promise<SchoolModules> {
+    // no modules block means every module is on.
+    return this.schools.getSchoolModules(tenantId);
   }
 }

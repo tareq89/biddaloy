@@ -282,14 +282,12 @@ export class SchoolsService {
 
   /** [77.1.02] Typed `modules` block of a school (absent = every module on). */
   async getSchoolModules(schoolId: string): Promise<SchoolModules> {
-    const s = (await this.getResolvedSettings(schoolId)) as { modules?: SchoolModules };
-    return s.modules ?? {};
+    return (await this.getResolvedSettings(schoolId)).modules ?? {};
   }
 
   /** [77.1.02] Typed `labels` block of a school. */
   async getSchoolLabels(schoolId: string): Promise<SchoolLabels> {
-    const s = (await this.getResolvedSettings(schoolId)) as { labels?: SchoolLabels };
-    return s.labels ?? {};
+    return (await this.getResolvedSettings(schoolId)).labels ?? {};
   }
 
   /** D32: schema + selected + configured per medium. Reads stored (encrypted) settings, presence only. Never returns a value. */

@@ -1,5 +1,6 @@
 import type { ApprovalMode, DailyAttendanceSource, TermLabel } from '../enums';
 import type { SupportAccessMode } from '../enums/support-access';
+import type { SchoolLabels, SchoolModules } from '../enums/module-key';
 import type { AttentionSettings } from './attention';
 import type { ConductItem } from './report-card-note.types';
 
@@ -358,6 +359,10 @@ export interface TenantSettings {
   fees?: FeesSettings;
   evaluations?: EvaluationsSettings;
   supportAccess?: SupportAccessSettings;
+  /** [Epic 77] School module switches (absent = every module on). */
+  modules?: SchoolModules;
+  /** [Epic 77] School words (absent = stock words). */
+  labels?: SchoolLabels;
   applications?: ApplicationsSettings;
   homework?: HomeworkSettings;
   documents?: DocumentsSettings;
