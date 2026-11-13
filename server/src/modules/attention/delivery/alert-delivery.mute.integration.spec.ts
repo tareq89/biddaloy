@@ -42,7 +42,8 @@ describe('push mute (integration)', () => {
     ds = module.get(DataSource);
     const query = new AttentionQueryService(
       ds,
-      { get: (k: string) => rules.get(k) } as never,
+      { get: (k: string) => rules.get(k), all: () => [] } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

@@ -1,11 +1,11 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, Permission, roleHasPermission } from '@biddaloy/shared';
+import { alertRuleMeta, Permission, roleHasPermission, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from '../structure/role-recipients';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.staffAttendance })
 export class LeaveStaffPendingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('leave.staff_pending');
   readonly messages = {

@@ -1,13 +1,13 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { addDaysIso } from '../rule-context.service';
 import { roleRecipients } from '../structure/role-recipients';
 
 /** Families only see a schedule once every subject with a component has a sitting (`isScheduleComplete`). */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.exams })
 export class ExamsScheduleUnpublishedRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('exams.schedule_unpublished');
   readonly messages = {

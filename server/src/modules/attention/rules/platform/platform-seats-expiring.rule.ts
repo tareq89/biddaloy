@@ -7,7 +7,7 @@ import { PlatformTenantResolver, platformRecipients, schoolNames } from './platf
 
 const PLATFORM_WARN_DAYS = 14;
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformSeatsExpiringRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.seats.expiring');
   readonly messages = {

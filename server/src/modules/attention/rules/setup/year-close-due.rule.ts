@@ -8,7 +8,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 const CLOSE_DUE_AFTER_DAYS = 60; // ponytail: constant, make it a setting when a school asks
 
 /** A finished year (no longer current) that was never closed, with no draft promotion run still open (D21). */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class YearCloseDueRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('year.close_due');
   readonly messages = {

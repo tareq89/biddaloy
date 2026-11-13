@@ -11,12 +11,13 @@ describe('AttentionQueryService.studentAlerts teacher scope', () => {
     const schools = { getResolvedSettings: async () => ({ region: { locale: 'en' } }) };
     const service = new AttentionQueryService(
       { query } as never,
-      {} as never,
+      { all: () => [], moduleOf: () => undefined } as never,
       {} as never,
       {} as never,
       {} as never,
       teacherScope as never,
       schools as never,
+      {} as never,
       {} as never,
     );
     return { service, teacherScope };

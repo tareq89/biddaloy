@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from '../structure/role-recipients';
@@ -11,7 +11,7 @@ import { roleRecipients } from '../structure/role-recipients';
  * Students excluded from this year's tuition schedule are left out on purpose too, and
  * a program-scoped tuition schedule never makes the rest of a section look missing.
  */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.fees })
 export class FeesUnassignedStudentsRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('fees.unassigned_students');
   readonly messages = {

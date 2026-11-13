@@ -151,8 +151,8 @@ describe('NoticeAlertsService (integration)', () => {
     const writer = { invalidateSummary: async () => undefined };
     const q = new AttentionQueryService(
       ds,
-      { get: () => undefined } as any,
-      ...([{}, writer, {}, {}, {}, {}] as [any, any, any, any, any, any]),
+      { get: () => undefined, all: () => [] } as any,
+      ...([{}, writer, {}, {}, {}, {}, {}] as [any, any, any, any, any, any, any]),
     );
     // read through the real list query: the URL is chosen per reader, not stored once
     const urlFor = async (userId: string, role: UserRole) => {
@@ -271,7 +271,7 @@ describe('NoticeAlertsService (integration)', () => {
     // renderAlert only needs the registry; a NOTICE row must show manual_title, not the rule key
     const q = new AttentionQueryService(
       ds,
-      { get: () => undefined } as any,
+      { get: () => undefined, all: () => [] } as any,
       ...([{}, {}, {}, {}, {}, {}] as [any, any, any, any, any, any]),
     );
     const text = q.renderAlert(

@@ -1,6 +1,12 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, AlertSeverity, DailyAttendanceSource, UserRole } from '@biddaloy/shared';
+import {
+  alertRuleMeta,
+  AlertSeverity,
+  DailyAttendanceSource,
+  UserRole,
+  ModuleKey,
+} from '@biddaloy/shared';
 import {
   policyForShift,
   resolveAttendancePolicy,
@@ -125,7 +131,7 @@ export function texts(
   };
 }
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.attendance })
 export class AttendanceNotTakenRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('attendance.not_taken');
   readonly messages = {

@@ -10,7 +10,7 @@ import { PlatformTenantResolver, platformRecipients, schoolNames } from './platf
  * `BkashService` records it as an orphan `platform_payments` row. It stays on this alert until the
  * operator refunds it and stamps `raw.refunded_at` (38-billing.md, "Money bKash took for nothing").
  */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformBkashRefundDueRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.bkash.refund_due');
   readonly messages = {

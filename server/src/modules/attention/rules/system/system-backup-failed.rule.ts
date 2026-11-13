@@ -25,7 +25,7 @@ export function isBackupUnhealthy(
   return (i.lastSuccessAt ?? i.schoolCreatedAt).getTime() < cutoff;
 }
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class SystemBackupFailedRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('system.backup_failed');
   readonly messages = {

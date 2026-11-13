@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, AlertSeverity, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, AlertSeverity, UserRole, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { addDaysIso } from '../rule-context.service';
@@ -12,7 +12,7 @@ import {
 
 const CRITICAL_DAYS = 7;
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.exams })
 export class ExamsMyMarksDueRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('exams.my_marks_due');
   readonly messages = {
