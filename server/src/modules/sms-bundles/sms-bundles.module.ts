@@ -15,6 +15,8 @@ import { SmsBundleOrdersService } from './orders/sms-bundle-orders.service';
 import { SmsBundlePayController } from './payment/sms-bundle-pay.controller';
 import { SmsBundlePaymentService } from './payment/sms-bundle-payment.service';
 import { SmsBundleReceiptController } from './receipts/sms-bundle-receipt.controller';
+import { PlatformSmsReportController } from './report/platform-sms-report.controller';
+import { SmsStateReportService } from './report/sms-state-report.service';
 import { PlatformSmsStockController } from './stock/platform-sms-stock.controller';
 import { ProviderBalanceReader } from './stock/provider-balance.reader';
 import { SmsAllocationService } from './stock/sms-allocation.service';
@@ -33,6 +35,7 @@ import { SmsStockService } from './stock/sms-stock.service';
   controllers: [
     PlatformSmsCatalogController,
     PlatformSmsStockController,
+    PlatformSmsReportController,
     SmsBundleOrdersController,
     SmsBundlePayController,
     SmsBundleReceiptController,
@@ -41,6 +44,7 @@ import { SmsStockService } from './stock/sms-stock.service';
     SmsStockService,
     ProviderBalanceReader,
     SmsAllocationService,
+    SmsStateReportService,
     SmsBundleCatalogService,
     SmsBundleOrdersService,
     SmsBundleOrderSweepService,

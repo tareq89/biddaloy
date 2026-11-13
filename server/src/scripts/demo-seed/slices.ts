@@ -47,6 +47,13 @@ export const EXEMPT: Record<string, string> = {
   PlatformAlert: 'platform incident state, not school data',
   SmsCreditLotDraw:
     'a fresh demo has no send in flight; a fake open draw would hold units no send settles',
+  // [Epic 100 #3875] Plans and coupons are platform money data. The billing slice (second plan, a
+  // coupon, a coupon order, a refund) is the open seed step of #3875; remove these four with it.
+  Plan: 'platform pricing data; demo billing slice seeds it in #3875 step 5, still open',
+  Coupon: 'platform pricing data; demo billing slice seeds it in #3875 step 5, still open',
+  CouponSchool: 'platform pricing data; demo billing slice seeds it in #3875 step 5, still open',
+  CouponRedemption:
+    'platform pricing data; demo billing slice seeds it in #3875 step 5, still open',
   PlatformAdmin: 'platform data, no cockpit on demo',
   PlatformAdminDevice: 'platform data, no cockpit on demo',
   PlatformApproval: 'platform data, no cockpit on demo',
