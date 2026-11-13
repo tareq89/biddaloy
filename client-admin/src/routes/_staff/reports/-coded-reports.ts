@@ -20,6 +20,7 @@
  * words. Both languages sit here, like `action-registry.ts`, so the hub's search can match either
  * one without loading the other language's words.
  */
+import type { Gated } from '../../../module-gate';
 import { STAFF_ROUTE_PERMISSIONS } from '../../../route-permissions';
 
 export interface Bilingual {
@@ -55,6 +56,8 @@ export interface CodedReport {
   /** TanStack route id, the key of `STAFF_ROUTE_PERMISSIONS`. */
   readonly routeId: string;
   readonly folder: CodedFolderId;
+  /** [77.3 / D16] Off module: the link is hidden. `'core'` is never hidden. */
+  readonly module: Gated;
   readonly name: Bilingual;
   /** One plain line: what the report shows. */
   readonly description: Bilingual;
@@ -63,6 +66,7 @@ export interface CodedReport {
 export const CODED_REPORTS: readonly CodedReport[] = [
   {
     id: 'collections',
+    module: 'fees',
     to: '/reports/collections',
     routeId: '/_staff/reports/collections',
     folder: 'money',
@@ -74,6 +78,7 @@ export const CODED_REPORTS: readonly CodedReport[] = [
   },
   {
     id: 'attendance-reports',
+    module: 'attendance',
     to: '/attendance/reports',
     routeId: '/_staff/attendance/reports',
     folder: 'attendance',
@@ -85,6 +90,7 @@ export const CODED_REPORTS: readonly CodedReport[] = [
   },
   {
     id: 'analysis',
+    module: 'exams',
     to: '/analysis',
     routeId: '/_staff/analysis/',
     folder: 'exams',
@@ -96,6 +102,7 @@ export const CODED_REPORTS: readonly CodedReport[] = [
   },
   {
     id: 'printables',
+    module: 'core',
     to: '/reports/printables',
     routeId: '/_staff/reports/printables',
     folder: 'documents',
@@ -107,6 +114,7 @@ export const CODED_REPORTS: readonly CodedReport[] = [
   },
   {
     id: 'alerts',
+    module: 'core',
     to: '/reports/alerts',
     routeId: '/_staff/reports/alerts',
     folder: 'messages',
@@ -118,6 +126,7 @@ export const CODED_REPORTS: readonly CodedReport[] = [
   },
   {
     id: 'applications',
+    module: 'applications',
     to: '/applications/reports',
     routeId: '/_staff/applications/reports',
     folder: 'applications',
@@ -132,8 +141,10 @@ export const CODED_REPORTS: readonly CodedReport[] = [
 /** The coded reports this role may open: its permission on the target route, from the guard's own map. */
 export function visibleCodedReports(
   can: (permission: (typeof STAFF_ROUTE_PERMISSIONS)[string]) => boolean,
+  moduleOn: (module: Gated) => boolean = () => true,
 ): CodedReport[] {
   return CODED_REPORTS.filter((report) => {
+    if (!moduleOn(report.module)) return false;
     const permission = STAFF_ROUTE_PERMISSIONS[report.routeId];
     return permission !== undefined && can(permission);
   });

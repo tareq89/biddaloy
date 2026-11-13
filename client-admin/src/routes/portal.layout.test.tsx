@@ -61,6 +61,26 @@ describe('portal layout shell', () => {
     expect(new Set(icons).size).toBe(15);
   });
 
+  it('hides the sidebar link of an off module (D16) and keeps the core ones', async () => {
+    server.use(
+      http.get('/api/v1/schools/me/profile', () =>
+        HttpResponse.json({
+          name: 'Ananta School',
+          modules: { platform: {}, school: { homework: { on: false } } },
+          labels: {},
+        }),
+      ),
+    );
+    render('/portal/fees');
+    const nav = (await screen.findAllByRole('navigation', { name: /main|menu|navigation/i }))[0]!;
+    await waitFor(() => expect(within(nav).getAllByRole('link')).toHaveLength(14));
+    const hrefs = within(nav)
+      .getAllByRole('link')
+      .map((l) => l.getAttribute('href'));
+    expect(hrefs).not.toContain('/portal/homework');
+    expect(hrefs).toContain('/portal/account');
+  });
+
   it('marks exactly one sidebar link current on /portal/fees', async () => {
     render('/portal/fees');
     const nav = (await screen.findAllByRole('navigation', { name: /main|menu|navigation/i }))[0]!;
