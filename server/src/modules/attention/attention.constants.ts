@@ -38,6 +38,7 @@ export const attentionKeys = {
     `tenant:${tenantId}:attention:daily:${ruleKeyOrJob}:${localDate}`,
   summary: (tenantId: string, userId: string, role: string) =>
     `tenant:${tenantId}:attention:summary:${userId}:${role}`,
+  summaryPattern: (tenantId: string) => `tenant:${tenantId}:attention:summary:*`,
   heartbeat: (cadence: string) => `attention:heartbeat:${cadence}`,
   failingRule: (ruleKey: string) => `attention:failing:${ruleKey}`,
 };

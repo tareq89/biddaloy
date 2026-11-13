@@ -149,8 +149,16 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
     const quiet = settings.attention!.quietHours!;
     const quietNow = !deferred && isInQuietHours(localTimeHHmm(now, tz), quiet);
 
+    // [77.2.10] D9: an alert queued before its module was switched off is not pushed (the row
+    // stays, it shows again when the module is back). Same hidden-rule list the bar uses.
+    const hiddenByRole = new Map<string, string[]>();
     for (const row of rows) {
       if (!isAlertRuleKey(row.rule_key) || !alertRuleMeta(row.rule_key).pushable) continue;
+      const roleKey = row.role ?? '';
+      if (!hiddenByRole.has(roleKey)) {
+        hiddenByRole.set(roleKey, await this.query.hiddenRuleKeys(tenantId, row.role ?? undefined));
+      }
+      if (hiddenByRole.get(roleKey)!.includes(row.rule_key)) continue;
       const muted: string[] = row.preferences?.notifications?.mutedCategories ?? [];
       if (muted.includes(row.category) && row.severity !== AlertSeverity.CRITICAL) continue;
 

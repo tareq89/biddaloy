@@ -4,11 +4,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import * as Sentry from '@sentry/node';
-import { DuplicateStrategy, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
+import { DuplicateStrategy, FeeGenerationSource, ModuleKey, PeriodType } from '@biddaloy/shared';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
 import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
-import { ModuleKey } from '@biddaloy/shared';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
@@ -184,21 +183,22 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     }
   }
 
-  /** False when off OR unreadable (logged); never throws, so one school can't stop the sweep. */
-  private async moduleOn(tenantId: string, key: ModuleKey): Promise<boolean> {
-    try {
-      return await isModuleOnForSchool(this.moduleState, tenantId, key);
-    } catch (error) {
-      this.logger.error(`fees-daily: module state unreadable for tenant ${tenantId}: ${String(error)}`);
-      return false;
-    }
+  /**
+   * False when the school has the module off. An unreadable state THROWS (never "off"): the
+   * nightly loop captures it per tenant to Sentry; run-now / restore-catch-up fail the job
+   * so it is seen and re-run, instead of reporting success and losing that day.
+   */
+  private moduleOn(tenantId: string, key: ModuleKey): Promise<boolean> {
+    return isModuleOnForSchool(this.moduleState, tenantId, key);
   }
 
   private async runTenant(tenantId: string, todayOverride?: string): Promise<void> {
     // [77.2.10] D9: Fees off -> no schedules, no late fees (fines also off by dependency). Gated
     // here, not in process(), so run-now and restore-catch-up are covered, and before the restore
-    // re-queue so an off school is never re-queued. Unreadable state fails closed: skip + log.
+    // re-queue so an off school is never re-queued. Unreadable state throws (see moduleOn).
     if (!(await this.moduleOn(tenantId, ModuleKey.fees))) return;
+    // Read both switches up front: an unreadable state throws before any bill is written.
+    const finesOn = !!this.fineSweepService && (await this.moduleOn(tenantId, ModuleKey.fines));
     const today = todayOverride ?? (await this.schoolsService.todayFor(tenantId));
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run picks the period up only while still inside it (due on or
@@ -256,7 +256,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // outer `process()` loop. `runDue` itself already no-ops silently when
     // no academic year covers the target month, so this only ever logs a
     // genuine failure.
-    if (this.fineSweepService && (await this.moduleOn(tenantId, ModuleKey.fines))) {
+    if (this.fineSweepService && finesOn) {
       try {
         await this.fineSweepService.runDue(tenantId, today);
       } catch (error) {
