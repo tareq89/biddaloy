@@ -160,6 +160,13 @@ const FIXED: Fixed[] = [
     roles: [UserRole.ADMIN],
     routes: ['/support/enter', '/welcome/support-access', '/support-access/requests/$requestId'],
   },
+  // [77.7.01] Settings > Modules & words: a category of /settings, so no route of its own.
+  {
+    id: 'administration.modulesWords',
+    path: 'administration/modules-and-words',
+    roles: [UserRole.ADMIN],
+    routes: [],
+  },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
   { id: 'help.cantSeeThis', roles: EVERYONE, routes: [] },
