@@ -5,6 +5,7 @@ import { AccountAccessModule } from '../account-access/account-access.module';
 import { AuditModule } from '../audit/audit.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { PlansService } from '../plans/plans.service';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -22,6 +23,7 @@ import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
 import { ReceiptService } from './receipt.service';
 import { PlatformBillingController } from './platform-billing.controller';
+import { RefundService } from './refund.service';
 import { PlatformBillingService } from './platform-billing.service';
 import { PlatformVatController } from './platform-vat.controller';
 import { MoneyNoticesService } from './money-notices.service';
@@ -37,6 +39,7 @@ import { SeatNoticesService } from './seat-notices.service';
     PlatformIdentityModule, // PlatformSettingsService for VatService
     SchoolsModule,
     CommunicationsModule,
+    CreditsModule, // SmsCreditService for RefundService
     TypeOrmModule.forFeature([School, UserTenant, CommunicationLog]),
     BullModule.registerQueue({ name: BILLING_QUEUE }, { name: BKASH_RECONCILE_QUEUE }),
   ],
@@ -57,6 +60,7 @@ import { SeatNoticesService } from './seat-notices.service';
     PlansService,
     MoneyNoticesService,
     PlatformBillingService,
+    RefundService,
     BillingScheduler,
     SeatNoticesService,
     AdminNoticeService,

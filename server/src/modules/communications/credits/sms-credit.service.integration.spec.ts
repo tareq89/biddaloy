@@ -215,4 +215,60 @@ describe('SmsCreditService (integration)', () => {
     const balance = await service.getBalance(tenantA);
     expect(balance).toEqual({ available: 0, reserved: 0 });
   });
+
+  describe('closeUntouchedLot [100.3.06]', () => {
+    // schools -> sms_bundle_orders is RESTRICT, so the orders (and their lots) go first.
+    afterEach(async () => {
+      const ids = [tenantA, tenantB];
+      await dataSource.query('DELETE FROM sms_credit_lot_draws WHERE tenant_id = ANY($1)', [ids]);
+      await dataSource.query('DELETE FROM sms_credit_lots WHERE tenant_id = ANY($1)', [ids]);
+      await dataSource.query('DELETE FROM sms_bundle_orders WHERE school_id = ANY($1)', [ids]);
+    });
+    async function bundleOrder(tenant: string, units: number): Promise<string> {
+      const [{ id: catalog }] = await dataSource.query(
+        `INSERT INTO sms_bundle_catalog (name, sms_count, validity_days, price_paisa, active)
+         VALUES ('Close ' || gen_random_uuid(), $1, 30, 100, true) RETURNING id`,
+        [units],
+      );
+      const [{ id }] = await dataSource.query(
+        `INSERT INTO sms_bundle_orders (school_id, catalog_id, name_snapshot, sms_count, validity_days,
+                                        price_paisa, status, idempotency_key)
+         VALUES ($1, $2, 'Pkg', $3, 30, 100, 'ACTIVE', gen_random_uuid()::text) RETURNING id`,
+        [tenant, catalog, units],
+      );
+      await service.purchase(tenant, {
+        bundleOrderId: id,
+        units,
+        expiresAt: null,
+        idempotencyKey: `purchase:${id}`,
+      });
+      return id;
+    }
+    const close = (tenant: string, order: string) =>
+      dataSource.transaction((m) => service.closeUntouchedLot(m, tenant, order));
+
+    it('closes an untouched lot once, takes the units back and writes one negative ADJUST', async () => {
+      const order = await bundleOrder(tenantA, 100);
+      expect(await close(tenantA, order)).toEqual({ closed: true, units: 100 });
+      expect(await service.getBalance(tenantA)).toEqual({ available: 0, reserved: 0 });
+      const ledger = await ledgerRepo.find({ where: { tenant_id: tenantA } });
+      const adj = ledger.filter((r) => r.kind === SmsCreditLedgerKind.ADJUST);
+      expect(adj).toHaveLength(1);
+      expect(adj[0].units).toBe(-100);
+      expect(await close(tenantA, order)).toEqual({ closed: false, units: 0 });
+      expect(await service.getBalance(tenantA)).toEqual({ available: 0, reserved: 0 });
+    });
+
+    it('refuses once a unit was reserved (BUNDLE_ALREADY_USED) and for an order with no lot', async () => {
+      const order = await bundleOrder(tenantA, 100);
+      await service.reserve(tenantA, 1, `r-${order}`);
+      await expect(close(tenantA, order)).rejects.toMatchObject({
+        response: { details: { code: 'BUNDLE_ALREADY_USED' } },
+      });
+      expect(await service.getBalance(tenantA)).toEqual({ available: 99, reserved: 1 });
+      await expect(close(tenantA, '00000000-0000-4000-8000-000000000001')).rejects.toMatchObject({
+        response: { details: { code: 'ORDER_NOT_REFUNDABLE' } },
+      });
+    });
+  });
 });
