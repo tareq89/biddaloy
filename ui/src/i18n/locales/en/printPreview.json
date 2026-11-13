@@ -60,14 +60,14 @@
     "title": "Print ID cards",
     "who": "Who is it for?",
     "type": {
-      "STUDENT": "Students",
+      "STUDENT": "$t(common:entities.student_other)",
       "STAFF": "Staff"
     },
     "search": "Search by name",
     "results": "Matches",
-    "class": "Class",
+    "class": "$t(common:entities.class_one)",
     "classPlaceholder": "Choose a class",
-    "section": "Section",
+    "section": "$t(common:entities.section_one)",
     "sectionPlaceholder": "Choose a section",
     "cancel": "Cancel",
     "continue_one": "Continue with {{n}}",

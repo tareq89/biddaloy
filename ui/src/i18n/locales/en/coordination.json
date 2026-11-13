@@ -16,13 +16,13 @@
   "blocks": {
     "todayAttendance": "Today's attendance",
     "marksPending": "Marks pending",
-    "teachers": "Teachers"
+    "teachers": "$t(common:entities.teacher_other)"
   },
   "rows": {
     "taken": "Taken",
     "notTaken": "Not taken",
     "byWhom": "by {{name}}",
-    "classTeacher": "Class teacher: {{name}}",
+    "classTeacher": "$t(common:entities.class_one) teacher: {{name}}",
     "noClassTeacher": "No class teacher",
     "pending": "Pending",
     "submitted": "Submitted",
@@ -38,7 +38,7 @@
   "notifyDialog": {
     "title": "Notify teachers",
     "description": "They get one reminder in the app.",
-    "teachersLabel": "Teachers",
+    "teachersLabel": "$t(common:entities.teacher_other)",
     "allPreChecked": "Every teacher of the class is chosen. Clear the ones you do not want.",
     "messageLabel": "Message",
     "messagePlaceholder": "For example: please submit Term 1 marks by Thursday.",
