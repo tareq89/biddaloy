@@ -13,7 +13,7 @@
     "dateToLabel": "To",
     "includeReversed": "Show reversed too",
     "columnDate": "Date",
-    "columnStudent": "Student",
+    "columnStudent": "$t(common:entities.student_one)",
     "columnMethod": "Method",
     "columnReference": "Transaction reference",
     "columnAmount": "Amount",
@@ -108,7 +108,7 @@
       "viewInvoice": "View invoice"
     },
     "sections": {
-      "students": "1. Student",
+      "students": "1. $t(common:entities.student_one)",
       "studentsHelp": "Find the student you are taking money from. Add siblings to take it together (up to 10).",
       "bills": "2. Bills due",
       "billsHelp": "Type the amount received and it is split from the oldest bill. You can change any line.",
@@ -156,7 +156,7 @@
     "printReceipt": "Print receipt",
     "printError": "The receipt could not be opened for printing.",
     "viewInvoice": "View invoice",
-    "viewStudent": "Student page",
+    "viewStudent": "$t(common:entities.student_one) page",
     "remarks": "Remarks",
     "reversalEntry": "This is a reversal entry.",
     "viewOriginal": "View original payment",
@@ -179,7 +179,7 @@
     "maxAmount": "Maximum"
   },
   "invoiceDetail": {
-    "student": "Student",
+    "student": "$t(common:entities.student_one)",
     "payment": "Payment",
     "paymentValue": "{{method}} · {{date}}",
     "originalInvoice": "Original invoice",

@@ -12,10 +12,10 @@
   "filters": {
     "monthLabel": "মাস",
     "allMonths": "সব মাস",
-    "classLabel": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
-    "sectionLabel": "শাখা",
-    "allSections": "সব শাখা",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "allSections": "সব $t(common:entities.section_one)",
     "originLabel": "উৎস",
     "allOrigins": "সব উৎস",
     "allFineTypes": "সব ধরনের জরিমানা",
@@ -31,7 +31,7 @@
     "heading": "এই তালিকার হিসাব"
   },
   "columns": {
-    "student": "শিক্ষার্থী",
+    "student": "$t(common:entities.student_one)",
     "fine": "জরিমানা",
     "reason": "কারণ",
     "incidentDate": "তারিখ",
@@ -42,7 +42,7 @@
     "origin": "উৎস",
     "actions": "কার্যক্রম"
   },
-  "openStudent": "শিক্ষার্থী দেখুন",
+  "openStudent": "$t(common:entities.student_one) দেখুন",
   "origin": {
     "RULE": "নিয়ম অনুযায়ী",
     "MANUAL": "নিজে যোগ করা"
@@ -53,7 +53,7 @@
   },
   "logForm": {
     "title": "জরিমানা যোগ করুন",
-    "studentsLabel": "শিক্ষার্থী",
+    "studentsLabel": "$t(common:entities.student_one)",
     "feeLabel": "জরিমানার ধরন",
     "amountLabel": "পরিমাণ",
     "amountHint": "খালি রাখলে জরিমানার নিজস্ব পরিমাণ ব্যবহার হবে।",
@@ -61,7 +61,7 @@
     "notePlaceholder": "কেন এই জরিমানা দেওয়া হচ্ছে",
     "incidentDateLabel": "ঘটনার তারিখ",
     "notifyLabel": "অভিভাবককে জানান",
-    "errorStudentsRequired": "অন্তত একজন শিক্ষার্থী বাছাই করুন",
+    "errorStudentsRequired": "অন্তত একজন $t(common:entities.student_one) বাছাই করুন",
     "errorFeeRequired": "জরিমানার ধরন বাছাই করুন",
     "errorNoteRequired": "কারণ লেখা আবশ্যক",
     "errorIncidentDateRequired": "ঘটনার তারিখ আবশ্যক",
@@ -77,11 +77,11 @@
     "title": "নিয়ম থেকে জরিমানা তৈরি",
     "description": "এক মাসের উপস্থিতি দেখে সক্রিয় প্রতিটি নিয়ম থেকে জরিমানা তৈরি হবে।",
     "monthLabel": "মাস",
-    "classLabel": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
-    "sectionLabel": "শাখা",
-    "allSections": "সব শাখা",
-    "previewLine": "{{n}} জন শিক্ষার্থী, {{total}}",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "allSections": "সব $t(common:entities.section_one)",
+    "previewLine": "{{n}} জন $t(common:entities.student_one), {{total}}",
     "previewZero": "এই মাসে কোনো জরিমানা তৈরি হবে না।",
     "duplicates": {
       "heading": "এই মাসের কিছু জরিমানা আগে থেকেই আছে",
@@ -105,10 +105,10 @@
     "scopeHeading": "কোন মাস, কাদের জন্য",
     "previewAction": "হিসাব দেখুন",
     "previewHeading": "যা তৈরি হবে",
-    "previewZeroHint": "অন্য মাস বা শ্রেণি বাছুন।",
+    "previewZeroHint": "অন্য মাস বা $t(common:entities.class_one) বাছুন।",
     "countTimes_one": "{{n}} বার",
     "countTimes_other": "{{n}} বার",
-    "columnStudent": "শিক্ষার্থী",
+    "columnStudent": "$t(common:entities.student_one)",
     "columnFine": "জরিমানা",
     "columnCount": "কতবার",
     "columnAmount": "পরিমাণ"
@@ -136,7 +136,7 @@
       "ATTENDANCE_LATE": "দেরিতে আসা"
     },
     "feeLabel": "জরিমানার পরিমাণ",
-    "classLabel": "শ্রেণি",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "পুরো স্কুল",
     "freePerPeriodLabel": "মাসে যতবার মাফ",
     "capPerPeriodLabel": "মাসে সর্বোচ্চ",

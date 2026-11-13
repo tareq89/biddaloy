@@ -7,7 +7,7 @@
     "columnStatus": "Status",
     "columnScheduleCount": "Exam subjects",
     "columnRoomCount": "Rooms",
-    "columnStudentCount": "Students",
+    "columnStudentCount": "$t(common:entities.student_other)",
     "errorMessage": "Could not load seat plans.",
     "announceResults_one": "Showing {{visible}} of {{count}} seat plan",
     "announceResults_other": "Showing {{visible}} of {{count}} seat plans",
