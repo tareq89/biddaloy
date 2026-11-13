@@ -6,12 +6,26 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { PlatformPaymentMethod, SeatOrderStatus, type SeatOrderDto } from '@biddaloy/shared';
+import {
+  PlatformPaymentMethod,
+  SeatOrderStatus,
+  type OrderPreviewResponse,
+  type SeatOrderDto,
+} from '@biddaloy/shared';
+import {
+  CouponRedemptionService,
+  couponNotValid,
+  normaliseCouponCode,
+} from '../coupons/coupon-redemption.service';
+import { PlansService } from '../plans/plans.service';
 import { EntitlementService } from './entitlement.service';
+import { MoneyNoticesService } from './money-notices.service';
+import { buildReceiptSnapshot } from './receipt-snapshot';
+import { VatService } from './vat.service';
 import { nextReceiptNumber } from './receipt-number.util';
 import { ReceiptService } from './receipt.service';
 
-/** D2: 1000 paisa (BDT 10) per seat per month. */
+/** The old flat price; pricing now comes from the school's plan (kept for the DTO spec). */
 export const SEAT_UNIT_PRICE_PAISA = 1000;
 /** Rule 5: bounds checked here as well as in the DTO, and by CHECK constraints. */
 export const MAX_ORDER_SEATS = 100000;
@@ -22,8 +36,9 @@ export interface CreatePendingInput {
   months: number;
   idempotency_key: string;
   userId: string | null;
-  /** Defaults to 1000; a platform GRANT passes 0. */
+  /** Defaults to the school's plan price; a platform GRANT passes 0 and never takes a coupon. */
   unit_price_paisa?: number;
+  coupon_code?: string | null;
 }
 
 export interface PaymentInput {
@@ -51,12 +66,28 @@ interface OrderRow {
   receipt_number: string | null;
   paid_at: Date | null;
   created_at: Date;
+  plan_id: string | null;
+  discount_paisa: string;
+  coupon_id: string | null;
+  coupon_code: string | null;
 }
 
+/** Shared by the replay lookup and `list`. */
+const ORDER_SELECT = `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
+  o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
+  (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
+    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
+  o.receipt_number, o.paid_at, o.created_at, o.plan_id, o.discount_paisa, o.coupon_id,
+  c.code AS coupon_code
+  FROM seat_orders o LEFT JOIN coupons c ON c.id = o.coupon_id`;
+
 function toDto(r: OrderRow): SeatOrderDto {
+  const { coupon_id: _couponId, ...rest } = r;
   return {
-    ...r,
+    ...rest,
     amount_paisa: Number(r.amount_paisa),
+    discount_paisa: Number(r.discount_paisa),
+    list_unit_price_paisa: r.unit_price_paisa,
     paid_at: r.paid_at ? r.paid_at.toISOString() : null,
     created_at: r.created_at.toISOString(),
   };
@@ -68,39 +99,148 @@ export class OrdersService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly entitlement: EntitlementService,
     private readonly receipts: ReceiptService,
+    private readonly plans: PlansService,
+    private readonly coupons: CouponRedemptionService,
+    private readonly vat: VatService,
+    private readonly moneyNotices: MoneyNoticesService,
   ) {}
 
-  /**
-   * Same (school, idempotency_key) and body returns the first order untouched; a different
-   * seats/months body is 409 IDEMPOTENCY_KEY_REUSED.
-   */
-  async createPending(input: CreatePendingInput): Promise<SeatOrderDto> {
-    return this.insertPending(this.dataSource.manager, input);
-  }
-
-  private async insertPending(m: EntityManager, input: CreatePendingInput): Promise<SeatOrderDto> {
+  private assertRange(seats: number, months: number): void {
     if (
-      !Number.isInteger(input.seats) ||
-      input.seats < 1 ||
-      input.seats > MAX_ORDER_SEATS ||
-      !Number.isInteger(input.months) ||
-      input.months < 1 ||
-      input.months > 24
+      !Number.isInteger(seats) ||
+      seats < 1 ||
+      seats > MAX_ORDER_SEATS ||
+      !Number.isInteger(months) ||
+      months < 1 ||
+      months > 24
     ) {
       throw new BadRequestException({
         message: 'Seats or months out of range',
         details: { code: 'ORDER_OUT_OF_RANGE' },
       });
     }
-    const unit = input.unit_price_paisa ?? SEAT_UNIT_PRICE_PAISA;
-    const amount = input.seats * input.months * unit;
+  }
+
+  /** No write, no use consumed. A bad code is the one coupon sentence and counts as a wrong try. */
+  async preview(
+    schoolId: string,
+    input: { seats: number; months: number; coupon_code?: string | null },
+  ): Promise<OrderPreviewResponse> {
+    this.assertRange(input.seats, input.months);
+    const { unitPricePaisa } = await this.plans.priceFor(schoolId);
+    const list = input.seats * input.months * unitPricePaisa;
+    const discount = input.coupon_code
+      ? (
+          await this.coupons.preview({
+            schoolId,
+            code: input.coupon_code,
+            seats: input.seats,
+            months: input.months,
+            unitPaisa: unitPricePaisa,
+          })
+        ).discountPaisa
+      : 0;
+    const total = list - discount;
+    return {
+      listAmountPaisa: list,
+      discountPaisa: discount,
+      totalPaisa: total,
+      free: total === 0,
+      unit_price_paisa: unitPricePaisa,
+      status: total === 0 ? SeatOrderStatus.PAID : SeatOrderStatus.PENDING,
+    };
+  }
+
+  /**
+   * Same (school, idempotency_key), seats, months and coupon returns the first order untouched
+   * (no second use); any difference is 409 IDEMPOTENCY_KEY_REUSED. A 100 percent coupon is paid in
+   * the same transaction: no bKash step, a numbered receipt marked COUPON.
+   */
+  async createPending(input: CreatePendingInput): Promise<SeatOrderDto> {
+    const r = await this.dataSource.transaction((m) => this.insertPending(m, input));
+    if (r.freePaid) {
+      void this.receipts.emailReceipt(r.order.id);
+      await this.entitlement.afterCommit(input.schoolId);
+    }
+    if (r.redeemed) void this.moneyNotices.couponApplied(r.order.id);
+    return r.order;
+  }
+
+  private async findByKey(m: EntityManager, schoolId: string, key: string): Promise<OrderRow> {
+    const [row]: OrderRow[] = await m.query(
+      `${ORDER_SELECT} WHERE o.school_id = $1 AND o.idempotency_key = $2`,
+      [schoolId, key],
+    );
+    return row;
+  }
+
+  /** A replay must be the same order; a different body on a used key is a client bug (Rule 23: fixed text). */
+  private async assertSameOrder(
+    m: EntityManager,
+    row: OrderRow,
+    input: CreatePendingInput,
+  ): Promise<void> {
+    const code = input.coupon_code ? normaliseCouponCode(input.coupon_code) : null;
+    // Resolved to an id so "save10" and "SAVE10" are the same coupon; no limiter, no redeem.
+    let couponId: string | null = null;
+    if (code) {
+      const [c]: { id: string }[] = await m.query('SELECT id FROM coupons WHERE code = $1', [code]);
+      couponId = c?.id ?? null;
+    }
+    const sameCoupon = input.coupon_code
+      ? couponId !== null && couponId === row.coupon_id
+      : row.coupon_id === null;
+    if (row.seats !== input.seats || row.months !== input.months || !sameCoupon) {
+      throw new ConflictException({
+        message: 'This idempotency key was already used for a different order',
+        details: { code: 'IDEMPOTENCY_KEY_REUSED' },
+      });
+    }
+  }
+
+  private async insertPending(
+    m: EntityManager,
+    input: CreatePendingInput,
+  ): Promise<{ order: SeatOrderDto; redeemed: boolean; freePaid: boolean }> {
+    this.assertRange(input.seats, input.months);
+    // A replay is answered before any coupon work: a used-up coupon must not turn it into a 400.
+    const existing = await this.findByKey(m, input.schoolId, input.idempotency_key);
+    if (existing) {
+      await this.assertSameOrder(m, existing, input);
+      return { order: toDto(existing), redeemed: false, freePaid: false };
+    }
+    const isGrant = input.unit_price_paisa !== undefined;
+    const price = isGrant ? null : await this.plans.priceFor(input.schoolId, m);
+    const unit = input.unit_price_paisa ?? price!.unitPricePaisa;
+    const list = input.seats * input.months * unit;
+    const code = !isGrant && input.coupon_code ? input.coupon_code : null;
+    let couponId: string | null = null;
+    let discount = 0;
+    if (code) {
+      // Preview first (reads only): the order row must carry the final numbers (CHECK), and
+      // `redeemInTx` needs the order row to exist.
+      const p = await this.coupons.preview({
+        schoolId: input.schoolId,
+        code,
+        seats: input.seats,
+        months: input.months,
+        unitPaisa: unit,
+      });
+      couponId = p.couponId;
+      discount = p.discountPaisa;
+    }
+    const amount = list - discount;
     // The period shown on a PENDING order is a preview, by the same rule; payInTx sets the real one.
     const start = await this.startDate(m, input.schoolId, input.seats, unit > 0);
-    await m.query(
+    // INSERT answers bare rows in TypeORM; none means a concurrent replay won the key.
+    const inserted: { id: string }[] = await m.query(
       `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa,
-                                period_start, period_end, status, idempotency_key, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, $9::date, $9::date + ($3::int * interval '1 month'), $6, $7, $8)
-       ON CONFLICT (school_id, idempotency_key) DO NOTHING`,
+                                period_start, period_end, status, idempotency_key, created_by_user_id,
+                                plan_id, coupon_id, discount_paisa)
+       VALUES ($1, $2, $3, $4, $5, $9::date, $9::date + ($3::int * interval '1 month'), $6, $7, $8,
+               $10, $11, $12)
+       ON CONFLICT (school_id, idempotency_key) DO NOTHING
+       RETURNING id`,
       [
         input.schoolId,
         input.seats,
@@ -111,31 +251,44 @@ export class OrdersService {
         input.idempotency_key,
         input.userId,
         start,
+        price?.planId ?? null,
+        couponId,
+        discount,
       ],
     );
-    const [row]: OrderRow[] = await m.query(
-      `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
-  o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
-  (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
-    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
-  o.receipt_number, o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1 AND o.idempotency_key = $2`,
-      [input.schoolId, input.idempotency_key],
-    );
-    // A replay must be the same order; a different body on a used key is a client bug.
-    // Fixed text, no echo of what was sent (Rule 23).
-    if (row.seats !== input.seats || row.months !== input.months) {
-      throw new ConflictException({
-        message: 'This idempotency key was already used for a different order',
-        details: { code: 'IDEMPOTENCY_KEY_REUSED' },
+    if (inserted.length === 0) {
+      const row = await this.findByKey(m, input.schoolId, input.idempotency_key);
+      await this.assertSameOrder(m, row, input);
+      return { order: toDto(row), redeemed: false, freePaid: false };
+    }
+    const id = inserted[0].id;
+    if (code) {
+      await this.coupons.redeemInTx(m, {
+        schoolId: input.schoolId,
+        code,
+        seats: input.seats,
+        months: input.months,
+        unitPaisa: unit,
+        seatOrderId: id,
+        discountPaisa: discount,
       });
     }
-    return toDto(row);
+    let freePaid = false;
+    if (code && amount === 0) {
+      const paid = await this.payInTx(m, id, {
+        method: PlatformPaymentMethod.COUPON,
+        amount_paisa: '0',
+      });
+      freePaid = paid.applied;
+    }
+    const row = await this.findByKey(m, input.schoolId, input.idempotency_key);
+    return { order: toDto(row), redeemed: code !== null, freePaid };
   }
 
   /** Create and pay in one transaction (platform grant): no PENDING order is left behind on failure. */
   async createPaid(input: CreatePendingInput, payment: PaymentInput): Promise<SeatOrderDto> {
     const result = await this.dataSource.transaction(async (m) => {
-      const order = await this.insertPending(m, input);
+      const { order } = await this.insertPending(m, input);
       const paid = await this.payInTx(m, order.id, payment);
       return { order, paid };
     });
@@ -169,8 +322,14 @@ export class OrdersService {
         'SELECT 1 FROM schools WHERE id = (SELECT school_id FROM seat_orders WHERE id = $1) FOR NO KEY UPDATE',
         [orderId],
       );
-      const [order]: { school_id: string; seats: number }[] = await m.query(
-        'SELECT school_id, seats FROM seat_orders WHERE id = $1',
+      const [order]: {
+        school_id: string;
+        seats: number;
+        discount_paisa: string;
+        coupon_code: string | null;
+      }[] = await m.query(
+        `SELECT o.school_id, o.seats, o.discount_paisa, c.code AS coupon_code
+           FROM seat_orders o LEFT JOIN coupons c ON c.id = o.coupon_id WHERE o.id = $1`,
         [orderId],
       );
       if (!order) throw new NotFoundException('Order not found');
@@ -206,16 +365,21 @@ export class OrdersService {
       );
       // A GRANT is a zero-value platform gift, not a sale: no receipt.
       if (payment.method !== PlatformPaymentMethod.GRANT) {
+        const [school]: { name: string; address: string | null }[] = await m.query(
+          'SELECT name, address FROM schools WHERE id = $1',
+          [paid.school_id],
+        );
+        const snapshot = buildReceiptSnapshot(
+          school,
+          await this.vat.get(),
+          Number(payment.amount_paisa ?? paid.amount_paisa),
+          order.coupon_code
+            ? { coupon_code: order.coupon_code, discount_paisa: Number(order.discount_paisa) }
+            : {},
+        );
         await m.query(
-          `UPDATE seat_orders SET receipt_number = $2,
-             receipt_snapshot = (SELECT jsonb_build_object('name', s.name, 'address', s.address, 'vat', $3::text)
-                                   FROM schools s WHERE s.id = seat_orders.school_id)
-           WHERE id = $1`,
-          [
-            orderId,
-            await nextReceiptNumber(m),
-            process.env.BILLING_VAT_REGISTRATION?.trim() || null,
-          ],
+          'UPDATE seat_orders SET receipt_number = $2, receipt_snapshot = $3::jsonb WHERE id = $1',
+          [orderId, await nextReceiptNumber(m), JSON.stringify(snapshot)],
         );
       }
       await this.entitlement.recompute(paid.school_id, m);
@@ -274,12 +438,7 @@ export class OrdersService {
 
   async list(schoolId: string, limit: number, offset = 0): Promise<SeatOrderDto[]> {
     const rows: OrderRow[] = await this.dataSource.query(
-      `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
-  o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
-  (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
-    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
-  o.receipt_number, o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1
-        ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
+      `${ORDER_SELECT} WHERE o.school_id = $1 ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
       [schoolId, Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)],
     );
     return rows.map(toDto);
