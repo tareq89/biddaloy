@@ -2,6 +2,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import * as Sentry from '@sentry/node';
+import { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
 import { SCHOOL_TZ } from '../../common/time';
 import {
@@ -24,6 +27,7 @@ export class AttendanceSeriesScheduler extends WorkerHost implements OnModuleIni
     @InjectQueue(ATTENDANCE_SERIES_QUEUE) private readonly queue: Queue,
     private readonly schoolsService: SchoolsService,
     private readonly dashboard: AttendanceDashboardService,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -40,6 +44,8 @@ export class AttendanceSeriesScheduler extends WorkerHost implements OnModuleIni
   async process(): Promise<void> {
     for (const tenant of await this.schoolsService.findAllActive()) {
       try {
+        // [77.2.10] D9: Attendance off -> no series. A read failure throws into the catch below.
+        if (!(await isModuleOnForSchool(this.moduleState, tenant.id, ModuleKey.attendance))) continue;
         const today = await this.schoolsService.todayFor(tenant.id);
         const yesterday = addDays(today, -1);
         await this.dashboard.storeSeries(tenant.id, yesterday);

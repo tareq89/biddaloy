@@ -6,6 +6,9 @@ import { IsNull, Repository } from 'typeorm';
 import { AttendanceSessionState, UserRole } from '@biddaloy/shared';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
@@ -54,6 +57,7 @@ export class AbsenceNoticeScheduler extends WorkerHost implements OnModuleInit {
     private readonly schoolsService: SchoolsService,
     private readonly schoolCalendarService: SchoolCalendarService,
     private readonly absenceNoticeService: AbsenceNoticeService,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -87,6 +91,8 @@ export class AbsenceNoticeScheduler extends WorkerHost implements OnModuleInit {
   }
 
   private async sweepTenant(tenantId: string): Promise<void> {
+    // [77.2.10] D9: Attendance off -> no notices. A read failure throws into process()'s catch.
+    if (!(await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.attendance))) return;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);
     if (!policy.autoAbsentNotification.enabled) return;

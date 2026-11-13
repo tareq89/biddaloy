@@ -12,6 +12,9 @@ import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
 import { Student } from '../students/entities/student.entity';
 import { HomeworkNoticeService } from './homework-notice.service';
+import { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
 import { localToday } from '../attendance/attendance-policy.util';
 
@@ -51,6 +54,7 @@ export class HomeworkDefaulterScheduler extends WorkerHost implements OnModuleIn
     private readonly studentRepo: Repository<Student>,
     private readonly schoolsService: SchoolsService,
     private readonly homeworkNoticeService: HomeworkNoticeService,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -85,6 +89,8 @@ export class HomeworkDefaulterScheduler extends WorkerHost implements OnModuleIn
   }
 
   private async sweepTenant(tenantId: string): Promise<void> {
+    // [77.2.10] D9: module off -> skip the school. A read failure throws into process()'s per-tenant catch.
+    if (!(await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.homework))) return;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     // [TIME-11] Switched off: no per-assignment queries at all.
     if (settings.homework?.notifyDefaulters !== true) return;

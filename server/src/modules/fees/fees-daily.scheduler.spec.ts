@@ -73,8 +73,11 @@ describe('FeesDailyScheduler', () => {
   let feeGenerationService: any;
   let manager: any;
   let scheduler: FeesDailyScheduler;
+  // [77.2.10] every module on unless a test says otherwise
+  let moduleState: { forTenant: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    moduleState = { forTenant: vi.fn(async () => ({ platform: {}, school: {} })) };
     queue = { upsertJobScheduler: vi.fn(async () => undefined), add: vi.fn(async () => undefined) };
     schoolsService = {
       findAllActive: vi.fn(async () => [{ id: TENANT }]),
@@ -130,6 +133,7 @@ describe('FeesDailyScheduler', () => {
         isRestoring: async () => false,
       } as any,
       notifyQueue,
+      moduleState as any,
     );
   });
 
@@ -395,6 +399,102 @@ describe('FeesDailyScheduler', () => {
     expect(schoolsService.findById).toHaveBeenCalledWith(TENANT);
     expect(dataSource.query).not.toHaveBeenCalled();
     expect(feeGenerationService.generate).not.toHaveBeenCalled();
+  });
+
+  // [77.2.10] D9: a school with a module off is skipped; on-module schools are untouched.
+  describe('[77.2.10] module-off schools are skipped', () => {
+    const off = (key: string, ids: string[]) => async (id: string) => ({
+      platform: {},
+      school: ids.includes(id) ? { [key]: { on: false } } : {},
+    });
+    const queriedTenants = () => dataSource.query.mock.calls.map((c: any[]) => c[1][0]);
+
+    it('fees off for A: A is not billed, B still is', async () => {
+      schoolsService.findAllActive = vi.fn(async () => [{ id: 'A' }, { id: 'B' }]);
+      moduleState.forTenant.mockImplementation(off('fees', ['A']));
+      await scheduler.process();
+      expect(queriedTenants()).toEqual(['B']);
+      expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
+    });
+
+    it('fail closed: unreadable module state skips A (logged), B still billed', async () => {
+      schoolsService.findAllActive = vi.fn(async () => [{ id: 'A' }, { id: 'B' }]);
+      moduleState.forTenant.mockImplementation(async (id: string) => {
+        if (id === 'A') throw new Error('db down');
+        return { platform: {}, school: {} };
+      });
+      await expect(scheduler.process()).resolves.toBeUndefined();
+      expect(queriedTenants()).toEqual(['B']);
+    });
+
+    it('the run-now path is gated too', async () => {
+      moduleState.forTenant.mockImplementation(off('fees', [TENANT]));
+      await scheduler.process({ name: 'run-now', data: { tenantId: TENANT } } as any);
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(feeGenerationService.generate).not.toHaveBeenCalled();
+    });
+
+    it('a restore catch-up for a fees-off school is dropped, not re-queued', async () => {
+      moduleState.forTenant.mockImplementation(off('fees', [TENANT]));
+      schoolsService.findById = vi.fn(async () => ({ id: TENANT, status: 'ACTIVE' }));
+      const restoring = new FeesDailyScheduler(
+        queue,
+        dataSource,
+        schoolsService,
+        feeGenerationService,
+        { isRestoring: async () => true } as any,
+        { add: vi.fn() } as any,
+        moduleState as any,
+      );
+      await restoring.process({
+        name: 'restore-catch-up',
+        data: { tenantId: TENANT, today: '2026-03-01' },
+      } as any);
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    describe('late-fee and fine sweeps', () => {
+      let lateFee: any;
+      let fineSweep: any;
+      let withSweeps: FeesDailyScheduler;
+      beforeEach(() => {
+        lateFee = { applyDue: vi.fn(async () => undefined) };
+        fineSweep = { runDue: vi.fn(async () => undefined) };
+        withSweeps = new FeesDailyScheduler(
+          queue,
+          dataSource,
+          schoolsService,
+          feeGenerationService,
+          { isRestoring: async () => false } as any,
+          { add: vi.fn() } as any,
+          moduleState as any,
+          lateFee,
+          fineSweep,
+        );
+      });
+
+      it('fines off, fees on: only the fine sweep is skipped', async () => {
+        moduleState.forTenant.mockImplementation(off('fines', [TENANT]));
+        await withSweeps.process();
+        expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
+        expect(lateFee.applyDue).toHaveBeenCalledTimes(1);
+        expect(fineSweep.runDue).not.toHaveBeenCalled();
+      });
+
+      it('fees off: schedules, late fees and fines are all skipped (fines depend on fees)', async () => {
+        moduleState.forTenant.mockImplementation(off('fees', [TENANT]));
+        await withSweeps.process();
+        expect(feeGenerationService.generate).not.toHaveBeenCalled();
+        expect(lateFee.applyDue).not.toHaveBeenCalled();
+        expect(fineSweep.runDue).not.toHaveBeenCalled();
+      });
+
+      it('all on: everything runs as before', async () => {
+        await withSweeps.process();
+        expect(lateFee.applyDue).toHaveBeenCalledTimes(1);
+        expect(fineSweep.runDue).toHaveBeenCalledTimes(1);
+      });
+    });
   });
 
   describe('[CodeRabbit review, PR #801] resilience fixes', () => {
