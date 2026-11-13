@@ -34,6 +34,12 @@ import { CommunicationLog } from '../src/modules/communications/entities/communi
 import { ReminderBatch } from '../src/modules/communications/entities/reminder-batch.entity';
 import { SmsCreditLedger } from '../src/modules/communications/credits/entities/sms-credit-ledger.entity';
 import { SmsCreditBalance } from '../src/modules/communications/credits/entities/sms-credit-balance.entity';
+import { SmsCreditLot } from '../src/modules/communications/credits/entities/sms-credit-lot.entity';
+import { SmsCreditLotDraw } from '../src/modules/communications/credits/entities/sms-credit-lot-draw.entity';
+import { SmsBundleCatalog } from '../src/modules/sms-bundles/entities/sms-bundle-catalog.entity';
+import { SmsBundleOrder } from '../src/modules/sms-bundles/entities/sms-bundle-order.entity';
+import { SmsStockEntry } from '../src/modules/sms-bundles/entities/sms-stock-entry.entity';
+import { SmsProviderBalanceReading } from '../src/modules/sms-bundles/entities/sms-provider-balance-reading.entity';
 import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity';
 import { FineRule } from '../src/modules/fees/entities/fine-rule.entity';
 import { DiscountRule } from '../src/modules/fees/entities/discount-rule.entity';
@@ -203,6 +209,12 @@ export const ALL_ENTITIES = [
   ReminderBatch,
   SmsCreditLedger,
   SmsCreditBalance,
+  SmsCreditLot,
+  SmsCreditLotDraw,
+  SmsBundleCatalog,
+  SmsBundleOrder,
+  SmsStockEntry,
+  SmsProviderBalanceReading,
   FeeStructure,
   FineRule,
   DiscountRule,

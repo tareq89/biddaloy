@@ -258,6 +258,8 @@ describe('scrub.sql', () => {
         status: `${lit(notDraft as string)}::"invoices_status_enum"`,
         snapshot: `${lit(snapshot)}::jsonb`,
       },
+      // CHK_platform_payments_one_order: exactly one of seat_order_id / bundle_order_id.
+      platform_payments: { seat_order_id: lit(randomUUID()) + '::uuid' },
       promotion_entries: { is_override: 'true' },
       applications: {
         applicant_user_id: lit(randomUUID()) + '::uuid',

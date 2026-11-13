@@ -120,6 +120,12 @@ import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
 import { SurveyResponse } from './modules/surveys/entities/survey-response.entity';
 import { SurveyAnswer } from './modules/surveys/entities/survey-answer.entity';
 import { SmsCreditBalance } from './modules/communications/credits/entities/sms-credit-balance.entity';
+import { SmsCreditLot } from './modules/communications/credits/entities/sms-credit-lot.entity';
+import { SmsCreditLotDraw } from './modules/communications/credits/entities/sms-credit-lot-draw.entity';
+import { SmsBundleCatalog } from './modules/sms-bundles/entities/sms-bundle-catalog.entity';
+import { SmsBundleOrder } from './modules/sms-bundles/entities/sms-bundle-order.entity';
+import { SmsStockEntry } from './modules/sms-bundles/entities/sms-stock-entry.entity';
+import { SmsProviderBalanceReading } from './modules/sms-bundles/entities/sms-provider-balance-reading.entity';
 import { SmsCreditLedger } from './modules/communications/credits/entities/sms-credit-ledger.entity';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
@@ -456,6 +462,12 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             // app's real DataSource, so metered sends never worked outside
             // specs that build their own connection.
             SmsCreditBalance,
+            SmsCreditLot,
+            SmsCreditLotDraw,
+            SmsBundleCatalog,
+            SmsBundleOrder,
+            SmsStockEntry,
+            SmsProviderBalanceReading,
             SmsCreditLedger,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',

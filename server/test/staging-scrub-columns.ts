@@ -182,6 +182,14 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   student_fees: { null: ['note'] },
   seat_orders: { null: ['receipt_snapshot'] },
   platform_payments: { null: ['raw', 'gateway_ref'] },
+  // [100.1.02] Package names are the owner's catalog text, not personal. Free text the owner
+  // types (refund reason, stock note, delete reason) and the frozen receipt are cleared.
+  sms_bundle_catalog: { 'kept-public': ['name'] },
+  sms_bundle_orders: {
+    'kept-public': ['name_snapshot'],
+    null: ['receipt_snapshot', 'refund_reason'],
+  },
+  sms_stock_entries: { null: ['note', 'delete_reason'] },
 
   // --- free text about people ---
   admission_evaluations: { null: ['notes'] },
