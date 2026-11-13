@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -14,7 +15,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -47,6 +48,7 @@ import {
 @ApiTags('programs')
 @ApiTenantAuth()
 @Controller('programs')
+@RequiresModule(ModuleKey.programs)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ProgramEnrollmentsController {
   constructor(private readonly enrollmentsService: ProgramEnrollmentsService) {}
@@ -125,6 +127,7 @@ export class ProgramEnrollmentsController {
 @ApiTags('programs')
 @ApiTenantAuth()
 @Controller('program-enrollments')
+@RequiresModule(ModuleKey.programs)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ProgramEnrollmentStatusController {
   constructor(private readonly enrollmentsService: ProgramEnrollmentsService) {}
@@ -162,6 +165,7 @@ export class ProgramEnrollmentStatusController {
 @ApiTags('programs')
 @ApiTenantAuth()
 @Controller('milestone-achievements')
+@RequiresModule(ModuleKey.programs)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class MilestoneAchievementsController {
   constructor(private readonly enrollmentsService: ProgramEnrollmentsService) {}
@@ -194,6 +198,7 @@ export class MilestoneAchievementsController {
 @ApiTags('programs')
 @ApiTenantAuth()
 @Controller('students/:studentId/programs')
+@RequiresModule(ModuleKey.programs)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentProgramsController {
   constructor(

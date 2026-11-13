@@ -1,7 +1,8 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -14,6 +15,7 @@ import { LifecycleReportDto, LifecycleReportQueryDto } from './dto/admission-rep
 @ApiTags('admission')
 @ApiTenantAuth()
 @Controller('admission/reports')
+@RequiresModule(ModuleKey.admission)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
 export class AdmissionReportsController {
