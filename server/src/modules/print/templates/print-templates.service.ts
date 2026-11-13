@@ -18,7 +18,9 @@ import {
 } from '@biddaloy/shared';
 import type { TemplateDefinition } from '@biddaloy/shared';
 import { AuditService } from '../../audit/audit.service';
+import { SchoolsService } from '../../schools/schools.service';
 import { StorageService } from '../../storage/storage.service';
+import { applyPrintWords, suggestionLang } from '../catalog/print-words';
 import { tenantObjectKey } from '../../storage/storage-key';
 import { PrintAsset } from '../entities/print-asset.entity';
 import { PrintTemplate } from '../entities/print-template.entity';
@@ -63,6 +65,7 @@ export class PrintTemplatesService {
     private readonly dataSource: DataSource,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly schools: SchoolsService,
   ) {}
 
   suggestions() {
@@ -149,7 +152,11 @@ export class PrintTemplatesService {
             assets.save(assets.create({ ...s, tenant_id: tenantId, uploaded_by: userId })),
           ),
         );
-        const draft: TemplateDefinition = structuredClone(suggestion.definition);
+        const draft: TemplateDefinition = applyPrintWords(
+          structuredClone(suggestion.definition),
+          await this.schools.getSchoolLabels(tenantId),
+          suggestionLang(suggestion.key),
+        );
         draft.front.background = { assetId: front!.id, print: true };
         if (back && draft.back) draft.back.background = { assetId: back.id, print: true };
 

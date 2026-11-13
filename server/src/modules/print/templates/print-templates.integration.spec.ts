@@ -7,6 +7,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID } from '@test/constants';
 import { AuditService } from '../../audit/audit.service';
+import { SchoolsService } from '../../schools/schools.service';
 import { StorageService } from '../../storage/storage.service';
 import { PRINT_SUGGESTIONS } from '../suggestions/suggestions';
 import { PrintTemplatesService } from './print-templates.service';
@@ -22,6 +23,8 @@ describe('PrintTemplatesService (integration)', () => {
   let tenantA: string;
   let tenantB: string;
   const put = vi.fn(async () => undefined);
+  // Real SchoolsService needs half the app; label reading itself is covered in schools specs.
+  const labelsByTenant: Record<string, object> = {};
   const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === 'student-portrait-classic')!;
 
   beforeAll(async () => {
@@ -29,6 +32,10 @@ describe('PrintTemplatesService (integration)', () => {
       PrintTemplatesService,
       AuditService,
       { provide: StorageService, useValue: { put } },
+      {
+        provide: SchoolsService,
+        useValue: { getSchoolLabels: async (id: string) => labelsByTenant[id] ?? {} },
+      },
     ]);
     service = module.get(PrintTemplatesService);
     ds = module.get(DataSource);
@@ -47,6 +54,25 @@ describe('PrintTemplatesService (integration)', () => {
     // tenantA keeps its rows (audit_logs block deleting the school), like the sibling print specs; it is unique per run.
     await ds.query(`DELETE FROM schools WHERE id = $1`, [tenantB]);
     await ds.destroy();
+  });
+
+  it('admit card says Batch for a school that renamed Section; another school keeps stock', async () => {
+    labelsByTenant[tenantA] = { section: { en: { one: 'Batch' }, bn: 'ব্যাচ' } };
+    const captions = async (tenant: string, key: string, name: string) => {
+      const t = await service.create(tenant, SEED_ADMIN_USER_ID, { name, suggestion_key: key });
+      return (t.draft as TemplateDefinition).front.elements.flatMap((e) =>
+        e.type === 'TEXT' && !e.field ? [e.text as string] : [],
+      );
+    };
+    const a = await captions(tenantA, 'admit-card-en', 'Admit A en');
+    const abn = await captions(tenantA, 'admit-card-bn', 'Admit A bn');
+    const b = await captions(tenantB, 'admit-card-en', 'Admit B en');
+    expect(a).toContain('Batch:');
+    expect(abn).toContain('ব্যাচ:');
+    // Tenant isolation: B never sees A's word.
+    expect(b).toContain('Section:');
+    expect(b).not.toContain('Batch:');
+    put.mockClear(); // the next test counts its own uploads
   });
 
   it('creates from a suggestion, edits the draft, publishes twice and keeps v1 unchanged', async () => {
