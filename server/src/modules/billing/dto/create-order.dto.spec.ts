@@ -20,6 +20,12 @@ describe('CreateOrderDto', () => {
     expect(bad({ seats: 1.5, months: 1, idempotency_key: KEY })).toBe(true);
     expect(bad({ seats: 1, months: 1, idempotency_key: 'x' })).toBe(true);
   });
+  it('coupon_code is optional, a string, and length-capped', () => {
+    const base = { seats: 1, months: 1, idempotency_key: KEY };
+    expect(bad({ ...base, coupon_code: 'SAVE-10' })).toBe(false);
+    expect(bad({ ...base, coupon_code: 7 })).toBe(true);
+    expect(bad({ ...base, coupon_code: 'x'.repeat(65) })).toBe(true);
+  });
   it('the largest order stays under MONEY_MAX', () => {
     expect((MAX_ORDER_SEATS * 24 * SEAT_UNIT_PRICE_PAISA) / 100).toBeLessThanOrEqual(MONEY_MAX);
   });

@@ -27,6 +27,7 @@ import { VatService } from './vat.service';
 import { BillingModule } from './billing.module';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { ordersTestDeps } from './orders-test-deps';
 import { ReceiptService } from './receipt.service';
 import { BkashService } from './bkash/bkash.service';
 import { PlatformBillingService } from './platform-billing.service';
@@ -61,6 +62,7 @@ describe('#2782 triage (integration)', () => {
     const module = await createTestModule(ALL_ENTITIES, [
       EntitlementService,
       OrdersService,
+      ...ordersTestDeps(),
       StudentService,
       GuardianService,
       AuditService,
