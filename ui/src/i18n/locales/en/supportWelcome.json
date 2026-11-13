@@ -1,0 +1,12 @@
+{
+  "title": "Biddaloy support access",
+  "why": "If something goes wrong at your school, Biddaloy support can log in to help. You can see who logged in, why, and for how long.",
+  "checkbox": "Allow Biddaloy support access",
+  "later": "You can change this later in Settings.",
+  "submit": "Save and continue",
+  "saving": "Saving…",
+  "loading": "Loading…",
+  "error": "Could not save. Try again.",
+  "loadError": "Could not open this page. Try again.",
+  "retry": "Try again"
+}

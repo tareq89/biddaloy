@@ -7,6 +7,7 @@
  * owner) approves it, `openApproved` redeems it with its ticket id on a fresh click, which opens
  * the visit. A denied, ended or expired request is `over`: nothing is left to cancel.
  */
+import { ImpersonationStatus } from '@biddaloy/shared';
 import {
   useEndLoginAs,
   useLoginAsSessions,
@@ -54,9 +55,11 @@ export function useLoginAs(supportMode: 'allowed' | 'ask' | 'blocked' | undefine
   );
   const watchedStatus = watched.data?.find((s) => s.id === requestId)?.status;
   const outcome: WaitOutcome =
-    watchedStatus === 'APPROVED'
+    watchedStatus === ImpersonationStatus.APPROVED
       ? 'approved'
-      : watchedStatus === 'DENIED' || watchedStatus === 'ENDED' || watchedStatus === 'EXPIRED'
+      : watchedStatus === ImpersonationStatus.DENIED ||
+          watchedStatus === ImpersonationStatus.ENDED ||
+          watchedStatus === ImpersonationStatus.EXPIRED
         ? 'over'
         : 'pending';
 
@@ -66,7 +69,8 @@ export function useLoginAs(supportMode: 'allowed' | 'ask' | 'blocked' | undefine
   }
 
   function submit(input: StartImpersonationRequest) {
-    const { ticketId: _ticket, ...rest } = input;
+    const rest = { ...input };
+    delete rest.ticketId;
     lastInput.current = rest;
     const mine = ++attempt.current;
     const tab = window.open('about:blank', '_blank');

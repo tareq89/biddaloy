@@ -1012,3 +1012,45 @@ flowchart LR
 - **Route lists.** All 24 new routes are `ALLOWLIST` rows (cockpit bearer, no tenant); each is 401 for ANON and every school role in the route-status snapshot. Retry-failed, restore-lock release and the announcement send are `@FailClosedWithoutRedis()` and listed in the Redis outage table; the read and preview routes are fail-open.
 - **No extend route.** #3808 added no extend route, so none exists to wire.
 - **Archive status never returns the raw job error** (Rule 24): a fixed sentence replaces it.
+
+## Login as: how a platform owner signs in as a school person (Epic 99)
+
+A platform owner can open the school app as one real person (for example a school Admin on the phone), with a short token and a visible banner. The token is the person's own token plus an `imp` claim.
+
+```mermaid
+sequenceDiagram
+  actor O as Owner
+  participant C as Cockpit
+  participant S as Server
+  participant R as Redis
+  participant A as App tab
+  O->>C: Pick school, person, reason
+  C->>S: POST /api/v1/platform/impersonation (step-up token)
+  S->>S: school mode: allowed / ask / blocked
+  S->>R: SET imp:sid (EX = remaining life)
+  S-->>C: id + one-time code (60 s)
+  C->>A: Open app with the code
+  A->>S: POST /api/v1/auth/impersonation/exchange
+  S->>R: use the code once
+  S-->>A: access token with imp, no refresh token
+  A->>S: normal calls (JwtStrategy checks imp:sid)
+  O->>S: DELETE /api/v1/platform/impersonation/:id
+  S->>R: DEL imp:sid, the next call is 401
+```
+
+**The `imp` claim** (`JwtPayload.imp` in `shared/src/types/auth.types.ts`):
+
+| Part | Meaning | Example |
+| --- | --- | --- |
+| `sub` | The real school person, with their real memberships | the school Admin's user id |
+| `imp.sid` | `impersonation_sessions.id`; the Redis key is `imp:<sid>`, for example `imp:5b1c...` | `5b1c...` |
+| `imp.pa` | The platform admin (owner) behind it | the owner's id |
+| expiry | Remaining session life, never above 3600 s | 47 minutes left = 2820 s |
+
+**Rules (D32 and D19, as built).**
+
+- No refresh token, no cookie: when the token dies the session is over.
+- Never `SUPER_ADMIN`, never another school: `ContextGuard` compares the tenant and role with the session.
+- One owner may hold 3 live sessions (`IMPERSONATION_MAX_LIVE`) and start 10 an hour (`IMPERSONATION_RATE_LIMIT`). A newer live start for the same owner, school and person ends the older one.
+- School consent decides the start: `allowed` (school admins are told by email), `ask` (a request waits for a school admin, then the owner redeems it once), `blocked` (needs a reason, a second owner, and starts view-only; the owner can ask for write access).
+- Routes the person must not use while borrowed are marked `@DenyWhenImpersonating`. Audit rows carry the owner. See [Rule 32](08-security.md#rule-32-login-as-is-stamped-and-deny-listed).

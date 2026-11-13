@@ -1,0 +1,13 @@
+%% title: How a platform owner uses Login as
+%% desc: The owner opens a school and presses Login as, then picks a role and a person, writes a reason and confirms with an authenticator code. What happens next depends on the school's choice. Allowed opens the school in a new tab. Ask each time waits for a school admin to approve. Blocked allows only emergency access, which is view only and needs the other owner to agree.
+flowchart LR
+  S["Open the school<br/>press Login as"]:::owner --> F["Pick role and person<br/>write a reason<br/>confirm with a code"]:::owner
+  F --> C{"School's choice"}
+  C -- Allowed --> N["School opens<br/>in a new tab"]
+  C -- Ask each time --> W["Wait for a school admin<br/>to approve"]:::note
+  W --> N
+  C -- Blocked --> E["Emergency access only<br/>view only, other owner agrees"]:::note
+  E --> N
+  N --> B["School sees a banner<br/>press End to finish"]
+  classDef owner fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -19,6 +19,7 @@ import {
   getAccessToken,
   getActiveRole,
   getActiveTenant,
+  isSupportSession,
   notifySessionExpired,
   setAccessToken,
 } from './auth-state';
@@ -51,7 +52,7 @@ export const API_BASE_URL = '/api/v1';
  * redirect it — a POST/PATCH/DELETE built for school A replaying against
  * school B writes to the wrong school, and the server can't catch it when
  * the user legitimately has access to both. */
-type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean; _generation?: number };
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL });
 
@@ -64,6 +65,9 @@ export function setTenantless(next: boolean): void {
 export const isTenantless = (): boolean => tenantless;
 
 apiClient.interceptors.request.use((config) => {
+  // Which session sent it: a 401 that comes back after that session was cleared must not start
+  // a refresh (a support tab's late 401 would otherwise refresh with the normal account).
+  (config as RetryableConfig)._generation ??= currentSessionGeneration();
   // Explicit override wins; then the tenant this same request already
   // resolved to on a previous attempt (see `_resolvedTenantId`'s comment);
   // only a first dispatch falls through to the ambient active tenant.
@@ -146,6 +150,10 @@ export function setSessionEndpoints(next: SessionEndpoints): void {
 }
 
 export async function postAuthRefresh(): Promise<LoginResponse> {
+  // [99.G4.01] Never send the refresh cookie from a support tab. Every refresh
+  // path (reactive 401, quiet, cold boot) goes through here, so a rejection
+  // here makes any 401 end the tab via the callers' own failure handling.
+  if (isSupportSession()) throw new Error('refresh is not available on a support tab');
   const generation = currentSessionGeneration();
   const response = await axios.post<LoginResponse>(
     `${API_BASE_URL}${sessionEndpoints.refresh}`,
@@ -635,7 +643,12 @@ apiClient.interceptors.response.use(
     // interceptor never actually observes a 401 from /auth/refresh — only
     // `_retry` below does the real work of stopping a repeat 401 after
     // replay from refreshing a second time.
-    if (error.response?.status === 401 && config && !config._retry) {
+    if (
+      error.response?.status === 401 &&
+      config &&
+      !config._retry &&
+      (config._generation === undefined || config._generation === currentSessionGeneration())
+    ) {
       config._retry = true;
       try {
         await refreshAccessToken();

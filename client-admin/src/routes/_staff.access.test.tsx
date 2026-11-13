@@ -1,6 +1,8 @@
 import { UserRole } from '@biddaloy/shared';
-import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
+import { clearAuthState, setSupportSession, writeSupportEntry } from '@biddaloy/ui/api';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -19,6 +21,30 @@ import { routeTree } from '../routeTree.gen';
  * not on page content — a refused route must render *something* in
  * place, and must not navigate anywhere else while doing it.
  */
+function enterSupportTab(role: string) {
+  server.use(
+    http.get('/api/v1/auth/impersonation/me', () =>
+      HttpResponse.json({
+        sessionId: 's',
+        adminName: 'Owner',
+        userName: 'Rahim',
+        role,
+        viewOnly: false,
+        writeLocked: false,
+        expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+      }),
+    ),
+  );
+  setSupportSession(true);
+  writeSupportEntry({
+    token: 't',
+    sessionId: 's',
+    expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+    tenantId: 'tenant-1',
+    role,
+  });
+}
+
 describe('_staff route access [8.14.17]', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -208,5 +234,28 @@ describe('_staff route access [8.14.17]', () => {
     expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull();
     // Sidebar (and its Calendar link) never mounts pre-login.
     expect(screen.queryByRole('link', { name: /calendar/i })).toBeNull();
+  });
+
+  // [99.G4.02]
+  it('shows the red bar in a support tab and not in a normal tab', async () => {
+    const first = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: UserRole.ADMIN,
+      locale: 'en',
+    });
+    await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
+    expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
+    first.unmount();
+
+    enterSupportTab('ADMIN');
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: UserRole.ADMIN,
+      locale: 'en',
+    });
+    expect(await screen.findByRole('button', { name: 'End' })).toBeTruthy();
+    clearAuthState();
   });
 });

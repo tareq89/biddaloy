@@ -830,6 +830,7 @@ PATCH  /api/v1/subjects/:id                                                     
 POST   /api/v1/support-access/confirm                                            401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/support-access/platform-actions                                   401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/support-access/requests                                           401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/support-access/requests/:id                                       401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/support-access/requests/:id/approve                               401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/support-access/requests/:id/deny                                  401 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/support-access/sessions                                           401 401 PASS PASS PASS 403 403 403 403 403 403 403 403

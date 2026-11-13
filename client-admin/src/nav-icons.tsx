@@ -1,4 +1,5 @@
 import {
+  ActivityIcon,
   ArmchairIcon,
   ArrowBigUpDashIcon,
   AwardIcon,
@@ -51,10 +52,12 @@ import {
   PrinterIcon,
   ReceiptIcon,
   ReceiptTextIcon,
+  RadioIcon,
   RepeatIcon,
   ReplaceIcon,
   RulerIcon,
   SchoolIcon,
+  ScanSearchIcon,
   ScrollTextIcon,
   SendIcon,
   SettingsIcon,
@@ -76,6 +79,7 @@ import {
   UserRoundIcon,
   UsersRoundIcon,
   WalletCardsIcon,
+  UserSearchIcon,
 } from 'lucide-react';
 
 import type { StaffNavItemId } from './nav-tree';
@@ -157,6 +161,10 @@ export const PLATFORM_NAV_ICONS = {
   '/holiday-sets': TreePalmIcon,
   '/subscriptions': WalletCardsIcon,
   '/reports-usage': ChartNoAxesColumnIcon,
+  '/operations': ActivityIcon,
+  '/users': UserSearchIcon,
+  '/audit': ScanSearchIcon,
+  '/announcements': RadioIcon,
 } as const;
 /** @alias */
 export const STAFF_PLATFORM_EXTRA_ICONS = PLATFORM_NAV_ICONS;

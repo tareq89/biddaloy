@@ -184,7 +184,7 @@ const ROWS: Row[] = [
   // Money bKash took that paid no order: critical until refunded, so it cannot be turned off.
   ['platform.bkash.refund_due', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false, '#1649'],
   ['platform.login_as_burst', C.PLATFORM, S.WARNING, [K.HOURLY], [R.SUPER_ADMIN], true, true, false],
-  ['support.access_request', C.SETUP, S.WARNING, [K.ON_CHANGE], [R.ADMIN], true, false, false],
+  ['support.access_request', C.SETUP, S.WARNING, [K.HOURLY, K.ON_CHANGE], [R.ADMIN], true, false, false],
 ];
 
 export const ALERT_RULES: readonly AlertRuleMeta[] = ROWS.map(

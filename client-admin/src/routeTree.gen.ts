@@ -49,7 +49,10 @@ import { Route as PortalSurveysRouteImport } from './routes/portal/surveys'
 import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
 import { Route as SignInForgotRouteImport } from './routes/sign-in.forgot'
 import { Route as SignInResetRouteImport } from './routes/sign-in.reset'
+import { Route as SupportEnterRouteImport } from './routes/support.enter'
 import { Route as VTokenRouteImport } from './routes/v/$token'
+import { Route as WelcomeSupportAccessRouteImport } from './routes/welcome.support-access'
+import { Route as PlatformAnnouncementsIndexRouteImport } from './routes/_platform/announcements/index'
 import { Route as PlatformAuditIndexRouteImport } from './routes/_platform/audit/index'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
@@ -186,6 +189,7 @@ import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff
 import { Route as StaffResultsFinalIndexRouteImport } from './routes/_staff/results/final/index'
 import { Route as StaffResultsFinalFinalResultIdRouteImport } from './routes/_staff/results/final/$finalResultId'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
+import { Route as StaffSupportAccessRequestsRequestIdRouteImport } from './routes/_staff/support-access/requests.$requestId'
 import { Route as StaffWebsiteBlogIndexRouteImport } from './routes/_staff/website/blog/index'
 import { Route as StaffWebsiteBlogPostIdRouteImport } from './routes/_staff/website/blog/$postId'
 import { Route as StaffCommunicationsNoticesNoticeIdIndexRouteImport } from './routes/_staff/communications/notices/$noticeId/index'
@@ -393,11 +397,27 @@ const SignInResetRoute = SignInResetRouteImport.update({
   path: '/reset',
   getParentRoute: () => SignInRoute,
 } as any)
+const SupportEnterRoute = SupportEnterRouteImport.update({
+  id: '/support/enter',
+  path: '/support/enter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VTokenRoute = VTokenRouteImport.update({
   id: '/v/$token',
   path: '/v/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WelcomeSupportAccessRoute = WelcomeSupportAccessRouteImport.update({
+  id: '/welcome/support-access',
+  path: '/welcome/support-access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformAnnouncementsIndexRoute =
+  PlatformAnnouncementsIndexRouteImport.update({
+    id: '/announcements/',
+    path: '/announcements/',
+    getParentRoute: () => PlatformRouteRoute,
+  } as any)
 const PlatformAuditIndexRoute = PlatformAuditIndexRouteImport.update({
   id: '/audit/',
   path: '/audit/',
@@ -1130,6 +1150,12 @@ const StaffStudentsStudentIdEditRoute =
     path: '/students/$studentId/edit',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffSupportAccessRequestsRequestIdRoute =
+  StaffSupportAccessRequestsRequestIdRouteImport.update({
+    id: '/support-access/requests/$requestId',
+    path: '/support-access/requests/$requestId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffWebsiteBlogIndexRoute = StaffWebsiteBlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
@@ -1215,7 +1241,9 @@ export interface FileRoutesByFullPath {
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/sign-in/forgot': typeof SignInForgotRoute
   '/sign-in/reset': typeof SignInResetRoute
+  '/support/enter': typeof SupportEnterRoute
   '/v/$token': typeof VTokenRoute
+  '/welcome/support-access': typeof WelcomeSupportAccessRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -1277,6 +1305,7 @@ export interface FileRoutesByFullPath {
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
+  '/announcements/': typeof PlatformAnnouncementsIndexRoute
   '/audit/': typeof PlatformAuditIndexRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/operations/': typeof PlatformOperationsIndexRoute
@@ -1338,6 +1367,7 @@ export interface FileRoutesByFullPath {
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/results/final/$finalResultId': typeof StaffResultsFinalFinalResultIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/support-access/requests/$requestId': typeof StaffSupportAccessRequestsRequestIdRoute
   '/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
   '/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
   '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
@@ -1397,7 +1427,9 @@ export interface FileRoutesByTo {
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/sign-in/forgot': typeof SignInForgotRoute
   '/sign-in/reset': typeof SignInResetRoute
+  '/support/enter': typeof SupportEnterRoute
   '/v/$token': typeof VTokenRoute
+  '/welcome/support-access': typeof WelcomeSupportAccessRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -1459,6 +1491,7 @@ export interface FileRoutesByTo {
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
+  '/announcements': typeof PlatformAnnouncementsIndexRoute
   '/audit': typeof PlatformAuditIndexRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
   '/operations': typeof PlatformOperationsIndexRoute
@@ -1520,6 +1553,7 @@ export interface FileRoutesByTo {
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/results/final/$finalResultId': typeof StaffResultsFinalFinalResultIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/support-access/requests/$requestId': typeof StaffSupportAccessRequestsRequestIdRoute
   '/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
   '/academics/homework': typeof StaffAcademicsHomeworkIndexRoute
   '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
@@ -1585,7 +1619,9 @@ export interface FileRoutesById {
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/sign-in/forgot': typeof SignInForgotRoute
   '/sign-in/reset': typeof SignInResetRoute
+  '/support/enter': typeof SupportEnterRoute
   '/v/$token': typeof VTokenRoute
+  '/welcome/support-access': typeof WelcomeSupportAccessRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -1647,6 +1683,7 @@ export interface FileRoutesById {
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
+  '/_platform/announcements/': typeof PlatformAnnouncementsIndexRoute
   '/_platform/audit/': typeof PlatformAuditIndexRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/_platform/operations/': typeof PlatformOperationsIndexRoute
@@ -1708,6 +1745,7 @@ export interface FileRoutesById {
   '/_staff/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/_staff/results/final/$finalResultId': typeof StaffResultsFinalFinalResultIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
+  '/_staff/support-access/requests/$requestId': typeof StaffSupportAccessRequestsRequestIdRoute
   '/_staff/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
   '/_staff/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
   '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
@@ -1772,7 +1810,9 @@ export interface FileRouteTypes {
     | '/portal/syllabus'
     | '/sign-in/forgot'
     | '/sign-in/reset'
+    | '/support/enter'
     | '/v/$token'
+    | '/welcome/support-access'
     | '/portal/'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -1834,6 +1874,7 @@ export interface FileRouteTypes {
     | '/portal/applications/$applicationId'
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
+    | '/announcements/'
     | '/audit/'
     | '/holiday-sets/'
     | '/operations/'
@@ -1895,6 +1936,7 @@ export interface FileRouteTypes {
     | '/results/$examId/$studentId'
     | '/results/final/$finalResultId'
     | '/students/$studentId/edit'
+    | '/support-access/requests/$requestId'
     | '/website/blog/$postId'
     | '/academics/homework/'
     | '/academics/syllabus/'
@@ -1954,7 +1996,9 @@ export interface FileRouteTypes {
     | '/portal/syllabus'
     | '/sign-in/forgot'
     | '/sign-in/reset'
+    | '/support/enter'
     | '/v/$token'
+    | '/welcome/support-access'
     | '/portal'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -2016,6 +2060,7 @@ export interface FileRouteTypes {
     | '/portal/applications/$applicationId'
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
+    | '/announcements'
     | '/audit'
     | '/holiday-sets'
     | '/operations'
@@ -2077,6 +2122,7 @@ export interface FileRouteTypes {
     | '/results/$examId/$studentId'
     | '/results/final/$finalResultId'
     | '/students/$studentId/edit'
+    | '/support-access/requests/$requestId'
     | '/website/blog/$postId'
     | '/academics/homework'
     | '/academics/syllabus'
@@ -2141,7 +2187,9 @@ export interface FileRouteTypes {
     | '/portal/syllabus'
     | '/sign-in/forgot'
     | '/sign-in/reset'
+    | '/support/enter'
     | '/v/$token'
+    | '/welcome/support-access'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
@@ -2203,6 +2251,7 @@ export interface FileRouteTypes {
     | '/portal/applications/$applicationId'
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
+    | '/_platform/announcements/'
     | '/_platform/audit/'
     | '/_platform/holiday-sets/'
     | '/_platform/operations/'
@@ -2264,6 +2313,7 @@ export interface FileRouteTypes {
     | '/_staff/results/$examId/$studentId'
     | '/_staff/results/final/$finalResultId'
     | '/_staff/students/$studentId_/edit'
+    | '/_staff/support-access/requests/$requestId'
     | '/_staff/website/blog/$postId'
     | '/_staff/academics/homework/'
     | '/_staff/academics/syllabus/'
@@ -2305,7 +2355,9 @@ export interface RootRouteChildren {
   ITokenRoute: typeof ITokenRoute
   NTokenRoute: typeof NTokenRoute
   OwnerSecurityTwoStepRoute: typeof OwnerSecurityTwoStepRoute
+  SupportEnterRoute: typeof SupportEnterRoute
   VTokenRoute: typeof VTokenRoute
+  WelcomeSupportAccessRoute: typeof WelcomeSupportAccessRoute
   AdmissionSlugStatusRoute: typeof AdmissionSlugStatusRoute
   AuthSocialDoneRoute: typeof AuthSocialDoneRoute
   AdmissionSlugIndexRoute: typeof AdmissionSlugIndexRoute
@@ -2593,12 +2645,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInResetRouteImport
       parentRoute: typeof SignInRoute
     }
+    '/support/enter': {
+      id: '/support/enter'
+      path: '/support/enter'
+      fullPath: '/support/enter'
+      preLoaderRoute: typeof SupportEnterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/v/$token': {
       id: '/v/$token'
       path: '/v/$token'
       fullPath: '/v/$token'
       preLoaderRoute: typeof VTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/welcome/support-access': {
+      id: '/welcome/support-access'
+      path: '/welcome/support-access'
+      fullPath: '/welcome/support-access'
+      preLoaderRoute: typeof WelcomeSupportAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_platform/announcements/': {
+      id: '/_platform/announcements/'
+      path: '/announcements'
+      fullPath: '/announcements/'
+      preLoaderRoute: typeof PlatformAnnouncementsIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
     }
     '/_platform/audit/': {
       id: '/_platform/audit/'
@@ -3552,6 +3625,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsStudentIdEditRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/support-access/requests/$requestId': {
+      id: '/_staff/support-access/requests/$requestId'
+      path: '/support-access/requests/$requestId'
+      fullPath: '/support-access/requests/$requestId'
+      preLoaderRoute: typeof StaffSupportAccessRequestsRequestIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/website/blog/': {
       id: '/_staff/website/blog/'
       path: '/blog'
@@ -3616,6 +3696,7 @@ interface PlatformRouteRouteChildren {
   PlatformHolidaySetsSetIdRoute: typeof PlatformHolidaySetsSetIdRoute
   PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
   PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
+  PlatformAnnouncementsIndexRoute: typeof PlatformAnnouncementsIndexRoute
   PlatformAuditIndexRoute: typeof PlatformAuditIndexRoute
   PlatformHolidaySetsIndexRoute: typeof PlatformHolidaySetsIndexRoute
   PlatformOperationsIndexRoute: typeof PlatformOperationsIndexRoute
@@ -3631,6 +3712,7 @@ const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
   PlatformHolidaySetsSetIdRoute: PlatformHolidaySetsSetIdRoute,
   PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
   PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
+  PlatformAnnouncementsIndexRoute: PlatformAnnouncementsIndexRoute,
   PlatformAuditIndexRoute: PlatformAuditIndexRoute,
   PlatformHolidaySetsIndexRoute: PlatformHolidaySetsIndexRoute,
   PlatformOperationsIndexRoute: PlatformOperationsIndexRoute,
@@ -3796,6 +3878,7 @@ interface StaffRouteChildren {
   StaffResultsExamIdStudentIdRoute: typeof StaffResultsExamIdStudentIdRoute
   StaffResultsFinalFinalResultIdRoute: typeof StaffResultsFinalFinalResultIdRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
+  StaffSupportAccessRequestsRequestIdRoute: typeof StaffSupportAccessRequestsRequestIdRoute
   StaffAcademicsHomeworkIndexRoute: typeof StaffAcademicsHomeworkIndexRoute
   StaffAcademicsSyllabusIndexRoute: typeof StaffAcademicsSyllabusIndexRoute
   StaffAdmissionsApplicantsIndexRoute: typeof StaffAdmissionsApplicantsIndexRoute
@@ -3920,6 +4003,8 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffResultsExamIdStudentIdRoute: StaffResultsExamIdStudentIdRoute,
   StaffResultsFinalFinalResultIdRoute: StaffResultsFinalFinalResultIdRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,
+  StaffSupportAccessRequestsRequestIdRoute:
+    StaffSupportAccessRequestsRequestIdRoute,
   StaffAcademicsHomeworkIndexRoute: StaffAcademicsHomeworkIndexRoute,
   StaffAcademicsSyllabusIndexRoute: StaffAcademicsSyllabusIndexRoute,
   StaffAdmissionsApplicantsIndexRoute: StaffAdmissionsApplicantsIndexRoute,
@@ -4025,7 +4110,9 @@ const rootRouteChildren: RootRouteChildren = {
   ITokenRoute: ITokenRoute,
   NTokenRoute: NTokenRoute,
   OwnerSecurityTwoStepRoute: OwnerSecurityTwoStepRoute,
+  SupportEnterRoute: SupportEnterRoute,
   VTokenRoute: VTokenRoute,
+  WelcomeSupportAccessRoute: WelcomeSupportAccessRoute,
   AdmissionSlugStatusRoute: AdmissionSlugStatusRoute,
   AuthSocialDoneRoute: AuthSocialDoneRoute,
   AdmissionSlugIndexRoute: AdmissionSlugIndexRoute,

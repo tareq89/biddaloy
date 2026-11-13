@@ -1,0 +1,10 @@
+%% title: How an announcement reaches schools
+%% desc: The owner chooses which schools, writes a title and a message, and sees how many schools and admins will get it. After Send the other owner must agree. When they agree the owner presses Send now and the banner, and SMS or email if ticked, go out. If the other owner says no or the time runs out nothing is sent.
+flowchart LR
+  W["Choose schools<br/>write title and message<br/>see Schools and Admins count"]:::owner --> S["Press Send"]:::owner
+  S --> Q["Waiting for the<br/>other owner to agree"]:::note
+  Q -- agrees --> N["Press Send now"]:::owner
+  N --> D["Banner, and SMS or email<br/>if ticked, reach the admins"]
+  Q -- says no or time runs out --> X["Nothing is sent"]
+  classDef owner fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
