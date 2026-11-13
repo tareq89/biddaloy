@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
+import { PlatformSetting } from '../platform-identity/entities/platform-setting.entity';
+import { PlatformModulesController } from './platform-modules.controller';
+import { PlatformModulesService } from './platform-modules.service';
 import { AuditModule } from '../audit/audit.module';
 import { StorageModule } from '../storage/storage.module';
 import { SchoolsModule } from '../schools/schools.module';
@@ -14,12 +19,19 @@ import { InstitutionKindService } from './institution-kind.service';
 
 /** [35.2.1] Read side of curriculum presets: registry, preview, status. */
 @Module({
-  imports: [SchoolsModule, AuditModule, StorageModule],
+  imports: [
+    SchoolsModule,
+    AuditModule,
+    StorageModule,
+    PlatformIdentityModule,
+    TypeOrmModule.forFeature([PlatformSetting]),
+  ],
   controllers: [
     PresetsController,
     PresetApplyController,
     PlatformPresetsController,
     InstitutionKindController,
+    PlatformModulesController,
   ],
   providers: [
     PresetRegistryService,
@@ -27,6 +39,7 @@ import { InstitutionKindService } from './institution-kind.service';
     PresetApplyService,
     PresetResetService,
     InstitutionKindService,
+    PlatformModulesService,
   ],
   exports: [PresetRegistryService, PresetStatusService],
 })

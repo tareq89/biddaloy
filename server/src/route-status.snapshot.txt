@@ -530,6 +530,8 @@ GET    /api/v1/platform/impersonation                                           
 POST   /api/v1/platform/impersonation                                            401 403 401 401 401 401 401 401 401 401 401 401 401 -
 DELETE /api/v1/platform/impersonation/:id                                        401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/impersonation/:id/request-write                          401 403 401 401 401 401 401 401 401 401 401 401 401 -
+GET    /api/v1/platform/modules                                                  401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
+PUT    /api/v1/platform/modules                                                  401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/ops/queues                                               401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/ops/queues/:name/retry-failed                            401 403 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/ops/restore-lock/:schoolId/release                       401 403 401 401 401 401 401 401 401 401 401 401 401 -
@@ -553,6 +555,7 @@ GET    /api/v1/platform/schools/:id/archive/export/:jobId                       
 GET    /api/v1/platform/schools/:id/archive/export/:jobId/download               401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/login-as/candidates                          401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/schools/:id/logout-all                                   401 403 401 401 401 401 401 401 401 401 401 401 401 -
+PUT    /api/v1/platform/schools/:id/modules/:key/lock                            401 403 401 401 401 401 401 401 401 401 401 401 401 -
 PATCH  /api/v1/platform/schools/:id/name                                         401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/notes                                        401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/schools/:id/notes                                        401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
