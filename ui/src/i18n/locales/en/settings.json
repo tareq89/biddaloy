@@ -596,10 +596,12 @@
     "dailySource": "Decides who can save the daily register: any assigned teacher, the class teacher, the first-period teacher, or the attendance machine.",
     "staffSmsFallback": "If daily attendance is still not taken late in the day, send the admin a text message. Off by default.",
     "deviceSecretKey": "The machine's secret key. It is shown once, so copy it now and keep it safe.",
-    "modulesSource": "Shows who decides if this module is On. If the platform turned it off or locked it, you cannot change it here.",
-    "modulesWhoCantSee": "Pick the roles that should not see this module. Admins always see it.",
-    "modulesBnWord": "The Bangla word. Leave it empty to keep the usual word.",
-    "modulesApplyKind": "Apply changes your modules and words to match the institution kind. Your data stays as it is."
+    "modulesWords": {
+      "source": "Shows who decides if this module is On. If the platform turned it off or locked it, you cannot change it here.",
+      "whoCantSee": "Pick the roles that should not see this module. Admins always see it.",
+      "bnWord": "The Bangla word. Leave it empty to keep the usual word.",
+      "applyKind": "Apply changes your modules and words to match the institution kind. Your data stays as it is."
+    }
   },
   "helpRequired": {
     "schoolName": "Yes",

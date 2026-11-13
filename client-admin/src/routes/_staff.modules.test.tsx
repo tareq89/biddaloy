@@ -37,7 +37,7 @@ describe('_staff module gate [77.3.1]', () => {
 
     expect(await screen.findByText(REFUSAL)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Turn on' }).getAttribute('href')).toBe(
-      '/settings?section=modules',
+      '/settings?section=modulesWords',
     );
   });
 
