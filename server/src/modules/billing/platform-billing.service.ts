@@ -13,6 +13,7 @@ import {
   EnrollmentStatus,
   IDLE_REASON,
   SeatOrderStatus,
+  SmsBundleOrderStatus,
   type PlatformSchoolBilling,
   type PlatformSchoolBillingPage,
   type PlatformSchoolBillingDetail,
@@ -24,6 +25,7 @@ import { AuditService } from '../audit/audit.service';
 import { TrialService } from '../schools/trial/trial.service';
 import { OrdersService } from './orders.service';
 import { BkashService } from './bkash/bkash.service';
+import { SmsBundlePaymentService } from '../sms-bundles/payment/sms-bundle-payment.service';
 import type { GrantSeatsDto, OfflinePaymentDto } from './dto/platform-billing.dto';
 
 /** "Expiring" window of the platform list. */
@@ -136,16 +138,7 @@ export class PlatformBillingService {
     }
     // A bKash payment for this order may still complete: paying it offline too would charge twice.
     // Redis down: we cannot tell, so refuse (fail closed) rather than risk it.
-    const live = await this.bkash.paymentMayBeLive(orderId).catch((err: unknown) => {
-      this.logger.error(`offline payment: bKash state unreadable: ${String(err)}`);
-      throw new ServiceUnavailableException('Try again in a few minutes.');
-    });
-    if (live) {
-      throw new ConflictException({
-        message: 'An online payment for this order may still complete',
-        details: { code: 'BKASH_PAYMENT_LIVE' },
-      });
-    }
+    await this.assertNoLiveBkash(orderId);
     try {
       const { applied } = await this.orders.markPaid(orderId, {
         method: dto.method,
@@ -173,6 +166,76 @@ export class PlatformBillingService {
       return { applied, school_id: order.school_id };
     } catch (e) {
       // UQ (method, gateway_ref): one slip number on a second order. Rule 23: no echo.
+      const err = (e as { driverError?: { code?: string; constraint?: string } }).driverError;
+      if (err?.code === '23505' && err.constraint === 'UQ_platform_payments_method_gateway_ref') {
+        throw new ConflictException({
+          message: 'This payment reference is already used',
+          details: { code: 'REFERENCE_IN_USE' },
+        });
+      }
+      throw e;
+    }
+  }
+
+  /** Throws 409 BKASH_PAYMENT_LIVE, or 503 when Redis cannot say (fail closed). */
+  private async assertNoLiveBkash(orderId: string): Promise<void> {
+    const live = await this.bkash.paymentMayBeLive(orderId).catch((err: unknown) => {
+      this.logger.error(`offline payment: bKash state unreadable: ${String(err)}`);
+      throw new ServiceUnavailableException('Try again in a few minutes.');
+    });
+    if (live) {
+      throw new ConflictException({
+        message: 'An online payment for this order may still complete',
+        details: { code: 'BKASH_PAYMENT_LIVE' },
+      });
+    }
+  }
+
+  /** The SMS package twin of `recordOfflinePayment`: same guards, audit and replay answer. */
+  async recordOfflineBundlePayment(orderId: string, dto: OfflinePaymentDto, actorUserId: string) {
+    const bundles = this.moduleRef.get(SmsBundlePaymentService, { strict: false });
+    const order = await bundles.findForPayment(orderId);
+    if (!order) throw new NotFoundException('Order not found');
+    const S = SmsBundleOrderStatus;
+    // Already paid (any later state): a replay, nothing to do.
+    if ([S.PAID, S.ACTIVE, S.USED_UP, S.EXPIRED].includes(order.status)) {
+      return { applied: false, school_id: order.school_id };
+    }
+    if (order.status !== S.PENDING_PAYMENT) {
+      throw new ConflictException({
+        message: 'This order cannot be paid',
+        details: { code: 'ORDER_NOT_PENDING' },
+      });
+    }
+    await this.assertNoLiveBkash(orderId);
+    // D8: a new package payment waits while sales are paused (markPaid itself never refuses).
+    await bundles.assertSalesOpen();
+    try {
+      const { applied } = await bundles.markPaid(orderId, {
+        method: dto.method,
+        gateway_ref: dto.reference,
+        recordedByUserId: actorUserId,
+        onApplied: (m) =>
+          this.audit.record(
+            {
+              action: AuditAction.UPDATE,
+              entity_type: 'School',
+              entity_id: order.school_id,
+              tenant_id: order.school_id,
+              performed_by_user_id: actorUserId,
+              new_values: {
+                event: 'OFFLINE_PAYMENT_RECORDED',
+                bundle_order_id: orderId,
+                method: dto.method,
+                reference: dto.reference,
+                idempotency_key: dto.idempotency_key,
+              },
+            },
+            m,
+          ),
+      });
+      return { applied, school_id: order.school_id };
+    } catch (e) {
       const err = (e as { driverError?: { code?: string; constraint?: string } }).driverError;
       if (err?.code === '23505' && err.constraint === 'UQ_platform_payments_method_gateway_ref') {
         throw new ConflictException({

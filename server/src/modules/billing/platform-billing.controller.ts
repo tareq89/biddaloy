@@ -62,6 +62,21 @@ export class PlatformBillingController {
     return this.service.recordOfflinePayment(id, dto, user.sub);
   }
 
+  @Post('sms-bundle-orders/:id/offline-payment')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Mark a PENDING_PAYMENT SMS package order paid offline. Audited; a replay changes nothing.',
+  })
+  @ApiOkResponse({ type: OfflinePaymentResultDto })
+  offlineBundlePayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: OfflinePaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.recordOfflineBundlePayment(id, dto, user.sub);
+  }
+
   @Post('schools/:id/grant')
   @HttpCode(200)
   @ApiOperation({
