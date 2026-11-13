@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
+import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { AuthModule } from '../../../auth/auth.module';
 import { TenantStatusModule } from '../../../schools/tenant-status.module';
 import { DEFAULT_TENANT_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
@@ -72,11 +73,7 @@ describe('System rules (integration)', () => {
       [tenantId, status, finishedAt],
     );
   const setBalance = (tenantId: string, available: number) =>
-    ds.query(
-      `INSERT INTO sms_credit_balance (tenant_id, available) VALUES ($1, $2)
-       ON CONFLICT (tenant_id) DO UPDATE SET available = $2`,
-      [tenantId, available],
-    );
+    fundMeteredTenant(ds, tenantId, available);
   const run = async (rule: AttentionRule, tenantId: string) => {
     const c = ctx(tenantId);
     return writer.apply(c, rule, await rule.evaluate(c));
