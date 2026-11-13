@@ -822,6 +822,7 @@
       "fee": "Fee"
     },
     "modules": {
+      "loadError": "Could not load the modules. Try again.",
       "on": "On",
       "off": "Off",
       "offBecause": "Off because {{base}} is Off",
