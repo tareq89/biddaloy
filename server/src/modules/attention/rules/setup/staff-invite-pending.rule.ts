@@ -4,7 +4,7 @@ import { alertRuleMeta, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class StaffInvitePendingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('staff.invite_pending');
   readonly messages = {

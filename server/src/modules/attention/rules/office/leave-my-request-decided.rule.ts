@@ -1,12 +1,12 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
 const WINDOW_MS = 72 * 3_600_000;
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.staffAttendance })
 export class LeaveMyRequestDecidedRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('leave.my_request_decided');
   readonly messages = {

@@ -5,7 +5,7 @@ import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from '../structure/role-recipients';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class StudentsRecordsIncompleteRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('students.records_incomplete');
   readonly messages = {

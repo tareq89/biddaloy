@@ -41,7 +41,16 @@ function ctxAt(now: Date, over: Partial<RuleContext> = {}): RuleContext {
   };
 }
 
-function make(rules: AttentionRule[], opts: { ctx?: Partial<RuleContext>; within?: boolean } = {}) {
+function make(
+  rules: AttentionRule[],
+  opts: {
+    ctx?: Partial<RuleContext>;
+    within?: boolean;
+    modules?: Record<string, string>;
+    school?: Record<string, { on?: boolean }>;
+    readerFails?: boolean;
+  } = {},
+) {
   const queue = {
     upsertJobScheduler: vi.fn().mockResolvedValue(undefined),
     add: vi.fn().mockResolvedValue(undefined),
@@ -53,6 +62,7 @@ function make(rules: AttentionRule[], opts: { ctx?: Partial<RuleContext>; within
   const registry = {
     forCadence: vi.fn((c: AlertCadence) => rules.filter((r) => r.meta.cadence.includes(c))),
     get: vi.fn((k: string) => rules.find((r) => r.meta.key === k)),
+    moduleOf: vi.fn((k: string) => opts.modules?.[k]),
   };
   const context = {
     build: vi.fn(async (_t: string, now: Date) => ctxAt(now, opts.ctx)),
@@ -92,6 +102,12 @@ function make(rules: AttentionRule[], opts: { ctx?: Partial<RuleContext>; within
     writer as never,
     redis as never,
     dataSource as never,
+    {
+      forTenant: async () => {
+        if (opts.readerFails) throw new Error('db down');
+        return { platform: {}, school: opts.school ?? {} };
+      },
+    } as never,
   );
   return { sched, queue, schools, registry, context, writer, redis, dataSource };
 }
@@ -124,6 +140,29 @@ describe('AttentionScheduler', () => {
     expect(isRuleEnabled(alertRuleMeta('system.backup_failed'), off)).toBe(true); // CRITICAL, cannot disable
     expect(isRuleEnabled(alertRuleMeta('class.starting'), off)).toBe(false);
     expect(isRuleEnabled(alertRuleMeta('class.starting'), settings)).toBe(true);
+  });
+
+  it('a rule of an off module does not run; on again it runs (D9)', async () => {
+    const rule = fakeRule('class.starting');
+    const modules = { 'class.starting': 'routines' };
+    const off = make([rule], { modules, school: { routines: { on: false } } });
+    await off.sched.sweepTenant('t1', AlertCadence.FAST, new Date('2026-10-09T05:00:00Z'));
+    expect(rule.evaluate).not.toHaveBeenCalled();
+    const on = make([rule], { modules, school: {} });
+    await on.sched.sweepTenant('t1', AlertCadence.FAST, new Date('2026-10-09T05:00:00Z'));
+    expect(rule.evaluate).toHaveBeenCalledTimes(1);
+  });
+
+  it('unreadable module state skips module rules, never aborts (D27)', async () => {
+    const rule = fakeRule('class.starting');
+    const { sched } = make([rule], {
+      modules: { 'class.starting': 'routines' },
+      readerFails: true,
+    });
+    await expect(
+      sched.sweepTenant('t1', AlertCadence.FAST, new Date('2026-10-09T05:00:00Z')),
+    ).resolves.toBeUndefined();
+    expect(rule.evaluate).not.toHaveBeenCalled();
   });
 
   it('FAST on a non-working day expires/wakes but evaluates nothing', async () => {

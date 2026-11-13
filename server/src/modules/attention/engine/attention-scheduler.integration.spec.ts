@@ -34,7 +34,7 @@ describe('AttentionScheduler prune (integration)', () => {
     ds = module.get(DataSource);
     writer = module.get(AlertWriterService);
     // No rules: the DAILY sweep then only exercises the prune path.
-    const registry = { forCadence: () => [] };
+    const registry = { forCadence: () => [], moduleOf: () => undefined };
     const context = {
       build: async (tenantId: string, now: Date) => ({
         tenantId,
@@ -54,6 +54,7 @@ describe('AttentionScheduler prune (integration)', () => {
       writer,
       redis,
       ds,
+      { forTenant: async () => ({ platform: {}, school: {} }) } as never,
     );
     const [school] = await ds.query(
       `INSERT INTO schools (name, slug) VALUES ('Prune Other', 'prune-other-' || substr(gen_random_uuid()::text, 1, 8)) RETURNING id`,

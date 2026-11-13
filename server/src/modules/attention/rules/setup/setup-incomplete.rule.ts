@@ -5,7 +5,7 @@ import { OnboardingService } from '../../../onboarding/onboarding.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class SetupIncompleteRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('setup.incomplete');
   readonly messages = {

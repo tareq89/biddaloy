@@ -7,7 +7,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { roleRecipients } from '../structure/role-recipients';
 
 /** Runs at `eveningAt`: `EVENING_RULE_KEYS` decides that, no time gate here. */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class CalendarHolidayTomorrowRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('calendar.holiday_tomorrow');
   readonly messages = {

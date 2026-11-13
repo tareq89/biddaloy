@@ -1,12 +1,12 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { alertRuleMeta, AttendanceStatus } from '@biddaloy/shared';
+import { alertRuleMeta, AttendanceStatus, ModuleKey } from '@biddaloy/shared';
 import { currentStreaks, MAX_STREAK_SESSIONS } from '../../../attendance/attendance-streaks.util';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { loadHomeroomSections } from './class-homeroom';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.attendance })
 export class ClassAbsentStreakRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('class.absent_streak');
   readonly messages = {

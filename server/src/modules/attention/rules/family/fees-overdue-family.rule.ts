@@ -1,13 +1,13 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { childFindings, openFeesByStudent } from './family-data';
 
 /** Open fees past their due date. Kept without recipients for the D29 SMS fallback. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.fees })
 export class FeesOverdueFamilyRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('fees.overdue_family');
   readonly messages = {

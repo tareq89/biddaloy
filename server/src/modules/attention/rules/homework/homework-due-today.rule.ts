@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import { endOfLocalDay } from '../rule-context.service';
@@ -14,7 +14,7 @@ export function groupByStudent(rows: NotSubmittedRow[]) {
   return map;
 }
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.homework })
 export class HomeworkDueTodayRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('homework.due_today');
   readonly messages = {

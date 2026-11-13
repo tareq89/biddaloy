@@ -9,7 +9,7 @@ import { adminRecipients, seatSnapshot } from './seats-common';
  * CRITICAL when every paid seat is taken (or students outnumber them) inside a paid period, or
  * when students exist and nothing was ever bought. Silent in the free period.
  */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class SeatsExhaustedRule implements AttentionRuleShape {
   meta = alertRuleMeta('seats.exhausted');
   messages = {

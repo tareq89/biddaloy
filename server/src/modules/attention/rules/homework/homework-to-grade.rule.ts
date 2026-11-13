@@ -1,11 +1,11 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { loadSubjectTeachers } from './homework-not-submitted.rule';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.homework })
 export class HomeworkToGradeRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('homework.to_grade');
   readonly messages = {

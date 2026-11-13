@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { resolveAttendancePolicy } from '../../../attendance/attendance-policy.util';
 import { SchoolsService } from '../../../schools/schools.service';
 import { FamilyAccessService } from '../../../students/family-access.service';
@@ -10,7 +10,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { childFindings } from './family-data';
 
 /** Absent in a FINALIZED whole-day register today (same "a human finalized it" rule as the absence-notice sweep). */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.attendance })
 export class ChildAbsentTodayRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('child.absent_today');
   readonly messages = {
