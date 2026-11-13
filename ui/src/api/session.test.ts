@@ -32,6 +32,7 @@ afterEach(() => {
   mock.restore();
   clearAuthState();
   clearPersistedTenant();
+  sessionStorage.clear();
   resetSessionBootstrap();
 });
 
@@ -216,6 +217,10 @@ describe('[99.G4.01] support tab', () => {
       tenantId: null,
       role: null,
     });
+    expect(await ensureSessionLoaded()).toBe(false);
+    expect(mock.history.post).toHaveLength(0);
+    // Reload again: the entry is gone but the ended marker keeps it from using the refresh cookie.
+    resetSessionBootstrap();
     expect(await ensureSessionLoaded()).toBe(false);
     expect(mock.history.post).toHaveLength(0);
   });

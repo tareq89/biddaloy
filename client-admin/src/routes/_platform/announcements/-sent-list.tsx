@@ -8,10 +8,24 @@ export interface SentListProps {
   loading: boolean;
   isFetching: boolean;
   error?: string;
+  page: number;
+  pageSize: number;
+  /** All announcements, not just this page. */
+  total: number;
+  onPageChange: (page: number) => void;
 }
 
-/** Date, title, schools reached and who sent it. First page only (ponytail: add paging past 25). */
-export function SentList({ rows, loading, isFetching, error }: SentListProps) {
+/** Date, title, schools reached and who sent it, a page at a time. */
+export function SentList({
+  rows,
+  loading,
+  isFetching,
+  error,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: SentListProps) {
   const { t } = useTranslation('platformAnnouncements');
   const config = useRegionConfig();
 
@@ -47,8 +61,10 @@ export function SentList({ rows, loading, isFetching, error }: SentListProps) {
       getRowId={(r) => r.id}
       sorting={null}
       onSortingChange={() => {}}
-      paginated={false}
-      totalCount={rows.length}
+      page={page}
+      pageSize={pageSize}
+      onPageChange={onPageChange}
+      totalCount={total}
       loading={loading}
       isFetching={isFetching}
       {...(error !== undefined ? { error } : {})}

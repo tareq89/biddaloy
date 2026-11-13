@@ -45,17 +45,57 @@ export const CountFailed: Story = { args: { preview: { kind: 'error' } } };
 export const Waiting: Story = { args: { locked: true } };
 export const List1440: Story = {
   parameters: desktop,
-  render: () => <SentList rows={ROWS} loading={false} isFetching={false} />,
+  render: () => (
+    <SentList
+      rows={ROWS}
+      loading={false}
+      isFetching={false}
+      page={1}
+      pageSize={25}
+      total={ROWS.length}
+      onPageChange={() => {}}
+    />
+  ),
 };
 export const List390: Story = {
   parameters: phone,
-  render: () => <SentList rows={ROWS} loading={false} isFetching={false} />,
+  render: () => (
+    <SentList
+      rows={ROWS}
+      loading={false}
+      isFetching={false}
+      page={1}
+      pageSize={25}
+      total={ROWS.length}
+      onPageChange={() => {}}
+    />
+  ),
 };
 export const ListEmpty: Story = {
-  render: () => <SentList rows={[]} loading={false} isFetching={false} />,
+  render: () => (
+    <SentList
+      rows={[]}
+      loading={false}
+      isFetching={false}
+      page={1}
+      pageSize={25}
+      total={ROWS.length}
+      onPageChange={() => {}}
+    />
+  ),
 };
 export const ListLoading: Story = {
-  render: () => <SentList rows={[]} loading isFetching />,
+  render: () => (
+    <SentList
+      rows={[]}
+      loading
+      isFetching
+      page={1}
+      pageSize={25}
+      total={0}
+      onPageChange={() => {}}
+    />
+  ),
 };
 export const ListError: Story = {
   render: () => (
@@ -63,6 +103,10 @@ export const ListError: Story = {
       rows={[]}
       loading={false}
       isFetching={false}
+      page={1}
+      pageSize={25}
+      total={0}
+      onPageChange={() => {}}
       error="Could not load the announcements. Try again."
     />
   ),

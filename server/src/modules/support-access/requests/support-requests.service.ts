@@ -34,6 +34,16 @@ const IS_ASK = `s.status = 'REQUESTED' AND s.entry_kind = 'NORMAL' AND s.request
 const IS_WRITE = `s.status = 'ACTIVE' AND s.entry_kind = 'EMERGENCY' AND s.write_requested_at IS NOT NULL
   AND s.write_locked AND s.expires_at > now()`;
 
+const SELECT_REQUEST = `SELECT s.id, s.entry_kind, s.role, s.reason, s.requested_at, s.write_locked, s.status,
+              owner.full_name AS owner_name, person.full_name AS person_name,
+              CASE WHEN s.entry_kind = 'EMERGENCY' THEN s.expires_at
+                   ELSE s.requested_at + interval '24 hours' END AS expires_at,
+              ((${IS_ASK}) OR (${IS_WRITE})) AS pending,
+              (s.status = 'REQUESTED' AND NOT (${IS_ASK})) AS expired_ask
+         FROM impersonation_sessions s
+         JOIN users owner ON owner.id = s.platform_admin_id
+         JOIN users person ON person.id = s.target_user_id`;
+
 interface Row {
   id: string;
   entry_kind: string;
@@ -66,29 +76,39 @@ export class SupportRequestsService {
     schoolId: string,
     status: SupportRequestListStatus = SupportRequestListStatus.PENDING,
     limit = 50,
+    page = 1,
   ): Promise<SupportRequestItemDto[]> {
     const lim = Math.min(Math.max(Math.trunc(limit) || 1, 1), SUPPORT_REQUESTS_LIMIT_MAX);
+    const offset = (Math.min(Math.max(Math.trunc(page) || 1, 1), 10000) - 1) * lim;
     const filter =
       status === SupportRequestListStatus.PENDING
         ? `((${IS_ASK}) OR (${IS_WRITE}))`
         : `(s.decided_at IS NOT NULL OR (s.status = 'REQUESTED' AND NOT (${IS_ASK})))
            AND NOT (${IS_WRITE})`;
     const rows: Row[] = await this.repo.query(
-      `SELECT s.id, s.entry_kind, s.role, s.reason, s.requested_at, s.write_locked, s.status,
-              owner.full_name AS owner_name, person.full_name AS person_name,
-              CASE WHEN s.entry_kind = 'EMERGENCY' THEN s.expires_at
-                   ELSE s.requested_at + interval '24 hours' END AS expires_at,
-              ((${IS_ASK}) OR (${IS_WRITE})) AS pending,
-              (s.status = 'REQUESTED' AND NOT (${IS_ASK})) AS expired_ask
-         FROM impersonation_sessions s
-         JOIN users owner ON owner.id = s.platform_admin_id
-         JOIN users person ON person.id = s.target_user_id
+      `${SELECT_REQUEST}
         WHERE s.tenant_id = $1 AND ${filter}
         ORDER BY s.requested_at DESC
-        LIMIT $2`,
-      [schoolId, lim],
+        LIMIT $2 OFFSET $3`,
+      [schoolId, lim, offset],
     );
-    return rows.map((r) => ({
+    return rows.map((r) => this.item(r));
+  }
+
+  /** One request of this school by id; another school's id is the same 404 as a missing one. */
+  async get(schoolId: string, id: string): Promise<SupportRequestItemDto> {
+    const rows: Row[] = await this.repo.query(
+      `${SELECT_REQUEST}
+        WHERE s.tenant_id = $1 AND s.id = $2
+          AND (s.decided_at IS NOT NULL OR s.status = 'REQUESTED' OR (${IS_WRITE}))`,
+      [schoolId, id],
+    );
+    if (!rows[0]) throw new NotFoundException('Request not found.');
+    return this.item(rows[0]);
+  }
+
+  private item(r: Row): SupportRequestItemDto {
+    return {
       id: r.id,
       kind: r.entry_kind === 'EMERGENCY' ? 'WRITE' : 'ASK',
       ownerName: r.owner_name,
@@ -98,7 +118,7 @@ export class SupportRequestsService {
       requestedAt: new Date(r.requested_at).toISOString(),
       expiresAt: r.expires_at ? new Date(r.expires_at).toISOString() : null,
       status: this.shown(r),
-    }));
+    };
   }
 
   private shown(r: Row): SupportRequestItemDto['status'] {

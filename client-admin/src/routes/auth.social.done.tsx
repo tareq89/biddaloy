@@ -2,13 +2,16 @@ import {
   decodeAccessTokenMemberships,
   ensureSessionLoaded,
   getAccessToken,
+  getActiveRole,
   getActiveTenant,
+  isSupportSession,
 } from '@biddaloy/ui/api';
 import { RoutePending } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { afterSignInTarget } from '../features/support-access/first-login-gate';
 import { isSameAppRedirect } from '../same-app-redirect';
 
 /** The server passes the sign-in's `?redirect=` back through
@@ -33,8 +36,12 @@ export const Route = createFileRoute('/auth/social/done')({
     if (!signedIn) throw redirect({ to: '/login', search: { redirect: to } });
     const token = getAccessToken();
     const pick = !getActiveTenant() && !!token && decodeAccessTokenMemberships(token).length > 1;
+    // Same first-login gate as `login.tsx`: an unconfirmed admin sees the support-access welcome.
+    const dest = pick
+      ? { to: '/select-school', search: { redirect: to } }
+      : await afterSignInTarget(getActiveRole(), isSupportSession(), to);
     // eslint-disable-next-line @typescript-eslint/only-throw-error
-    throw redirect(pick ? { to: '/select-school', search: { redirect: to } } : { to: to ?? '/' });
+    throw redirect(dest);
   },
   pendingComponent: SocialDonePending,
 });

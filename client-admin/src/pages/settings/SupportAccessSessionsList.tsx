@@ -18,8 +18,13 @@ import * as React from 'react';
 export interface SupportAccessSessionsListProps {
   sessions: SupportSessionItem[] | undefined;
   platformActions: PlatformActionItem[] | undefined;
-  loading: boolean;
-  error: boolean;
+  sessionsLoading: boolean;
+  sessionsError: boolean;
+  actionsLoading: boolean;
+  actionsError: boolean;
+  /** Next/Previous for each table; `undefined` = one page only. */
+  sessionsPager?: PagerProps;
+  actionsPager?: PagerProps;
   onEnd: (id: string) => void;
   /** The End request is in flight. */
   ending?: boolean;
@@ -28,11 +33,53 @@ export interface SupportAccessSessionsListProps {
 
 const noSort = () => undefined;
 
+export interface PagerProps {
+  page: number;
+  /** A full page came back, so there may be more. */
+  hasMore: boolean;
+  onPage: (page: number) => void;
+}
+
+/** Previous / Next for a list the server pages by `page`; shown only when there is somewhere to go. */
+export function Pager({ page, hasMore, onPage }: PagerProps) {
+  const { t } = useTranslation('supportAccess');
+  if (page === 1 && !hasMore) return null;
+  return (
+    <nav aria-label={t('pagerLabel')} className="mt-3 flex items-center gap-3">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11"
+        disabled={page === 1}
+        onClick={() => onPage(page - 1)}
+      >
+        {t('pagePrev')}
+      </Button>
+      <span role="status" className="text-text-secondary">
+        {t('pageNumber', { page })}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11"
+        disabled={!hasMore}
+        onClick={() => onPage(page + 1)}
+      >
+        {t('pageNext')}
+      </Button>
+    </nav>
+  );
+}
+
 export function SupportAccessSessionsList({
   sessions,
   platformActions,
-  loading,
-  error,
+  sessionsLoading,
+  sessionsError,
+  actionsLoading,
+  actionsError,
+  sessionsPager,
+  actionsPager,
   onEnd,
   ending = false,
   endFailed = false,
@@ -42,7 +89,8 @@ export function SupportAccessSessionsList({
   const region = useRegionConfig();
   const [endTarget, setEndTarget] = React.useState<SupportSessionItem | null>(null);
   const when = (iso: string) => formatDateTime(new Date(iso), region);
-  const errorText = error ? t('historyError') : undefined;
+  const sessionsErrorText = sessionsError ? t('historyError') : undefined;
+  const actionsErrorText = actionsError ? t('historyError') : undefined;
 
   const sessionColumns: DataTableColumn<SupportSessionItem>[] = [
     {
@@ -116,10 +164,11 @@ export function SupportAccessSessionsList({
             onSortingChange={noSort}
             totalCount={sessions?.length ?? 0}
             paginated={false}
-            loading={loading}
-            {...(errorText ? { error: errorText } : {})}
+            loading={sessionsLoading}
+            {...(sessionsErrorText ? { error: sessionsErrorText } : {})}
             emptyMessage={t('historyEmpty')}
           />
+          {sessionsPager && <Pager {...sessionsPager} />}
         </div>
       </div>
       <div>
@@ -135,10 +184,11 @@ export function SupportAccessSessionsList({
             onSortingChange={noSort}
             totalCount={platformActions?.length ?? 0}
             paginated={false}
-            loading={loading}
-            {...(errorText ? { error: errorText } : {})}
+            loading={actionsLoading}
+            {...(actionsErrorText ? { error: actionsErrorText } : {})}
             emptyMessage={t('platformEmpty')}
           />
+          {actionsPager && <Pager {...actionsPager} />}
         </div>
       </div>
       {endFailed && (

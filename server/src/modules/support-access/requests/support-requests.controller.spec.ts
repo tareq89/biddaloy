@@ -21,7 +21,7 @@ describe('SupportRequestsController', () => {
   let role: UserRole;
   let imp: boolean;
   let tenantHeader: string | undefined;
-  const service = { list: vi.fn(), approve: vi.fn(), deny: vi.fn() };
+  const service = { list: vi.fn(), get: vi.fn(), approve: vi.fn(), deny: vi.fn() };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -29,6 +29,7 @@ describe('SupportRequestsController', () => {
     imp = false;
     tenantHeader = SCHOOL_A;
     service.list.mockResolvedValue([]);
+    service.get.mockResolvedValue({ id: SID });
     service.approve.mockResolvedValue({});
     service.deny.mockResolvedValue({});
     const mod = await Test.createTestingModule({
@@ -72,11 +73,27 @@ describe('SupportRequestsController', () => {
     return tenantHeader !== undefined ? r.set('X-Tenant-ID', tenantHeader) : r;
   };
 
+  it('GET :id reads one request of the header tenant; bad id 400, bad tenant 400', async () => {
+    await call('get', `/${SID}`).expect(200);
+    expect(service.get).toHaveBeenCalledWith(SCHOOL_A, SID);
+    await call('get', '/not-a-uuid').expect(400);
+    tenantHeader = undefined;
+    await call('get', `/${SID}`).expect(400);
+    tenantHeader = 'nope';
+    await call('get', `/${SID}`).expect(400);
+  });
+
+  it('list takes page and refuses page 0', async () => {
+    await call('get', '?page=2&limit=100').expect(200);
+    expect(service.list).toHaveBeenCalledWith(SCHOOL_A, undefined, 100, 2);
+    await call('get', '?page=0').expect(400);
+  });
+
   it('ADMIN lists, approves and denies; tenant comes from the header', async () => {
     await call('get', '?status=decided&limit=100').expect(200);
     await call('post', `/${SID}/approve`).expect(200);
     await call('post', `/${SID}/deny`).expect(200);
-    expect(service.list).toHaveBeenCalledWith(SCHOOL_A, 'decided', 100);
+    expect(service.list).toHaveBeenCalledWith(SCHOOL_A, 'decided', 100, undefined);
     expect(service.approve).toHaveBeenCalledWith(SCHOOL_A, ADMIN, SID, expect.anything());
     expect(service.deny).toHaveBeenCalledWith(SCHOOL_A, ADMIN, SID, expect.anything());
   });

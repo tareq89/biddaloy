@@ -170,4 +170,57 @@ describe('SupportAccessSection', () => {
 
     await waitFor(() => expect(ended).toHaveBeenCalledWith('s1'));
   });
+
+  it('does not say "No requests waiting" while loading or when the request list fails', async () => {
+    mockApi('ask');
+    server.use(
+      http.get('/api/v1/support-access/requests', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'x', timestamp: '', path: '/', requestId: 'r' },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderSection();
+
+    expect(screen.queryByText('No requests waiting.')).toBeNull();
+    expect(await screen.findByText('Could not load the waiting requests. Try again.')).toBeTruthy();
+    expect(screen.queryByText('No requests waiting.')).toBeNull();
+  });
+
+  it('a failed platform-actions list still shows the live session with End', async () => {
+    mockApi('allowed', { sessions: [session] });
+    server.use(
+      http.get('/api/v1/support-access/platform-actions', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'x', timestamp: '', path: '/', requestId: 'r' },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderSection();
+
+    expect(await screen.findByRole('button', { name: /^End/ })).toBeTruthy();
+  });
+
+  it('a full page of sessions offers Next and asks the server for page 2', async () => {
+    mockApi('allowed');
+    const pages: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/support-access/sessions', ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page');
+        pages.push(page);
+        return HttpResponse.json(
+          page === '2'
+            ? [{ ...session, id: 's-last', status: 'ENDED' }]
+            : Array.from({ length: 100 }, (_, i) => ({ ...session, id: `s${i}`, status: 'ENDED' })),
+        );
+      }),
+    );
+    const { user } = renderSection();
+
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+
+    await waitFor(() => expect(pages).toContain('2'));
+  });
 });

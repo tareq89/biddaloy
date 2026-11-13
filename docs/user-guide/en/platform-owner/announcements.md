@@ -72,11 +72,11 @@ Tell the admins of many schools something important, once.
 
 ### After you press Send <a href="#task-wait" id="task-wait"></a>
 
-The other owner agrees in **Approval requests** ([how](lock-and-approvals.md#task-approve)). When they do, press **Send now**. Press **Cancel** to withdraw the request. If the other owner says no, or the time runs out, nothing is sent; the page tells you which.
+The other owner agrees in **Approval requests** ([how](lock-and-approvals.md#task-approve)). When they do, press **Send now**. Press **Cancel** to withdraw the request. If the other owner says no, or the time runs out, nothing is sent; the page tells you which. If you leave or reload this page while you wait, the request is kept in this browser tab: come back to **Announcements** and it carries on, and a request that was already agreed is sent when the page opens.
 
 ### Read what was sent <a href="#task-list" id="task-list"></a>
 
-**Sent announcements** lists the **Date**, the **Title**, how many schools it **Reached** ("(done) of (total) schools") and who sent it.
+**Sent announcements** lists the **Date**, the **Title**, how many schools it **Reached** ("(done) of (total) schools") and who sent it. It shows 25 at a time; use **Next** and **Previous** under the table to read older ones.
 
 ---
 

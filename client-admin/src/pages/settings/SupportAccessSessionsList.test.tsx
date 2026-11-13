@@ -3,6 +3,7 @@ import '@biddaloy/ui/test';
 import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SupportAccessSessionsList } from './SupportAccessSessionsList';
@@ -54,8 +55,10 @@ function renderList(over: Partial<React.ComponentProps<typeof SupportAccessSessi
             reason: 'Top up',
           },
         ]}
-        loading={false}
-        error={false}
+        sessionsLoading={false}
+        sessionsError={false}
+        actionsLoading={false}
+        actionsError={false}
         onEnd={() => undefined}
         {...over}
       />
@@ -106,9 +109,28 @@ describe('SupportAccessSessionsList', () => {
   });
 
   it('shows the load error', async () => {
-    renderList({ sessions: undefined, platformActions: undefined, error: true });
+    renderList({
+      sessions: undefined,
+      platformActions: undefined,
+      sessionsError: true,
+      actionsError: true,
+    });
     expect(
       (await screen.findAllByText('Could not load the list. Try again.')).length,
     ).toBeGreaterThan(0);
+  });
+
+  it('a failed platform-actions list keeps the live sessions and their End button', async () => {
+    renderList({ actionsError: true, platformActions: undefined });
+    expect(await screen.findByRole('button', { name: /End/ })).toBeTruthy();
+    expect(screen.getAllByText('Could not load the list. Try again.')).toHaveLength(1);
+  });
+
+  it('pages: Next appears on a full page and reports the next page number', async () => {
+    const onPage = vi.fn();
+    renderList({ sessionsPager: { page: 1, hasMore: true, onPage } });
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Next' }));
+    expect(onPage).toHaveBeenCalledWith(2);
+    expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
   });
 });

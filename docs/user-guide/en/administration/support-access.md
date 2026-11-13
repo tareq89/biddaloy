@@ -91,11 +91,11 @@ Even when you choose **Blocked**, emergency access still exists. Biddaloy suppor
 
 ### Read the last 90 days <a href="#task-list" id="task-list"></a>
 
-Under **Last 90 days** the table "Biddaloy support logins in the last 90 days" has the columns **Who**, **When**, **Reason**, **Type** (**Normal** or **Emergency**), **Changes** and **Action**. **View only** is written on a visit that could change nothing. A visit that is still going shows **Logged in now**. Below it, **Other actions by Biddaloy support** lists anything else Biddaloy support did in your school in the last 90 days. This page shows at most 100 logins and has no next page, so with more than 100 in the last 90 days you will not see them all. If the list is empty it says nobody logged in during that time.
+Under **Last 90 days** the table "Biddaloy support logins in the last 90 days" has the columns **Who**, **When**, **Reason**, **Type** (**Normal** or **Emergency**), **Changes** and **Action**. **View only** is written on a visit that could change nothing. A visit that is still going shows **Logged in now**. Below it, **Other actions by Biddaloy support** lists anything else Biddaloy support did in your school in the last 90 days. Each list shows 100 rows at a time. When a list is full, press **Next** under it to see older rows, and **Previous** to come back. If the list is empty it says nobody logged in during that time.
 
 ### Approve or say Not now to a request <a href="#task-approve" id="task-approve"></a>
 
-With **Ask each time**, a request shows under **Requests**. Press **Open**.
+With **Ask each time**, a request shows under **Requests**. While the list loads you see a loading line, and if it cannot load you see an error with **Try again**; "No requests waiting." appears only when the list really is empty. Press **Open**.
 
 1. Read "Biddaloy support asks to log in as (name) (role)", the **Reason**, when it was asked and "Valid until (time)".
 2. Press **Approve**, or **Not now**. The first answer counts, so you cannot change it after.

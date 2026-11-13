@@ -54,6 +54,8 @@ export function currentSessionGeneration(): number {
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+  // A normal sign-in (not a support tab) lifts the ended-support marker.
+  if (token && !supportSession) storageRemove(SUPPORT_ENDED_KEY);
   notifyAuthStateChange();
 }
 
@@ -136,7 +138,41 @@ export interface SupportTabEntry {
   role: string | null;
 }
 
+/** Set once a support tab ended (expired, damaged, or cleared while it was one) and kept for this
+ * tab until a normal sign-in: an ended support tab must never fall back to the refresh cookie. */
+const SUPPORT_ENDED_KEY = 'biddaloy:supportEnded';
+
+/** The whole entry also lives here, so a blocked `sessionStorage` still gives the banner its
+ * expiry and End button; storage only carries it across a reload. */
+let supportEntryInMemory: SupportTabEntry | null = null;
+
+function storageRemove(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // nothing to clear
+  }
+}
+
+function markSupportEnded(): void {
+  try {
+    sessionStorage.setItem(SUPPORT_ENDED_KEY, '1');
+  } catch {
+    // Storage blocked: the marker lives for this page load only.
+  }
+}
+
+function supportEnded(): boolean {
+  try {
+    return sessionStorage.getItem(SUPPORT_ENDED_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function writeSupportEntry(entry: SupportTabEntry): void {
+  supportEntryInMemory = entry;
+  storageRemove(SUPPORT_ENDED_KEY);
   try {
     sessionStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify(entry));
   } catch {
@@ -145,16 +181,21 @@ export function writeSupportEntry(entry: SupportTabEntry): void {
 }
 
 /** `null`: this is not a support tab. `'expired'`: it was one and the time ran
- * out or the entry is damaged — the entry is removed and the caller must NOT
- * fall back to a refresh. */
+ * out or the entry is damaged — the entry is removed, an ended marker stays, and the
+ * caller must NOT fall back to a refresh. */
 export function readSupportEntry(): SupportTabEntry | 'expired' | null {
+  if (supportEntryInMemory) {
+    if (Date.parse(supportEntryInMemory.expiresAt) > Date.now()) return supportEntryInMemory;
+    endSupportEntry();
+    return 'expired';
+  }
   let raw: string | null;
   try {
     raw = sessionStorage.getItem(SUPPORT_STORAGE_KEY);
   } catch {
     return null;
   }
-  if (raw === null) return null;
+  if (raw === null) return supportEnded() ? 'expired' : null;
   try {
     const entry = JSON.parse(raw) as Partial<SupportTabEntry>;
     if (
@@ -174,16 +215,18 @@ export function readSupportEntry(): SupportTabEntry | 'expired' | null {
   } catch {
     // fall through
   }
-  clearSupportEntry();
+  endSupportEntry();
   return 'expired';
 }
 
 function clearSupportEntry(): void {
-  try {
-    sessionStorage.removeItem(SUPPORT_STORAGE_KEY);
-  } catch {
-    // nothing to clear
-  }
+  supportEntryInMemory = null;
+  storageRemove(SUPPORT_STORAGE_KEY);
+}
+
+function endSupportEntry(): void {
+  clearSupportEntry();
+  markSupportEnded();
 }
 
 /** The consuming app registers a handler (typically a router navigation to
@@ -196,8 +239,9 @@ export function clearAuthState(): void {
   accessToken = null;
   activeTenantId = null;
   activeRole = null;
+  if (supportSession) endSupportEntry();
+  else clearSupportEntry();
   supportSession = false;
-  clearSupportEntry();
   sessionGeneration += 1;
   // A different account can log into the same browser afterward — without
   // this, [8.9.5]'s cold-boot restore could silently pick a tenant the new

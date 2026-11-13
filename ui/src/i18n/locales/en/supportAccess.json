@@ -66,5 +66,10 @@
   "reqExpired": "This request has run out. Biddaloy support can ask again.",
   "reqNotFound": "We could not find this request.",
   "reqError": "Could not send your answer. Try again.",
-  "reqBack": "Back to settings"
+  "reqBack": "Back to settings",
+  "pagerLabel": "Pages",
+  "pagePrev": "Previous",
+  "pageNext": "Next",
+  "pageNumber": "Page {{page}}",
+  "requestsLoadError": "Could not load the waiting requests. Try again."
 }
