@@ -421,6 +421,12 @@ export const slice: DemoSlice = {
       fresh.settings = {
         ...fresh.settings,
         organisation: { ...organisation, shifts: ['Morning'] },
+        // [77.1.09] The primary branch shows both switches: Fines off, Homework off for teachers,
+        // and "section" renamed to "Batch". The other branches keep everything on, in plain words.
+        ...(school.slug === 'bmsc-primary' && {
+          modules: { fines: { on: false }, homework: { offForRoles: [UserRole.TEACHER] } },
+          labels: { section: { en: { one: 'Batch', other: 'Batches' }, bn: 'ব্যাচ' } },
+        }),
       };
       await schoolRepo.save(fresh);
       ctx.app.get(TenantSettingsCache).invalidate(school.id);

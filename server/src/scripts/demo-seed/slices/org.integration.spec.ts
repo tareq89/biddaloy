@@ -201,6 +201,23 @@ describe('org slice (integration, 2 years)', () => {
     expect(Number(linked)).toBeGreaterThan(0);
   });
 
+  it('[77.1.09] the primary branch has Fines off, Homework off for teachers, and "Batch" for section', async () => {
+    const rows = await q<{ slug: string; settings: Record<string, any> }>(
+      `SELECT slug, settings FROM schools WHERE slug LIKE 'bmsc-%'`,
+    );
+    const primary = rows.find((r) => r.slug === 'bmsc-primary')!;
+    expect(primary.settings.modules.fines).toEqual({ on: false });
+    expect(primary.settings.modules.homework).toEqual({ offForRoles: ['TEACHER'] });
+    expect(primary.settings.labels.section).toEqual({
+      en: { one: 'Batch', other: 'Batches' },
+      bn: 'ব্যাচ',
+    });
+    for (const r of rows.filter((x) => x.slug !== 'bmsc-primary')) {
+      expect(r.settings.modules).toBeUndefined();
+      expect(r.settings.labels).toBeUndefined();
+    }
+  });
+
   it('no Friday (the weekly off) falls inside a counts_as_working_day event', async () => {
     const [{ n }] = await q<{ n: string }>(
       `SELECT count(*) AS n
