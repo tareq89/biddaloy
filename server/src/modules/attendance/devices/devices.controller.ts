@@ -14,9 +14,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -33,6 +34,7 @@ import { CreateDeviceDto, DeviceResponseDto, DeviceWithKeyResponseDto } from '..
 @ApiTags('attendance-devices')
 @ApiTenantAuth()
 @Controller('attendance/devices')
+@RequiresModule(ModuleKey.attendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.ATTENDANCE_DEVICE_MANAGE)
 export class DevicesController {

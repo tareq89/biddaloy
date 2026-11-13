@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import type { ModuleStateReader } from '../../../modules/auth/guards/module-state.reader';
 import { PrintAssetsController } from './print-assets.controller';
 
 /**
@@ -14,7 +15,9 @@ import { PrintAssetsController } from './print-assets.controller';
  */
 const reflector = new Reflector();
 const roles = new RolesGuard(reflector);
-const perms = new PermissionsGuard(reflector);
+const perms = new PermissionsGuard(reflector, {
+  forTenant: async () => ({ platform: {}, school: {} }),
+} as unknown as ModuleStateReader);
 const proto = PrintAssetsController.prototype as unknown as Record<string, () => void>;
 
 function ctx(handler: string, role: string | null): ExecutionContext {

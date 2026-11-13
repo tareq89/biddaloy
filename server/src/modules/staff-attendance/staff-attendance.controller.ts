@@ -2,9 +2,10 @@ import { Body, Controller, Get, Put, Query, Req, UseGuards } from '@nestjs/commo
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -29,6 +30,7 @@ import {
 @ApiTags('staff-attendance')
 @ApiTenantAuth()
 @Controller('staff-attendance')
+@RequiresModule(ModuleKey.staffAttendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StaffAttendanceController {
   constructor(

@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { ForbiddenException } from '@nestjs/common';
 import { UserRole, Permission, CommunicationMedium } from '@biddaloy/shared';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import type { ModuleStateReader } from '../../../modules/auth/guards/module-state.reader';
 import { CreditsController } from './credits.controller';
 import { SmsCreditService } from './sms-credit.service';
 import { MessagingConfigResolver } from '../config/messaging-config.resolver';
@@ -188,7 +189,9 @@ describe('CreditsController', () => {
   });
 
   describe('guards', () => {
-    const permissionsGuard = new PermissionsGuard(new Reflector());
+    const permissionsGuard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
     const handler = CreditsController.prototype.getSmsCredits;
 
     function context(role: UserRole) {
