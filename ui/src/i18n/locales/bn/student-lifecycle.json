@@ -25,10 +25,10 @@
     "title": "আবার ভর্তি করুন",
     "description": "{{name}}-কে আবার স্কুলে ভর্তি করুন।",
     "dateLabel": "তারিখ",
-    "classLabel": "শ্রেণি",
-    "classPlaceholder": "শ্রেণি বেছে নিন",
-    "sectionLabel": "শাখা",
-    "sectionPlaceholder": "শাখা বেছে নিন",
+    "classLabel": "$t(common:entities.class_one)",
+    "classPlaceholder": "$t(common:entities.class_one) বেছে নিন",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "sectionPlaceholder": "$t(common:entities.section_one) বেছে নিন",
     "reasonLabel": "কারণ (ইচ্ছা হলে)",
     "remarkLabel": "মন্তব্য (ইচ্ছা হলে)",
     "confirm": "ভর্তি করুন",
@@ -38,7 +38,7 @@
     "dateRequired": "একটি তারিখ বেছে নিন।",
     "dateFuture": "তারিখ আজকের পরে হতে পারবে না।",
     "reasonRequired": "একটি কারণ লিখুন।",
-    "sectionRequired": "শ্রেণি ও শাখা বেছে নিন।",
+    "sectionRequired": "$t(common:entities.class_one) ও $t(common:entities.section_one) বেছে নিন।",
     "generic": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"
   }
 }
