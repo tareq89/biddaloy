@@ -47,6 +47,8 @@ export interface CurriculumPresetFormProps extends CurriculumPresetPageProps {
   onStepChange: (stepId: string) => void;
   /** Inside another page: no `PageContainer` / `PageHeader` frame around the loading, error and applied states. */
   embedded?: boolean;
+  /** Told when the admin picks a curriculum (the onboarding step suggests an institution kind from it). */
+  onPickChange?: (presetId: string) => void;
 }
 
 /** [13.5.4] The preset flow itself, reusable: the page and the guided onboarding setup both render it. */
@@ -55,6 +57,7 @@ export function CurriculumPresetForm({
   stepId,
   onStepChange: setStepId,
   embedded = false,
+  onPickChange,
 }: CurriculumPresetFormProps) {
   const { t } = useTranslation('curriculumPreset');
   const pick = usePickText();
@@ -84,6 +87,7 @@ export function CurriculumPresetForm({
     if (id === selectedId) return;
     const preset = list.data?.find((p) => p.id === id);
     setSelectedId(id);
+    onPickChange?.(id);
     // Every stage on by default; versions start empty so the admin chooses.
     setOptions((prev) => ({
       ...prev,

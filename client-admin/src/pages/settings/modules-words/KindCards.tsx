@@ -35,6 +35,9 @@ export interface KindCardsProps {
   /** The kind whose preview is open. */
   selectedId?: string | undefined;
   onSelect: (id: string) => void;
+  /** Replaces the Settings heading and intro (the welcome wizard words them differently). */
+  title?: string;
+  intro?: string;
 }
 
 /** D28: the eight institution-kind cards that open Settings › Modules & words. */
@@ -45,6 +48,8 @@ export function KindCards({
   onRetry,
   selectedId,
   onSelect,
+  title,
+  intro,
 }: KindCardsProps) {
   const { t, i18n } = useTranslation('settings');
   const bn = i18n.language.startsWith('bn');
@@ -53,9 +58,9 @@ export function KindCards({
     <section aria-labelledby="modules-words-kinds-heading" className="space-y-3">
       <div>
         <h2 id="modules-words-kinds-heading" className="text-h2">
-          {t('modulesWords.kinds.title')}
+          {title ?? t('modulesWords.kinds.title')}
         </h2>
-        <p className="mt-0.5 text-text-secondary">{t('modulesWords.kinds.intro')}</p>
+        <p className="mt-0.5 text-text-secondary">{intro ?? t('modulesWords.kinds.intro')}</p>
       </div>
       {error ? (
         <ErrorState message={t('modulesWords.kinds.loadError')} onRetry={onRetry} />
