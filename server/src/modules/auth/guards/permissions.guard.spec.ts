@@ -158,17 +158,17 @@ describe('PermissionsGuard', () => {
       await expect(act(ctx(UserRole.ADMIN))).rejects.toThrow(MODULE_OFF_MESSAGE);
     });
 
-    it('role off: TEACHER 403, ADMIN passes', async () => {
-      state({ attendance: { offForRoles: [UserRole.TEACHER] } });
+    it('role off: TEACHER 403, ADMIN passes (and TEACHER passes when only another role is off)', async () => {
       const c = (role: UserRole) => {
         const x = ctx(role, { perm: [Permission.FEE_READ] });
         Reflect.defineMetadata(REQUIRES_MODULE_KEY, ModuleKey.attendance, x.getClass());
         return x;
       };
-      await expect(act(c(UserRole.ACCOUNTANT))).resolves.toBe(true);
-      state({ attendance: { offForRoles: [UserRole.ACCOUNTANT] } });
-      await expect(act(c(UserRole.ACCOUNTANT))).rejects.toThrow(MODULE_OFF_MESSAGE);
+      state({ attendance: { offForRoles: [UserRole.TEACHER] } });
+      await expect(act(c(UserRole.TEACHER))).rejects.toThrow(MODULE_OFF_MESSAGE);
       await expect(act(c(UserRole.ADMIN))).resolves.toBe(true);
+      state({ attendance: { offForRoles: [UserRole.ACCOUNTANT] } });
+      await expect(act(c(UserRole.TEACHER))).resolves.toBe(true);
     });
 
     it('dependency off (fines needs fees) gives the same sentence', async () => {

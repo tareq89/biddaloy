@@ -148,6 +148,29 @@ describe('schoolTab (integration)', () => {
     expect(updated.settings?.region?.timezone).toBe('Asia/Kolkata');
   });
 
+  it('round-trips settings.modules and settings.labels exactly [77.1.09]', async () => {
+    const modules = { fines: { on: false }, homework: { offForRoles: ['TEACHER'] } };
+    const labels = { section: { en: { one: 'Batch', other: 'Batches' }, bn: 'ব্যাচ' } };
+    await schoolRepo.update(
+      { id: TENANT_A },
+      { settings: { region: { timezone: 'Asia/Dhaka' }, modules, labels } },
+    );
+    const source = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+    const exported = schoolTab.toRow(source, {} as never);
+
+    const destination = await schoolRepo.findOneByOrFail({ id: TENANT_B });
+    await schoolTab.upsert(
+      rowFor({ id: TENANT_B, settings: exported.settings as Record<string, unknown> }),
+      destination,
+      TENANT_B,
+      dataSource.manager,
+    );
+
+    const restored = await schoolRepo.findOneByOrFail({ id: TENANT_B });
+    expect(restored.settings?.modules).toEqual(modules);
+    expect(restored.settings?.labels).toEqual(labels);
+  });
+
   it('keeps the stored secret when the imported settings do not mention it', async () => {
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 

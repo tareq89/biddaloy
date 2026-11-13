@@ -1059,3 +1059,24 @@ POST /api/v1/platform/step-up      Authorization: Bearer <cockpit token>
   - Authority and "home school" are different things: `is_platform` marks where alerts live, `platform_admins` decides who may act.
   - Every negative-path check must name the outcomes that count as success.
   - Cached "found once" ids need an invalidation story, not only a miss story.
+
+## Learnings — Epic 77
+
+Module switches and renamed words, wave 1 (#3905 to #3909). Each bullet is: surprise, cost, fix, rule candidate.
+
+```mermaid
+flowchart LR
+  S[school settings<br/>modules + labels] --> R[resolveModuleState<br/>platform, dependency, school, role]
+  R --> G[PermissionsGuard<br/>only routes tagged @RequiresModule]
+  G -- off --> F[403 with one fixed sentence]
+  G -- on --> H[handler]
+  S --> P[profile GET<br/>modules + labels for the UI]
+```
+
+- 2026-11-13. **A guard that gained a dependency broke its other callers.** `PermissionsGuard` now takes a second constructor argument (`ModuleStateReader`). Six specs still build `new PermissionsGuard(reflector)` with one argument. Cost: a follow-up ticket (#3910) just to fix them. Fix: the specs pass a reader stub. Rule candidate: when a shared guard's constructor changes, grep for `new <Guard>(` in the same ticket and list the callers in the ticket's `## Files`.
+- 2026-11-13. **A unit test of the guard did not prove the wiring.** The spec called `canActivate` on a mock context; nothing showed that a tagged route in a real Nest app refuses with the fixed sentence. Fix: `permissions.guard.e2e-spec.ts` now has a tagged probe controller that returns 403 `MODULE_OFF_MESSAGE` when the module is off, 200 when on, and refuses only the role listed in `offForRoles`. Rule candidate: any new guard behaviour gets one HTTP-level probe, like the permission one.
+- 2026-11-13. **A test title said TEACHER but tested ACCOUNTANT.** The "role off" test passed for the wrong reason and would not have caught a bug for TEACHER. Fix: rewritten with TEACHER (refused) and ADMIN (passes). Rule candidate: assert on the role named in the title.
+- 2026-11-13. **The validator let the same role in twice.** `offForRoles: ['TEACHER','TEACHER']` was accepted and stored. Fix: 400 with the fixed `roles` sentence (no echo of the input, Rule 23). Rule candidate: list-valued settings reject duplicates at the validator, not in the reader.
+- 2026-11-13. **The ticket text said a missing tenant is a 400; it is a 401.** `PermissionsGuard` throws `UnauthorizedException('No active tenant context')`. Fix: corrected on the issue. Rule candidate: write status codes in tickets from the guard's code, not from memory.
+- 2026-11-13. **The workbook needed no code.** `settings` is one JSON cell and only secret paths and `supportAccess` are stripped, so `modules` and `labels` already round-trip. Cost: none, but nothing proved it. Fix: a round-trip integration test and a line in `14-school-workbook.md`. Rule candidate: for a new key inside an existing JSON column, add the round-trip test, not a new column spec.
+- 2026-11-13. **The demo seed has no table obligation here.** Settings is jsonb, so no column or table changed. The primary branch still shows Fines off, Homework off for teachers, and "Batch" for section, so the feature has data in the demo school (written next to the vocabulary save, after the preset apply, so it is not reset).

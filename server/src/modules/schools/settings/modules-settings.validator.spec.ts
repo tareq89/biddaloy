@@ -26,6 +26,11 @@ describe('findModulesReason', () => {
     );
     expect(findModulesReason({ fees: { offForRoles: ['WIZARD'] } })).toBe(MODULES_INVALID.roles);
   });
+  it('rejects a repeated role in offForRoles', () => {
+    expect(findModulesReason({ fees: { offForRoles: ['TEACHER', 'TEACHER'] } })).toBe(
+      MODULES_INVALID.roles,
+    );
+  });
   it('rejects lock (platform-owned)', () => {
     expect(findModulesReason({ fees: { lock: 'on' } })).toBe(MODULES_INVALID.fields);
   });

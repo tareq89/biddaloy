@@ -12,7 +12,7 @@ export const MODULES_INVALID = {
   entry: 'each module setting must be an object, or null to remove it',
   fields: 'a module setting may only carry on and offForRoles',
   on: 'a module setting "on" must be true or false',
-  roles: 'offForRoles must list roles other than ADMIN and SUPER_ADMIN',
+  roles: 'offForRoles must list each role once, and not ADMIN or SUPER_ADMIN',
 } as const;
 
 export const LABELS_INVALID = {
@@ -54,7 +54,8 @@ export function findModulesReason(value: unknown): string | null {
       if (
         !Array.isArray(roles) ||
         roles.length > 20 ||
-        !roles.every((r) => typeof r === 'string' && ROLE_OK.has(r))
+        !roles.every((r) => typeof r === 'string' && ROLE_OK.has(r)) ||
+        new Set(roles).size !== roles.length
       ) {
         return MODULES_INVALID.roles;
       }
