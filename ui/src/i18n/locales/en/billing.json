@@ -5,7 +5,7 @@
   "breadcrumb": "Seats & billing",
   "tiles": {
     "bought": "Seats bought",
-    "used": "Students using a seat",
+    "used": "$t(common:entities.student_other) using a seat",
     "validity": "Paid until",
     "freeUntil": "Free until",
     "notPaid": "Nothing paid yet"

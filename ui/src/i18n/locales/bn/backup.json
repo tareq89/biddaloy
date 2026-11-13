@@ -1,6 +1,6 @@
 {
   "sectionTitle": "ব্যাকআপ",
-  "containsDescription": "একটি ব্যাকআপে এই স্কুলের সব শিক্ষার্থী, অভিভাবক, শ্রেণি, ফি, চালান ও পেমেন্টের তথ্য থাকে।",
+  "containsDescription": "একটি ব্যাকআপে এই স্কুলের সব $t(common:entities.student_one), $t(common:entities.guardian_one), $t(common:entities.class_one), ফি, চালান ও পেমেন্টের তথ্য থাকে।",
   "neverContainsDescription": "পাসওয়ার্ড ও অনলাইন পেমেন্টের গোপন কী কখনো থাকে না।",
   "restoreSectionTitle": "ব্যাকআপ থেকে ফিরিয়ে আনুন",
   "jobsListTitle": "আগের ব্যাকআপ",
@@ -77,16 +77,16 @@
   "diffTabName": {
     "school": "স্কুল",
     "academic_years": "শিক্ষাবর্ষ",
-    "classes": "শ্রেণি",
-    "sections": "শাখা",
+    "classes": "$t(common:entities.class_one)",
+    "sections": "$t(common:entities.section_one)",
     "subjects": "বিষয়",
-    "class_subjects": "শ্রেণি-বিষয়",
+    "class_subjects": "$t(common:entities.class_one)-বিষয়",
     "holidays": "ছুটির দিন",
     "users": "ব্যবহারকারী",
-    "teachers": "শিক্ষক",
-    "teacher_assignments": "শিক্ষক নিয়োগ",
-    "guardians": "অভিভাবক",
-    "students": "শিক্ষার্থী",
+    "teachers": "$t(common:entities.teacher_one)",
+    "teacher_assignments": "$t(common:entities.teacher_one) নিয়োগ",
+    "guardians": "$t(common:entities.guardian_one)",
+    "students": "$t(common:entities.student_one)",
     "enrollments": "ভর্তি",
     "fee_structures": "ফি কাঠামো",
     "student_fees": "শিক্ষার্থীর ফি",
@@ -127,7 +127,7 @@
   },
   "template": {
     "starter": "স্টার্টার ফাইল ডাউনলোড করুন",
-    "starterHint": "ছোট একটি ফাইল, যাতে শুধু শিক্ষাবর্ষ, শ্রেণি, শাখা, বিষয় ও ফি কাঠামো আছে।"
+    "starterHint": "ছোট একটি ফাইল, যাতে শুধু শিক্ষাবর্ষ, $t(common:entities.class_one), $t(common:entities.section_one), বিষয় ও ফি কাঠামো আছে।"
   },
   "scheduleLabel": "স্বয়ংক্রিয় ব্যাকআপ",
   "scheduleHint": "বেছে নিলেই সংরক্ষিত হয়। বদল কার্যকর হতে এক ঘণ্টা পর্যন্ত লাগতে পারে।",
