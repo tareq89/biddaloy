@@ -3,14 +3,14 @@
     "overdue": "The enrollment fee payment deadline has passed"
   },
   "list": {
-    "title": "Students",
-    "caption": "Students",
+    "title": "$t(common:entities.student_other)",
+    "caption": "$t(common:entities.student_other)",
     "addStudent": "Add student",
     "importStudents": "Import students",
     "searchLabel": "Search",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
-    "sectionLabel": "Section",
+    "sectionLabel": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "statusLabel": "Status",
     "allStatuses": "All statuses",
@@ -25,9 +25,9 @@
     "columnRoll": "Roll",
     "columnRegistration": "Registration No.",
     "columnName": "Name",
-    "columnClass": "Class",
-    "columnSection": "Section",
-    "columnGuardian": "Guardian",
+    "columnClass": "$t(common:entities.class_one)",
+    "columnSection": "$t(common:entities.section_one)",
+    "columnGuardian": "$t(common:entities.guardian_one)",
     "columnStatus": "Status",
     "columnActions": "Actions",
     "columnDateOfBirth": "Date of birth",
@@ -56,7 +56,7 @@
     "religionFilterLabel": "Religion",
     "religionFilterPlaceholder": "As written on the student's record",
     "searchPlaceholder": "Name, roll or registration number",
-    "cardSubtitle": "{{class}} · Section {{section}} · Roll {{roll}}",
+    "cardSubtitle": "{{class}} · $t(common:entities.section_one) {{section}} · Roll {{roll}}",
     "emptyExplanation": "Add your first student and the list will show up here.",
     "emptyTeacherExplanation": "You see the students of the sections you teach this year. Ask your school admin to assign you a section."
   },
@@ -75,8 +75,8 @@
     "errorMessage": "Couldn't send the reminder. Nothing was sent — try again.",
     "outcomeUnknown": "We couldn't confirm whether the reminder went out. Check the sent reminders before you send it again.",
     "smsNotReady": {
-      "NO_GATEWAY": "SMS is not set up for this school. Guardians who get messages by SMS will not receive this reminder.",
-      "NO_CREDIT": "This school has no SMS credit left. Guardians who get messages by SMS will not receive this reminder."
+      "NO_GATEWAY": "SMS is not set up for this school. $t(common:entities.guardian_other) who get messages by SMS will not receive this reminder.",
+      "NO_CREDIT": "This school has no SMS credit left. $t(common:entities.guardian_other) who get messages by SMS will not receive this reminder."
     }
   },
   "detail": {
@@ -101,7 +101,7 @@
       "recurringFees": "Automatic billing",
       "payments": "Payments",
       "invoices": "Invoices",
-      "guardians": "Guardians",
+      "guardians": "$t(common:entities.guardian_other)",
       "communication": "Communication",
       "activity": "Activity",
       "attendance": "Attendance",
@@ -121,7 +121,7 @@
       "bloodGroup": "Blood group"
     },
     "enrollment": {
-      "columnClass": "Class",
+      "columnClass": "$t(common:entities.class_one)",
       "columnAcademicYear": "Academic year",
       "columnStatus": "Status",
       "columnEnrolledAt": "Enrolled on",
@@ -129,9 +129,9 @@
       "errorMessage": "Couldn't load enrolment history.",
       "moveClassAction": "Move class",
       "title": "Enrolment history",
-      "classValue": "{{class}} · Section {{section}}",
+      "classValue": "{{class}} · $t(common:entities.section_one) {{section}}",
       "cardSubtitle": "{{class}} · Enrolled {{date}}",
-      "emptyExplanation": "Class moves and new-year enrolments show up here."
+      "emptyExplanation": "$t(common:entities.class_one) moves and new-year enrolments show up here."
     },
     "fees": {
       "totalBilled": "Total billed",
@@ -224,7 +224,7 @@
       "columnRelationship": "Relationship",
       "primary": "Primary contact",
       "emptyMessage": "No guardians on file.",
-      "caption": "Guardians of {{name}}",
+      "caption": "$t(common:entities.guardian_other) of {{name}}",
       "columnPhone": "Phone",
       "columnEmail": "Email",
       "columnPreferred": "Preferred contact",
@@ -324,10 +324,10 @@
     "moveClassDialog": {
       "title": "Move class",
       "description": "Move {{name}} to a different class or section.",
-      "classLabel": "Class",
+      "classLabel": "$t(common:entities.class_one)",
       "classLockedHint": "Only an admin can move a student to another class; use promotion.",
       "classPlaceholder": "Select",
-      "sectionLabel": "Section",
+      "sectionLabel": "$t(common:entities.section_one)",
       "sectionPlaceholder": "Select",
       "capacityWarning": "This section is at capacity ({{enrolled}}/{{capacity}}). You can still proceed.",
       "confirm": "Move",
@@ -337,8 +337,8 @@
     },
     "facts": {
       "registrationNumber": "Registration no.",
-      "class": "Class",
-      "classValue": "{{class}} · Section {{section}}",
+      "class": "$t(common:entities.class_one)",
+      "classValue": "{{class}} · $t(common:entities.section_one) {{section}}",
       "roll": "Roll",
       "primaryGuardian": "Primary guardian"
     },
@@ -389,7 +389,7 @@
     "sections": {
       "identity": "Identity",
       "placement": "Placement",
-      "guardians": "Guardians",
+      "guardians": "$t(common:entities.guardian_other)",
       "preferences": "Preferences",
       "guardiansHelp": "Find a guardian who is already on record, or add a new one."
     },
@@ -446,16 +446,16 @@
       "noResults": "No guardians found.",
       "addNewAction": "Add a new guardian",
       "newGuardian": {
-        "nameLabel": "Guardian's full name",
-        "relationshipLabel": "Guardian's relationship to student",
-        "phoneLabel": "Guardian's phone",
-        "emailLabel": "Guardian's email",
-        "nameRequired": "Guardian name is required.",
+        "nameLabel": "$t(common:entities.guardian_one)'s full name",
+        "relationshipLabel": "$t(common:entities.guardian_one)'s relationship to student",
+        "phoneLabel": "$t(common:entities.guardian_one)'s phone",
+        "emailLabel": "$t(common:entities.guardian_one)'s email",
+        "nameRequired": "$t(common:entities.guardian_one) name is required.",
         "saveAction": "Add guardian",
         "cancelAction": "Cancel",
         "createError": "The guardian could not be added. Check the details and try again."
       },
-      "unknownName": "Guardian"
+      "unknownName": "$t(common:entities.guardian_one)"
     },
     "bloodGroupNotSet": "Not set",
     "cancelAction": "Cancel"

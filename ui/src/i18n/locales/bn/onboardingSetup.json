@@ -43,7 +43,7 @@
     "curriculum": {
       "title": "ক্লাস ও বিষয়",
       "hint": "ক্লাস ও বিষয়ের একটি তৈরি তালিকা বেছে নিন। পরে বদলাতে পারবেন।",
-      "blocked": "আপনার স্কুলে আগেই ক্লাস বা শিক্ষার্থী আছে, তাই তৈরি তালিকা বসানো যাবে না।",
+      "blocked": "আপনার স্কুলে আগেই ক্লাস বা $t(common:entities.student_one) আছে, তাই তৈরি তালিকা বসানো যাবে না।",
       "byHand": "নিজে সাজাব",
       "skip": "এই ধাপ বাদ দিন",
       "kind": {
@@ -61,10 +61,10 @@
       "addSection": "সেকশন যোগ করুন",
       "created_one": "{{count}}টি সেকশন তৈরি হয়েছে",
       "created_other": "{{count}}টি সেকশন তৈরি হয়েছে",
-      "create": "শাখা তৈরি করুন",
-      "count": "শাখা",
+      "create": "$t(common:entities.section_one) তৈরি করুন",
+      "count": "$t(common:entities.section_one)",
       "retry": "আবার চেষ্টা করুন",
-      "empty": "এখনো কোনো শ্রেণি নেই। আগে ফিরে গিয়ে একটি পাঠ্যক্রম বেছে নিন।"
+      "empty": "এখনো কোনো $t(common:entities.class_one) নেই। আগে ফিরে গিয়ে একটি পাঠ্যক্রম বেছে নিন।"
     }
   },
   "excel": {
@@ -87,10 +87,10 @@
     "alreadyCreated": "যেগুলো তৈরি হয়ে গেছে: {{sheets}}। সমস্যাটি ঠিক করে আবার আপলোড করুন।",
     "sheet": {
       "academic_years": "শিক্ষাবর্ষ — আপনার স্কুলের বছর, শুরু আর শেষের তারিখসহ",
-      "classes": "শ্রেণি — আপনি যেসব শ্রেণি পড়ান, যেমন ১ম বা ৬ষ্ঠ শ্রেণি",
-      "sections": "শাখা — প্রতিটি শ্রেণির ভেতরের ভাগ, যেমন ক আর খ",
+      "classes": "$t(common:entities.class_one) — আপনি যেসব $t(common:entities.class_one) পড়ান, যেমন ১ম বা ৬ষ্ঠ $t(common:entities.class_one)",
+      "sections": "$t(common:entities.section_one) — প্রতিটি শ্রেণির ভেতরের ভাগ, যেমন ক আর খ",
       "subjects": "বিষয় — প্রতিটি শ্রেণিতে কী কী পড়ানো হয়",
-      "fee_structures": "ফি — প্রতিটি শ্রেণি কত টাকা দেয়, আর কখন"
+      "fee_structures": "ফি — প্রতিটি $t(common:entities.class_one) কত টাকা দেয়, আর কখন"
     }
   },
   "progress": "ধাপ {{current}}/{{total}}",
