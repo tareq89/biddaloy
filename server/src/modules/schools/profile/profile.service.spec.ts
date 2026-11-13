@@ -46,15 +46,26 @@ function baseSchool() {
 
 describe('SchoolProfileService', () => {
   let auditService: ReturnType<typeof fakeAuditService>;
+  const MODULES = { platform: { library: false }, school: { transport: false } };
+  const LABELS = { student: { en: 'Pupil' } };
+  const schools = { getSchoolLabels: vi.fn() };
+  const moduleState = { forTenant: vi.fn() };
 
   beforeEach(() => {
     auditService = fakeAuditService();
+    moduleState.forTenant.mockResolvedValue(MODULES);
+    schools.getSchoolLabels.mockResolvedValue(LABELS);
   });
 
   describe('getProfile', () => {
     it('returns the six text fields plus a null logo_url when unset', async () => {
       const repo = fakeRepo(baseSchool());
-      const service = new SchoolProfileService(repo as any, auditService as any);
+      const service = new SchoolProfileService(
+        repo as any,
+        auditService as any,
+        schools as any,
+        moduleState as any,
+      );
 
       const result = await service.getProfile('school-1');
 
@@ -67,13 +78,22 @@ describe('SchoolProfileService', () => {
         email: null,
         registration_id: null,
         logo_url: null,
+        modules: MODULES,
+        labels: LABELS,
       });
+      expect(moduleState.forTenant).toHaveBeenCalledWith('school-1');
+      expect(schools.getSchoolLabels).toHaveBeenCalledWith('school-1');
     });
 
     it('builds a versioned logo_url from logo_key when set', async () => {
       const school = { ...baseSchool(), logo_key: 'tenants/school-1/logo/abc-123.png' };
       const repo = fakeRepo(school);
-      const service = new SchoolProfileService(repo as any, auditService as any);
+      const service = new SchoolProfileService(
+        repo as any,
+        auditService as any,
+        schools as any,
+        moduleState as any,
+      );
 
       const result = await service.getProfile('school-1');
 
@@ -82,7 +102,12 @@ describe('SchoolProfileService', () => {
 
     it('throws NotFoundException for a missing school', async () => {
       const repo = fakeRepo(null);
-      const service = new SchoolProfileService(repo as any, auditService as any);
+      const service = new SchoolProfileService(
+        repo as any,
+        auditService as any,
+        schools as any,
+        moduleState as any,
+      );
 
       await expect(service.getProfile('missing')).rejects.toThrow(NotFoundException);
     });
@@ -91,7 +116,12 @@ describe('SchoolProfileService', () => {
   describe('updateProfile', () => {
     it('writes only the changed fields and audits old/new values', async () => {
       const repo = fakeRepo(baseSchool());
-      const service = new SchoolProfileService(repo as any, auditService as any);
+      const service = new SchoolProfileService(
+        repo as any,
+        auditService as any,
+        schools as any,
+        moduleState as any,
+      );
 
       const dto = new UpdateSchoolProfileDto();
       dto.name = 'New Name';
@@ -117,7 +147,12 @@ describe('SchoolProfileService', () => {
 
     it('skips the audit write when nothing actually changed', async () => {
       const repo = fakeRepo(baseSchool());
-      const service = new SchoolProfileService(repo as any, auditService as any);
+      const service = new SchoolProfileService(
+        repo as any,
+        auditService as any,
+        schools as any,
+        moduleState as any,
+      );
 
       const dto = new UpdateSchoolProfileDto();
       dto.name = 'Old Name'; // same as current
@@ -129,7 +164,12 @@ describe('SchoolProfileService', () => {
 
     it('throws NotFoundException for a missing school', async () => {
       const repo = fakeRepo(null);
-      const service = new SchoolProfileService(repo as any, auditService as any);
+      const service = new SchoolProfileService(
+        repo as any,
+        auditService as any,
+        schools as any,
+        moduleState as any,
+      );
 
       await expect(
         service.updateProfile('missing', new UpdateSchoolProfileDto(), 'user-1', REQUEST_CONTEXT),
