@@ -23,12 +23,14 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { ChangeRequestsService } from './change-requests.service';
 import { CreateChangeRequestDto, ResolveChangeRequestDto } from './dto/workflow.dto';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [21.6.1] D11: change requests against a published `RoutineSlot`. */
 @ApiTags('routines')
 @ApiTenantAuth()
 @Controller('routines')
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ChangeRequestsController {
   constructor(@Inject(ChangeRequestsService) private readonly service: ChangeRequestsService) {}

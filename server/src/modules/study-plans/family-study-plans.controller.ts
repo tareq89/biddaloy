@@ -12,7 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -38,6 +38,7 @@ import {
   FamilySubjectRefDto,
 } from './dto/family-study-plans.dto';
 import { lessonAt, subjectBlock, type FamilyExamInfo } from './family-study-plans.view';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** No unbounded scans: `lessons?date=` stays within this many days of today. */
 const MAX_DAYS_FROM_TODAY = 31;
@@ -51,6 +52,7 @@ const MAX_DAYS_FROM_TODAY = 31;
 @ApiTags('family-study-plans')
 @ApiTenantAuth()
 @Controller('students/:studentId')
+@RequiresModule(ModuleKey.studyPlans)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class FamilyStudyPlansController {
   constructor(

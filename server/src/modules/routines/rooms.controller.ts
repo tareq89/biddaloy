@@ -20,12 +20,14 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto, UpdateRoomDto, QueryRoomDto } from './dto/setup.dto';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [21.3.1] Room CRUD. */
 @ApiTags('routines')
 @ApiTenantAuth()
 @Controller('routines/rooms')
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class RoomsController {
   constructor(@Inject(RoomsService) private readonly roomsService: RoomsService) {}

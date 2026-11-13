@@ -10,7 +10,8 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { ResolveRoutineService } from './resolve-routine.service';
 import { ResolveRoutineQueryDto } from './dto/resolve.dto';
 import { FamilyAccessService } from '../students/family-access.service';
-import { JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * [21.5.1] D14: the one read path for "what is on, for whom, between
@@ -25,6 +26,7 @@ import { JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
 @ApiTags('routines')
 @ApiTenantAuth()
 @Controller('routines')
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ResolveRoutineController {
   constructor(

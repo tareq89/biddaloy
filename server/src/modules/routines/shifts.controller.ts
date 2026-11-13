@@ -28,12 +28,14 @@ import {
   ReplacePeriodSlotsDto,
   ChangeoverSuggestionQueryDto,
 } from './dto/setup.dto';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [21.3.1] Shift CRUD plus its nested period-slot editor. */
 @ApiTags('routines')
 @ApiTenantAuth()
 @Controller('routines/shifts')
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ShiftsController {
   constructor(

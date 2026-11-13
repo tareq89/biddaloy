@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Put, Query, Req, UseGuards } fro
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -20,6 +20,7 @@ import {
   SavedLessonDeliveryDto,
   TodayAllTaughtResponseDto,
 } from './dto/lesson-delivery.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 type Tenant = { id: string; role: string };
 
@@ -31,6 +32,7 @@ type Tenant = { id: string; role: string };
 @ApiTags('lesson-deliveries')
 @ApiTenantAuth()
 @Controller('lesson-deliveries')
+@RequiresModule(ModuleKey.studyPlans)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class LessonDeliveriesController {
   constructor(private readonly service: LessonDeliveriesService) {}
