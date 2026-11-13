@@ -210,6 +210,65 @@ describe('billing E2E', () => {
     await post(tokens.teacher, { seats: 1, months: 1, idempotency_key: key }).expect(403);
   });
 
+  it('POST /billing/orders/preview: prices without writing; header, school and role checks hold for preview and create', async () => {
+    const refused = (r: { status: number }) => expect([400, 401, 403]).toContain(r.status);
+    const url = (path: string) => `/api/v1/billing/${path}`;
+    const body = { seats: 10, months: 2 };
+    const ok = await supertest(app.getHttpServer())
+      .post(url('orders/preview'))
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .send(body)
+      .expect(200);
+    expect(ok.body).toMatchObject({
+      listAmountPaisa: 20000,
+      discountPaisa: 0,
+      totalPaisa: 20000,
+      free: false,
+    });
+    await supertest(app.getHttpServer())
+      .post(url('orders/preview'))
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .send({ ...body, coupon_code: 'NOPE-0000' })
+      .expect(400)
+      .expect((r) => expect(r.body.details).toEqual({ code: 'COUPON_NOT_VALID' }));
+    for (const path of ['orders/preview', 'orders']) {
+      const payload = { ...body, idempotency_key: '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e70' };
+      // Missing, invalid, and another school's X-Tenant-ID.
+      await supertest(app.getHttpServer())
+        .post(url(path))
+        .set('Authorization', `Bearer ${tokens.admin}`)
+        .send(payload)
+        .expect(refused);
+      await supertest(app.getHttpServer())
+        .post(url(path))
+        .set('Authorization', `Bearer ${tokens.admin}`)
+        .set('X-Tenant-ID', 'not-a-uuid')
+        .send(payload)
+        .expect(refused);
+      await supertest(app.getHttpServer())
+        .post(url(path))
+        .set('Authorization', `Bearer ${tokens.admin}`)
+        .set('X-Tenant-ID', OTHER_TENANT_ID)
+        .send(payload)
+        .expect(refused);
+    }
+    await supertest(app.getHttpServer())
+      .post(url('orders/preview'))
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .send(body)
+      .expect(403);
+    await supertest(app.getHttpServer()).post(url('orders/preview')).send(body).expect(401);
+    // Nothing was written by any of the above.
+    const rows = await dataSource.query(
+      `SELECT count(*)::int AS n FROM seat_orders WHERE school_id = $1 AND idempotency_key = $2`,
+      [TENANT_ID, '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e70'],
+    );
+    expect(rows[0].n).toBe(0);
+  });
+
   it('POST /billing/orders/:id/pay/bkash: TEACHER 403, non-UUID 400, unconfigured gateway 503', async () => {
     const pay = (token: string, id: string) =>
       supertest(app.getHttpServer())

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsUUID, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 /** Rule 5: seats and months are bounded; the price is never sent, the server computes it. */
 export class CreateOrderDto {
@@ -21,4 +21,14 @@ export class CreateOrderDto {
   })
   @IsUUID()
   idempotency_key!: string;
+
+  @ApiProperty({
+    required: false,
+    maxLength: 64,
+    description: 'One coupon. Checked in the service, so a bad code gets the one fixed sentence.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  coupon_code?: string;
 }
