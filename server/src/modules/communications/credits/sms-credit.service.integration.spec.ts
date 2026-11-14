@@ -211,6 +211,30 @@ describe('SmsCreditService (integration)', () => {
     expect(debit?.reason).toBe('reconcile #1317');
   });
 
+  it('[2149] releases a batch reservation with no log row once it is old, and only then', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-orphan-${tenantA}` });
+    const batchId = '11111111-1111-4111-8111-111111111111';
+    await service.reserve(tenantA, 20, `batch:${batchId}`, { type: 'batch', id: batchId });
+
+    // Fresh reservation: left alone.
+    expect(await service.releaseOrphanedReservations(new Date())).toEqual({
+      reservations: 0,
+      units: 0,
+    });
+
+    const later = new Date(Date.now() + 31 * 60_000);
+    expect(await service.releaseOrphanedReservations(later)).toEqual({
+      reservations: 1,
+      units: 20,
+    });
+    expect(await service.getBalance(tenantA)).toEqual({ available: 50, reserved: 0 });
+    // Second run: nothing left to release.
+    expect(await service.releaseOrphanedReservations(later)).toEqual({
+      reservations: 0,
+      units: 0,
+    });
+  });
+
   it('getBalance returns zeros when no balance row exists yet', async () => {
     const balance = await service.getBalance(tenantA);
     expect(balance).toEqual({ available: 0, reserved: 0 });

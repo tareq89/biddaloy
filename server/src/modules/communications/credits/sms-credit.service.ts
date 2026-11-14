@@ -325,6 +325,62 @@ export class SmsCreditService {
     }
   }
 
+  /**
+   * [#2149] Releases batch reservations orphaned by a crash between `reserve` and the log insert:
+   * RESERVE rows older than `minAgeMinutes` whose units are not fully covered by DEBIT/RELEASE rows
+   * and that have no QUEUED log (batch id in `metadata.batch_id`, or the log id itself for
+   * `reserveForLog`). Each release goes through `settlePart` (locks the reserve row, once per key),
+   * and the RELEASE ledger row carries the reason, so it is audited.
+   */
+  async releaseOrphanedReservations(
+    now: Date,
+    opts?: { minAgeMinutes?: number; limit?: number },
+  ): Promise<{ reservations: number; units: number }> {
+    const cutoff = new Date(now.getTime() - (opts?.minAgeMinutes ?? 30) * 60_000);
+    const rows: { tenant_id: string; idempotency_key: string; rest: number }[] =
+      await this.dataSource.query(
+        `SELECT r.tenant_id, r.idempotency_key, (r.units - COALESCE(s.used, 0))::int AS rest
+           FROM sms_credit_ledger r
+           LEFT JOIN LATERAL (
+             SELECT SUM(x.units) AS used FROM sms_credit_ledger x
+              WHERE x.tenant_id = r.tenant_id AND x.reference_type = 'batch'
+                AND x.reference_id = r.reference_id AND x.kind IN ('DEBIT', 'RELEASE')
+           ) s ON true
+          WHERE r.kind = 'RESERVE' AND r.reference_type = 'batch' AND r.reference_id IS NOT NULL
+            AND r.created_at < $1 AND r.units > COALESCE(s.used, 0)
+            AND NOT EXISTS (
+              SELECT 1 FROM communication_logs l
+               WHERE l.tenant_id = r.tenant_id AND l.status = 'QUEUED'
+                 AND (l.metadata->>'batch_id' = r.reference_id::text OR l.id::text = r.reference_id::text))
+          ORDER BY r.created_at
+          LIMIT $2`,
+        [cutoff, opts?.limit ?? 200],
+      );
+    let reservations = 0;
+    let units = 0;
+    for (const row of rows) {
+      try {
+        await this.settlePart(
+          row.tenant_id,
+          row.idempotency_key,
+          `${row.idempotency_key}:orphan`,
+          row.rest,
+          'RELEASE',
+          'Reservation never reached a log row; released after a crash',
+        );
+        reservations++;
+        units += row.rest;
+      } catch (err) {
+        this.logger.error({
+          msg: 'orphaned sms reservation release failed',
+          tenant_id: row.tenant_id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { reservations, units };
+  }
+
   /** Atomically moves `units` from `available` to `reserved`. Duplicate
    * `idempotencyKey` returns `{ ok: true }` without touching the balance —
    * it's already reserved. */
