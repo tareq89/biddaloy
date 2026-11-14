@@ -24,6 +24,9 @@ const INTENTIONALLY_NOT_RESET: Record<string, string> = {
   // TypeORM's own migration bookkeeping. Resetting it would make the next
   // spec file re-run every migration against an already-migrated schema.
   typeorm_migrations: 'TypeORM migration bookkeeping, not test data',
+  // [100.3.gC-01] Every school's NOT NULL plan_id points at the fixed default plan row
+  // (D42), so wiping plans would break the next school insert. Specs add plans and clean up.
+  plans: 'holds the default plan every school points at',
   // Rows are removed implicitly: its only FK (`FK_rt_user` in
   // 1785740608549-AddRefreshTokens) is ON DELETE CASCADE, so deleting `users`
   // in buildReferenceResetSql() clears it. Listed explicitly so that if that

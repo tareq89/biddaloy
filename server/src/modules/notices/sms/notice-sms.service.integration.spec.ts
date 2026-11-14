@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import { countSmsSegments } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
+import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_PASSWORD_HASH, SEED_SECTION_1_ID, SEED_TENANT_ID } from '@test/constants';
 import { COMMUNICATIONS_QUEUE } from '../../communications/communications.constants';
@@ -97,11 +98,7 @@ describe('NoticeSmsService (integration)', () => {
       }),
     ]);
     await ds.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [T]);
-    if (available !== null)
-      await ds.query(
-        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at) VALUES ($1,$2,0,now())`,
-        [T, available],
-      );
+    if (available !== null) await fundMeteredTenant(ds, T, available);
   };
   /** Ledger rows written after `mark()`: the ledger is never cleared between tests. */
   const ledgerIds = async (): Promise<string[]> =>

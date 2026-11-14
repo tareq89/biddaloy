@@ -180,11 +180,25 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     };
   }
 
+  // [Epic 77, D10] moduleRefusal: an off module's route answers 403 with a fixed sentence.
+  // Sentence pinned: MODULE_OFF_MESSAGE in server/src/common/filters/known-errors.ts.
+  if (!env.SMOKE_MODULE_OFF_PATH) {
+    out('moduleRefusal: skipped: SMOKE_MODULE_OFF_PATH not set');
+  } else {
+    await check('GET', env.SMOKE_MODULE_OFF_PATH, 'moduleRefusal', {
+      headers: sessions.admin,
+      expect: 403,
+      ok: (b) => b.message === 'This part is not turned on for your institution',
+    });
+  }
+
   const reads = [
     ['/api/v1/students?limit=1', 'teacher'],
     ['/api/v1/fees/dues?limit=1', 'admin'],
   ];
   for (const [path, who] of reads) {
+    // The module under test is off on purpose: its baseline read would 403 by design.
+    if (env.SMOKE_MODULE_OFF_PATH && path.startsWith(env.SMOKE_MODULE_OFF_PATH)) continue;
     if ((await check('GET', path, who, { headers: sessions[who] })) === null) return done();
   }
 
@@ -325,18 +339,6 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     await fence('cockpit shell', 'GET', cockpit, '/', (s) => s === 200);
   }
 
-  // [Epic 77, D10] moduleRefusal: an off module's route answers 403 with a fixed sentence.
-  // Sentence pinned: MODULE_OFF_MESSAGE in server/src/common/filters/known-errors.ts.
-  if (!env.SMOKE_MODULE_OFF_PATH) {
-    out('moduleRefusal: skipped: SMOKE_MODULE_OFF_PATH not set');
-  } else {
-    await check('GET', env.SMOKE_MODULE_OFF_PATH, 'moduleRefusal', {
-      headers: sessions.admin,
-      expect: 403,
-      ok: (b) => b.message === 'This part is not turned on for your institution',
-    });
-  }
-
   // [Epic 99, D19/D32] Login as fence: a bogus code never mints a token; the start route is closed.
   if (env.SMOKE_IMPERSONATION !== '1') {
     out('impersonation fence: skipped: SMOKE_IMPERSONATION not set');
@@ -356,6 +358,65 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     );
     await fence('start without token on cockpit host', 'POST', cockpit, start, (s) => s === 401);
     await fence('start on app host', 'POST', app, start, refused);
+  }
+
+  // [100.0.05, D29, D34] Money fences: public money doors are closed or generic. Opt-in so the
+  // existing smoke is unchanged. Output is label + status + PASS/FAIL only, never a body or token (Rule 13).
+  if (env.SMOKE_MONEY !== '1') {
+    out('money: skipped (no SMOKE_MONEY)');
+  } else {
+    const strict = env.SMOKE_MONEY_STRICT === '1';
+    const bogus = 'smoke-bogus-0';
+    // `lateRoute`: the route ships in a later wave, so a 404 passes unless SMOKE_MONEY_STRICT=1.
+    const money = async (label, method, path, passes, lateRoute = false) => {
+      let status = 'network error';
+      let good = false;
+      let note = '';
+      try {
+        const res = await fetch(`${baseUrl}${path}`, {
+          method,
+          headers: method === 'POST' ? { 'Content-Type': 'application/json' } : {},
+          body: method === 'POST' ? '{}' : undefined,
+          redirect: 'manual',
+          signal: AbortSignal.timeout(10_000),
+        });
+        res.body?.cancel?.();
+        status = String(res.status);
+        if (lateRoute && res.status === 404 && !strict) {
+          good = true;
+          note = '  skipped: route not deployed yet';
+        } else {
+          good = passes(res);
+        }
+      } catch (e) {
+        if (e?.name === 'TimeoutError') status = 'timeout';
+      }
+      out(`${good ? 'PASS' : 'FAIL'}  money: ${label}  ${status}${note}`);
+      if (good) result.passed++;
+      else result.failed++;
+    };
+    const loc = (r) => r.headers?.get?.('location') ?? '';
+    await money(
+      'bkash callback generic redirect',
+      'GET',
+      `/api/v1/billing/bkash/callback?paymentID=${bogus}&status=success`,
+      (r) => r.status === 302 && loc(r).includes('payment=error') && !loc(r).includes(bogus),
+    );
+    await money('orders need a token', 'POST', '/api/v1/billing/orders', (r) => r.status === 401);
+    await money(
+      'sms bundle orders need a token',
+      'POST',
+      '/api/v1/sms-bundles/orders',
+      (r) => r.status === 401,
+      true,
+    );
+    await money(
+      'order preview needs a token',
+      'POST',
+      '/api/v1/billing/orders/preview',
+      (r) => r.status === 401,
+      true,
+    );
   }
 
   // [98.5.01, D17] Staging only: the full owner sign-in (password, authenticator, a read, sign out).

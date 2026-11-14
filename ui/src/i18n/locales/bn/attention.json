@@ -431,6 +431,16 @@
       "approval_pending": {
         "name": "মালিকের অনুমোদনের অপেক্ষা",
         "help": "কোনো গুরুত্বপূর্ণ পরিবর্তন দ্বিতীয় মালিকের অনুমোদনের অপেক্ষায় থাকলে জানায়।"
+      },
+      "sms": {
+        "stock_low": {
+          "name": "এসএমএস স্টক কম",
+          "help": "প্ল্যাটফর্মের এসএমএস স্টক নিরাপদ সীমার নিচে নেমেছে। প্রোভাইডার থেকে আরও কিনুন।"
+        },
+        "oversold": {
+          "name": "এসএমএস বেশি বিক্রি হয়েছে",
+          "help": "স্কুলগুলোর হাতে থাকা এসএমএস প্ল্যাটফর্মের স্টকের চেয়ে বেশি। এখনই স্টক বাড়ান।"
+        }
       }
     },
     "manual": {
@@ -494,6 +504,16 @@
         "name": "অ্যাকাউন্ট নিষ্ক্রিয়",
         "help": "স্কুলে অনেক দিন কোনো কাজ না হলে মনে করিয়ে দেয়।"
       }
+    },
+    "sms": {
+      "low": {
+        "name": "এসএমএস ব্যালেন্স কম",
+        "help": "আপনার স্কুলের এসএমএস ব্যালেন্স কমে এসেছে। বার্তা যাওয়া চালু রাখতে একটি প্যাকেজ কিনুন।"
+      },
+      "expiring": {
+        "name": "এসএমএস প্যাকেজের মেয়াদ শেষ হচ্ছে",
+        "help": "এসএমএস ব্যালেন্সের একটি অংশের মেয়াদ শিগগির শেষ হবে। ব্যবহার করুন অথবা নতুন প্যাকেজ কিনুন।"
+      }
     }
   },
   "strip": {
@@ -542,8 +562,8 @@
     "whoHelp": "এক বা একাধিক দল বাছুন।",
     "byRole": "রোল অনুযায়ী",
     "addRole": "রোল যোগ করুন",
-    "studentsOfSections": "শাখার $t(common:entities.student_one)",
-    "guardiansOfSections": "শাখার $t(common:entities.guardian_one)",
+    "studentsOfSections": "$t(common:entities.section_one)-এর $t(common:entities.student_one)",
+    "guardiansOfSections": "$t(common:entities.section_one)-এর $t(common:entities.guardian_one)",
     "addSection": "$t(common:entities.section_one) যোগ করুন",
     "namedPeople": "নির্দিষ্ট ব্যক্তি",
     "findPerson": "নাম বা ফোন দিয়ে খুঁজুন",

@@ -35,6 +35,8 @@ export interface KindCardsProps {
   /** The kind whose preview is open. */
   selectedId?: string | undefined;
   onSelect: (id: string) => void;
+  /** Locks every card (e.g. while a request for the picked kind is pending). */
+  disabled?: boolean;
   /** Replaces the Settings heading and intro (the welcome wizard words them differently). */
   title?: string;
   intro?: string;
@@ -48,6 +50,7 @@ export function KindCards({
   onRetry,
   selectedId,
   onSelect,
+  disabled,
   title,
   intro,
 }: KindCardsProps) {
@@ -86,6 +89,7 @@ export function KindCards({
                 <button
                   type="button"
                   aria-pressed={selectedId === kind.id}
+                  disabled={disabled}
                   onClick={() => onSelect(kind.id)}
                   className="flex min-h-11 w-full items-start gap-3 rounded-lg border border-border-subtle bg-surface p-3 text-left shadow-e1 hover:bg-muted aria-pressed:border-primary aria-pressed:bg-muted md:h-full md:flex-col md:p-4"
                 >

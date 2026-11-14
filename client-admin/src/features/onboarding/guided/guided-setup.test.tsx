@@ -164,6 +164,7 @@ describe('CurriculumStep institution kind', () => {
       }),
     );
   const card = (name: RegExp) => screen.findByRole('button', { name });
+  const applyKind = () => userEvent.click(screen.getByRole('button', { name: 'Apply this kind' }));
   const skip = () => userEvent.click(screen.getByRole('button', { name: 'Skip this step' }));
   beforeEach(() => {
     applied.length = 0;
@@ -188,6 +189,8 @@ describe('CurriculumStep institution kind', () => {
     kindsApi();
     const first = renderAt(2);
     await userEvent.click(await card(/Secondary school/));
+    await applyKind();
+    await waitFor(() => expect(applied).toHaveLength(1));
     await skip();
     await waitFor(() => expect(first.router.state.location.search).toMatchObject({ q: 3 }));
     expect(applied).toHaveLength(1);
@@ -199,6 +202,15 @@ describe('CurriculumStep institution kind', () => {
     await skip();
     await waitFor(() => expect(again.router.state.location.search).toMatchObject({ q: 3 }));
     expect(applied).toHaveLength(1);
+  });
+
+  it('skip with a picked kind applies nothing; only the Apply action does', async () => {
+    kindsApi();
+    const { router } = renderAt(2);
+    await userEvent.click(await card(/Coaching centre/));
+    await skip();
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(0);
   });
 
   it('the admin can change the kind, or leave it as it is, and nothing is applied then', async () => {
@@ -219,13 +231,14 @@ describe('CurriculumStep institution kind', () => {
     kindsApi(() => HttpResponse.json({ message: 'boom' }, { status: 500 }));
     const { router } = renderAt(2);
     await userEvent.click(await card(/Coaching centre/));
-    await skip();
+    await applyKind();
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
       expect.stringContaining('Could not set the institution kind. Nothing was changed.'),
     );
     expect(screen.getByRole('link', { name: 'Settings › Modules & words' })).toBeTruthy();
     expect(router.state.location.search).toMatchObject({ q: 2 });
+    // the failed kind is not retried, and skip moves on without a second request
     await skip();
     await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
     expect(applied).toHaveLength(1);

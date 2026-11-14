@@ -73,6 +73,42 @@ describe('GlobalModulesCard', () => {
     expect(bodies[1]).toEqual({ modules: { fees: false } });
   });
 
+  it('a held refetch after a save cannot make the next save drop the first change', async () => {
+    const bodies: { modules: Record<string, boolean> }[] = [];
+    let map: Record<string, boolean> = { website: false };
+    let hold: Promise<void> | null = null;
+    let release = () => {};
+    server.use(
+      http.get('*/platform/modules', async () => {
+        if (hold) await hold;
+        return HttpResponse.json({ modules: map });
+      }),
+      http.put('*/platform/modules', async ({ request }) => {
+        const body = (await request.json()) as { modules: Record<string, boolean> };
+        bodies.push(body);
+        map = body.modules;
+        hold = new Promise<void>((r) => (release = r)); // hold only the refetch after the save
+        return HttpResponse.json(body);
+      }),
+    );
+    const user = userEvent.setup();
+    host(<GlobalModulesCard />);
+    await user.click(await screen.findByRole('switch', { name: 'Fees' }));
+    await user.click(await screen.findByRole('button', { name: 'Turn off' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    // Refetch is still held: a click now (if allowed at all) must still carry fees:false.
+    await user.click(screen.getByRole('switch', { name: 'Website' }));
+    release();
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Fees' }).getAttribute('aria-checked')).toBe(
+        'false',
+      ),
+    );
+    if (bodies.length === 1) await user.click(screen.getByRole('switch', { name: 'Website' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]?.modules).toEqual({ fees: false });
+  });
+
   it('a write without a code shows the step-up prompt, then goes through with the token', async () => {
     const tokens: (string | null)[] = [];
     server.use(

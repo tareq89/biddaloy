@@ -10,6 +10,7 @@ import { User } from '../../users/entities/user.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
 import { AdminNoticeService } from './admin-notice.service';
+import { renderNotice } from './admin-notice-templates';
 
 describe('AdminNoticeService (integration)', () => {
   let ds: DataSource;
@@ -154,5 +155,85 @@ describe('AdminNoticeService (integration)', () => {
     expect(send.mock.calls[0][0].body).toContain('স্বাগতম');
     expect(send.mock.calls[1][0].body).toContain('স্বাগতম');
     expect(send.mock.calls[2][0].body).toContain('Welcome!');
+  });
+
+  const checkMoneyNotice = async (
+    key: 'coupon_applied' | 'refund_done' | 'plan_changed',
+    vars: Record<string, string>,
+    token: string,
+    bnWord: string,
+  ) => {
+    expect(renderNotice(key, 'en', { school: 'S', ...vars }).body).toContain(token);
+    expect(renderNotice(key, 'bn', { school: 'S', ...vars }).body).toContain(bnWord);
+
+    const id = await school('bn');
+    const uid = randomUUID();
+    await ds.getRepository(User).save({
+      id: uid,
+      email: `money-${uid}@notice.test`,
+      phone: `017${uid.replace(/\D/g, '').padEnd(8, '1').slice(0, 8)}`,
+      password_hash: 'x',
+      full_name: 'money',
+      status: UserStatus.ACTIVE,
+    });
+    await ds.getRepository(UserTenant).save({ user_id: uid, tenant_id: id, role: UserRole.ADMIN });
+
+    send.mockClear();
+    await svc.notifyAdmins(id, key, vars, { emailOnly: true });
+    expect(send).toHaveBeenCalledTimes(1); // email only, no SMS
+    expect(send.mock.calls[0][0].to).toBe(`money-${uid}@notice.test`);
+    expect(send.mock.calls[0][0].body).toContain(bnWord);
+    const logs = await ds.query(
+      `SELECT metadata->>'kind' AS kind FROM communication_logs WHERE tenant_id = $1`,
+      [id],
+    );
+    expect(logs).toEqual([{ kind: key }]);
+
+    send.mockRejectedValueOnce(new Error('provider down'));
+    await expect(svc.notifyAdmins(id, key, vars, { emailOnly: true })).resolves.toBeUndefined();
+  };
+
+  it('coupon_applied renders en and bn, goes by email only, logs a row, and never throws on a provider failure', () =>
+    checkMoneyNotice(
+      'coupon_applied',
+      { coupon: 'E2E-HALF', amount: '500.00' },
+      'E2E-HALF',
+      'কুপন',
+    ));
+
+  it('refund_done renders en and bn, goes by email only, logs a row, and never throws on a provider failure', () =>
+    checkMoneyNotice('refund_done', { amount: '1500.00' }, '1500.00', 'ফেরত'));
+
+  it('plan_changed renders en and bn, goes by email only, logs a row, and never throws on a provider failure', () =>
+    checkMoneyNotice('plan_changed', { plan: 'Plus' }, 'Plus', 'প্ল্যান'));
+});
+
+describe('sms_expiring notices and receipt wording', () => {
+  it('both keys render in en and bn, with and without link', () => {
+    for (const key of ['sms_expiring_d7', 'sms_expiring_d1'] as const) {
+      for (const locale of ['en', 'bn'] as const) {
+        const withLink = renderNotice(key, locale, {
+          school: 'X',
+          date: '2027-01-08',
+          units: 40,
+          link: 'https://a.test/l',
+        });
+        expect(withLink.subject).toContain('X');
+        expect(withLink.body).toContain('2027-01-08');
+        expect(withLink.body).toContain('https://a.test/l');
+        expect(withLink.body).not.toMatch(/ledger|\blot\b/i);
+        const noLink = renderNotice(key, locale, { school: 'X' });
+        expect(noLink.body).not.toContain('undefined');
+      }
+    }
+  });
+
+  it('receipt keeps receipt number and link and no longer says seats only', () => {
+    for (const locale of ['en', 'bn'] as const) {
+      const r = renderNotice('receipt', locale, { school: 'X', receipt: 'SMR-1', link: 'L1' });
+      expect(r.body).toContain('SMR-1');
+      expect(r.body).toContain('L1');
+      expect(r.body).not.toMatch(/seats of|সিটের/);
+    }
   });
 });

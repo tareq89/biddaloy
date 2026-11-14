@@ -4,7 +4,8 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
-import { ApprovalScope, ModuleKey } from '@biddaloy/shared';
+import { authenticator } from 'otplib';
+import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, ModuleKey } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
@@ -12,8 +13,8 @@ import { setModules } from '@test/helpers/modules.helper';
 import { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_TENANT_ID } from '@test/constants';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { MODULE_OFF_MESSAGE } from '../../common/filters/known-errors';
-import { StepUpService } from '../auth/step-up.service';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { MfaService } from '../auth/mfa/mfa.service';
 import { PlatformHomeService } from '../platform-identity/platform-home.service';
 import { PlatformSetting } from '../platform-identity/entities/platform-setting.entity';
 
@@ -35,14 +36,21 @@ describe('[77.6.01] platform modules E2E', () => {
 
   const decodeSub = (jwt: string) =>
     JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString()).sub as string;
+  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
   const http = () => supertest(app.getHttpServer());
 
   async function approval(): Promise<string> {
-    const home = await app.get(PlatformHomeService).id();
-    const t = await app
-      .get(StepUpService)
-      .issueForPlatformAdmin(ownerId, ApprovalScope.PLATFORM_SCHOOL_CONTROL, home as string);
-    return t.approval_token;
+    // The real cockpit step-up endpoint, same owner as the write. A TOTP step is single-use.
+    await ds.query(`UPDATE user_mfa SET last_step = NULL WHERE user_id = $1`, [ownerId]);
+    const res = await http()
+      .post(`${API}/platform/step-up`)
+      .set(owner())
+      .send({
+        scope: ApprovalScope.PLATFORM_SCHOOL_CONTROL,
+        code: totp.generate(DEV_COCKPIT_TOTP_SECRET),
+      })
+      .expect(200);
+    return res.body.approval_token;
   }
   const owner = () => ({ Authorization: `Bearer ${cockpit}` });
   async function putModules(modules: unknown) {
@@ -82,6 +90,7 @@ describe('[77.6.01] platform modules E2E', () => {
     await app.get(PlatformHomeService).ensure();
     cockpit = await mintCockpitToken(app, ds);
     ownerId = decodeSub(cockpit);
+    await app.get(MfaService).enrolWithKnownSecret(ownerId, DEV_COCKPIT_TOTP_SECRET);
     const login = await http()
       .post(`${API}/auth/login`)
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })

@@ -97,6 +97,9 @@ export class PlatformModulesService {
     const next = modules as PlatformModules;
     await this.dataSource.transaction(async (m) => {
       const repo = m.getRepository(PlatformSetting);
+      // Serialise replacements: READ COMMITTED lets two runs read the same previous map
+      // (also when the row is absent). Same pattern as year-rollover.service.ts.
+      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))', [PLATFORM_MODULES_KEY]);
       const old = await repo.findOne({ where: { key: PLATFORM_MODULES_KEY } });
       await repo.upsert({ key: PLATFORM_MODULES_KEY, value: next, updated_by: actorId } as never, [
         'key',

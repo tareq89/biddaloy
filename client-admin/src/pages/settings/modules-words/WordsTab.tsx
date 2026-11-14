@@ -62,8 +62,10 @@ export function WordsTab({ schoolId }: WordsTabProps) {
     // so only fields that differ from what the screen says now are sent; the rest stay stock.
     // An all-blank row sends null (back to the stock word). A half-blank row never gets here.
     const labels: Record<string, LabelEntry | null> = {};
+    const submitted: Partial<Record<LabelKey, Row>> = {};
     for (const key of changed) {
       const r = rowOf(key);
+      submitted[key] = { ...r };
       const cur = current(key);
       const [one, other, word] = [r.one.trim(), r.other.trim(), r.bn.trim()];
       const en = {
@@ -84,7 +86,15 @@ export function WordsTab({ schoolId }: WordsTabProps) {
       await update.mutateAsync({ version: 1, labels });
       // The refetch re-runs applyTenantWords, so menus and page titles change at once.
       await qc.invalidateQueries({ queryKey: ['school-profile'] });
-      setDraft({});
+      // Keep any edit made while the PATCH was pending: drop only rows still equal to what was sent.
+      setDraft((d) => {
+        const rest = { ...d };
+        for (const [k, sent] of Object.entries(submitted)) {
+          const now = rest[k as LabelKey];
+          if (now && FIELDS.every((f) => now[f] === sent[f])) delete rest[k as LabelKey];
+        }
+        return rest;
+      });
       setShowInvalid(false);
       toast(t('modulesWords.words.saved'));
     } catch {

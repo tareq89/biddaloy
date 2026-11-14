@@ -13,9 +13,9 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 69 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(69);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(69);
+  it('has 73 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(73);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(73);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
     for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
   });
@@ -88,7 +88,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 15 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 19 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -110,6 +110,10 @@ describe('alert rule catalogue', () => {
         'platform.bkash.refund_due',
         'platform.recovery_codes_low',
         'platform.approval_pending',
+        'sms.low',
+        'sms.expiring',
+        'platform.sms.stock_low',
+        'platform.sms.oversold',
       ].sort(),
     );
   });

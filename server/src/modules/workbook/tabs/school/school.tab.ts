@@ -74,6 +74,7 @@ const excluded: readonly string[] = [
   'status_changed_at', // see `status`
   'trial_ends_at', // commercial state of the destination tenant; a file must not extend a trial
   'seat_limit', // commercial state of the destination tenant; a file must not raise its seats
+  'plan_id', // [Epic 100] the platform price plan of the destination tenant; a file must not pick a cheaper plan
   'onboarding', // setup progress of the destination tenant
   'is_platform', // [Epic 98] marks the platform's own school; a file must never flip it
   'created_in_demo', // how the destination school was made (demo visitor signup); a file must not flip it, the demo reset and boot check rely on it

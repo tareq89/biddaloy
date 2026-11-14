@@ -42,7 +42,12 @@ export function useSetPlatformModules() {
     {
       approvalScope: SCOPE.approvalScope,
       retry: false,
-      onSuccess: () => void queryClient.invalidateQueries({ queryKey: platformModulesKeys.all }),
+      // Seed the cache from the PUT, and stay pending until the refetch lands: the next save
+      // builds the FULL map from this cache, so a stale one would drop the change just made.
+      onSuccess: async (saved) => {
+        queryClient.setQueryData(platformModulesKeys.all, saved);
+        await queryClient.invalidateQueries({ queryKey: platformModulesKeys.all });
+      },
     },
   );
 }

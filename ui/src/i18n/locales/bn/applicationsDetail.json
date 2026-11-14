@@ -81,7 +81,7 @@
   "events": {
     "SUBMITTED": "{{actor}} আবেদন জমা দিয়েছেন",
     "STEP_APPROVED": "{{actor}} ধাপ {{n}} অনুমোদন করেছেন",
-    "stepSkipped": "$t(common:entities.class_one) শিক্ষকের ধাপ বাদ পড়েছে",
+    "stepSkipped": "$t(common:entities.class_one) $t(common:entities.teacher_one)-এর ধাপ বাদ পড়েছে",
     "APPROVED": "{{actor}} অনুমোদন করেছেন",
     "REJECTED": "{{actor}} নামঞ্জুর করেছেন",
     "UNDER_CONSIDERATION": "{{actor}} বিবেচনাধীন রেখেছেন",

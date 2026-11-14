@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 
-import { applyTenantWords } from './tenant-words';
+import { applyTenantWords, applyTenantWordsWhenLoaded } from './tenant-words';
 
 import { createI18nInstance, whenReady } from './index';
 
@@ -47,5 +47,42 @@ describe('applyTenantWords', () => {
     const i18n = await setup('en');
     applyTenantWords(i18n, { teacher: { en: { one: 'Instructor', other: 'Instructors' } } });
     expect(t(i18n, 'guardian', 1)).toBe('Guardian');
+  });
+});
+
+describe('applyTenantWordsWhenLoaded', () => {
+  it('waits for the bn bundle, so removing a label later restores the stock word', async () => {
+    const i18n = await setup('en');
+    // bn `common` is not loaded yet: drop it, and let loadLanguages bring it back later.
+    const bundle = i18n.getResourceBundle('bn', 'common');
+    i18n.removeResourceBundle('bn', 'common');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const load = i18n.loadLanguages.bind(i18n);
+    i18n.loadLanguages = (async (l: string | readonly string[]) => {
+      if (l === 'bn') {
+        await gate;
+        i18n.addResourceBundle('bn', 'common', bundle);
+      }
+      return load(l);
+    }) as typeof i18n.loadLanguages;
+
+    const done = applyTenantWordsWhenLoaded(i18n, { class: { bn: 'শ্রেণি২' } });
+    expect(i18n.hasResourceBundle('bn', 'common')).toBe(false); // nothing written early
+    release();
+    expect(await done).toBe(true);
+    await i18n.changeLanguage('bn');
+    expect(t(i18n, 'class', 1)).toBe('শ্রেণি২');
+    applyTenantWords(i18n, {});
+    expect(t(i18n, 'class', 1)).toBe(bundle.entities.class_one);
+  });
+
+  it('a failed load applies nothing and leaves no partial bundle', async () => {
+    const i18n = await setup('en');
+    i18n.removeResourceBundle('bn', 'common');
+    i18n.loadLanguages = (() =>
+      Promise.reject(new Error('offline'))) as typeof i18n.loadLanguages;
+    expect(await applyTenantWordsWhenLoaded(i18n, { class: { bn: 'X' } })).toBe(false);
+    expect(i18n.hasResourceBundle('bn', 'common')).toBe(false);
   });
 });

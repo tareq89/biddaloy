@@ -6,6 +6,7 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import type { ModuleStateReader } from '../../../modules/auth/guards/module-state.reader';
 import { CreditsController } from './credits.controller';
 import { SmsCreditService } from './sms-credit.service';
+import { SmsCreditSummaryService } from './sms-credit-summary.service';
 import { MessagingConfigResolver } from '../config/messaging-config.resolver';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 import {
@@ -23,6 +24,7 @@ describe('CreditsController', () => {
   let controller: CreditsController;
   let service: Record<string, ReturnType<typeof vi.fn>>;
   let providerConfig: Record<string, ReturnType<typeof vi.fn>>;
+  let creditSummary: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT_A = { id: 'tenant-a', role: UserRole.ADMIN };
 
@@ -33,9 +35,19 @@ describe('CreditsController', () => {
       getBalance: vi.fn(),
     };
     providerConfig = { resolve: vi.fn().mockResolvedValue({}) };
+    creditSummary = {
+      forSchool: vi.fn().mockResolvedValue({
+        lots: [],
+        orders: [],
+        source: 'SCHOOLMANAGERP',
+        almostFinished: false,
+        stopped: false,
+      }),
+    };
     controller = new CreditsController(
       service as unknown as SmsCreditService,
       providerConfig as unknown as MessagingConfigResolver,
+      creditSummary as unknown as SmsCreditSummaryService,
     );
   });
 
@@ -80,6 +92,30 @@ describe('CreditsController', () => {
   });
 
   describe('getSmsCredits', () => {
+    it('adds lots/orders/source/flags for the caller tenant only, keeping the old fields', async () => {
+      service.getCreditsSummary.mockResolvedValue({
+        metering: 'PLATFORM',
+        available: 7,
+        reserved: 0,
+        ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
+      });
+      creditSummary.forSchool.mockResolvedValue({
+        lots: [{ id: 'l1' }],
+        orders: [],
+        source: 'SCHOOLMANAGERP',
+        almostFinished: true,
+        stopped: false,
+      });
+
+      const result = await controller.getSmsCredits({}, TENANT_A);
+
+      // Tenant isolation: the summary is asked for the caller's tenant, nothing else.
+      expect(creditSummary.forSchool).toHaveBeenCalledWith('tenant-a');
+      expect(result).toMatchObject({ metering: 'PLATFORM', available: 7, reserved: 0 });
+      expect(result.lots).toEqual([{ id: 'l1' }]);
+      expect(result.almostFinished).toBe(true);
+    });
+
     it('returns PLATFORM metering with balance and mapped ledger, scoped to the caller tenant', async () => {
       service.getCreditsSummary.mockResolvedValue({
         metering: 'PLATFORM',

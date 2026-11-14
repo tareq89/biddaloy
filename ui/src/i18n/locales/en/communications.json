@@ -148,7 +148,7 @@
       "loadError": "The student list could not be loaded.",
       "title": "Who to send to",
       "help": "Students with unpaid fees are listed below. Tick the ones to send to — up to 500.",
-      "classSectionHeader": "$t(common:entities.class_one) · section",
+      "classSectionHeader": "$t(common:entities.class_one) · $t(common:entities.section_one)",
       "emptyHelp": "Change the filters to see more students."
     },
     "message": {

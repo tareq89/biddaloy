@@ -51,4 +51,36 @@ describe('AttentionQueryService.studentAlerts teacher scope', () => {
     ).resolves.toEqual([]);
     expect(teacherScope.canSeeStudent).not.toHaveBeenCalled();
   });
+
+  // [77.2.10] The caller's role reaches the module check: a role-off module hides its alerts here too.
+  it('hides rule keys of a module switched off for the caller role only', async () => {
+    const calls: unknown[][] = [];
+    const query = vi.fn(async (sql: string, params: unknown[]) => {
+      calls.push(params);
+      return sql.includes('FROM students') ? [{ id: 's1' }] : [];
+    });
+    const service = new AttentionQueryService(
+      { query } as never,
+      {
+        all: () => [{ meta: { key: 'homework.to_grade' } }],
+        moduleOf: () => 'homework',
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { canSeeStudent: async () => true } as never,
+      { getResolvedSettings: async () => ({ region: { locale: 'en' } }) } as never,
+      {} as never,
+      {
+        forTenant: async () => ({
+          platform: {},
+          school: { homework: { offForRoles: [UserRole.TEACHER] } },
+        }),
+      } as never,
+    );
+    await service.studentAlerts('t1', teacher, 's1');
+    await service.studentAlerts('t1', { userId: 'u2', role: UserRole.ADMIN }, 's1');
+    const hidden = calls.filter((p) => Array.isArray(p[2])).map((p) => p[2]);
+    expect(hidden).toEqual([['homework.to_grade'], []]);
+  });
 });

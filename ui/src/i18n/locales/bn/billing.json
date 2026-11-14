@@ -1,6 +1,6 @@
 {
   "title": "সিট ও বিল",
-  "description": "শিক্ষার্থীদের জন্য সিট কিনুন। একটি সিট মানে এক মাসের জন্য একজন $t(common:entities.student_one)।",
+  "description": "$t(common:entities.student_other)-এর জন্য সিট কিনুন। একটি সিট মানে এক মাসের জন্য একজন $t(common:entities.student_one)।",
   "loadError": "সিট ও বিলের তথ্য আনা যায়নি। আবার চেষ্টা করুন।",
   "breadcrumb": "সিট ও বিল",
   "tiles": {
@@ -22,7 +22,7 @@
     "price": "প্রতি সিট প্রতি মাসে {{price}}",
     "total": "মোট",
     "totalLine": "{{seats}} সিট × {{months}} মাস",
-    "limitIntro": "আপনার স্কুলের শিক্ষার্থীর সীমা শেষ। আরও $t(common:entities.student_one) যোগ করতে সিট কিনুন।",
+    "limitIntro": "আপনার স্কুলের $t(common:entities.student_one)-এর সীমা শেষ। আরও $t(common:entities.student_one) যোগ করতে সিট কিনুন।",
     "submit": "অর্ডার তৈরি করুন",
     "cancel": "বাতিল",
     "close": "বন্ধ করুন",

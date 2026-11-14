@@ -6,6 +6,10 @@ import {
   reconcileStrandedSmsCredit,
   ReconcileAction,
 } from '../modules/communications/credits/sms-credit-reconcile';
+import {
+  checkLotInvariants,
+  isLotSchoolOk,
+} from '../modules/communications/credits/sms-credit-lot-invariants';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -84,7 +88,25 @@ export async function main(argv: string[]): Promise<number> {
         );
       },
     });
-    return errors > 0 ? 1 : 0;
+
+    // [#3853] Second check: balance = sum of lots, reserved = open draws. Repair (--apply only)
+    // goes through the service; a broken lot is never repaired here.
+    let lots = await checkLotInvariants(dataSource, { tenantId });
+    if (apply) {
+      for (const r of lots.filter((x) => x.lotsBroken.length === 0 && !isLotSchoolOk(x))) {
+        await credits.rebuildBalanceFromLots(r.tenantId, 'reconcile-sms-credit --apply');
+      }
+      lots = await checkLotInvariants(dataSource, { tenantId });
+    }
+    const drift = lots.filter((r) => !isLotSchoolOk(r));
+    for (const r of drift) {
+      console.log(
+        `lots tenant=${r.tenantId} available=${r.available} lots=${r.lotsRemaining} reserved=${r.reserved} draws=${r.openDraws} broken=${r.lotsBroken.length} status=DRIFT` +
+          (r.lotsBroken.length > 0 ? ` lot_ids=${r.lotsBroken.slice(0, 20).join(',')}` : ''),
+      );
+    }
+    console.log(`lots schools=${lots.length} drift=${drift.length}`);
+    return errors > 0 || drift.length > 0 ? 1 : 0;
   } finally {
     await dataSource.destroy();
   }

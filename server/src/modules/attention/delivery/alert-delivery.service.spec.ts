@@ -36,6 +36,34 @@ describe('quietHoursEnd (Asia/Dhaka)', () => {
   });
 });
 
+describe('AlertDeliveryService.catchUp paging', () => {
+  it('moves past a full page of skipped rows to reach the next candidate', async () => {
+    const full = Array.from({ length: 500 }, (_, i) => ({
+      id: `d${i}`,
+      tenant_id: 'off',
+      created_at: new Date(1000 + i),
+    }));
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce(full)
+      .mockResolvedValueOnce([{ id: 'ok', tenant_id: 'on', created_at: new Date(5000) }]);
+    const svc = new AlertDeliveryService(
+      { query } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    const deliver = vi.spyOn(svc, 'deliver').mockResolvedValue();
+    await svc.catchUp(new Date('2026-10-09T04:00:00Z'));
+    expect(query).toHaveBeenCalledTimes(2);
+    const second = query.mock.calls[1][1] as unknown[];
+    expect(second[3]).toEqual(new Date(1499));
+    expect(second[4]).toBe('d499');
+    expect(deliver).toHaveBeenCalledWith('on', ['ok'], expect.any(Date));
+  });
+});
+
 describe('AlertDeliveryService.catchUp', () => {
   it('delivers the stale unpushed recipients it finds, grouped per tenant', async () => {
     const query = vi.fn(async () => [

@@ -14,12 +14,6 @@ import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/con
  * [#3912] One case per module key this ticket tags. The full table-driven spec is
  * the wave-2 close (77.2.10). Each URL is a GET route of a tagged controller.
  */
-const CASES = [
-  { key: ModuleKey.exams, url: '/api/v1/dashboard/widgets/mark-entry-progress' },
-  { key: ModuleKey.seatPlans, url: '/api/v1/dashboard/widgets/seat-plan-status' },
-  { key: ModuleKey.evaluations, url: '/api/v1/acr/criteria' },
-] as const;
-
 describe('[#3912] exams + seat plans + evaluations controllers honour the module switch', () => {
   let app: INestApplication;
   let token: string;
@@ -50,14 +44,31 @@ describe('[#3912] exams + seat plans + evaluations controllers honour the module
     await app.close();
   });
 
-  for (const { key, url } of CASES) {
-    it(`${key}: off -> 403 fixed text for ADMIN, on -> 200`, async () => {
-      await setModules(app, SEED_TENANT_ID, { [key]: { on: false } });
-      const off = await get(url).expect(403);
-      expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+  it('exams: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.exams]: { on: false } });
+    const off = await get('/api/v1/dashboard/widgets/mark-entry-progress').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
 
-      await setModules(app, SEED_TENANT_ID, { [key]: null });
-      await get(url).expect(200);
-    });
-  }
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.exams]: null });
+    await get('/api/v1/dashboard/widgets/mark-entry-progress').expect(200);
+  });
+
+  it('seatPlans: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.seatPlans]: { on: false } });
+    const off = await get('/api/v1/dashboard/widgets/seat-plan-status').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.seatPlans]: null });
+    await get('/api/v1/dashboard/widgets/seat-plan-status').expect(200);
+  });
+
+  it('evaluations: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.evaluations]: { on: false } });
+    const off = await get('/api/v1/acr/criteria').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.evaluations]: null });
+    await get('/api/v1/acr/criteria').expect(200);
+  });
+
 });

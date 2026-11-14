@@ -449,6 +449,26 @@ They sit in `ENTITY_COVERAGE_EXEMPT` (`codec/entity-coverage.ts`) with that reas
 
 `settings.supportAccess` (whether platform staff may use Login as on this school) is never exported and never restored. The school tab drops it on export and ignores it on import, so an old file can not flip consent. The school admin changes it only on its own screen.
 
+### SMS credit and SMS packages (Epic 100)
+
+The school pays the platform for SMS, so the money tables are platform-owned and never enter a school backup.
+The two tenant-scoped credit tables have no tab yet (tracked in #856), like `sms_credit_balance`.
+
+```mermaid
+flowchart LR
+  subgraph School["School side (no tab yet, #856)"]
+    A[sms_credit_balance] --- B[sms_credit_lots] --- C[sms_credit_lot_draws]
+  end
+  subgraph Platform["Platform side (nightly database backup)"]
+    D[sms_bundle_catalog] --- E[sms_bundle_orders] --- F[sms_stock_entries] --- G[sms_provider_balance_readings]
+  end
+```
+
+| Table                                                                                           | Side     | In workbook |
+| ----------------------------------------------------------------------------------------------- | -------- | ----------- |
+| `sms_credit_lots`, `sms_credit_lot_draws`                                                       | school   | no (#856)   |
+| `sms_bundle_catalog`, `sms_bundle_orders`, `sms_stock_entries`, `sms_provider_balance_readings` | platform | never       |
+
 ## Adding a new tab
 
 1. Copy an existing tab in the closest group directory as a starting

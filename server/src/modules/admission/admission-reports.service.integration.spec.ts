@@ -158,7 +158,7 @@ describe('AdmissionReportsService (integration)', () => {
     expect(Object.values(leak.counts).every((v) => v === 0)).toBe(true);
   });
 
-  it('TEACHER gets 403, ADMIN passes', () => {
+  it('TEACHER gets 403, ADMIN passes', async () => {
     const guard = new PermissionsGuard(new Reflector(), {
       forTenant: async () => ({ platform: {}, school: {} }),
     } as unknown as ModuleStateReader);
@@ -169,6 +169,6 @@ describe('AdmissionReportsService (integration)', () => {
         switchToHttp: () => ({ getRequest: () => ({ currentTenant: { role } }) }),
       }) as unknown as ExecutionContext;
     expect(() => guard.canActivate(ctx(UserRole.TEACHER))).toThrow(ForbiddenException);
-    expect(guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
+    expect(await guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
   });
 });

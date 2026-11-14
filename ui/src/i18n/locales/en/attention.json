@@ -431,6 +431,16 @@
       "approval_pending": {
         "name": "Owner approval waiting",
         "help": "Warns when a sensitive change waits for a second owner to approve."
+      },
+      "sms": {
+        "stock_low": {
+          "name": "SMS stock low",
+          "help": "The platform's SMS stock is below the safe level. Buy more from the provider."
+        },
+        "oversold": {
+          "name": "SMS oversold",
+          "help": "Schools hold more SMS than the platform has in stock. Top up the stock now."
+        }
       }
     },
     "manual": {
@@ -494,6 +504,16 @@
         "name": "Account idle",
         "help": "Reminds you when the school has had no activity for a while."
       }
+    },
+    "sms": {
+      "low": {
+        "name": "SMS balance low",
+        "help": "Your school's SMS balance is running low. Buy a bundle so messages keep going out."
+      },
+      "expiring": {
+        "name": "SMS bundle expiring",
+        "help": "Part of your SMS balance expires soon. Use it or buy a new bundle."
+      }
     }
   },
   "strip": {
@@ -542,8 +562,8 @@
     "whoHelp": "Pick one or more groups.",
     "byRole": "By role",
     "addRole": "Add a role",
-    "studentsOfSections": "$t(common:entities.student_other) of sections",
-    "guardiansOfSections": "$t(common:entities.guardian_other) of sections",
+    "studentsOfSections": "$t(common:entities.student_other) of $t(common:entities.section_other)",
+    "guardiansOfSections": "$t(common:entities.guardian_other) of $t(common:entities.section_other)",
     "addSection": "Add a section",
     "namedPeople": "Named people",
     "findPerson": "Search by name or phone",

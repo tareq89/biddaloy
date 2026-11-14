@@ -14,6 +14,7 @@ import {
   CommunicationTrigger,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
+import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
 import { AttendanceModule } from './attendance.module';
@@ -173,10 +174,7 @@ describe('ArrivalNoticeService (integration)', () => {
   it('SMS on a metered tenant writes a RESERVE ledger row for the log', async () => {
     await seed();
     await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [T]);
-    await dataSource.query(
-      `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at) VALUES ($1, 100, 0, now())`,
-      [T],
-    );
+    await fundMeteredTenant(dataSource, T, 100);
     await setSettings({ enabled: true, smsAllowed: true }, true);
     const next = await service.sendArrivalNotices({
       tenantId: T,
@@ -201,10 +199,7 @@ describe('ArrivalNoticeService (integration)', () => {
     const metered = async () => {
       await seed();
       await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [T]);
-      await dataSource.query(
-        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at) VALUES ($1, 100, 0, now())`,
-        [T],
-      );
+      await fundMeteredTenant(dataSource, T, 100);
       await setSettings({ enabled: true, smsAllowed: true }, true);
     };
     const one = () =>

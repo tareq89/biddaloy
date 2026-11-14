@@ -11,4 +11,5 @@ export enum PlatformPaymentMethod {
   OFFLINE_BANK = 'OFFLINE_BANK',
   OFFLINE_CASH = 'OFFLINE_CASH',
   GRANT = 'GRANT',
+  COUPON = 'COUPON',
 }
