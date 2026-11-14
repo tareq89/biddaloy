@@ -22,7 +22,11 @@ import { School } from '../schools/entities/school.entity';
 import { ImportStagingService } from '../bulk-import/import-staging.service';
 import { resolveTemplateLocale } from '../account-access/account-access-templates';
 import { ImportFileError } from '../../common/errors/import-file.error';
-import { marksGridSubmitted, marksSheetExpired } from '../../common/filters/known-errors';
+import {
+  marksGridSubmitted,
+  marksSheetChanged,
+  marksSheetExpired,
+} from '../../common/filters/known-errors';
 import { toPaisa } from '../../common/constants/money';
 import { RequestContext } from '../../common/request-context.util';
 import { GridQueryDto } from './dto/marks.dto';
@@ -47,6 +51,9 @@ interface StagedCell {
   component_id: string;
   value: string | null;
   status: MarkStatus;
+  /** The stored mark the review screen showed; commit refuses if it has drifted (#3579). */
+  old_value: string | null;
+  old_status: MarkStatus | null;
 }
 
 /** What `validate` stages for `commit` to consume once. */
@@ -316,7 +323,13 @@ export class MarksImportService {
           new: target.value,
           new_status: target.status,
         });
-        cells.push({ student_id: student.id, component_id: comp.id, ...target });
+        cells.push({
+          student_id: student.id,
+          component_id: comp.id,
+          ...target,
+          old_value: current?.value ?? null,
+          old_status: (current?.status as MarkStatus | undefined) ?? null,
+        });
       }
     }
     summary.errors = errors.length;
@@ -324,12 +337,18 @@ export class MarksImportService {
     if (cells.length === 0) {
       return { staging_id: null, expires_at: null, summary, changes, errors };
     }
-    const { stagingId, expiresAt } = await this.staging.stage<StagedMarksSheet>(tenantId, userId, {
-      examId: grid.exam_id,
-      sectionId: grid.section_id,
-      subjectId: grid.subject_id,
-      cells,
-    }, undefined, 'marks-sheet');
+    const { stagingId, expiresAt } = await this.staging.stage<StagedMarksSheet>(
+      tenantId,
+      userId,
+      {
+        examId: grid.exam_id,
+        sectionId: grid.section_id,
+        subjectId: grid.subject_id,
+        cells,
+      },
+      undefined,
+      'marks-sheet',
+    );
     return { staging_id: stagingId, expires_at: expiresAt, summary, changes, errors };
   }
 
@@ -355,6 +374,25 @@ export class MarksImportService {
     ) {
       throw marksSheetExpired();
     }
+    // Lost-update guard: every staged cell's old value must still be what is stored now.
+    const grid = await this.gridService.getGrid(
+      examId,
+      staged.sectionId,
+      staged.subjectId,
+      tenantId,
+      role,
+      userId,
+    );
+    const stored = new Map(grid.cells.map((c) => [`${c.student_id}|${c.component_id}`, c]));
+    const drifted = staged.cells.some((c) => {
+      const now = stored.get(`${c.student_id}|${c.component_id}`);
+      const nowStatus = (now?.status as MarkStatus | undefined) ?? null;
+      const nowValue = now?.value ?? null;
+      if (nowStatus !== c.old_status) return true;
+      if (nowValue === null || c.old_value === null) return nowValue !== c.old_value;
+      return toPaisa(nowValue) !== toPaisa(c.old_value);
+    });
+    if (drifted) throw marksSheetChanged();
     // ponytail: stage is consumed before the write; if upsertBatch then 409s (grid submitted /
     // results processed meanwhile) the user re-uploads. Peek-then-consume would reopen the
     // double-commit race.
