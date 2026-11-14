@@ -1,12 +1,13 @@
 import supertest = require('supertest');
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
 import { randomUUID } from 'crypto';
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { ApprovalScope, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../src/app.module';
-import { ApprovalGuard } from '../../src/modules/auth/guards/approval.guard';
+import { StepUpService } from '../../src/modules/auth/step-up.service';
+import { PlatformHomeService } from '../../src/modules/platform-identity/platform-home.service';
 import { BkashClient, paisaToBdt } from '../../src/modules/billing/bkash/bkash.client';
 import { buildValidationPipeOptions } from '../../src/validation-pipe';
 import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '../constants';
@@ -70,9 +71,9 @@ export interface MoneyApp {
 }
 
 /**
- * The whole app with two stand-ins: bKash (no network) and the step-up `ApprovalGuard` (its own
- * 403 is pinned in platform-billing.controller.e2e-spec.ts; here it is only an OTP round trip in
- * front of the refund). `configure` lets a spec add more overrides before the app compiles.
+ * The whole app with one stand-in: bKash (no network). `ApprovalGuard` is real: a refund sends a
+ * single-use step-up token from `stepUpToken`. `configure` lets a spec add more overrides before
+ * the app compiles.
  */
 export async function bootMoneyApp(
   configure?: (b: ReturnType<typeof Test.createTestingModule>) => unknown,
@@ -82,9 +83,7 @@ export async function bootMoneyApp(
   const bkash = makeBkashStub(() => ds);
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(BkashClient)
-    .useValue(bkash)
-    .overrideGuard(ApprovalGuard)
-    .useValue({ canActivate: () => true });
+    .useValue(bkash);
   configure?.(builder);
   const fixture = await builder.compile();
   const app = fixture.createNestApplication();
@@ -92,6 +91,7 @@ export async function bootMoneyApp(
   app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
   await app.init();
   ds = app.get(DataSource);
+  await app.get(PlatformHomeService).ensure(); // the tenant a step-up token is bound to
   const ownerToken = await mintCockpitToken(app, ds);
   return { app, ds, bkash, ownerToken, http: () => supertest(app.getHttpServer()) };
 }
@@ -172,4 +172,53 @@ export async function expectLedgerInvariant(ds: DataSource, tenantId: string): P
     available: row.lot_remaining,
     reserved: row.lot_reserved,
   });
+}
+
+/**
+ * A fresh single-use step-up token of the cockpit owner for `scope` (e.g. PLATFORM_REFUND),
+ * minted by the service: the authenticator route allows one code per 30 s.
+ */
+export async function stepUpToken(m: Pick<MoneyApp, 'app' | 'ownerToken'>, scope: ApprovalScope) {
+  const ownerId = JSON.parse(Buffer.from(m.ownerToken.split('.')[1], 'base64url').toString()).sub;
+  const home = (await m.app.get(PlatformHomeService).id()) as string;
+  return (await m.app.get(StepUpService).issueForPlatformAdmin(ownerId, scope, home))
+    .approval_token;
+}
+
+/** A latch: each caller waits at the returned function until `parties` callers have arrived. */
+export function latch(parties = 2) {
+  let arrived = 0;
+  let open!: () => void;
+  const gate = new Promise<void>((r) => (open = r));
+  return async () => {
+    if (++arrived >= parties) open();
+    await gate;
+  };
+}
+
+/**
+ * Parks every call of `target[method]` at a latch until `parties` calls have arrived, so a race
+ * test really overlaps the contenders at the contested write. `run` fires the requests; the call
+ * count is read before the spy is restored (restore clears the history).
+ */
+export async function raceAt<T extends object, R>(
+  target: T,
+  method: keyof T & string,
+  parties: number,
+  run: () => Promise<R>,
+): Promise<{ result: R; arrivals: number }> {
+  const original = (target[method] as unknown as (...a: unknown[]) => unknown).bind(target);
+  const hold = latch(parties);
+  const spy = vi.spyOn(target as never, method as never).mockImplementation((async (
+    ...args: unknown[]
+  ) => {
+    await hold();
+    return original(...args);
+  }) as never);
+  try {
+    const result = await run();
+    return { result, arrivals: spy.mock.calls.length };
+  } finally {
+    spy.mockRestore();
+  }
 }

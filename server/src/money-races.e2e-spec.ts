@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import supertest = require('supertest');
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
@@ -11,16 +11,22 @@ import {
   createMoneySchool,
   expectLedgerInvariant,
   insertPackage,
+  raceAt,
+  stepUpToken,
 } from '@test/helpers/money-e2e.helper';
+import { ApprovalScope } from '@biddaloy/shared';
 import { SmsCreditService } from './modules/communications/credits/sms-credit.service';
+import { CouponRedemptionService } from './modules/coupons/coupon-redemption.service';
+import { SmsBundlePaymentService } from './modules/sms-bundles/payment/sms-bundle-payment.service';
 
 /**
  * [Epic 100 #3893] Money races end to end over HTTP: one winner per race, lots drawn in order,
  * and a refund that is refused once SMS were sent. Two schools (A, B) live for the whole file;
  * orders, lots, coupons and packages are made inside each `it` (the harness clears those tables
- * before every test). bKash and the step-up guard are stand-ins (see money-e2e.helper.ts).
- * HTTP cannot hold a request, so each race fires both calls with `Promise.all` and asserts the
- * outcome set, not the order; the row-level locks (`FOR UPDATE`) are what make it deterministic.
+ * before every test). bKash is the only stand-in (see money-e2e.helper.ts).
+ * Each race parks its contenders at the contested write with `raceAt` (a latch on the coupon
+ * redeem or on `markPaid`) until all have arrived, so they really overlap. Then it asserts the
+ * outcome set, not the order; the row-level locks (`FOR UPDATE`) decide the winner.
  */
 describe('money races E2E (#3893)', () => {
   let m: MoneyApp;
@@ -103,10 +109,13 @@ describe('money races E2E (#3893)', () => {
 
   it('the last use of a coupon goes to one of two racing schools; the loser gets the one fixed refusal', async () => {
     const { code, id } = await newCoupon(10, 1);
-    const [a, b] = await Promise.all([
-      seatOrder(A, { coupon_code: code }),
-      seatOrder(B, { coupon_code: code }),
-    ]);
+    const {
+      result: [a, b],
+      arrivals,
+    } = await raceAt(m.app.get(CouponRedemptionService), 'redeemInTx', 2, () =>
+      Promise.all([seatOrder(A, { coupon_code: code }), seatOrder(B, { coupon_code: code })]),
+    );
+    expect(arrivals).toBe(2); // both orders reached the redemption step together
     expect([a.status, b.status].sort()).toEqual([201, 400]);
     const loser = a.status === 400 ? a : b;
     // Rule 23: the same sentence a wrong code gets, and never the submitted code.
@@ -132,7 +141,13 @@ describe('money races E2E (#3893)', () => {
     ).expect(200);
     const paymentID = pay.body.bkash_url.split('/').pop() as string;
 
-    const [first, second] = await Promise.all([callback(paymentID), callback(paymentID)]);
+    const {
+      result: [first, second],
+      arrivals,
+    } = await raceAt(m.app.get(SmsBundlePaymentService), 'markPaid', 2, () =>
+      Promise.all([callback(paymentID), callback(paymentID)]),
+    );
+    expect(arrivals).toBe(2); // both callbacks reached the payment write together
     for (const r of [first, second]) expect(r.status).toBe(302);
 
     const [{ payments }] = await ds.query(
@@ -158,14 +173,35 @@ describe('money races E2E (#3893)', () => {
       m.http().post(`${API}/sms-bundles/orders/${order.id}/pay/bkash`),
     ).expect(200);
     const paymentID = pay.body.bkash_url.split('/').pop() as string;
-    // The callback and the owner's offline payment race. An offline payment against a live bKash
-    // payment may be refused (409) or find the order already paid; it must never pay it twice.
-    const [cb, offline] = await Promise.all([
-      callback(paymentID),
-      payOffline('sms-bundle-orders', order.id),
-    ]);
+    // The callback is parked at the payment write while the owner's offline payment runs to the
+    // end: a held promise, not luck, makes them overlap. The offline payment sees the live bKash
+    // payment and is refused, so the order is paid once, by the callback.
+    const markPaid = m.app.get(SmsBundlePaymentService);
+    const original = markPaid.markPaid.bind(markPaid);
+    let reached!: () => void;
+    const callbackAtWrite = new Promise<void>((r) => (reached = r));
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const spy = vi.spyOn(markPaid, 'markPaid').mockImplementation(async (...args) => {
+      reached();
+      await held;
+      return original(...args);
+    });
+    let cb: supertest.Response;
+    let offline: supertest.Response;
+    try {
+      const cbPending = callback(paymentID).then((r) => r);
+      await callbackAtWrite;
+      offline = await payOffline('sms-bundle-orders', order.id);
+      release();
+      cb = await cbPending;
+    } finally {
+      release();
+      spy.mockRestore();
+    }
     expect(cb.status).toBe(302);
-    expect([200, 409]).toContain(offline.status);
+    expect(offline.status).toBe(409);
+    expect(offline.body.details).toEqual({ code: 'BKASH_PAYMENT_LIVE' });
     const again = await payOffline('sms-bundle-orders', order.id).expect(200);
     expect(again.body.applied).toBe(false);
     expect(await lots(B.id)).toHaveLength(1);
@@ -180,10 +216,16 @@ describe('money races E2E (#3893)', () => {
   it('two owners recording an offline payment at once pay a package order once', async () => {
     const pkg = await insertPackage(ds, 100);
     const order = (await buyPackage(A, pkg).expect(201)).body;
-    const [x, y] = await Promise.all([
-      payOffline('sms-bundle-orders', order.id),
-      payOffline('sms-bundle-orders', order.id),
-    ]);
+    const {
+      result: [x, y],
+      arrivals,
+    } = await raceAt(m.app.get(SmsBundlePaymentService), 'markPaid', 2, () =>
+      Promise.all([
+        payOffline('sms-bundle-orders', order.id),
+        payOffline('sms-bundle-orders', order.id),
+      ]),
+    );
+    expect(arrivals).toBe(2); // both owners reached the payment write together
     expect([x.status, y.status]).toEqual([200, 200]);
     expect([x.body.applied, y.body.applied].sort()).toEqual([false, true]);
     expect(await lots(A.id)).toHaveLength(1);
@@ -261,7 +303,9 @@ describe('money races E2E (#3893)', () => {
 
     const refused = await owner(`/billing/sms-bundle-orders/${order.id}/refund`, {
       reason: 'Customer asked for money back',
-    }).expect(409);
+    })
+      .set('X-Approval-Token', await stepUpToken(m, ApprovalScope.PLATFORM_REFUND))
+      .expect(409);
     expect(refused.body.details).toEqual({ code: 'BUNDLE_ALREADY_USED' });
     expect((await lots(A.id))[0]).toMatchObject({
       remaining: 99,
@@ -284,7 +328,9 @@ describe('money races E2E (#3893)', () => {
     expect(await seats()).toBe(10);
     await owner(`/billing/orders/${order.id}/refund`, {
       reason: 'Customer changed their mind',
-    }).expect(200);
+    })
+      .set('X-Approval-Token', await stepUpToken(m, ApprovalScope.PLATFORM_REFUND))
+      .expect(200);
     expect(await seats()).toBe(0);
     const [{ uses }] = await ds.query('SELECT uses_count AS uses FROM coupons WHERE id = $1', [id]);
     expect(uses).toBe(1);

@@ -30,7 +30,7 @@ Your school needs SMS credit to send messages. Here you see how many SMS are lef
 **Go to:** **Administration → [Settings](settings.md)** in the left menu, then the category **Communication**, then the part **SMS credit**. View this page on a computer.
 **Before you start:** be an Admin. Your school must send SMS with **SchoolManagerP SMS**. If it sends with its own SMS company, [switch first](#task-own).
 
-Buying SMS is like buying a recharge: you pay once, the SMS are added, each message you send uses one, and what you do not use ends on the end date.
+Buying SMS is like buying a recharge: you pay once, the SMS are added, each SMS part you send uses one (a long message, or one in Bangla, is more than one part; see [Settings](settings.md#task-communication)), and what you do not use ends on the end date.
 
 [Buy a package](#task-main) · [Expiry](#task-expiry) · [Almost finished](#task-low) · [Own SMS company](#task-own) · [Problems and fixes](#trouble)
 
@@ -88,13 +88,13 @@ Buying SMS is like buying a recharge: you pay once, the SMS are added, each mess
 
 ## How to know it was paid <a href="#confirm" id="confirm"></a>
 
-| What you see | What it means | What next |
-| --- | --- | --- |
-| **Payment received. Your SMS is added.** | You are done. | The number under **Your SMS** went up. |
-| **We are confirming your payment with bKash. …** | bKash has not answered yet. | Wait. The page updates by itself. |
-| **We are still waiting for bKash. …** | It took longer than usual. | Look at this page again in a few minutes. |
-| **This order was not paid. …** | The payment did not go through. | Press **Buy** and pay again. |
-| **We could not confirm the payment. …** | The page could not check. | If money was taken, your SMS shows here soon. |
+| What you see                                     | What it means                   | What next                                     |
+| ------------------------------------------------ | ------------------------------- | --------------------------------------------- |
+| **Payment received. Your SMS is added.**         | You are done.                   | The number under **Your SMS** went up.        |
+| **We are confirming your payment with bKash. …** | bKash has not answered yet.     | Wait. The page updates by itself.             |
+| **We are still waiting for bKash. …**            | It took longer than usual.      | Look at this page again in a few minutes.     |
+| **This order was not paid. …**                   | The payment did not go through. | Press **Buy** and pay again.                  |
+| **We could not confirm the payment. …**          | The page could not check.       | If money was taken, your SMS shows here soon. |
 
 ---
 
@@ -134,22 +134,22 @@ Every paid package gets a numbered receipt, in the same series as your seat rece
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see | What to do | Who can help |
-| --- | --- | --- |
-| **We could not load the SMS packages. Try again.** | Press **Try again**. | — |
-| **No SMS packages are on sale right now.** | Come back later. | Biddaloy support |
-| **We cannot sell SMS right now. Please try again later.** | Wait and try later. | Biddaloy support |
-| **Something went wrong. Try again.** | Press **Buy with bKash** again. | — |
-| **We could not switch. Try again.** | Press **Switch and continue** (or **Switch to SchoolManagerP SMS**) again. | — |
+| What you see                                              | What to do                                                                 | Who can help     |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------- |
+| **We could not load the SMS packages. Try again.**        | Press **Try again**.                                                       | —                |
+| **No SMS packages are on sale right now.**                | Come back later.                                                           | Biddaloy support |
+| **We cannot sell SMS right now. Please try again later.** | Wait and try later.                                                        | Biddaloy support |
+| **Something went wrong. Try again.**                      | Press **Buy with bKash** again.                                            | —                |
+| **We could not switch. Try again.**                       | Press **Switch and continue** (or **Switch to SchoolManagerP SMS**) again. | —                |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role | See SMS left | Buy a package |
-| --- | --- | --- |
-| Admin | Yes | Yes |
-| Every other school role | No access | No access |
+| Role                    | See SMS left | Buy a package |
+| ----------------------- | ------------ | ------------- |
+| Admin                   | Yes          | Yes           |
+| Every other school role | No access    | No access     |
 
 ---
 

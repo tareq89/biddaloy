@@ -174,8 +174,10 @@ test('almost-finished SMS raises the red notice; its link opens the SMS page; bu
   const school = await schoolOn(browser, playwright);
   await put(school.api, school.session, '/communications/sms-source', { source: 'SCHOOLMANAGERP' });
   // 100 SMS left is the "almost finished" line (at or under 100), so one small package raises it.
-  const small = await insertSmsPackage('E2E small 100', 100, 30000);
-  const big = await insertSmsPackage('E2E big 1000', 1000, 250000);
+  const suffix = crypto.randomUUID().slice(0, 6); // the catalog is shared across workers
+  const smallName = `E2E small 100 ${suffix}`;
+  const small = await insertSmsPackage(smallName, 100, 30000);
+  const big = await insertSmsPackage(`E2E big 1000 ${suffix}`, 1000, 250000);
   const { page } = school;
   const bar = page
     .getByRole('status')
@@ -210,9 +212,16 @@ test('almost-finished SMS raises the red notice; its link opens the SMS page; bu
       await page.getByRole('button').filter({ has: bar }).click();
       await page.getByRole('button', { name: 'Buy SMS', exact: true }).click();
       await expect(page).toHaveURL(/\/settings\?.*section=communication/);
-      await expect(page.getByRole('dialog', { name: /Buy 100 SMS/ })).toBeVisible({
-        timeout: 15_000,
-      });
+      // The dialog opens on the cheapest active package, which another worker's package may be.
+      // The package picker shows only when several are active: pick this test's own by its name.
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible({ timeout: 15_000 });
+      const picker = dialog.locator('#buy-sms-package');
+      if (await picker.isVisible()) {
+        await picker.click();
+        await page.getByRole('option', { name: new RegExp(smallName) }).click();
+      }
+      await expect(page.getByRole('dialog', { name: /Buy 100 SMS/ })).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(page.getByText(t('smsBundles.lots.left', { n: 100 }))).toBeVisible();
     });

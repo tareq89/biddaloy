@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
-import { COUPON_FAIL_LIMIT } from '@biddaloy/shared';
+import { ApprovalScope, COUPON_FAIL_LIMIT } from '@biddaloy/shared';
 import { getOptionsToken, getStorageToken } from '@nestjs/throttler';
 import { removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import {
@@ -13,6 +13,7 @@ import {
   createMoneySchool,
   expectLedgerInvariant,
   insertPackage,
+  stepUpToken,
 } from '@test/helpers/money-e2e.helper';
 import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttler-storage';
 import { CouponAttemptLimiter } from './modules/coupons/coupon-attempt.limiter';
@@ -263,7 +264,9 @@ describe('money fences E2E (#3893)', () => {
       expect(JSON.stringify(coupon.body)).not.toContain(code);
       await owner(`/billing/sms-bundle-orders/${order.id}/refund`, {
         reason: 'Redis is down',
-      }).expect(503);
+      })
+        .set('X-Approval-Token', await stepUpToken(m, ApprovalScope.PLATFORM_REFUND))
+        .expect(503);
       // The send path never touches Redis.
       expect(await send(A)).toEqual({ ok: true });
     } finally {

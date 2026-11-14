@@ -1,5 +1,5 @@
 %% title: How a school buys SMS
-%% desc: The school admin opens Settings, Communication, and sees how many SMS are left and when they end. If the school uses its own SMS company it switches to SchoolManagerP SMS first. The admin chooses a package, pays with bKash, and the SMS are added. Each SMS sent uses one. SMS left after the end date are lost. When SMS are almost finished a red notice sends the admin back to the packages.
+%% desc: The school admin opens Settings, Communication, and sees how many SMS are left and when they end. If the school uses its own SMS company it switches to SchoolManagerP SMS first. The admin chooses a package, pays with bKash, and the SMS are added. Each SMS part sent uses one. SMS left after the end date are lost. When SMS are almost finished a red notice sends the admin back to the packages.
 flowchart LR
   A["Admin opens<br/>Settings, Communication"]:::admin --> O{"Sending with<br/>own SMS company?"}
   O -- Yes --> W["Switch to<br/>SchoolManagerP SMS"]:::admin
@@ -7,7 +7,7 @@ flowchart LR
   W --> P
   P --> B["Pay with bKash"]:::admin
   B --> L["SMS added<br/>with an end date"]
-  L --> S["Each SMS sent<br/>uses one"]
+  L --> S["Each SMS part sent<br/>uses one"]
   L --> X["Unused SMS end<br/>on the end date"]:::note
   S --> R["Almost finished:<br/>red notice, Buy SMS"]:::note
   R --> P
