@@ -4,6 +4,9 @@ import { ALL_TABS } from '../codec/registry';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import type { TabSpec } from '../codec/tab-spec';
 import type { ValidatedWorkbook } from './validated-workbook';
+import type { RowError } from '../codec/tab-spec';
+import { getSeatUsage } from '../../schools/trial/seat-limit.service';
+import { EnrollmentStatus } from '@biddaloy/shared';
 import type { DiffCounts, DiffReport, TabDiff } from './diff-report';
 
 const SAMPLE_SIZE = 5;
@@ -33,6 +36,7 @@ export class DiffService {
     const tabs: TabDiff[] = [];
     const totals = emptyCounts();
     let presentNonSchoolTabsHaveRows = false;
+    const diffErrors: RowError[] = [];
 
     for (const tabSpec of tabSpecs) {
       const validatedTab = validated.tabs[tabSpec.name];
@@ -67,6 +71,9 @@ export class DiffService {
       const changedFields: Record<string, number> = {};
       const samples: TabDiff['samples'] = { creates: [], updates: [], deletes: [] };
       const matchedIds = new Set<string>();
+      let newSeats = 0; // students tab only: rows that end ACTIVE and were not an active seat
+      const isActive = (x: unknown) =>
+        (x as { enrollment_status?: string }).enrollment_status === EnrollmentStatus.ACTIVE;
 
       for (const row of validatedTab.rows) {
         const rowId = (row as { id?: unknown }).id;
@@ -74,6 +81,7 @@ export class DiffService {
           (typeof rowId === 'string' && existingById.get(rowId)) ||
           existingByKey.get(tabSpec.keyOf(row as any));
 
+        if (isActive(row) && (!matched || !isActive(matched))) newSeats++;
         if (!matched) {
           counts.creates++;
           if (samples.creates.length < SAMPLE_SIZE) samples.creates.push(tabSpec.keyOf(row as any));
@@ -109,8 +117,25 @@ export class DiffService {
           const id: unknown = (entity as { id?: unknown }).id;
           if (typeof id === 'string' && !matchedIds.has(id)) {
             counts.deletes++;
+            if (isActive(entity)) newSeats--;
             if (samples.deletes.length < SAMPLE_SIZE) samples.deletes.push(tabSpec.keyOf(entity));
           }
+        }
+      }
+
+      // [#1654] Net seats the file needs vs `seat_limit`, so an over-limit restore fails here, not
+      // mid-commit. Per-row `takeSeat()` stays as the race-safe backstop.
+      // ponytail: ignores soft-deleted students a restore revives (counted conservatively at commit).
+      if (tabSpec.name === 'students' && newSeats > 0) {
+        const { used, limit } = await getSeatUsage(manager, tenantId);
+        if (limit !== null && used + newSeats > limit) {
+          diffErrors.push({
+            tab: 'students',
+            row: 0,
+            column: null,
+            severity: 'error',
+            message: `This file needs ${newSeats} more student seat(s) but only ${Math.max(limit - used, 0)} of the ${limit}-student limit are free.`,
+          });
         }
       }
 
@@ -133,7 +158,8 @@ export class DiffService {
     return {
       tabs,
       totals,
-      hardErrorCount: validated.hardErrorCount,
+      hardErrorCount: validated.hardErrorCount + diffErrors.length,
+      diffErrors,
       isEmptyTenant: !presentNonSchoolTabsHaveRows,
     };
   }

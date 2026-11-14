@@ -76,7 +76,8 @@ function errorKey(error: unknown, where: Where): string {
   )
     return 'unavailable';
   if (code === 'PHONE_NOT_SUPPORTED') return 'phoneNotSupported';
-  if (where === 'start' && error.statusCode === 400) return 'captcha';
+  if (code === 'CAPTCHA_FAILED') return 'captcha';
+  if (code === 'REGISTRATION_EXPIRED') return 'registrationExpired';
   if (where === 'verify') {
     if (error.statusCode === 400) return 'otpInvalid';
     if (error.statusCode === 410) return 'otpExpired';
@@ -166,7 +167,12 @@ export function RegisterFlow({
       if (result.password_required) requireFirstPassword(result.memberships.map((m) => m.role));
       setStep('password');
     },
-    onError: (e) => setError(errorKey(e, 'verify')),
+    onError: (e) => {
+      const key = errorKey(e, 'verify');
+      setError(key);
+      // The staged sign-up is gone: Resend can never fix it, so back to the kept details.
+      if (key === 'registrationExpired') setStep('details');
+    },
   });
 
   const passwordDone = () => {

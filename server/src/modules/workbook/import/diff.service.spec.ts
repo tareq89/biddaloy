@@ -179,4 +179,44 @@ describe('DiffService', () => {
     const report = await service.diff(validated, 'tenant-1', manager, [tab]);
     expect(report.tabs[0].deletes).toBe(0);
   });
+
+  describe('student seat preflight (#1654)', () => {
+    const seatManager = (limit: number | null, used: number) =>
+      ({
+        query: async (sql: string) =>
+          sql.includes('count(*)') ? [{ n: String(used) }] : [{ seat_limit: limit }],
+      }) as unknown as EntityManager;
+    const studentRows = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        key: `new${i}`,
+        value: 'x',
+        enrollment_status: 'ACTIVE',
+      }));
+
+    it('adds a hard error when new ACTIVE students would pass seat_limit', async () => {
+      const tab = makeTab('students');
+      const validated = validatedFor({ students: { present: true, rows: studentRows(6) } });
+      const report = await service.diff(validated, 't', seatManager(50, 45), [tab]);
+      expect(report.hardErrorCount).toBe(1);
+      expect(report.diffErrors[0]).toMatchObject({ tab: 'students', severity: 'error' });
+      expect(report.diffErrors[0].message).toContain('50');
+    });
+
+    it('passes at exactly the limit, and when the limit is null', async () => {
+      const tab = makeTab('students');
+      const validated = validatedFor({ students: { present: true, rows: studentRows(5) } });
+      expect((await service.diff(validated, 't', seatManager(50, 45), [tab])).hardErrorCount).toBe(0);
+      const big = validatedFor({ students: { present: true, rows: studentRows(500) } });
+      expect((await service.diff(big, 't', seatManager(null, 45), [tab])).hardErrorCount).toBe(0);
+    });
+
+    it('nets out ACTIVE students the restore deletes', async () => {
+      const tab = makeTab('students', {
+        existing: [{ id: '1', key: 'gone', value: 'x', enrollment_status: 'ACTIVE' } as any],
+      });
+      const validated = validatedFor({ students: { present: true, rows: studentRows(6) } });
+      const report = await service.diff(validated, 't', seatManager(50, 45), [tab]);
+      expect(report.hardErrorCount).toBe(0);
+    });
+  });
 });

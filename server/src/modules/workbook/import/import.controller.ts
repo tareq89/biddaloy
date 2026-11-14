@@ -188,7 +188,7 @@ export class ImportController {
 
     const diffReport = await this.diffService.diff(validated, tenant.id, this.dataSource.manager);
 
-    const errorDtos = validated.errors.map(toErrorDto);
+    const errorDtos = [...validated.errors, ...diffReport.diffErrors].map(toErrorDto);
     const warningDtos = validated.warnings.map(toErrorDto);
 
     // The original upload, kept only so a later restore can re-validate it
