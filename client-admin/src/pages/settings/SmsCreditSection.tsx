@@ -80,7 +80,8 @@ export function SmsCreditSection({
   }, [polling, refetch]);
 
   const credits = creditsQuery.data;
-  const sells = credits?.metering === 'PLATFORM';
+  // A school on its own SMS company is unmetered (OFF) but still gets the offer to switch (D9).
+  const sells = credits?.metering === 'PLATFORM' || credits?.source === 'OWN';
 
   return (
     <SmsCreditSectionView
