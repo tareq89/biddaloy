@@ -156,7 +156,7 @@ export function RecordStockDialog({ open, onOpenChange }: RecordStockDialogProps
                 <FormItem>
                   <FormLabel htmlFor="stock-date">{t('dialog.date')}</FormLabel>
                   <FormControl>
-                    <Input id="stock-date" type="date" max={new Date().toISOString().slice(0, 10)} {...field} />
+                    <Input id="stock-date" type="date" max={today()} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
