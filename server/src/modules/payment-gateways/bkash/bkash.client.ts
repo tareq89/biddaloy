@@ -4,21 +4,20 @@ import type Redis from 'ioredis';
 import { OTP_REDIS } from '../../account-access/otp.service';
 import { assertSafeHttpDestination } from '../../communications/providers/shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../../communications/providers/shared/pinned-http';
+import type { PaymentGatewayEnvironment } from '@biddaloy/shared';
+import type {
+  CreatePaymentInput,
+  GatewayCreds,
+  GatewayPayment,
+  PaymentGatewayProvider,
+} from '../payment-gateway.provider';
+import { BKASH_HOSTS } from './bkash-hosts';
 
-const TOKEN_KEY = 'bkash:token';
+const ENV_TOKEN_KEY = 'bkash:token';
 /** bKash tokens live 1 hour; refresh a little early. */
 const TOKEN_TTL_SEC = 50 * 60;
 
-export interface BkashPayment {
-  paymentID?: string;
-  bkashURL?: string;
-  trxID?: string;
-  transactionStatus?: string;
-  amount?: string;
-  currency?: string;
-  merchantInvoiceNumber?: string;
-  statusCode?: string;
-}
+export type BkashPayment = GatewayPayment;
 
 /** BDT string with 2 decimals from integer paisa, no floats: 12345 -> "123.45". */
 export function paisaToBdt(paisa: number | string): string {
@@ -34,12 +33,12 @@ export function bdtToPaisa(bdt: unknown): bigint | undefined {
 }
 
 /**
- * bKash tokenized checkout over the SSRF-guarded path (Rule 7): the host comes from operator
- * config `BKASH_BASE_URL`, and every call still goes through `assertSafeHttpDestination` +
- * `fetchPinnedJson`. Sandbox vs production is just which base URL is set.
+ * bKash tokenized checkout over the SSRF-guarded path (Rule 7). Billing uses operator env creds
+ * (the default); a school passes its own. Every call goes through `assertSafeHttpDestination` +
+ * `fetchPinnedJson`; the token is cached per `creds.cacheKey`. Creds are never logged.
  */
 @Injectable()
-export class BkashClient {
+export class BkashClient implements PaymentGatewayProvider {
   private readonly logger = new Logger(BkashClient.name);
 
   constructor(
@@ -61,12 +60,34 @@ export class BkashClient {
     return this.config.get<string>(key) ?? '';
   }
 
+  /** Billing's creds: operator env, cache key `bkash:token` (unchanged). */
+  private envCreds(): GatewayCreds {
+    return {
+      baseUrl: this.env('BKASH_BASE_URL'),
+      appKey: this.env('BKASH_APP_KEY'),
+      appSecret: this.env('BKASH_APP_SECRET'),
+      username: this.env('BKASH_USERNAME'),
+      password: this.env('BKASH_PASSWORD'),
+      cacheKey: ENV_TOKEN_KEY,
+    };
+  }
+
+  private baseUrl(creds: GatewayCreds): string {
+    // A tenant (environment set) reaches only a fixed host (D14); baseUrl is the operator-env path.
+    const url = creds.environment
+      ? BKASH_HOSTS[creds.environment as PaymentGatewayEnvironment]
+      : creds.baseUrl;
+    if (!url) throw new Error('bKash environment is not valid');
+    return url.replace(/\/+$/, '');
+  }
+
   private async post(
+    creds: GatewayCreds,
     path: string,
     headers: Record<string, string>,
     body: object,
   ): Promise<Record<string, unknown>> {
-    const base = this.env('BKASH_BASE_URL').replace(/\/+$/, '');
+    const base = this.baseUrl(creds);
     const destination = await assertSafeHttpDestination(base);
     return (await fetchPinnedJson(destination, `${base}${path}`, {
       method: 'POST',
@@ -76,38 +97,45 @@ export class BkashClient {
     })) as Record<string, unknown>;
   }
 
-  /** Cached in Redis ~50 min. A Redis error just means a fresh grant (the callback must still work). */
-  async token(force = false): Promise<string> {
+  /** Cached in Redis ~50 min per cacheKey. A Redis error just means a fresh grant. */
+  async token(force = false, creds: GatewayCreds = this.envCreds()): Promise<string> {
     try {
-      if (force) await this.redis.del(TOKEN_KEY);
+      if (force) await this.redis.del(creds.cacheKey);
       else {
-        const cached = await this.redis.get(TOKEN_KEY);
+        const cached = await this.redis.get(creds.cacheKey);
         if (cached) return cached;
       }
     } catch {
       this.logger.warn('bKash token cache unavailable; granting a fresh token');
     }
     const res = await this.post(
+      creds,
       '/tokenized/checkout/token/grant',
-      { username: this.env('BKASH_USERNAME'), password: this.env('BKASH_PASSWORD') },
-      { app_key: this.env('BKASH_APP_KEY'), app_secret: this.env('BKASH_APP_SECRET') },
+      { username: creds.username, password: creds.password },
+      { app_key: creds.appKey, app_secret: creds.appSecret },
     );
     const idToken = res.id_token;
     if (typeof idToken !== 'string' || !idToken) throw new Error('bKash token grant failed');
     try {
-      await this.redis.set(TOKEN_KEY, idToken, 'EX', TOKEN_TTL_SEC);
+      await this.redis.set(creds.cacheKey, idToken, 'EX', TOKEN_TTL_SEC);
     } catch {
       // not cached; the next call grants again
     }
     return idToken;
   }
 
+  /** Always a fresh grant: proves the creds work. Throws fixed text, never the creds. */
+  async testConnection(creds: GatewayCreds): Promise<void> {
+    await this.token(true, creds);
+  }
+
   /** A non-0000 answer may mean a stale cached token: drop it and retry once with a fresh grant. */
-  private async call(path: string, body: object): Promise<BkashPayment> {
+  private async call(creds: GatewayCreds, path: string, body: object): Promise<BkashPayment> {
     const send = async (force: boolean) =>
       (await this.post(
+        creds,
         `/tokenized/checkout/${path}`,
-        { authorization: await this.token(force), 'x-app-key': this.env('BKASH_APP_KEY') },
+        { authorization: await this.token(force, creds), 'x-app-key': creds.appKey },
         body,
       )) as BkashPayment;
     const first = await send(false);
@@ -115,13 +143,8 @@ export class BkashClient {
     return first.statusCode ? first : send(true);
   }
 
-  create(input: {
-    amountPaisa: number | string;
-    orderId: string;
-    callbackUrl: string;
-    payerReference: string;
-  }): Promise<BkashPayment> {
-    return this.call('create', {
+  create(input: CreatePaymentInput, creds: GatewayCreds = this.envCreds()): Promise<BkashPayment> {
+    return this.call(creds, 'create', {
       mode: '0011',
       payerReference: input.payerReference,
       callbackURL: input.callbackUrl,
@@ -132,11 +155,11 @@ export class BkashClient {
     });
   }
 
-  execute(paymentID: string): Promise<BkashPayment> {
-    return this.call('execute', { paymentID });
+  execute(paymentID: string, creds: GatewayCreds = this.envCreds()): Promise<BkashPayment> {
+    return this.call(creds, 'execute', { paymentID });
   }
 
-  query(paymentID: string): Promise<BkashPayment> {
-    return this.call('payment/status', { paymentID });
+  query(paymentID: string, creds: GatewayCreds = this.envCreds()): Promise<BkashPayment> {
+    return this.call(creds, 'payment/status', { paymentID });
   }
 }
