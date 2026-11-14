@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   AttendanceSessionState,
+  AttendanceSource,
   AttendanceStatus,
   AuditAction,
   CommunicationMedium,
@@ -125,6 +126,18 @@ const ABSENCE_CORRECTION_TEMPLATE_BN =
  * module's own recipient shape and skip vocabulary, because the fee path's
  * `resolveRecipients` filters on open dues — nothing here fits it.
  */
+/**
+ * A register may be told to guardians when a teacher finalized it, or when it is the device
+ * sweep's own DRAFT (source SYSTEM, D27/D30): those are never finalized by anyone, so without
+ * this no absence notice would ever go. `notified_at` keeps a later finalize from telling twice.
+ */
+export function isNoticeReady(session: Pick<AttendanceSession, 'state' | 'source'>): boolean {
+  return (
+    session.state === AttendanceSessionState.FINALIZED ||
+    (session.state === AttendanceSessionState.DRAFT && session.source === AttendanceSource.SYSTEM)
+  );
+}
+
 @Injectable()
 export class AbsenceNoticeService {
   private readonly logger = new Logger(AbsenceNoticeService.name);
@@ -169,7 +182,7 @@ export class AbsenceNoticeService {
     const session = await this.sessionRepo.findOne({
       where: { tenant_id: tenantId, section_id: sectionId, date, period_no: IsNull() },
     });
-    if (!session || session.state !== AttendanceSessionState.FINALIZED) {
+    if (!session || !isNoticeReady(session)) {
       return {
         session,
         className,
@@ -465,7 +478,7 @@ export class AbsenceNoticeService {
       if (!session) {
         return { batch: null, recipients: [], template: '', skipped_reason: 'no_session' as const };
       }
-      if (session.state !== AttendanceSessionState.FINALIZED) {
+      if (!isNoticeReady(session)) {
         return {
           batch: null,
           recipients: [],

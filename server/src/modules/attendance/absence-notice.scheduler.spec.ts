@@ -1,10 +1,11 @@
+import { isNoticeReady } from './absence-notice.service';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   AbsenceNoticeScheduler,
   ABSENCE_NOTICE_SWEEP_JOB_ID,
   ABSENCE_NOTICE_SWEEP_INTERVAL_MS,
 } from './absence-notice.scheduler';
-import { AttendanceSessionState, UserRole } from '@biddaloy/shared';
+import { AttendanceSessionState, AttendanceSource, UserRole } from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
 
@@ -110,21 +111,18 @@ describe('AbsenceNoticeScheduler', () => {
     expect(sessionRepo.find).not.toHaveBeenCalled();
   });
 
-  it('only sweeps FINALIZED sessions with notified_at IS NULL, never DRAFT ones', async () => {
-    // vitest can't fake Intl.DateTimeFormat's notion of "now" cheaply, so
-    // this asserts the query shape the scheduler issues rather than the
-    // wall-clock cut-off comparison, which the service-level integration
-    // test exercises against a real clock.
+  it('sweeps FINALIZED sessions and the device sweep\'s SYSTEM DRAFTs, both with notified_at IS NULL (D30)', async () => {
+    // Asserts the query shape; the wall-clock cut-off is covered at service level.
     await scheduler.process();
 
-    expect(sessionRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tenant_id: TENANT,
-          state: AttendanceSessionState.FINALIZED,
-        }),
-      }),
-    );
+    const { where } = sessionRepo.find.mock.calls[0][0] as { where: Record<string, unknown>[] };
+    expect(where).toHaveLength(2);
+    expect(where[0]).toMatchObject({ tenant_id: TENANT, state: AttendanceSessionState.FINALIZED });
+    expect(where[1]).toMatchObject({
+      tenant_id: TENANT,
+      state: AttendanceSessionState.DRAFT,
+      source: AttendanceSource.SYSTEM,
+    });
   });
 
   it('calls sendAbsenceNotices once per finalized, un-notified session found', async () => {
@@ -198,5 +196,18 @@ describe('AbsenceNoticeScheduler', () => {
     });
     await expect(scheduler.process()).resolves.toBeUndefined();
     expect(schoolsService.getResolvedSettings.mock.calls.map((c: any[]) => c[0])).toEqual(['B']);
+  });
+});
+
+describe('isNoticeReady (D30)', () => {
+  const S = AttendanceSessionState;
+  const A = AttendanceSource;
+  it.each([
+    [S.FINALIZED, A.TEACHER, true],
+    [S.DRAFT, A.SYSTEM, true],
+    [S.DRAFT, A.TEACHER, false],
+    [S.DRAFT, A.DEVICE, false],
+  ])('%s + %s -> %s', (state, source, expected) => {
+    expect(isNoticeReady({ state, source })).toBe(expected);
   });
 });

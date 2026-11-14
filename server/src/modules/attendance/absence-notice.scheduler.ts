@@ -3,7 +3,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { IsNull, Repository } from 'typeorm';
-import { AttendanceSessionState, ModuleKey, UserRole } from '@biddaloy/shared';
+import { AttendanceSessionState, AttendanceSource, ModuleKey, UserRole } from '@biddaloy/shared';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
@@ -107,18 +107,29 @@ export class AbsenceNoticeScheduler extends WorkerHost implements OnModuleInit {
 
     if (localTimeHHmm(timezone) < policy.autoAbsentNotification.cutoffTime) return;
 
-    // Registers never finalized are left alone. Auto-marking a whole
+    // Teacher registers never finalized are left alone. Auto-marking a whole
     // unmarked section absent and texting dozens of families about it is
     // the worst possible failure mode for this feature — the sweep only
     // ever notifies about registers a human already finalized.
     const sessions = await this.sessionRepo.find({
-      where: {
-        tenant_id: tenantId,
-        date: today,
-        period_no: IsNull(),
-        state: AttendanceSessionState.FINALIZED,
-        notified_at: IsNull(),
-      },
+      where: [
+        {
+          tenant_id: tenantId,
+          date: today,
+          period_no: IsNull(),
+          state: AttendanceSessionState.FINALIZED,
+          notified_at: IsNull(),
+        },
+        // The device sweep leaves its registers DRAFT (D27); its SYSTEM absences still count (D30).
+        {
+          tenant_id: tenantId,
+          date: today,
+          period_no: IsNull(),
+          state: AttendanceSessionState.DRAFT,
+          source: AttendanceSource.SYSTEM,
+          notified_at: IsNull(),
+        },
+      ],
     });
     if (sessions.length === 0) return;
 
