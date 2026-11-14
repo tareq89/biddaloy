@@ -82,6 +82,14 @@ export const PLATFORM_APPROVAL_SCOPES: readonly ApprovalScope[] = [
   ApprovalScope.PLATFORM_ANNOUNCE_ALL,
   ApprovalScope.PLATFORM_OPS_ACTION,
   ApprovalScope.PLATFORM_SCHOOL_CONTROL,
+  // [Epic 100] The cockpit money owner actions; without these the step-up for a refund, a plan,
+  // a package, a coupon, a stock entry or the VAT setting is always refused (found by #3895).
+  ApprovalScope.PLATFORM_REFUND,
+  ApprovalScope.PLATFORM_COUPON,
+  ApprovalScope.PLATFORM_COUPON_FREE,
+  ApprovalScope.PLATFORM_PLAN,
+  ApprovalScope.PLATFORM_SMS_STOCK,
+  ApprovalScope.PLATFORM_VAT,
 ];
 
 export interface StepUpOtpRequestResult {
