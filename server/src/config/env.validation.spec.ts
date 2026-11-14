@@ -202,6 +202,10 @@ describe('assertProductionConfig (via validate)', () => {
     expect(() => validate({ ...prodConfig, JWT_SECRET: 'abcde123'.repeat(4) })).toThrow(
       /repeated pattern/,
     );
+    // A newline inside the repeated unit must not hide the pattern.
+    expect(() => validate({ ...prodConfig, JWT_SECRET: 'abcde12\n'.repeat(5) })).toThrow(
+      /repeated pattern/,
+    );
     expect(() => validate({ ...prodConfig, JWT_SECRET_PREVIOUS: 'a'.repeat(40) })).toThrow(
       /JWT_SECRET_PREVIOUS is too weak/,
     );

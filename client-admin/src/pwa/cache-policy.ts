@@ -44,11 +44,12 @@ const API_PATH_PREFIX = '/api/v1/';
  * that the server has already rotated or revoked. */
 const AUTH_PATH_PREFIX = '/api/v1/auth/';
 
-/** Every unauthenticated public route: invoice share links, document
+/** Every unauthenticated route under `/api/v1/public/`: invoice share links, document
  * verification and the admission form. Share links and verify tokens can be
  * revoked, so a cached copy would keep showing a receipt — or a `VALID`
  * verdict — after that. The admission form needs the network to submit
- * anyway, so caching it buys nothing. */
+ * anyway, so caching it buys nothing. (The token ICS feed `/api/v1/calendar/feed/:token`
+ * is outside this prefix and stays cacheable; calendar apps fetch it over `webcal://`.) */
 const PUBLIC_PATH_PREFIX = '/api/v1/public/';
 
 /** [75.35] The live platform alert (Redis down). An offline replay would show a
