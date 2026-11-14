@@ -1,5 +1,5 @@
 import { PlatformPaymentMethod, SeatOrderStatus } from '@biddaloy/shared';
-import type { BillingSummary, SeatOrderDto } from '@biddaloy/ui/hooks';
+import type { BillingSummary, OrderPreviewResponse, SeatOrderDto } from '@biddaloy/ui/hooks';
 
 /** Shared by the view tests and the stories. */
 const order = (over: Partial<SeatOrderDto> = {}): SeatOrderDto => ({
@@ -43,4 +43,21 @@ export const summaryExpiring: BillingSummary = {
       receipt_number: 'SMR-2026-000012',
     }),
   ],
+};
+
+/** [100.4.03] What `POST /billing/orders/preview` answers for 50 seats x 3 months at Tk 10. */
+export const previewHalf: OrderPreviewResponse = {
+  listAmountPaisa: 150_000,
+  discountPaisa: 75_000,
+  totalPaisa: 75_000,
+  free: false,
+  unit_price_paisa: 1000,
+  status: SeatOrderStatus.PENDING,
+};
+export const previewFree: OrderPreviewResponse = {
+  ...previewHalf,
+  discountPaisa: 150_000,
+  totalPaisa: 0,
+  free: true,
+  status: SeatOrderStatus.PAID,
 };
