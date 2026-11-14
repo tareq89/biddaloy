@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { ApprovalScope, AuditAction } from '@biddaloy/shared';
@@ -121,6 +121,8 @@ export class SmsBundleCatalogService {
   }
 
   async update(id: string, dto: UpdateSmsPackageDto, actor: CatalogActor): Promise<SmsPackageDto> {
+    // `@IsOptional()` lets an explicit null through; null would become a free package via toPaisa.
+    if ((dto.priceTaka as unknown) === null) throw new BadRequestException('Price must be a number');
     const tenantId = (await this.home.id()) ?? null;
     try {
       return await this.ds.transaction(async (em) => {

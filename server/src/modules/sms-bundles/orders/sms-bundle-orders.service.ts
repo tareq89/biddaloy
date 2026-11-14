@@ -133,7 +133,7 @@ export class SmsBundleOrdersService {
         });
       }
       // D8: never sell more than the provider holds.
-      if (await this.allocation.isOversold()) {
+      if (await this.allocation.isOversold(m)) {
         throw new ConflictException({
           message: 'SMS sales are paused for now',
           details: { code: 'SMS_SALES_PAUSED' },

@@ -56,6 +56,8 @@ export interface Payable {
   amount_paisa: string;
   /** Waiting for payment (seat PENDING / bundle PENDING_PAYMENT). */
   pending: boolean;
+  /** Bundle order the sweep cancelled: a completed latest payment still needs recording. */
+  cancelled?: boolean;
 }
 
 export type CallbackOutcome = 'success' | 'cancel' | 'failure';
@@ -116,6 +118,7 @@ export class BkashService {
         school_id: row.school_id,
         amount_paisa: row.amount_paisa,
         pending: row.status === SmsBundleOrderStatus.PENDING_PAYMENT,
+        cancelled: row.status === SmsBundleOrderStatus.CANCELLED,
       }
     );
   }

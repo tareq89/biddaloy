@@ -47,7 +47,7 @@ export class SmsCreditSummaryService {
     const settings = await this.schools.getResolvedSettings(tenantId);
     const source = readSmsSource(settings as unknown as Record<string, unknown>);
     // Metering OFF keeps today's zeroed contract: nothing about lots or orders.
-    if (settings.communications?.sms?.metering !== 'PLATFORM') {
+    if (source !== 'SCHOOLMANAGERP') {
       return { lots: [], orders: [], source, almostFinished: false, stopped: false };
     }
 

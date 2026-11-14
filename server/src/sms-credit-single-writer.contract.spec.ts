@@ -36,6 +36,8 @@ export const ALLOWED: Record<string, string> = {
     'reads sms_credit_lots; its only UPDATE is on sms_bundle_orders; lots expire via SmsCreditService.expireDue',
   'modules/communications/credits/sms-credit-summary.service.ts':
     'read-only school summary, never writes',
+  'modules/sms-bundles/stock/sms-allocation.service.ts':
+    'read-only SUM over sms_credit_lots, writes nothing',
   'modules/attention/rules/system/comms-sms-low.rule.ts': 'read-only SELECT on lots',
   'modules/attention/rules/system/comms-sms-expiring.rule.ts': 'read-only SELECT on lots',
   'scripts/demo-seed/slices/sms-bundles.ts': 'fresh-database demo seed, a reviewed exception',

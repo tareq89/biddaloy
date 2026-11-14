@@ -55,4 +55,15 @@ describe('SmsAllocationService.promisedUnused (integration)', () => {
     await lot(absent, 500, 5, null); // absent = OFF
     expect((await svc.promisedUnused()) - before).toBe(180);
   });
+
+  it('follows an explicit source over a stale metering flag', async () => {
+    const before = await svc.promisedUnused();
+    const own = await school({ communications: { sms: { source: 'OWN', metering: 'PLATFORM' } } });
+    const plat = await school({
+      communications: { sms: { source: 'SCHOOLMANAGERP', metering: 'OFF' } },
+    });
+    await lot(own, 70, 0, null); // explicit OWN: not counted
+    await lot(plat, 40, 0, null); // explicit SCHOOLMANAGERP: counted
+    expect((await svc.promisedUnused()) - before).toBe(40);
+  });
 });

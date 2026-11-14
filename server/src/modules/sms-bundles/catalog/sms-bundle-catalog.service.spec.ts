@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { MONEY_MAX } from '../../../common/constants/money';
@@ -23,5 +23,17 @@ describe('CreateSmsPackageDto bounds', () => {
     expect(await bad({ priceTaka: 1.234 })).toBe(true);
     expect(await bad({ priceTaka: -1 })).toBe(true);
     expect(await bad({ name: '   ' })).toBe(true);
+  });
+});
+
+describe("SmsBundleCatalogService.update null price", () => {
+  it("rejects an explicit null price and touches nothing", async () => {
+    const { SmsBundleCatalogService } = await import("./sms-bundle-catalog.service");
+    const ds = { transaction: vi.fn() };
+    const svc = new SmsBundleCatalogService(ds as never, {} as never, {} as never);
+    await expect(
+      svc.update("id", { priceTaka: null } as never, { userId: "u" } as never),
+    ).rejects.toThrow("Price must be a number");
+    expect(ds.transaction).not.toHaveBeenCalled();
   });
 });

@@ -511,6 +511,20 @@ describe('BkashService bundle orders (#3858)', () => {
     expect(ins.params[0]).toBe(ORDER_ID);
   });
 
+  it('a completed latest payment of a CANCELLED bundle order is recorded, credits nothing', async () => {
+    const { markPaid } = asBundle(vi.fn().mockResolvedValue({ applied: false }));
+    bundleRow.status = 'CANCELLED';
+    try {
+      t.client.query.mockResolvedValue(completed);
+      await callback();
+      // markPaid refuses a non-PENDING order, so the money is kept as an orphan row to refund.
+      expect(markPaid).toHaveBeenCalledTimes(1);
+      expect(orphanInsert()).toBeDefined();
+    } finally {
+      bundleRow.status = 'PENDING_PAYMENT';
+    }
+  });
+
   it('startPayment for a bundle refuses while sales are paused, and not for another school', async () => {
     const { assertSalesOpen } = asBundle();
     t.redis.get.mockResolvedValue(null);
