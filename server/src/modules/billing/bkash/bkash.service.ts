@@ -130,8 +130,8 @@ export class BkashService {
   /** Where the browser lands after bKash: Settings billing, showing this order and how it went. */
   returnUrl(orderId: string, payment: CallbackOutcome, kind: PayableKind = 'SEAT'): string {
     if (kind === 'BUNDLE') {
-      // An SMS package order comes back to the SMS page (smsBuy=1 is the contract with the buy UI).
-      return `${resolveAppBaseUrl(this.config)}/settings?section=communication&smsBuy=1&smsOrder=${orderId}&payment=${payment}`;
+      // An SMS package order comes back to the SMS page, showing that order (no smsBuy: that opens a new purchase).
+      return `${resolveAppBaseUrl(this.config)}/settings?section=communication&smsOrder=${orderId}&payment=${payment}`;
     }
     return this.billingUrl(`order=${orderId}&payment=${payment}`);
   }

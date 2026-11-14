@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BuySmsBundleFlow } from './BuySmsBundleDialog';
+import { BuySmsBundleDialog, BuySmsBundleFlow } from './BuySmsBundleDialog';
 
 const PACKAGES = [
   ['Small', 500, '50000'],
@@ -108,5 +108,36 @@ describe('BuySmsBundleFlow', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Buy with bKash' }));
     expect(await screen.findByRole('button', { name: 'Pay with bKash' })).toBeTruthy();
     expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('shows the created order snapshot, not the current catalog selection', async () => {
+    renderWithProviders(
+      <BuySmsBundleDialog
+        open
+        onOpenChange={() => undefined}
+        packages={PACKAGES}
+        selected={PACKAGES[1]!}
+        onSelect={() => undefined}
+        onSubmit={() => undefined}
+        created={{
+          id: 'o1',
+          packageId: PACKAGES[0]!.id,
+          name: 'Small',
+          smsCount: 500,
+          validityDays: 90,
+          pricePaisa: '50000',
+          costPaisaPerSms: null,
+          status: 'PENDING_PAYMENT',
+          createdAt: '2026-11-14T00:00:00Z',
+          paidAt: null,
+          cancelledAt: null,
+        }}
+        onPay={() => undefined}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
+    );
+    const body = (await screen.findByText(/Pay with bKash to add them/)).textContent ?? '';
+    expect(body).toMatch(/^500 SMS|^৫০০ SMS/);
+    expect(body).not.toMatch(/2,000|২,০০০/);
   });
 });

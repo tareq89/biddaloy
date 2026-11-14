@@ -560,7 +560,7 @@ describe('BkashService bundle orders (#3858)', () => {
 
   it('a bundle order returns to the SMS page, a seat order to billing', () => {
     expect(t.svc.returnUrl(ORDER_ID, 'success', 'BUNDLE')).toBe(
-      `http://localhost:5174/settings?section=communication&smsBuy=1&smsOrder=${ORDER_ID}&payment=success`,
+      `http://localhost:5174/settings?section=communication&smsOrder=${ORDER_ID}&payment=success`,
     );
     expect(t.svc.returnUrl(ORDER_ID, 'cancel')).toBe(
       `http://localhost:5174/settings?section=billing&order=${ORDER_ID}&payment=cancel`,

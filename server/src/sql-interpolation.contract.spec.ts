@@ -79,28 +79,6 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
     'SELECT_REQUEST',
     'filter',
   ],
-  // [Epic 100] module-level SQL column-list / select-prefix constants, no input
-  'modules/billing/orders.service.ts': ['ORDER_SELECT', 'ORDER_SELECT'],
-  'modules/coupons/coupon-redemption.service.ts': ['COUPON_COLUMNS'],
-  'modules/coupons/coupons.service.ts': ['COLS', 'COLS', 'COLS', 'COLS', 'COLS'],
-  'modules/sms-bundles/orders/sms-bundle-orders.service.ts': ['COLS', 'COLS', 'COLS'],
-  // SCHOOL_TZ is the fixed 'Asia/Dhaka' code constant (common/time), not tenant or request input
-  'modules/sms-bundles/expiry/sms-expiry.service.ts': ['SCHOOL_TZ', 'SCHOOL_TZ'],
-  // COST_SQL / SOLD_STATUSES_SQL are module-level SQL constants; `keyset` is one fixed fragment
-  // whose values are bound as $2/$3
-  'modules/sms-bundles/report/sms-state-report.service.ts': [
-    'COST_SQL',
-    'COST_SQL',
-    'COST_SQL',
-    'SOLD_STATUSES_SQL',
-    'SOLD_STATUSES_SQL',
-    'SOLD_STATUSES_SQL',
-    'keyset',
-  ],
-  // the ternary yields one of two fixed fragments; the cursor values are bound as $3/$4
-  'modules/revenue/revenue.service.ts': [
-    "cur ? 'AND (pu.paid_until, sc.id) < ($3::date, $4::uuid)' : ''",
-  ],
   // [99.3] built from the PLATFORM_ACTIONS constant table (fixed test SQL and labels), no input
   'modules/support-access/school-view/support-sessions.service.ts': ['any', 'labelCase'],
   // table/column are code constants (JSDoc: constants only; callers pass literals)

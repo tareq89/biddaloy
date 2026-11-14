@@ -125,11 +125,20 @@ export function BuySeatsDialog({
     e.preventDefault();
     setTouched(true);
     if (seats === null || months === null || previewing) return;
+    // The body changes only when the submitted coupon does; a retry of the same body keeps
+    // its key, or a lost response would create a second order.
+    const code = applied?.code ?? null;
+    let idempotencyKey = key;
+    if (code !== appliedCodeRef.current) {
+      appliedCodeRef.current = code;
+      idempotencyKey = crypto.randomUUID();
+      setKey(idempotencyKey);
+    }
     onSubmit({
       seats,
       months,
       ...(applied ? { coupon_code: applied.code } : {}),
-      idempotency_key: key,
+      idempotency_key: idempotencyKey,
     });
   }
 
@@ -229,14 +238,9 @@ export function BuySeatsDialog({
               defaultOpen={openCoupon}
               onPendingChange={setPreviewing}
               onApplied={(next) => {
+                // Key is checked against the submitted coupon at submit time: the transient null
+                // CouponRow sends before each preview must not rotate it.
                 setApplied(next);
-                // The body changes only when the submitted code does; a retry of the same body
-                // must keep its key, or a lost response would create a second order.
-                const code = next?.code ?? null;
-                if (code !== appliedCodeRef.current) {
-                  appliedCodeRef.current = code;
-                  setKey(crypto.randomUUID());
-                }
               }}
             />
             <div className="rounded-md bg-muted p-3" aria-live="polite">

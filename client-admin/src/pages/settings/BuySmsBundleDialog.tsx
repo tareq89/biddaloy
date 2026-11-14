@@ -65,8 +65,9 @@ export function BuySmsBundleDialog({
 }: BuySmsBundleDialogProps) {
   const { t } = useTranslation('smsBundles');
   const config = useRegionConfig();
-  const sms = formatNumber(selected.smsCount, config);
-  const price = formatCurrency(Number(selected.pricePaisa), config);
+  // An existing order pays at its stored snapshot, whatever the catalog says now.
+  const sms = formatNumber(created?.smsCount ?? selected.smsCount, config);
+  const price = formatCurrency(Number(created?.pricePaisa ?? selected.pricePaisa), config);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

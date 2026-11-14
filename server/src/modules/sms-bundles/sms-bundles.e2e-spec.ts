@@ -203,7 +203,8 @@ describe('sms-bundles E2E', () => {
           .get('/api/v1/billing/bkash/callback')
           .query({ paymentID, status: 'success' })
           .expect(302);
-        expect(res.header.location).toContain('smsBuy=1');
+        expect(res.header.location).toContain('smsOrder=');
+        expect(res.header.location).not.toContain('smsBuy');
         expect(res.header.location).toContain(`order=${orderId}`);
         expect(res.header.location).toContain('payment=success');
 

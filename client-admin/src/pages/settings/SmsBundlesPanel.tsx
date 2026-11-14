@@ -102,10 +102,11 @@ export function SmsBundlesPanel({
   const returnKey = ((): string | undefined => {
     if (!returnOrderId) return undefined;
     if (returnOrder?.status === 'PAID') return 'paid';
-    if (payment === 'error' && !returnOrder) return 'error';
+    if (payment === 'error') return 'error';
     if (
-      returnOrder &&
-      (returnOrder.status !== 'PENDING_PAYMENT' || payment === 'cancel' || payment === 'failure')
+      payment === 'cancel' ||
+      payment === 'failure' ||
+      (returnOrder && returnOrder.status !== 'PENDING_PAYMENT')
     )
       return 'failed';
     return pollTimedOut ? 'slow' : 'pending';

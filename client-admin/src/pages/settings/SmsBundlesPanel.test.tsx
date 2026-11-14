@@ -154,6 +154,38 @@ describe('SmsBundlesPanel', () => {
     expect(await screen.findByText(/Payment received/)).toBeTruthy();
   });
 
+  it.each([
+    ['error', /could not confirm the payment/],
+    ['cancel', /was not paid/],
+    ['failure', /was not paid/],
+  ] as const)(
+    'a %s return resolves the notice even while the order is pending or unknown',
+    async (payment, text) => {
+      const id = '00000000-0000-4000-8000-0000000002aa';
+      setup({
+        returnOrderId: id,
+        payment,
+        credits: credits({
+          orders:
+            payment === 'error'
+              ? [
+                  {
+                    id,
+                    name: 'Medium',
+                    sms_count: 2000,
+                    price_paisa: 180000,
+                    status: 'PENDING_PAYMENT',
+                    paid_at: null,
+                    receipt_available: false,
+                  },
+                ]
+              : [],
+        }),
+      });
+      expect(await screen.findByText(text)).toBeTruthy();
+    },
+  );
+
   it('gives up with a calm line after the polling time', async () => {
     setup({ returnOrderId: '00000000-0000-4000-8000-0000000002aa', pollTimedOut: true });
     expect(await screen.findByText(/still waiting for bKash/)).toBeTruthy();
