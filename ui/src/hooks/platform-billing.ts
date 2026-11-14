@@ -7,7 +7,11 @@ import type {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import type { components } from '../api/schema';
 
+import { useApprovedMutation } from './approval';
+import { cockpitRequest } from './cockpit-request';
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { schoolsKeys } from './school-settings';
@@ -130,4 +134,86 @@ export function useReviveSchool(schoolId: string) {
     retry: false,
     onSuccess: invalidate,
   });
+}
+
+/** A school's SMS package order as the detail answers it (mirrors the server's `BundleOrderRow`). */
+export interface PlatformBundleOrder {
+  id: string;
+  status: string;
+  bundle_name?: string;
+  sms_count: number;
+  amount_paisa?: number;
+  receipt_number: string | null;
+  paid_at: string | null;
+  refunded_at: string | null;
+  units_bought: number;
+  units_used: number;
+  /** ACTIVE with no unit used yet. */
+  refundable: boolean;
+}
+/** The detail with its `bundle_orders` typed (the OpenAPI schema leaves them loose). */
+export type PlatformSchoolBillingDetailWithBundles = Omit<
+  PlatformSchoolBillingDetail,
+  'bundle_orders'
+> & { bundle_orders: PlatformBundleOrder[] };
+
+export type RefundResult = components['schemas']['RefundResultDto'];
+export type VatSetting = components['schemas']['VatSettingDto'];
+export type UpdateVatInput = components['schemas']['UpdateVatDto'];
+export const platformVatKeys = createEntityKeys('platform-money-vat');
+
+/**
+ * `POST /platform/billing/orders/:id/refund` or `.../sms-bundle-orders/:id/refund`. Step-up
+ * `platform.refund`; one `Idempotency-Key` per dialog open (the same body re-sends the same key).
+ * Money goes back through the bKash panel; the answer's `note` says so.
+ */
+export function useRefundOrder(schoolId: string, kind: 'seat' | 'package') {
+  const invalidate = useInvalidateBilling(schoolId);
+  const { keyFor, rotate } = useIdempotencyKey();
+  return useApprovedMutation(
+    ({ orderId, reason }: { orderId: string; reason: string }, { headers }) =>
+      cockpitRequest<RefundResult>({
+        method: 'POST',
+        url:
+          kind === 'seat'
+            ? `/platform/billing/orders/${orderId}/refund`
+            : `/platform/billing/sms-bundle-orders/${orderId}/refund`,
+        data: { reason },
+        headers: { ...headers, 'Idempotency-Key': keyFor({ orderId, reason, kind }) },
+      }),
+    {
+      approvalScope: 'platform.refund',
+      onSuccess: () => {
+        rotate();
+        invalidate();
+      },
+    },
+  );
+}
+
+/** `GET /platform/money/vat`. */
+export function usePlatformVat() {
+  return useQuery({
+    queryKey: platformVatKeys.all,
+    queryFn: ({ signal }) => cockpitRequest<VatSetting>({ url: '/platform/money/vat', signal }),
+    retry: shouldRetryQuery,
+  });
+}
+
+/** `PUT /platform/money/vat`. Step-up `platform.vat`. */
+export function useUpdateVat() {
+  const queryClient = useQueryClient();
+  return useApprovedMutation(
+    (input: UpdateVatInput, { headers }) =>
+      cockpitRequest<VatSetting>({
+        method: 'PUT',
+        url: '/platform/money/vat',
+        data: input,
+        headers,
+      }),
+    {
+      approvalScope: 'platform.vat',
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: platformVatKeys.all }),
+    },
+  );
 }
