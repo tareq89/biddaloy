@@ -31,7 +31,7 @@
     "teacherLine": "{{sections}} · {{subjects}}"
   },
   "blockEmpty": {
-    "todayAttendance": "এই শ্রেণিতে কোনো $t(common:entities.section_one) নেই।",
+    "todayAttendance": "এই $t(common:entities.class_one)-এ কোনো $t(common:entities.section_one) নেই।",
     "marksPending": "কোনো নম্বর বাকি নেই।",
     "teachers": "এখনো কোনো $t(common:entities.teacher_one) নেই।"
   },
@@ -39,7 +39,7 @@
     "title": "শিক্ষকদের জানান",
     "description": "তাঁরা অ্যাপে একটি মনে করিয়ে দেওয়া বার্তা পাবেন।",
     "teachersLabel": "$t(common:entities.teacher_one)",
-    "allPreChecked": "শ্রেণির সব $t(common:entities.teacher_one) বাছাই করা আছে। যাঁদের চান না, তাঁদের টিক তুলে দিন।",
+    "allPreChecked": "$t(common:entities.class_one)-এর সব $t(common:entities.teacher_one) বাছাই করা আছে। যাঁদের চান না, তাঁদের টিক তুলে দিন।",
     "messageLabel": "বার্তা",
     "messagePlaceholder": "যেমন: বৃহস্পতিবারের মধ্যে প্রথম সাময়িকের নম্বর জমা দিন।",
     "counter": "{{count}} / {{max}}",
@@ -47,7 +47,7 @@
     "sending": "পাঠানো হচ্ছে…",
     "cancel": "বাতিল",
     "sentToast": "{{count}} জন শিক্ষককে বার্তা পাঠানো হয়েছে।",
-    "errorNobody": "বাছাই করা কোনো $t(common:entities.teacher_one) আপনার সমন্বয়ের শ্রেণিতে পড়ান না।",
+    "errorNobody": "বাছাই করা কোনো $t(common:entities.teacher_one) আপনার সমন্বয়ের $t(common:entities.class_one)-এ পড়ান না।",
     "errorGeneric": "পাঠানো গেল না। আবার চেষ্টা করুন।",
     "errorPickOne": "অন্তত একজন $t(common:entities.teacher_one) বাছাই করুন।",
     "errorMessage": "একটি বার্তা লিখুন।"

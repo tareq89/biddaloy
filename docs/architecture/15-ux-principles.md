@@ -235,8 +235,8 @@ flowchart LR
   R -- everyone else --> Q["Ask your admin"]
 ```
 
-- **Hiding.** Every nav item, palette action, detail-page tab, portal page, dashboard widget and coded report carries a `module`. When it is off, it is gone, not greyed out.
-- **Refusal.** A URL to an off module shows one page with the fixed sentence "This part is not turned on for your institution" (`ModuleOffState`). ADMIN gets a "Turn on" button, others get "Ask your admin". The server answers the same URL with 403 and the same sentence.
+- **Hiding.** Every nav item, palette action, detail-page tab, portal page, dashboard widget and coded report carries a `module`. When it is off, it is gone, not greyed out. Exceptions today: the at-risk widget and `/reports/catalogue` ignore the switch (#4125); attendance device routes ignore it (#4120).
+- **Refusal.** A URL to an off module shows one page with the fixed sentence "This part is not turned on for your institution" (`ModuleOffState`). ADMIN gets a "Turn on" button, others get "Ask your admin". The server answers the same URL with 403 and the same sentence. Exception: the portal shows a generic load error, not this page (#4127).
 - **Words.** The Words tab is a table: stock word, English one/many, Bangla, suggestion, and a line "shows as: 3 Batches". Screens read the school's word through `common:entities.*` (page copy converted so far: 29 namespaces, rest tracked in #3929).
 - **Platform modules.** The owner works in the cockpit, in two places. _Operations › Modules for all schools_ turns a module off for every school at once (a confirm dialog first; turning it back on restores each school's own choice). The school 360 _Modules_ tab locks a module on or off for one school. Both writes ask for the authenticator step-up. The school sees the module as off and a note that the platform turned it off or locked it; it cannot turn it on.
 - **Guards.** `client-admin/src/module-coverage.test.ts` and `tab-card-coverage.test.ts` (§2) fail CI when a new item has no `module`.

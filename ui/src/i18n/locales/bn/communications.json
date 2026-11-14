@@ -58,13 +58,13 @@
     "sendAnother": "আরেকটি বার্তা পাঠান",
     "errorMessage": "বার্তাটি পাঠানো যায়নি।",
     "recipientSectionTitle": "প্রাপক",
-    "recipientSectionHelp": "বার্তা শুধু এই স্কুলের অভিভাবককে যায়। $t(common:entities.student_one) খুঁজে $t(common:entities.guardian_one) বাছুন।",
+    "recipientSectionHelp": "বার্তা শুধু এই স্কুলের $t(common:entities.guardian_one)-কে যায়। $t(common:entities.student_one) খুঁজে $t(common:entities.guardian_one) বাছুন।",
     "messageSectionTitle": "বার্তা",
     "guardianPickLabel": "কোন অভিভাবককে পাঠাবেন",
     "recipientEmailLabel": "ইমেইল ঠিকানা",
     "errorInvalid": "নম্বর, ইমেইল বা বার্তায় কিছু ঠিক নেই। যাচাই করে আবার চেষ্টা করুন।",
     "errorNoAddress": "এই অভিভাবকের এই মাধ্যমের জন্য নম্বর বা ইমেইল নেই। অন্য মাধ্যম বা $t(common:entities.guardian_one) বাছুন।",
-    "errorNotLinked": "এই $t(common:entities.guardian_one) বাছাই করা শিক্ষার্থীর সাথে যুক্ত নন।",
+    "errorNotLinked": "এই $t(common:entities.guardian_one) বাছাই করা $t(common:entities.student_one)-এর সাথে যুক্ত নন।",
     "smsNotReady": {
       "NO_GATEWAY": "এই স্কুলে SMS পাঠানোর ব্যবস্থা চালু নেই, তাই এই SMS পৌঁছাবে না। অ্যাডমিন সেটিংস › যোগাযোগ থেকে চালু করতে পারেন, অথবা অন্য মাধ্যম বেছে নিন।",
       "NO_CREDIT": "এই স্কুলের SMS ক্রেডিট শেষ, তাই এই SMS পৌঁছাবে না। অ্যাডমিনকে ক্রেডিট যোগ করতে বলুন, অথবা অন্য মাধ্যম বেছে নিন।"
@@ -248,7 +248,7 @@
       "retryNothingFailed": "আবার পাঠানোর মতো শিক্ষার্থীসহ কোনো ব্যর্থ ডেলিভারি নেই।",
       "retryNoTemplate": "এই দফার কোনো সংরক্ষিত বার্তার টেমপ্লেট নেই, তাই স্বয়ংক্রিয়ভাবে আবার পাঠানো যাবে না।",
       "retryNamePrefix": "{{name}} — পুনঃপ্রেরণ",
-      "retryResendWarning": "এই {{n}} জন শিক্ষার্থীর প্রত্যেক অভিভাবককে আবার বার্তা পাঠানো হবে, যাদের আগের বার্তা সফলভাবে পৌঁছেছে তাদেরসহ — পাঠানো হয় $t(common:entities.student_one) ধরে, আলাদা $t(common:entities.guardian_one) ধরে নয়।",
+      "retryResendWarning": "এই {{n}} জন $t(common:entities.student_one)-এর প্রত্যেক $t(common:entities.guardian_one)-কে আবার বার্তা পাঠানো হবে, যাদের আগের বার্তা সফলভাবে পৌঁছেছে তাদেরসহ — পাঠানো হয় $t(common:entities.student_one) ধরে, আলাদা $t(common:entities.guardian_one) ধরে নয়।",
       "templateHelp": "রঙিন অংশগুলো প্রত্যেক অভিভাবকের জন্য আসল নাম ও টাকায় বদলে পাঠানো হয়েছে।",
       "logsEmptyHelp": "পাঠানো শুরু হলে ডেলিভারির তালিকা এখানে দেখা যাবে।"
     },

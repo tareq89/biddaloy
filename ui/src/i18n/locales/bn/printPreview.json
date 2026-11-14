@@ -76,7 +76,7 @@
     "modeNames": "নাম দিয়ে বাছুন",
     "modeNamesHelp": "কয়েকজনের কার্ড — খুঁজে টিক দিন",
     "modeSection": "পুরো $t(common:entities.section_one)",
-    "modeSectionHelp": "একটি শাখার সব শিক্ষার্থীর কার্ড",
+    "modeSectionHelp": "একটি $t(common:entities.section_one)-এর সব $t(common:entities.student_one)-এর কার্ড",
     "namesTitle": "নাম দিয়ে বাছুন",
     "namesHelp": "নাম বা রোল লিখে খুঁজুন, তারপর যাদের কার্ড লাগবে তাদের টিক দিন।",
     "pickedLabel_one": "বাছাই করা {{n}} জন:",

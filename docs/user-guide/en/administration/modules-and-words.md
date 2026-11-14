@@ -82,7 +82,7 @@ An **institution kind** is a ready set of Off modules and words for one kind of 
 | Kind                    | Shown with                                | What Apply changes                                                                                                                                        |
 | ----------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Primary school**      | Class 1 to 5                              | Turns **Seat plans** and **Evaluations** Off                                                                                                              |
-| **Secondary school**    | Class 6 to 10                             | Nothing. It keeps every module On and the stock words                                                                                                     |
+| **Secondary school**    | Class 6 to 10                             | Nothing. It leaves your current modules and words unchanged                                                                                                     |
 | **College**             | Class 11 and 12                           | Nothing. **Not verified yet**                                                                                                                             |
 | **Alia madrasa**        | Dakhil and Alim                           | Nothing                                                                                                                                                   |
 | **Qawmi madrasa**       | Hifz and Kitab sections                   | Nothing. **Not verified yet**                                                                                                                             |
@@ -276,7 +276,7 @@ This table is written by hand. The automatic field tables skip these texts.
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
 | Source note      | Shows who decides if this module is On. If the platform turned it off or locked it, you cannot change it here. |
 | Who can't see it | Pick the roles that should not see this module. Admins always see it.                                          |
-| Bangla word      | The Bangla word. Leave it empty to keep the usual word.                                                        |
+| Bangla word      | The Bangla word. To go back to the stock word, clear all three boxes of the row.                                                        |
 | Apply            | Apply changes your modules and words to match the institution kind. Your data stays as it is.                  |
 
 </details>

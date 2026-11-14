@@ -32,7 +32,7 @@
     "codes": {
       "MISSING_FIELD": "এই ঘরটি খালি, কিন্তু এটি আবশ্যক।",
       "INVALID_DATE": "এটি সঠিক তারিখ নয়। YYYY-MM-DD ফরম্যাটে লিখুন।",
-      "SECTION_AMBIGUOUS": "এই $t(common:entities.class_one) ও $t(common:entities.section_one) একাধিক শাখার সাথে মেলে। একটি শ্রেণির নাম বদলান।",
+      "SECTION_AMBIGUOUS": "এই $t(common:entities.class_one) ও $t(common:entities.section_one) একাধিক $t(common:entities.section_one)-এর সাথে মেলে। একটি $t(common:entities.class_one)-এর নাম বদলান।",
       "CLASS_NOT_FOUND": "এই নামে কোনো $t(common:entities.class_one) নেই।",
       "SECTION_NOT_FOUND": "এই শ্রেণিতে এই নামে কোনো $t(common:entities.section_one) নেই।",
       "SUBJECT_AMBIGUOUS": "একাধিক বিষয়ের একই নাম আছে। আলাদা নাম ব্যবহার করুন।",

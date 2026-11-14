@@ -206,7 +206,7 @@
     "freezeRow": "{{label}}: {{count}}",
     "warningTitle": "Check before you close",
     "warnings": {
-      "CLASSES_NOT_PROMOTED": "Classes not promoted: {{count}}",
+      "CLASSES_NOT_PROMOTED": "$t(common:entities.class_other) not promoted: {{count}}",
       "STUDENTS_STILL_ACTIVE": "Students still active: {{count}}",
       "GROUPS_PENDING": "Groups pending: {{count}}",
       "DUES_OUTSTANDING": "Dues outstanding: {{amount}}",

@@ -69,7 +69,7 @@
     "AttendanceRecord": "Attendance record",
     "AttendanceSession": "Attendance session",
     "Class": "$t(common:entities.class_one)",
-    "ClassSection": "$t(common:entities.class_one) section",
+    "ClassSection": "$t(common:entities.class_one) $t(common:entities.section_one)",
     "Enrollment": "Enrollment",
     "Guardian": "$t(common:entities.guardian_one)",
     "InvitationBatch": "Invitation round",

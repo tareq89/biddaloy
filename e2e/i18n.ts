@@ -359,8 +359,10 @@ export function makeT(locale: Locale = DEFAULT_LOCALE) {
     if (typeof node !== 'string') {
       throw new Error(`i18n key not found for locale "${locale}": ${key}`);
     }
-    if (!params) return node;
-    return node.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
+    // Resolve i18next nesting `$t(ns:path)` the way the app does, so e.g. an entity word inside a label matches the UI.
+    const resolved = node.replace(/\$t\(([\w]+):([\w.]+)\)/g, (_m, ns: string, path: string) => t(`${ns}.${path}`));
+    if (!params) return resolved;
+    return resolved.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
       if (!(name in params)) return match;
       const v = params[name];
       // Mirrors the app's numeral formatter: numbers follow the locale's digits, strings stay.
