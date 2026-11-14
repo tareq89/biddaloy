@@ -31,6 +31,16 @@ import { studentFeesTab, type StudentFeeRow } from './student-fees.tab';
 import { invoicesTab, type InvoiceRow } from './invoices.tab';
 import { paymentsTab, type PaymentRow } from './payments.tab';
 import { paymentAllocationsTab, type PaymentAllocationRow } from './payment-allocations.tab';
+import {
+  paymentSubmissionsTab,
+  paymentSubmissionBillsTab,
+  paymentSubmissionFilesTab,
+  paymentSubmissionEventsTab,
+  type PaymentSubmissionEventRow,
+} from './payment-submissions.tab';
+import { toCell } from '../../codec/cell-format';
+import type { ExportContext, ImportContext, TabSpec } from '../../codec/tab-spec';
+import { User } from '../../../users/entities/user.entity';
 
 /**
  * Integration tests for the fees lane's tabs against a real Postgres
@@ -97,6 +107,8 @@ describe('fees tabs (integration)', () => {
   });
 
   beforeEach(async () => {
+    // Submission rows hold RESTRICT FKs to payments / student_fees: clear them first.
+    await dataSource.query('DELETE FROM payment_submissions');
     await paymentAllocationRepo.createQueryBuilder().delete().execute();
     await paymentRepo.createQueryBuilder().delete().execute();
     await invoiceRepo.createQueryBuilder().delete().execute();
@@ -899,6 +911,135 @@ describe('fees tabs (integration)', () => {
       expect(paymentAllocationsTab.keyOf(loaded)).toBe(
         `TXN-002|${studentA1.registration_number}|2026-2027|${FEE_STRUCTURE_A_KEY}|1|2026|1`,
       );
+    });
+  });
+
+  describe('payment submission tabs (round trip)', () => {
+    const SUB_ID = '00000000-0000-4000-8000-0000000000a1';
+    const BILL_ID = '00000000-0000-4000-8000-0000000000a2';
+    const FILE_ID = '00000000-0000-4000-8000-0000000000a3';
+    const EVENT_ID = '00000000-0000-4000-8000-0000000000a4';
+    const tabs = [
+      paymentSubmissionsTab,
+      paymentSubmissionBillsTab,
+      paymentSubmissionFilesTab,
+      paymentSubmissionEventsTab,
+    ] as TabSpec<any, any>[];
+
+    // Identity refs: the key of a row is its id, so the round trip tests the tabs only.
+    const exportCtx: ExportContext = { keyOf: (_tab, id) => id, tryKeyOf: (_tab, id) => id };
+    const importCtx: ImportContext = {
+      tenantId: TENANT_A,
+      ref: (_tab, key) => key,
+      warn: () => undefined,
+    };
+
+    async function exportAll(): Promise<Array<Record<string, string>[]>> {
+      const out: Array<Record<string, string>[]> = [];
+      for (const tab of tabs) {
+        const entities = await tab.load(TENANT_A, dataSource.manager);
+        out.push(
+          entities
+            .sort((a, b) => a.id.localeCompare(b.id))
+            .map((e) => {
+              const row = tab.toRow(e, exportCtx);
+              return Object.fromEntries(
+                tab.columns.map((c) => [c.key, String(toCell(c.type, row[c.key]) ?? '')]),
+              );
+            }),
+        );
+      }
+      return out;
+    }
+
+    it('export -> wipe -> import gives back every row of all four tables', async () => {
+      await seedFeeStructureA();
+      const fee = await studentFeesTab.upsert(
+        {
+          id: '00000000-0000-4000-8000-0000000000a0',
+          student_id: studentA1.id,
+          student_key: studentA1.registration_number,
+          academic_year_id: yearAId,
+          academic_year_key: '2026-2027',
+          fee_structure_id: feeStructureAId,
+          fee_structure_key: FEE_STRUCTURE_A_KEY,
+          month: 1,
+          year: 2026,
+          occurrence: 1,
+          total_amount: '1500.00',
+          paid_amount: '0.00',
+          discount_amount: '0.00',
+          standing_discount_amount: '0.00',
+          one_off_discount_amount: '0.00',
+          status: FeeStatus.PENDING,
+          due_date: '2026-01-10',
+          reminder_threshold_date: '2026-01-05',
+          note: null,
+          incident_date: null,
+          fine_rule_id: null,
+          fine_rule_key: null,
+        },
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const feeId = fee.id;
+      const user = await dataSource.getRepository(User).save({
+        full_name: 'Guardian One',
+        email: 'guardian-sub-rt@example.com',
+      });
+      await dataSource.query(
+        `INSERT INTO payment_submissions (id, tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, reference_raw, reference_normalised, unmatched)
+         VALUES ($1, $2, 'PROOF', 'PENDING', $3, 'BKASH', 1500.00, '2026-01-06', 'Trx-9A', 'TRX9A', false)`,
+        [SUB_ID, TENANT_A, user.id],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (id, tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1, $2, $3, $4, $5, 1500.00)`,
+        [BILL_ID, TENANT_A, SUB_ID, feeId, studentA1.id],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_files (id, tenant_id, submission_id, storage_key, content_type, size_bytes, original_name_hash)
+         VALUES ($1, $2, $3, 'proofs/abc.jpg', 'image/jpeg', 2048, $4)`,
+        [FILE_ID, TENANT_A, SUB_ID, 'a'.repeat(64)],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_events (id, tenant_id, submission_id, from_status, to_status, actor_user_id, note)
+         VALUES ($1, $2, $3, NULL, 'PENDING', $4, 'submitted')`,
+        [EVENT_ID, TENANT_A, SUB_ID, user.id],
+      );
+
+      const before = await exportAll();
+      expect(before.map((rows) => rows.length)).toEqual([1, 1, 1, 1]);
+      // D32: rows and storage keys only, no file bytes.
+      expect(before[2][0].storage_key).toBe('proofs/abc.jpg');
+      expect(Object.keys(before[2][0])).not.toContain('bytes');
+
+      // Wipe (children cascade with the submission).
+      await dataSource.query('DELETE FROM payment_submissions WHERE id = $1', [SUB_ID]);
+      expect((await exportAll()).map((rows) => rows.length)).toEqual([0, 0, 0, 0]);
+
+      // Import in tab order, exactly as a restore would.
+      for (let i = 0; i < tabs.length; i++) {
+        for (const [n, cells] of before[i].entries()) {
+          const parsed = tabs[i].fromRow(cells, n + 2, importCtx);
+          if ('errors' in parsed) throw new Error(JSON.stringify(parsed.errors));
+          await tabs[i].upsert(parsed.row, null, TENANT_A, dataSource.manager, user.id);
+        }
+      }
+
+      expect(await exportAll()).toEqual(before);
+
+      // Events are append-only: a second import leaves the existing row untouched.
+      const [event] = await paymentSubmissionEventsTab.load(TENANT_A, dataSource.manager);
+      const edited = paymentSubmissionEventsTab.fromRow(
+        { ...before[3][0], note: 'tampered' },
+        2,
+        importCtx,
+      ) as { row: PaymentSubmissionEventRow };
+      expect(paymentSubmissionEventsTab.diffFields(edited.row, event)).toEqual([]);
+      await paymentSubmissionEventsTab.upsert(edited.row, event, TENANT_A, dataSource.manager);
+      expect((await exportAll())[3][0].note).toBe('submitted');
     });
   });
 });

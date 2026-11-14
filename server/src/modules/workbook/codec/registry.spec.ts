@@ -76,6 +76,10 @@ describe('EXPECTED_TABS', () => {
       'invoices',
       'payments',
       'payment_allocations',
+      'payment_submissions',
+      'payment_submission_bills',
+      'payment_submission_files',
+      'payment_submission_events',
       'grading_scales',
       'grading_bands',
       // [35.1.5] Exam templates, ahead of `exams`.

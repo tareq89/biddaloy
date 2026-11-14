@@ -5,6 +5,12 @@ import { studentFeesTab } from './student-fees.tab';
 import { invoicesTab } from './invoices.tab';
 import { paymentsTab } from './payments.tab';
 import { paymentAllocationsTab } from './payment-allocations.tab';
+import {
+  paymentSubmissionsTab,
+  paymentSubmissionBillsTab,
+  paymentSubmissionFilesTab,
+  paymentSubmissionEventsTab,
+} from './payment-submissions.tab';
 
 /**
  * Tabs owned by the fees lane. Populated by that lane's own tickets; kept as a
@@ -21,9 +27,17 @@ export const feesTabs: TabSpec<any, any>[] = [
   invoicesTab,
   paymentsTab,
   paymentAllocationsTab,
+  paymentSubmissionsTab,
+  paymentSubmissionBillsTab,
+  paymentSubmissionFilesTab,
+  paymentSubmissionEventsTab,
 ];
 
 export {
+  paymentSubmissionsTab,
+  paymentSubmissionBillsTab,
+  paymentSubmissionFilesTab,
+  paymentSubmissionEventsTab,
   feeStructuresTab,
   fineRulesTab,
   studentFeesTab,
@@ -37,3 +51,9 @@ export type { StudentFeeRow } from './student-fees.tab';
 export type { InvoiceRow } from './invoices.tab';
 export type { PaymentRow } from './payments.tab';
 export type { PaymentAllocationRow } from './payment-allocations.tab';
+export type {
+  PaymentSubmissionRow,
+  PaymentSubmissionBillRow,
+  PaymentSubmissionFileRow,
+  PaymentSubmissionEventRow,
+} from './payment-submissions.tab';
