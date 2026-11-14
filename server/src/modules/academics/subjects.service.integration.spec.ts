@@ -3,6 +3,8 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { SubjectService } from './subjects.service';
+import { shareLockLive } from '../../common/utils/share-lock-live';
+import { Subject } from './entities/subject.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from './entities/academic-year.entity';
@@ -217,6 +219,44 @@ describe('SubjectService (integration)', () => {
         response: { details: { code: 'SUBJECT_IN_USE', exam_components_count: 1 } },
       });
       await expect(service.findOne(subject.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    // [2715] A writer holding the share lock makes the delete wait, then count the new row.
+    it('a delete waits for a component writer holding the subject share lock, then answers 409', async () => {
+      const subject = await service.create({ name_en: 'Physics', code: 'PHY' }, TENANT_ID);
+      let removed: Promise<unknown> | undefined;
+      await dataSource.transaction(async (manager) => {
+        expect(await shareLockLive(manager, Subject, [subject.id], TENANT_ID)).toBe(1);
+        removed = service.remove(subject.id, TENANT_ID).catch((err: unknown) => err);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const exam = await manager.save(Exam, {
+          tenant_id: TENANT_ID,
+          academic_year_id: academicYearId,
+          class_id: classId,
+          name: 'Race exam',
+          kind: ExamKind.TERM,
+        });
+        await manager.save(ExamComponent, {
+          tenant_id: TENANT_ID,
+          exam_id: exam.id,
+          subject_id: subject.id,
+          name: 'Written',
+          kind: ExamComponentKind.WRITTEN,
+          full_marks: '100',
+          sequence: 1,
+        });
+      });
+      expect(await removed).toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', exam_components_count: 1 } },
+      });
+    });
+
+    it('a writer that runs after the delete finds no live subject to lock', async () => {
+      const subject = await service.create({ name_en: 'Chemistry', code: 'CHE' }, TENANT_ID);
+      await service.remove(subject.id, TENANT_ID);
+      await dataSource.transaction(async (manager) => {
+        expect(await shareLockLive(manager, Subject, [subject.id], TENANT_ID)).toBe(0);
+      });
     });
 
     it('refuses to delete a subject that has a mark (409 SUBJECT_IN_USE)', async () => {
