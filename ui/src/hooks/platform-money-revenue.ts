@@ -1,5 +1,6 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useApprovedMutation } from './approval';
 import { cockpitRequest } from './cockpit-request';
 import { downloadMoneyCsv, MONEY_PAGE_SIZE } from './platform-money-sms';
 import { createEntityKeys } from './query-keys';
@@ -50,3 +51,48 @@ export const downloadRevenueCsv = (month?: string) =>
     month ? { month } : {},
     `revenue-${month ?? 'this-month'}.csv`,
   );
+
+/** Mirrors `VatSettingDto`: one setting for all schools. `rate_percent` is null when VAT is off. */
+export interface PlatformVatSetting {
+  enabled: boolean;
+  rate_percent: number | null;
+  label: string;
+  registration: string | null;
+}
+export interface UpdatePlatformVatInput {
+  enabled: boolean;
+  /** 0.01 to 50, two decimals; required when `enabled`. */
+  rate_percent?: number;
+  label?: string;
+}
+
+const vatKey = ['platform-money-vat'] as const;
+
+/** `GET /platform/money/vat`. */
+export function usePlatformVat(enabled = true) {
+  return useQuery({
+    queryKey: vatKey,
+    queryFn: ({ signal }) =>
+      cockpitRequest<PlatformVatSetting>({ url: '/platform/money/vat', signal }),
+    enabled,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** `PUT /platform/money/vat` behind a step-up code (`platform.vat`). */
+export function useUpdatePlatformVat() {
+  const qc = useQueryClient();
+  return useApprovedMutation(
+    (data: UpdatePlatformVatInput, { headers }) =>
+      cockpitRequest<PlatformVatSetting>({
+        method: 'PUT',
+        url: '/platform/money/vat',
+        data,
+        headers,
+      }),
+    {
+      approvalScope: 'platform.vat',
+      onSuccess: () => qc.invalidateQueries({ queryKey: vatKey }),
+    },
+  );
+}
