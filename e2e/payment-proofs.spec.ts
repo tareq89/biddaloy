@@ -122,7 +122,9 @@ test.describe('payment proofs: guardian sends -> accountant decides -> guardian 
           guardianPage.getByRole('heading', { name: t('portalPay.bills.title') }),
         ).toBeVisible();
         // Bills of every child start ticked; untick the other child's group.
-        await guardianPage.getByRole('group', { name: other }).getByRole('checkbox').click();
+        // A bill that already waits for review starts unticked and locked: nothing to untick.
+        const otherBox = guardianPage.getByRole('group', { name: other }).getByRole('checkbox');
+        if (await otherBox.isChecked()) await otherBox.click();
         await expect(
           guardianPage.getByRole('group', { name: child }).getByRole('checkbox'),
         ).toBeChecked();
