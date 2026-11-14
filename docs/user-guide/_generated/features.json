@@ -979,6 +979,22 @@
     "routes": ["/support-access/requests/$requestId", "/support/enter", "/welcome/support-access"]
   },
   {
+    "id": "administration.smsPackages",
+    "kind": "administration",
+    "path": "administration/sms-packages",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "administration.seatCoupon",
+    "kind": "administration",
+    "path": "administration/seat-coupon",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
     "id": "help.glossary",
     "kind": "help",
     "path": "help/glossary",

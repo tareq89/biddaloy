@@ -99,6 +99,8 @@
 - [প্রশাসন](administration/settings.md)
   - [স্কুলের সেটিংস ঠিক করা](administration/settings.md)
   - [বিডডালয় সহায়তা প্রবেশ](administration/support-access.md)
+  - [SMS প্যাকেজ কেনা](administration/sms-packages.md)
+  - [কুপন ব্যবহার করা](administration/seat-coupon.md)
   - [ভূমিকা ও অনুমতি](administration/roles.md)
   - [কার্যক্রমের রেকর্ড](administration/audit-logs.md)
   - [তৈরি শিক্ষাক্রম](administration/curriculum-preset.md)

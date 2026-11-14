@@ -99,6 +99,8 @@
 - [Administration](administration/settings.md)
   - [Changing the school's settings](administration/settings.md)
   - [Biddaloy support access](administration/support-access.md)
+  - [Buying an SMS package](administration/sms-packages.md)
+  - [Using a coupon](administration/seat-coupon.md)
   - [Roles and permissions](administration/roles.md)
   - [Activity log](administration/audit-logs.md)
   - [Ready-made curriculum](administration/curriculum-preset.md)

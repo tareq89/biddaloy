@@ -160,6 +160,19 @@ const FIXED: Fixed[] = [
     roles: [UserRole.ADMIN],
     routes: ['/support/enter', '/welcome/support-access', '/support-access/requests/$requestId'],
   },
+  // Sub-pages of Settings (Communication and Seats & billing); no route of their own.
+  {
+    id: 'administration.smsPackages',
+    path: 'administration/sms-packages',
+    roles: [UserRole.ADMIN],
+    routes: [],
+  },
+  {
+    id: 'administration.seatCoupon',
+    path: 'administration/seat-coupon',
+    roles: [UserRole.ADMIN],
+    routes: [],
+  },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
   { id: 'help.cantSeeThis', roles: EVERYONE, routes: [] },
