@@ -1326,4 +1326,48 @@ export const PLATFORM_ACTIONS: readonly PlatformPaletteAction[] = [
     kind: 'navigate',
     ...platformGo('/owner-security'),
   },
+  // [100.5.gI-02] D14, D15 words: package, SMS stock, coupon, refund (never bundle, lot, voucher).
+  {
+    id: 'money.sms-report',
+    label: { en: 'SMS report', bn: 'SMS রিপোর্ট' },
+    synonyms: ['money', 'টাকা-পয়সা', 'sold', 'used'],
+    kind: 'navigate',
+    ...platformGo('/money'),
+  },
+  {
+    id: 'sms-bundle.new',
+    label: { en: 'New SMS package', bn: 'নতুন SMS প্যাকেজ' },
+    synonyms: ['price', 'sell sms'],
+    kind: 'inline',
+    ...platformGo('/money/packages?new=1'),
+  },
+  {
+    id: 'sms-stock.record',
+    label: { en: 'Record SMS bought', bn: 'SMS মজুত লিখুন' },
+    synonyms: ['provider', 'purchase'],
+    kind: 'inline',
+    ...platformGo('/money?record=1'),
+  },
+  {
+    id: 'plans.open',
+    label: { en: 'Plans', bn: 'প্ল্যান' },
+    synonyms: ['seat price', 'per student'],
+    kind: 'navigate',
+    ...platformGo('/money/plans'),
+  },
+  {
+    id: 'coupons.new',
+    label: { en: 'New coupon', bn: 'নতুন কুপন' },
+    synonyms: ['discount', 'offer'],
+    kind: 'inline',
+    ...platformGo('/money/coupons?new=1'),
+  },
+  // The refund itself lives on the school's row; this lands on the list and asks which school.
+  {
+    id: 'orders.refund',
+    label: { en: 'Refund an order (pick the school)', bn: 'ফেরত দিন (আগে স্কুল বাছুন)' },
+    synonyms: ['return money'],
+    kind: 'navigate',
+    ...platformGo('/subscriptions'),
+  },
 ];
