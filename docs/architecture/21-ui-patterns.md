@@ -604,3 +604,11 @@ entries today: the `toISOString()` slices that need a UTC-versus-local choice,
 three dialogs and three student pages that size themselves with `max-w-*`, one
 command-palette false positive, and the print editor (`src/components/print/editor/**`).
 Remove an entry when its file is fixed; never add one without a reason comment.
+
+### Cockpit Money screens (2026-11-14, Epic 100 wave 5)
+
+- **Regenerate `routeTree.gen.ts` as soon as a route file is added.** The five Money routes were missing from it until wave close, so tab links needed an `as never` cast and route guards failed. With the tree regenerated, the cast is gone and `route-manifest`, `route-crumbs` and `nav-tree` tests pass.
+- **Presentational view plus a thin route.** `RevenueView` and the other tab views take data and callbacks; the route owns the URL, the query and the dialogs. One test file per tab covers the view, the dialog and the never-say words (D15) together.
+- **A paged list in a view needs a Show more button.** The not-renewed list first ignored `next_cursor` and hid schools silently. Pass `hasMore` and `onMore`; keep earlier pages in the route.
+- **Digits follow the region setting, not the test locale.** Match numbers in tests with a regex over Latin and Bangla digits.
+- **Dialog rules come from the server DTO.** The VAT rate range is 0.01 to 50 (`UpdateVatDto`), not the 0 to 100 in the ticket. Read the DTO before writing a form.
