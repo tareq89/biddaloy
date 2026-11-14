@@ -59,6 +59,7 @@
   "audience": {
     "intro": "এই নোটিশ কারা পাবেন তা বাছুন।",
     "readOnly": "প্রকাশের পর কারা পাবে তা বদলানো যায় না।",
+    "noMatch": "এই ফিল্টারে কেউ নেই",
     "tabs": {
       "guardians": "$t(common:entities.guardian_one)",
       "staff": "সব $t(common:entities.teacher_one)/স্টাফ",

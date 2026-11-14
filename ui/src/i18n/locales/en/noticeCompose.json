@@ -59,6 +59,7 @@
   "audience": {
     "intro": "Choose who should get this notice.",
     "readOnly": "The audience cannot be changed after publishing.",
+    "noMatch": "No one matches this filter",
     "tabs": {
       "guardians": "$t(common:entities.guardian_other)",
       "staff": "All teachers and staff",
