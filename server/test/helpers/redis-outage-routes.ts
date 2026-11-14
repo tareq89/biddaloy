@@ -21,6 +21,7 @@ import { BillingController } from '../../src/modules/billing/billing.controller'
 import { PlatformBillingController } from '../../src/modules/billing/platform-billing.controller';
 import { SmsBundleOrdersController } from '../../src/modules/sms-bundles/orders/sms-bundle-orders.controller';
 import { SmsBundlePayController } from '../../src/modules/sms-bundles/payment/sms-bundle-pay.controller';
+import { ProofReviewController } from '../../src/modules/payment-submissions/proof-review.controller';
 import { ProofSubmissionsController } from '../../src/modules/payment-submissions/proof-submissions.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
@@ -61,6 +62,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   BillingController,
   PlatformBillingController,
   ProofSubmissionsController,
+  ProofReviewController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because

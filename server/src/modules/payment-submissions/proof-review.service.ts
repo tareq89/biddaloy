@@ -98,7 +98,7 @@ export class ProofReviewService {
       nextCursor:
         rows.length > limit
           ? // Text keeps Postgres microseconds; a JS Date would cut them and repeat a row.
-            Buffer.from(`${last.cursor_at}|${last.id}`).toString('base64url')
+            Buffer.from([last.cursor_at, last.id].join('|')).toString('base64url')
           : null,
     };
   }
