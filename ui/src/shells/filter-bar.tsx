@@ -51,7 +51,8 @@ import { useFilterBarState } from './use-filter-bar-state';
 
 /** Radix `Select.Item` rejects an empty-string `value` — this is the one
  * place that sentinel is declared; no caller needs its own anymore. */
-const ALL_VALUE = '__all__';
+// Leading space: vocabulary validators reject untrimmed entries, so no option can equal it.
+const ALL_VALUE = ' __all__';
 
 export interface FilterOption {
   value: string;
