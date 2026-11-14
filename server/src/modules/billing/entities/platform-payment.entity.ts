@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { PlatformPaymentMethod } from '@biddaloy/shared';
 import { SeatOrder } from './seat-order.entity';
+import { SmsBundleOrder } from '../../sms-bundles/entities/sms-bundle-order.entity';
 import { User } from '../../users/entities/user.entity';
 
 /**
@@ -21,17 +22,30 @@ import { User } from '../../users/entities/user.entity';
 @Entity('platform_payments')
 @Unique('UQ_platform_payments_method_gateway_ref', ['method', 'gateway_ref'])
 @Index('IDX_platform_payments_order', ['seat_order_id'])
+@Index('IDX_platform_payments_bundle_order', ['bundle_order_id'])
 @Check('CHK_platform_payments_amount', '"amount_paisa" BETWEEN 0 AND 9999999999')
+@Check(
+  'CHK_platform_payments_one_order',
+  '("seat_order_id" IS NOT NULL) <> ("bundle_order_id" IS NOT NULL)',
+)
 export class PlatformPayment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => SeatOrder, { nullable: false, onDelete: 'RESTRICT' })
+  // Exactly one of seat_order_id / bundle_order_id is set (CHK_platform_payments_one_order).
+  @ManyToOne(() => SeatOrder, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'seat_order_id' })
-  seat_order: SeatOrder;
+  seat_order: SeatOrder | null;
 
-  @Column({ type: 'uuid' })
-  seat_order_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  seat_order_id: string | null;
+
+  @ManyToOne(() => SmsBundleOrder, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'bundle_order_id' })
+  bundle_order: SmsBundleOrder | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  bundle_order_id: string | null;
 
   @Column({ type: 'enum', enum: PlatformPaymentMethod })
   method: PlatformPaymentMethod;

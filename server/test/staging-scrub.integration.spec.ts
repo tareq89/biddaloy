@@ -258,6 +258,8 @@ describe('scrub.sql', () => {
         status: `${lit(notDraft as string)}::"invoices_status_enum"`,
         snapshot: `${lit(snapshot)}::jsonb`,
       },
+      // CHK_platform_payments_one_order: exactly one of seat_order_id / bundle_order_id.
+      platform_payments: { seat_order_id: lit(randomUUID()) + '::uuid' },
       promotion_entries: { is_override: 'true' },
       applications: {
         applicant_user_id: lit(randomUUID()) + '::uuid',
@@ -269,6 +271,13 @@ describe('scrub.sql', () => {
       communication_logs: { status: `'QUEUED'::"communication_logs_status_enum"` },
       // CHK_user_recovery_codes_hash_len: a sha256 hex digest is 64 chars.
       user_recovery_codes: { code_hash: `'${'a'.repeat(64)}'::character varying` },
+      // CHK_seat_orders_discount: amount = seats * months * unit_price - discount (all 1, discount 0)
+      seat_orders: {
+        seats: '1::integer',
+        months: '1::integer',
+        unit_price_paisa: '1::integer',
+        amount_paisa: '1::bigint',
+      },
       // CHK_notice_recipients_target: a STAFF row needs a user
       notice_recipients: { user_id: lit(randomUUID()) + '::uuid' },
       // CHK_user_recovery_codes_hash_len: a 64-char hash

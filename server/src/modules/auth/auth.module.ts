@@ -202,6 +202,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
     IMPERSONATION_REDIS,
+    APPROVAL_REDIS, // Epic 100: the coupon attempt limiter
     SessionCutoffService,
     RefreshTokenService,
     AccessTokenDenylistService,

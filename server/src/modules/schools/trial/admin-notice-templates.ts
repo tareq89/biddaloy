@@ -8,6 +8,13 @@ export type AdminNoticeKey =
   | 'seats_expired'
   | 'seats_suspended'
   | 'receipt'
+  /** [100.3.gD-01] Money events: coupon applied, refund done, plan changed. Email only. */
+  | 'coupon_applied'
+  | 'refund_done'
+  | 'plan_changed'
+  /** [100.2.gB.04] Unused SMS package credit ends in 7 / 1 days. */
+  | 'sms_expiring_d7'
+  | 'sms_expiring_d1'
   /** [Epic 99] Biddaloy support access. Plain words only: see the glossary (D14). */
   | 'support_session_started'
   | 'support_emergency'
@@ -23,6 +30,14 @@ export interface NoticeVars {
   seats?: number;
   /** Receipt number (SMR-YYYY-NNNNNN), for the `receipt` notice. */
   receipt?: string;
+  /** Coupon code, for `coupon_applied`. */
+  coupon?: string;
+  /** Amount already formatted for the reader (e.g. `500.00`), for `coupon_applied` (discount) and `refund_done`. */
+  amount?: string;
+  /** New plan name, for `plan_changed`. */
+  plan?: string;
+  /** Unused SMS that end on `date`, for the `sms_expiring_*` notices. */
+  units?: number;
   /** The seats that end are the free period (the school never paid for later seats). */
   free?: boolean;
   /** The school has more ACTIVE students than seats once they end: it goes read-only, then paused. */
@@ -141,12 +156,71 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
     en: {
       subject: (v) => `${v.school}: payment receipt ${v.receipt ?? ''}`,
       body: (v) =>
-        `Thank you. We received the payment for the seats of ${v.school}. Receipt ${v.receipt ?? ''}: download it in Settings, Seats & billing. ${v.link ?? ''}`.trim(),
+        `Thank you. We received the payment for ${v.school}. Receipt ${v.receipt ?? ''}: you can download it from the page where you paid. ${v.link ?? ''}`.trim(),
     },
     bn: {
       subject: (v) => `${v.school}: পেমেন্ট রসিদ ${v.receipt ?? ''}`,
       body: (v) =>
-        `ধন্যবাদ। ${v.school}-এর সিটের পেমেন্ট পেয়েছি। রসিদ ${v.receipt ?? ''}: সেটিংস, সিট ও বিলিং থেকে ডাউনলোড করুন। ${v.link ?? ''}`.trim(),
+        `ধন্যবাদ। ${v.school}-এর পেমেন্ট পেয়েছি। রসিদ ${v.receipt ?? ''}: যে পেজে পেমেন্ট করেছেন সেখান থেকে ডাউনলোড করুন। ${v.link ?? ''}`.trim(),
+    },
+  },
+  coupon_applied: {
+    en: {
+      subject: (v) => `${v.school}: coupon ${v.coupon ?? ''} applied`,
+      body: (v) =>
+        `Coupon ${v.coupon ?? ''} was applied to the payment for ${v.school}. You saved Tk ${v.amount ?? ''}. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: কুপন ${v.coupon ?? ''} প্রয়োগ হয়েছে`,
+      body: (v) =>
+        `${v.school}-এর পেমেন্টে কুপন ${v.coupon ?? ''} প্রয়োগ হয়েছে। আপনি ${v.amount ?? ''} টাকা ছাড় পেয়েছেন। ${v.link ?? ''}`.trim(),
+    },
+  },
+  refund_done: {
+    en: {
+      subject: (v) => `${v.school}: refund done`,
+      body: (v) =>
+        `We refunded Tk ${v.amount ?? ''} for ${v.school}. It may take a few days to reach you. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: টাকা ফেরত দেওয়া হয়েছে`,
+      body: (v) =>
+        `${v.school}-এর ${v.amount ?? ''} টাকা ফেরত দেওয়া হয়েছে। আপনার কাছে পৌঁছাতে কয়েক দিন লাগতে পারে। ${v.link ?? ''}`.trim(),
+    },
+  },
+  plan_changed: {
+    en: {
+      subject: (v) => `${v.school}: your plan changed`,
+      body: (v) =>
+        `The plan of ${v.school} is now ${v.plan ?? ''}. See it in Settings, Seats & billing.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: আপনার প্ল্যান বদলেছে`,
+      body: (v) => `${v.school}-এর প্ল্যান এখন ${v.plan ?? ''}। সেটিংস, সিট ও বিলিং-এ দেখুন।`,
+    },
+  },
+  sms_expiring_d7: {
+    en: {
+      subject: (v) => `${v.school}: unused SMS end in 7 days`,
+      body: (v) =>
+        `${v.units ?? ''} unused SMS of ${v.school} end on ${v.date ?? ''}. Use them before then, or buy a new SMS package. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: অব্যবহৃত এসএমএস ৭ দিন পর শেষ হবে`,
+      body: (v) =>
+        `${v.school}-এর ${v.units ?? ''}টি অব্যবহৃত এসএমএস ${v.date ?? ''} তারিখে শেষ হবে। তার আগে ব্যবহার করুন, অথবা নতুন এসএমএস প্যাকেজ কিনুন। ${v.link ?? ''}`.trim(),
+    },
+  },
+  sms_expiring_d1: {
+    en: {
+      subject: (v) => `${v.school}: unused SMS end in 1 day`,
+      body: (v) =>
+        `${v.units ?? ''} unused SMS of ${v.school} end on ${v.date ?? ''}. Use them before then, or buy a new SMS package. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: অব্যবহৃত এসএমএস ১ দিন পর শেষ হবে`,
+      body: (v) =>
+        `${v.school}-এর ${v.units ?? ''}টি অব্যবহৃত এসএমএস ${v.date ?? ''} তারিখে শেষ হবে। তার আগে ব্যবহার করুন, অথবা নতুন এসএমএস প্যাকেজ কিনুন। ${v.link ?? ''}`.trim(),
     },
   },
   seats_suspended: {

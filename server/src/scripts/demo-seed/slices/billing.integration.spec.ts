@@ -22,7 +22,10 @@ describe('billing slice (integration)', () => {
 
   const run = async () => {
     await ds.query(`DELETE FROM platform_payments`);
+    await ds.query(`DELETE FROM coupon_redemptions`);
+    await ds.query(`DELETE FROM coupon_schools`);
     await ds.query(`DELETE FROM seat_orders`);
+    await ds.query(`DELETE FROM coupons`);
     await ds.query(`DELETE FROM schools WHERE name LIKE 'bmsc-%'`);
     const ctx = await createContext({
       ds,
@@ -55,15 +58,36 @@ describe('billing slice (integration)', () => {
   });
 
   it('writes one PAID order and one matching payment per school around the anchor', async () => {
-    expect(await run()).toBe(6);
+    expect(await run()).toBe(10); // 6 orders+payments, 2 coupons, 1 coupon school, 1 redemption
     const rows = await ds.query(SUMMARY);
     expect(rows.map((r: { k: string }) => r.k)).toEqual(SLUGS.map((s) => `demo-${s}-1`).sort());
     for (const r of rows) {
       expect(r).toMatchObject({ status: 'PAID', method: 'OFFLINE_BANK', seats: 1400, months: 12 });
       expect(r.amount).toBe(r.paid);
-      expect(Number(r.amount)).toBe(1400 * 12 * 1000);
+      // The first branch used the 10 percent welcome coupon; the other two paid list price.
+      const list = 1400 * 12 * 1000;
+      expect(Number(r.amount)).toBe(r.k === 'demo-bmsc-primary-1' ? list * 0.9 : list);
       expect([r.s, r.e]).toEqual(['2026-04-30', '2027-04-30']);
     }
+  });
+
+  it('seeds the welcome coupon, its one redemption and the default plan on every order', async () => {
+    await run();
+    const [c] = await ds.query(
+      `SELECT count(*)::int AS coupons,
+              (SELECT count(*)::int FROM coupon_redemptions) AS redemptions,
+              (SELECT count(*)::int FROM coupon_schools) AS chosen,
+              (SELECT count(*)::int FROM seat_orders WHERE plan_id = '00000000-0000-4000-8000-000000000001') AS on_default_plan,
+              (SELECT discount_paisa::text FROM coupon_redemptions) AS discount
+         FROM coupons`,
+    );
+    expect(c).toEqual({
+      coupons: 2,
+      redemptions: 1,
+      chosen: 1,
+      on_default_plan: 3,
+      discount: String(1400 * 12 * 100),
+    });
   });
 
   it('is deterministic for the same anchor', async () => {

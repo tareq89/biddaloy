@@ -123,6 +123,8 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
        SELECT id, 'GRANT', 1000, 'manual', 'test-grant' FROM schools WHERE slug LIKE 'bmsc-%'`,
       `INSERT INTO sms_credit_balance (tenant_id, available, reserved)
        SELECT id, 1000, 0 FROM schools WHERE slug LIKE 'bmsc-%'`,
+      `INSERT INTO sms_credit_lots (tenant_id, source, units_total, remaining, expires_at, status)
+       SELECT id, 'MANUAL', 1000, 1000, now() + interval '30 days', 'ACTIVE' FROM schools WHERE slug LIKE 'bmsc-%'`,
     ]) {
       await ds.query(sql);
     }

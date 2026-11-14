@@ -7,10 +7,13 @@ export interface TwoPersonMetadata {
   scope: ApprovalScope;
   /** Small human-readable object the other owner sees. Never a secret. */
   summaryFn: (req: any) => Record<string, unknown>;
+  /** No second active owner (or approvals switched off) means refuse, instead of letting it pass. */
+  strict?: boolean;
 }
 
 /** [Epic 98] Gate a platform route behind the other owner's approval (see `TwoPersonGuard`). */
 export const RequireTwoPerson = (
   scope: ApprovalScope,
   summaryFn: TwoPersonMetadata['summaryFn'] = () => ({}),
-) => SetMetadata(REQUIRE_TWO_PERSON_KEY, { scope, summaryFn } satisfies TwoPersonMetadata);
+  strict = false,
+) => SetMetadata(REQUIRE_TWO_PERSON_KEY, { scope, summaryFn, strict } satisfies TwoPersonMetadata);

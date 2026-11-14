@@ -37,6 +37,12 @@ import { CommunicationLog } from '../src/modules/communications/entities/communi
 import { ReminderBatch } from '../src/modules/communications/entities/reminder-batch.entity';
 import { SmsCreditLedger } from '../src/modules/communications/credits/entities/sms-credit-ledger.entity';
 import { SmsCreditBalance } from '../src/modules/communications/credits/entities/sms-credit-balance.entity';
+import { SmsCreditLot } from '../src/modules/communications/credits/entities/sms-credit-lot.entity';
+import { SmsCreditLotDraw } from '../src/modules/communications/credits/entities/sms-credit-lot-draw.entity';
+import { SmsBundleCatalog } from '../src/modules/sms-bundles/entities/sms-bundle-catalog.entity';
+import { SmsBundleOrder } from '../src/modules/sms-bundles/entities/sms-bundle-order.entity';
+import { SmsStockEntry } from '../src/modules/sms-bundles/entities/sms-stock-entry.entity';
+import { SmsProviderBalanceReading } from '../src/modules/sms-bundles/entities/sms-provider-balance-reading.entity';
 import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity';
 import { FineRule } from '../src/modules/fees/entities/fine-rule.entity';
 import { DiscountRule } from '../src/modules/fees/entities/discount-rule.entity';
@@ -141,6 +147,10 @@ import { AcrAssessment } from '../src/modules/acr/entities/acr-assessment.entity
 import { AcrScore } from '../src/modules/acr/entities/acr-score.entity';
 import { StaffIncident } from '../src/modules/incidents/entities/staff-incident.entity';
 import { Alert } from '../src/modules/attention/entities/alert.entity';
+import { Plan } from '../src/modules/plans/entities/plan.entity';
+import { Coupon } from '../src/modules/coupons/entities/coupon.entity';
+import { CouponSchool } from '../src/modules/coupons/entities/coupon-school.entity';
+import { CouponRedemption } from '../src/modules/coupons/entities/coupon-redemption.entity';
 import { SeatOrder } from '../src/modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from '../src/modules/billing/entities/platform-payment.entity';
 import { PlatformAlert } from '../src/modules/health/platform-alerts/platform-alert.entity';
@@ -209,6 +219,12 @@ export const ALL_ENTITIES = [
   ReminderBatch,
   SmsCreditLedger,
   SmsCreditBalance,
+  SmsCreditLot,
+  SmsCreditLotDraw,
+  SmsBundleCatalog,
+  SmsBundleOrder,
+  SmsStockEntry,
+  SmsProviderBalanceReading,
   FeeStructure,
   FineRule,
   DiscountRule,
@@ -319,6 +335,10 @@ export const ALL_ENTITIES = [
   NoticeRecipient,
   PlatformAlert,
   SeatOrder,
+  Plan,
+  Coupon,
+  CouponSchool,
+  CouponRedemption,
   PlatformPayment,
   Survey,
   SurveyQuestion,

@@ -211,4 +211,13 @@ describe('problemWith', () => {
       }
     }
   });
+
+  // Epic 100 D9: `source` is written only by PUT /communications/sms-source, never the generic PATCH.
+  it('rejects `source` on every medium with the fixed sentence (no echo)', () => {
+    for (const m of [SMS, WA]) {
+      expect(problemWith({ ...okSms, source: 'SCHOOLMANAGERP' }, m)).toBe(
+        'has a setting this channel does not use.',
+      );
+    }
+  });
 });

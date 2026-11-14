@@ -3,6 +3,7 @@ import { BadGatewayException, ConflictException, NotFoundException } from '@nest
 import { DataSource } from 'typeorm';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationLog } from './entities/communication-log.entity';
@@ -222,11 +223,7 @@ describe('DeliveryStatusService (integration)', () => {
       segments: 2,
     };
     const fund = (tenantId: string, units: number) =>
-      dataSource.query(
-        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at) VALUES ($1, $2, 0, now())
-         ON CONFLICT (tenant_id) DO UPDATE SET available = $2`,
-        [tenantId, units],
-      );
+      fundMeteredTenant(dataSource, tenantId, units);
     beforeEach(() => {
       resolvedSource = 'platform';
     });

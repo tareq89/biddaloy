@@ -34,6 +34,7 @@ export const AUDIT_ENTITY_TYPES = [
   'ClassSection',
   // [83.2.2] Coordinator assign / remove.
   'CoordinatorAssignment',
+  'Coupon',
   'CurriculumPreset',
   'Designation',
   'DiscountRule',
@@ -62,6 +63,7 @@ export const AUDIT_ENTITY_TYPES = [
   // [Epic 53] notice create/edit/publish/withdraw.
   'Notice',
   'Payment',
+  'Plan',
   'PlatformAdmin',
   'PlatformAnnouncement',
   'PlatformSchoolNote',
@@ -93,6 +95,10 @@ export const AUDIT_ENTITY_TYPES = [
   // 17). Kept read-compatible so historical audit rows with this
   // entity_type still validate — no new write ever uses it.
   'SchoolHoliday',
+  'SeatOrder',
+  'SmsBundleCatalog',
+  'SmsBundleOrder',
+  'SmsStockEntry',
   'StaffAttendanceRecord',
   'StaffDesignationHistory',
   'StaffDocument',

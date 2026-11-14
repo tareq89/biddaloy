@@ -13,6 +13,8 @@ POST /auth/step-up
 POST /auth/step-up/otp/request
 POST /billing/orders
 POST /billing/orders/:id/pay/bkash
+POST /sms-bundles/orders
+POST /sms-bundles/orders/:id/pay/bkash
 POST /support-access/confirm
 POST /support-access/requests/:id/approve
 POST /support-access/requests/:id/deny
@@ -24,4 +26,5 @@ POST /users/join-requests
 POST /users/me/contact-change
 POST /users/me/contact-change/confirm-phone
 POST /users/me/leave
+PUT /communications/sms-source
 PUT /support-access/settings
