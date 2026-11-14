@@ -1,16 +1,12 @@
-import ExcelJS from 'exceljs';
-import { Readable } from 'stream';
+import type ExcelJS from 'exceljs';
 import {
   ImportFileErrorCode,
   MarksSheetFileErrorCode,
   MarksSheetRowErrorCode,
 } from '@biddaloy/shared';
 import { ImportFileError } from '../../common/errors/import-file.error';
-import {
-  assertXlsxWithinLimits,
-  XLSX_TOO_LARGE_MESSAGE,
-  XlsxTooLargeError,
-} from '../../common/utils/xlsx-guard.util';
+import { loadWorksheet } from '../../common/utils/spreadsheet-loader.util';
+import { normalizeDigits } from '../workbook/codec/cell-format';
 import {
   ABSENT_CODES,
   EXEMPT_CODES,
@@ -20,13 +16,14 @@ import {
   unneutralise,
 } from './marks-sheet.constants';
 
-// Cloned from homework/homework-bulk-upload.parser.ts: same ExcelJS xlsx/csv
-// loading and limits, different schema. Pure: no DB, no request. Every
+// Same xlsx/csv loading and limits as homework/homework-bulk-upload.parser.ts (shared loader),
+// different schema. Pure: no DB, no request. Every
 // message is a fixed sentence; none echoes cell text (Rule 23).
 
 const MAX_DATA_ROWS = 2000;
 // Header + legend lines + a few blank rows sit around the data; this only bounds the loop.
-// The exact data-row count is checked after the loop. A csv byte cap is the service's job (#3472).
+// The exact data-row count is checked after the loop. The loader refuses a csv with more lines
+// than this before ExcelJS parses it.
 const ROW_SCAN_SLACK = 10;
 
 // Full shape only: a component named `sheet: Written` is still a component.
@@ -66,60 +63,6 @@ export interface ParsedMarksSheet {
   rows: ParsedSheetRow[];
 }
 
-function getExtension(filename: string): string {
-  const idx = filename.lastIndexOf('.');
-  return idx === -1 ? '' : filename.slice(idx).toLowerCase();
-}
-
-async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.Worksheet> {
-  const ext = getExtension(filename);
-  const workbook = new ExcelJS.Workbook();
-
-  if (ext === '.xlsx') {
-    try {
-      await assertXlsxWithinLimits(buffer);
-      await workbook.xlsx.load(buffer as never);
-    } catch (e) {
-      throw e instanceof XlsxTooLargeError
-        ? new ImportFileError(ImportFileErrorCode.TOO_LARGE, XLSX_TOO_LARGE_MESSAGE)
-        : new ImportFileError(
-            ImportFileErrorCode.UNREADABLE,
-            'Could not read file — is it a valid Excel file?',
-          );
-    }
-    // The marks tab is first; the "How to fill" tab is never read.
-    const worksheet = workbook.worksheets[0];
-    if (!worksheet) {
-      throw new ImportFileError(
-        ImportFileErrorCode.UNREADABLE,
-        'Could not read file — is it a valid Excel file?',
-      );
-    }
-    return worksheet;
-  }
-
-  if (ext === '.csv') {
-    try {
-      return await workbook.csv.read(Readable.from(buffer), { map: (datum: string) => datum });
-    } catch {
-      throw new ImportFileError(
-        ImportFileErrorCode.UNREADABLE,
-        'Could not read file — is it a valid CSV file?',
-      );
-    }
-  }
-
-  throw new ImportFileError(
-    ImportFileErrorCode.UNSUPPORTED_TYPE,
-    'Unsupported file type — upload .xlsx or .csv',
-  );
-}
-
-/** Bangla digits and the Arabic decimal separator to Latin, for number parsing. */
-function toLatinDigits(s: string): string {
-  return s.replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6)).replace(/٫/g, '.');
-}
-
 function cellToString(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return String(value);
@@ -150,7 +93,7 @@ function isBadCell(value: ExcelJS.CellValue): boolean {
 }
 
 function normaliseEntry(raw: string): RawEntry {
-  const text = toLatinDigits(raw.trim());
+  const text = normalizeDigits(raw.trim()).replace(/٫/g, '.');
   if (text === '') return { kind: 'blank' };
   const code = canon(text);
   if (ABSENT_SET.has(code)) return { kind: 'absent' };
@@ -165,7 +108,13 @@ const matches = (header: string, h: { en: string; bn: string }) =>
   norm(header) === norm(h.en) || norm(header) === norm(h.bn);
 
 export async function parseMarksSheet(buffer: Buffer, filename: string): Promise<ParsedMarksSheet> {
-  const worksheet = await loadWorksheet(buffer, filename);
+  const worksheet = await loadWorksheet(
+    buffer,
+    filename,
+    ImportFileError,
+    MAX_DATA_ROWS + 1 + ROW_SCAN_SLACK,
+    MAX_DATA_ROWS,
+  );
 
   let rollCol = 0;
   let keyCol = 0;
@@ -203,7 +152,8 @@ export async function parseMarksSheet(buffer: Buffer, filename: string): Promise
       'Two columns have the same component name — download a fresh sheet',
     );
   }
-  if (worksheet.rowCount > MAX_DATA_ROWS + 1 + ROW_SCAN_SLACK) {
+  // `actualRowCount` skips rows that only carry formatting; `rowCount` would count them.
+  if (worksheet.actualRowCount > MAX_DATA_ROWS + 1 + ROW_SCAN_SLACK) {
     throw new ImportFileError(
       ImportFileErrorCode.TOO_MANY_ROWS,
       `File has too many rows (max ${MAX_DATA_ROWS})`,
@@ -212,8 +162,13 @@ export async function parseMarksSheet(buffer: Buffer, filename: string): Promise
 
   const rows: ParsedSheetRow[] = [];
   const seen = new Set<string>();
-  for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
-    const row = worksheet.getRow(rowNumber);
+  // Real rows only: a row far down that just carries formatting is never visited.
+  const dataRows: ExcelJS.Row[] = [];
+  worksheet.eachRow({ includeEmpty: false }, (r, n) => {
+    if (n >= 2) dataRows.push(r);
+  });
+  for (const row of dataRows) {
+    const rowNumber = row.number;
     if (row.cellCount === 0) continue;
     const studentKey = cellToString(row.getCell(keyCol).value);
     // Null prototype so a header like `__proto__` is a plain key, never dropped.
