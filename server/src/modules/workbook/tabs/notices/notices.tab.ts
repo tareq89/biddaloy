@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { NoticeSmsStatus, NoticeStatus } from '@biddaloy/shared';
+import { NoticeAlertsService } from '../../../attention/notice/notice-alerts.service';
 import { Notice } from '../../../notices/entities/notice.entity';
 import { NoticeAttachment } from '../../../notices/entities/notice-attachment.entity';
 import { NoticeRecipient } from '../../../notices/entities/notice-recipient.entity';
@@ -26,8 +27,10 @@ import { actorOrRestorer, nullableActor, stampActorKeys } from '../actor-keys';
  *    Alerts are not backed up and no attention rule raises these two again, so
  *    after a restore they stay off: a re-created important notice has no
  *    alert, and a restored PENDING SMS notice has no approval task.
- *    Known gap (follow-up filed): a restore that turns a live important notice
- *    WITHDRAWN or DRAFT keeps its old `alert_id`, so that alert goes stale.
+ *    A restore that removes a notice, or turns a live one WITHDRAWN/DRAFT (or clears its
+ *    important flag or pending SMS), closes the alert it pointed at and clears the pointer, so
+ *    no attention item is left pointing at a deleted or inactive notice (#3451). Re-raising
+ *    alerts for restored live notices stays off on purpose: it would notify people again.
  *
  * `withdrawn_by`, `sms_requested_by`, `sms_decided_by` (D41) are optional actor
  * refs: an actor who left exports blank and the stored one is kept (actor-keys.ts).
@@ -38,6 +41,21 @@ import { actorOrRestorer, nullableActor, stampActorKeys } from '../actor-keys';
 type Rec = Record<string, unknown>;
 
 export const NOTICES = 'notices';
+
+// close/withdraw never touch the rule context, so the service needs no dependencies here.
+const alerts = new NoticeAlertsService(undefined as never);
+
+/** Closes the alert or SMS task a notice points at when the notice no longer warrants it. */
+async function closeStaleAlerts(n: Notice, m: EntityManager): Promise<void> {
+  if (n.alert_id && !(n.status === NoticeStatus.PUBLISHED && n.important)) {
+    await alerts.withdraw(m, n.tenant_id, n.alert_id);
+    n.alert_id = null;
+  }
+  if (n.sms_task_alert_id && n.sms_status !== NoticeSmsStatus.PENDING) {
+    await alerts.closeTask(m, n.tenant_id, n.sms_task_alert_id);
+    n.sms_task_alert_id = null;
+  }
+}
 const NOTICE_BODY_MAX = 5000;
 const NOTICE_TITLE_MAX = 140;
 
@@ -292,6 +310,7 @@ export const noticesTab: TabSpec<Notice, Rec> = {
     // "unchanged"; the link is not a workbook column. Alert pointers are untouched.
     n.public_token_hash = null;
     n.public_token_created_at = null;
+    if (existing) await closeStaleAlerts(n, m);
     const saved = await m.save(Notice, n);
     // ...and every personal link on it. By notice id, not the recipients tab's
     // rows: a recipient whose person is not exportable is never loaded there,
@@ -310,6 +329,9 @@ export const noticesTab: TabSpec<Notice, Rec> = {
     // does). By notice id, not by the child tabs' rows: a recipient whose
     // person is not exportable is never loaded there, yet still holds the FK.
     const where = { tenant_id: entity.tenant_id, notice_id: entity.id };
+    entity.important = false;
+    entity.sms_status = NoticeSmsStatus.NONE;
+    await closeStaleAlerts(entity, m);
     await m.delete(NoticeAttachment, where);
     await m.delete(NoticeRecipient, where);
     await m.remove(Notice, entity);
