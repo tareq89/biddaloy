@@ -113,6 +113,17 @@ describe('guardiansTab (integration)', () => {
       expect(saved.user_id).toBe(user.id);
     });
 
+    it('a linked guardian row takes the login contact, not the sheet (#2495)', async () => {
+      const user = await makeUser({ email: 'login@guardians-a.test', phone: '01733333333' });
+      const row = rowFor({ user_id: user.id, phone: '01744444444', email: null });
+
+      const created = await guardiansTab.upsert(row, null, TENANT_A, dataSource.manager);
+
+      const saved = await guardianRepo.findOneByOrFail({ id: created.id });
+      expect(saved.phone).toBe('01733333333');
+      expect(saved.email).toBe('login@guardians-a.test');
+    });
+
     it('creates a new guardian with no linked user', async () => {
       const row = rowFor({ user_id: null, phone: '01722222222' });
 

@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { Guardian } from '../../../students/entities/guardian.entity';
+import { syncLinkedGuardianContactsFromLogin } from '../../../students/linked-guardian-contacts.util';
 import { fromCell } from '../../codec/cell-format';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { memberKeysById } from './users.tab';
@@ -383,7 +384,13 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // `students` link rows are owned by the future students tab's
     // `guardian_phones` column; never touched here.
 
-    return m.save(Guardian, guardian);
+    const saved = await m.save(Guardian, guardian);
+    // A linked guardian's contact is owned by the login (#2495): the sheet cannot drift it.
+    if (userId) {
+      await syncLinkedGuardianContactsFromLogin(m, userId);
+      return m.findOneOrFail(Guardian, { where: { id: saved.id } });
+    }
+    return saved;
   },
 
   async remove(entity: Guardian, m: EntityManager): Promise<void> {
