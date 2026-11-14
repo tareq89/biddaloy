@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { ALL_TABS } from '../codec/registry';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
+import { softDeletedRowIds } from '../codec/soft-deleted';
 import type { TabSpec } from '../codec/tab-spec';
 import type { ValidatedWorkbook } from './validated-workbook';
 import type { RowError } from '../codec/tab-spec';
@@ -59,6 +60,8 @@ export class DiffService {
         presentNonSchoolTabsHaveRows = true;
       }
 
+      // [#688] A row naming a soft-deleted row of this school is revived by the restore: an update.
+      const revivable = await softDeletedRowIds(tabSpec, validatedTab.rows, tenantId, manager);
       const existingById = new Map<string, any>();
       const existingByKey = new Map<string, any>();
       for (const entity of existing) {
@@ -83,6 +86,11 @@ export class DiffService {
           existingByKey.get(tabSpec.keyOf(row as any));
 
         if (isActive(row) && (!matched || !isActive(matched))) newSeats++;
+        if (!matched && typeof rowId === 'string' && revivable.has(rowId)) {
+          counts.updates++;
+          if (samples.updates.length < SAMPLE_SIZE) samples.updates.push(tabSpec.keyOf(row as any));
+          continue;
+        }
         if (!matched) {
           counts.creates++;
           if (samples.creates.length < SAMPLE_SIZE) samples.creates.push(tabSpec.keyOf(row as any));

@@ -11,6 +11,7 @@ import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { InvitationService } from '../../account-access/invitation.service';
 import { ALL_TABS } from '../codec/registry';
+import { reviveRows, softDeletedRowIds } from '../codec/soft-deleted';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import { joinRequestedUsers } from '../tabs/people/users.tab';
 import type { User } from '../../users/entities/user.entity';
@@ -248,6 +249,10 @@ export class RestoreProcessor extends WorkerHost {
         currentTab = tab.name;
 
         await this.dataSource.transaction(async (m) => {
+          // [#688] Rows an earlier restore removed by soft delete come back when the file names
+          // them again, so they match as existing below instead of inserting a duplicate.
+          const revivable = await softDeletedRowIds(tab, tabResult.rows, tenantId, m);
+          await reviveRows(tab, revivable, tenantId, m);
           const existingEntities = await tab.load(tenantId, m);
           const index = KeyIndex.fromEntities(tab, existingEntities);
           indexes.set(tab.name, index);

@@ -333,6 +333,44 @@ describe('RestoreProcessor (integration)', () => {
     expect(school.name).toBe('Restore Test School A');
   });
 
+  it('[688] a row an earlier restore soft-deleted comes back when the file names it again: no duplicate', async () => {
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    const revivedId = randomUUID();
+    await yearRepo.save(
+      yearRepo.create({
+        id: revivedId,
+        tenant_id: TENANT_A,
+        name: 'Revived Year',
+        start_date: new Date(2019, 0, 1),
+        end_date: new Date(2019, 11, 31),
+        is_current: false,
+      }),
+    );
+    await yearRepo.softDelete({ id: revivedId, tenant_id: TENANT_A });
+
+    const buffer = await buildWorkbook({
+      school: { id: TENANT_A, name: 'Restore Test School A' },
+      years: [
+        {
+          id: revivedId,
+          name: 'Revived Year',
+          start: '2019-01-01',
+          end: '2019-12-31',
+          is_current: false,
+        },
+      ],
+    });
+    const job = await setupRestoreJob(TENANT_A, buffer);
+    await processor.process(fakeJob(job.id));
+
+    const finished = await dataSource
+      .getRepository(WorkbookJob)
+      .findOneOrFail({ where: { id: job.id } });
+    expect(finished.status).toBe(WorkbookJobStatus.DONE);
+    const rows = await yearRepo.find({ where: { tenant_id: TENANT_A, name: 'Revived Year' } });
+    expect(rows.map((r) => r.id)).toEqual([revivedId]); // the same row, alive, once
+  });
+
   it('never lets a workbook whose ids belong to tenant B change anything in tenant B', async () => {
     const otherTenantYearId = randomUUID();
     await dataSource.getRepository(AcademicYear).save(
