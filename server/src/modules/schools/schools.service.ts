@@ -426,6 +426,8 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
     isPlatformAdmin = false,
+    /** Runs inside the settings transaction, so its writes commit or roll back with the update. */
+    inTransaction?: (manager: EntityManager) => Promise<void>,
   ): Promise<Record<string, unknown>> {
     // [33.3.1] `organisationRenames` rides alongside the PATCH as a write
     // instruction, not a stored setting — pulled out of the plain patch
@@ -537,6 +539,7 @@ export class SchoolsService {
         (modulesPatch !== undefined || labelsPatch !== undefined) &&
         Object.keys(plainPatch).every((k) => k === 'version')
       ) {
+        await inTransaction?.(manager);
         return school.settings;
       }
 
@@ -571,6 +574,7 @@ export class SchoolsService {
         manager,
       );
 
+      await inTransaction?.(manager);
       return school.settings;
     });
 

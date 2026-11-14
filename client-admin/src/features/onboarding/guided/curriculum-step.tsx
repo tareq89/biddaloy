@@ -48,10 +48,13 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
     INSTITUTION_KINDS.find((k) => packId && k.matchesPresetIds.includes(packId))?.id ?? null;
   const kindId = chosenKind !== undefined ? chosenKind : (appliedKind ?? suggested);
 
-  async function next() {
-    // A kind that is only suggested by a pack that is not applied yet is not applied by a skip.
-    const explicit = chosenKind != null || status.data?.state === 'APPLIED';
-    if (kindId && explicit && kindId !== appliedKind && kindId !== failedKind) {
+  // A kind that is only suggested by a pack that is not applied yet is not applied by a skip.
+  const explicit = chosenKind != null || status.data?.state === 'APPLIED';
+  const pendingKind = !!kindId && explicit && kindId !== appliedKind && kindId !== failedKind;
+
+  /** Applies the picked kind once; false when it failed (the error stays on screen). */
+  async function applyPicked(): Promise<boolean> {
+    if (kindId && pendingKind) {
       try {
         await applyKind.mutateAsync(kindId);
         setAppliedKind(kindId);
@@ -63,10 +66,14 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
       } catch {
         // Rule 25: never retried. The error stays on screen; the next click moves on.
         setFailedKind(kindId);
-        return;
+        return false;
       }
     }
-    onNext();
+    return true;
+  }
+
+  async function next() {
+    if (await applyPicked()) onNext();
   }
 
   const wizardOpen = !!schoolId && !!status.data && status.data.state === 'AVAILABLE';
@@ -101,8 +108,12 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
         loading={kinds.isPending}
         error={kinds.isError}
         onRetry={() => void kinds.refetch()}
+        disabled={applyKind.isPending}
         selectedId={kindId ?? undefined}
-        onSelect={(id) => setChosenKind(id === kindId ? null : id)}
+        onSelect={(id) => {
+          if (applyKind.isPending) return;
+          setChosenKind(id === kindId ? null : id);
+        }}
         title={t('guided.curriculum.kind.title')}
         intro={t('guided.curriculum.kind.intro')}
       />
@@ -110,7 +121,7 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
         type="button"
         variant="ghost"
         className="self-start"
-        disabled={!kindId}
+        disabled={!kindId || applyKind.isPending}
         onClick={() => setChosenKind(null)}
       >
         {t('guided.curriculum.kind.skip')}
@@ -127,11 +138,23 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
           </Link>
         </p>
       )}
-      {/* The preset flow has its own Next / Apply: ours stays a quiet skip until it is applied. */}
+      {/* The preset flow has its own Next / Apply: ours stays a quiet skip until it is applied.
+          Skip never changes settings; picking a kind has its own labelled apply action. */}
+      {wizardOpen && pendingKind && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="self-start"
+          disabled={applyKind.isPending}
+          onClick={() => void applyPicked()}
+        >
+          {t('guided.curriculum.kind.apply')}
+        </Button>
+      )}
       {wizardOpen ? (
         <StepNav
           onBack={onBack}
-          onPrimary={() => void next()}
+          onPrimary={onNext}
           busy={applyKind.isPending}
           quiet
           primaryLabel={t('guided.curriculum.skip')}

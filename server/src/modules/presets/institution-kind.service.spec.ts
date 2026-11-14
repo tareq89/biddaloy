@@ -7,6 +7,7 @@ import {
 } from '../schools/settings/modules-settings.validator';
 import { InstitutionKindService, UNKNOWN_KIND } from './institution-kind.service';
 
+const MANAGER = { tx: true };
 const CTX = { ip: null, userAgent: null };
 
 /** Fake school: one stored modules/labels block; updateSettings deep-merges like the real one. */
@@ -15,13 +16,23 @@ function make(modules: Record<string, unknown> = {}, labels: Record<string, unkn
   const schools = {
     getSchoolModules: vi.fn(async () => stored.modules),
     getSchoolLabels: vi.fn(async () => stored.labels),
-    updateSettings: vi.fn(async (_t: string, patch: any) => {
-      for (const [k, v] of Object.entries<any>(patch.modules ?? {})) {
-        stored.modules[k] = { ...(stored.modules[k] as object), ...v };
-      }
-      Object.assign(stored.labels, patch.labels ?? {});
-      return {};
-    }),
+    updateSettings: vi.fn(
+      async (
+        _t: string,
+        patch: any,
+        _u: string,
+        _c: unknown,
+        _p: boolean,
+        inTx?: (m: unknown) => Promise<void>,
+      ) => {
+        for (const [k, v] of Object.entries<any>(patch.modules ?? {})) {
+          stored.modules[k] = { ...(stored.modules[k] as object), ...v };
+        }
+        Object.assign(stored.labels, patch.labels ?? {});
+        await inTx?.(MANAGER);
+        return {};
+      },
+    ),
   };
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
   return {
@@ -89,6 +100,7 @@ describe('InstitutionKindService', () => {
     expect(row.action).toBe(AuditAction.INSTITUTION_KIND_APPLIED);
     expect(row.tenant_id).toBe('t1');
     expect(row.new_values.kind).toBe('coaching');
+    expect(audit.record.mock.calls[0][1]).toBe(MANAGER); // same transaction as the settings write
     expect(row.old_values.modules.fines).toEqual({ on: true });
     expect(row.new_values.modules.fines).toEqual({ on: false });
   });
@@ -100,5 +112,11 @@ describe('InstitutionKindService', () => {
     expect(second).toEqual({ modules: [], labels: [] });
     expect(schools.updateSettings).toHaveBeenCalledTimes(1);
     expect(audit.record).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failing kind audit fails the apply (inside the settings transaction, so it rolls back)', async () => {
+    const { svc, audit } = make();
+    audit.record.mockRejectedValueOnce(new Error('audit down'));
+    await expect(svc.apply('t1', 'u1', 'coaching', CTX)).rejects.toThrow('audit down');
   });
 });

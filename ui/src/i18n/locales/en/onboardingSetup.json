@@ -50,6 +50,7 @@
         "title": "Institution kind",
         "intro": "Optional. Pick the kind that fits your institution. We turn on the modules and words that suit it. You can change this later in Settings.",
         "skip": "Leave as it is",
+        "apply": "Apply this kind",
         "applyError": "Could not set the institution kind. Nothing was changed. You can do it later in",
         "applyErrorLink": "Settings › Modules & words"
       }

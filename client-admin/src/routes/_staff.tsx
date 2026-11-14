@@ -169,7 +169,9 @@ function StaffLayout() {
   const moduleState = useModuleResolver();
   const isModuleOn = (def: StaffNavItemDef) =>
     def.module === undefined || moduleState(def.module).on;
-  const leafModule = leafRouteId ? routeModule(leafRouteId) : undefined;
+  const leafModule = leafRouteId
+    ? routeModule(leafRouteId, matches[matches.length - 1]?.search as { tab?: unknown })
+    : undefined;
   const leafModuleState = leafModule ? moduleState(leafModule) : undefined;
   const onDenied = () => void navigate({ to: '/' });
   const isAuditLogsRoute = leafRouteId === '/_staff/audit-logs/';

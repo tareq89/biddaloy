@@ -323,7 +323,16 @@ const ROUTE_MODULE_PREFIXES: readonly (readonly [string, ModuleKey])[] = [
   ['/_staff/website', ModuleKey.website],
 ];
 
-export function routeModule(routeId: string): ModuleKey | undefined {
+/**
+ * The syllabus host route holds three tabs: Topics needs `syllabus`, Plans and Library
+ * need `studyPlans` (they do not depend on `syllabus`, so a school can have only one on).
+ */
+const SYLLABUS_HOST = '/_staff/academics/syllabus/';
+
+export function routeModule(routeId: string, search?: { tab?: unknown }): ModuleKey | undefined {
+  if (routeId === SYLLABUS_HOST && (search?.tab === 'plans' || search?.tab === 'library')) {
+    return ModuleKey.studyPlans;
+  }
   return ROUTE_MODULE_PREFIXES.find(
     ([prefix]) =>
       routeId === prefix ||
