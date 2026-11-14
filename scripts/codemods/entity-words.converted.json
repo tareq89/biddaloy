@@ -47,8 +47,10 @@
     "printEditor",
     "printHistory",
     "printPreview",
+    "printTemplates",
     "programs",
     "promotions",
+    "reportDesigner",
     "reports",
     "routines",
     "seatPlans",
@@ -61,7 +63,11 @@
     "students",
     "studyPlans",
     "syllabus",
-    "trial"
+    "trial",
+    "website"
   ],
-  "allow": {}
+  "allow": {
+    "en:website:pages.section": "a website BLOCK (page section), not a class section",
+    "en:website:pages.sections": "a website BLOCK (page section), not a class section"
+  }
 }
