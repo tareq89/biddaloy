@@ -102,6 +102,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/settings?section=backup': '/_staff/settings',
   '/settings?section=billing': '/_staff/settings',
   '/settings?section=billing&buy=1': '/_staff/settings',
+  '/settings?section=communication&smsBuy=1': '/_staff/settings',
+  '/settings?section=billing&buy=1&coupon=1': '/_staff/settings',
   '/settings?section=academics&devices=new': '/_staff/settings',
   '/students?openPerformance=1': '/_staff/students/',
   '/fees/fines?logFine=1': '/_staff/fees/fines/',
@@ -571,6 +573,35 @@ describe('action-registry.ts', () => {
     });
   });
 
+  describe('[100.4.05] SMS package and coupon actions', () => {
+    const cases = [
+      [
+        'sms-bundle.buy',
+        'SMS',
+        'Buy SMS package',
+        'SMS প্যাকেজ কিনুন',
+        '/settings?section=communication&smsBuy=1',
+      ],
+      [
+        'billing.coupon',
+        'coupon',
+        'Use coupon',
+        'কুপন ব্যবহার করুন',
+        '/settings?section=billing&buy=1&coupon=1',
+      ],
+    ] as const;
+    it.each(cases)('%s: labels, permission, url, search "%s"', (id, term, en, bn, url) => {
+      const action = ACTIONS.find((a) => a.id === id);
+      expect(action?.label).toEqual({ en, bn });
+      expect(action?.permission).toBe(Permission.SETTINGS_MANAGE);
+      expect(action?.kind).toBe('modal');
+      let to = '';
+      action!.run({ navigate: (o) => (to = o.to) });
+      expect(to).toBe(url);
+      const hits = ACTIONS.filter((x) => x.label.en.toLowerCase().includes(term.toLowerCase()));
+      expect(hits.map((x) => x.id)).toContain(id);
+    });
+  });
   describe('registered actions stay disjoint from UNREGISTERED_ACTIONS', () => {
     const unregisteredFiles = new Set(UNREGISTERED_ACTIONS.map((entry) => entry.file));
 
