@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
 import { BD_PHONE_REGEX } from '../../students/dto/students.dto';
@@ -5,6 +6,7 @@ import {
   IsEmail,
   IsIn,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -54,6 +56,20 @@ export class SubmitApplicantDto {
   @IsString()
   @MaxLength(500)
   home_address?: string;
+
+  /** Values for the round's ticked catalogue fields (multipart sends it as a JSON string). */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  })
+  @IsObject()
+  @ApiProperty({ required: false, type: Object })
+  extra_fields?: Record<string, unknown>;
 
   @ApiProperty({ description: 'Cloudflare Turnstile token.' })
   @IsString()
