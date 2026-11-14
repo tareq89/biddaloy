@@ -10,17 +10,17 @@ export interface GatewayPayment {
 }
 
 /**
- * Credentials for one merchant. Billing passes `baseUrl` from operator env; a school passes
- * `environment` and the host comes only from `bkash-hosts.ts` (D14). `cacheKey` scopes the token cache (D15).
+ * Credentials for one merchant. Billing passes no creds (operator env); a school passes
+ * `environment` and the host comes only from `bkash-hosts.ts` (D14). `tenantId` scopes the token cache (D15).
  */
 export interface GatewayCreds {
   environment?: string;
-  baseUrl?: string;
   appKey: string;
   appSecret: string;
   username: string;
   password: string;
-  cacheKey: string;
+  /** The cache key is built inside the client from this, never passed in (D15). */
+  tenantId: string;
 }
 
 export interface CreatePaymentInput {
