@@ -187,6 +187,11 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'public_holiday_sets',
   'wallet_transactions',
   'student_wallets',
+  // [3.1.99] submissions FK payments, student_fees, students and users; bills/files/events FK them.
+  'payment_submission_events',
+  'payment_submission_files',
+  'payment_submission_bills',
+  'payment_submissions',
   'payment_allocations',
   'invoice_share_tokens',
   'invoices',
