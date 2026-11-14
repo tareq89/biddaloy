@@ -1,0 +1,52 @@
+{
+  "title": "SMS bought",
+  "record": "Record SMS bought",
+  "recent": "Recent purchases",
+  "averageCost": "Average cost per SMS",
+  "averageCostNone": "Nothing recorded yet",
+  "averageCostNote": "Worked out from the list below",
+  "loadError": "Could not load the SMS purchases. Try again.",
+  "retry": "Try again",
+  "empty": {
+    "title": "Nothing recorded yet",
+    "description": "When you buy SMS from the SMS company, write it down here."
+  },
+  "dialog": {
+    "title": "Record SMS bought",
+    "description": "Write down what you bought from the SMS company.",
+    "date": "Date",
+    "smsCount": "Number of SMS",
+    "cost": "Cost (Tk)",
+    "note": "Note (optional)",
+    "balance": "SMS the company shows now (optional)",
+    "balanceHelp": "The number you see on the company's dashboard.",
+    "save": "Save",
+    "saved": "Saved.",
+    "errors": {
+      "date": "Enter a date.",
+      "smsCount": "Enter a whole number above 0.",
+      "cost": "The cost must be above 0.",
+      "balance": "Enter a whole number.",
+      "generic": "Could not save. Try again."
+    }
+  },
+  "list": {
+    "caption": "Recent purchases",
+    "date": "Date",
+    "smsCount": "SMS",
+    "cost": "Cost",
+    "note": "Note",
+    "delete": "Delete"
+  },
+  "delete": {
+    "title": "Delete this entry?",
+    "description": "Write why you are deleting it. You will then be asked for your code.",
+    "reason": "Reason",
+    "reasonLength": "Write at least 5 characters.",
+    "confirm": "Delete",
+    "done": "Entry deleted.",
+    "errors": {
+      "generic": "Could not delete. Try again."
+    }
+  }
+}
