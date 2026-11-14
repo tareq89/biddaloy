@@ -21,7 +21,7 @@ import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.int
 import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { ApprovalService } from '../auth/guards/approval.guard';
-import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
+import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   GrantSeatsDto,
@@ -40,7 +40,9 @@ import { RefundService } from './refund.service';
 @ApiTags('platform')
 @ApiBearerAuth('bearer')
 @Controller('platform/billing')
-@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
+// PlatformAdminGuard, not PlatformAccessGuard: same cockpit-only check, and it also stamps
+// platformScopeTenantId, which the refund routes' ApprovalService.consume needs for the token's tid.
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAdminGuard)
 export class PlatformBillingController {
   constructor(
     private readonly service: PlatformBillingService,

@@ -5,10 +5,11 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import type Redis from 'ioredis';
-import { UserRole } from '@biddaloy/shared';
+import { ApprovalScope, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { OTP_REDIS } from '../account-access/otp.service';
-import { ApprovalGuard } from '../auth/guards/approval.guard';
+import { StepUpService } from '../auth/step-up.service';
+import { PlatformHomeService } from '../platform-identity/platform-home.service';
 import { BkashClient, paisaToBdt } from './bkash/bkash.client';
 import { PAYMENT_KEY } from './bkash/bkash.service';
 import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
@@ -22,9 +23,9 @@ const API = '/api/v1';
  * [Epic 100 #3875] The money paths of Wave 3 end to end over HTTP: the last coupon use, a double
  * bKash callback, a 100 percent coupon, a refund (and what it keeps), and a plan change.
  *
- * Two stand-ins, both on purpose: bKash itself (`BkashClient`, no network) and the step-up
- * `ApprovalGuard` (its own 403 is pinned in platform-billing.controller.e2e-spec.ts; here it
- * would only be an OTP round trip in front of the refund we want to see run).
+ * One stand-in, on purpose: bKash itself (`BkashClient`, no network). The refund consumes a real
+ * single-use step-up token (PLATFORM_REFUND), minted by the service: the authenticator route is
+ * one code per 30 s, so a test needing several tokens cannot go through it each time.
  */
 describe('cockpit money E2E (#3875)', () => {
   let app: INestApplication;
@@ -61,6 +62,32 @@ describe('cockpit money E2E (#3875)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .set('Idempotency-Key', key)
       .send(body);
+  /** A fresh single-use step-up token of the owner for `scope`. */
+  const stepUp = async (scope: ApprovalScope) => {
+    const ownerId = JSON.parse(Buffer.from(ownerToken.split('.')[1], 'base64url').toString()).sub;
+    const home = (await app.get(PlatformHomeService).id()) as string;
+    return (await app.get(StepUpService).issueForPlatformAdmin(ownerId, scope, home))
+      .approval_token;
+  };
+  /** The owner posts with a step-up token for `scope`; `status` is asserted. */
+  const approved = async (
+    scope: ApprovalScope,
+    path: string,
+    body: object,
+    status: number,
+    key = randomUUID(),
+  ) =>
+    owner(path, body, key)
+      .set('X-Approval-Token', await stepUp(scope))
+      .expect(status);
+  const refund = (id: string, reason: string, status: number, key?: string) =>
+    approved(
+      ApprovalScope.PLATFORM_REFUND,
+      `/billing/orders/${id}/refund`,
+      { reason },
+      status,
+      key,
+    );
   const order = async (id: string) =>
     (
       await ds.query(
@@ -86,8 +113,6 @@ describe('cockpit money E2E (#3875)', () => {
     const fixture = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(BkashClient)
       .useValue(bkash)
-      .overrideGuard(ApprovalGuard)
-      .useValue({ canActivate: () => true })
       .compile();
     app = fixture.createNestApplication();
     configureApiVersioning(app);
@@ -119,6 +144,7 @@ describe('cockpit money E2E (#3875)', () => {
           .expect(200)
       ).body.access_token;
     }
+    await app.get(PlatformHomeService).ensure(); // the step-up token's tenant
     ownerToken = await mintCockpitToken(app, ds);
   }, 90_000);
 
@@ -175,10 +201,8 @@ describe('cockpit money E2E (#3875)', () => {
     expect(bkash.execute).not.toHaveBeenCalled();
 
     // Owner decision: a zero-price order has nothing to pay back.
-    const refund = await owner(`/billing/orders/${res.body.id}/refund`, {
-      reason: 'Trying to refund a free order',
-    }).expect(409);
-    expect(refund.body.details).toEqual({ code: 'ORDER_NOT_REFUNDABLE' });
+    const refused = await refund(res.body.id, 'Trying to refund a free order', 409);
+    expect(refused.body.details).toEqual({ code: 'ORDER_NOT_REFUNDABLE' });
     expect((await order(res.body.id)).status).toBe('PAID');
   });
 
@@ -239,26 +263,12 @@ describe('cockpit money E2E (#3875)', () => {
       .expect(403);
 
     const key = randomUUID();
-    const refunded = await owner(
-      `/billing/orders/${id}/refund`,
-      { reason: 'Paid twice by mistake' },
-      key,
-    ).expect(200);
+    const refunded = await refund(id, 'Paid twice by mistake', 200, key);
     expect(refunded.body).toMatchObject({ applied: true, order_id: id, gateway_ref: trxID });
     expect((await order(id)).status).toBe('REFUNDED');
     // Same key: the same answer. New key: nothing more happens.
-    expect(
-      (
-        await owner(
-          `/billing/orders/${id}/refund`,
-          { reason: 'Paid twice by mistake' },
-          key,
-        ).expect(200)
-      ).body.applied,
-    ).toBe(true);
-    const again = await owner(`/billing/orders/${id}/refund`, {
-      reason: 'Paid twice by mistake',
-    }).expect(200);
+    expect((await refund(id, 'Paid twice by mistake', 200, key)).body.applied).toBe(true);
+    const again = await refund(id, 'Paid twice by mistake', 200);
     expect(again.body.applied).toBe(false);
     await redis.del(`bkash:pid:${paymentID}`, PAYMENT_KEY(id));
   });
@@ -273,9 +283,7 @@ describe('cockpit money E2E (#3875)', () => {
       reference: `E2E${randomUUID().slice(0, 8)}`,
       idempotency_key: randomUUID(),
     }).expect(200);
-    await owner(`/billing/orders/${created.body.id}/refund`, {
-      reason: 'Customer changed their mind',
-    }).expect(200);
+    await refund(created.body.id, 'Customer changed their mind', 200);
     expect((await order(created.body.id)).status).toBe('REFUNDED');
     expect(await usesCount(couponId)).toBe(1);
   });
@@ -286,10 +294,12 @@ describe('cockpit money E2E (#3875)', () => {
       [`E2E Plus ${randomUUID().slice(0, 6)}`],
     );
     const before = await createOrder(B, { seats: 4, months: 2 }).expect(201);
-    await owner(`/billing/schools/${B.id}/plan`, {
-      plan_id: plus.id,
-      reason: 'Upgraded to Plus',
-    }).expect(200);
+    await approved(
+      ApprovalScope.PLATFORM_PLAN,
+      `/billing/schools/${B.id}/plan`,
+      { plan_id: plus.id, reason: 'Upgraded to Plus' },
+      200,
+    );
     const after = await createOrder(B, { seats: 4, months: 2 }).expect(201);
     expect(await order(before.body.id)).toMatchObject({ unit: 1000, amount: '8000' });
     expect(await order(after.body.id)).toMatchObject({ unit: 1500, amount: '12000' });
