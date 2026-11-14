@@ -52,6 +52,12 @@ import { SmsStockService } from './stock/sms-stock.service';
     SmsExpiryService,
     SmsExpiryScheduler,
   ],
-  exports: [SmsBundleCatalogService, SmsBundleOrdersService, SmsStockService],
+  exports: [
+    SmsBundleCatalogService,
+    SmsBundleOrdersService,
+    SmsStockService,
+    SmsAllocationService,
+    ProviderBalanceReader,
+  ],
 })
 export class SmsBundlesModule {}
