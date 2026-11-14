@@ -56,6 +56,21 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # The seed writes demo files to S3; without this the seed died on
+      # ECONNREFUSED :9000 and Lighthouse never ran (#443). Same service as ci.yml.
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.48
+        env:
+          AWS_ACCESS_KEY_ID: ci-access-key
+          AWS_SECRET_ACCESS_KEY: ci-secret-key
+          S3_BUCKET: biddaloy-ci
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_lighthouse
       REDIS_URL: redis://localhost:6379
@@ -344,6 +359,96 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # [#444] Server coverage thresholds (75% global, 95% auth module, see
+  # server/vitest.config.ts) were never enforced: no CI step ran with
+  # --coverage. One nightly run of every server spec (unit + integration + e2e)
+  # so the merged numbers are the ones the thresholds describe. Nightly, not
+  # PR-blocking, for the same wall-time reason as Lighthouse above.
+  server-coverage:
+    name: Server coverage thresholds
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.48
+        env:
+          AWS_ACCESS_KEY_ID: ci-access-key
+          AWS_SECRET_ACCESS_KEY: ci-secret-key
+          S3_BUCKET: biddaloy-ci
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-integration-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-integration-seed-password-123
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
+      RATE_LIMIT_DEFAULT_LIMIT: '1000'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      # Same lock-table raise as ci.yml's integration job.
+      - name: Raise Postgres lock table
+        env:
+          PG: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$PG" psql -U postgres -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
+          docker restart "$PG"
+          for _ in $(seq 60); do
+            docker exec "$PG" pg_isready -U postgres && exit 0
+            sleep 1
+          done
+          echo "postgres did not come back after ALTER SYSTEM" >&2
+          exit 1
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Build site-themes package
+        run: yarn build:site-themes
+
+      - name: Server tests with coverage
+        run: yarn workspace @biddaloy/server test:cov --exclude 'src/scripts/demo-seed/**'
+
   # [#759] Sticky-issue failure visibility — see
   # scripts/nightly-sticky-issue.sh's header. This workflow declares
   # `workflow_call` (nothing calls it that way yet, but the trigger makes
@@ -351,7 +456,7 @@ jobs:
   # so it stays correct whatever triggers the run.
   report:
     name: Report nightly status
-    needs: [lighthouse, site-themes, site-budget, landing-budget]
+    needs: [lighthouse, site-themes, site-budget, landing-budget, server-coverage]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -365,7 +470,7 @@ jobs:
       - name: Determine status
         id: status
         run: |
-          if [ "${{ needs.lighthouse.result }}" = "success" ] && [ "${{ needs.site-themes.result }}" = "success" ] \
+          if [ "${{ needs.lighthouse.result }}" = "success" ] && [ "${{ needs.site-themes.result }}" = "success" ] && [ "${{ needs.server-coverage.result }}" = "success" ] \
              && { [ "${{ needs.site-budget.result }}" = "success" ] || [ "${{ needs.site-budget.result }}" = "skipped" ]; } \
              && { [ "${{ needs.landing-budget.result }}" = "success" ] || [ "${{ needs.landing-budget.result }}" = "skipped" ]; }; then
             echo "status=success" >> "$GITHUB_OUTPUT"

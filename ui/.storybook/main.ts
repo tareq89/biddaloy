@@ -15,14 +15,29 @@ import { fileURLToPath } from 'node:url';
 import type { StorybookConfig } from '@storybook/react-vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { mergeConfig } from 'vite';
+import { mergeConfig, type Plugin } from 'vite';
 
 // `main.ts` is loaded as ESM from Storybook 9 on, so CJS `__dirname` is not
 // available here.
 const configDir = dirname(fileURLToPath(import.meta.url));
 
+// `@/` means `ui/src` for ui stories but `client-admin/src` for client-admin
+// ones (#931). One global alias cannot serve both, so resolve it by importer.
+const clientAdminSrc = resolve(configDir, '../../client-admin/src');
+const clientAdminAlias = (): Plugin => ({
+  name: 'client-admin-at-alias',
+  enforce: 'pre',
+  resolveId(source, importer, options) {
+    if (!source.startsWith('@/') || !importer?.startsWith(clientAdminSrc)) return null;
+    return this.resolve(resolve(clientAdminSrc, source.slice(2)), importer, {
+      ...options,
+      skipSelf: true,
+    });
+  },
+});
+
 const config: StorybookConfig = {
-  stories: ['../src/**/*.stories.@(ts|tsx)'],
+  stories: ['../src/**/*.stories.@(ts|tsx)', '../../client-admin/src/**/*.stories.@(ts|tsx)'],
   addons: ['@storybook/addon-a11y', '@storybook/addon-docs', 'msw-storybook-addon'],
   framework: {
     name: '@storybook/react-vite',
@@ -37,7 +52,7 @@ const config: StorybookConfig = {
   staticDirs: ['./public'],
   async viteFinal(viteConfig) {
     return mergeConfig(viteConfig, {
-      plugins: [react(), tailwindcss()],
+      plugins: [clientAdminAlias(), react(), tailwindcss()],
       resolve: {
         alias: {
           '@': resolve(configDir, '../src'),
