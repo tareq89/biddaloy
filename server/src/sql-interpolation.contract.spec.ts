@@ -48,6 +48,27 @@ const JOIN_COND = new RegExp(
 /** Per file (path relative to server/src): the sorted `${...}` expressions that
  * appear in direct query arguments. Audited 2026-10-13: none is request input. */
 const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
+  // [Epic 100] module-level SQL column/select constants and fixed fragments; every value is bound as $n
+  'modules/billing/orders.service.ts': ['ORDER_SELECT', 'ORDER_SELECT'],
+  'modules/coupons/coupon-redemption.service.ts': ['COUPON_COLUMNS'],
+  'modules/coupons/coupons.service.ts': ['COLS', 'COLS', 'COLS', 'COLS', 'COLS'],
+  // one of two fixed keyset fragments, cursor values bound as $3/$4
+  'modules/revenue/revenue.service.ts': [
+    "cur ? 'AND (pu.paid_until, sc.id) < ($3::date, $4::uuid)' : ''",
+  ],
+  // SCHOOL_TZ is a code constant ('Asia/Dhaka'); COLS/COST_SQL/SOLD_STATUSES_SQL are module constants and
+  // keyset is one of two fixed fragments with its cursor bound as $2/$3
+  'modules/sms-bundles/expiry/sms-expiry.service.ts': ['SCHOOL_TZ', 'SCHOOL_TZ'],
+  'modules/sms-bundles/orders/sms-bundle-orders.service.ts': ['COLS', 'COLS', 'COLS'],
+  'modules/sms-bundles/report/sms-state-report.service.ts': [
+    'COST_SQL',
+    'COST_SQL',
+    'COST_SQL',
+    'SOLD_STATUSES_SQL',
+    'SOLD_STATUSES_SQL',
+    'SOLD_STATUSES_SQL',
+    'keyset',
+  ],
   // [99.3] IS_WRITE / SELECT_REQUEST are module-level SQL constants; `filter` picks between two fixed
   // fragments built from them; the `approve` ternary yields one of two fixed strings. No request input.
   'modules/support-access/requests/support-requests.service.ts': [

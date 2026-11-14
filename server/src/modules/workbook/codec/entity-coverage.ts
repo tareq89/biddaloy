@@ -37,6 +37,10 @@ import { SmsCreditLotDraw } from '../../communications/credits/entities/sms-cred
 import { SmsBundleCatalog } from '../../sms-bundles/entities/sms-bundle-catalog.entity';
 import { SmsBundleOrder } from '../../sms-bundles/entities/sms-bundle-order.entity';
 import { SmsStockEntry } from '../../sms-bundles/entities/sms-stock-entry.entity';
+import { Coupon } from '../../coupons/entities/coupon.entity';
+import { CouponRedemption } from '../../coupons/entities/coupon-redemption.entity';
+import { CouponSchool } from '../../coupons/entities/coupon-school.entity';
+import { Plan } from '../../plans/entities/plan.entity';
 import { SmsProviderBalanceReading } from '../../sms-bundles/entities/sms-provider-balance-reading.entity';
 import { DiscountRule } from '../../fees/entities/discount-rule.entity';
 import { FeeGeneration } from '../../fees/entities/fee-generation.entity';
@@ -97,6 +101,10 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     'Platform-owned money (Epic 100): the school pays the platform for SMS, so it never enters the school workbook.',
   ],
   [SmsStockEntry, 'Platform-owned SMS stock cost record (Epic 100), not school data.'],
+  [Plan, 'Platform-owned price plan (Epic 100): no tenant, never enters the school workbook.'],
+  [Coupon, 'Platform-owned discount code (Epic 100): no tenant, never enters the school workbook.'],
+  [CouponSchool, 'Platform-owned coupon-to-school link (Epic 100), not school data.'],
+  [CouponRedemption, 'Platform-owned coupon use record (Epic 100): money the school pays the platform.'],
   [
     SmsProviderBalanceReading,
     'Platform-owned SMS provider balance reading (Epic 100), not school data.',

@@ -1,3 +1,4 @@
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
@@ -50,6 +51,11 @@ describe('SmsBundleOrdersController', () => {
         ContextGuard,
         RolesGuard,
         PermissionsGuard,
+        // No module switch is set, so every module reads as on.
+        {
+          provide: ModuleStateReader,
+          useValue: { forTenant: async () => ({ platform: {}, school: {} }) },
+        },
         {
           provide: TenantStatusService,
           useValue: {

@@ -44,8 +44,6 @@ describe('PlatformBillingController refund routes', () => {
       .useValue(open)
       .overrideGuard(PlatformAccessGuard)
       .useValue(open)
-      .overrideGuard(ApprovalGuard)
-      .useValue(open)
       .overrideInterceptor(IdempotencyInterceptor)
       .useValue({ intercept: (_c: unknown, next: { handle: () => unknown }) => next.handle() })
       .compile();
