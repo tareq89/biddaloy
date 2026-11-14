@@ -1,4 +1,5 @@
 import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { assertNoWaitingSubmissionBills } from './submission-bill-guard';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { autoApply } from './wallet-auto-apply.util';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
@@ -447,6 +448,7 @@ export class FeeGenerationService {
           .orderBy('sf.id', 'ASC')
           .setLock('pessimistic_write')
           .getMany();
+        await assertNoWaitingSubmissionBills(manager, tenantId, bulkExistingIds);
         if (
           removedBillsToReturn.some((b) => Number(b.paid_amount) > 0) ||
           (await manager
