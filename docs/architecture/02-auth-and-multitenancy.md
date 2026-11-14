@@ -355,6 +355,8 @@ only on the caller's own staff profile.
 
 `ContextGuard` trusts the memberships inside the JWT. What makes a removed membership disappear within one request is the session cut-off (`users.tokens_valid_after`, checked in `JwtStrategy`; see [08-security](08-security.md) "Session cut-off").
 
+Clocks: the cut-off (`tokens_valid_after`, Redis fast path) and a token's `iat_ms` both come from the app clock. Both API containers (`app`, `app2`) run on one VM and share that clock, so there is no skew margin. If the API ever spans hosts, keep them on NTP or add a margin to the cut-off. A Redis error while setting the Redis fast path is not silent: the DB cut-off still refuses the token on its next request, and the platform `REDIS_DOWN` alert opens after 3 failed probes.
+
 Which status a refused request gets depends on which guard refuses it:
 
 | Request                                                                                         | Refused by         | Status                                                  |
