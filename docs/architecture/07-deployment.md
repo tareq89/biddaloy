@@ -288,6 +288,7 @@ Refusing to start with unsafe production config:
 - SETTINGS_ENCRYPTION_KEY is required in production
 - APP_BASE_URL is required in production
 - PUBLIC_APP_URL is required in production
+- API_BASE_URL is required in production
 DB_SSL must be "true" in production — refusing to connect to Postgres over an unencrypted connection. Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.
 ```
 

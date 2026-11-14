@@ -566,7 +566,7 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
     problems.push('BILLING_FREE_UNTIL must be an ISO-8601 date with an explicit offset');
   }
 
-  for (const key of ['SETTINGS_ENCRYPTION_KEY', 'APP_BASE_URL', 'PUBLIC_APP_URL']) {
+  for (const key of ['SETTINGS_ENCRYPTION_KEY', 'APP_BASE_URL', 'PUBLIC_APP_URL', 'API_BASE_URL']) {
     if (!str(key)) problems.push(`${key} is required in production`);
   }
 

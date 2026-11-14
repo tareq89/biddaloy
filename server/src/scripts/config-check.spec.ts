@@ -25,6 +25,7 @@ const valid = {
   DB_SSL: 'true',
   APP_BASE_URL: 'https://app.school.org',
   PUBLIC_APP_URL: 'https://app.school.org',
+  API_BASE_URL: 'https://api.school.org',
   // [98 #3737] both cockpit owners are required on production.
   COCKPIT_DOMAIN: 'cockpit.school.org',
   COCKPIT_OWNER_1_EMAIL: 'owner1@school.org',
@@ -97,6 +98,7 @@ describe('runStackConfigCheck', () => {
     APP_VERSION: '0'.repeat(40),
     APP_BASE_URL: 'https://school.example.org',
     PUBLIC_APP_URL: 'https://school.example.org',
+    API_BASE_URL: 'https://api.school.example.org',
     CORS_ORIGINS: 'https://school.example.org',
     POSTGRES_USER: 'app',
     POSTGRES_PASSWORD: 'Zq8vR2mXw4Lp',
@@ -329,6 +331,7 @@ describe('runStackConfigCheck', () => {
       'S3_FORCE_PATH_STYLE',
       'APP_BASE_URL',
       'PUBLIC_APP_URL',
+      'API_BASE_URL',
       'HEALTH_TOKEN',
       'SETTINGS_ENCRYPTION_KEY',
       'SETTINGS_ENCRYPTION_KEY_PREVIOUS',
