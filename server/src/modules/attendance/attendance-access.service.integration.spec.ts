@@ -653,6 +653,24 @@ describe('AttendanceAccessService (integration)', () => {
       expect(subjectTeacherId).toBeTruthy();
     });
 
+    it('FIRST_PERIOD: a substitute with no assignment on the section covers period 1 (#3604)', async () => {
+      const routine = await setup();
+      await setSource('FIRST_PERIOD');
+      const user = await dataSource.getRepository(User).save({
+        email: `unassigned-${Date.now()}-${Math.random()}@test.com`,
+        full_name: 'Unassigned Sub',
+      });
+      const teacher = await dataSource.getRepository(Teacher).save({
+        user_id: user.id,
+        employee_id: `U-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        tenant_id: TENANT_A,
+        designations: [],
+      });
+      expect(await outcome(UserRole.TEACHER, user.id)).toBe('404');
+      await routine!.substitute(0, teacher.id);
+      expect(await outcome(UserRole.TEACHER, user.id)).toBe('PASS');
+    });
+
     it('FIRST_PERIOD with no routine that day: class teacher passes, subject teacher is refused (D2)', async () => {
       await setup({ routine: false });
       await setSource('FIRST_PERIOD');

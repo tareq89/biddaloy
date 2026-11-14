@@ -159,7 +159,19 @@ export class AttendanceAccessService {
     tenantId: string,
     opts: { monthGrid?: boolean } = {},
   ): Promise<{ section: ClassSection; firstPeriodToday: boolean }> {
-    const section = await this.assertCanAccessSection(role, userId, sectionId, tenantId);
+    let section: ClassSection | null = null;
+    try {
+      section = await this.assertCanAccessSection(role, userId, sectionId, tenantId);
+    } catch (err) {
+      // A FIRST_PERIOD substitute with no assignment on the section still reaches the
+      // first-period rule below; anyone else keeps the original refusal (#3604).
+      if (!isAccessMiss(err) || role !== UserRole.TEACHER) throw err;
+      const covered = await this.evaluateDayWrite(role, userId, sectionId, date, tenantId, opts);
+      section = covered.firstPeriodToday
+        ? await this.sectionRepo.findOne({ where: { id: sectionId, tenant_id: tenantId } })
+        : null;
+      if (!section) throw err;
+    }
     const r = await this.evaluateDayWrite(role, userId, sectionId, date, tenantId, opts);
     if (!r.canWrite) {
       throw new ForbiddenException({
