@@ -242,6 +242,44 @@ flowchart LR
 | The email could not attach a file.                                  | The ticket's "email with attachment" was not possible through `AdminNoticeService`. | The email carries a link; the download route is authenticated.                                | Send links to authenticated downloads, not files.                                                              |
 | Orders are paid from two places (bKash, offline).                   | A receipt hook in each caller would drift.                                          | The number and the email hook sit in `OrdersService.markPaid`, the one place both go through. | Hook money side effects in the service that writes the money, not its callers.                                 |
 
+## SMS packages (Epic 100 W2)
+
+A metered school buys SMS in **packages**. The money path is the same as seats: an order, a bKash
+payment, one callback. Code: `server/src/modules/sms-bundles/`. API e2e:
+`sms-bundles/sms-bundles.e2e-spec.ts` (gateway stubbed, everything behind it real).
+
+```mermaid
+flowchart LR
+    A[POST /sms-bundles/orders<br/>order PENDING_PAYMENT] --> B[POST .../pay/bkash<br/>checkout URL]
+    B --> C[bKash page]
+    C --> D[GET /billing/bkash/callback]
+    D -->|Completed, same amount| E[order PAID, one lot, order ACTIVE]
+    D -->|order no longer waiting| F[orphan payment row<br/>refund_due alert]
+    E --> G[each SMS sent: DEBIT from the lot]
+    E --> H[daily job after validity: EXPIRE what is left]
+    D -->|302| I["SMS page: smsBuy=1, order, payment"]
+```
+
+- The order must be for a school on **SchoolManagerP** SMS (`sms.source`). A school on its own
+  provider gets `409 SMS_SOURCE_NOT_PLATFORM` and the screen offers the switch.
+- **Oversold** (promised unused SMS is above the provider stock) refuses a new buy and a new
+  payment (`409 SMS_SALES_PAUSED`). It never stops a send, and money already taken is never
+  refused. An unknown provider balance is not oversold.
+- Seat orders return to `/settings?section=billing`, package orders to the SMS page
+  (`returnUrl(orderId, outcome, kind)`).
+- A callback for a Completed payment whose order is **not PENDING any more** (cancelled by the
+  24 h sweep, then paid) records an orphan `platform_payments` row, from the latest paymentID too.
+  A replay of the payment that already paid the order records nothing (checked by trxID).
+
+### Learning (Epic 100 W2)
+
+| What went wrong | Cost | Fix |
+|---|---|---|
+| The callback returned early for the latest paymentID on a non-PENDING order, so a package paid after the order was cancelled left no trace (#3858). | Money taken, no row, no refund alert. | Record the orphan before returning; skip it only when the trxID already has a row. |
+| The callback sent package orders to the billing page. | The buyer never saw the SMS page. | `kind` travels with the callback result. |
+| A spec replaced `ds.query` and dropped the 3rd argument (the transaction's query runner), so `reserve` waited on its own row lock (#4130). | A test hung for 30 s; production was fine. | Shims forward every argument. |
+| The test harness clears tables between tests. | A flow split across `it`s lost its order. | The flow e2e is one test with named steps. |
+
 ## Not done here
 
 - **IPN / webhook**: tokenized checkout settles through the callback plus the reconciler. If the

@@ -788,3 +788,30 @@ Example: 3 guardians, one unticked, so the message log gets 2 SMS rows, each bod
 - **Guide drift fixed:** the staff guide said the dashboard bar button is "I have read this". The bar button is **Mark as read** (`attention:notice.acknowledge`); "I have read this" is the button on the notice itself (`portalNotices:detail.acknowledge`).
 - **Route snapshot:** `/n/$token` is a client route, not a server route, so `route-status.snapshot.txt` has no line for it. The server side (`/public/notices/:token*`) is already listed, answering PASS for every column.
 - **Not done by an agent:** the screen-reader pass and the usability re-run with real people. See `docs/ux-research/epic-53-notices.md`.
+
+## SMS source and packages (Epic 100)
+
+Who provides a school's SMS is one setting, `communications.sms.source`. It is written only by
+`SmsSourceService.set` (`PUT /communications/sms-source`), which sets `metering` with it.
+
+```mermaid
+flowchart LR
+    OWN[source OWN<br/>metering OFF<br/>own provider keys] -- PUT SCHOOLMANAGERP --> SMP[source SCHOOLMANAGERP<br/>metering PLATFORM<br/>credit from lots]
+    SMP -- PUT OWN --> OWN
+    SMP --> B[buy a package<br/>see 38-billing.md]
+    B --> L[lot: units, expiry date]
+    L --> R[reserve before a send]
+    R --> S[DEBIT when the SMS goes<br/>RELEASE when it does not]
+    L --> X[daily job: EXPIRE what is left<br/>after the validity ends]
+```
+
+- Switching back to OWN keeps every company block, so the own provider works again at once.
+- A reservation draws from lots (earliest expiry first); the lock order is the balance row, then
+  the lots. Code that issues SQL for a reservation must use the transaction's own connection.
+- Low credit (`sms.low`, `sms.expiring`) is a school notice; low provider stock and oversold
+  (`platform.sms.stock_low`, `platform.sms.oversold`) are owner notices on the platform school.
+
+**What went wrong:** a test shim for `ds.query` dropped the query-runner argument, so the lot
+update ran on another connection and waited for a lock its own transaction held. Production code
+was correct; the fix was in the spec (#4130).
+
