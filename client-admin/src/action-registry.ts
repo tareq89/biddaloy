@@ -1104,6 +1104,23 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings?section=billing&buy=1' }),
   },
+  // [100.4.05] Epic 100. Both open dialogs on /settings (params declared in 100.4.02 / 100.4.03).
+  {
+    id: 'sms-bundle.buy',
+    label: { en: 'Buy SMS package', bn: 'SMS প্যাকেজ কিনুন' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=communication&smsBuy=1' }),
+  },
+  {
+    id: 'billing.coupon',
+    label: { en: 'Use coupon', bn: 'কুপন ব্যবহার করুন' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=billing&buy=1&coupon=1' }),
+  },
   {
     id: 'settings.attendanceDevices.add',
     label: { en: 'Add attendance machine', bn: 'হাজিরা মেশিন যোগ করুন' },
