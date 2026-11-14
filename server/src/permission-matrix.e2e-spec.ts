@@ -710,6 +710,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [10.4] G17 — no route deletes a user account; SUPER_ADMIN-only via
   // Object.values(Permission), never granted to a staff role.
   Permission.USER_DELETE,
+  // [3.1.99] Epic 3.0: PAYMENT_SUBMIT lands ahead of the guardian payment routes (W2, #3973); that
+  // ticket removes it from this list when the first route requires it.
+  Permission.PAYMENT_SUBMIT,
   // [53.1.01] NOTICE_MANAGE is read in code (`canManage`: see and edit anyone's notice), never a
   // route gate. [53.5.01] NOTICE_SMS_APPROVE now gates the four `/notices/:id/sms*` routes, so it
   // left this list. `POST /notices/:id/sms/request` is gated by NOTICE_POST.

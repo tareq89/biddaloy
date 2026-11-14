@@ -15,6 +15,7 @@ import type {
   DashboardSettings,
   DocumentsSettings,
   FeesSettings,
+  PaymentsSettings,
   OrganisationSettings,
   RegionSettings,
   RoutineSettings,
@@ -124,6 +125,13 @@ export const DEFAULT_FEES_SETTINGS: FeesSettings = {
   requireSecondApprover: false,
 };
 
+/** [3.1.03] Online payments and payment proof both start off, with no instructions. */
+export const DEFAULT_PAYMENTS_SETTINGS: PaymentsSettings = {
+  onlineEnabled: false,
+  proofEnabled: false,
+  proofMethods: [],
+};
+
 /** [21.1.1] D7 — 5-minute changeover between periods by default; no cap
  * on daily/consecutive periods until a school opts in. */
 export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
@@ -179,6 +187,7 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   auth: DEFAULT_AUTH_SETTINGS,
   backup: DEFAULT_BACKUP_SETTINGS,
   fees: DEFAULT_FEES_SETTINGS,
+  payments: DEFAULT_PAYMENTS_SETTINGS,
   documents: DEFAULT_DOCUMENTS_SETTINGS,
   studyPlans: DEFAULT_STUDY_PLANS_SETTINGS,
   attention: DEFAULT_ATTENTION_SETTINGS,

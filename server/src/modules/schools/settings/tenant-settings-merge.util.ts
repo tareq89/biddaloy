@@ -188,6 +188,12 @@ export function mergeTenantSettings(
     merged.fees = patch.fees;
   }
 
+  // [3.1.03] Per key, `null` removes: omitted bKash credentials stay, `null` clears one. The
+  // arrays (`proofMethods`) are replaced whole. `lastTestOkAt` rules live in `updateSettings`.
+  if (patch.payments !== undefined) {
+    merged.payments = deepMergeOmittingUnset(current.payments, patch.payments);
+  }
+
   // [28.4.7] Wholesale replace, like `fees`; the DTO validates the one boolean.
   if (patch.evaluations !== undefined) {
     merged.evaluations = patch.evaluations;

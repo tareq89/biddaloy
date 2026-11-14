@@ -47,6 +47,10 @@ import { FeeGeneration } from '../../fees/entities/fee-generation.entity';
 import { RecurringSchedule } from '../../fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../../fees/entities/recurring-schedule-structure.entity';
 import { RecurringScheduleExclusion } from '../../fees/entities/recurring-schedule-exclusion.entity';
+import { PaymentSubmission } from '../../payment-submissions/entities/payment-submission.entity';
+import { PaymentSubmissionBill } from '../../payment-submissions/entities/payment-submission-bill.entity';
+import { PaymentSubmissionFile } from '../../payment-submissions/entities/payment-submission-file.entity';
+import { PaymentSubmissionEvent } from '../../payment-submissions/entities/payment-submission-event.entity';
 import { StudentWallet } from '../../fees/entities/student-wallet.entity';
 import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity';
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
@@ -211,6 +215,22 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [SmsCreditLotDraw, 'Tenant-scoped SMS credit lot draw, no tab yet — tracked in #856.'],
   [DiscountRule, 'Tenant-scoped fee discount rule, no tab yet — tracked in #856.'],
   [FeeGeneration, 'Tenant-scoped fee generation run record, no tab yet — tracked in #856.'],
+  [
+    PaymentSubmission,
+    'Tenant-scoped guardian payment submission (Epic 3.0 #291), no tab yet — tracked in #856.',
+  ],
+  [
+    PaymentSubmissionBill,
+    'Tenant-scoped bills of a payment submission (Epic 3.0 #291), no tab yet — tracked in #856.',
+  ],
+  [
+    PaymentSubmissionFile,
+    'Tenant-scoped proof files of a payment submission (Epic 3.0 #291), no tab yet — tracked in #856.',
+  ],
+  [
+    PaymentSubmissionEvent,
+    'Tenant-scoped append-only decision history of a payment submission (Epic 3.0 #291), no tab yet — tracked in #856.',
+  ],
   [RecurringSchedule, 'Tenant-scoped recurring fee schedule, no tab yet — tracked in #856.'],
   [
     RecurringScheduleStructure,

@@ -1,4 +1,10 @@
-import type { ApprovalMode, DailyAttendanceSource, TermLabel } from '../enums';
+import type {
+  ApprovalMode,
+  DailyAttendanceSource,
+  PaymentGatewayEnvironment,
+  PaymentMethod,
+  TermLabel,
+} from '../enums';
 import type { SupportAccessMode } from '../enums/support-access';
 import type { SchoolLabels, SchoolModules } from '../enums/module-key';
 import type { AttentionSettings } from './attention';
@@ -268,6 +274,21 @@ export interface FeesSettings {
   requireSecondApprover?: boolean;
 }
 
+/** `settings.payments` [Epic 3]. The four bKash credentials come back masked, never plain. */
+export interface PaymentsSettings {
+  onlineEnabled: boolean;
+  proofEnabled: boolean;
+  proofMethods: { method: PaymentMethod; instructions: string }[];
+  bkash?: {
+    environment?: PaymentGatewayEnvironment;
+    appKey?: unknown;
+    appSecret?: unknown;
+    username?: unknown;
+    password?: unknown;
+    lastTestOkAt?: string;
+  };
+}
+
 /** Which curriculum preset (Epic 35.0) a tenant applied, and when. */
 export interface PresetSettings {
   id: string;
@@ -357,6 +378,7 @@ export interface TenantSettings {
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;
+  payments?: PaymentsSettings;
   evaluations?: EvaluationsSettings;
   supportAccess?: SupportAccessSettings;
   /** [Epic 77] School module switches (absent = every module on). */

@@ -25,6 +25,10 @@ describe('getSecretPaths', () => {
         'communications.sms.beta.token',
         'communications.whatsapp.solo.accessToken',
         'communications.whatsapp.accessToken',
+        'payments.bkash.appKey',
+        'payments.bkash.appSecret',
+        'payments.bkash.username',
+        'payments.bkash.password',
       ].sort(),
     );
   });
@@ -37,6 +41,8 @@ describe('getSecretPaths', () => {
     expect(paths).not.toContain('communications.whatsapp.solo.phoneNumberId');
     expect(paths).not.toContain('communications.sms.provider');
     expect(paths).not.toContain('version');
+    expect(paths).not.toContain('payments.bkash.lastTestOkAt');
+    expect(paths).not.toContain('payments.bkash.environment');
   });
 
   it('picks up a newly registered provider with no other change', () => {

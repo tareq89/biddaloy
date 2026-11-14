@@ -1,4 +1,5 @@
 import { amountInWordsOrNull } from '@biddaloy/shared';
+import { PaymentOrigin, renderOriginBlockPos } from './invoice-payment-origin';
 import { Invoice } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import {
@@ -59,6 +60,7 @@ export function renderInvoicePosHtml(
   width: PosPrintWidth,
   linkedStudentIds?: string[],
   shareUrl?: string | null,
+  origin?: PaymentOrigin | null,
 ): string {
   const widthMm = WIDTH_MM[width];
   const columns = WIDTH_COLUMNS[width];
@@ -181,6 +183,8 @@ export function renderInvoicePosHtml(
   ${totalsBlock}
 
   <div class="payment-line">${paymentLine}</div>
+
+  ${creditNote ? '' : renderOriginBlockPos(origin, linkedStudentIds === undefined, lineRow)}
 
   ${qrBlock}
 

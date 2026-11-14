@@ -158,7 +158,11 @@ UPDATE schools SET settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(
       #- '{communications,sms,mimsms,apiKey}'
       #- '{communications,whatsapp,accessToken}'
       #- '{communications,email,password}'
-      #- '{communications,messenger,accessToken}',
+      #- '{communications,messenger,accessToken}'
+      #- '{payments,bkash,appKey}'
+      #- '{payments,bkash,appSecret}'
+      #- '{payments,bkash,username}'
+      #- '{payments,bkash,password}',
     '{communications,email,user}', '"scrubbed@staging.invalid"'::jsonb, false),
     '{communications,email,from}', '"scrubbed@staging.invalid"'::jsonb, false),
     '{communications,email,smtp,user}', '"scrubbed@staging.invalid"'::jsonb, false),
@@ -244,6 +248,10 @@ UPDATE leave_records SET reason = NULL;
 UPDATE lesson_deliveries SET note = NULL;
 UPDATE milestone_achievements SET remark = NULL;
 UPDATE payment_allocations SET notes = NULL;
+-- CHK_payment_submissions_reject_note: reject reason OTHER needs a note.
+UPDATE payment_submissions SET reference_raw = NULL, reference_normalised = NULL, discard_reason = NULL,
+  reject_note = CASE WHEN reject_reason = 'OTHER' THEN '[scrubbed]' END;
+UPDATE payment_submission_events SET note = NULL;
 UPDATE payments SET remarks = NULL, reversal_reason = NULL, issuer_snapshot = NULL, transaction_reference = NULL;
 -- CHK_promotion_entries_override_note: an override needs a non-empty note.
 UPDATE promotion_entries SET override_note = CASE WHEN is_override THEN '[scrubbed]' END;

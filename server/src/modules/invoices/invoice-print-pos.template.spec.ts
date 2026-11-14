@@ -84,6 +84,45 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   } as Invoice;
 }
 
+describe('renderInvoicePosHtml "How it was paid" block [3.2.03]', () => {
+  const proof = {
+    source: 'PROOF' as const,
+    method: 'NAGAD',
+    trx_id: 'TRX123',
+    submitted_at: '2026-02-01T05:00:00.000Z',
+    verified_by_name: 'Nasrin <i>Akter</i>',
+    verified_at: '2026-02-02T05:00:00.000Z',
+    paid_at: null,
+  };
+
+  it('PROOF: staff print shows the escaped verifier name and TrxID', () => {
+    const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos80', undefined, null, proof);
+    expect(html).toContain('How it was paid');
+    expect(html).toContain('TRX123');
+    expect(html).toContain('by Nasrin &lt;i&gt;Akter&lt;/i&gt; on');
+  });
+
+  it('PROOF: guardian view hides the verifier name', () => {
+    const html = renderInvoicePosHtml(
+      makeInvoice(),
+      issuer,
+      null,
+      'pos80',
+      ['student-1'],
+      null,
+      proof,
+    );
+    expect(html).not.toContain('Nasrin');
+    expect(html).toContain('by the school on');
+  });
+
+  it('counter invoice has no block', () => {
+    expect(renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos58')).not.toContain(
+      'How it was paid',
+    );
+  });
+});
+
 describe('renderInvoicePosHtml', () => {
   it('58mm: sets the @page rule and 30-column, 54 mm body width, renders both students and the payment method line', () => {
     const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos58');
