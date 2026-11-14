@@ -5,7 +5,6 @@ import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
-import { AllowWhenSuspendedForBilling } from '../../auth/decorators/allow-when-suspended-for-billing.decorator';
 import { DenyWhenImpersonating } from '../../auth/decorators/deny-when-impersonating.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -25,7 +24,6 @@ export class SmsBundlePayController {
   @Post('orders/:id/pay/bkash')
   @HttpCode(200)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
-  @AllowWhenSuspendedForBilling()
   @FailClosedWithoutRedis()
   @ApiOperation({ summary: 'Pay an SMS package order with bKash: returns the checkout URL.' })
   @ApiOkResponse({ type: BkashPayResponseDto })

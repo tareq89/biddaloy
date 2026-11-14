@@ -16,7 +16,6 @@ import { Permission, type JwtPayload } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
-import { AllowWhenSuspendedForBilling } from '../../auth/decorators/allow-when-suspended-for-billing.decorator';
 import { DenyWhenImpersonating } from '../../auth/decorators/deny-when-impersonating.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -38,7 +37,6 @@ export class SmsBundleOrdersController {
 
   @Get('catalog')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
-  @AllowWhenSuspendedForBilling()
   @ApiOperation({ summary: 'SMS packages on sale, cheapest first.' })
   @ApiOkResponse({ description: 'SmsPackageDto[]' })
   listCatalog() {
@@ -47,7 +45,6 @@ export class SmsBundleOrdersController {
 
   @Get('orders')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
-  @AllowWhenSuspendedForBilling()
   @ApiOperation({ summary: "The school's SMS orders, newest first." })
   @ApiOkResponse({ description: 'SmsBundleOrderViewDto[]' })
   list(@CurrentTenant() tenant: { id: string }, @Query() q: ListSmsBundleOrdersQueryDto) {
@@ -56,7 +53,6 @@ export class SmsBundleOrdersController {
 
   @Get('orders/:id')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
-  @AllowWhenSuspendedForBilling()
   @ApiOperation({ summary: "One of this school's SMS orders." })
   @ApiOkResponse({ description: 'SmsBundleOrderViewDto' })
   get(@CurrentTenant() tenant: { id: string }, @Param('id', ParseUUIDPipe) id: string) {

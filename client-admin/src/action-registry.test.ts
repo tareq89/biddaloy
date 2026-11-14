@@ -102,6 +102,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/settings?section=backup': '/_staff/settings',
   '/settings?section=billing': '/_staff/settings',
   '/settings?section=billing&buy=1': '/_staff/settings',
+  '/settings?section=communication&smsBuy=1': '/_staff/settings',
+  '/settings?section=billing&buy=1&coupon=1': '/_staff/settings',
   '/settings?section=modulesWords': '/_staff/settings',
   '/settings?section=modulesWords&tab=modules': '/_staff/settings',
   '/settings?section=modulesWords&tab=words': '/_staff/settings',
@@ -574,6 +576,35 @@ describe('action-registry.ts', () => {
     });
   });
 
+  describe('[100.4.05] SMS package and coupon actions', () => {
+    const cases = [
+      [
+        'sms-bundle.buy',
+        'SMS',
+        'Buy SMS package',
+        'SMS প্যাকেজ কিনুন',
+        '/settings?section=communication&smsBuy=1',
+      ],
+      [
+        'billing.coupon',
+        'coupon',
+        'Use coupon',
+        'কুপন ব্যবহার করুন',
+        '/settings?section=billing&buy=1&coupon=1',
+      ],
+    ] as const;
+    it.each(cases)('%s: labels, permission, url, search "%s"', (id, term, en, bn, url) => {
+      const action = ACTIONS.find((a) => a.id === id);
+      expect(action?.label).toEqual({ en, bn });
+      expect(action?.permission).toBe(Permission.SETTINGS_MANAGE);
+      expect(action?.kind).toBe('modal');
+      let to = '';
+      action!.run({ navigate: (o) => (to = o.to) });
+      expect(to).toBe(url);
+      const hits = ACTIONS.filter((x) => x.label.en.toLowerCase().includes(term.toLowerCase()));
+      expect(hits.map((x) => x.id)).toContain(id);
+    });
+  });
   describe('registered actions stay disjoint from UNREGISTERED_ACTIONS', () => {
     const unregisteredFiles = new Set(UNREGISTERED_ACTIONS.map((entry) => entry.file));
 
@@ -684,7 +715,7 @@ describe('DEMO_SWITCH_ROLE_ACTION', () => {
 });
 
 describe('PLATFORM_ACTIONS [98.4.07]', () => {
-  it('lists the ten cockpit actions, none of them in the school palette', () => {
+  it('lists the sixteen cockpit actions, none of them in the school palette', () => {
     expect(PLATFORM_ACTIONS.map((a) => a.id)).toEqual([
       'platform-owners.open',
       'platform-owners.lock',
@@ -696,6 +727,12 @@ describe('PLATFORM_ACTIONS [98.4.07]', () => {
       'announcements.new',
       'ops.queues',
       'security.new-recovery-codes',
+      'money.sms-report',
+      'sms-bundle.new',
+      'sms-stock.record',
+      'plans.open',
+      'coupons.new',
+      'orders.refund',
     ]);
     const schoolIds = new Set(ACTIONS.map((a) => a.id));
     for (const a of PLATFORM_ACTIONS) expect(schoolIds.has(a.id), a.id).toBe(false);
@@ -711,7 +748,7 @@ describe('PLATFORM_ACTIONS [98.4.07]', () => {
       a.run({ navigate: (opts) => calls.push(opts.to) });
       expect(calls).toEqual([a.to]);
       expect(a.to).toMatch(
-        /^\/(platform-owners|owner-security|schools|users|announcements|operations)(\?tab=(owners|approvals))?$/,
+        /^\/(platform-owners|owner-security|schools|users|announcements|operations|money|subscriptions)(\/(packages|plans|coupons))?(\?(tab=(owners|approvals)|new=1|record=1))?$/,
       );
     },
   );

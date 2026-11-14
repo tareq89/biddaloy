@@ -242,6 +242,44 @@ flowchart LR
 | The email could not attach a file.                                  | The ticket's "email with attachment" was not possible through `AdminNoticeService`. | The email carries a link; the download route is authenticated.                                | Send links to authenticated downloads, not files.                                                              |
 | Orders are paid from two places (bKash, offline).                   | A receipt hook in each caller would drift.                                          | The number and the email hook sit in `OrdersService.markPaid`, the one place both go through. | Hook money side effects in the service that writes the money, not its callers.                                 |
 
+## SMS packages (Epic 100 W2)
+
+A metered school buys SMS in **packages**. The money path is the same as seats: an order, a bKash
+payment, one callback. Code: `server/src/modules/sms-bundles/`. API e2e:
+`sms-bundles/sms-bundles.e2e-spec.ts` (gateway stubbed, everything behind it real).
+
+```mermaid
+flowchart LR
+    A[POST /sms-bundles/orders<br/>order PENDING_PAYMENT] --> B[POST .../pay/bkash<br/>checkout URL]
+    B --> C[bKash page]
+    C --> D[GET /billing/bkash/callback]
+    D -->|Completed, same amount| E[order PAID, one lot, order ACTIVE]
+    D -->|order no longer waiting| F[orphan payment row<br/>refund_due alert]
+    E --> G[each SMS sent: DEBIT from the lot]
+    E --> H[daily job after validity: EXPIRE what is left]
+    D -->|302| I["SMS page: smsBuy=1, order, payment"]
+```
+
+- The order must be for a school on **SchoolManagerP** SMS (`sms.source`). A school on its own
+  provider gets `409 SMS_SOURCE_NOT_PLATFORM` and the screen offers the switch.
+- **Oversold** (promised unused SMS is above the provider stock) refuses a new buy and a new
+  payment (`409 SMS_SALES_PAUSED`). It never stops a send, and money already taken is never
+  refused. An unknown provider balance is not oversold.
+- Seat orders return to `/settings?section=billing`, package orders to the SMS page
+  (`returnUrl(orderId, outcome, kind)`).
+- A callback for a Completed payment whose order is **not PENDING any more** (cancelled by the
+  24 h sweep, then paid) records an orphan `platform_payments` row, from the latest paymentID too.
+  A replay of the payment that already paid the order records nothing (checked by trxID).
+
+### Learning (Epic 100 W2)
+
+| What went wrong | Cost | Fix |
+|---|---|---|
+| The callback returned early for the latest paymentID on a non-PENDING order, so a package paid after the order was cancelled left no trace (#3858). | Money taken, no row, no refund alert. | Record the orphan before returning; skip it only when the trxID already has a row. |
+| The callback sent package orders to the billing page. | The buyer never saw the SMS page. | `kind` travels with the callback result. |
+| A spec replaced `ds.query` and dropped the 3rd argument (the transaction's query runner), so `reserve` waited on its own row lock (#4130). | A test hung for 30 s; production was fine. | Shims forward every argument. |
+| The test harness clears tables between tests. | A flow split across `it`s lost its order. | The flow e2e is one test with named steps. |
+
 ## Not done here
 
 - **IPN / webhook**: tokenized checkout settles through the callback plus the reconciler. If the
@@ -256,8 +294,123 @@ flowchart LR
 
 ## Epic 100 Wave 0 — what we learned
 
-| What we found | What we did | Rule for next time |
-|---|---|---|
+| What we found                                                                                                                                                                                                                   | What we did                                                                                                                      | Rule for next time                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | Three real bKash bugs in code we build on (#2782 F1, F2, F10): an orphaned `paymentID` after a second Pay, a callback that said success without a completed execute, a cancelled attempt that blocked offline payment for 24 h. | Fixed with tests (`triage-2782.integration.spec.ts`). The F10 Cancelled/Failed status strings are unverified against live bKash. | Reproduce review findings before building on the code. |
-| F8 and F9 (read-only grace blocks POST-shaped fee and print previews) are outside billing. | Filed #4112; tests pin today's refusal. | Flip those tests when #4112 lands. |
-| Any negative `SmsCreditService.adjust()` is rejected today, even when the balance covers it (`CHK_sms_credit_balance_nonnegative` fires first). | Pinned in the SMS credit characterization spec. | If Wave 1 changes it, change that test on purpose. |
+| F8 and F9 (read-only grace blocks POST-shaped fee and print previews) are outside billing.                                                                                                                                      | Filed #4112; tests pin today's refusal.                                                                                          | Flip those tests when #4112 lands.                     |
+| Any negative `SmsCreditService.adjust()` is rejected today, even when the balance covers it (`CHK_sms_credit_balance_nonnegative` fires first).                                                                                 | Pinned in the SMS credit characterization spec.                                                                                  | If Wave 1 changes it, change that test on purpose.     |
+
+## Epic 100 Wave 3 — plans, coupons, refunds
+
+One seat order, from price to refund. Each box is one decision the code makes in one place.
+
+```mermaid
+flowchart LR
+  P[School's plan<br/>unit price per seat] --> O[Create order<br/>list = seats x months x unit]
+  C[Coupon code sent?] -->|yes| L{Limiter<br/>Redis up?}
+  L -->|down| X503[503, nothing tried]
+  L -->|up| R[Redeem in the same transaction<br/>uses_count + 1, one UPDATE]
+  R -->|last use taken by someone else| X400[400, one fixed refusal]
+  R --> D[order = list - discount]
+  O --> D
+  D -->|amount = 0| F[PAID at once<br/>method COUPON, receipt, no bKash]
+  D -->|amount > 0| B[PENDING, pay with bKash or offline]
+  B --> PAID
+  F --> PAID
+  PAID -->|owner refund, amount > 0| RF[REFUNDED<br/>coupon use is kept]
+  F -.->|refund| N409[409 ORDER_NOT_REFUNDABLE]
+```
+
+Example: 200 seats for 3 months at 1000 paisa with `DEMO-HALF` (50%) is
+`200 x 3 x 1000 = 600000` list, `300000` discount, `300000` to pay (the demo seed's coupon order). A plan change prices the
+next order only; orders already made keep their price.
+
+| What we found                                                                                                                                                   | What we did                                                                                                                                    | Rule for next time                                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| The coupon limiter returned 429 when Redis was down, but the route table (Rule 15) promised 503. A wrong-code lockout and "cannot check" are different answers. | Redis down is now 503 (`CouponAttemptLimiter`); 429 stays for too many wrong tries. Both are tested.                                           | Write the Redis-down answer in `redis-outage-routes.ts` and pin it with a spec. |
+| The refund guard checked the unit price, so a 100 percent coupon order (list price > 0, amount 0) could be "refunded".                                          | Guard is `amount_paisa > 0`. Owner decision: a free order is not refundable (409).                                                             | Test money rules on the amount paid, not the list price.                        |
+| Racing the last use of a coupon from two schools needs no latch in an HTTP spec: one `UPDATE ... WHERE uses_count < max_uses` decides.                          | `money.e2e-spec.ts` fires both at once and expects exactly one 201 and one 400.                                                                | Make the database the referee, then test it with a real race.                   |
+| A double bKash callback is safe because the order is `PENDING` only once.                                                                                       | The e2e sends two at the same time and a third later: one payment row, no orphan.                                                              | Keep the pay step a conditional `UPDATE`.                                       |
+| Deploy smoke treated preview and SMS package orders as "not deployed yet" (a 404 passed).                                                                       | Both are live, so a 404 now fails. `SMOKE_MONEY=1` and `SMOKE_MONEY_STRICT=1` are in the example env files.                                    | Remove the "late route" flag in the PR that ships the route.                    |
+| The demo school had no plans, coupons or refunds.                                                                                                               | The `billing` slice seeds a second plan, a `DEMO-HALF` coupon, one coupon order and one refunded order; the four coverage exemptions are gone. | A new table ships with its seed rows.                                           |
+
+## Learning: cockpit money, Wave 1
+
+```mermaid
+flowchart LR
+  A[Six new tables<br/>catalog, orders, stock, readings, lots, draws] --> B[Registered in app.module entity list]
+  B --> C[SmsBundlesModule<br/>boot spec resolves it]
+  D[CreditsModule<br/>forFeature adds lots and draws] --> C
+```
+
+- The module shell was added empty (no providers) so Wave 2 could add providers and controllers
+  without touching `app.module.ts` again. It no longer needs `forFeature` for its own four
+  entities: its services use the `DataSource`; `CreditsModule` registers the two lot entities.
+- A new entity is not "known" until it is in the production `entities: [...]` list in
+  `app.module.ts`. The boot spec checks the six tables exist.
+- The lot lifecycle and lock order are drawn in `05-communications.md`.
+
+## Learning: cockpit money, Wave 4 (school screens)
+
+```mermaid
+sequenceDiagram
+  participant A as Admin
+  participant D as Seat buy dialog
+  participant S as Server
+  A->>D: types coupon HALF, presses Apply
+  D->>S: POST /billing/orders/preview (seats, months, code)
+  S-->>D: list total, discount, new total (nothing saved)
+  A->>D: presses Buy
+  D->>S: POST seat order (coupon_code only if applied)
+  S-->>D: order (amount 0 means PAID, no bKash)
+```
+
+- **Preview before create.** The coupon row only calls the preview route. An order exists only after Buy. Changing seats or months clears the preview, because the discount depends on them.
+- **Three deep-link params on `/settings`:** `smsBuy=1` opens the SMS package dialog, `smsOrder=<uuid>` is the bKash return for a package order, `coupon=1` opens the coupon row (use with `buy=1`). All use `.catch(undefined)`.
+- **The price comes from the server.** `useBillingSummary().unit_price_paisa` feeds the dialog; `SEAT_UNIT_PRICE_PAISA` is gone from the client.
+- **One failure sentence** for every invalid coupon reason, and one for try-later. The screen never says why.
+- A new Idempotency-Key is made whenever the coupon, the package or a rejected submit changes the request body.
+- The red "SMS almost finished" notice needed no client code: the attention card already renders the server rule's `actionUrl`. A test proves it (#3879).
+- Not done here: the human usability test (tasks d and e) and the bn copy check; see #3844 and #3891.
+
+## Money map: every order in one picture (Epic 100)
+
+Read this first. The sections above explain each box.
+
+```mermaid
+flowchart TD
+  subgraph Price
+    PL[Plan: price per seat<br/>GET/POST /platform/plans]
+    PK[SMS package: units, price, validity<br/>/platform/sms-packages]
+    CP[Coupon: percent 1-99, or 100 = free<br/>/platform/coupons]
+  end
+  PL --> SO[Seat order<br/>POST /billing/orders]
+  PK --> BO[Package order<br/>POST /sms-bundles/orders]
+  CP -. seats only, first months of one order .-> SO
+  SO --> AMT{amount to pay}
+  BO --> AMT
+  AMT -->|0| FREE[PAID at once, method COUPON, no bKash]
+  AMT -->|above 0| PAY[bKash or offline payment]
+  FREE --> RCPT
+  PAY --> RCPT[Receipt SMR-YYYY-NNNNNN<br/>VAT line frozen at payment]
+  RCPT --> RF{owner refund?}
+  RF -->|seat order, amount above 0| R1[REFUNDED, seats recomputed]
+  RF -->|package, no unit used| R2[lot REFUNDED]
+  RF -->|package, a unit was drawn| X1[409 BUNDLE_ALREADY_USED]
+  RF -->|free by coupon| X2[409 ORDER_NOT_REFUNDABLE]
+  R1 --> BK[Money goes back in the bKash panel, by hand]
+  R2 --> BK
+```
+
+Worked example, whole paisa (no decimals anywhere): 200 seats, 3 months, plan 1000 paisa, `DEMO-HALF` is 50%.
+
+| Step | Paisa |
+|---|---|
+| List price: 200 x 3 x 1000 | 600000 |
+| Discount: 50% of 600000 | 300000 |
+| To pay (prices include VAT) | 300000 |
+| VAT inside it at 15% (display only): 300000 minus floor(300000 x 100 / 115) | 39131 |
+
+With a 100% coupon the same order is `0` to pay: it is `PAID` at once, the receipt says "free by coupon", and refund answers `409`.
+
+**Deviation from the first plan:** a free order is not refundable. The owner decided that next month the school pays or the operation stops (#4126). Route names above are checked against the controllers in `server/src/modules/billing/`, `coupons/`, `sms-bundles/`.

@@ -64,10 +64,11 @@ describe('CouponAttemptLimiter', () => {
     expect(ttls['coupon-fails:s1']).toBe(15 * 60_000);
   });
 
-  it('fails closed with the same 429 when Redis is down', async () => {
+  it('fails closed with 503 when Redis is down', async () => {
     const l = new CouponAttemptLimiter(fakeRedis({ down: true }).redis);
     const err = await l.assertAllowed('s1').catch((e) => e);
-    expect(err.getStatus()).toBe(429);
+    expect(err.getStatus()).toBe(503);
+    expect(err.getResponse().details).toEqual({ code: 'COUPON_CHECK_UNAVAILABLE' });
     // recording never throws
     await expect(l.recordFailure('s1')).resolves.toBeUndefined();
   });

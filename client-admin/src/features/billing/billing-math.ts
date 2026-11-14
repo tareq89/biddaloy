@@ -1,12 +1,10 @@
-/** D2: BDT 10 per seat per month, in paisa. Mirrors the server's `SEAT_UNIT_PRICE_PAISA`; the server re-computes the real price. */
-export const SEAT_UNIT_PRICE_PAISA = 1000;
 export const MAX_SEATS = 100_000;
 export const MAX_MONTHS = 24;
 export const MIN_BUY_SEATS = 100;
 
-/** Integer paisa, never a float. */
-export function orderTotalPaisa(seats: number, months: number): number {
-  return seats * months * SEAT_UNIT_PRICE_PAISA;
+/** Integer paisa, never a float. `unit` is the school's own price; the server re-computes the real total. */
+export function orderTotalPaisa(seats: number, months: number, unit: number): number {
+  return seats * months * unit;
 }
 
 /** Prefill: cover the students who have no seat, at least 100. */

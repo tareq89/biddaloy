@@ -31,7 +31,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 const ALLOW_LIST: Record<string, { reason: string; removedBy: string }> = {
   'sms_credit_lots(bundle_order_id)': {
     reason:
-      'a lot is created once per paid bundle order; the order id is a globally unique uuid, so the pair adds nothing',
+      'global on purpose: the key is the globally unique SMS bundle order id (one lot per paid order)',
     removedBy: 'permanent',
   },
   'auth_tokens(token_hash)': {

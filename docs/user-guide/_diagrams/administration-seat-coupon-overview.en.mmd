@@ -1,0 +1,12 @@
+%% title: How a coupon changes a seat order
+%% desc: The admin enters seats and months, opens Have a coupon, types the code and presses Apply. The page shows the price, the coupon and the new total, and nothing is bought yet. If the total is more than zero the admin creates the order and pays with bKash. If the total is zero the admin presses Get seats free and the seats are active at once with no payment. A wrong code shows one fixed sentence.
+flowchart LR
+  A["Enter seats and months"]:::admin --> B["Have a coupon?<br/>type the code, Apply"]:::admin
+  B --> C{"Coupon accepted?"}
+  C -- No --> E["One fixed sentence<br/>This coupon cannot be used"]:::note
+  C -- Yes --> D["Price, Coupon, New total<br/>nothing is bought yet"]
+  D --> T{"New total"}
+  T -- "More than 0" --> P["Create order,<br/>Pay with bKash"]:::admin
+  T -- "0" --> F["Get seats free<br/>seats active, no payment"]:::admin
+  classDef admin fill:#e7f5ff,stroke:#1971c2,color:#0b3d66
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

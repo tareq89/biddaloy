@@ -183,14 +183,18 @@ async function money(ds: Db): Promise<Violation[]> {
 async function attendance(ds: Db): Promise<Violation[]> {
   const rows: Row[] = await ds.query(
     `/* check:attendance */
-    SELECT DISTINCT a.date::text AS date, s.slug, s.settings,
+    SELECT a.date::text AS date, s.slug, s.settings,
            EXISTS (SELECT 1 FROM calendar_events h
                     WHERE h.tenant_id = a.tenant_id AND h.deleted_at IS NULL
                       AND h.published_at IS NOT NULL AND h.counts_as_working_day = false
                       AND a.date BETWEEN h.start_date AND h.end_date
                       AND NOT EXISTS (SELECT 1 FROM calendar_event_classes ec
                                        WHERE ec.event_id = h.id)) AS holiday
-      FROM attendance_sessions a JOIN schools s ON s.id = a.tenant_id
+      -- One row per (school, day), not per session: the EXISTS runs ~1.5k times, not ~98k. The
+      -- per-session form made Postgres JIT-compile the correlated subplan and run for minutes
+      -- (the demo-seed coverage spec timed out in CI).
+      FROM (SELECT DISTINCT tenant_id, date FROM attendance_sessions) a
+      JOIN schools s ON s.id = a.tenant_id
      WHERE ${DEMO}`,
   );
   return rows.flatMap((r) => {

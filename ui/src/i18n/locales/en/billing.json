@@ -78,5 +78,20 @@
   "helpRequired": {
     "seats": "Yes",
     "months": "Yes"
+  },
+  "coupon": {
+    "toggle": "Have a coupon?",
+    "code": "Coupon code",
+    "apply": "Apply",
+    "applying": "Checking…",
+    "list": "Price",
+    "discount": "Coupon",
+    "newTotal": "New total",
+    "invalid": "This coupon cannot be used.",
+    "tryLater": "Too many tries, wait a little and try again.",
+    "free": "Free by coupon",
+    "submitFree": "Get seats free",
+    "freeDone": "Your seats are active. There is nothing to pay.",
+    "receipt": "Download receipt"
   }
 }

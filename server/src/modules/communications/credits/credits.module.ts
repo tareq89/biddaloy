@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SchoolsModule } from '../../schools/schools.module';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLedger } from './entities/sms-credit-ledger.entity';
+import { SmsCreditLot } from './entities/sms-credit-lot.entity';
+import { SmsCreditLotDraw } from './entities/sms-credit-lot-draw.entity';
 import { SmsCreditService } from './sms-credit.service';
 import { SmsCreditSummaryService } from './sms-credit-summary.service';
 
@@ -14,7 +16,7 @@ import { SmsCreditSummaryService } from './sms-credit-summary.service';
  * so it needs the same break. */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SmsCreditBalance, SmsCreditLedger]),
+    TypeOrmModule.forFeature([SmsCreditBalance, SmsCreditLedger, SmsCreditLot, SmsCreditLotDraw]),
     forwardRef(() => SchoolsModule),
   ],
   // `CreditsController` is registered by `CommunicationsModule` (route order vs `:id`).

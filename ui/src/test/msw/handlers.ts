@@ -21,8 +21,10 @@ import { invoiceDefaultHandlers } from './handlers/invoices';
 import { paymentDefaultHandlers } from './handlers/payments';
 import { performanceDefaultHandlers } from './handlers/performance';
 import { platformDefaultHandlers } from './handlers/platform';
+import { platformMoneyDefaultHandlers } from './handlers/platform-money';
 import { publicHolidaySetsDefaultHandlers } from './handlers/public-holiday-sets';
 import { schoolsDefaultHandlers } from './handlers/schools';
+import { smsBundleDefaultHandlers } from './handlers/sms-bundles';
 import { studentDefaultHandlers } from './handlers/students';
 import { supportAccessDefaultHandlers } from './handlers/support-access';
 import { surveyDefaultHandlers } from './handlers/surveys';
@@ -65,6 +67,7 @@ export const handlers: readonly HttpHandler[] = [
   ...backupDefaultHandlers,
   ...websiteDefaultHandlers,
   ...billingDefaultHandlers,
+  ...smsBundleDefaultHandlers,
   ...academicYearDefaultHandlers,
   ...classDefaultHandlers,
   ...enrollmentDefaultHandlers,
@@ -90,5 +93,6 @@ export const handlers: readonly HttpHandler[] = [
   ...applicationDefaultHandlers,
   ...cockpitDefaultHandlers,
   ...platformDefaultHandlers,
+  ...platformMoneyDefaultHandlers,
   ...supportAccessDefaultHandlers,
 ];

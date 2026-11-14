@@ -21,6 +21,12 @@ const settingsSearchSchema = z.object({
   order: z.string().uuid().optional().catch(undefined),
   /** 76.5: `?section=academics&devices=new` opens the Add attendance machine dialog (palette action). */
   devices: z.literal('new').optional().catch(undefined),
+  /** 100.4.02: `?section=communication&smsBuy=1` opens the Buy SMS package dialog (red notice, palette). */
+  smsBuy: z.literal(1).optional().catch(undefined),
+  /** 100.4.02: bKash's return for an SMS package order; the SMS credit section shows its status. */
+  smsOrder: z.string().uuid().optional().catch(undefined),
+  /** 100.4.05: `?section=billing&coupon=1` opens the coupon row of the Buy seats dialog. */
+  coupon: z.literal(1).optional().catch(undefined),
   /** D29: the Modules & words tab. */
   tab: z.enum(['modules', 'words']).optional().catch(undefined),
   /** D28: `?kind=<id>` opens that institution kind's preview (a full-page overlay). */
@@ -61,6 +67,7 @@ export const Route = createFileRoute('/_staff/settings')({
       'curriculumPreset',
       'attention',
       'billing',
+      'smsBundles',
       'supportAccess',
     ),
   pendingComponent: SettingsPending,

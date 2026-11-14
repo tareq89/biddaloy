@@ -11,10 +11,13 @@ const POLL_LIMIT_MS = 2 * 60 * 1000;
 /** Settings › Seats & billing (Epic 49 D7). Entitlement comes from the summary, never `schools.seat_limit`. */
 export function SeatsBillingSection({
   openBuy = false,
+  openCoupon,
   returnOrderId,
   payment,
 }: {
   openBuy?: boolean;
+  /** `?coupon=1`: open the coupon row in the buy dialog. */
+  openCoupon?: boolean;
   /** The order bKash sent the admin back for; its status is polled and shown. */
   returnOrderId?: string | undefined;
   /** bKash's own word on how the return went; anything but success stops the polling. */
@@ -64,6 +67,8 @@ export function SeatsBillingSection({
             void navigate({ to: '/settings', search: { section: 'billing' }, replace: true });
           }
         }}
+        unitPricePaisa={query.data?.unit_price_paisa}
+        openCoupon={openCoupon}
         initialSeats={
           query.data ? defaultSeats(query.data.seats_used, query.data.seats_bought) : 100
         }

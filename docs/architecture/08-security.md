@@ -443,6 +443,25 @@ flowchart LR
 
 > **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98 and Rule 32 is Epic 99, so Epic 96's rules start at 33.
 
+### Candidate rule: money-tier tables have one writer
+
+Epic 100 (#3727) adds this rule. **No number is claimed here**: the orchestrator numbers it when the
+epic merges (the next free number after Rule 32).
+
+- **Rule.** Each money table has one class that writes it, and every other file asks that class. The SMS credit tables (`sms_credit_balance`, `sms_credit_ledger`, `sms_credit_lots`, `sms_credit_lot_draws`) are written only by `SmsCreditService`, with two reviewed exceptions: the fresh-database demo-seed files `scripts/demo-seed/slices/comms-print.ts` and `scripts/demo-seed/slices/sms-bundles.ts`. Orders and payments go through `markPaid` (a school lock, then one conditional `UPDATE ... WHERE status = 'PENDING'`); a refund goes through the refund service, behind `ApprovalGuard` and an `Idempotency-Key`.
+- **Why.** The balance, the ledger and the lots agree only because one class changes them in one transaction (D1, D28). A second writer can change one and leave the others, and the numbers drift without any error.
+- **Example.** A new "give a school 50 free SMS" job must call `SmsCreditService` to grant a lot. It must not `UPDATE sms_credit_balance`. The contract spec lists every file that names a guarded table, and a new name fails the build.
+
+```mermaid
+flowchart LR
+  A[Any module] -->|asks| S[SmsCreditService]
+  S -->|one transaction, lock order: balance then lots| T[(balance, ledger, lots, draws)]
+  R[Reconcile and invariant check] -.->|read only| T
+  X[A second writer] -. fails the contract spec .-> T
+```
+
+- **Test.** `server/src/sms-credit-single-writer.contract.spec.ts` (the allow-list; each entry carries its reason). **What it checks:** which files may name a guarded table, not what they do with it. A new file naming one fails the build; an extra write inside an already-allowed file (the service, the two demo-seed files) is not caught, so review those files by eye. Other tests: `server/src/modules/communications/credits/sms-credit-lot-invariants.integration.spec.ts` (balance equals lots), `server/src/modules/communications/credits/sms-credit-lots.integration.spec.ts`, `server/src/modules/billing/money.e2e-spec.ts` (races on the last coupon use and a double callback). The wave 6 money fences (#3893) add the cross-route e2e.
+
 ## Login brute-force protection
 
 `POST /auth/login` layers three controls, defined in

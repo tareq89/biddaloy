@@ -1164,6 +1164,23 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings?section=billing&buy=1' }),
   },
+  // [100.4.05] Epic 100. Both open dialogs on /settings (params declared in 100.4.02 / 100.4.03).
+  {
+    id: 'sms-bundle.buy',
+    label: { en: 'Buy SMS package', bn: 'SMS প্যাকেজ কিনুন' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=communication&smsBuy=1' }),
+  },
+  {
+    id: 'billing.coupon',
+    label: { en: 'Use coupon', bn: 'কুপন ব্যবহার করুন' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=billing&buy=1&coupon=1' }),
+  },
   {
     id: 'settings.attendanceDevices.add',
     label: { en: 'Add attendance machine', bn: 'হাজিরা মেশিন যোগ করুন' },
@@ -1400,5 +1417,49 @@ export const PLATFORM_ACTIONS: readonly PlatformPaletteAction[] = [
     synonyms: ['backup codes', 'two-step'],
     kind: 'navigate',
     ...platformGo('/owner-security'),
+  },
+  // [100.5.gI-02] D14, D15 words: package, SMS stock, coupon, refund (never bundle, lot, voucher).
+  {
+    id: 'money.sms-report',
+    label: { en: 'SMS report', bn: 'SMS রিপোর্ট' },
+    synonyms: ['money', 'টাকা-পয়সা', 'sold', 'used'],
+    kind: 'navigate',
+    ...platformGo('/money'),
+  },
+  {
+    id: 'sms-bundle.new',
+    label: { en: 'New SMS package', bn: 'নতুন SMS প্যাকেজ' },
+    synonyms: ['price', 'sell sms'],
+    kind: 'inline',
+    ...platformGo('/money/packages?new=1'),
+  },
+  {
+    id: 'sms-stock.record',
+    label: { en: 'Record SMS bought', bn: 'SMS মজুত লিখুন' },
+    synonyms: ['provider', 'purchase'],
+    kind: 'inline',
+    ...platformGo('/money?record=1'),
+  },
+  {
+    id: 'plans.open',
+    label: { en: 'Plans', bn: 'প্ল্যান' },
+    synonyms: ['seat price', 'per student'],
+    kind: 'navigate',
+    ...platformGo('/money/plans'),
+  },
+  {
+    id: 'coupons.new',
+    label: { en: 'New coupon', bn: 'নতুন কুপন' },
+    synonyms: ['discount', 'offer'],
+    kind: 'inline',
+    ...platformGo('/money/coupons?new=1'),
+  },
+  // The refund itself lives on the school's row; this lands on the list and asks which school.
+  {
+    id: 'orders.refund',
+    label: { en: 'Refund an order (pick the school)', bn: 'ফেরত দিন (আগে স্কুল বাছুন)' },
+    synonyms: ['return money'],
+    kind: 'navigate',
+    ...platformGo('/subscriptions'),
   },
 ];

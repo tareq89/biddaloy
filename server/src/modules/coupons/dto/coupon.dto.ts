@@ -29,7 +29,7 @@ export class CreateCouponDto {
   @ApiProperty({ example: 'WELCOME10', description: '4-20 of A-Z, 0-9, "-"; upper-cased.' })
   @Transform(upper)
   @IsString()
-  @MaxLength(20)
+  @MaxLength(20) // coupons.code is varchar(20)
   @Matches(COUPON_CODE_PATTERN)
   code: string;
 

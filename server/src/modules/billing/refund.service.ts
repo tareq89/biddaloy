@@ -41,7 +41,7 @@ export class RefundService {
     private readonly notices: MoneyNoticesService,
   ) {}
 
-  /** PAID -> REFUNDED, once. Later orders keep their periods (D44). */
+  /** PAID -> REFUNDED, once. Later orders keep their periods (D44). A zero-amount order (grant or 100% coupon) has nothing to pay back: 409. */
   async refundSeatOrder(
     orderId: string,
     reason: string,

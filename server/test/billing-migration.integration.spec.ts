@@ -4,6 +4,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Billing1791900000350 } from '../src/migrations/1791900000350-Billing';
 import { SeatOrderReceiptNumber1791900000400 } from '../src/migrations/1791900000400-SeatOrderReceiptNumber';
+import { SmsLots1792150000000 } from '../src/migrations/1792150000000-SmsLots';
 import { PlansCouponsRefunds1792200000000 } from '../src/migrations/1792200000000-PlansCouponsRefunds';
 import { assertProductionConfig, billingFreeUntil } from '../src/config/env.validation';
 
@@ -76,21 +77,26 @@ describe('Billing1791900000350 (integration)', () => {
 
   it('down() drops both tables, up() re-creates them', async () => {
     expect(await tableNames()).toEqual(['platform_payments', 'seat_orders']);
-    // [Epic 100] plans, coupons and refunds hang foreign keys and columns on seat_orders: undo them first.
-    await new PlansCouponsRefunds1792200000000().down(queryRunner);
+    // Later migrations (SMS lots, plans/coupons) hang FKs, columns and enum values on these tables,
+    // so they roll back first and re-apply last, or the drop fails and poisons the shared worker DB.
+    const smsLots = new SmsLots1792150000000();
+    const plansCoupons = new PlansCouponsRefunds1792200000000();
+    await plansCoupons.down(queryRunner);
+    await smsLots.down(queryRunner);
     await migration.down(queryRunner);
     expect(await tableNames()).toEqual([]);
     await migration.up(queryRunner);
     expect(await tableNames()).toEqual(['platform_payments', 'seat_orders']);
-    // down() dropped what later migrations added to these tables; put it back so later spec
-    // files on this worker still see receipt_number (#1822).
+    // down() dropped what later migrations added to these tables; put it all back, in order, so
+    // later spec files on this worker still see receipt_number (#1822), SMS lots and coupons.
     await new SeatOrderReceiptNumber1791900000400().up(queryRunner);
-    await new PlansCouponsRefunds1792200000000().up(queryRunner);
+    await smsLots.up(queryRunner);
+    await plansCoupons.up(queryRunner);
   });
 
   it('rejects seats < 1, months outside 1-24 and amounts over MONEY_MAX (in paisa)', async () => {
-    await expect(insertOrder({ seats: 0 })).rejects.toThrow();
-    await expect(insertOrder({ months: 0 })).rejects.toThrow();
+    await expect(insertOrder({ seats: 0, amount: 0 })).rejects.toThrow(/CHK_seat_orders_seats/);
+    await expect(insertOrder({ months: 0, amount: 0 })).rejects.toThrow(/CHK_seat_orders_months/);
     await expect(insertOrder({ months: 25 })).rejects.toThrow();
     await expect(insertOrder({ amount: 10_000_000_000 })).rejects.toThrow();
     // 416_667 seats x 24 months x 1000 = 10_000_008_000; less 8_001 discount = MONEY_MAX.

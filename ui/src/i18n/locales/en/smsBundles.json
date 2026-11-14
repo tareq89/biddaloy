@@ -1,0 +1,57 @@
+{
+  "lots": {
+    "title": "Your SMS",
+    "left": "{{n}} SMS left",
+    "noExpiry": "No end date",
+    "soon": "Ends soon",
+    "empty": "You have no SMS left."
+  },
+  "unmaskedNote": "For now SchoolManagerP only sends unmasked SMS (the sender shows as a number, not your school's name).",
+  "packages": {
+    "title": "SMS packages",
+    "loadError": "We could not load the SMS packages. Try again.",
+    "empty": "No SMS packages are on sale right now.",
+    "sms": "{{n}} SMS",
+    "validity": "Valid {{days}} days",
+    "buy": "Buy"
+  },
+  "buy": {
+    "title": "Buy {{sms}} SMS",
+    "summary": "{{price}}, valid {{days}} days",
+    "cancel": "Cancel",
+    "submit": "Buy with bKash",
+    "createdTitle": "Order ready",
+    "createdBody": "{{sms}} SMS for {{price}}. Pay with bKash to add them.",
+    "payBkash": "Pay with bKash",
+    "close": "Close",
+    "tryAgain": "Something went wrong. Try again.",
+    "cannotSell": "We cannot sell SMS right now. Please try again later.",
+    "package": "Package"
+  },
+  "return": {
+    "paid": "Payment received. Your SMS is added.",
+    "pending": "We are confirming your payment with bKash. This page updates by itself.",
+    "failed": "This order was not paid. Choose Buy to start a new payment.",
+    "slow": "We are still waiting for bKash. Check this page again in a few minutes.",
+    "error": "We could not confirm the payment. If money was taken, your SMS shows here shortly."
+  },
+  "source": {
+    "title": "Send with SchoolManagerP SMS",
+    "body": "Right now your school sends SMS through its own SMS company. To use the SMS you buy here, switch to SchoolManagerP SMS.",
+    "kept": "Your own SMS company details stay saved. You can switch back in one click.",
+    "switch": "Switch to SchoolManagerP SMS",
+    "switchAndBuy": "Switch and continue",
+    "cancel": "Not now",
+    "failed": "We could not switch. Try again."
+  },
+  "history": {
+    "kind": {
+      "PURCHASE": "Bought",
+      "EXPIRE": "Ended"
+    },
+    "reference": {
+      "bundle_order": "SMS package",
+      "lot": "SMS package"
+    }
+  }
+}

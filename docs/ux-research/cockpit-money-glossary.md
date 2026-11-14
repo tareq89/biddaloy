@@ -22,6 +22,7 @@ flowchart LR
 | ভ্যাট | VAT | tax rate, levy | pending sessions |
 | প্ল্যান | plan (the per-seat price a school pays) | tier, pricing profile | pending sessions |
 | টাকা-পয়সা | Money (cockpit nav item) | billing console, finance | pending sessions |
+| আয় | Revenue (what came in for a month, refunds taken off) | income statement, turnover | pending sessions |
 | আনমাস্কড SMS | unmasked SMS | non-masking, raw sender | pending sessions |
 | মেয়াদ | validity / expiry | TTL, lot expiry | pending sessions |
 

@@ -91,6 +91,23 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     SeatOrder,
     'Platform-owned billing money (Epic 49): the school pays the platform, so it never enters the school workbook.',
   ],
+  [
+    Plan,
+    'Platform-owned pricing plan (Epic 100): no tenant, set by the platform, never enters the school workbook.',
+  ],
+
+  [Coupon, 'Platform-owned discount code (Epic 100): no tenant, never enters the school workbook.'],
+
+  [
+    CouponSchool,
+    'Platform-owned coupon-to-school grant (Epic 100): decided by the platform, not school data.',
+  ],
+
+  [
+    CouponRedemption,
+    'Platform-owned coupon use record (Epic 100): tied to platform billing money, not school data.',
+  ],
+
   [PlatformPayment, 'Platform-owned billing payment record (Epic 49), not school data.'],
   [
     SmsBundleCatalog,
@@ -104,7 +121,10 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [Plan, 'Platform-owned price plan (Epic 100): no tenant, never enters the school workbook.'],
   [Coupon, 'Platform-owned discount code (Epic 100): no tenant, never enters the school workbook.'],
   [CouponSchool, 'Platform-owned coupon-to-school link (Epic 100), not school data.'],
-  [CouponRedemption, 'Platform-owned coupon use record (Epic 100): money the school pays the platform.'],
+  [
+    CouponRedemption,
+    'Platform-owned coupon use record (Epic 100): money the school pays the platform.',
+  ],
   [
     SmsProviderBalanceReading,
     'Platform-owned SMS provider balance reading (Epic 100), not school data.',

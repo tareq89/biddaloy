@@ -5,6 +5,8 @@ import { scriptedAddress, scriptedPhoneNumber, type Script } from './script';
 
 export type School = components['schemas']['School'];
 
+const PLAN_ID = '00000000-0000-4000-8000-000000000001';
+
 export function schoolFactory(overrides: Partial<School> = {}, script?: Script): School {
   const name = faker.company.name();
   return {
@@ -23,9 +25,9 @@ export function schoolFactory(overrides: Partial<School> = {}, script?: Script):
     status_changed_at: null,
     country_code: null,
     trial_ends_at: null,
-    plan_id: faker.string.uuid(),
+    plan_id: PLAN_ID,
     plan: {
-      id: faker.string.uuid(),
+      id: PLAN_ID,
       name: 'Standard',
       unit_price_paisa: 1000,
       active: true,

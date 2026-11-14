@@ -1,0 +1,53 @@
+{
+  "title": "Plans",
+  "new": "New plan",
+  "note": "A new price applies to the next order only. Orders already made keep their price.",
+  "loadError": "Could not load the plans. Try again.",
+  "retry": "Try again",
+  "empty": {
+    "title": "No plans yet",
+    "description": "Make a plan so a school's price is set."
+  },
+  "list": {
+    "caption": "Plans",
+    "name": "Plan",
+    "price": "Per seat, per month",
+    "status": "On",
+    "default": "Default",
+    "defaultNote": "The default plan cannot be switched off.",
+    "keepNote": "A school already on a plan that is switched off keeps paying its price.",
+    "edit": "Edit",
+    "switch": "Keep {{name}} on",
+    "switchError": "Could not change this plan. Try again."
+  },
+  "dialog": {
+    "newTitle": "New plan",
+    "editTitle": "Edit plan",
+    "description": "You will be asked for your code when you save.",
+    "name": "Name",
+    "price": "Per seat, per month (Tk)",
+    "nextOrder": "A new price applies to the next order only.",
+    "save": "Save",
+    "saved": "Saved.",
+    "errors": {
+      "name": "Enter a name of 2 to 60 characters.",
+      "price": "Enter a price above 0 and not above {{max}}.",
+      "generic": "Could not save. Try again."
+    }
+  },
+  "change": {
+    "title": "Change plan for {{name}}",
+    "description": "You will be asked for your code when you save.",
+    "plan": "New plan",
+    "planOption": "{{name}} ({{price}})",
+    "reason": "Reason",
+    "nextOrder": "This changes the price of the next order only.",
+    "submit": "Change plan",
+    "success": "Plan changed. The next order uses the new price.",
+    "errors": {
+      "plan": "Choose a plan.",
+      "reason": "Write a reason of 5 to 300 characters.",
+      "generic": "Could not change the plan. Try again."
+    }
+  }
+}

@@ -167,6 +167,7 @@ const previewBulkReminderPlatformSufficient = http.post(
       projection: {
         ...projection,
         metering: 'PLATFORM',
+        ...smsCreditsExtras(),
         available: 500,
         reserved: 0,
         shortfall: 0,
@@ -204,6 +205,7 @@ const previewBulkReminderPlatformShort = http.post(
       projection: {
         ...projection,
         metering: 'PLATFORM',
+        ...smsCreditsExtras(),
         available,
         reserved: 0,
         shortfall: Math.max(0, projection.sms_units - available),
@@ -264,9 +266,22 @@ const LEDGER_FIXTURE = [
   },
 ];
 
+/** [100.4.01] The lots/source/history part of `GET /communications/sms-credits`. */
+export function smsCreditsExtras(over: Record<string, unknown> = {}) {
+  return {
+    lots: [] as unknown[],
+    orders: [] as unknown[],
+    source: 'SCHOOLMANAGERP',
+    almostFinished: false,
+    stopped: false,
+    ...over,
+  };
+}
+
 const getSmsCreditsOff = http.get('/api/v1/communications/sms-credits', ({ request }) =>
   HttpResponse.json({
     metering: 'OFF',
+    ...smsCreditsExtras(),
     available: 0,
     reserved: 0,
     ledger: paginate([], request.url),
@@ -278,6 +293,7 @@ const getSmsCreditsPlatformSufficient = http.get(
   ({ request }) =>
     HttpResponse.json({
       metering: 'PLATFORM',
+      ...smsCreditsExtras(),
       available: 488,
       reserved: 0,
       ledger: paginate(LEDGER_FIXTURE, request.url),
@@ -287,6 +303,7 @@ const getSmsCreditsPlatformSufficient = http.get(
 const getSmsCreditsPlatformShort = http.get('/api/v1/communications/sms-credits', ({ request }) =>
   HttpResponse.json({
     metering: 'PLATFORM',
+    ...smsCreditsExtras(),
     available: 3,
     reserved: 0,
     ledger: paginate(LEDGER_FIXTURE, request.url),
@@ -296,6 +313,7 @@ const getSmsCreditsPlatformShort = http.get('/api/v1/communications/sms-credits'
 const getSmsCreditsLedgerEmpty = http.get('/api/v1/communications/sms-credits', ({ request }) =>
   HttpResponse.json({
     metering: 'PLATFORM',
+    ...smsCreditsExtras(),
     available: 500,
     reserved: 0,
     ledger: paginate([], request.url),

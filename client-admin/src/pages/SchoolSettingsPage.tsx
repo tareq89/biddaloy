@@ -129,7 +129,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   // D29/D31: choosing a kind and turning modules on or off is the school admin's job, not staff's.
   const isAdmin = useActiveRole() === 'ADMIN';
 
-  const { section, buy, order, payment, devices, tab, kind } = useSearch({
+  const { section, buy, order, payment, devices, smsBuy, smsOrder, coupon, tab, kind } = useSearch({
     from: '/_staff/settings',
   });
   const navigate = useNavigate({ from: '/settings' });
@@ -248,7 +248,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
       case 'billing':
         // Billing is the active school's (X-Tenant-ID), so no SUPER_ADMIN picked-school view.
         return isSuperAdmin ? null : (
-          <SeatsBillingSection openBuy={buy === 1} returnOrderId={order} payment={payment} />
+          <SeatsBillingSection
+            openBuy={buy === 1}
+            openCoupon={coupon === 1}
+            returnOrderId={order}
+            payment={payment}
+          />
         );
       case 'communication':
         return (
@@ -259,6 +264,16 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                 key={loaded.schoolId}
                 schoolId={loaded.schoolId}
                 isSuperAdmin={isSuperAdmin}
+                smsBuy={smsBuy === 1}
+                smsOrder={smsOrder}
+                payment={payment}
+                onBuyClosed={() =>
+                  void navigate({
+                    to: '/settings',
+                    search: (prev) => ({ ...prev, smsBuy: undefined }),
+                    replace: true,
+                  })
+                }
               />
               <WhatsAppSection
                 schoolId={loaded.schoolId}

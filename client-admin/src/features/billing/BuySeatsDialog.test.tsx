@@ -1,9 +1,11 @@
 import '@biddaloy/ui/test';
 
+import { SeatOrderStatus } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { summaryFree } from './billing-fixtures';
@@ -17,6 +19,7 @@ function setup(props: Partial<React.ComponentProps<typeof BuySeatsDialog>> = {})
       open
       onOpenChange={() => undefined}
       initialSeats={300}
+      unitPricePaisa={1000}
       onSubmit={onSubmit}
       {...props}
     />,
@@ -78,7 +81,13 @@ describe('BuySeatsDialog', () => {
 
   it('keeps the key on a pay failure that leaves the order open, rotates it once the order is closed', async () => {
     const onSubmit = vi.fn();
-    const props = { open: true, onOpenChange: () => undefined, initialSeats: 300, onSubmit };
+    const props = {
+      open: true,
+      onOpenChange: () => undefined,
+      initialSeats: 300,
+      unitPricePaisa: 1000,
+      onSubmit,
+    };
     const { rerender } = renderWithProviders(<BuySeatsDialog {...props} />, {
       locale: 'en',
       role: 'ADMIN',
@@ -95,6 +104,115 @@ describe('BuySeatsDialog', () => {
     const [a, b, c] = onSubmit.mock.calls.map((x) => x[0].idempotency_key);
     expect(b).toBe(a);
     expect(c).not.toBe(a);
+  });
+});
+
+describe('BuySeatsDialog coupon', () => {
+  const paid = { ...summaryFree.orders[0]!, status: SeatOrderStatus.PAID, amount_paisa: 0 };
+
+  async function applyCode(code: string) {
+    await userEvent.click(await screen.findByRole('button', { name: 'Have a coupon?' }));
+    await userEvent.type(screen.getByLabelText('Coupon code'), code);
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  }
+
+  it('prints the price from the prop, not a fixed Tk 10', async () => {
+    setup({ unitPricePaisa: 2500 });
+    expect((await screen.findByText(/per seat per month/)).textContent).toContain('২৫');
+    // 300 seats x 1 month x Tk 25
+    expect(screen.getByText(/Total:/).textContent).toContain('৭,৫০০');
+  });
+
+  it('a half-off code shows list, discount and the new total, and sends the upper-cased code', async () => {
+    const onSubmit = setup({ initialSeats: 50 });
+    const months = await screen.findByLabelText('Months');
+    await userEvent.clear(months);
+    await userEvent.type(months, '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Have a coupon?' }));
+    await userEvent.type(screen.getByLabelText('Coupon code'), 'half');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    // msw preview prices at Tk 50: 50 x 3 x 50 = 7,500, half off.
+    expect(await screen.findByText(/New total:/)).toBeTruthy();
+    expect(screen.getByText(/New total:/).textContent).toContain('৩,৭৫০');
+    await userEvent.click(screen.getByRole('button', { name: 'Create order' }));
+    expect(onSubmit.mock.calls[0]![0]).toMatchObject({ coupon_code: 'HALF', seats: 50, months: 3 });
+  });
+
+  it('sends no coupon_code when none was applied', async () => {
+    const onSubmit = setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'Create order' }));
+    expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('coupon_code');
+  });
+
+  it('cannot submit while the coupon preview is pending', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    server.use(
+      http.post('/api/v1/billing/orders/preview', async () => {
+        await gate;
+        return HttpResponse.json({
+          listAmountPaisa: 1,
+          discountPaisa: 0,
+          totalPaisa: 1,
+          free: false,
+        });
+      }),
+    );
+    const onSubmit = setup();
+    await applyCode('HALF');
+    const submit = await screen.findByRole('button', { name: 'Create order' });
+    await vi.waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(true));
+    await userEvent.click(submit);
+    expect(onSubmit).not.toHaveBeenCalled();
+    release();
+    await vi.waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it('keeps the idempotency key when only an unapplied code is typed', async () => {
+    const onSubmit = setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'Create order' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Have a coupon?' }));
+    await userEvent.type(screen.getByLabelText('Coupon code'), 'ZZ');
+    await userEvent.click(screen.getByRole('button', { name: 'Create order' }));
+    const [a, b] = onSubmit.mock.calls.map((x) => x[0].idempotency_key);
+    expect(b).toBe(a);
+  });
+
+  it('a free result renames the button to "Get seats free"', async () => {
+    setup();
+    await applyCode('FREE');
+    expect(await screen.findByRole('button', { name: 'Get seats free' })).toBeTruthy();
+  });
+
+  it('a rejected coupon on submit shows the sentence and takes a new key', async () => {
+    const onSubmit = vi.fn();
+    const props = {
+      open: true,
+      onOpenChange: () => undefined,
+      initialSeats: 300,
+      unitPricePaisa: 1000,
+      onSubmit,
+    };
+    const { rerender } = renderWithProviders(<BuySeatsDialog {...props} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Create order' }));
+    rerender(<BuySeatsDialog {...props} couponRejected />);
+    expect(await screen.findByText('This coupon cannot be used.')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Create order' }));
+    const [a, b] = onSubmit.mock.calls.map((x) => x[0].idempotency_key);
+    expect(b).not.toBe(a);
+  });
+
+  it('a created order that is already paid shows done + receipt and no bKash step', async () => {
+    const onReceipt = vi.fn();
+    setup({ created: paid, onPay: vi.fn(), onReceipt });
+    expect(await screen.findByText(/nothing to pay/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Pay with bKash' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Download receipt' }));
+    expect(onReceipt).toHaveBeenCalledWith(paid.id);
   });
 });
 

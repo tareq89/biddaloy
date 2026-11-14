@@ -372,7 +372,7 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     ds.query = (async (sql: string, params?: any[], ...rest: any[]) => {
       if (!planted && /SELECT reference_key FROM communication_logs/.test(sql)) {
         planted = true;
-        const result = await realQuery(sql, params);
+        const result = await (realQuery as any)(sql, params, ...rest);
         await realQuery(
           `INSERT INTO communication_logs (tenant_id, medium, recipient_address, recipient_name, message_body, status, trigger, reference_key)
            VALUES ($1, 'SMS', '+8801700000000', 'x', 'x', 'QUEUED', 'AUTOMATED', $2)`,

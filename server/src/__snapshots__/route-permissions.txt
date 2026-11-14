@@ -315,8 +315,8 @@ GET /platform/attention/summary | PlatformAttentionController | allowlist: AuthG
 GET /platform/audit | PlatformAuditController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/audit/sessions | PlatformAuditController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/backups/health | PlatformBackupHealthController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
-GET /platform/billing/schools | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
-GET /platform/billing/schools/:id | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+GET /platform/billing/schools | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard
+GET /platform/billing/schools/:id | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard
 GET /platform/coupons | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/coupons/:id/usage | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/holiday-sets | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
@@ -774,12 +774,12 @@ POST /platform/approvals/:id/deny | PlatformApprovalsController | allowlist: Aut
 POST /platform/attention/items/:recipientId/hide | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/attention/items/:recipientId/snooze | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/attention/items/seen | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
-POST /platform/billing/orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
-POST /platform/billing/orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard | approval: platform.refund
-POST /platform/billing/schools/:id/grant | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/billing/orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard
+POST /platform/billing/orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard | approval: platform.refund
+POST /platform/billing/schools/:id/grant | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard
 POST /platform/billing/schools/:id/plan | PlatformPlansController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.plan
-POST /platform/billing/sms-bundle-orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
-POST /platform/billing/sms-bundle-orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard | approval: platform.refund
+POST /platform/billing/sms-bundle-orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard
+POST /platform/billing/sms-bundle-orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard | approval: platform.refund
 POST /platform/coupons | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.coupon
 POST /platform/coupons/free | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard, TwoPersonGuard | approval: platform.coupon_free
 POST /platform/holiday-sets/:id/publish | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard

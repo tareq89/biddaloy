@@ -80,6 +80,7 @@ import {
   UsersRoundIcon,
   WalletCardsIcon,
   UserSearchIcon,
+  PiggyBankIcon,
 } from 'lucide-react';
 
 import type { StaffNavItemId } from './nav-tree';
@@ -165,6 +166,7 @@ export const PLATFORM_NAV_ICONS = {
   '/users': UserSearchIcon,
   '/audit': ScanSearchIcon,
   '/announcements': RadioIcon,
+  '/money': PiggyBankIcon,
 } as const;
 /** @alias */
 export const STAFF_PLATFORM_EXTRA_ICONS = PLATFORM_NAV_ICONS;
