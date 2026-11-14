@@ -198,7 +198,23 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // [77.2.10] D9: Fees off -> no schedules, no late fees (fines also off by dependency). Gated
     // here, not in process(), so run-now and restore-catch-up are covered, and before the restore
     // re-queue so an off school is never re-queued. Unreadable state fails closed: skip + log.
-    if (!(await this.moduleOn(tenantId, ModuleKey.fees))) return;
+    let feesOn: boolean;
+    try {
+      feesOn = await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.fees);
+    } catch (error) {
+      this.logger.error(`fees-daily: module state unreadable for tenant ${tenantId}: ${String(error)}`);
+      // Unreadable is not off: a catch-up carries a fixed `today` that the nightly run cannot
+      // recover, so keep it alive by re-queueing it. Nightly (no override) just skips this school.
+      if (todayOverride) {
+        await this.queue.add(
+          'restore-catch-up',
+          { tenantId, today: todayOverride },
+          { delay: FEES_DAILY_RESTORE_RETRY_MS, removeOnComplete: true, removeOnFail: 100 },
+        );
+      }
+      return;
+    }
+    if (!feesOn) return;
     const today = todayOverride ?? (await this.schoolsService.todayFor(tenantId));
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run picks the period up only while still inside it (due on or

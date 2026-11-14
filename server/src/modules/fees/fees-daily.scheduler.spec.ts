@@ -453,6 +453,23 @@ describe('FeesDailyScheduler', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
+    it('a restore catch-up with unreadable module state is re-queued with the same day', async () => {
+      moduleState.forTenant.mockImplementation(async () => {
+        throw new Error('db down');
+      });
+      schoolsService.findById = vi.fn(async () => ({ id: TENANT, status: 'ACTIVE' }));
+      await scheduler.process({
+        name: 'restore-catch-up',
+        data: { tenantId: TENANT, today: '2026-03-01' },
+      } as any);
+      expect(queue.add).toHaveBeenCalledWith(
+        'restore-catch-up',
+        { tenantId: TENANT, today: '2026-03-01' },
+        expect.objectContaining({ delay: expect.any(Number) }),
+      );
+      expect(feeGenerationService.generate).not.toHaveBeenCalled();
+    });
+
     describe('late-fee and fine sweeps', () => {
       let lateFee: any;
       let fineSweep: any;
