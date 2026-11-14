@@ -83,15 +83,21 @@ export class FeeGeneration {
   @Column({ type: 'uuid', nullable: true })
   recurring_schedule_id: string | null;
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'generated_by_user_id' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'generated_by_user_id',
+    foreignKeyConstraintName: 'FK_fee_generations_generated_by',
+  })
   generated_by: User | null;
 
   @Column({ type: 'uuid', nullable: true })
   generated_by_user_id: string | null;
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'approved_by_user_id' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'approved_by_user_id',
+    foreignKeyConstraintName: 'FK_fee_generations_approved_by',
+  })
   approved_by: User | null;
 
   @Column({ type: 'uuid', nullable: true })

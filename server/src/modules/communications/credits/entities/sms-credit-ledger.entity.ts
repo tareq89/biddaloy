@@ -83,8 +83,8 @@ export class SmsCreditLedger {
   @Column({ type: 'text', nullable: true })
   reason: string | null;
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'actor_user_id' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'actor_user_id', foreignKeyConstraintName: 'FK_sms_credit_ledger_actor' })
   actor: User | null;
 
   @Column({ type: 'uuid', nullable: true })

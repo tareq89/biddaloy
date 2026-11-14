@@ -787,25 +787,6 @@ export const DRIFT_BASELINE: DriftGroup[] = [
   },
   {
     reason:
-      'Same FK columns and target, different action: the entity says ON DELETE NO ACTION, the DB says SET NULL (fee_generations x2, recurring_schedules, recurring_schedule_exclusions, sms_credit_ledger) or RESTRICT (invoice_share_tokens). Deleting a user follows the DB.',
-    owner: 'unowned, see #2343',
-    statements: [
-      'ALTER TABLE "fee_generations" ADD CONSTRAINT "FK_57630ad4432b93d99baa5ff570f" FOREIGN KEY ("approved_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
-      'ALTER TABLE "fee_generations" ADD CONSTRAINT "FK_b7f027dff29355a97691a7a7bbc" FOREIGN KEY ("generated_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
-      'ALTER TABLE "fee_generations" DROP CONSTRAINT "FK_fee_generations_approved_by"',
-      'ALTER TABLE "fee_generations" DROP CONSTRAINT "FK_fee_generations_generated_by"',
-      'ALTER TABLE "invoice_share_tokens" ADD CONSTRAINT "FK_43a09ea554b1cf8d467834bbc08" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
-      'ALTER TABLE "invoice_share_tokens" DROP CONSTRAINT "FK_invoice_share_tokens_created_by_user_id"',
-      'ALTER TABLE "recurring_schedule_exclusions" ADD CONSTRAINT "FK_8d01caa57636595adc299d6200d" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
-      'ALTER TABLE "recurring_schedule_exclusions" DROP CONSTRAINT "FK_recurring_schedule_exclusions_created_by"',
-      'ALTER TABLE "recurring_schedules" ADD CONSTRAINT "FK_071dd6238eee7b0d6af2f89984b" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
-      'ALTER TABLE "recurring_schedules" DROP CONSTRAINT "FK_recurring_schedules_created_by"',
-      'ALTER TABLE "sms_credit_ledger" ADD CONSTRAINT "FK_285f196d00cca3f642df30a8418" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
-      'ALTER TABLE "sms_credit_ledger" DROP CONSTRAINT "FK_sms_credit_ledger_actor"',
-    ],
-  },
-  {
-    reason:
       'The entity declares a single-column FK; the DB has a composite (tenant_id, x) FK to the same table instead. DB is stricter (it also pins the tenant).',
     owner: 'unowned, see #2342',
     statements: [
@@ -1258,12 +1239,6 @@ export const DRIFT_BASELINE: DriftGroup[] = [
     ],
   },
   {
-    reason:
-      'class_sections has an unconditional UNIQUE (class_id, section_name) the entity does not declare, next to the soft-delete-aware partial one it does. DB is stricter: a soft-deleted section name cannot be reused.',
-    owner: 'unowned, see #2343',
-    statements: ['DROP INDEX "public"."IDX_63d2faa7e6351f234ede380634"'],
-  },
-  {
     reason: 'Non-unique indexes created by migrations that no entity declares. Performance only.',
     owner: 'unowned, see #2342',
     statements: [
@@ -1293,24 +1268,6 @@ export const DRIFT_BASELINE: DriftGroup[] = [
       'DROP INDEX "public"."IDX_students_tenant_registration_number"',
       'DROP INDEX "public"."IDX_teacher_class_sections_tenant_id"',
       'DROP INDEX "public"."IDX_users_name_bn"',
-    ],
-  },
-  {
-    reason:
-      'The entity declares a tenant_id index the DB does not have; a composite index leading with tenant_id covers it (fee_structures, payments). guardians got its own in [8.15.48].',
-    owner: 'unowned, see #2343',
-    statements: [
-      'CREATE INDEX "IDX_9109b53fca5cef7720aca72974" ON "payments" ("tenant_id") ',
-      'CREATE INDEX "IDX_e25a5bebd3d7ca85860cf9ede3" ON "fee_structures" ("tenant_id") ',
-    ],
-  },
-  {
-    reason:
-      'The entity declares an index the DB does not have and no index leads with its columns (class_sections (class_id, tenant_id), teachers.tenant_id). classes.tenant_id and class_sections.tenant_id got theirs in [8.15.48]. Performance only.',
-    owner: 'unowned, see #2343',
-    statements: [
-      'CREATE INDEX "IDX_59eaaec324d70a1e337f31db40" ON "class_sections" ("class_id", "tenant_id") ',
-      'CREATE INDEX "IDX_8b2981d62fb0165dc2719af0f0" ON "teachers" ("tenant_id") ',
     ],
   },
   {

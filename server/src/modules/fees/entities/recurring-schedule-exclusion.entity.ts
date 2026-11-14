@@ -40,8 +40,11 @@ export class RecurringScheduleExclusion {
   @Column({ type: 'text' })
   reason: string;
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'created_by_user_id' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'created_by_user_id',
+    foreignKeyConstraintName: 'FK_recurring_schedule_exclusions_created_by',
+  })
   created_by: User | null;
 
   @Column({ type: 'uuid', nullable: true })
