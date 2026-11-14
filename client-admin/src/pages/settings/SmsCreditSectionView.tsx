@@ -7,6 +7,7 @@ import { DataTable, ErrorState, StatusBadge, type DataTableColumn } from '@bidda
 import type { SmsCreditLedgerItem, SmsCreditsResponse } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatNumber } from '@biddaloy/ui/utils';
+import type { ReactNode } from 'react';
 
 import { SettingsSection } from './settings-layout';
 
@@ -19,6 +20,10 @@ export interface SmsCreditSectionViewProps {
   isFetching?: boolean;
   onPageChange: (page: number) => void;
   onRetry: () => void;
+  /** [100.4.02] Lots, packages and the notes: between the balance and the history. */
+  beforeHistory?: ReactNode;
+  /** [100.4.02] The switch-to-SchoolManagerP card, last. */
+  afterHistory?: ReactNode;
 }
 
 export function SmsCreditSectionView({
@@ -30,8 +35,11 @@ export function SmsCreditSectionView({
   isFetching,
   onPageChange,
   onRetry,
+  beforeHistory,
+  afterHistory,
 }: SmsCreditSectionViewProps) {
   const { t } = useTranslation('settings');
+  const { t: tb } = useTranslation('smsBundles');
   const config = useRegionConfig();
 
   // D9: the reference shows its type only; the record id is never printed.
@@ -45,7 +53,10 @@ export function SmsCreditSectionView({
     {
       id: 'kind',
       header: t('smsCredit.ledger.kindHeader'),
-      accessorFn: (row) => t(`smsCredit.ledger.kind.${row.kind}`),
+      accessorFn: (row) =>
+        row.kind === 'PURCHASE' || row.kind === 'EXPIRE'
+          ? tb(`history.kind.${row.kind}`)
+          : t(`smsCredit.ledger.kind.${row.kind}`),
       card: 'title',
     },
     {
@@ -60,7 +71,11 @@ export function SmsCreditSectionView({
       id: 'reference',
       header: t('smsCredit.ledger.referenceHeader'),
       accessorFn: (row) =>
-        row.reference_type ? t(`smsCredit.ledger.referenceType.${row.reference_type}`) : '—',
+        row.reference_type === 'bundle_order' || row.reference_type === 'lot'
+          ? tb(`history.reference.${row.reference_type}`)
+          : row.reference_type
+            ? t(`smsCredit.ledger.referenceType.${row.reference_type}`)
+            : '—',
       card: 'field',
     },
     {
@@ -117,6 +132,8 @@ export function SmsCreditSectionView({
             </dl>
           )}
 
+          {beforeHistory}
+
           <h3 className="mt-6 text-h3">{t('smsCredit.ledgerTitle')}</h3>
           <div className="mt-2">
             <DataTable
@@ -139,6 +156,7 @@ export function SmsCreditSectionView({
               }}
             />
           </div>
+          {afterHistory}
         </>
       )}
     </SettingsSection>

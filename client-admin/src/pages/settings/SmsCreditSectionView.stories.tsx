@@ -16,6 +16,15 @@ function ledgerItem(overrides: Partial<SmsCreditLedgerItem> = {}): SmsCreditLedg
   };
 }
 
+/** The lots / source part of the response ([100.4.01]); the packages have their own stories. */
+const extras = {
+  lots: [],
+  orders: [],
+  source: 'SCHOOLMANAGERP' as const,
+  almostFinished: false,
+  stopped: false,
+};
+
 const meta: Meta<typeof SmsCreditSectionView> = {
   component: SmsCreditSectionView,
   args: {
@@ -33,6 +42,7 @@ type Story = StoryObj<typeof SmsCreditSectionView>;
 export const OffMode: Story = {
   args: {
     credits: {
+      ...extras,
       metering: 'OFF',
       available: 0,
       reserved: 0,
@@ -44,6 +54,7 @@ export const OffMode: Story = {
 export const PlatformSufficient: Story = {
   args: {
     credits: {
+      ...extras,
       metering: 'PLATFORM',
       available: 488,
       reserved: 0,
@@ -61,6 +72,7 @@ export const PlatformSufficient: Story = {
 export const PlatformShort: Story = {
   args: {
     credits: {
+      ...extras,
       metering: 'PLATFORM',
       available: 3,
       reserved: 0,
@@ -78,6 +90,7 @@ export const PlatformShort: Story = {
 export const LedgerPopulated: Story = {
   args: {
     credits: {
+      ...extras,
       metering: 'PLATFORM',
       available: 200,
       reserved: 10,
@@ -111,10 +124,37 @@ export const LedgerPopulated: Story = {
 export const LedgerEmpty: Story = {
   args: {
     credits: {
+      ...extras,
       metering: 'PLATFORM',
       available: 500,
       reserved: 0,
       ledger: { data: [], total: 0, page: 1, limit: 10, totalPages: 1 },
+    },
+  },
+};
+
+export const BoughtAndEnded: Story = {
+  args: {
+    credits: {
+      ...extras,
+      metering: 'PLATFORM',
+      available: 500,
+      reserved: 0,
+      ledger: {
+        data: [
+          ledgerItem({
+            kind: 'PURCHASE',
+            units: 500,
+            reference_type: 'bundle_order',
+            reason: null,
+          }),
+          ledgerItem({ kind: 'EXPIRE', units: -30, reference_type: 'lot', reason: null }),
+        ],
+        total: 2,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      },
     },
   },
 };
