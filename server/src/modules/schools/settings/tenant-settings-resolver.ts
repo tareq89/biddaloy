@@ -26,6 +26,7 @@ import type {
   DocumentsSettings,
   ApplicationsSettings,
   HomeworkSettings,
+  PaymentsSettings,
   DashboardSettings,
   EvaluationsSettings,
   RoutineSettings,
@@ -345,6 +346,20 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
         : DEFAULT_FEES_SETTINGS.requireSecondApprover,
   };
 
+  // [3.1.03] Toggles always present (off by default); a non-boolean reads as off. `bkash` passes
+  // through as stored (the caller masks it); a non-object is dropped.
+  const storedPayments = isPlainObject(stored?.payments) ? stored.payments : undefined;
+  const payments: PaymentsSettings = {
+    onlineEnabled: storedPayments?.onlineEnabled === true,
+    proofEnabled: storedPayments?.proofEnabled === true,
+    proofMethods: Array.isArray(storedPayments?.proofMethods)
+      ? (storedPayments.proofMethods as PaymentsSettings['proofMethods'])
+      : [],
+    ...(isPlainObject(storedPayments?.bkash)
+      ? { bkash: storedPayments.bkash as PaymentsSettings['bkash'] }
+      : {}),
+  };
+
   // [35.1.2] No default: `preset` is absent until a preset is applied, so
   // "has a preset" is a truthiness check. Passed through only if stored.
   const preset = isPlainObject(stored?.preset)
@@ -427,6 +442,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     auth,
     backup,
     fees,
+    payments,
     documents,
     studyPlans: overlayStudyPlansSettings(stored?.studyPlans),
     attention: overlayAttentionSettings(stored?.attention),

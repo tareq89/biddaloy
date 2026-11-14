@@ -171,10 +171,25 @@ export function deepMergePresent(
  * or `communications.sms` (e.g. `null`) is dropped too: the merge would replace the stored object
  * with it, wiping the stored metering and every saved credential under it.
  */
+function dropOnlinePaymentState(settings: Record<string, unknown>): Record<string, unknown> {
+  const { payments } = settings;
+  if (!isPlainObject(payments)) return settings;
+  const { onlineEnabled: _on, bkash, ...otherPayments } = payments;
+  const kept: Record<string, unknown> = { ...otherPayments };
+  if (isPlainObject(bkash)) {
+    // `environment` too: changing it would keep the stored test result valid for the wrong host.
+    const { lastTestOkAt: _ok, environment: _env, ...bkashKept } = bkash;
+    kept.bkash = bkashKept;
+  }
+  return { ...settings, payments: kept };
+}
+
 function withoutPlatformOnlyPaths(imported: Record<string, unknown>): Record<string, unknown> {
   // [99.1.06] `supportAccess` (consent for Login as) is never restored: a file, however old, must
   // not flip it. Dropped whatever its value; the destination keeps its own.
-  const { supportAccess: _consent, ...settings } = imported;
+  const { supportAccess: _consent, ...withPayments } = imported;
+  // [3.1.03 D13/D47] A file cannot turn online payments on or fake a passing connection test.
+  const settings = dropOnlinePaymentState(withPayments);
   if (!('communications' in settings)) return settings;
   const { communications, ...rest } = settings;
   if (!isPlainObject(communications)) return rest;

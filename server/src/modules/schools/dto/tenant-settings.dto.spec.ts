@@ -62,6 +62,50 @@ describe('TenantSettingsDto', () => {
     expect(errors.some((e) => e.property === 'version')).toBe(true);
   });
 
+  describe('payments (3.1.03)', () => {
+    const run = (payments: unknown) =>
+      validate(toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, payments }), VALIDATION_OPTIONS);
+
+    it('accepts toggles, proof methods and bKash credentials', async () => {
+      expect(
+        await run({
+          onlineEnabled: false,
+          proofEnabled: true,
+          proofMethods: [{ method: 'BKASH', instructions: 'Send to 017...' }],
+          bkash: {
+            environment: 'SANDBOX',
+            appKey: 'k',
+            appSecret: 's',
+            username: 'u',
+            password: 'p',
+          },
+        }),
+      ).toEqual([]);
+    });
+
+    it('caps instructions at 500 characters', async () => {
+      const ok = [{ method: 'BKASH', instructions: 'x'.repeat(500) }];
+      const bad = [{ method: 'BKASH', instructions: 'x'.repeat(501) }];
+      expect(await run({ proofMethods: ok })).toEqual([]);
+      expect(await run({ proofMethods: bad })).not.toEqual([]);
+    });
+
+    it('rejects an unknown method, a duplicate method and a bad environment', async () => {
+      expect(await run({ proofMethods: [{ method: 'PIGEON', instructions: '' }] })).not.toEqual([]);
+      const dup = [
+        { method: 'BKASH', instructions: 'a' },
+        { method: 'BKASH', instructions: 'b' },
+      ];
+      expect(await run({ proofMethods: dup })).not.toEqual([]);
+      expect(await run({ bkash: { environment: 'MOON' } })).not.toEqual([]);
+    });
+
+    it('accepts lastTestOkAt (the service ignores it) but rejects a base URL field', async () => {
+      expect(await run({ bkash: { lastTestOkAt: '2026-01-01T00:00:00.000Z' } })).toEqual([]);
+      expect(await run({ bkash: { baseUrl: 'https://evil.example' } })).not.toEqual([]);
+    });
+  });
+
   describe('fees.requireSecondApprover (78 D1)', () => {
     const fees = (requireSecondApprover: unknown) => ({
       version: TENANT_SETTINGS_SCHEMA_VERSION,
