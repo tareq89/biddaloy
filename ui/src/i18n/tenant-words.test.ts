@@ -64,7 +64,7 @@ describe('applyTenantWordsWhenLoaded', () => {
         await gate;
         i18n.addResourceBundle('bn', 'common', bundle);
       }
-      return load(l as string);
+      return load(l);
     }) as typeof i18n.loadLanguages;
 
     const done = applyTenantWordsWhenLoaded(i18n, { class: { bn: 'শ্রেণি২' } });
@@ -80,9 +80,8 @@ describe('applyTenantWordsWhenLoaded', () => {
   it('a failed load applies nothing and leaves no partial bundle', async () => {
     const i18n = await setup('en');
     i18n.removeResourceBundle('bn', 'common');
-    i18n.loadLanguages = (async () => {
-      throw new Error('offline');
-    }) as typeof i18n.loadLanguages;
+    i18n.loadLanguages = (() =>
+      Promise.reject(new Error('offline'))) as typeof i18n.loadLanguages;
     expect(await applyTenantWordsWhenLoaded(i18n, { class: { bn: 'X' } })).toBe(false);
     expect(i18n.hasResourceBundle('bn', 'common')).toBe(false);
   });

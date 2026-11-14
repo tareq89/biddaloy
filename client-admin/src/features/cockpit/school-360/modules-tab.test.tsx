@@ -106,7 +106,7 @@ describe('GlobalModulesCard', () => {
     );
     if (bodies.length === 1) await user.click(screen.getByRole('switch', { name: 'Website' }));
     await waitFor(() => expect(bodies).toHaveLength(2));
-    expect(bodies[1].modules).toEqual({ fees: false });
+    expect(bodies[1]?.modules).toEqual({ fees: false });
   });
 
   it('a write without a code shows the step-up prompt, then goes through with the token', async () => {

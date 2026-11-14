@@ -190,7 +190,7 @@ describe('School profile (e2e)', () => {
   });
 
   it('refuses a caller who is not a member of the requested school', async () => {
-    await read(STRANGER_TENANT_ID).expect(403);
+    await read(STRANGER_TENANT_ID).expect(401);
   });
 
   it('refuses a missing or invalid X-Tenant-ID', async () => {

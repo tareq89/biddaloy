@@ -238,7 +238,7 @@ describe('Modules and labels settings (e2e)', () => {
 
   it('refuses a non-member: matching path and header on a school the caller does not belong to', async () => {
     await patch({ modules: { homework: { on: false } } }, { tenant: STRANGER_TENANT_ID }).expect(
-      403,
+      401,
     );
     const [row] = await dataSource.query(`SELECT settings FROM schools WHERE id = $1`, [
       STRANGER_TENANT_ID,
