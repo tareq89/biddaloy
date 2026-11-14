@@ -673,6 +673,8 @@ export enum SiteSectionKey {
   GALLERY = 'gallery',
   VIDEO = 'video',
   CONTACT = 'contact',
+  ADMISSION_RESULT = 'admission_result',
+  ADMISSION_LISTS = 'admission_lists',
   CUSTOM = 'custom',
 }
 

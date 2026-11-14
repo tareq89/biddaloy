@@ -1,5 +1,7 @@
 export * from './enums/index';
 export * from './enums/print';
+export * from './admission/field-catalogue';
+export * from './admission/templates';
 export * from './print/index';
 export * from './presets/index';
 export * from './enums/permissions';
