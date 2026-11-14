@@ -235,6 +235,40 @@ describe('SmsCreditService (integration)', () => {
     });
   });
 
+  it('[4138] lots follow a balance that old-code instances moved after the backfill, once', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-drift-${tenantA}` });
+    // the migration backfill made this one LEGACY lot; make the fixture look like that
+    await dataSource.query(`UPDATE sms_credit_lots SET source = 'LEGACY' WHERE tenant_id = $1`, [
+      tenantA,
+    ]);
+    // old code: reserve 20 (available -20, reserved +20), then grant 5, with no lot writes
+    await dataSource.query(
+      `UPDATE sms_credit_balance SET available = available - 20 + 5, reserved = reserved + 20 WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    const first = await service.reconcileLotsToBalance(tenantA);
+    expect(first).toEqual({ drift: { available: -15, reserved: 20 }, manual: false });
+    const [lot] = await dataSource.query(
+      `SELECT remaining, reserved_units, units_total, debited_units FROM sms_credit_lots WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    expect(lot).toMatchObject({ remaining: 35, reserved_units: 20, units_total: 55 });
+    // old code then settles that reservation as a DEBIT (reserved -20): the lot books it as debited
+    await dataSource.query(`UPDATE sms_credit_balance SET reserved = 0 WHERE tenant_id = $1`, [
+      tenantA,
+    ]);
+    expect((await service.reconcileLotsToBalance(tenantA)).manual).toBe(false);
+    const [after] = await dataSource.query(
+      `SELECT remaining, reserved_units, debited_units FROM sms_credit_lots WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    expect(after).toMatchObject({ remaining: 35, reserved_units: 0, debited_units: 20 });
+    expect(await service.reconcileLotsToBalance(tenantA)).toEqual({
+      drift: { available: 0, reserved: 0 },
+      manual: false,
+    });
+  });
+
   it('getBalance returns zeros when no balance row exists yet', async () => {
     const balance = await service.getBalance(tenantA);
     expect(balance).toEqual({ available: 0, reserved: 0 });

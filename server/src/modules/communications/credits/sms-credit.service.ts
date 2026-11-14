@@ -874,6 +874,103 @@ export class SmsCreditService {
     });
   }
 
+  /**
+   * [#4138] After the rolling restart: instances still on the lot-less code can have moved the
+   * balance row (grant, reserve, debit, release) after the SmsLots backfill, so the lots are stale
+   * and the balance is the truth. Brings the school's LEGACY lot (and its `legacy:` draw) to the
+   * balance: the part of the change that left a debit or a grant is booked as `debited_units` /
+   * `units_total`, so the lot stays internally consistent. No ledger row (not a movement).
+   * Idempotent: a second run finds no drift. Returns `manual` instead of guessing when the drift
+   * cannot be laid on the LEGACY lot (negative counters, fewer open draws than the reserved drop).
+   */
+  async reconcileLotsToBalance(
+    tenantId: string,
+  ): Promise<{ drift: { available: number; reserved: number }; manual: boolean }> {
+    return this.dataSource.transaction(async (manager) => {
+      await this.lockBalance(manager, tenantId);
+      const bal = await this.readBalance(manager, tenantId);
+      let lots = await this.loadLots(manager, tenantId, {});
+      const drift = {
+        available: bal.available - lots.reduce((n, l) => n + l.remaining, 0),
+        reserved: bal.reserved - lots.reduce((n, l) => n + l.reserved_units, 0),
+      };
+      if (drift.available === 0 && drift.reserved === 0) return { drift, manual: false };
+      let lot = lots.find((l) => l.source === SmsLotSource.LEGACY);
+      let fresh = false;
+      if (!lot) {
+        // No LEGACY lot (the tenant had no balance at the backfill): only a pure gain can start one.
+        if (drift.available < 0 || drift.reserved < 0) return { drift, manual: true };
+        await manager.insert(SmsCreditLot, {
+          tenant_id: tenantId,
+          source: SmsLotSource.LEGACY,
+          units_total: drift.available + drift.reserved,
+          remaining: drift.available,
+          reserved_units: drift.reserved,
+          status: SmsLotStatus.ACTIVE,
+        });
+        lots = await this.loadLots(manager, tenantId, {});
+        lot = lots.find((l) => l.source === SmsLotSource.LEGACY)!;
+        fresh = true;
+      }
+      const draws = await manager.find(SmsCreditLotDraw, {
+        where: { tenant_id: tenantId },
+        order: { id: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const open = draws.reduce((n, d) => n + d.open_units, 0);
+      if (
+        lot.remaining + drift.available < 0 ||
+        lot.reserved_units + drift.reserved < 0 ||
+        (drift.reserved < 0 && open < -drift.reserved)
+      ) {
+        return { drift, manual: true };
+      }
+      const net = drift.available + drift.reserved;
+      if (!fresh) {
+        // One statement: the CHECK needs remaining + reserved + debited + expired = units_total.
+        await manager.query(
+          `UPDATE "sms_credit_lots"
+              SET units_total = units_total + $3, remaining = remaining + $4,
+                  reserved_units = reserved_units + $5, debited_units = debited_units + $6,
+                  status = CASE WHEN remaining + $4 = 0 AND reserved_units + $5 = 0 THEN 'USED_UP' ELSE 'ACTIVE' END,
+                  updated_at = now()
+            WHERE id = $1 AND tenant_id = $2`,
+          [lot.id, tenantId, net > 0 ? net : 0, drift.available, drift.reserved, net < 0 ? -net : 0],
+        );
+      }
+      if (drift.reserved > 0) {
+        const own = draws.find((d) => d.lot_id === lot!.id && d.reserve_key === `legacy:${tenantId}`);
+        if (own) {
+          await manager.query(
+            `UPDATE "sms_credit_lot_draws" SET units = units + $2, open_units = open_units + $2 WHERE id = $1`,
+            [own.id, drift.reserved],
+          );
+        } else {
+          await manager.insert(SmsCreditLotDraw, {
+            tenant_id: tenantId,
+            lot_id: lot.id,
+            reserve_key: `legacy:${tenantId}`,
+            units: drift.reserved,
+            open_units: drift.reserved,
+          });
+        }
+      } else if (drift.reserved < 0) {
+        let left = -drift.reserved;
+        for (const d of draws.filter((x) => x.open_units > 0)) {
+          const take = Math.min(left, d.open_units);
+          await manager.query(
+            `UPDATE "sms_credit_lot_draws" SET open_units = open_units - $2 WHERE id = $1`,
+            [d.id, take],
+          );
+          left -= take;
+          if (left === 0) break;
+        }
+      }
+      this.logger.log({ msg: 'sms credit lots reconciled to balance', tenant_id: tenantId, drift });
+      return { drift, manual: false };
+    });
+  }
+
   // ---- lot helpers (every lot/draw access goes through the caller's manager) ----
 
   private async lockBalance(manager: EntityManager, tenantId: string): Promise<void> {
