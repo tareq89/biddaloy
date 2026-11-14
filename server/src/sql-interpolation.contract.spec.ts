@@ -241,6 +241,17 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   // [58.0.03] actorIsStaffIn: code-constant role list + literal $n / column refs
   'modules/routines/routine-slots.service.ts': ["actorIsStaffIn('$2', 'ft.tenant_id')"],
   'modules/routines/teacher-busy.service.ts': ["actorIsStaffIn('$3', 's.id')"],
+  // table / column names read from TypeORM entity metadata (decorators in code), never request input; ids are bound.
+  // Was hidden from the guard by a comment before the template (#3428).
+  'modules/workbook/codec/soft-deleted.ts': [
+    'target.deleted',
+    'target.deleted',
+    'target.deleted',
+    'target.table',
+    'target.table',
+    'target.tenant',
+    'target.tenant',
+  ],
   // column is list === 'shifts' ? 'shift' : 'version'
   // + [99.2] list query: order is a value of the fixed ORDER map (enum-validated sort); whereSql joins literal
   // fragments whose values go through bind() ($n); pLimit / pOffset are bind() placeholders
@@ -325,11 +336,59 @@ function templateExpressions(template: string): string[] {
   return out;
 }
 
+/** Blanks `//` and `/* *\/` comments, keeping strings and template literals (with
+ * nested `${}` templates) intact, so a comment between `.query(` and its template,
+ * or one holding a backtick, can neither hide a query nor start a false match.
+ * Regex literals holding a quote are not modelled (none sit next to a query call). */
+export function stripComments(src: string): string {
+  let out = '';
+  // 'c' = code, 't' = template text; a `${` pushes 'c' with its own brace depth.
+  const modes: Array<{ m: 'c' | 't'; depth: number }> = [{ m: 'c', depth: 0 }];
+  for (let i = 0; i < src.length; i++) {
+    const top = modes[modes.length - 1];
+    const c = src[i];
+    if (top.m === 't') {
+      if (c === '\\') out += c + (src[++i] ?? '');
+      else if (c === '`') {
+        modes.pop();
+        out += c;
+      } else if (c === '$' && src[i + 1] === '{') {
+        modes.push({ m: 'c', depth: 1 });
+        out += '${';
+        i++;
+      } else out += c;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i++;
+      out += '\n';
+    } else if (c === '/' && src[i + 1] === '*') {
+      const end = src.indexOf('*/', i + 2);
+      const stop = end === -1 ? src.length : end + 2;
+      out += src.slice(i, stop).replace(/[^\n]/g, ' ');
+      i = stop - 1;
+    } else if (c === "'" || c === '"') {
+      let j = i + 1;
+      while (j < src.length && src[j] !== c && src[j] !== '\n') j += src[j] === '\\' ? 2 : 1;
+      out += src.slice(i, j + 1);
+      i = j;
+    } else if (c === '`') {
+      modes.push({ m: 't', depth: 0 });
+      out += c;
+    } else {
+      if (c === '{' && modes.length > 1) top.depth++;
+      else if (c === '}' && modes.length > 1 && --top.depth === 0) modes.pop();
+      out += c;
+    }
+  }
+  return out;
+}
+
 /** file -> sorted `${...}` expressions found in direct query arguments. */
 function findInterpolations(): Record<string, string[]> {
   const found: Record<string, string[]> = {};
   for (const file of collectFiles(SRC_DIR)) {
-    const source = readFileSync(file, 'utf8');
+    const source = stripComments(readFileSync(file, 'utf8'));
     const exprs: string[] = [];
     for (const re of [FIRST_ARG, JOIN_COND]) {
       for (const m of source.matchAll(re)) {
@@ -366,6 +425,21 @@ describe('SQL interpolation guard', () => {
     expect(templateExpressions("`a ${safe('}') + userInput}`")).toEqual(["safe('}') + userInput"]);
     // Cut off by a nested backtick: never matches a reviewed entry.
     expect(templateExpressions('`a ${cond ? `x` : y}`')).toEqual(['INCOMPLETE: cond ? ']);
+  });
+
+  it('stripComments: a comment before the template, or one holding a backtick, neither hides nor derails a query', () => {
+    const hidden = 'db.query(\n  // why\n  `SELECT ${a}`)';
+    expect([...stripComments(hidden).matchAll(FIRST_ARG)].map((m) => m[1])).toEqual([
+      '`SELECT ${a}`',
+    ]);
+    const derail = '/* the guard reads `.query(` + backtick */\ndb.query(`SELECT ${b}`);';
+    expect([...stripComments(derail).matchAll(FIRST_ARG)].map((m) => m[1])).toEqual([
+      '`SELECT ${b}`',
+    ]);
+    // strings and templates keep their `//`
+    expect(stripComments("q(`a // b ${`x`}`, 'c // d'); // gone")).toBe(
+      "q(`a // b ${`x`}`, 'c // d'); \n",
+    );
   });
 
   it('no reviewed entry is stale', () => {
