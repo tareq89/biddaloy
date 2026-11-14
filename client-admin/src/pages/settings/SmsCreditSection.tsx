@@ -16,9 +16,13 @@
 import { useSmsCredits } from '@biddaloy/ui/hooks';
 import * as React from 'react';
 
+import { SmsBundlesPanel } from './SmsBundlesPanel';
 import { SmsCreditSectionView } from './SmsCreditSectionView';
+import { SmsSourceCard } from './SmsSourceCard';
 
 const PAGE_SIZE = 25; // D19
+const POLL_EVERY_MS = 3000;
+const POLL_LIMIT_MS = 2 * 60 * 1000; // same give-up rule as SeatsBillingSection
 
 export interface SmsCreditSectionProps {
   schoolId: string;
@@ -28,9 +32,23 @@ export interface SmsCreditSectionProps {
    * of the tenant-scoped one, which would otherwise resolve to whatever
    * tenant is on the caller's JWT, not the picked school. */
   isSuperAdmin?: boolean;
+  /** [100.4.02] `?smsBuy=1`: open the buy dialog. */
+  smsBuy?: boolean;
+  /** `?smsOrder=<id>`: bKash's return for a package order; its status is polled and shown. */
+  smsOrder?: string | undefined;
+  payment?: 'success' | 'cancel' | 'failure' | 'error' | undefined;
+  /** Drops `?smsBuy=1` once its dialog closes. */
+  onBuyClosed?: () => void;
 }
 
-export function SmsCreditSection({ schoolId, isSuperAdmin = false }: SmsCreditSectionProps) {
+export function SmsCreditSection({
+  schoolId,
+  isSuperAdmin = false,
+  smsBuy = false,
+  smsOrder,
+  payment,
+  onBuyClosed,
+}: SmsCreditSectionProps) {
   const [page, setPage] = React.useState(1);
   // A schoolId change (SUPER_ADMIN's picker) must reset to page 1 — a
   // stale page number from a previous school's longer ledger would silently
@@ -40,6 +58,29 @@ export function SmsCreditSection({ schoolId, isSuperAdmin = false }: SmsCreditSe
   }, [schoolId]);
 
   const creditsQuery = useSmsCredits(page, PAGE_SIZE, isSuperAdmin ? schoolId : undefined);
+
+  // After bKash: refresh the balance until the order settles, give up after 2 minutes.
+  const [timedOut, setTimedOut] = React.useState(false);
+  React.useEffect(() => {
+    setTimedOut(false);
+    if (!smsOrder) return;
+    const id = window.setTimeout(() => setTimedOut(true), POLL_LIMIT_MS);
+    return () => window.clearTimeout(id);
+  }, [smsOrder]);
+  const settled = creditsQuery.data?.orders.some(
+    (o) => o.id === smsOrder && o.status !== 'PENDING',
+  );
+  const { refetch } = creditsQuery;
+  const polling =
+    Boolean(smsOrder) && !timedOut && !settled && (payment === undefined || payment === 'success');
+  React.useEffect(() => {
+    if (!polling) return;
+    const id = window.setInterval(() => void refetch(), POLL_EVERY_MS);
+    return () => window.clearInterval(id);
+  }, [polling, refetch]);
+
+  const credits = creditsQuery.data;
+  const sells = credits?.metering === 'PLATFORM';
 
   return (
     <SmsCreditSectionView
@@ -51,6 +92,24 @@ export function SmsCreditSection({ schoolId, isSuperAdmin = false }: SmsCreditSe
       isFetching={creditsQuery.isFetching}
       onPageChange={setPage}
       onRetry={() => void creditsQuery.refetch()}
+      beforeHistory={
+        credits && sells ? (
+          <SmsBundlesPanel
+            credits={credits}
+            canBuy={!isSuperAdmin}
+            openBuy={smsBuy}
+            returnOrderId={smsOrder}
+            payment={payment}
+            pollTimedOut={timedOut}
+            {...(onBuyClosed ? { onBuyClosed } : {})}
+          />
+        ) : undefined
+      }
+      afterHistory={
+        credits && sells && !isSuperAdmin && credits.source === 'OWN' ? (
+          <SmsSourceCard />
+        ) : undefined
+      }
     />
   );
 }

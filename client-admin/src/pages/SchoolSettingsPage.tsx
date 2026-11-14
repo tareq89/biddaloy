@@ -123,7 +123,9 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   const canManagePrinting = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
 
-  const { section, buy, order, payment, devices } = useSearch({ from: '/_staff/settings' });
+  const { section, buy, order, payment, devices, smsBuy, smsOrder, coupon } = useSearch({
+    from: '/_staff/settings',
+  });
   const navigate = useNavigate();
   const hash = useLocation().hash;
   const categories = SETTINGS_CATEGORIES.filter(
@@ -239,7 +241,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
       case 'billing':
         // Billing is the active school's (X-Tenant-ID), so no SUPER_ADMIN picked-school view.
         return isSuperAdmin ? null : (
-          <SeatsBillingSection openBuy={buy === 1} returnOrderId={order} payment={payment} />
+          <SeatsBillingSection
+            openBuy={buy === 1}
+            openCoupon={coupon === 1}
+            returnOrderId={order}
+            payment={payment}
+          />
         );
       case 'communication':
         return (
@@ -250,6 +257,16 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                 key={loaded.schoolId}
                 schoolId={loaded.schoolId}
                 isSuperAdmin={isSuperAdmin}
+                smsBuy={smsBuy === 1}
+                smsOrder={smsOrder}
+                payment={payment}
+                onBuyClosed={() =>
+                  void navigate({
+                    to: '/settings',
+                    search: (prev) => ({ ...prev, smsBuy: undefined }),
+                    replace: true,
+                  })
+                }
               />
               <WhatsAppSection
                 schoolId={loaded.schoolId}

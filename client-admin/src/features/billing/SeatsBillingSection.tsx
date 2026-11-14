@@ -15,6 +15,8 @@ export function SeatsBillingSection({
   payment,
 }: {
   openBuy?: boolean;
+  /** `?coupon=1`; unused here, #3878 consumes it to open the coupon row. */
+  openCoupon?: boolean;
   /** The order bKash sent the admin back for; its status is polled and shown. */
   returnOrderId?: string | undefined;
   /** bKash's own word on how the return went; anything but success stops the polling. */
