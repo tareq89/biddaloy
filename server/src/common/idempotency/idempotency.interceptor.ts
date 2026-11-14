@@ -39,7 +39,7 @@ import { TENANT_STATUS_REDIS } from '../../modules/schools/tenant-status.service
  * `academic-years/:id/next` (create the next year, [69.2.02]) and `PATCH promotions/:id/groups`
  * (assign promotion groups; a double click would write the same set twice) and
  * `institution-kinds/:id/apply` ([77.4.1]; overwrites a school's switches and words) and
- * `POST portal/payment-proofs` ([3.1.x]; a double click would file the same proof twice).
+ * `POST portal/payment-proofs` (#3965; a double click would file the same proof twice).
  *
  * Exempt, with the reason (D23):
  * - `POST exams/:examId/results/sms`: deduped by the unique `reference_key` (result-sms.service.ts).

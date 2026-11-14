@@ -584,6 +584,29 @@ sequenceDiagram
 - **Surprise:** the ticket's "created by" has no column on `Payment`. Fix: the actor is the audit `performed_by_user_id` and the event row `actor_user_id`; `received_by_user_id` stays NULL for a proof, so a guardian-paid receipt never names a cashier.
 - **Example:** a PROOF for two siblings (৳1000 + ৳700, bKash TrxID `8N7A5X`) settles into two Payments and two invoices. If a counter payment cleared the ৳700 bill first, the whole proof is `DISCARDED` with `discard_reason: BILL_ALREADY_PAID`, and nothing is paid.
 
+### Learnings (Epic #291, Wave 3, 2026-11-15)
+
+Wave 3 gave staff the review side: a queue and detail screen, confirm, reject and reopen, an attention alert, a push to the guardian, a "waiting" mark on the cashier's cart, and a demo school with proofs in every state.
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING: guardian submits
+  PENDING --> WITHDRAWN: guardian withdraws
+  PENDING --> CONFIRMED: staff confirm, bills still open
+  PENDING --> DISCARDED: staff confirm, bill paid at the counter first
+  PENDING --> REJECTED: staff reject with a reason
+  REJECTED --> PENDING: staff reopen, bills still free
+  CONFIRMED --> REVERSED: payment reversed from its receipt
+```
+
+- **Surprise:** a confirmed proof cannot be rejected, because its money is already a Payment. Cost: a second, hidden way to undo a payment. Fix: reject answers `409` with `details.code = PROOF_CONFIRMED_USE_REVERSAL` and the reversal listener (#3970) moves the proof to REVERSED when staff reverse the payment from the receipt. Rule candidate: one way to undo money, one place it is recorded.
+- **Surprise:** confirm can end as DISCARDED. Cost: the screen cannot assume "confirm means paid". Fix: `confirm` returns `{ outcome: 'SETTLED' | 'DISCARDED', paymentIds, detail }`; the UI reads `outcome`. Confirming a proof that is already CONFIRMED or DISCARDED replays the same answer (D27), so a double click is safe.
+- **Surprise:** reopen can collide. While a proof is REJECTED its bills are free, so the guardian may send a new proof for them. Cost: two waiting proofs on one bill. Fix: `reopen` checks for another PENDING proof on any of the bills and answers `409` ("Another payment proof is already waiting"). Rule candidate: a state that frees a lock must re-check the lock when it comes back.
+- **Surprise:** the duplicate-TrxID warning is computed, not stored on the proof. Cost: it looks stale if you read it from the row. Fix: the opening event keeps `reason_code` (`DUPLICATE_PAYMENT` or `DUPLICATE_PENDING`) for history, and `detail` recomputes `duplicateFlag` while the proof is PENDING. The flag never blocks a submit (D25).
+- **Surprise:** the review routes have no response DTO, so `schema.d.ts` holds the paths but not the shapes. Cost: UI hooks need hand-written types. Fix: `ui/src/hooks/payment-submissions.ts` declares them next to the hooks; replace them when the server adds DTOs. Rule candidate: a route with no `@ApiOkResponse` type is a contract gap, list it at wave close.
+- **Surprise:** the demo cannot reach DISCARDED by editing rows; it has to pay the bill first. Cost: the demo slice is order-sensitive. Fix: the `payment-submissions` slice files the proof, takes the counter payment through `CheckoutService`, then confirms through `ProofReviewService`. Login guardians are only about 5% of families, so a tiny CI run (`--scale 0.05`) may have too few open bills; the slice then runs as many of its seven proofs as there are bills (at least one).
+- **Example:** guardian `guardian@bmsc.example` sends a bKash proof for ৳1,200 with TrxID `DM4K9XQ2LA`. Another family reuses `DM4K9XQ2LA`, so the accountant sees `DUPLICATE_PENDING` on the second one. The accountant confirms the first (one Payment, one invoice), rejects the second as `IMAGE_UNCLEAR`, and the guardian gets a push for each decision (push is off in the demo).
+
 ## Student statement
 
 A statement answers one question for one student: **what was charged, what was paid, and what is still owed after each line?** It is a coded report (Epic 8.15 D10), not a defined one, because it is a ledger. The code is `server/src/modules/fees/statement/student-statement.service.ts`; the numbers are the same ones the student's fees tab and the dues list show.

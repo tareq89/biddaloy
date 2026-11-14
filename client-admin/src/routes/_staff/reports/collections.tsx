@@ -548,7 +548,7 @@ function CollectionsReportPage() {
                 caption={t('tables.byCollectorTitle')}
                 columns={collectorColumns}
                 data={data?.by_collector ?? []}
-                getRowId={(row) => row.user_id ?? 'unknown'}
+                getRowId={(row) => row.user_id ?? row.full_name ?? 'unknown'}
                 totalCount={data?.by_collector.length ?? 0}
               />,
               { helpId: 'reports.collectionsReport.section.byCollector' },

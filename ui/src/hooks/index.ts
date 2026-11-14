@@ -10,6 +10,7 @@
  */
 export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
 export * from './applications';
+export * from './payment-submissions';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export {
