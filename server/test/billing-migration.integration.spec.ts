@@ -4,6 +4,8 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Billing1791900000350 } from '../src/migrations/1791900000350-Billing';
 import { SeatOrderReceiptNumber1791900000400 } from '../src/migrations/1791900000400-SeatOrderReceiptNumber';
+import { SmsLots1792150000000 } from '../src/migrations/1792150000000-SmsLots';
+import { PlansCouponsRefunds1792200000000 } from '../src/migrations/1792200000000-PlansCouponsRefunds';
 import { assertProductionConfig, billingFreeUntil } from '../src/config/env.validation';
 
 /**
@@ -52,22 +54,37 @@ describe('Billing1791900000350 (integration)', () => {
   }
 
   function insertOrder(over: { seats?: number; months?: number; amount?: number; key?: string }) {
+    const seats = over.seats ?? 10;
+    const months = over.months ?? 1;
+    const amount = over.amount ?? 10000;
+    // CHK_seat_orders_discount (Epic 100): amount = seats * months * unit_price - discount, so the
+    // test row derives a consistent unit price and discount from the amount it wants to store.
+    const unit = Math.max(1, Math.ceil(amount / Math.max(1, seats * months)));
+    const discount = Math.max(0, unit * seats * months - amount);
     return dataSource.query(
-      `INSERT INTO "seat_orders" (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
-       VALUES ($1, $2, $3, 1000, $4, '2027-01-01', '2027-02-01', 'PENDING', $5) RETURNING id`,
-      [schoolId, over.seats ?? 10, over.months ?? 1, over.amount ?? 10000, over.key ?? 'k1'],
+      `INSERT INTO "seat_orders" (school_id, seats, months, unit_price_paisa, discount_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, $2, $3, $6, $7, $4, '2027-01-01', '2027-02-01', 'PENDING', $5) RETURNING id`,
+      [schoolId, seats, months, amount, over.key ?? 'k1', unit, discount],
     );
   }
 
   it('down() drops both tables, up() re-creates them', async () => {
     expect(await tableNames()).toEqual(['platform_payments', 'seat_orders']);
+    // Later migrations (SMS lots, plans/coupons) hang FKs, columns and enum values on these tables,
+    // so they roll back first and re-apply last, or the drop fails and poisons the shared worker DB.
+    const smsLots = new SmsLots1792150000000();
+    const plansCoupons = new PlansCouponsRefunds1792200000000();
+    await plansCoupons.down(queryRunner);
+    await smsLots.down(queryRunner);
     await migration.down(queryRunner);
     expect(await tableNames()).toEqual([]);
     await migration.up(queryRunner);
     expect(await tableNames()).toEqual(['platform_payments', 'seat_orders']);
-    // down() dropped what later migrations added to these tables; put it back so later spec
-    // files on this worker still see receipt_number (#1822).
+    // down() dropped what later migrations added to these tables; put it all back, in order, so
+    // later spec files on this worker still see receipt_number (#1822), SMS lots and coupons.
     await new SeatOrderReceiptNumber1791900000400().up(queryRunner);
+    await smsLots.up(queryRunner);
+    await plansCoupons.up(queryRunner);
   });
 
   it('rejects seats < 1, months outside 1-24 and amounts over MONEY_MAX (in paisa)', async () => {

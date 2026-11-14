@@ -29,6 +29,11 @@ import { ALL_ENTITIES } from '@test/all-entities';
 
 /** Key = `table(col1,col2)`. Each entry has a reason and the ticket that removes it. */
 const ALLOW_LIST: Record<string, { reason: string; removedBy: string }> = {
+  'sms_credit_lots(bundle_order_id)': {
+    reason:
+      'global on purpose: the key is the globally unique SMS bundle order id (one lot per paid order)',
+    removedBy: 'permanent',
+  },
   'auth_tokens(token_hash)': {
     reason: 'global on purpose: random secret hash, looked up before the school is known',
     removedBy: 'permanent',
