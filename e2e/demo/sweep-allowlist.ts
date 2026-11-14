@@ -11,13 +11,6 @@ export const CONSOLE_ERROR_ALLOWLIST: { pattern: RegExp; reason: string }[] = []
  */
 export const KNOWN_ISSUES: { path: string; roles: string[]; reason: string }[] = [
   {
-    path: '/attendance/staff',
-    // EXECUTIVE = principal. Not ADMIN: it holds USER_READ, so a boundary there is a real regression.
-    roles: ['EXECUTIVE', 'ACCOUNTANT', 'TEACHER', 'EXAM_CONTROLLER', 'OFFICE_STAFF'],
-    reason:
-      'principal, accountant, class teacher, exam controller and office staff hold STAFF_ATTENDANCE_READ but not USER_READ; the page loads GET /users (403) and shows the error state. Tracked in #2513.',
-  },
-  {
     path: '/staff/evaluations/surveys/$surveyId',
     roles: ['COMMITTEE'],
     reason:
