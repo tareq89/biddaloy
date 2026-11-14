@@ -536,6 +536,23 @@ late fee on top of it isn't a case anyone asked for.
 
   TO_WALLET siblings are refused, and reversal handles a stale bill. Cost: a race between two checkouts on one wallet. Rule candidate: in any money path, lock bills then wallet, and burn approval tokens last -> Rule 24-27 candidate.
 
+### Learnings (Epic #291, Wave 1, 2026-11-14)
+
+Wave 1 of guardian-initiated online payments laid the base: `PAYMENT_SUBMIT` permission, enums, the `payment_submissions` tables (+ `_bills`, `_files`, `_events`), the tenant `payments` settings block, and the shared `ImageViewer`. No guardian screen yet.
+
+```mermaid
+flowchart LR
+  G[Guardian] -->|proof or bKash| S[payment_submissions]
+  S --> B[_bills]
+  S --> F[_files]
+  S --> E[_events: append-only history]
+  S -->|confirmed| C[CheckoutService: Payment + Invoice]
+```
+
+- **Surprise:** the demo-seed `owedBy` field takes one ticket id (`#\d+`), but the new slice is filled by two tickets (PROOF rows in #3973, ONLINE rows in #3988). Cost: the ticket asked for two names in `owedBy`. Fix: name the first ticket (`#3973`); it deletes `owedBy`, and #3988 later adds rows to an already-filled slice. Rule candidate: when two tickets fill one slice, `owedBy` names the first; the second just adds rows.
+- **Surprise:** a new `PaymentsSettingsDto` and its nested DTOs change the OpenAPI file, so `ui/src/api/schema.d.ts` goes stale even though no route changed. Cost: `check-api-types` fails at the wave close. Fix: run `yarn api:types` at wave close (done in #3964). Rule candidate: any DTO change in a wave means the close ticket regenerates the types.
+- **Example:** a settings read now returns `payments: { onlineEnabled: false, proofEnabled: true, proofMethods: [{ method: "BKASH", instructions: "Send to 017XXXXXXXX" }] }`, with bKash secrets masked.
+
 ## Student statement
 
 A statement answers one question for one student: **what was charged, what was paid, and what is still owed after each line?** It is a coded report (Epic 8.15 D10), not a defined one, because it is a ledger. The code is `server/src/modules/fees/statement/student-statement.service.ts`; the numbers are the same ones the student's fees tab and the dues list show.

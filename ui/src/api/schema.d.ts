@@ -15731,6 +15731,26 @@ export interface components {
             fineDueDays?: number;
             requireSecondApprover?: boolean;
         };
+        ProofMethodDto: {
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            instructions: string;
+        };
+        BkashSettingsDto: {
+            /** @enum {string} */
+            environment?: "SANDBOX" | "PRODUCTION";
+            lastTestOkAt?: string;
+            appKey?: string;
+            appSecret?: string;
+            username?: string;
+            password?: string;
+        };
+        PaymentsSettingsDto: {
+            onlineEnabled?: boolean;
+            proofEnabled?: boolean;
+            proofMethods?: components["schemas"]["ProofMethodDto"][];
+            bkash?: components["schemas"]["BkashSettingsDto"];
+        };
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
         };
@@ -15816,6 +15836,7 @@ export interface components {
             auth?: components["schemas"]["AuthSettingsDto"];
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];
+            payments?: components["schemas"]["PaymentsSettingsDto"];
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
             applications?: components["schemas"]["ApplicationsSettingsDto"];
             homework?: components["schemas"]["HomeworkSettingsDto"];
