@@ -351,14 +351,22 @@ export class RestoreProcessor extends WorkerHost {
       // fails, `terminate` below releases again, which is a no-op.
       await this.restoreService.release(tenantId, row.id).catch(() => undefined);
       const finishedAt = new Date();
-      await this.dataSource.transaction(async (m) => {
-        await m.getRepository(WorkbookJob).update(row.id, {
-          status: WorkbookJobStatus.DONE,
-          row_counts: rowCounts,
-          finished_at: finishedAt,
-          error: null,
-          failed_tab: null,
-        });
+      const landed = await this.dataSource.transaction(async (m) => {
+        // Only a still-RUNNING job may become DONE (#4091): the owner's lock release may have
+        // failed it meanwhile, and a late DONE must not hide a half-applied restore.
+        const written = await m
+          .getRepository(WorkbookJob)
+          .update(
+            { id: row.id, status: WorkbookJobStatus.RUNNING },
+            {
+              status: WorkbookJobStatus.DONE,
+              row_counts: rowCounts,
+              finished_at: finishedAt,
+              error: null,
+              failed_tab: null,
+            },
+          );
+        if (!written.affected) return false;
         await this.audit.record(
           {
             action: AuditAction.CREATE,
@@ -376,7 +384,12 @@ export class RestoreProcessor extends WorkerHost {
           },
           m,
         );
+        return true;
       });
+      if (!landed) {
+        this.logger.warn(`RestoreProcessor: job ${row.id} left RUNNING before it finished, DONE not written`);
+        return;
+      }
 
       this.safeEmit({
         jobId: row.id,

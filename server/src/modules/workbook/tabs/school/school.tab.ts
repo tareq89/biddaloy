@@ -353,14 +353,21 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
 
   async upsert(
     row: SchoolRow,
-    existing: School | null,
+    _existing: School | null,
     tenantId: string,
     m: EntityManager,
   ): Promise<School> {
     // Always the destination tenant's own school, never the id in the file:
     // the workbook's id belongs to the *source* school and must not be able
     // to reach across tenants.
-    const school = existing ?? (await m.findOneByOrFail(School, { id: tenantId }));
+    // Re-read under a row lock inside the restore transaction (#4087): `existing`
+    // was loaded earlier, and saving it back would write a stale settings blob over
+    // a change made meanwhile (supportAccess is a consent decision). The lock also
+    // makes a concurrent settings write wait for this save.
+    const school = await m.findOneOrFail(School, {
+      where: { id: tenantId },
+      lock: { mode: 'pessimistic_write' },
+    });
 
     // `name` is exported (see `columns` above) but never applied here — same
     // reasoning `excluded` already gives for `slug`: it is the destination

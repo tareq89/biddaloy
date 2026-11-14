@@ -74,8 +74,13 @@ describe('RestoreProcessor', () => {
         if (id === snapshotRow.id) return snapshotRow;
         return null;
       }),
-      update: vi.fn(async (id: string, patch: any) => {
+      update: vi.fn(async (idOrWhere: any, patch: any) => {
+        const id = typeof idOrWhere === 'string' ? idOrWhere : idOrWhere.id;
+        if (typeof idOrWhere === 'object' && idOrWhere.status && jobRow.status !== idOrWhere.status) {
+          return { affected: 0 };
+        }
         if (id === jobRow.id) Object.assign(jobRow, patch);
+        return { affected: id === jobRow.id ? 1 : 0 };
       }),
     };
 
@@ -162,6 +167,19 @@ describe('RestoreProcessor', () => {
 
       expect(statusAtRelease).toBe(WorkbookJobStatus.RUNNING);
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
+    // #4091: the owner released (FAILED) the job while the worker was still applying tabs.
+    it('does not overwrite an owner-released job with DONE, and writes no completion audit', async () => {
+      validationService.validate.mockResolvedValue(makeValidatedWorkbook({}));
+      restoreService.release.mockImplementation(async () => {
+        jobRow.status = WorkbookJobStatus.FAILED;
+      });
+
+      await run();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('fails the restore with SNAPSHOT_FAILED when the snapshot job is FAILED, without touching any tab', async () => {
