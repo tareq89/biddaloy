@@ -1,0 +1,44 @@
+{
+  "title": "Revenue",
+  "month": "Month",
+  "csv": "Download CSV",
+  "csvError": "Could not download the file. Try again.",
+  "vatButton": "VAT on receipts",
+  "loadError": "Could not load the revenue. Try again.",
+  "retry": "Try again",
+  "numbers": {
+    "seats": "From seats",
+    "packages": "From SMS packages",
+    "refunds": "Refunds taken off",
+    "total": "Total",
+    "schools": "Paying schools"
+  },
+  "notRenewed": {
+    "title": "Did not renew",
+    "note": "Schools whose seats ended and who have not paid again.",
+    "caption": "Schools that did not renew",
+    "name": "School",
+    "endedOn": "Ended on",
+    "daysAgo": "Days ago",
+    "plan": "Plan",
+    "open": "Open billing",
+    "emptyTitle": "Every school renewed",
+    "emptyDescription": "No school's seats have ended without a new payment.",
+    "more": "Show more"
+  },
+  "vat": {
+    "title": "VAT on receipts",
+    "description": "This is one setting for all schools. Receipts already issued keep their VAT. You will be asked for your code when you save.",
+    "rate": "VAT (%)",
+    "label": "Label on receipts",
+    "skip": "Do not show VAT on receipts",
+    "save": "Save",
+    "saved": "VAT saved.",
+    "errors": {
+      "rate": "Enter a rate from 0.01 to 50, with at most two decimals.",
+      "label": "Enter a label of 1 to 20 letters.",
+      "generic": "Could not save the VAT. Try again.",
+      "load": "Could not load the current VAT. Close this and try again."
+    }
+  }
+}
