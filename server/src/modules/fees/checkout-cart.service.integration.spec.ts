@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { DataSource, Repository, EntityManager } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -354,5 +354,95 @@ describe('CheckoutCartService (integration)', () => {
     const result = await service.getCart([student.id], SEED_TENANT_ID);
 
     expect(result.suggested).toBeNull();
+  });
+
+  describe('waiting_submission (#3972)', () => {
+    const USER_ID = '00000000-0000-4000-8000-0000006c0009';
+    async function setup(
+      status = 'PENDING',
+      source: 'ONLINE' | 'PROOF' = 'PROOF',
+      subTenant = SEED_TENANT_ID,
+    ) {
+      const student = await makeStudent();
+      const fee = await studentFeeRepo.save(studentFeeRepo.create(makeFee(student.id)));
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, 'cart-waiting@example.com', 'x', 'Cart Waiting', 'ACTIVE', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [USER_ID],
+      );
+      const [{ id }] = await dataSource.query(
+        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, provider)
+         VALUES ($1, $2, $3, $4, $5, 1000, $6, $7) RETURNING id`,
+        [
+          subTenant,
+          source,
+          status,
+          USER_ID,
+          source === 'PROOF' ? 'CASH' : null,
+          source === 'PROOF' ? '2026-03-15' : null,
+          source === 'ONLINE' ? 'BKASH' : null,
+        ],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1, $2, $3, $4, 1000)`,
+        [subTenant, id, fee.id, student.id],
+      );
+      return { student, fee, id: id as string };
+    }
+    afterEach(async () => {
+      await dataSource.query(`DELETE FROM payment_submission_bills`);
+      await dataSource.query(`DELETE FROM payment_submissions`);
+    });
+
+    it.each(['PROOF', 'ONLINE'] as const)('PENDING %s submission is returned', async (source) => {
+      const { student, id } = await setup('PENDING', source);
+      const result = await service.getCart([student.id], SEED_TENANT_ID);
+      expect(result.students[0].bills[0].waiting_submission).toEqual({ id, source });
+      expect(result.total_balance).toBe(1000);
+    });
+
+    it.each(['CONFIRMED', 'REJECTED'])('%s submission gives null', async (status) => {
+      const { student } = await setup(status);
+      const result = await service.getCart([student.id], SEED_TENANT_ID);
+      expect(result.students[0].bills[0].waiting_submission).toBeNull();
+    });
+
+    it('a plain bill gives null', async () => {
+      const student = await makeStudent();
+      await studentFeeRepo.save(studentFeeRepo.create(makeFee(student.id)));
+      const result = await service.getCart([student.id], SEED_TENANT_ID);
+      expect(result.students[0].bills[0].waiting_submission).toBeNull();
+    });
+
+    it('with two PENDING submissions on one bill the newest wins', async () => {
+      const { student, fee, id: oldId } = await setup('PENDING', 'PROOF');
+      await dataSource.query(
+        `UPDATE payment_submissions SET created_at = NOW() - INTERVAL '1 day'`,
+      );
+      const [{ id: newId }] = await dataSource.query(
+        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, provider, amount)
+         VALUES ($1, 'ONLINE', 'PENDING', $2, 'BKASH', 1000) RETURNING id`,
+        [SEED_TENANT_ID, USER_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1, $2, $3, $4, 1000)`,
+        [SEED_TENANT_ID, newId, fee.id, student.id],
+      );
+      const result = await service.getCart([student.id], SEED_TENANT_ID);
+      expect(oldId).not.toBe(newId);
+      expect(result.students[0].bills[0].waiting_submission).toEqual({
+        id: newId,
+        source: 'ONLINE',
+      });
+    });
+
+    it("another tenant's submission is not returned", async () => {
+      const { student } = await setup('PENDING', 'PROOF', OTHER_TENANT_ID);
+      const result = await service.getCart([student.id], SEED_TENANT_ID);
+      expect(result.students[0].bills[0].waiting_submission).toBeNull();
+    });
   });
 });
