@@ -82,15 +82,15 @@
     "tabHistory": "History",
     "filterCategory": "Type",
     "allCategories": "All types",
-    "filterClass": "Class",
+    "filterClass": "$t(common:entities.class_one)",
     "allClasses": "All classes",
-    "filterSection": "Section",
+    "filterSection": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "filterChild": "Child",
     "allChildren": "All children",
     "colSeverity": "Type",
     "colTitle": "About",
-    "colWho": "Student / section",
+    "colWho": "$t(common:entities.student_one) / section",
     "colWhen": "When",
     "colState": "Status",
     "colActions": "Actions",
@@ -135,7 +135,7 @@
     "quietHelp": "In this time only urgent alerts make a sound. The rest arrive when it ends.",
     "quietStart": "Quiet hours start",
     "quietEnd": "Quiet hours end",
-    "guardianTitle": "Guardians without the app",
+    "guardianTitle": "$t(common:entities.guardian_other) without the app",
     "smsFallback": "Send an SMS when the app can't reach a guardian",
     "smsFallbackHelp": "Each SMS uses credit. Off: guardians see alerts in the app only.",
     "smsDailyCap": "Most SMS per guardian per day",
@@ -225,13 +225,13 @@
     },
     "section": {
       "no_class_teacher": {
-        "name": "Section without a class teacher",
+        "name": "$t(common:entities.section_one) without a class teacher",
         "help": "Warns about sections with no class teacher."
       }
     },
     "guardian": {
       "contact_missing": {
-        "name": "Guardians without a mobile number",
+        "name": "$t(common:entities.guardian_other) without a mobile number",
         "help": "Warns when guardians have no phone number."
       },
       "profile_incomplete": {
@@ -255,7 +255,7 @@
         "help": "Tells the class teacher about students absent day after day."
       },
       "guardian_contact_missing": {
-        "name": "Guardian contact missing in my class",
+        "name": "$t(common:entities.guardian_one) contact missing in my class",
         "help": "Tells the class teacher which guardians have no phone number."
       }
     },
@@ -287,7 +287,7 @@
         "help": "Reminds you about dues with no reminder sent."
       },
       "unassigned_students": {
-        "name": "Students without fees this month",
+        "name": "$t(common:entities.student_other) without fees this month",
         "help": "Warns about students with no fee assigned."
       },
       "structure_missing_new_year": {
@@ -341,11 +341,11 @@
     },
     "students": {
       "records_incomplete": {
-        "name": "Student records incomplete",
+        "name": "$t(common:entities.student_one) records incomplete",
         "help": "Reminds you about missing photos or birth registration numbers."
       },
       "at_risk": {
-        "name": "Students at risk",
+        "name": "$t(common:entities.student_other) at risk",
         "help": "Lists students whose attendance or marks are slipping."
       }
     },
@@ -542,8 +542,8 @@
     "whoHelp": "Pick one or more groups.",
     "byRole": "By role",
     "addRole": "Add a role",
-    "studentsOfSections": "Students of sections",
-    "guardiansOfSections": "Guardians of sections",
+    "studentsOfSections": "$t(common:entities.student_other) of $t(common:entities.section_other)",
+    "guardiansOfSections": "$t(common:entities.guardian_other) of $t(common:entities.section_other)",
     "addSection": "Add a section",
     "namedPeople": "Named people",
     "findPerson": "Search by name or phone",
@@ -607,7 +607,7 @@
     "month": "Month",
     "rule": "Rule",
     "allRules": "All rules",
-    "section": "Section",
+    "section": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "factTotal": "Total alerts",
     "fewerThan": "{{n}} fewer than {{month}}",

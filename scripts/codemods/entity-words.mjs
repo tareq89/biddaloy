@@ -38,11 +38,32 @@ const SKIP_SEGMENTS = new Set([
   'privacy',
   'roles',
   'designations',
+  // settings.json Words tab: the 'Stock word' column and the module/word/kind NAMES must stay
+  // stock text; a nested word would show the school's own word where the stock one is meant.
+  'modulesWords',
+  'kinds',
+  'kindNames',
 ]);
 // common: entities.* lives here. dashboard, nav, teacherAssignments: the guide generator
 // (client-admin/src/help/guide-gen) copies their strings into docs/user-guide/**, where a
 // `$t(...)` would print raw and regenerate committed files. Convert once the generator resolves nesting.
-const SKIP_NS = new Set(['common', 'dashboard', 'nav', 'teacherAssignments']);
+// platform, schoolControl, schoolsList: render only under client-admin/src/routes/_platform and
+// features/cockpit, where there is no school profile, so a nested word would always resolve to the stock
+// word. verify: public pages (/v/$token, /i/$token) with no tenant profile loaded. demo: its "শাখা" means
+// branch (a tenant, Epic 33), not section. calendarImport: `columns.*` are the import preview's column
+// names for an uploaded calendar file.
+const SKIP_NS = new Set([
+  'common',
+  'dashboard',
+  'nav',
+  'teacherAssignments',
+  'platform',
+  'schoolControl',
+  'schoolsList',
+  'verify',
+  'demo',
+  'calendarImport',
+]);
 
 // word -> [entity key, plural form]
 const EN = {
