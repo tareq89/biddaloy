@@ -1311,6 +1311,22 @@ describe('PromotionsService (integration)', () => {
       ).toBe(1);
     });
 
+    it('refuses to commit a PROMOTE row on a graduation run and changes no student (#2421)', async () => {
+      const { run, student } = await buildGraduationRun();
+      await entryRepo.update(
+        { run_id: run.id, student_id: student.id },
+        { final_outcome: PromotionOutcome.PROMOTE },
+      );
+
+      const err = await service
+        .commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })
+        .catch((e) => e);
+      expect(err.getResponse?.().details?.code).toBe('MOVE_UP_NOT_FOR_GRADUATION');
+      expect(
+        (await studentRepo.findOneOrFail({ where: { id: student.id } })).enrollment_status,
+      ).toBe(EnrollmentStatus.ACTIVE);
+    });
+
     it('refuses create with RETAIN_CLASS_MISSING when a failing student would be retained, and leaves no run row (#2924)', async () => {
       await expect(buildGraduationRun({ failing: true })).rejects.toMatchObject({
         response: { details: { code: 'RETAIN_CLASS_MISSING' } },

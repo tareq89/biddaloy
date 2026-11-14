@@ -1010,6 +1010,15 @@ export class PromotionsService {
           details: { code: 'GRADUATE_ONLY_IN_GRADUATION_RUN' },
         });
       }
+      // A graduation run has no target class: a PROMOTE or CONDITIONAL row (for example one that
+      // came back through a workbook restore) would be skipped below, leaving the student neither
+      // moved, retained nor graduated (#2421).
+      if (run.target_class_id === null && entries.some((e) => movesUp(e.final_outcome))) {
+        throw new UnprocessableEntityException({
+          message: 'A graduation run cannot move students up.',
+          details: { code: 'MOVE_UP_NOT_FOR_GRADUATION' },
+        });
+      }
       if (entries.some((e) => movesUp(e.final_outcome) && e.placement_error)) {
         throw new UnprocessableEntityException(
           'Cannot commit: one or more students moving up has a placement error',
