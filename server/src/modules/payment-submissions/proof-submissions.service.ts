@@ -21,7 +21,12 @@ import { SchoolsService } from '../schools/schools.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { StorageService, StoredObject } from '../storage/storage.service';
 import { matchesDeclaredType } from '../storage/file-signature';
-import { CreateProofSubmissionDto, ProofSubmissionResponseDto } from './dto/proof-submission.dto';
+import {
+  CreateProofSubmissionDto,
+  PaymentCartResponseDto,
+  PaymentOptionsResponseDto,
+  ProofSubmissionResponseDto,
+} from './dto/proof-submission.dto';
 import {
   PAYMENT_SUBMISSION_EVENTS,
   PaymentSubmissionEventPayload,
@@ -341,6 +346,68 @@ export class ProofSubmissionsService {
     );
   }
 
+  /** What this school accepts. A whitelist: no bKash credential field can reach a guardian. */
+  async options(ctx: ProofCaller): Promise<PaymentOptionsResponseDto> {
+    const pay = (await this.schools.getResolvedSettings(ctx.tenantId)).payments;
+    return {
+      onlineEnabled: pay?.onlineEnabled ?? false,
+      proofEnabled: pay?.proofEnabled ?? false,
+      proofMethods: (pay?.proofMethods ?? []).map((m) => ({
+        method: m.method,
+        instructions: m.instructions,
+      })),
+    };
+  }
+
+  /** Open bills of the caller's linked children, each with its waiting submission if any. */
+  async cart(ctx: ProofCaller): Promise<PaymentCartResponseDto> {
+    const ids = await this.familyAccess.getLinkedStudentIds(ctx.role, ctx.userId, ctx.tenantId);
+    if (ids.length === 0) return { students: [] };
+    const [students, bills, waiting] = await Promise.all([
+      this.ds.query(
+        `SELECT id, full_name FROM students
+          WHERE tenant_id = $1 AND deleted_at IS NULL AND id = ANY($2::uuid[]) ORDER BY full_name, id`,
+        [ctx.tenantId, ids],
+      ),
+      this.ds.query(
+        `SELECT sf.id, sf.student_id, fs.name, sf.due_date::text AS due_date,
+                (sf.total_amount - sf.discount_amount - sf.paid_amount)::text AS balance
+           FROM student_fees sf
+           JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+           JOIN fee_structures fs ON fs.id = sf.fee_structure_id AND fs.tenant_id = $1
+          WHERE sf.student_id = ANY($2::uuid[]) AND sf.deleted_at IS NULL
+            AND sf.status NOT IN ('PAID','WAIVED')
+            AND sf.total_amount - sf.discount_amount - sf.paid_amount > 0
+          ORDER BY sf.due_date NULLS LAST, sf.id`,
+        [ctx.tenantId, ids],
+      ),
+      this.ds.query(
+        `SELECT b.student_fee_id, p.id, p.source FROM payment_submission_bills b
+           JOIN payment_submissions p ON p.id = b.submission_id AND p.tenant_id = $1
+          WHERE p.status = 'PENDING' AND b.tenant_id = $1 AND b.student_id = ANY($2::uuid[])`,
+        [ctx.tenantId, ids],
+      ),
+    ]);
+    const hold = new Map<string, { id: string; source: PaymentSubmissionSource }>(
+      waiting.map((w: any) => [w.student_fee_id, { id: w.id, source: w.source }]),
+    );
+    return {
+      students: students.map((s: any) => ({
+        studentId: s.id,
+        fullName: s.full_name,
+        bills: bills
+          .filter((b: any) => b.student_id === s.id)
+          .map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            dueDate: b.due_date,
+            balance: b.balance,
+            waitingSubmission: hold.get(b.id) ?? null,
+          })),
+      })),
+    };
+  }
+
   /** Streams one proof file; 404 unless the caller is linked to a covered child. */
   async file(
     id: string,
@@ -397,6 +464,7 @@ export class ProofSubmissionsService {
       .filter((id) => byId.has(id))
       .map((id) => {
         const s = byId.get(id);
+        const own = s.submitted_by_user_id === ctx.userId;
         const mine = bills.filter((b: any) => b.submission_id === id && linked.has(b.student_id));
         const visible = mine.reduce((n: number, b: any) => n + toPaisa(b.amount_at_start), 0);
         return {
@@ -408,6 +476,10 @@ export class ProofSubmissionsService {
           reference: s.reference_raw,
           submittedByUserId: s.submitted_by_user_id,
           createdAt: s.created_at,
+          // The reason and note are staff text for the submitter; a co-guardian sees none (D12).
+          rejectReason: own ? s.reject_reason : null,
+          rejectNote: own ? s.reject_note : null,
+          discardReason: own ? s.discard_reason : null,
           bills: mine.map((b: any) => ({
             studentFeeId: b.student_fee_id,
             studentId: b.student_id,

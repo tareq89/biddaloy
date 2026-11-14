@@ -11,7 +11,10 @@ import { PaymentSubmissionFile } from './entities/payment-submission-file.entity
 import { PaymentSubmissionEvent } from './entities/payment-submission-event.entity';
 import { ProofReviewController } from './proof-review.controller';
 import { ProofReviewService } from './proof-review.service';
-import { ProofSubmissionsController } from './proof-submissions.controller';
+import {
+  PortalPaymentController,
+  ProofSubmissionsController,
+} from './proof-submissions.controller';
 import { ProofSubmissionsService } from './proof-submissions.service';
 
 const ENTITIES = [
@@ -31,7 +34,7 @@ const ENTITIES = [
     StorageModule,
     StudentModule,
   ],
-  controllers: [ProofSubmissionsController, ProofReviewController],
+  controllers: [ProofSubmissionsController, PortalPaymentController, ProofReviewController],
   providers: [ProofSubmissionsService, ProofReviewService],
   exports: [TypeOrmModule, ProofSubmissionsService],
 })

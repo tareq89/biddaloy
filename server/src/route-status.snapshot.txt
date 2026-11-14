@@ -615,6 +615,8 @@ GET    /api/v1/platform/users                                                   
 POST   /api/v1/platform/users/:id/logout                                         401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/portal/arrival-subscriptions                                      401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 attendance
 PUT    /api/v1/portal/arrival-subscriptions/:studentId                           401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 attendance
+GET    /api/v1/portal/payment-cart                                               401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
+GET    /api/v1/portal/payment-options                                            401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
 GET    /api/v1/portal/payment-proofs                                             401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
 POST   /api/v1/portal/payment-proofs                                             401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
 GET    /api/v1/portal/payment-proofs/:id/files/:fileId                           401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees

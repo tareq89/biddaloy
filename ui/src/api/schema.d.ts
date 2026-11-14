@@ -6720,6 +6720,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/payment-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment methods this school accepts (no credentials). */
+        get: operations["PortalPaymentController_options_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open bills of the caller's linked children, with any waiting payment. */
+        get: operations["PortalPaymentController_cart_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payment-submissions": {
         parameters: {
             query?: never;
@@ -18667,8 +18701,42 @@ export interface components {
             submittedByUserId: string;
             /** Format: date-time */
             createdAt: string;
+            /** @enum {string|null} */
+            rejectReason: "TRXID_NOT_FOUND" | "AMOUNT_MISMATCH" | "IMAGE_UNCLEAR" | "DUPLICATE" | "OTHER" | null;
+            rejectNote: string | null;
+            discardReason: string | null;
             bills: components["schemas"]["ProofSubmissionBillDto"][];
             files: components["schemas"]["ProofSubmissionFileDto"][];
+        };
+        PaymentOptionsMethodDto: {
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            instructions: string;
+        };
+        PaymentOptionsResponseDto: {
+            onlineEnabled: boolean;
+            proofEnabled: boolean;
+            proofMethods: components["schemas"]["PaymentOptionsMethodDto"][];
+        };
+        WaitingSubmissionDto: {
+            id: string;
+            /** @enum {string} */
+            source: "ONLINE" | "PROOF";
+        };
+        PaymentCartBillDto: {
+            id: string;
+            name: string;
+            dueDate: string | null;
+            balance: string;
+            waitingSubmission: components["schemas"]["WaitingSubmissionDto"] | null;
+        };
+        PaymentCartStudentDto: {
+            studentId: string;
+            fullName: string;
+            bills: components["schemas"]["PaymentCartBillDto"][];
+        };
+        PaymentCartResponseDto: {
+            students: components["schemas"]["PaymentCartStudentDto"][];
         };
         RejectProofDto: {
             /** @enum {string} */
@@ -39722,6 +39790,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalPaymentController_options_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOptionsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalPaymentController_cart_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentCartResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

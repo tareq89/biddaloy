@@ -137,6 +137,9 @@ export const FAIL_OPEN = [
   'GET /portal/payment-proofs',
   'POST /portal/payment-proofs/:id/withdraw',
   'GET /portal/payment-proofs/:id/files/:fileId',
+  // [3.x/#3975 D12] Pay-page reads: no password, code or money moved.
+  'GET /portal/payment-options',
+  'GET /portal/payment-cart',
   // [3.x/#3970] Staff proof review: no password or code; Idempotency-Key fails open by design.
   'GET /payment-submissions',
   'GET /payment-submissions/:id',
