@@ -1,0 +1,67 @@
+{
+  "title": "টাকা-পয়সা",
+  "caption": "SMS-এর হিসাব এক নজরে।",
+  "tabsLabel": "টাকা-পয়সার ভাগ",
+  "tabs": {
+    "sms": "SMS-এর অবস্থা",
+    "packages": "SMS প্যাকেজ",
+    "plans": "প্ল্যান",
+    "coupons": "কুপন",
+    "revenue": "আয়"
+  },
+  "sms": {
+    "todoTitle": "এখন কী করবেন",
+    "todoEmpty": "এখন কিছু করার নেই।",
+    "lines": {
+      "TOP_UP_NOW": {
+        "text": "কোম্পানির কাছে SMS আছে মাত্র {{sms}}টি। আরও কিনে লিখে রাখুন।",
+        "action": "SMS মজুত লিখুন"
+      },
+      "SCHOOLS_LOW": {
+        "text": "{{count}}টি স্কুলের SMS প্রায় শেষ।",
+        "action": "স্কুলগুলো দেখুন"
+      },
+      "SMS_EXPIRING": {
+        "text": "{{days}} দিনের মধ্যে {{sms}}টি SMS-এর মেয়াদ শেষ হবে।",
+        "action": "রিপোর্ট দেখুন"
+      },
+      "OVERSOLD": {
+        "text": "কেনা SMS-এর চেয়ে {{sms}}টি বেশি বিক্রি হয়েছে।",
+        "action": "SMS মজুত লিখুন"
+      }
+    },
+    "balanceStale": "কোম্পানির SMS-এর হিসাব পুরনো। কোম্পানির ড্যাশবোর্ড দেখে নতুন সংখ্যা লিখুন।",
+    "balanceUnknown": "কোম্পানির কাছে কত SMS আছে তা জানা নেই। কোম্পানির ড্যাশবোর্ড দেখে লিখুন।",
+    "balanceNow": "কোম্পানির কাছে SMS আছে: {{sms}}",
+    "numbersTitle": "সংখ্যা",
+    "numbers": {
+      "boughtSms": "কোম্পানির কাছ থেকে কেনা",
+      "soldSms": "বিক্রি",
+      "usedSms": "ব্যবহার হয়েছে",
+      "expiredSms": "মেয়াদ শেষ বা ফেরত",
+      "promisedUnusedSms": "বিক্রি হয়েছে, এখনো ব্যবহার হয়নি",
+      "unsoldSms": "বিক্রি না হওয়া বাকি",
+      "revenuePaisa": "আয়",
+      "costPaisa": "খরচ",
+      "marginPaisa": "লাভ"
+    },
+    "packagesTitle": "প্যাকেজ অনুযায়ী লাভ",
+    "packageLine": "{{orders}}টি অর্ডার · বিক্রি {{sold}} SMS · আয় {{revenue}} · খরচ {{cost}} · লাভ {{margin}}",
+    "schoolsTitle": "স্কুল অনুযায়ী",
+    "schoolsCaption": "স্কুল অনুযায়ী SMS-এর হিসাব, যাদের SMS কম তারা আগে।",
+    "emptyTitle": "এখনো কোনো SMS বিক্রি হয়নি",
+    "emptyText": "কোনো স্কুল SMS কিনলে এখানে হিসাব দেখা যাবে।",
+    "loadError": "SMS-এর হিসাব আনা যায়নি। আবার চেষ্টা করুন।",
+    "retry": "আবার চেষ্টা করুন",
+    "csv": "CSV নামান",
+    "csvError": "CSV নামানো যায়নি। আবার চেষ্টা করুন।",
+    "next": "পরের স্কুলগুলো",
+    "columnSchool": "স্কুল",
+    "columnSold": "বিক্রি",
+    "columnUsed": "ব্যবহার",
+    "columnLeft": "বাকি",
+    "columnFailed": "ব্যর্থ",
+    "openSchool": "{{name}}-এর বিলিং দেখুন",
+    "columnOpen": "বিলিং"
+  }
+}
