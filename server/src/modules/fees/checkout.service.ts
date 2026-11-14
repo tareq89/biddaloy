@@ -36,7 +36,7 @@ import { buildIssuerSnapshot, lockSchoolForSnapshot } from '../schools/profile/i
 import { SchoolsService } from '../schools/schools.service';
 import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { localDate, localToday } from '../attendance/attendance-policy.util';
-import { round2, toPaisa } from '../../common/constants/money';
+import { MONEY_MAX, round2, toPaisa } from '../../common/constants/money';
 
 // One text for foreign, deleted and unknown ids, with no id in it (Rule 23, #2640).
 const STUDENT_FEE_NOT_FOUND = 'Student fee not found';
@@ -228,6 +228,13 @@ export class CheckoutService {
 
         const primaryStudentId = billsById.get(dto.lines[0].student_fee_id)!.student_id;
         const totalPaisa = dto.lines.reduce((sum, l) => sum + toPaisa(l.amount), 0);
+        // payments.total_amount is the SUM of the lines but each line is only capped at MONEY_MAX (#2484).
+        if (totalPaisa > toPaisa(MONEY_MAX)) {
+          throw new BadRequestException({
+            message: 'The checkout total is above the allowed maximum',
+            details: { code: 'CHECKOUT_TOTAL_TOO_LARGE' },
+          });
+        }
         const walletPaisa = toPaisa(dto.wallet_use ?? 0);
         const totalAmount = totalPaisa / 100;
         const walletUse = walletPaisa / 100;
