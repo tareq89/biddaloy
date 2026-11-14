@@ -1,0 +1,67 @@
+{
+  "title": "Money",
+  "caption": "Your SMS numbers at a glance.",
+  "tabsLabel": "Money sections",
+  "tabs": {
+    "sms": "SMS state",
+    "packages": "SMS packages",
+    "plans": "Plans",
+    "coupons": "Coupons",
+    "revenue": "Revenue"
+  },
+  "sms": {
+    "todoTitle": "What to do",
+    "todoEmpty": "Nothing to do right now.",
+    "lines": {
+      "TOP_UP_NOW": {
+        "text": "The SMS company has only {{sms}} SMS left for you. Buy more and write it down.",
+        "action": "Record SMS bought"
+      },
+      "SCHOOLS_LOW": {
+        "text": "{{count}} schools are almost out of SMS.",
+        "action": "See schools"
+      },
+      "SMS_EXPIRING": {
+        "text": "{{sms}} SMS will expire in {{days}} days.",
+        "action": "See the report"
+      },
+      "OVERSOLD": {
+        "text": "You have sold {{sms}} more SMS than you bought.",
+        "action": "Record SMS bought"
+      }
+    },
+    "balanceStale": "The SMS company's number is old. Look at the company's dashboard and write the new number.",
+    "balanceUnknown": "We do not know how many SMS the company has for you. Look at the company's dashboard and write it.",
+    "balanceNow": "SMS the company has for you: {{sms}}",
+    "numbersTitle": "The numbers",
+    "numbers": {
+      "boughtSms": "Bought from the company",
+      "soldSms": "Sold",
+      "usedSms": "Used",
+      "expiredSms": "Expired or returned",
+      "promisedUnusedSms": "Sold, not used yet",
+      "unsoldSms": "Left unsold",
+      "revenuePaisa": "Income",
+      "costPaisa": "Cost",
+      "marginPaisa": "Profit"
+    },
+    "packagesTitle": "Profit by package",
+    "packageLine": "{{orders}} orders · sold {{sold}} SMS · income {{revenue}} · cost {{cost}} · profit {{margin}}",
+    "schoolsTitle": "By school",
+    "schoolsCaption": "SMS numbers for each school. Schools with the least SMS left come first.",
+    "emptyTitle": "No SMS sold yet",
+    "emptyText": "When a school buys SMS, the numbers show here.",
+    "loadError": "Could not load the SMS numbers. Try again.",
+    "retry": "Try again",
+    "csv": "Download CSV",
+    "csvError": "Could not download the CSV. Try again.",
+    "next": "Next schools",
+    "columnSchool": "School",
+    "columnSold": "Sold",
+    "columnUsed": "Used",
+    "columnLeft": "Left",
+    "columnFailed": "Failed",
+    "openSchool": "See billing for {{name}}",
+    "columnOpen": "Billing"
+  }
+}
