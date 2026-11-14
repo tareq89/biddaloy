@@ -29,6 +29,25 @@ export function alertItemFactory(overrides: Partial<AlertItem> = {}): AlertItem 
   };
 }
 
+/** [100.4.04] The `sms.low` / `sms.expiring` alerts as #3865's rules raise them (admin-only; same buy link). */
+export const SMS_BUY_URL = '/settings?section=communication&smsBuy=1';
+
+export function smsAlertFactory(
+  kind: 'low' | 'expiring' = 'low',
+  overrides: Partial<AlertItem> = {},
+): AlertItem {
+  const low = kind === 'low';
+  return alertItemFactory({
+    ruleKey: low ? 'sms.low' : 'sms.expiring',
+    severity: low ? AlertSeverity.CRITICAL : AlertSeverity.WARNING,
+    category: AlertCategory.BILLING,
+    title: low ? 'SMS credit is almost finished' : 'SMS credit expires soon',
+    actionLabel: 'Buy SMS',
+    actionUrl: SMS_BUY_URL,
+    ...overrides,
+  });
+}
+
 export function attentionSummaryFactory(
   overrides: Partial<AttentionSummary> = {},
 ): AttentionSummary {
