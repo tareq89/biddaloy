@@ -117,6 +117,24 @@ describe('PlatformAlertBanner', () => {
     expect(container.innerHTML).toBe('');
   });
 
+  it('does not ask again when remounted after a 403 (#2483 F20)', async () => {
+    const hit = vi.fn(() => HttpResponse.json({ message: 'Forbidden' }, { status: 403 }));
+    server.use(http.get('/api/v1/platform/alerts', hit));
+    const opts = { locale: 'en', role: 'SUPER_ADMIN', tenantId: 'tenant-1' } as const;
+    const first = renderWithProviders(<PlatformAlertBanner enabled />, opts);
+    await waitFor(() =>
+      expect(first.queryClient.getQueryState(['platform-alerts'])?.status).toBe('error'),
+    );
+    const before = hit.mock.calls.length;
+    first.unmount();
+    renderWithProviders(<PlatformAlertBanner enabled />, {
+      ...opts,
+      queryClient: first.queryClient,
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(hit).toHaveBeenCalledTimes(before);
+  });
+
   it('still refetches on tab focus after an error that is not a 403', async () => {
     const hit = vi.fn(() => HttpResponse.json({ message: 'x' }, { status: 400 }));
     server.use(http.get('/api/v1/platform/alerts', hit));
@@ -130,10 +148,13 @@ describe('PlatformAlertBanner', () => {
     );
     const before = hit.mock.calls.length;
 
-    focusManager.setFocused(false);
-    focusManager.setFocused(true);
-    await waitFor(() => expect(hit).toHaveBeenCalledTimes(before + 1));
-    focusManager.setFocused(undefined);
+    try {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+      await waitFor(() => expect(hit).toHaveBeenCalledTimes(before + 1));
+    } finally {
+      focusManager.setFocused(undefined);
+    }
   });
 
   it('renders the bn text', async () => {

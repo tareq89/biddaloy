@@ -5,6 +5,7 @@ import { DelayedError, type Job } from 'bullmq';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { AuditAction, AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
+import { syncLinkedGuardianContactsFromLogin } from '../students/linked-guardian-contacts.util';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { findVerifiedAccount, reviveMembership } from '../users/users.service';
@@ -250,6 +251,7 @@ export class InvitationBatchProcessor extends WorkerHost {
 
       if (guardian.user_id !== user.id) {
         await guardianRepo.update({ id: guardian.id }, { user_id: user.id });
+        await syncLinkedGuardianContactsFromLogin(manager, user.id);
       }
 
       // PARENT specifically: a TEACHER here linked as a guardian still needs it for family access.

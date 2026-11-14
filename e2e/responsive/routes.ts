@@ -10,6 +10,7 @@ import {
   createStudyPlan,
   createInvoice,
   createInvoiceShareToken,
+  createNoticeShareToken,
   createReminderBatch,
   createStaffUser,
   createStudentWithDues,
@@ -297,6 +298,13 @@ export async function resolvePath(
     const { studentId } = await createStudentWithDues(request, session, `Reflow Invoicee ${stamp}`);
     const invoice = await createInvoice(request, session, studentId);
     return route.path.replace('$invoiceId', invoice.id);
+  }
+  if (route.path.startsWith('/n/')) {
+    // [53] `/n/$token` — the public notice page, not an invoice receipt.
+    return route.path.replace(
+      '$token',
+      await createNoticeShareToken(request, session, `Reflow Notice ${stamp}`),
+    );
   }
   if (route.path.includes('$token')) {
     // [16.5.3] `/i/$token` — the unauthenticated public receipt route.

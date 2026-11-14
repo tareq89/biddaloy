@@ -141,8 +141,11 @@ describe('/promotions/$runId/groups', () => {
     await user.click(await screen.findByRole('button', { name: /Select all matching/ }));
     await user.click(screen.getByRole('combobox', { name: 'Group' }));
     await user.click(await screen.findByRole('option', { name: 'Science' }));
+    const before = queries.length;
     await user.click(await screen.findByRole('button', { name: /Apply to/ }));
     expect(await screen.findByText(/Some students may already be set/)).toBeTruthy();
+    // A failed chunk may follow applied ones: the rows are refetched, never left stale.
+    await waitFor(() => expect(queries.length).toBeGreaterThan(before));
     expect(screen.getByRole('button', { name: /Apply to/ })).toBeTruthy();
   });
 });

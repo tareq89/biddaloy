@@ -74,7 +74,7 @@ describe('nav-tree', () => {
     }
   });
 
-  it('keeps the pre-30.1.3 group ids stable so saved collapse preferences survive', () => {
+  it('keeps the pre-30.1.3 group ids stable (their collapse keys and RoleMenu rows join on them)', () => {
     const ids = STAFF_NAV_GROUPS.map((group) => group.id);
     for (const stable of ['people', 'finance', 'communications', 'administration']) {
       expect(ids).toContain(stable);

@@ -63,13 +63,14 @@ function AttendanceImportDetailPage() {
     <DetailShell
       name={`${data.file_name} · ${when}`}
       facts={[
-        // The server sends the uploader's id only, never a name (#3659 adds it).
         {
           label: t('history.columnWho'),
           value:
             data.uploaded_by_user_id === null
               ? '—'
-              : t(data.uploaded_by_user_id === me ? 'history.you' : 'history.someone'),
+              : data.uploaded_by_user_id === me
+                ? t('history.you')
+                : (data.uploaded_by_name ?? t('history.someone')),
         },
         { label: t('history.columnNew'), value: num(data.counts.new) },
         { label: t('history.columnChanged'), value: num(data.counts.changed) },

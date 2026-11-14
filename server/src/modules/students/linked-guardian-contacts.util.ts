@@ -1,4 +1,5 @@
 import { IsNull, type EntityManager } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 import { Guardian } from './entities/guardian.entity';
 
 /**
@@ -21,4 +22,23 @@ export async function syncLinkedGuardianContacts(
   if (values.email !== undefined) set.email = values.email;
   if (Object.keys(set).length === 0) return;
   await manager.getRepository(Guardian).update({ user_id: userId, deleted_at: IsNull() }, set);
+}
+
+/**
+ * Link time: the login's own phone/email become the guardian rows' (#2495). A contact the login
+ * does not have is left alone, so linking never wipes a number the school typed.
+ */
+export async function syncLinkedGuardianContactsFromLogin(
+  manager: EntityManager,
+  userId: string,
+): Promise<void> {
+  const user = await manager.getRepository(User).findOne({
+    where: { id: userId },
+    select: { id: true, phone: true, email: true },
+  });
+  if (!user) return;
+  await syncLinkedGuardianContacts(manager, userId, {
+    ...(user.phone ? { phone: user.phone } : {}),
+    ...(user.email ? { email: user.email } : {}),
+  });
 }

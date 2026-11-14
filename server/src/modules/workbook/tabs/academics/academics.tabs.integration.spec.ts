@@ -574,6 +574,40 @@ describe('academics tabs (integration)', () => {
       expect(updated.class_id).toBe(klass.id);
     });
 
+    it('remove also deletes the students\' picks of that offering (#1331)', async () => {
+      const { klass, subject } = await seedClassAndSubject(
+        TENANT_A,
+        '00000000-0000-4000-8000-000000000073',
+      );
+      const existing = await classSubjectsTab.upsert(
+        rowFor(klass, subject),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const section = await sectionRepo.save(
+        sectionRepo.create({ section_name: 'A', class_id: klass.id, tenant_id: TENANT_A }),
+      );
+      const [student] = await dataSource.query(
+        `INSERT INTO students (tenant_id, full_name, registration_number, roll_number, class_section_id)
+         VALUES ($1, 'Pick Student', 'PICK-1', 1, $2) RETURNING id`,
+        [TENANT_A, section.id],
+      );
+      await dataSource.query(
+        `INSERT INTO student_subject_choices (tenant_id, student_id, class_subject_id, academic_year_id)
+         VALUES ($1, $2, $3, $4)`,
+        [TENANT_A, student.id, existing.id, existing.academic_year_id],
+      );
+
+      await classSubjectsTab.remove(existing, dataSource.manager);
+
+      const [{ n }] = await dataSource.query(
+        `SELECT count(*)::int AS n FROM student_subject_choices WHERE class_subject_id = $1`,
+        [existing.id],
+      );
+      expect(n).toBe(0);
+    });
+
     it('remove soft-deletes the class_subject', async () => {
       const { klass, subject } = await seedClassAndSubject(
         TENANT_A,

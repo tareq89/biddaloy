@@ -512,7 +512,11 @@ export function CommandPaletteLauncher({
             ? t('commandPalette.placeholder')
             : t('commandPalette.placeholderNoPeople')
         }
-        description={t('commandPalette.description')}
+        description={
+          tabs[0].id === 'people'
+            ? t('commandPalette.description')
+            : t('commandPalette.descriptionNoPeople')
+        }
         footerHint={pages ? t('commandPalette.footerHintPageOnly') : t('commandPalette.footerHint')}
         recentLabel={t('commandPalette.groups.recent')}
         announceResults={(count) =>

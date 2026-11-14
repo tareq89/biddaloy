@@ -55,7 +55,7 @@ export class AttendanceAccessService {
   ) {}
 
   /**
-   * Sections this caller may mark. Tenant-scoped roles (`ROLE_SCOPE`): every section
+   * Sections this caller may mark. Tenant-wide roles (`canAccessTenantWide`): every section
    * of the tenant's current academic year. TEACHER: only sections in `teacher_class_sections`.
    * Anyone else: empty — fails closed rather than assuming a new role
    * inherits access.

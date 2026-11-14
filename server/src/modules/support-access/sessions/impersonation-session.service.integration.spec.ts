@@ -175,6 +175,24 @@ describe('ImpersonationSessionService (integration)', () => {
     expect(await service.listLive(w.owner.id)).toEqual([]);
   });
 
+  it('lazy expiry also ends an APPROVED ticket past ticket_expires_at (#4090)', async () => {
+    const w = await world();
+    const s = await w.start(w.people[0]);
+    await ds.query(
+      `UPDATE impersonation_sessions
+          SET status = 'APPROVED', started_at = NULL, expires_at = NULL,
+              ticket_expires_at = now() - interval '1 minute'
+        WHERE id = $1`,
+      [s.id],
+    );
+    await service.listLive(w.owner.id);
+    const [row] = await ds.query(
+      'SELECT status, ended_by FROM impersonation_sessions WHERE id = $1',
+      [s.id],
+    );
+    expect(row).toEqual({ status: 'EXPIRED', ended_by: 'EXPIRED' });
+  });
+
   it('a session of school A is never listed under school B', async () => {
     const a = await world();
     const b = await world();

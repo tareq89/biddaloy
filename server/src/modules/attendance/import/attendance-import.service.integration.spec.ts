@@ -491,6 +491,14 @@ describe('AttendanceImportService (integration)', () => {
       );
       const detail = await service.detail(mine.import_id, teacher);
       expect(detail.rows[0]).toMatchObject({ after: 'PRESENT', current: 'ABSENT' });
+      // Names: the page shows who uploaded and which student, never a bare id or roll (#3659).
+      expect(detail.uploaded_by_name).toBe('Import Teacher');
+      expect(detail.rows[0]).toMatchObject({
+        student_name: 'Student S1-1',
+        class_name: className,
+        section_name: 'S1',
+      });
+      expect((await service.list(1, 20, teacher)).items[0].uploaded_by_name).toBe('Import Teacher');
     });
 
     it('detail of another tenant import is a 404', async () => {

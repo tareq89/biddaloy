@@ -1,3 +1,4 @@
+import { StudentSubjectChoice } from '../../../students/entities/student-subject-choice.entity';
 import type { EntityManager } from 'typeorm';
 import { ClassSubject } from '../../../academics/entities/class-subject.entity';
 import { fromCell } from '../../codec/cell-format';
@@ -336,6 +337,11 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
   },
 
   async remove(entity: ClassSubject, m: EntityManager): Promise<void> {
+    // The app's own remove paths delete the students' picks of an offering first (#1331).
+    await m.delete(StudentSubjectChoice, {
+      class_subject_id: entity.id,
+      tenant_id: entity.tenant_id,
+    });
     await m.softRemove(ClassSubject, entity);
   },
 };
