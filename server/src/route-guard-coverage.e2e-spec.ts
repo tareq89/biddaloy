@@ -162,13 +162,21 @@ describe('Route guard coverage (regression)', () => {
   // /account* controller (say auth/passkeys) has to be added there, so each of its routes
   // is classified as fail-closed or fail-open for a Redis outage (75.18 review r2, F14).
   it('classifies every /auth* and /account* controller for a Redis outage', () => {
+    // Full route path (controller prefix + handler path): a `@Post('auth/x')` on a prefix-less
+    // `@Controller()` is caught too (#2483 F21).
     const missing = discoveryService
       .getControllers()
       .map(({ metatype }) => metatype)
       .filter((metatype): metatype is NonNullable<typeof metatype> => !!metatype)
-      .filter((metatype) =>
-        /^\/?(auth|account)(\/|$)/.test(Reflect.getMetadata(PATH_METADATA, metatype) ?? ''),
-      )
+      .filter((metatype) => {
+        const prefix: string = Reflect.getMetadata(PATH_METADATA, metatype) ?? '';
+        return metadataScanner.getAllMethodNames(metatype.prototype).some((name) => {
+          const handler = metatype.prototype[name];
+          if (Reflect.getMetadata(METHOD_METADATA, handler) === undefined) return false;
+          const full = buildFullPath(prefix, Reflect.getMetadata(PATH_METADATA, handler) ?? '');
+          return /^\/?(auth|account)(\/|$)/.test(full);
+        });
+      })
       .filter((metatype) => !REDIS_OUTAGE_CONTROLLERS.includes(metatype))
       .map((metatype) => metatype.name);
 
