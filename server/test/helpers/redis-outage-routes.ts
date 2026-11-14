@@ -135,6 +135,13 @@ export const FAIL_OPEN = [
   'GET /portal/payment-proofs',
   'POST /portal/payment-proofs/:id/withdraw',
   'GET /portal/payment-proofs/:id/files/:fileId',
+  // [3.x/#3970] Staff proof review: no password or code; Idempotency-Key fails open by design.
+  'GET /payment-submissions',
+  'GET /payment-submissions/:id',
+  'GET /payment-submissions/:id/files/:fileId',
+  'POST /payment-submissions/:id/confirm',
+  'POST /payment-submissions/:id/reject',
+  'POST /payment-submissions/:id/reopen',
   // Bearer-token only banner status and end for a Login as session: no password or code.
   'GET /auth/impersonation/me',
   'POST /auth/impersonation/end',

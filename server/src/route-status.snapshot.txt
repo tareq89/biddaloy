@@ -491,6 +491,12 @@ GET    /api/v1/notices/mine/:id                                                 
 POST   /api/v1/notices/mine/:id/acknowledge                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS notices
 PATCH  /api/v1/onboarding                                                        401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/onboarding/status                                                 401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
+GET    /api/v1/payment-submissions                                               401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
+GET    /api/v1/payment-submissions/:id                                           401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
+POST   /api/v1/payment-submissions/:id/confirm                                   401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
+GET    /api/v1/payment-submissions/:id/files/:fileId                             401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
+POST   /api/v1/payment-submissions/:id/reject                                    401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
+POST   /api/v1/payment-submissions/:id/reopen                                    401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
 GET    /api/v1/payments                                                          401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
 GET    /api/v1/payments/:id                                                      401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
 POST   /api/v1/payments/:id/reverse                                              401 401 403 403 403 403 403 403 403 403 403 403 403 fees
