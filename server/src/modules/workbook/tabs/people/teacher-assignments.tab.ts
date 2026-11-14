@@ -307,9 +307,15 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
   // same section in one file is a validation error (D9), and a TEMPLATE import
   // may not displace the section's current class teacher (D10 replaces).
   secondaryKeyOf(x: TeacherAssignmentRow | TeacherClassSection): string | null {
-    return x.assignment_type === TeacherAssignmentType.CLASS_TEACHER
-      ? `CLASS_TEACHER of section ${x.section_id}`
-      : null;
+    if (x.assignment_type !== TeacherAssignmentType.CLASS_TEACHER) return null;
+    // Named by the sheet's own keys, never a uuid: the validator shows this text to the user.
+    if (x instanceof TeacherClassSection) {
+      const cls = x.section?.class ? classesTab.keyOf(x.section.class) : '';
+      const year = x.section?.class?.academic_year?.name ?? '';
+      const sec = x.section ? sectionsTab.keyOf(x.section) : '';
+      return `CLASS_TEACHER of section ${cls} / ${sec} / ${year}`;
+    }
+    return `CLASS_TEACHER of section ${x.class_key} / ${x.section_key} / ${x.academic_year_key}`;
   },
 
   diffFields(row: TeacherAssignmentRow, existing: TeacherClassSection): string[] {

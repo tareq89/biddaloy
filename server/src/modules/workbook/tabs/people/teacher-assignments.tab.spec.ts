@@ -355,7 +355,7 @@ describe('role column (47.x)', () => {
       ...homeroom,
       assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
     });
-    expect(teacherAssignmentsTab.secondaryKeyOf?.(cls)).toContain(SECTION_ID);
+    expect(teacherAssignmentsTab.secondaryKeyOf?.(cls)).not.toContain(SECTION_ID);
     expect(teacherAssignmentsTab.secondaryKeyOf?.(asst)).toBeNull();
     expect(teacherAssignmentsTab.secondaryKeyOf?.(makeAssignment())).toBeNull();
   });
