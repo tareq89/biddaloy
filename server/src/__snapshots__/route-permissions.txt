@@ -296,6 +296,9 @@ GET /notices/:id/sms | NoticeSmsController | perm: NOTICE_SMS_APPROVE
 GET /notices/mine | NoticeReaderController | perm: NOTICE_READ
 GET /notices/mine/:id | NoticeReaderController | perm: NOTICE_READ
 GET /onboarding/status | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
+GET /payment-submissions | ProofReviewController | perm: PAYMENT_RECORD
+GET /payment-submissions/:id | ProofReviewController | perm: PAYMENT_RECORD
+GET /payment-submissions/:id/files/:fileId | ProofReviewController | perm: PAYMENT_RECORD
 GET /payments | FeeController | perm: PAYMENT_READ
 GET /payments/:id | FeeController | perm: PAYMENT_READ
 GET /payments/cart | CheckoutController | perm: FEE_READ
@@ -767,6 +770,9 @@ POST /notices/:id/sms/decline | NoticeSmsController | perm: NOTICE_SMS_APPROVE
 POST /notices/:id/sms/request | NoticesController | perm: NOTICE_POST
 POST /notices/:id/withdraw | NoticesController | perm: NOTICE_POST
 POST /notices/mine/:id/acknowledge | NoticeReaderController | perm: NOTICE_READ
+POST /payment-submissions/:id/confirm | ProofReviewController | perm: PAYMENT_RECORD
+POST /payment-submissions/:id/reject | ProofReviewController | perm: PAYMENT_RECORD
+POST /payment-submissions/:id/reopen | ProofReviewController | perm: PAYMENT_RECORD
 POST /payments/:id/reverse | CheckoutController | perm: PAYMENT_REVERSE | approval: payments.reverse
 POST /payments/checkout | CheckoutController | perm: PAYMENT_RECORD
 POST /platform/announcements | PlatformAnnouncementsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.announce_all

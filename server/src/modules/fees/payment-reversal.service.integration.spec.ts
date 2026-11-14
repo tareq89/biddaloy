@@ -11,6 +11,9 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import {
+  PAYMENTS_REVERSED,
+  PaymentsReversedPayload,
+  paymentEvents,
   PaymentReversalService,
   ReverseLaterPaymentsFirstException,
   SecondApproverRequiredException,
@@ -368,7 +371,11 @@ describe('PaymentReversalService (integration)', () => {
     async function actorIsAdmin() {
       const membershipRepo = dataSource.getRepository(UserTenant);
       await membershipRepo.save(
-        membershipRepo.create({ user_id: ACTOR_USER_ID, tenant_id: TENANT_ID, role: UserRole.ADMIN }),
+        membershipRepo.create({
+          user_id: ACTOR_USER_ID,
+          tenant_id: TENANT_ID,
+          role: UserRole.ADMIN,
+        }),
       );
     }
 
@@ -381,7 +388,9 @@ describe('PaymentReversalService (integration)', () => {
       expect(await paymentRepo.count({ where: { reversal_of_payment_id: paymentId } })).toBe(0);
       expect(Number((await studentFeeRepo.findOneByOrFail({ id: billId })).paid_amount)).toBe(1000);
       expect(await dataSource.getRepository(WalletTransaction).count()).toBe(0);
-      expect(await auditLogRepo.count({ where: { entity_type: 'Payment', action: AuditAction.UPDATE } })).toBe(0);
+      expect(
+        await auditLogRepo.count({ where: { entity_type: 'Payment', action: AuditAction.UPDATE } }),
+      ).toBe(0);
     }
 
     it('single admin, setting absent: self-approval succeeds and the audit row says so', async () => {
@@ -434,7 +443,7 @@ describe('PaymentReversalService (integration)', () => {
       ).resolves.toBeDefined();
     });
 
-    it("an ADMIN of a different school does not count (tenant isolation)", async () => {
+    it('an ADMIN of a different school does not count (tenant isolation)', async () => {
       await actorIsAdmin();
       await membership(UserRole.ADMIN, { tenantId: OTHER_TENANT_ID });
       const { payment } = await paidPayment();
@@ -476,6 +485,36 @@ describe('PaymentReversalService (integration)', () => {
         self_approved: false,
       });
     });
+  });
+
+  it('a committed reversal emits payments.reversed once, with the payment, actor and reason (D45)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 400 }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111178',
+        lines: [{ student_fee_id: bill.id, amount: 400, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    const seen: PaymentsReversedPayload[] = [];
+    const on = (p: PaymentsReversedPayload) => seen.push(p);
+    paymentEvents.on(PAYMENTS_REVERSED, on);
+    try {
+      await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong');
+      // A refused second reversal must not emit again.
+      await expect(
+        service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'again'),
+      ).rejects.toThrow();
+    } finally {
+      paymentEvents.off(PAYMENTS_REVERSED, on);
+    }
+    expect(seen).toEqual([
+      { paymentId: payment.id, tenantId: TENANT_ID, actorUserId: ACTOR_USER_ID, reason: 'wrong' },
+    ]);
   });
 
   it('a committed reversal rechecks the fee alerts', async () => {
