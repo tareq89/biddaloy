@@ -697,6 +697,34 @@ export async function createInvoiceShareToken(
   return url.split('/i/').pop()!;
 }
 
+/** [53] Mints a real public notice link: a published notice with one recipient, then a fresh
+ * public link. Returns the raw token `/n/$token` (the unauthenticated notice page) resolves. */
+export async function createNoticeShareToken(
+  request: APIRequestContext,
+  session: ApiSession,
+  label: string,
+): Promise<string> {
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const chain = await createClassSection(request, session);
+  const g = await createGuardian(request, session, `${label} G`, `015${suffix.slice(-8)}`);
+  const s = await post<{ id: string }>(request, session, '/students', {
+    full_name: `${label} student`,
+    class_section_id: chain.sectionId,
+    guardian_ids: [g.id],
+  });
+  const n = await post<{ id: string }>(request, session, '/notices', {
+    title: label,
+    body: `Body of ${label}`,
+    isPublic: false,
+  });
+  await post(request, session, `/notices/${n.id}/recipients`, {
+    items: [{ kind: 'GUARDIAN', guardianId: g.id, studentId: s.id }],
+  });
+  await post(request, session, `/notices/${n.id}/publish`, { requestSms: false });
+  return (await post<{ token: string }>(request, session, `/notices/${n.id}/public-link`, {}))
+    .token;
+}
+
 /** A student with an outstanding fee: builds the class chain, a fee
  * structure for that class, and generates a StudentFee row for the
  * January 2026 period. Returns everything a fee journey needs. */
