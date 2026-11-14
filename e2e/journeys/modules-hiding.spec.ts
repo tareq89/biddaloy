@@ -152,9 +152,7 @@ test.describe('teacher', () => {
 test.describe('parent portal', () => {
   test.use(loggedIn('parent'));
 
-  // The portal has no whole-page refusal yet: a hidden portal URL shows the generic load error
-  // (the server still answers 403). Reported as a follow-up, so only the link is asserted here.
-  test('Routines off: the portal link is gone', async ({ page, request }) => {
+  test('Routines off: the portal link is gone and the URL shows the refusal page', async ({ page, request }) => {
     const session = await adminApiSession(request);
     const shell = new AppShellPage(page);
     try {
@@ -164,6 +162,9 @@ test.describe('parent portal', () => {
       await setModules(request, session, { routines: { on: false } });
       await page.goto('/portal');
       await shell.expectNavItem('nav.items.portalRoutine', false);
+      // D32 (#4127): a bookmark gets the refusal, not the load error.
+      await page.goto('/portal/routine');
+      await expect(page.getByText('This part is not turned on for your institution')).toBeVisible();
     } finally {
       await setModules(request, session, { routines: null });
     }

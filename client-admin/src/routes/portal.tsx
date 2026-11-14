@@ -24,6 +24,7 @@ import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
 import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
+import { ModuleOffState } from '../components/module-off-state';
 import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
@@ -256,6 +257,12 @@ function PortalLayout() {
     const Icon = PORTAL_NAV_ICONS[item.to]!;
     return { ...item, label: t(item.labelKey), icon: <Icon aria-hidden="true" /> };
   });
+  // D32: a bookmark to a turned-off module's page gets the refusal page, not a load error.
+  // (`/portal` is core and never matches a gated item.)
+  const here = useRouterState({ select: (st) => st.location.pathname });
+  const offModule = PORTAL_NAV_ITEMS.some(
+    (item) => item.to !== '/portal' && !moduleOn(item.module) && isPathUnder(here, item.to),
+  );
   const portalPages = navItems.map((i) => ({ id: i.to, label: i.label, to: i.to }));
 
   // [31.3.2] Same "More" rule as the staff bar. `/portal` is an ancestor of
@@ -345,7 +352,7 @@ function PortalLayout() {
               />
             )}
             <SchoolInvitesCard {...schoolInvites.cardProps} />
-            <Outlet />
+            {offModule ? <ModuleOffState isAdmin={false} portal /> : <Outlet />}
           </AppShell>
         </RequireRole>
       </DemoCornerFrame>
