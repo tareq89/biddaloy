@@ -133,6 +133,12 @@ describe('recurrence.util [16.7.1]', () => {
       expect(firstFireInPeriod(m(1), '2026-03-31', '2026-03-02')).toBeNull();
     });
 
+    it('a malformed MONTHLY rule (no day_of_month) throws instead of never firing', () => {
+      expect(() => firstFireInPeriod({ kind: 'MONTHLY' } as any, '2026-03-18')).toThrow(
+        /day_of_month/,
+      );
+    });
+
     it('a malformed WEEKLY rule (no weekdays) throws', () => {
       expect(() => firstFireInPeriod({ kind: 'WEEKLY' } as any, '2026-03-18')).toThrow();
     });
