@@ -393,6 +393,39 @@ describe('OtpLoginService (integration)', () => {
       expect(updated.phone_verified_at).toBeNull();
     });
 
+    it('[#2463] an unverified contact gets no code while the account has a verified one', async () => {
+      // An admin set a new email; the phone was verified by the person. The new email must not sign in.
+      const user = await createMember({
+        email: 'admin-set@example.com',
+        email_verified_at: null,
+        phone: '01755550002',
+        phone_verified_at: new Date(),
+      });
+
+      const viaEmail = await service.request('admin-set@example.com', context);
+      expect(viaEmail).toEqual({});
+      expect(await dataSource.getRepository(CommunicationLog).find()).toHaveLength(0);
+      await expect(
+        service.verify('admin-set@example.com', '123456', context),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      // The verified phone still works.
+      const viaPhone = await service.request('01755550002', context);
+      expect(viaPhone.debug?.otp).toMatch(/^\d{6}$/);
+      void user;
+    });
+
+    it('[#2463] once the email is verified (or nothing else is), its code is sent', async () => {
+      await createMember({
+        email: 'both@example.com',
+        email_verified_at: new Date(),
+        phone: '01755550003',
+        phone_verified_at: new Date(),
+      });
+      const { debug } = await service.request('both@example.com', context);
+      expect(debug?.otp).toMatch(/^\d{6}$/);
+    });
+
     it('locks an email identifier after 5 wrong tries', async () => {
       await createMember({ email: 'lock@example.com' });
       await service.request('lock@example.com', context);
