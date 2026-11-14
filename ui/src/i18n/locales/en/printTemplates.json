@@ -16,7 +16,7 @@
     "actions": "Actions"
   },
   "kind": {
-    "STUDENT_ID_CARD": "Student ID card",
+    "STUDENT_ID_CARD": "$t(common:entities.student_one) ID card",
     "STAFF_ID_CARD": "Staff ID card",
     "ACR_ASSESSMENT": "ACR (confidential report)",
     "EXAM_ADMIT_CARD": "Admit card",

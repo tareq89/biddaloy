@@ -24,7 +24,7 @@
     "exportRetry": "Try again"
   },
   "seatLimit": {
-    "title": "Student limit reached",
+    "title": "$t(common:entities.student_one) limit reached",
     "body": "You have {{used}} of {{limit}} students. {{requested}} more will not fit.",
     "bodyNoRequest": "You have {{used}} of {{limit}} students.",
     "hint": "Contact us to add more students."

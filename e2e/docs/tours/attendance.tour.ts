@@ -18,6 +18,7 @@ import enAttendance from '../../../ui/src/i18n/locales/en/attendance.json';
 import enAttendanceImport from '../../../ui/src/i18n/locales/en/attendanceImport.json';
 import enDashboard from '../../../ui/src/i18n/locales/en/dashboard.json';
 import enNav from '../../../ui/src/i18n/locales/en/nav.json';
+import { makeT } from '../../i18n';
 import { beat, guideLang, imgDir, loginAs, prepare, recordGif, shoot } from '../helpers/capture';
 import { tr } from '../helpers/nav';
 
@@ -349,7 +350,7 @@ test('desktop: upload an attendance sheet', async ({ page }, info) => {
   await dayCell.click();
   await expect(dayCell).toBeHidden();
   await shoot(page, file('uploads-02-pick.png'), [
-    { target: page.getByRole('group', { name: up.pick.sections }) },
+    { target: page.getByRole('group', { name: makeT(lang)('attendanceImport.pick.sections') }) },
     { target: dateButton },
   ]);
 
