@@ -162,14 +162,31 @@ export class ExamResultRecomputer implements ResultRecomputer {
       : null;
     for (const f of lockedFinals.filter((x) => x.status === FinalResultStatus.PROCESSED)) {
       // Rebuilt against THIS scale (the one its rows pin), not whatever resolveScale picks now.
-      total += await finalsService!.recompute(
-        manager,
-        f.id,
-        tenantId,
-        actor.userId,
-        actor.context,
-        scaleId,
-      );
+      try {
+        total += await finalsService!.recompute(
+          manager,
+          f.id,
+          tenantId,
+          actor.userId,
+          actor.context,
+          scaleId,
+        );
+      } catch (err) {
+        // A PROCESSED final whose source exam is no longer PUBLISHED cannot be rebuilt. Name it,
+        // so the editor knows which final result to fix or reopen (#3461). Fixed sentence, Rule 23.
+        const code = (err instanceof ConflictException ? err.getResponse() : null) as {
+          details?: { code?: string };
+        } | null;
+        if (code?.details?.code !== 'FINAL_SOURCE_UNPUBLISHED') throw err;
+        throw new ConflictException({
+          message:
+            'A final result using this grading scale has an exam that is not published. Publish that exam again or delete the final result first.',
+          details: {
+            code: 'SCALE_FINAL_SOURCE_UNPUBLISHED',
+            finals: [{ id: f.id, name: f.name }],
+          },
+        });
+      }
     }
     return total;
   }
