@@ -6,6 +6,7 @@ import { CanActivate, ExecutionContext, INestApplication, ValidationPipe } from 
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
+import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
 import { ApprovalGuard } from '../auth/guards/approval.guard';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { buildValidationPipeOptions } from '../../validation-pipe';
@@ -39,6 +40,8 @@ describe('PlatformBillingController refund routes', () => {
       .overrideGuard(AuthGuard(['jwt', 'cockpit-jwt']))
       .useValue(open)
       .overrideGuard(PlatformAccessGuard)
+      .useValue(open)
+      .overrideGuard(PlatformAdminGuard)
       .useValue(open)
       .overrideGuard(ApprovalGuard)
       .useValue(open)

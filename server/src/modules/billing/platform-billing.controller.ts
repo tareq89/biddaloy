@@ -20,6 +20,7 @@ import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.gu
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { ApprovalGuard } from '../auth/guards/approval.guard';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
+import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   GrantSeatsDto,
@@ -38,7 +39,9 @@ import { RefundService } from './refund.service';
 @ApiTags('platform')
 @ApiBearerAuth('bearer')
 @Controller('platform/billing')
-@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
+// PlatformAdminGuard also stamps the platform scope id that ApprovalGuard needs for the refund
+// routes; without it a real owner's refund was always a 401 "No active session context".
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard, PlatformAdminGuard)
 export class PlatformBillingController {
   constructor(
     private readonly service: PlatformBillingService,
