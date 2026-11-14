@@ -32,6 +32,8 @@ type Rec = Record<string, unknown>;
 const TAB = 'notice_recipients';
 const logger = new Logger('NoticeRecipientsTab');
 const STAMP = '__keys';
+// `load` runs several times per restore/export: warn once a minute per tenant, not every call.
+const lastWarn = new Map<string, number>();
 
 const REFS = [
   ['user', 'user_id', 'users', 'User', 'ব্যবহারকারী'],
@@ -142,10 +144,12 @@ export const noticeRecipientsTab: TabSpec<NoticeRecipient, Rec> = {
       kept.push(r);
     }
     // Counts only (no person ids, Rule 13). `load` also runs on validate and restore.
-    if (Object.keys(skipped).length > 0)
+    if (Object.keys(skipped).length > 0 && Date.now() - (lastWarn.get(tenantId) ?? 0) > 60_000) {
+      lastWarn.set(tenantId, Date.now());
       logger.warn(
         `Tenant ${tenantId}: recipients left out, person not exportable: ${JSON.stringify(skipped)}`,
       );
+    }
     return kept;
   },
 

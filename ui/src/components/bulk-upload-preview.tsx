@@ -217,9 +217,7 @@ export function BulkUploadPreview<S, C>({
   if (state.status === 'uploading') statusText = t('validating');
   else if (state.status === 'committing') statusText = t('confirming');
   else if (state.status === 'done') statusText = t('done');
-  else if (state.status === 'failed') {
-    statusText = state.reason === 'expired' ? t('expiredRetry') : state.message;
-  }
+  // `failed` is announced once, by the `role="alert"` card below, not repeated here.
 
   const isExpired =
     (state.status === 'preview' || state.status === 'committing') && remainingMs <= 0;

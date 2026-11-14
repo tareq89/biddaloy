@@ -11,7 +11,6 @@ const RECHECK = '2026-11-05';
 
 type Kind = 'axe' | 'reflow' | 'target24' | 'target44';
 
-const TABS = 'TabsList inner horizontal scroll (ui/src/primitives/tabs.tsx line variant)';
 const NO_FIXTURE = 'resolvePath cannot build this route fixture (marks/results need a scored exam)';
 
 const KNOWN: Record<Kind, Record<string, string>> = {
@@ -31,20 +30,6 @@ const KNOWN: Record<Kind, Record<string, string>> = {
   },
   reflow: {
     '/attendance/staff': '320px horizontal scroll (possibly flaky)',
-    '/classes/$classId': TABS,
-    '/portal/routine': TABS,
-    '/exams/$examId': TABS,
-    '/guardians/$guardianId': TABS,
-    '/staff/$userId': TABS,
-    '/students/$studentId': TABS,
-    '/website/pages': TABS,
-    '/website/design': TABS,
-    '/website/blog': TABS,
-    '/website/blog/$postId': TABS,
-    '/website/enquiries': TABS,
-    '/website/address': TABS,
-    '/website/analytics': TABS,
-    '/website/gallery': TABS,
     '/invoices/$invoiceId': 'div.relative.w-full table wrapper scrolls at 320px',
     '/payments/$id': 'div.relative.w-full table wrapper scrolls at 320px',
     '/academic-years/$academicYearId': '320px horizontal scroll on the year detail page',

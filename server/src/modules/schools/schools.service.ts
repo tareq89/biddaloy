@@ -988,6 +988,15 @@ export class SchoolsService {
 
     if (changed) {
       await this.tenantStatus.invalidate(schoolId);
+      if (dto.status === 'SUSPENDED') {
+        // Rule 8: cut every member's live tokens off now, app clock, after commit (same SQL as
+        // SessionCutoffService.cutOff, set-based so one statement covers the whole school).
+        await this.repo.manager.query(
+          `UPDATE "users" SET "tokens_valid_after" = GREATEST(COALESCE("tokens_valid_after", $2), $2)
+           WHERE "id" IN (SELECT user_id FROM user_tenants WHERE tenant_id = $1 AND deleted_at IS NULL)`,
+          [schoolId, new Date()],
+        );
+      }
     }
 
     return response;

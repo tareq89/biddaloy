@@ -207,6 +207,11 @@ describe('NoticeSmsService (integration)', () => {
     expect((await svc.approve(T, id, approver)).queued).toBe(1);
   });
 
+  it('the same number in two formats counts and sends once', async () => {
+    const id = await notice([await guardian('01744444445'), await guardian('+8801744444445')]);
+    expect((await svc.approve(T, id, approver)).queued).toBe(1);
+  });
+
   it('unticked people get nothing', async () => {
     const a = await guardian('01755555555');
     const b = await guardian('01766666666');
@@ -237,6 +242,45 @@ describe('NoticeSmsService (integration)', () => {
     add.mockClear();
     await expect(svc.approve(T, id, approver)).rejects.toBeInstanceOf(ConflictException);
     expect(add).not.toHaveBeenCalled();
+  });
+
+  it('an approve racing a decline: exactly one wins, the loser is 409, credit matches the winner', async () => {
+    await meter(10);
+    const id = await notice([await guardian('01711000041')]);
+    const before = await ledgerIds();
+    let entered!: () => void;
+    const inside = new Promise<void>((r) => (entered = r));
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    audit.mockImplementationOnce(async () => {
+      entered();
+      await gate;
+    });
+    try {
+      const approve = svc.approve(T, id, approver);
+      await inside;
+      const decline = svc.decline(T, id, approver);
+      await expect
+        .poll(async () => {
+          const rows = await ds.query(
+            `SELECT count(*)::int AS n FROM pg_stat_activity
+              WHERE datname = current_database() AND wait_event_type = 'Lock'
+                AND pid <> pg_backend_pid()`,
+          );
+          return rows[0].n;
+        })
+        .toBeGreaterThan(0);
+      open();
+      const [a, d] = await Promise.allSettled([approve, decline]);
+      expect(a).toEqual({ status: 'fulfilled', value: { status: 'APPROVED', queued: 1 } });
+      expect(d.status).toBe('rejected');
+      expect((d as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+    } finally {
+      open();
+    }
+    expect(add).toHaveBeenCalledTimes(1);
+    const reserves = (await newLedger(before)).filter((l: any) => l.kind === 'RESERVE');
+    expect(reserves).toHaveLength(1);
   });
 
   it('decline sends nothing and a later approve is 409', async () => {

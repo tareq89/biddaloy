@@ -49,6 +49,8 @@ export interface AudienceBuilderProps<TRow extends RowData> {
   onChosenPage: (page: number) => void;
   onRemove: (rows: TRow[]) => void;
   max?: number;
+  /** Overrides the default "no one matches" title of the matches table. */
+  emptyTitle?: string;
   /** Force the layout; default follows the viewport (phone below 768px). */
   layout?: 'auto' | 'phone' | 'desktop';
 }
@@ -86,6 +88,7 @@ export function AudienceBuilder<TRow extends RowData>({
   onChosenPage,
   onRemove,
   max,
+  emptyTitle,
   layout = 'auto',
 }: AudienceBuilderProps<TRow>) {
   const { t } = useTranslation('common');
@@ -192,7 +195,9 @@ export function AudienceBuilder<TRow extends RowData>({
           layout={phone ? 'cards' : 'table'}
           emptyState={{
             kind: 'no-results',
-            title: t('audienceBuilder.emptyTitle', { defaultValue: 'No one matches this filter' }),
+            title:
+              emptyTitle ??
+              t('audienceBuilder.emptyTitle', { defaultValue: 'No one matches this filter' }),
             explanation: t('audienceBuilder.emptyExplanation', {
               defaultValue: 'Change the filter to see people.',
             }),

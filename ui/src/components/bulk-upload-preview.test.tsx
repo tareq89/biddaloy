@@ -225,6 +225,20 @@ describe('BulkUploadPreview', () => {
     );
   });
 
+  it('a failed commit is announced once: the alert holds the sentence, the live region is empty', async () => {
+    const validate = vi.fn().mockResolvedValue(baseResult());
+    const commit = vi.fn().mockRejectedValue({ response: { status: 410 } });
+    const { container } = await renderPreview({ validate, commit });
+
+    await selectFile();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getAllByText('This check expired — upload the file again')).toHaveLength(1);
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe('');
+  });
+
   it('carries the progress/status text in an aria-live region', async () => {
     const validate = vi.fn().mockResolvedValue(baseResult());
     const { container } = await renderPreview({ validate });

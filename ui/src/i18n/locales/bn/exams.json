@@ -596,6 +596,7 @@
     "print": {
       "studentLabel": "$t(common:entities.student_one)",
       "printAll": "সব কার্ড ছাপুন",
+      "resultCertificates": "ফলাফল সনদ",
       "tabulation": "টেবুলেশন শিট",
       "notBuilt": "আগে ফল তৈরি করুন, তারপর কার্ড ছাপতে পারবেন।",
       "noStudents": "এই সেকশনে কোনো $t(common:entities.student_one) নেই।",

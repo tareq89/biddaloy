@@ -68,6 +68,11 @@ export function periodFor(date: string, rule: RecurringScheduleRule): string {
  */
 export function isDue(rule: RecurringScheduleRule, date: string): boolean {
   if (rule.kind === 'MONTHLY') {
+    // A malformed row (no day_of_month) would give NaN and never be due, silently. Throw instead,
+    // as a malformed WEEKLY rule does, so the scheduler logs it to Sentry (#2384).
+    if (rule.day_of_month !== 'LAST' && !Number.isInteger(rule.day_of_month)) {
+      throw new Error('MONTHLY recurrence rule has no valid day_of_month');
+    }
     const { year, month, day } = parseDateOnly(date);
     const lastDay = daysInMonth(year, month);
     const target = rule.day_of_month === 'LAST' ? lastDay : Math.min(rule.day_of_month, lastDay);

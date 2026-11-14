@@ -28,24 +28,24 @@ const PREVIEW_ROW_LIMIT = 20;
 type Result = PreviewResult<StaffUploadSummary>;
 
 /**
- * Maps the server's English row problems to `staffImport:rowErrors.*`. The
- * server sends text only (no codes), so this matches on the message start;
- * anything unrecognised falls back to a per-column message and never leaks
- * English. Exported for the test.
+ * Maps the server's row `code` to `staffImport:rowErrors.*`. No code (or an
+ * unknown one) falls back to `other`, so server English never reaches the
+ * screen. Exported for the test.
  */
-export function rowErrorKey(error: { column: string | null; message: string }): string {
-  const m = error.message;
-  if (m.startsWith('Unknown role')) return 'unknownRole';
-  if (m.startsWith('Name is required')) return 'nameRequired';
-  if (m.startsWith('Give a mobile')) return 'missingContact';
-  if (m.startsWith('Mobile was typed')) return 'numericMobile';
-  if (m.startsWith('Appears more than once')) return 'duplicateInFile';
-  if (m.startsWith('The email and the mobile') || m.includes('already used by another account'))
-    return 'accountClash';
-  if (m.startsWith('This person is already in this school')) return 'roleChange';
-  if (error.column === 'mobile') return 'badPhone';
-  if (error.column === 'email') return 'badEmail';
-  return 'other';
+export function rowErrorKey(error: { code?: string | undefined }): string {
+  const byCode: Record<string, string> = {
+    ROLE_UNKNOWN: 'unknownRole',
+    NAME_REQUIRED: 'nameRequired',
+    CONTACT_REQUIRED: 'missingContact',
+    MOBILE_NUMERIC: 'numericMobile',
+    MOBILE_INVALID: 'badPhone',
+    EMAIL_INVALID: 'badEmail',
+    DUPLICATE_IN_FILE: 'duplicateInFile',
+    ACCOUNT_CLASH: 'accountClash',
+    ACCOUNT_IN_OTHER_SCHOOL: 'accountClash',
+    ROLE_CHANGE: 'roleChange',
+  };
+  return (error.code && byCode[error.code]) || 'other';
 }
 
 /**

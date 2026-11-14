@@ -15,6 +15,7 @@ import {
   countSmsSegments,
   AuditAction,
 } from '@biddaloy/shared';
+import { bdPhoneTail } from '../../communications/providers/shared/phone-number.util';
 import { AlertWriterService } from '../../attention/engine/alert-writer.service';
 import { NoticeAlertsService } from '../../attention/notice/notice-alerts.service';
 import { AuditService } from '../../audit/audit.service';
@@ -127,8 +128,10 @@ export class NoticeSmsService {
     const out: Row[] = [];
     for (const r of rows) {
       if (!r.recipient.sms_wanted || r.optedOut || !r.address) continue;
-      if (seen.has(r.address)) continue;
-      seen.add(r.address);
+      // One per person's number, whatever the format (017…, +88017…, 8801…): never charged twice.
+      const key = bdPhoneTail(r.address);
+      if (seen.has(key)) continue;
+      seen.add(key);
       out.push(r);
     }
     return out;

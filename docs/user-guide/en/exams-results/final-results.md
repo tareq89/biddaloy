@@ -179,7 +179,7 @@ A guardian with no phone number gets no message. If you send again for the same 
 
    → The report card shows each exam, the **Final** column, **Working days**, **Days present**, the class teacher's remark and the conduct grades.
 
-3. Press **Print all cards** to print every card of the section, or **Tabulation sheet** to print the section's sheet with every exam and the final result side by side.
+3. Press **Print all cards** to print every card of the section, or **Tabulation sheet** to print the section's sheet with every exam and the final result side by side. Each printed card is also recorded in the student's print history. To issue result certificates for the students of the section who passed, press **Result certificates**.
 
 If the section has many students, the page shows the first part and says so. Print the rest one section at a time. A card that could not load is marked on the printout; press the button again to try once more.
 

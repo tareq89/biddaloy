@@ -308,6 +308,7 @@ describe('Staff bulk import E2E', () => {
       ).expect(201);
       expect(v.body.hard_error_count).toBe(1);
       expect(v.body.errors[0].message).toMatch(/already in this school as ADMIN/);
+      expect(v.body.errors[0].code).toBe('ROLE_CHANGE');
       const [{ n }] = await ds.query(
         `SELECT COUNT(*)::int AS n FROM user_tenants WHERE user_id = $1 AND deleted_at IS NULL`,
         [id],
@@ -354,6 +355,7 @@ describe('Staff bulk import E2E', () => {
     const v = await validate(Buffer.from(await wb.xlsx.writeBuffer())).expect(201);
     expect(v.body.errors.map((e: { row: number }) => e.row)).toEqual([3, 4, 5]);
     expect(v.body.errors[2].message).toMatch(/typed as a number/);
+    expect(v.body.errors[2].code).toBe('MOBILE_NUMERIC');
     // The staged name is the sanitised one, not the raw cell.
     expect(v.body.rows[0].name).not.toContain('<');
   });

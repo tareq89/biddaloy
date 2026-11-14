@@ -82,6 +82,7 @@ describe('StaffImportView', () => {
               column: 'mobile',
               message: 'Mobile was typed as a number, so a leading 0 may be lost.',
               severity: 'error',
+              code: 'MOBILE_NUMERIC',
               value: '1712345678',
             },
           ],
@@ -219,12 +220,12 @@ describe('StaffImportView', () => {
 });
 
 describe('rowErrorKey', () => {
-  it('maps server text to translation keys, falling back by column', () => {
-    expect(rowErrorKey({ column: null, message: 'Give a mobile number or an email' })).toBe(
-      'missingContact',
-    );
-    expect(rowErrorKey({ column: 'mobile', message: 'phone must be valid' })).toBe('badPhone');
-    expect(rowErrorKey({ column: 'email', message: 'email must be an email' })).toBe('badEmail');
-    expect(rowErrorKey({ column: 'name', message: 'too long' })).toBe('other');
+  it('maps the server code to a translation key, never the message text', () => {
+    expect(rowErrorKey({ code: 'CONTACT_REQUIRED' })).toBe('missingContact');
+    expect(rowErrorKey({ code: 'MOBILE_INVALID' })).toBe('badPhone');
+    expect(rowErrorKey({ code: 'EMAIL_INVALID' })).toBe('badEmail');
+    expect(rowErrorKey({ code: 'ACCOUNT_IN_OTHER_SCHOOL' })).toBe('accountClash');
+    expect(rowErrorKey({ code: 'FIELD_INVALID' })).toBe('other');
+    expect(rowErrorKey({})).toBe('other');
   });
 });
