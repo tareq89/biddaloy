@@ -3,10 +3,12 @@ import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { RecurringSchedulesService } from './recurring-schedules.service';
 import { AuditService } from '../audit/audit.service';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
+  SEED_CLASS_1_ID,
   SEED_SECTION_1_ID,
   SEED_SECTION_2_ID,
   SEED_ACADEMIC_YEAR_ID,
@@ -586,6 +588,43 @@ describe('RecurringSchedulesService (integration)', () => {
     });
   });
 
+  describe('[#2714] promoted student, old-year ACTIVE enrollment', () => {
+    it('preview and findForStudent include the student the scheduler bills', async () => {
+      const structureId = await createFeeStructure({ name: `Promoted Tuition ${Date.now()}` });
+      const student = await createStudent({ class_section_id: SEED_SECTION_1_ID });
+      await dataSource.getRepository(Enrollment).save({
+        student_id: student,
+        class_id: SEED_CLASS_1_ID,
+        section_id: SEED_SECTION_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: SEED_TENANT_ID,
+        enrollment_status: 'ACTIVE',
+      } as any);
+      const schedule = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: 'Old-year class schedule',
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 5 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      // Promotion moves only students.class_section_id.
+      await dataSource.query(`UPDATE students SET class_section_id = $1 WHERE id = $2`, [
+        SEED_SECTION_2_ID,
+        student,
+      ]);
+
+      const preview = await service.preview(schedule.id, SEED_TENANT_ID);
+      expect(preview.students.map((s) => s.id)).toContain(student);
+      const list = await service.findForStudent(student, SEED_TENANT_ID);
+      expect(list.find((s) => s.id === schedule.id)).toBeDefined();
+    });
+  });
+
   describe('[16.8.2] findForStudentFamily', () => {
     it('returns the allow-listed shape with the billed fees and a next period', async () => {
       const structureId = await createFeeStructure({
@@ -858,7 +897,10 @@ describe('RecurringSchedulesService (integration)', () => {
   describe('[F-145] cadence change', () => {
     afterEach(() => vi.useRealTimers());
 
-    async function monthlySchedule(lastRunPeriod: string | null) {
+    // [#2713] `billed` = the fee_generations rows the schedule really produced;
+    // `lastRunPeriod` = the marker the scheduler also writes for skipped periods.
+    type Billed = { start: string; type: 'MONTH' | 'WEEK' };
+    async function monthlySchedule(billed: Billed | null, lastRunPeriod?: string | null) {
       const structureId = await createFeeStructure({
         name: `Tuition ${Date.now()}-${Math.random()}`,
       });
@@ -874,8 +916,15 @@ describe('RecurringSchedulesService (integration)', () => {
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
+      if (billed) {
+        await dataSource.query(
+          `INSERT INTO fee_generations (id, tenant_id, academic_year_id, period_start, period_type, due_date, source, duplicate_strategy, notify_families, structures, student_count, generated_count, skipped_count, removed_count, recurring_schedule_id, created_at)
+           VALUES (DEFAULT, $1, $2, $3, $4, $3, 'SCHEDULE', 'SKIP', false, '[]', 1, 1, 0, 0, $5, NOW())`,
+          [SEED_TENANT_ID, SEED_ACADEMIC_YEAR_ID, billed.start, billed.type, created.id],
+        );
+      }
       await dataSource.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
-        lastRunPeriod,
+        lastRunPeriod === undefined ? (billed?.start ?? null) : lastRunPeriod,
         created.id,
       ]);
       return created.id;
@@ -888,8 +937,12 @@ describe('RecurringSchedulesService (integration)', () => {
         )
       )[0].p;
 
-    const lastRunAfterSwitch = async (from: 'MONTHLY' | 'WEEKLY', lastRunPeriod: string) => {
-      const id = await monthlySchedule(lastRunPeriod);
+    const lastRunAfterSwitch = async (
+      from: 'MONTHLY' | 'WEEKLY',
+      billed: Billed | null,
+      lastRunPeriod?: string | null,
+    ) => {
+      const id = await monthlySchedule(billed, lastRunPeriod);
       if (from === 'WEEKLY') {
         await dataSource.query(`UPDATE recurring_schedules SET rule = $1 WHERE id = $2`, [
           JSON.stringify({ kind: 'WEEKLY', weekdays: [1] }),
@@ -912,13 +965,36 @@ describe('RecurringSchedulesService (integration)', () => {
 
     it('monthly -> weekly: covers every week that starts in the last billed month', async () => {
       // March 2026 ends on a Tuesday; its last Monday is 03-30.
-      expect(await lastRunAfterSwitch('MONTHLY', '2026-03-01')).toBe('2026-03-30');
+      expect(await lastRunAfterSwitch('MONTHLY', { start: '2026-03-01', type: 'MONTH' })).toBe(
+        '2026-03-30',
+      );
     });
 
     it('weekly -> monthly: covers the month the last billed week starts in', async () => {
-      expect(await lastRunAfterSwitch('WEEKLY', '2026-03-02')).toBe('2026-03-01');
+      expect(await lastRunAfterSwitch('WEEKLY', { start: '2026-03-02', type: 'WEEK' })).toBe(
+        '2026-03-01',
+      );
       // The week of 03-30 starts in March, so April still bills.
-      expect(await lastRunAfterSwitch('WEEKLY', '2026-03-30')).toBe('2026-03-01');
+      expect(await lastRunAfterSwitch('WEEKLY', { start: '2026-03-30', type: 'WEEK' })).toBe(
+        '2026-03-01',
+      );
+    });
+
+    it('a skipped period (marker only, nothing billed) does not count as covered', async () => {
+      // January skipped (outside the year) and recorded; nothing was ever billed.
+      expect(await lastRunAfterSwitch('MONTHLY', null, '2026-01-01')).toBeNull();
+    });
+
+    it('double switch: weekly billed week 03-02, now monthly, switched back to weekly', async () => {
+      // The monthly spell billed nothing and left a MONTH marker; coverage still comes from the WEEK row.
+      const id = await monthlySchedule({ start: '2026-03-02', type: 'WEEK' }, '2026-03-01');
+      await service.update(
+        id,
+        { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(await lastRun(id)).toBe('2026-03-02');
     });
 
     it('leaves a never-run schedule alone', async () => {

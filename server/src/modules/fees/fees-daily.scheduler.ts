@@ -23,6 +23,7 @@ import {
 } from './fees.constants';
 import { LateFeeService } from './late-fee.service';
 import { FineSweepService } from './fines/fine-sweep.service';
+import { applyScheduleClassAudience } from './schedule-audience';
 import { applyProgramAudience } from './program-audience';
 import { firstFireInPeriod, periodFor } from './recurrence.util';
 import type { RecurringScheduleRule } from './entities/recurring-schedule.entity';
@@ -205,7 +206,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       // A catch-up carries a fixed `today` the nightly run cannot recover, so keep it alive by
       // re-queueing it. The nightly run rethrows so its per-tenant loop captures it.
       if (!todayOverride) throw error;
-      this.logger.error(`fees-daily: module state unreadable for tenant ${tenantId}: ${String(error)}`);
+      this.logger.error(
+        `fees-daily: module state unreadable for tenant ${tenantId}: ${String(error)}`,
+      );
       await this.queue.add(
         'restore-catch-up',
         { tenantId, today: todayOverride },
@@ -400,24 +403,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         .getRepository(Student)
         .createQueryBuilder('s')
         .innerJoin('s.class_section', 'cs')
-        .leftJoin(
-          'enrollments',
-          'e',
-          'e.student_id = s.id AND e.tenant_id = s.tenant_id AND e.academic_year_id = :yearId AND e.enrollment_status = :enrolStatus',
-          { yearId: fresh.academic_year_id, enrolStatus: 'ACTIVE' },
-        )
         .where('s.tenant_id = :tenantId', { tenantId: fresh.tenant_id })
         .andWhere('s.deleted_at IS NULL');
-      if (fresh.audience.section_id) {
-        qb.andWhere(
-          'CASE WHEN e.id IS NOT NULL THEN e.section_id ELSE s.class_section_id END = :sectionId',
-          { sectionId: fresh.audience.section_id },
-        );
-      } else if (fresh.audience.class_id) {
-        qb.andWhere('CASE WHEN e.id IS NOT NULL THEN e.class_id ELSE cs.class_id END = :classId', {
-          classId: fresh.audience.class_id,
-        });
-      }
+      applyScheduleClassAudience(qb, fresh.audience, fresh.academic_year_id);
       if (fresh.audience.program_id) {
         applyProgramAudience(qb, fresh.audience.program_id, fresh.tenant_id);
       }

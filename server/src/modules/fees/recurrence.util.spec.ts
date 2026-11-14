@@ -144,7 +144,7 @@ describe('recurrence.util [16.7.1]', () => {
     });
   });
 
-  describe('coveredPeriodAfterCadenceChange (F-145)', () => {
+  describe('coveredPeriodAfterCadenceChange (F-145, #2713: from the billed period)', () => {
     const weekly: RecurringScheduleRule = { kind: 'WEEKLY', weekdays: [1] };
     const monthly: RecurringScheduleRule = { kind: 'MONTHLY', day_of_month: 1 };
     it.each([
@@ -152,14 +152,26 @@ describe('recurrence.util [16.7.1]', () => {
       ['2026-03-01', '2026-03-30'], // Mar 31 is a Tuesday
       ['2026-02-01', '2026-02-23'], // Feb 28 is a Saturday
       ['2026-08-01', '2026-08-31'], // Aug 31 is a Monday
-    ])('monthly %s -> weekly covers through %s', (last, covered) => {
-      expect(coveredPeriodAfterCadenceChange(last, weekly)).toBe(covered);
+    ])('billed MONTH %s -> weekly covers through %s', (start, covered) => {
+      expect(
+        coveredPeriodAfterCadenceChange({ period_start: start, period_type: 'MONTH' }, weekly),
+      ).toBe(covered);
     });
     it.each([
       ['2026-10-05', '2026-10-01'],
       ['2026-09-28', '2026-09-01'], // that week runs into October; October still bills
-    ])('weekly %s -> monthly covers %s', (last, covered) => {
-      expect(coveredPeriodAfterCadenceChange(last, monthly)).toBe(covered);
+    ])('billed WEEK %s -> monthly covers %s', (start, covered) => {
+      expect(
+        coveredPeriodAfterCadenceChange({ period_start: start, period_type: 'WEEK' }, monthly),
+      ).toBe(covered);
+    });
+    it('double switch: a WEEK billed 03-02, back to weekly, covers that week only', () => {
+      expect(
+        coveredPeriodAfterCadenceChange(
+          { period_start: '2026-03-02', period_type: 'WEEK' },
+          weekly,
+        ),
+      ).toBe('2026-03-02');
     });
   });
 });

@@ -12,7 +12,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { Program } from '../programs/entities/program.entity';
-import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
+import { applyScheduleClassAudience } from './schedule-audience';
 import { applyProgramAudience } from './program-audience';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../../common/time';
@@ -513,18 +513,24 @@ export class RecurringSchedulesService {
       // [F-145] A cadence change must not bill the old cadence's periods again: carry
       // `last_run_period` over as the last new-cadence period they cover. Plain assignment
       // on purpose (weekly -> monthly moves the date backwards).
-      let coveredPeriod: Record<string, string> = {};
+      let coveredPeriod: Record<string, string | null> = {};
       if (rule && rule.kind !== schedule.rule.kind) {
         const locked = await scheduleRepo
           .createQueryBuilder('rs')
           .setLock('pessimistic_write')
           .where('rs.id = :id', { id: schedule.id })
           .getOneOrFail();
-        if (locked.last_run_period) {
-          coveredPeriod = {
-            last_run_period: coveredPeriodAfterCadenceChange(String(locked.last_run_period), rule),
-          };
-        }
+        // [#2713] Coverage comes from what was billed, not from `last_run_period`.
+        const [billed] = (await manager.query(
+          `SELECT period_start::text AS period_start, period_type
+             FROM fee_generations
+            WHERE recurring_schedule_id = $1
+            ORDER BY period_start DESC LIMIT 1`,
+          [locked.id],
+        )) as { period_start: string; period_type: 'MONTH' | 'WEEK' }[];
+        coveredPeriod = {
+          last_run_period: billed ? coveredPeriodAfterCadenceChange(billed, rule) : null,
+        };
       }
 
       await scheduleRepo.update(
@@ -673,7 +679,9 @@ export class RecurringSchedulesService {
 
   /** Students `schedule.audience` currently matches — class/section
    * (unset = every class/section) and enrollment status. */
-  private audienceQuery(schedule: Pick<RecurringSchedule, 'audience' | 'tenant_id'>) {
+  private audienceQuery(
+    schedule: Pick<RecurringSchedule, 'audience' | 'tenant_id' | 'academic_year_id'>,
+  ) {
     const qb = this.studentRepo
       .createQueryBuilder('s')
       .leftJoin('s.class_section', 'cs')
@@ -682,14 +690,8 @@ export class RecurringSchedulesService {
       .andWhere('s.enrollment_status = :status', {
         status: schedule.audience.enrollment_status ?? EnrollmentStatus.ACTIVE,
       });
-    if (schedule.audience.class_id) {
-      qb.andWhere('cs.class_id = :classId', { classId: schedule.audience.class_id });
-    }
-    if (schedule.audience.section_id) {
-      qb.andWhere('s.class_section_id = :sectionId', {
-        sectionId: schedule.audience.section_id,
-      });
-    }
+    // [#2714] Same year-enrollment rule as the daily scheduler.
+    applyScheduleClassAudience(qb, schedule.audience, schedule.academic_year_id);
     if (schedule.audience.program_id) {
       applyProgramAudience(qb, schedule.audience.program_id, schedule.tenant_id);
     }
@@ -842,7 +844,6 @@ export class RecurringSchedulesService {
   async findForStudent(studentId: string, tenantId: string): Promise<StudentScheduleItemDto[]> {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
-      relations: { class_section: true },
     });
     if (!student) {
       throw new NotFoundException('Student not found');
@@ -871,40 +872,15 @@ export class RecurringSchedulesService {
       : [];
     const excludedScheduleIds = new Set(exclusions.map((e) => e.schedule_id));
 
-    // [#1066 follow-up] A program-scoped schedule's actual audience is
-    // program-gated (see `applyProgramAudience`, used by the daily
-    // scheduler/generation) — this student-facing list must agree, or a
-    // student outside the program (but matching class/section) sees a fee
-    // here that the scheduler would never actually bill them for. Loaded
-    // once, up front, rather than per-schedule — and only when at least
-    // one of this tenant's currently-open schedules is actually
-    // program-scoped, so a tenant with none (the common case) doesn't pay
-    // an extra round trip on every call to this per-student endpoint.
-    const hasProgramScopedSchedule = schedules.some((s) => s.audience.program_id);
-    const activeProgramIds = hasProgramScopedSchedule
-      ? new Set(
-          (
-            await this.repo.manager
-              .createQueryBuilder(ProgramEnrollment, 'pe')
-              .select('pe.program_id', 'program_id')
-              .where('pe.student_id = :studentId', { studentId })
-              .andWhere('pe.tenant_id = :tenantId', { tenantId })
-              .andWhere('pe.status = :status', { status: 'ACTIVE' })
-              .getRawMany<{ program_id: string }>()
-          ).map((row) => row.program_id),
-        )
-      : new Set<string>();
-
+    // [#2714] The schedule's own audience query, narrowed to this student, so this list agrees
+    // with what the scheduler bills and `preview` shows (year enrollment, program, status).
     const results: StudentScheduleItemDto[] = [];
     for (const schedule of schedules) {
       const excluded = excludedScheduleIds.has(schedule.id);
       const matchesAudience =
-        student.enrollment_status === (schedule.audience.enrollment_status ?? 'ACTIVE') &&
-        (!schedule.audience.class_id ||
-          schedule.audience.class_id === student.class_section?.class_id) &&
-        (!schedule.audience.section_id ||
-          schedule.audience.section_id === student.class_section_id) &&
-        (!schedule.audience.program_id || activeProgramIds.has(schedule.audience.program_id));
+        (await this.audienceQuery(schedule)
+          .andWhere('s.id = :studentId', { studentId })
+          .getCount()) > 0;
 
       if (matchesAudience || excluded) {
         results.push({
