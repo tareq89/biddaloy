@@ -7,7 +7,7 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { clearTables } from '@test/helpers/db.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { UserRole } from '@biddaloy/shared';
+import { AuditAction, INSTITUTION_KINDS, UserRole } from '@biddaloy/shared';
 import { AuditService } from '../../../modules/audit/audit.service';
 import { StorageService } from '../../../modules/storage/storage.service';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
@@ -15,6 +15,11 @@ import { YearRolloverService } from '../../../modules/academics/year-rollover.se
 import { FeeStructureService } from '../../../modules/fees/fees.service';
 import { GradingService } from '../../../modules/grading/grading.service';
 import { AcademicTermsService } from '../../../modules/calendar/academic-terms.service';
+import { randomBytes } from 'node:crypto';
+import { InstitutionKindService } from '../../../modules/presets/institution-kind.service';
+import { SchoolsService } from '../../../modules/schools/schools.service';
+import { EncryptionService } from '../../../modules/schools/settings/encryption.service';
+import { TenantStatusModule } from '../../../modules/schools/tenant-status.module';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
 import { PresetRegistryService } from '../../../modules/presets/preset-registry.service';
 import { AuthTokenService } from '../../../modules/account-access/auth-token.service';
@@ -40,20 +45,27 @@ describe('org slice (integration, 2 years)', () => {
     ds.query(sql, args);
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [
-      PresetApplyService,
-      PresetRegistryService,
-      YearRolloverService,
-      FeeStructureService,
-      GradingService,
-      AcademicTermsService,
-      AuditService,
-      AuthTokenService,
-      SchoolInviteService,
-      StaffProfilesService,
-      { provide: TenantSettingsCache, useValue: { invalidate: vi.fn() } },
-      { provide: StorageService, useValue: { put: async () => undefined } },
-    ]);
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [
+        PresetApplyService,
+        PresetRegistryService,
+        YearRolloverService,
+        FeeStructureService,
+        GradingService,
+        AcademicTermsService,
+        AuditService,
+        AuthTokenService,
+        SchoolInviteService,
+        StaffProfilesService,
+        SchoolsService,
+        InstitutionKindService,
+        { provide: EncryptionService, useFactory: () => new EncryptionService(randomBytes(32)) },
+        { provide: TenantSettingsCache, useValue: { invalidate: vi.fn() } },
+        { provide: StorageService, useValue: { put: async () => undefined } },
+      ],
+      [TenantStatusModule],
+    );
     ds = module.get<DataSource>(getDataSourceToken());
     app = module;
   }, 120_000);
@@ -199,6 +211,32 @@ describe('org slice (integration, 2 years)', () => {
       `SELECT count(*) AS linked FROM calendar_event_classes`,
     );
     expect(Number(linked)).toBeGreaterThan(0);
+  });
+
+  it('[77.7.01] the primary branch runs the Coaching kind; the other two keep everything on', async () => {
+    const rows = await q<{ slug: string; settings: Record<string, any> }>(
+      `SELECT slug, settings FROM schools WHERE slug LIKE 'bmsc-%'`,
+    );
+    const primary = rows.find((r) => r.slug === 'bmsc-primary')!;
+    const coaching = INSTITUTION_KINDS.find((k) => k.id === 'coaching')!;
+    // Read from the shared definition, not copied: the seed follows the kind.
+    for (const [key, on] of Object.entries(coaching.modules)) {
+      expect(primary.settings.modules[key]).toMatchObject({ on });
+    }
+    for (const [key, entry] of Object.entries(coaching.labels)) {
+      expect(primary.settings.labels[key]).toEqual(entry);
+    }
+    expect(primary.settings.modules.homework).toEqual({ offForRoles: ['TEACHER'] });
+    const [{ n }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM audit_logs a JOIN schools s ON s.id = a.tenant_id
+        WHERE s.slug = 'bmsc-primary' AND a.action = $1`,
+      [AuditAction.INSTITUTION_KIND_APPLIED],
+    );
+    expect(Number(n)).toBe(1);
+    for (const r of rows.filter((x) => x.slug !== 'bmsc-primary')) {
+      expect(r.settings.modules).toBeUndefined();
+      expect(r.settings.labels).toBeUndefined();
+    }
   });
 
   it('no Friday (the weekly off) falls inside a counts_as_working_day event', async () => {

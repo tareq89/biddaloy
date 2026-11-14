@@ -41,21 +41,29 @@
       "hint": "You can change these later in Settings."
     },
     "curriculum": {
-      "title": "Classes and subjects",
+      "title": "$t(common:entities.class_other) and subjects",
       "hint": "Pick a ready-made list of classes and subjects. You can change it later.",
       "blocked": "Your school already has classes or students, so a ready-made curriculum cannot be applied.",
       "byHand": "Set up by hand",
-      "skip": "Skip this step"
+      "skip": "Skip this step",
+      "kind": {
+        "title": "Institution kind",
+        "intro": "Optional. Pick the kind that fits your institution. We turn on the modules and words that suit it. You can change this later in Settings.",
+        "skip": "Leave as it is",
+        "apply": "Apply this kind",
+        "applyError": "Could not set the institution kind. Nothing was changed. You can do it later in",
+        "applyErrorLink": "Settings › Modules & words"
+      }
     },
     "sections": {
-      "title": "Sections",
+      "title": "$t(common:entities.section_other)",
       "hint": "Add the sections each class has, for example A and B.",
-      "perClass": "Sections in {{className}}",
+      "perClass": "$t(common:entities.section_other) in {{className}}",
       "addSection": "Add a section",
       "created_one": "{{count}} section created",
       "created_other": "{{count}} sections created",
       "create": "Create sections",
-      "count": "Sections",
+      "count": "$t(common:entities.section_other)",
       "retry": "Retry",
       "empty": "There are no classes yet. Go back and pick a curriculum first."
     }
@@ -80,8 +88,8 @@
     "alreadyCreated": "Already created: {{sheets}}. Fix the problem and upload again.",
     "sheet": {
       "academic_years": "Academic years — the year your school runs, with its start and end dates",
-      "classes": "Classes — each class you teach, like Class 1 or Class 6",
-      "sections": "Sections — the groups inside each class, like A and B",
+      "classes": "$t(common:entities.class_other) — each class you teach, like $t(common:entities.class_one) 1 or $t(common:entities.class_one) 6",
+      "sections": "$t(common:entities.section_other) — the groups inside each class, like A and B",
       "subjects": "Subjects — what each class studies",
       "fee_structures": "Fees — what each class pays, and when"
     }

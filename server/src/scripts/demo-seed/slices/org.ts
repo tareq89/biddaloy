@@ -11,6 +11,7 @@ import {
   UserStatus,
   YEAR_ROLLOVER_BLOCKS,
 } from '@biddaloy/shared';
+import type { Type } from '@nestjs/common';
 import { DEMO_CARDS, DEMO_SCHOOL_SLUGS } from '../../../modules/demo/demo-accounts';
 import { YearRolloverService } from '../../../modules/academics/year-rollover.service';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
@@ -19,6 +20,9 @@ import {
   insertJoinRequest,
   SchoolInviteService,
 } from '../../../modules/account-access/school-invite.service';
+import { InstitutionKindService } from '../../../modules/presets/institution-kind.service';
+import { SchoolsService } from '../../../modules/schools/schools.service';
+import type { TenantSettingsDto } from '../../../modules/schools/dto/tenant-settings.dto';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
 import { School } from '../../../modules/schools/entities/school.entity';
 import { User } from '../../../modules/users/entities/user.entity';
@@ -101,6 +105,14 @@ export async function joinBranch(
     insertJoinRequest(m, { userId, tenantId, role, createdByUserId: userId }),
   );
   await ctx.app.get(SchoolInviteService).accept(userId, request.id, { ip: null, userAgent: null });
+}
+
+function optional<T>(ctx: DemoSeedContext, token: Type<T>): T | null {
+  try {
+    return ctx.app.get(token, { strict: false });
+  } catch {
+    return null;
+  }
 }
 
 interface Branch {
@@ -424,6 +436,21 @@ export const slice: DemoSlice = {
       };
       await schoolRepo.save(fresh);
       ctx.app.get(TenantSettingsCache).invalidate(school.id);
+      // The real app always has both services. The slim test modules of the other slices' specs
+      // do not (they never read modules), so the lookup is non-strict and org.integration.spec.ts
+      // pins that the real run applied the kind.
+      const kinds = school.slug === 'bmsc-primary' ? optional(ctx, InstitutionKindService) : null;
+      const schoolsService = kinds ? optional(ctx, SchoolsService) : null;
+      if (kinds && schoolsService) {
+        // [77.7.01] D37 W6: this branch runs the Coaching kind (modules + words come from the
+        // shared kind definition, through the real services). Homework off for teachers is a
+        // role switch the kind never defines, so it is set on top. The other two stay in plain words.
+        await kinds.apply(school.id, admin.id, 'coaching', { ip: null, userAgent: null });
+        const homeworkOff = {
+          modules: { homework: { offForRoles: [UserRole.TEACHER] } },
+        } as unknown as TenantSettingsDto;
+        await schoolsService.updateSettings(school.id, homeworkOff, admin.id);
+      }
       await ctx.ds
         .getRepository(Class)
         .update({ tenant_id: school.id }, { shift: 'Morning', shift_id: shift.id });

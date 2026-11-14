@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import type { ModuleStateReader } from '../../modules/auth/guards/module-state.reader';
 import { StudentPublicExamsService } from './student-public-exams.service';
 import { StudentPublicExamsController } from './student-public-exams.controller';
 import { Student } from './entities/student.entity';
@@ -137,7 +138,9 @@ describe('StudentPublicExamsService (integration)', () => {
   describe('D22 route guards (real RolesGuard + PermissionsGuard on the controller)', () => {
     const reflector = new Reflector();
     const rolesGuard = new RolesGuard(reflector);
-    const permsGuard = new PermissionsGuard(reflector);
+    const permsGuard = new PermissionsGuard(reflector, {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
     const proto = StudentPublicExamsController.prototype;
 
     const allowed = (handler: (...a: any[]) => unknown, role: UserRole) => {

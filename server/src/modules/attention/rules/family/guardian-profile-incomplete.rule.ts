@@ -7,7 +7,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 const blank = (v: string | null) => !v || !v.trim();
 
 /** Guardians with a portal login missing a phone, or both an email and a second phone. */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class GuardianProfileIncompleteRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('guardian.profile_incomplete');
   readonly messages = {

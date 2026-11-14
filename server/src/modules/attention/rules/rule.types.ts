@@ -1,10 +1,14 @@
 import type {
+  ModuleKey,
   AlertRuleMeta,
   AlertSeverity,
   AttentionSettings,
   RuleMessage,
   UserRole,
 } from '@biddaloy/shared';
+
+/** The module a rule belongs to; 'core' rules never switch off (D9). */
+export type AttentionRuleModule = ModuleKey | 'core';
 
 export interface RuleContext {
   tenantId: string;

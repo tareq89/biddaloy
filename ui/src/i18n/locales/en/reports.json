@@ -86,7 +86,7 @@
     "search": "Type part of a report's name. Bangla and English names both work."
   },
   "studentCount": {
-    "title": "Student count (BANBEIS)",
+    "title": "$t(common:entities.student_one) count (BANBEIS)",
     "gender": {
       "MALE": "Boys",
       "FEMALE": "Girls",
@@ -94,7 +94,7 @@
     },
     "redirect": {
       "loading": "Opening the student count…",
-      "notFoundTitle": "Student count report not found for your role",
+      "notFoundTitle": "$t(common:entities.student_one) count report not found for your role",
       "notFoundExplanation": "Your role cannot open this report. Ask an admin, or look through All reports."
     }
   },
@@ -187,9 +187,9 @@
       "empty": "There is nothing to choose from here",
       "remove": "Remove",
       "topics": {
-        "student": "Students",
-        "class": "Classes and sections",
-        "guardian": "Guardians",
+        "student": "$t(common:entities.student_other)",
+        "class": "$t(common:entities.class_other) and sections",
+        "guardian": "$t(common:entities.guardian_other)",
         "fee": "Fees",
         "payment": "Payments",
         "attendance": "Attendance",
@@ -253,8 +253,8 @@
       "dependsNone": "Nothing",
       "types": {
         "ACADEMIC_YEAR": "Academic year",
-        "CLASS": "Class",
-        "SECTION": "Section",
+        "CLASS": "$t(common:entities.class_one)",
+        "SECTION": "$t(common:entities.section_one)",
         "DATE": "Date",
         "DATE_RANGE": "Range of dates",
         "ENUM": "One from a list",
@@ -402,7 +402,7 @@
       "student-count-banbeis": "How many students there are in each class, boys and girls, by religion.",
       "staff-by-type-gender": "How many teachers and other staff there are, by designation.",
       "public-exam-results": "For each public exam and year, how many students sat it and how many passed.",
-      "defaulters-guardian-contact": "Students with unpaid bills, how much is still owed, and who to call."
+      "defaulters-guardian-contact": "$t(common:entities.student_other) with unpaid bills, how much is still owed, and who to call."
     }
   },
   "landing": {

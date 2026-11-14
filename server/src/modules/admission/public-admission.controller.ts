@@ -40,6 +40,8 @@ export const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same
  * tightens it further via `@Throttle` — public write endpoints are the
  * cheapest target for abuse in the whole API.
  */
+// core: not tagged with @RequiresModule - no PermissionsGuard/tenant context here, so the tag would
+// not be enforced. AdmissionApplicantService.schoolOrNotFound reads the module state after the slug lookup [77.2.05].
 @ApiTags('public-admission')
 @Controller('public/admission')
 export class PublicAdmissionController {

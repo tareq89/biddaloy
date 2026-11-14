@@ -5,7 +5,8 @@
     "people": "People",
     "supportAccess": "Support access",
     "notes": "Notes",
-    "health": "Health"
+    "health": "Health",
+    "modules": "Modules"
   },
   "header": {
     "loginAs": "Login as",
@@ -42,5 +43,31 @@
     "retry": "Try again",
     "loginAs": "Login as",
     "stuckAdmin": "Send admin a reset link"
+  },
+  "modules": {
+    "on": "On",
+    "off": "Off",
+    "notSaved": "Not saved. Try again.",
+    "loadError": "Could not load the modules.",
+    "retry": "Try again",
+    "lock": {
+      "title": "Modules",
+      "caption": "Lock a module On or Off for this school. A locked module cannot be changed by the school.",
+      "platformOff": "Platform off",
+      "school": "Your school: {{state}}",
+      "schoolNone": "Your school: not chosen yet",
+      "locked": "Platform locked",
+      "selectLabel": "Lock for {{module}}",
+      "none": "No lock",
+      "on": "Locked On",
+      "off": "Locked Off"
+    },
+    "global": {
+      "title": "Modules for all schools",
+      "caption": "Turn a module off here and no school can use it. A school's own choice is kept and comes back when you turn the module On again.",
+      "confirmTitle": "Turn off {{module}}?",
+      "confirmBody": "This turns it off for every school.",
+      "confirmAction": "Turn off"
+    }
   }
 }

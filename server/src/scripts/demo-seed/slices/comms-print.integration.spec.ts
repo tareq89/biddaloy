@@ -84,7 +84,11 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
       TeacherScopeService,
       {
         provide: SchoolsService,
-        useValue: { getResolvedSettings: async () => resolveTenantSettings(null) },
+        useValue: {
+          getResolvedSettings: async () => resolveTenantSettings(null),
+          // PrintTemplatesService.create swaps in the school's words (#3930); none renamed here.
+          getSchoolLabels: async () => ({}),
+        },
       },
       // Publish snapshots attendance per student; the seed has none in this slice-only run.
       {

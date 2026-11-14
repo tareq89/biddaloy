@@ -12,6 +12,7 @@ import {
 } from '@biddaloy/shared';
 import { AppModule } from './app.module';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
+import type { ModuleStateReader } from './modules/auth/guards/module-state.reader';
 import { RolesGuard } from './modules/auth/guards/context.guard';
 import { ROLES_KEY } from './modules/auth/decorators/roles.decorator';
 import { PERMISSIONS_KEY } from './modules/auth/decorators/require-permissions.decorator';
@@ -983,7 +984,9 @@ describe('Permission matrix (regression)', () => {
   });
 
   it('[75.7-b] the fail-closed PermissionsGuard admits every PermissionsGuard route (nothing that works today turns into a 403)', () => {
-    const guard = new PermissionsGuard(new Reflector());
+    const guard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
     const refused: string[] = [];
     let walked = 0;
 

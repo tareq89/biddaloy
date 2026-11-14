@@ -8,7 +8,7 @@
     "facts": {
       "subjects": "পরীক্ষার বিষয়",
       "rooms": "কক্ষ",
-      "students": "শিক্ষার্থী",
+      "students": "$t(common:entities.student_one)",
       "seatOrder": "আসন ক্রম"
     },
     "countItems": "{{n}}টি",
@@ -31,8 +31,8 @@
     "invigilatorNone": "নির্ধারিত নয়",
     "reshuffleButton": "আসন আবার সাজান",
     "reseatButton": "আসন বদলান — {{name}}",
-    "columnStudent": "শিক্ষার্থী",
-    "columnSection": "শাখা",
+    "columnStudent": "$t(common:entities.student_one)",
+    "columnSection": "$t(common:entities.section_one)",
     "columnRoll": "রোল",
     "columnSeat": "আসন",
     "tableCaption": "{{room}} কক্ষে বসা শিক্ষার্থীরা",

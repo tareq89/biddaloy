@@ -97,7 +97,7 @@
     "valid": "Valid"
   },
   "header": {
-    "line": "{{class}} · Section {{section}} · Roll {{roll}} · {{reg}}"
+    "line": "{{class}} · $t(common:entities.section_one) {{section}} · Roll {{roll}} · {{reg}}"
   },
   "help": {
     "certKind": "The certificate to issue. A transfer certificate needs a recorded transfer or withdrawal first.",

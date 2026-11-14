@@ -138,7 +138,7 @@ order (`server/src/modules/workbook/codec/registry.ts`, `EXPECTED_TABS`).
 [35.1.5] `class_subjects` also carries an optional `group_name` column (blank
 = not group-specific). [35.1.10] It also carries an optional `choice_group` (blank = NULL; old backups lack it); `student_subject_choices` leaves its own `choice_group` out because a DB trigger fills it from the class subject. `school` exports `settings.preset` (it is not a
 secret path) and deep-merges it back, so a restored school keeps its preset
-claim (D37).
+claim (D37). [77.1.09] The same goes for `settings.modules` (which parts are on) and `settings.labels` (renamed words): neither is a secret path, both ride in the `settings` cell and deep-merge back, so a restored school keeps its switches and its words. A switch the file does not mention is left as the destination has it (absent means unchanged).
 
 Every tab except `school` deletes by absence — a row missing from the
 uploaded sheet is treated as "the admin deleted this row" and removed on

@@ -1,7 +1,8 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CommunicationMedium, Permission } from '@biddaloy/shared';
+import { CommunicationMedium, Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
@@ -27,6 +28,7 @@ import { ProviderNotConfiguredError } from '../config/provider-not-configured.er
 @ApiTenantAuth()
 @Controller('communications/sms-credits')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.messaging)
 export class CreditsController {
   constructor(
     private readonly smsCredits: SmsCreditService,

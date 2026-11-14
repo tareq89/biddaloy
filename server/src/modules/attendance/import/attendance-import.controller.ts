@@ -19,9 +19,10 @@ import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { ATTENDANCE_SHEET_MAX_BYTES, Permission, UserRole } from '@biddaloy/shared';
+import { ATTENDANCE_SHEET_MAX_BYTES, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
@@ -56,6 +57,7 @@ const READ_ROLES = [
 @ApiTags('attendance')
 @ApiTenantAuth()
 @Controller('attendance')
+@RequiresModule(ModuleKey.attendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AttendanceImportController {
   constructor(private readonly service: AttendanceImportService) {}

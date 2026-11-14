@@ -30,7 +30,7 @@ export class SchoolProfileController {
   @Get()
   @ApiOperation({
     summary:
-      "Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url). Any authenticated staff role.",
+      "Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url) plus the modules and labels blocks. Any authenticated role.",
   })
   @ApiOkResponse()
   async getProfile(@CurrentTenant() tenant: { id: string; role: string }) {

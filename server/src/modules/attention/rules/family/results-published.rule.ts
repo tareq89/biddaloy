@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
@@ -9,7 +9,7 @@ import { childFindings } from './family-data';
 const WINDOW_MS = 72 * 3600_000;
 
 /** Results published in the last 72 h; the 72 h expiry closes them even without a later run. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.exams })
 export class ResultsPublishedRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('results.published');
   readonly messages = {

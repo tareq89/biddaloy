@@ -231,6 +231,30 @@ describe('AbsenceNoticeService (integration)', () => {
     expect(logs[0].guardian_id).toBe(guardianId);
   });
 
+  it("stored SMS body uses the school's word for guardian; amounts/dates untouched (77.5)", async () => {
+    await dataSource.getRepository(School).update(
+      { id: TENANT_ID },
+      {
+        settings: {
+          version: 1,
+          attendance: {
+            weeklyOffDays: [],
+            correctionWindowDays: 2,
+            allowFutureDates: false,
+            autoAbsentNotification: { enabled: true, cutoffTime: '00:00' },
+          },
+          region: { timezone: 'Asia/Dhaka', locale: 'en-US' },
+          labels: { guardian: { en: { one: 'Parent', other: 'Parents' } } },
+        } as any,
+      },
+    );
+    await attendanceService.putRegister(putParams({ dto: basePutDto() }));
+    const [log] = await latestBatchLogs();
+    expect(log.message_body).toMatch(/^Dear Parent, /);
+    expect(log.message_body).toContain(TODAY());
+    expect(log.message_body).not.toContain('Guardian');
+  });
+
   async function meterTenant(availableCredit: number | null): Promise<void> {
     await dataSource.getRepository(School).update(
       { id: TENANT_ID },

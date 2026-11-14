@@ -5,7 +5,7 @@ import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { loadHomeroomSections } from './class-homeroom';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class ClassGuardianContactMissingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('class.guardian_contact_missing');
   readonly messages = {

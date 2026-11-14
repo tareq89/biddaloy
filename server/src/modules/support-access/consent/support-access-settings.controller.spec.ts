@@ -8,6 +8,7 @@ import supertest from 'supertest';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { DenyWhenImpersonatingInterceptor } from '../../auth/deny-when-impersonating.interceptor';
 import { SupportAccessSettingsController } from './support-access-settings.controller';
 import { SupportAccessSettingsService } from './support-access-settings.service';
@@ -36,6 +37,10 @@ describe('SupportAccessSettingsController', () => {
         { provide: SupportAccessSettingsService, useValue: service },
         DenyWhenImpersonatingInterceptor,
         Reflector,
+        {
+          provide: ModuleStateReader,
+          useValue: { forTenant: async () => ({ platform: {}, school: {} }) },
+        },
       ],
     })
       // Auth + context stand-in: sets the same request fields ContextGuard does, and mimics its

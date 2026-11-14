@@ -4,8 +4,10 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { DataSource, Repository } from 'typeorm';
-import { AlertCadence } from '@biddaloy/shared';
+import { AlertCadence, resolveModuleState } from '@biddaloy/shared';
+import type { ModuleKey } from '@biddaloy/shared';
 import type { AlertRuleMeta, AttentionSettings } from '@biddaloy/shared';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { School } from '../../schools/entities/school.entity';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import {
@@ -39,6 +41,27 @@ export function isRuleEnabled(meta: AlertRuleMeta, settings: AttentionSettings):
   return !meta.canDisable || settings.rules[meta.key]?.enabled !== false;
 }
 
+/**
+ * D9/D27: a rule of an off module does not run for the school (role ignored). Alerts it raised
+ * stay in the table, hidden by the query service (D37). An unreadable state is "off": log, skip
+ * the module rules of this school only, never abort the sweep.
+ */
+async function offModuleKeys(
+  reader: ModuleStateReader,
+  tenantId: string,
+  logger: Logger,
+): Promise<(key: ModuleKey) => boolean> {
+  try {
+    const { platform, school } = await reader.forTenant(tenantId);
+    return (key) => !resolveModuleState({ platform, school }, key).on;
+  } catch (e) {
+    logger.error(
+      `Module state unreadable for tenant ${tenantId}, module rules skipped: ${String(e)}`,
+    );
+    return () => true;
+  }
+}
+
 async function withBudget<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -69,6 +92,7 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
     private readonly writer: AlertWriterService,
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -181,8 +205,11 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
       await this.writer.wakeSnoozed(tenantId, now);
       if (!ctx.isWorkingDay || !(await this.context.isWithinSchoolHours(ctx))) return;
     }
+    const isOff = await offModuleKeys(this.moduleState, tenantId, this.logger);
     for (const rule of this.registry.forCadence(cadence)) {
       const key = rule.meta.key;
+      const mod = this.registry.moduleOf(key);
+      if (mod && mod !== 'core' && isOff(mod)) continue;
       if (!isRuleEnabled(rule.meta, ctx.settings)) {
         await this.writer.withdrawRule(tenantId, key);
         continue;
@@ -284,6 +311,13 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
       where: { id: tenantId, status: 'ACTIVE' },
     });
     if (!school) return;
+    const mod = this.registry.moduleOf(ruleKey);
+    if (
+      mod &&
+      mod !== 'core' &&
+      (await offModuleKeys(this.moduleState, tenantId, this.logger))(mod)
+    )
+      return;
     const ctx = await this.context.build(tenantId, now, actorUserId);
     if (!isRuleEnabled(rule.meta, ctx.settings)) {
       await this.writer.withdrawRule(tenantId, ruleKey);

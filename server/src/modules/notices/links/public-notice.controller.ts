@@ -27,6 +27,8 @@ export const NOTICE_LINK_NOT_FOUND = 'Notice link not found or no longer active'
  * `ThrottlerGuard` still runs and buckets by IP. Without Redis this route stays
  * open (D29).
  */
+// core: not tagged with @RequiresModule - token auth, no PermissionsGuard/tenant context, so the tag would not be enforced.
+// NoticeLinksService.resolve reads the notices module state after the token lookup and answers the one dead-link 404 [77.2.06].
 @ApiTags('public-notices')
 @Controller('public/notices')
 export class PublicNoticeController {

@@ -21,7 +21,7 @@
     "columnName": "Name",
     "columnKind": "Type",
     "columnRows": "Subjects",
-    "columnGrades": "Classes",
+    "columnGrades": "$t(common:entities.class_other)",
     "deleteRow": "Delete {{name}}",
     "errorMessage": "Couldn't load the exam structures.",
     "announceResults": "{{total}} exam structures",
@@ -49,7 +49,7 @@
     "editName": "Change name and type",
     "facts": {
       "kind": "Type",
-      "grades": "Classes",
+      "grades": "$t(common:entities.class_other)",
       "subjects": "Subjects",
       "parts": "Parts",
       "count": "{{n}}"
@@ -58,8 +58,8 @@
     "noGradesText": "Add a class, then its subjects and parts."
   },
   "grid": {
-    "gradeHeading": "Class {{grade}}",
-    "gradeLabel": "Class number",
+    "gradeHeading": "$t(common:entities.class_one) {{grade}}",
+    "gradeLabel": "$t(common:entities.class_one) number",
     "addGrade": "Add class",
     "subjectPicker": "Subject to add to class {{grade}}",
     "subjectPlaceholder": "Select",
@@ -88,12 +88,12 @@
     },
     "gradeHelp": "1 to 99, e.g. 9",
     "addGradeTitle": "Add a class",
-    "gradesLabel": "Classes",
+    "gradesLabel": "$t(common:entities.class_other)",
     "intro": "{{n}} subjects in class {{grade}} · enter full and pass marks for each part. Press “Save” at the top when done.",
     "subjectCaption": "Code {{code}} · {{n}} parts · full marks {{marks}}",
     "addSubjectTitle": "Add a subject to class {{grade}}",
     "subjectLabel": "Subject",
-    "gradeHasErrors": "Class {{grade}} has errors"
+    "gradeHasErrors": "$t(common:entities.class_one) {{grade}} has errors"
   },
   "fields": {
     "templateName": "Name (structure)",

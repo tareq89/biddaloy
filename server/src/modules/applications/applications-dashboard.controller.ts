@@ -1,7 +1,8 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey, UserRole } from '@biddaloy/shared';
+import { DashboardWidgetKey, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -14,6 +15,7 @@ import { PendingCountDto } from './dto/reports.dto';
 @ApiTags('dashboard')
 @ApiTenantAuth()
 @Controller()
+@RequiresModule(ModuleKey.applications)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ApplicationsDashboardController {
   constructor(private readonly service: ApplicationsDashboardService) {}

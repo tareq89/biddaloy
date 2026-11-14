@@ -2097,7 +2097,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url). Any authenticated staff role. */
+        /** Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url) plus the modules and labels blocks. Any authenticated role. */
         get: operations["SchoolProfileController_getProfile_v1"];
         put?: never;
         post?: never;
@@ -9215,6 +9215,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/institution-kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The institution kinds with their module switches and words. */
+        get: operations["InstitutionKindController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/institution-kinds/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What applying a kind would change. Writes nothing. */
+        post: operations["InstitutionKindController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/institution-kinds/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a kind: overwrites the school module switches and words it defines. Keeps platform locks, role-offs and data. */
+        post: operations["InstitutionKindController_apply_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The platform module map (absent key = on). */
+        get: operations["PlatformModulesController_get_v1"];
+        /** Replace the platform module map. Needs a step-up token. */
+        put: operations["PlatformModulesController_replace_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own module choices and platform locks. */
+        get: operations["PlatformModulesController_getForSchool_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/modules/{key}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Lock a module on or off for one school, or give control back with null. Needs a step-up token. */
+        put: operations["PlatformModulesController_setLock_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/print-templates": {
         parameters: {
             query?: never;
@@ -14073,7 +14176,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+            action: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -14106,7 +14209,7 @@ export interface components {
         RecentActivityItemDto: {
             id: string;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+            action: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
             /** @example Student */
             entity_type: string;
             /** @description Display name of the record, when it can be resolved; null otherwise. */
@@ -15697,6 +15800,12 @@ export interface components {
         };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
+            modules?: {
+                [key: string]: unknown;
+            };
+            labels?: {
+                [key: string]: unknown;
+            };
             /** @enum {number} */
             version: 1;
             region?: components["schemas"]["RegionSettingsDto"];
@@ -20365,6 +20474,77 @@ export interface components {
                 [key: string]: number;
             };
         };
+        InstitutionKindDto: {
+            /** @example coaching */
+            id: string;
+            name: {
+                en: string;
+                bn: string;
+            };
+            /** @description false = defaults not yet checked with a real school of this kind. */
+            verified: boolean;
+            modules: {
+                [key: string]: boolean;
+            };
+            labels: {
+                [key: string]: unknown;
+            };
+        };
+        KindModuleChangeDto: {
+            /** @example fines */
+            key: string;
+            /** @description The school switch before (on when nothing is stored). */
+            from: boolean;
+            to: boolean;
+        };
+        KindLabelChangeDto: {
+            /** @example class */
+            key: string;
+            from: {
+                [key: string]: unknown;
+            } | null;
+            to: {
+                [key: string]: unknown;
+            };
+        };
+        InstitutionKindChangesDto: {
+            modules: components["schemas"]["KindModuleChangeDto"][];
+            labels: components["schemas"]["KindLabelChangeDto"][];
+        };
+        PlatformModulesResponseDto: {
+            modules: {
+                [key: string]: boolean;
+            };
+        };
+        SchoolModuleStateDto: {
+            /** @description The school's own choice. */
+            on?: boolean;
+            /**
+             * @description Platform lock, if any.
+             * @enum {string}
+             */
+            lock?: "on" | "off";
+        };
+        SchoolModulesResponseDto: {
+            modules: {
+                [key: string]: components["schemas"]["SchoolModuleStateDto"];
+            };
+        };
+        PlatformModulesDto: {
+            /** @description Module key to false (off for every school). An absent key is on. */
+            modules: {
+                [key: string]: boolean;
+            };
+        };
+        ModuleLockDto: {
+            /** @enum {string|null} */
+            lock: "on" | "off" | null;
+        };
+        ModuleLockResponseDto: {
+            key: string;
+            /** @enum {string|null} */
+            lock: "on" | "off" | null;
+        };
         PrintTemplate: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -24843,7 +25023,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+                action?: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -24885,7 +25065,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "CSV" | "XLSX";
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+                action?: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -24924,7 +25104,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+                action?: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -33923,7 +34103,7 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+                action?: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -45137,6 +45317,216 @@ export interface operations {
             };
         };
     };
+    InstitutionKindController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionKindDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InstitutionKindController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionKindChangesDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InstitutionKindController_apply_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionKindChangesDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformModulesController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModulesResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformModulesController_replace_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformModulesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModulesResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformModulesController_getForSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolModulesResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformModulesController_setLock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleLockDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleLockResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     PrintTemplatesController_list_v1: {
         parameters: {
             query?: {
@@ -53532,7 +53922,7 @@ export interface operations {
         parameters: {
             query?: {
                 tenantId?: string;
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
+                action?: "MODULES_UPDATED" | "WORDS_UPDATED" | "INSTITUTION_KIND_APPLIED" | "PLATFORM_MODULES_UPDATED" | "PLATFORM_MODULE_LOCK_UPDATED" | "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED" | "IMPERSONATION_STARTED" | "IMPERSONATION_ENDED" | "SUPPORT_ACCESS_MODE_CHANGED" | "SUPPORT_ACCESS_CONFIRMED" | "SUPPORT_ACCESS_REQUESTED" | "SUPPORT_ACCESS_APPROVED" | "SUPPORT_ACCESS_DENIED" | "PLATFORM_SCHOOL_NOTE_ADDED" | "PLATFORM_SCHOOL_RENAMED" | "PLATFORM_SCHOOL_ARCHIVED" | "PLATFORM_ADMIN_RESET_SENT" | "PLATFORM_SCHOOL_LOGOUT_ALL" | "PLATFORM_USER_LOGOUT" | "PLATFORM_ANNOUNCEMENT_SENT" | "PLATFORM_QUEUE_RETRY" | "PLATFORM_RESTORE_LOCK_RELEASED" | "PLATFORM_RECOVERY_REGENERATED" | "SMS_BUNDLE_CREATED" | "SMS_BUNDLE_UPDATED" | "SMS_BUNDLE_TOGGLED" | "SMS_BUNDLE_ORDERED" | "SMS_BUNDLE_PAID" | "SMS_STOCK_RECORDED" | "SMS_STOCK_DELETED" | "SMS_SOURCE_CHANGED" | "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_DEACTIVATED" | "PLAN_ASSIGNED" | "COUPON_CREATED" | "COUPON_UPDATED" | "COUPON_DISABLED" | "COUPON_REDEEMED" | "ORDER_REFUNDED" | "PLATFORM_VAT_CHANGED";
                 actorId?: string;
                 sessionId?: string;
                 from?: string;

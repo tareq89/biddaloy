@@ -42,6 +42,37 @@ Packs shipped today (all in `server/src/modules/presets/packs/`):
 | `intl/cambridge`   | `intl/cambridge.ts`                                 | `false`                     |
 | `blank`            | `blank.ts`                                          | `true` (it invents nothing) |
 
+## 1a. Institution kinds are not curriculum packs
+
+Two different things, two different jobs (Epic 77, D20, D23):
+
+|          | Curriculum pack                                   | Institution kind                                                        |
+| -------- | ------------------------------------------------- | ----------------------------------------------------------------------- |
+| Sets     | classes, subjects, grading, terms, exam templates | which modules are On, and the school's words                            |
+| When     | a fresh school, once                              | any time, on a running school                                           |
+| Lives in | `server/src/modules/presets/packs/`               | `shared/src/presets/institution-kinds.ts`                               |
+| Route    | `POST /presets/apply`                             | `POST /institution-kinds/:id/preview` then `/apply` (`SETTINGS_MANAGE`) |
+
+Onboarding pre-selects a kind from the chosen pack (`matchesPresetIds`: `bd/nctb` suggests Secondary, `bd/alia-madrasa` suggests Alia madrasa, `intl/cambridge` suggests English medium). The school can pick another.
+
+What apply does (`InstitutionKindService`, D24):
+
+```mermaid
+flowchart LR
+  K[kind: modules + words] --> D[diff against the school]
+  D --> P[preview: only what differs]
+  P --> W[apply: write through updateSettings]
+  W --> X[keeps: platform locks, who-can't-see-it roles, all data]
+```
+
+- It overwrites **only** the module `on` switches and words the kind defines, and **only** where they differ from the school's now. Applying twice changes nothing and writes no audit row.
+- It never turns a module On. Every module a kind lists is set Off; the kind defines no `on: true`. To get a module back, the admin switches it On by hand. (A module the school already has On and the kind does not list stays as it is.)
+- It never sends a platform lock or `offForRoles`, so those stay. It touches no rows (students, fees, fines and so on stay).
+
+Example: apply "Coaching centre" to a school with Fines On. Preview lists "Fines: On → Off", "Class: Class → Course", "Section: Section → Batch". After apply the school's own Fines switch is Off; fine rows already recorded are still there. Applying "Secondary" later changes nothing, because it defines nothing.
+
+The eight kinds (D25): Primary, Secondary, College, Alia madrasa, Qawmi madrasa, English medium, Coaching centre, Technical institute. Primary and Coaching switch modules off, and Coaching also renames words; the other six define nothing yet (they only mark the choice). `verified: false` (defaults not yet checked with a real school): **College, Qawmi madrasa, Technical institute**. The rest are `verified: true`, a flag meaning only that defaults were reviewed. Same rule as §8: someone must check the unverified ones with a real school before trusting them.
+
 ## 2. The API
 
 All preset routes need role `ADMIN` and permission `CURRICULUM_PRESET_APPLY`,
@@ -165,7 +196,7 @@ transaction rolls back and nothing is left behind.
 | Fresh only            | No academic years, classes, subjects, students, exams, grading scales or exam templates, and no preset block (`FRESH_TENANT_ENTITIES`) | `409`, `details.code = 'PRESET_NOT_FRESH'`     |
 | Once                  | A school with a preset block cannot apply again                                                                                        | same `PRESET_NOT_FRESH`                        |
 | One at a time         | The `School` row is locked (`pessimistic_write`) so two applies serialise                                                              | second one sees the first's result             |
-| Reset: super-admin    | **Platform owner** only (cockpit token, `PlatformAccessGuard`), mandatory `reason` (10 to 500 characters), audited                        | `403` wrong role or not platform (see below)   |
+| Reset: super-admin    | **Platform owner** only (cockpit token, `PlatformAccessGuard`), mandatory `reason` (10 to 500 characters), audited                     | `403` wrong role or not platform (see below)   |
 | Reset: needs a preset | Nothing to reset                                                                                                                       | `409`, `details.code = 'PRESET_NOT_APPLIED'`   |
 | Reset blockers        | Any operational data exists (list below)                                                                                               | `409`, `details.code = 'PRESET_RESET_BLOCKED'` |
 

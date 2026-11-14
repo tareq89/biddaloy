@@ -15,6 +15,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { PencilIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { useModuleGate, type Gated } from '../../../module-gate';
 import { resolveLayout } from '../resolve-layout';
 import { useDashboardPrefs, useSaveDashboardPrefs } from '../use-dashboard-prefs';
 
@@ -22,13 +23,18 @@ import { customiseReducer, toPref, type DraftState } from './customise-draft';
 import { CustomisePanel } from './customise-panel';
 import { CustomisePreview } from './customise-preview';
 
-function seed(role: UserRole, pref: Parameters<typeof resolveLayout>[0]['pref']): DraftState {
+function seed(
+  role: UserRole,
+  pref: Parameters<typeof resolveLayout>[0]['pref'],
+  moduleOn: (module: Gated) => boolean,
+): DraftState {
   const { visible, hidden } = resolveLayout({
     role,
     pref,
     catalogue: WIDGET_CATALOGUE,
     defaults: ROLE_DEFAULT_LAYOUTS,
     can: (p) => hasPermission(role, p),
+    moduleOn,
   });
   return { shown: visible, hidden };
 }
@@ -37,7 +43,10 @@ export function CustomiseMode({ role, onDone }: { role: UserRole; onDone: () => 
   const { t } = useTranslation('dashboard');
   const { pref } = useDashboardPrefs();
   const save = useSaveDashboardPrefs();
-  const [draft, dispatch] = React.useReducer(customiseReducer, undefined, () => seed(role, pref));
+  const moduleOn = useModuleGate();
+  const [draft, dispatch] = React.useReducer(customiseReducer, undefined, () =>
+    seed(role, pref, moduleOn),
+  );
   const [focused, setFocused] = React.useState<DashboardWidgetKey | null>(null);
 
   const onSave = () =>
@@ -68,7 +77,7 @@ export function CustomiseMode({ role, onDone }: { role: UserRole; onDone: () => 
             onAction={dispatch}
             onSave={onSave}
             onCancel={onDone}
-            onReset={() => dispatch({ type: 'reset', defaults: seed(role, undefined) })}
+            onReset={() => dispatch({ type: 'reset', defaults: seed(role, undefined, moduleOn) })}
             saving={save.isPending}
             error={save.error}
             onFocusRow={setFocused}

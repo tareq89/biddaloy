@@ -7,7 +7,7 @@ import { resolveTenantSettings } from '../../../schools/settings/tenant-settings
 import { isBackupUnhealthy } from '../system/system-backup-failed.rule';
 import { PlatformTenantResolver, platformRecipients, schoolNames } from './platform-tenant';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformBackupFailingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.backup_failing');
   readonly messages = {

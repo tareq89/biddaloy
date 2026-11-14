@@ -32,7 +32,7 @@ import {
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Readable } from 'stream';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -67,6 +67,7 @@ import {
   PlanListResponseDto,
   PlanScheduleResponseDto,
 } from './dto/plan-schedule.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 type Tenant = { id: string; role: string };
 
@@ -87,6 +88,7 @@ function sendCsv(res: Response, file: CsvFile): StreamableFile {
 @ApiTags('study-plans')
 @ApiTenantAuth()
 @Controller('study-plans')
+@RequiresModule(ModuleKey.studyPlans)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudyPlansController {
   constructor(

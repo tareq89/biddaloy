@@ -173,6 +173,12 @@ export enum ReminderBatchStatus {
 }
 
 export enum AuditAction {
+  // Epic 77 (D45). The Postgres enum values are added in 77.1.02.
+  MODULES_UPDATED = 'MODULES_UPDATED',
+  WORDS_UPDATED = 'WORDS_UPDATED',
+  INSTITUTION_KIND_APPLIED = 'INSTITUTION_KIND_APPLIED',
+  PLATFORM_MODULES_UPDATED = 'PLATFORM_MODULES_UPDATED',
+  PLATFORM_MODULE_LOCK_UPDATED = 'PLATFORM_MODULE_LOCK_UPDATED',
   CREATE = 'CREATE',
   UPDATE = 'UPDATE',
   DELETE = 'DELETE',
@@ -570,6 +576,7 @@ export enum CalendarImportRowStatus {
 }
 
 export * from './entity-label';
+export * from './module-key';
 export * from './exams';
 export * from './routines';
 export * from './homework';

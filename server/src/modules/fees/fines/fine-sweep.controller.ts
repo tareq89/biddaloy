@@ -10,7 +10,8 @@ import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
-import { Permission, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { FineSweepService } from './fine-sweep.service';
 import {
   FineSweepGenerateDto,
@@ -28,6 +29,7 @@ import {
 @ApiTenantAuth()
 @Controller('fees/fines')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.fines)
 export class FineSweepController {
   constructor(@Inject(FineSweepService) private readonly fineSweepService: FineSweepService) {}
 

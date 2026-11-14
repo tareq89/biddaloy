@@ -12,6 +12,12 @@ export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
 export * from './applications';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
+export {
+  useModuleEnabled,
+  useModuleResolver,
+  useModuleState,
+  type UseModuleState,
+} from './modules';
 export { useOnline } from './use-online';
 export { useRecentItems, type RecentItem, type UseRecentItemsResult } from './recent-items';
 export { useQueryFreshness } from './use-query-freshness';
@@ -1966,4 +1972,5 @@ export {
 export * from './platform-impersonation';
 export * from './platform-school-control';
 export * from './platform-console';
+export * from './platform-modules';
 export * from './support-access';

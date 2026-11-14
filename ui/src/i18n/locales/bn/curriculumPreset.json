@@ -33,7 +33,7 @@
   },
   "confirm": {
     "title": "{{name}} প্রয়োগ করবেন?",
-    "creates": "তৈরি শিক্ষাক্রম থেকে শিক্ষাবর্ষ, শ্রেণি, বিষয়, গ্রেডিং স্কেল ও পরীক্ষার টেমপ্লেট তৈরি হবে।",
+    "creates": "তৈরি শিক্ষাক্রম থেকে শিক্ষাবর্ষ, $t(common:entities.class_one), বিষয়, গ্রেডিং স্কেল ও পরীক্ষার টেমপ্লেট তৈরি হবে।",
     "irreversible": "আপনি এটি ফিরিয়ে নিতে পারবেন না। শুধু প্ল্যাটফর্ম অ্যাডমিন এটি রিসেট করতে পারেন।",
     "typeLabel": "নিশ্চিত করতে “{{name}}” লিখুন",
     "apply": "প্রয়োগ করুন",
@@ -44,11 +44,11 @@
     "title": "{{name}}",
     "loadError": "প্রিভিউ লোড করা যায়নি।",
     "stages": "স্তর",
-    "classes": "শ্রেণি",
+    "classes": "$t(common:entities.class_one)",
     "groups": "বিভাগ",
     "subjects": "বিষয়: {{count}}টি",
     "subjectsByClass": "শ্রেণিভিত্তিক বিষয়",
-    "className": "{{grade}} নম্বর শ্রেণি",
+    "className": "{{grade}} নম্বর $t(common:entities.class_one)",
     "oneOf": "যেকোনো একটি: {{names}}",
     "gradingScale": "গ্রেডিং স্কেল",
     "band": "{{from}}–{{to}}% — {{grade}}",
@@ -71,7 +71,7 @@
     "created": {
       "settings": "সেটিংস",
       "academicYears": "শিক্ষাবর্ষ",
-      "classes": "শ্রেণি",
+      "classes": "$t(common:entities.class_one)",
       "subjects": "বিষয়",
       "classSubjects": "শ্রেণির বিষয়",
       "academicTerms": "টার্ম",
@@ -91,9 +91,9 @@
     "heading": "যা আগে থেকেই আছে",
     "entities": {
       "academicYears": "শিক্ষাবর্ষ",
-      "classes": "শ্রেণি",
+      "classes": "$t(common:entities.class_one)",
       "subjects": "বিষয়",
-      "students": "শিক্ষার্থী",
+      "students": "$t(common:entities.student_one)",
       "exams": "পরীক্ষা",
       "gradingScales": "গ্রেডিং পদ্ধতি",
       "examTemplates": "পরীক্ষার কাঠামো",
@@ -109,7 +109,7 @@
     "notApplied": "প্রয়োগ করা হয়নি",
     "open": "খুলুন"
   },
-  "subtitle": "নতুন স্কুলে শ্রেণি, বিষয়, পরীক্ষা ও গ্রেডিং একবারে যোগ করুন।",
+  "subtitle": "নতুন স্কুলে $t(common:entities.class_one), বিষয়, পরীক্ষা ও গ্রেডিং একবারে যোগ করুন।",
   "unverifiedBadge": "যাচাই করা হয়নি",
   "fields": {
     "stages": "যে স্তরগুলো তৈরি হবে",

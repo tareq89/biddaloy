@@ -93,12 +93,6 @@ import { PlatformAnnouncement } from './modules/support-access/entities/platform
 import { UserMfa } from './modules/platform-identity/entities/user-mfa.entity';
 import { UserRecoveryCode } from './modules/platform-identity/entities/user-recovery-code.entity';
 import { CockpitAuthModule } from './modules/auth/cockpit/cockpit-auth.module';
-import { CouponsModule } from './modules/coupons/coupons.module';
-import { RevenueModule } from './modules/revenue/revenue.module';
-import { Plan } from './modules/plans/entities/plan.entity';
-import { Coupon } from './modules/coupons/entities/coupon.entity';
-import { CouponSchool } from './modules/coupons/entities/coupon-school.entity';
-import { CouponRedemption } from './modules/coupons/entities/coupon-redemption.entity';
 import { PlatformControlModule } from './modules/platform-control/platform-control.module';
 import { PlatformIdentityModule } from './modules/platform-identity/platform-identity.module';
 import { MfaModule } from './modules/auth/mfa/mfa.module';
@@ -114,6 +108,12 @@ import { PlatformPayment } from './modules/billing/entities/platform-payment.ent
 import { BillingModule } from './modules/billing/billing.module';
 import { SmsBundlesModule } from './modules/sms-bundles/sms-bundles.module';
 import { PlansModule } from './modules/plans/plans.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { RevenueModule } from './modules/revenue/revenue.module';
+import { Plan } from './modules/plans/entities/plan.entity';
+import { Coupon } from './modules/coupons/entities/coupon.entity';
+import { CouponSchool } from './modules/coupons/entities/coupon-school.entity';
+import { CouponRedemption } from './modules/coupons/entities/coupon-redemption.entity';
 import { IdleAccountModule } from './modules/billing/idle-account.module';
 import { PlatformAlert } from './modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';

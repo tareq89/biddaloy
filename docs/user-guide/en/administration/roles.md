@@ -142,6 +142,8 @@ If a page or button is missing, see [Why can't I see this?](../help/cant-see-thi
 
 Opening this page needs the permission to view the staff list, which only the Admin has. If another role opens the address directly, the page does not open; a message appears instead.
 
+**Hiding a part of the system from a role.** Only the Admin can open **Settings → Modules & words**. There, **Who can't see it** on a module hides that module from the roles the Admin ticks. It never hides a module from the Admin. See [**Modules and words**](modules-and-words.md#task-hide).
+
 ---
 
 ## Learn more <a href="#more" id="more"></a>
@@ -179,6 +181,7 @@ Opening this page needs the permission to view the staff list, which only the Ad
 - **Role pages** — one page for each role, with its first day and common tasks: [Admin](../roles/admin.md), [Accountant](../roles/accountant.md), [Academic coordinator](../roles/headmaster.md), [Teacher](../roles/teacher.md), [Exam controller](../roles/exam-controller.md), [Office staff](../roles/office-staff.md), [Committee member](../roles/committee.md), [Guardian](../roles/guardian.md), [Student](../roles/student.md).
 - [**Staff**](../people/staff.md) — add staff and choose the role.
 - [**Teacher assignments**](../people/teaching-assignments.md) — which teacher sees which section.
+- [**Modules and words**](modules-and-words.md) — hide a module from some roles.
 - [**Activity log**](audit-logs.md) — who changed what, and when.
 - [**Applications**](../applications/applications.md) — which role decides which application.
 - [**Changing the school's settings**](settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.

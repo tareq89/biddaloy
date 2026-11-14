@@ -53,18 +53,25 @@ describe('Billing1791900000350 (integration)', () => {
     return rows.map((r) => r.table_name).sort();
   }
 
-  function insertOrder(over: { seats?: number; months?: number; amount?: number; key?: string }) {
-    const seats = over.seats ?? 10;
-    const months = over.months ?? 1;
-    const amount = over.amount ?? 10000;
-    // CHK_seat_orders_discount (Epic 100): amount = seats * months * unit_price - discount, so the
-    // test row derives a consistent unit price and discount from the amount it wants to store.
-    const unit = Math.max(1, Math.ceil(amount / Math.max(1, seats * months)));
-    const discount = Math.max(0, unit * seats * months - amount);
+  // [Epic 100] CHK_seat_orders_discount: amount = seats x months x unit price - discount.
+  function insertOrder(over: {
+    seats?: number;
+    months?: number;
+    amount?: number;
+    key?: string;
+    discount?: number;
+  }) {
     return dataSource.query(
-      `INSERT INTO "seat_orders" (school_id, seats, months, unit_price_paisa, discount_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
-       VALUES ($1, $2, $3, $6, $7, $4, '2027-01-01', '2027-02-01', 'PENDING', $5) RETURNING id`,
-      [schoolId, seats, months, amount, over.key ?? 'k1', unit, discount],
+      `INSERT INTO "seat_orders" (school_id, seats, months, unit_price_paisa, amount_paisa, discount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, $2, $3, 1000, $4, $6, '2027-01-01', '2027-02-01', 'PENDING', $5) RETURNING id`,
+      [
+        schoolId,
+        over.seats ?? 10,
+        over.months ?? 1,
+        over.amount ?? 10000,
+        over.key ?? 'k1',
+        over.discount ?? 0,
+      ],
     );
   }
 
@@ -92,7 +99,10 @@ describe('Billing1791900000350 (integration)', () => {
     await expect(insertOrder({ months: 0 })).rejects.toThrow();
     await expect(insertOrder({ months: 25 })).rejects.toThrow();
     await expect(insertOrder({ amount: 10_000_000_000 })).rejects.toThrow();
-    await expect(insertOrder({ months: 24, amount: 9_999_999_999 })).resolves.toBeDefined();
+    // 416_667 seats x 24 months x 1000 = 10_000_008_000; less 8_001 discount = MONEY_MAX.
+    await expect(
+      insertOrder({ seats: 416_667, months: 24, amount: 9_999_999_999, discount: 8_001 }),
+    ).resolves.toBeDefined();
   });
 
   it('unique (school_id, idempotency_key): replay is rejected', async () => {

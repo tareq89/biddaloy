@@ -7,7 +7,7 @@ import { PlatformTenantResolver, platformRecipients } from './platform-tenant';
 
 export const PROVIDER_FAILURE_THRESHOLD = 20;
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformProviderFailuresRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.provider_failures');
   readonly messages = {

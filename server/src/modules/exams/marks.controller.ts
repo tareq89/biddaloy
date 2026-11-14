@@ -39,7 +39,8 @@ import {
 } from './dto/marks-sheet.dto';
 import { MarkGridService } from './mark-grid.service';
 import { BatchMarksDto, GridQueryDto, GridStateActionDto, QueryProgressDto } from './dto/marks.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, UserRole, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * `@RequirePermissions(...)` here is only the coarse gate ("a TEACHER may
@@ -49,6 +50,7 @@ import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
  */
 @ApiTags('marks')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams/:examId/marks')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class MarksController {

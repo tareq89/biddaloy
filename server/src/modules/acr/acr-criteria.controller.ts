@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -14,6 +15,7 @@ import { GetAcrCriteriaQueryDto, SaveAcrCriteriaDto } from './dto/criteria.dto';
 /** Read / save (as new version) the tenant's ACR criteria. 28.2.1. */
 @ApiTags('acr')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.evaluations)
 @Controller('acr/criteria')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AcrCriteriaController {

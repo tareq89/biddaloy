@@ -1,3 +1,4 @@
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import {
   Controller,
   Delete,
@@ -24,7 +25,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { NOTICE_LIMITS, Permission, UserRole } from '@biddaloy/shared';
+import { NOTICE_LIMITS, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
@@ -42,6 +43,7 @@ type Actor = { sub: string };
 @ApiTags('notices')
 @ApiTenantAuth()
 @Controller('notices')
+@RequiresModule(ModuleKey.notices)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class NoticeFilesController {
   constructor(private readonly service: NoticeFilesService) {}

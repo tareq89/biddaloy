@@ -16,6 +16,7 @@ import { HandCoinsIcon, MessageSquareTextIcon, PencilIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { gateTabs, useModuleGate, visibleTab } from '../../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { CommunicationTab } from './-detail/communication-tab';
@@ -63,6 +64,7 @@ function GuardianDetailPage() {
   const { t } = useTranslation('guardians');
   const guardianQuery = useGuardian(guardianId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
+  const moduleOn = useModuleGate();
 
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -83,6 +85,36 @@ function GuardianDetailPage() {
   // `RegionConfigProvider`'s hardcoded default region rather than the
   // active tenant's actual one.
   const regionConfig = useTenantRegionConfig();
+
+  const tabs = gateTabs(
+    [
+      {
+        id: 'information',
+        module: 'core',
+        label: t('detail.tabs.information'),
+        content: <InformationTab guardianId={guardianId} />,
+      },
+      {
+        id: 'linkedStudents',
+        module: 'core',
+        label: t('detail.tabs.linkedStudents'),
+        content: <LinkedStudentsTab guardianId={guardianId} />,
+      },
+      {
+        id: 'communication',
+        module: 'messaging',
+        label: t('detail.tabs.communication'),
+        content: <CommunicationTab guardianId={guardianId} />,
+      },
+      {
+        id: 'payments',
+        module: 'fees',
+        label: t('detail.tabs.payments'),
+        content: <PaymentsTab guardianId={guardianId} />,
+      },
+    ],
+    moduleOn,
+  );
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -168,30 +200,9 @@ function GuardianDetailPage() {
                   search: { guardian: guardianId },
                 },
               ]}
-              activeTab={activeTab}
+              activeTab={visibleTab(tabs, activeTab)}
               onTabChange={setActiveTab}
-              tabs={[
-                {
-                  id: 'information',
-                  label: t('detail.tabs.information'),
-                  content: <InformationTab guardianId={guardianId} />,
-                },
-                {
-                  id: 'linkedStudents',
-                  label: t('detail.tabs.linkedStudents'),
-                  content: <LinkedStudentsTab guardianId={guardianId} />,
-                },
-                {
-                  id: 'communication',
-                  label: t('detail.tabs.communication'),
-                  content: <CommunicationTab guardianId={guardianId} />,
-                },
-                {
-                  id: 'payments',
-                  label: t('detail.tabs.payments'),
-                  content: <PaymentsTab guardianId={guardianId} />,
-                },
-              ]}
+              tabs={tabs}
             />
 
             {search.edit === 1 && canUpdate && (

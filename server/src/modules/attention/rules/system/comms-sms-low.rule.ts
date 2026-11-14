@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { isAlmostFinished } from '../../../communications/credits/sms-low.util';
 import { SmsCreditService } from '../../../communications/credits/sms-credit.service';
 import { AttentionRule } from '../attention-rule.decorator';
@@ -11,7 +11,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
  * package lifts the number. The message templates only substitute `{name}`, so one wording covers
  * both states; `params.stopped` (1 at zero) lets the UI pick the "SMS stopped" line.
  */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.messaging })
 export class CommsSmsLowRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('sms.low');
   readonly messages = {

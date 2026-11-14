@@ -19,7 +19,11 @@ const SETTINGS = {
   guardianDigestSms: false,
 };
 
-function build(opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: string[] } = {}) {
+function build(
+  opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: string[] } = {},
+  forTenant: (id: string) => Promise<unknown> = async () => ({ platform: {}, school: {} }),
+) {
+  const moduleState = { forTenant: vi.fn(forTenant) }; // [77.2.10] every module on by default
   const holidays = new Set(opts.holidays ?? []);
   const weeklyOff = opts.weeklyOff ?? [5];
   const redis = new Map<string, string>();
@@ -28,7 +32,7 @@ function build(opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: s
   const working = (iso: string) => !isOff(iso) && !holidays.has(iso);
 
   const calendar = {
-    isNonWorkingDay: vi.fn(async ({ date }: { date: string }) => !working(date)),
+    isNonWorkingDay: vi.fn(async ({ date }: { date: string; tenantId?: string }) => !working(date)),
     getWorkingDays: vi.fn(async ({ from, to }: { from: string; to: string }) => {
       const dates: string[] = [];
       for (let d = from; d <= to; d = addDays(d, 1)) if (working(d)) dates.push(d);
@@ -92,8 +96,9 @@ function build(opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: s
     push as never,
     {} as never,
     {} as never,
+    moduleState as never,
   );
-  return { scheduler, redis, pushed, push, calendar, plans, schools };
+  return { scheduler, redis, pushed, push, calendar, plans, schools, moduleState };
 }
 
 const at = (iso: string) => vi.setSystemTime(new Date(iso));
@@ -101,6 +106,31 @@ const at = (iso: string) => vi.setSystemTime(new Date(iso));
 describe('StudyPlanFlagsScheduler [66.2.05]', () => {
   beforeEach(() => vi.useFakeTimers({ toFake: ['Date'] }));
   afterEach(() => vi.useRealTimers());
+
+  // [77.2.10] D9: studyPlans off for A -> A skipped (no calendar read, no reminder), B swept.
+  it('skips a school with study plans off and still sweeps the next', async () => {
+    at('2026-10-15T03:00:00Z');
+    const { scheduler, schools, calendar } = build({}, async (id) => ({
+      platform: {},
+      school: id === 'A' ? { studyPlans: { on: false } } : {},
+    }));
+    schools.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    await scheduler.process();
+    const asked = calendar.isNonWorkingDay.mock.calls.map((c) => c[0].tenantId);
+    expect(asked).toEqual(['B']);
+  });
+
+  // Fail closed: unreadable state skips that school (error logged by process), B still swept.
+  it('skips a school whose module state cannot be read and still sweeps the next', async () => {
+    at('2026-10-15T03:00:00Z');
+    const { scheduler, schools, calendar } = build({}, async (id) => {
+      if (id === 'A') throw new Error('db down');
+      return { platform: {}, school: {} };
+    });
+    schools.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    await expect(scheduler.process()).resolves.toBeUndefined();
+    expect(calendar.isNonWorkingDay.mock.calls.map((c) => c[0].tenantId)).toEqual(['B']);
+  });
 
   it('[TEN-06] process() sweeps only the ACTIVE schools: a suspended one gets no sweepTenant', async () => {
     const { scheduler, schools } = build();
@@ -339,6 +369,7 @@ describe('StudyPlanFlagsScheduler [66.2.05]', () => {
           reserve: vi.fn(async () => ({ ok: true })),
           settlePart,
         } as never,
+        { forTenant: vi.fn() } as never,
       );
       const run = () =>
         (scheduler as any).digestGuardians(

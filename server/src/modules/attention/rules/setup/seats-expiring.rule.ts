@@ -15,7 +15,7 @@ const NEAR_FULL = 0.9;
  * 30-day warning (it would show on the day it was paid), only the 7-day one.
  * A full school (used >= entitled) is `seats.exhausted`'s business, not this rule's.
  */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class SeatsExpiringRule implements AttentionRuleShape {
   meta = alertRuleMeta('seats.expiring');
   messages = {

@@ -38,6 +38,7 @@ import { useState, type ReactNode } from 'react';
 
 import { LatestNoticesCard } from '../../features/notices/read/latest-notices-card';
 import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
+import { useModuleGate } from '../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 import { AttendanceHeatmapCard } from './-attendance-heatmap-card';
@@ -382,13 +383,14 @@ function PortalPage({
   const { t } = useTranslation('portal');
   const config = useRegionConfig();
   const selected = family?.children.find((child) => child.id === family.selectedId);
+  const moduleOn = useModuleGate();
   return (
     <PageContainer>
       <PageHeader title={tNav('items.portalOverview')} subtitle={subtitle} />
       <div className="space-y-6">
-        <LatestNoticesCard portalLinks />
+        {moduleOn('notices') && <LatestNoticesCard portalLinks />}
         <ConnectHintCard />
-        <PortalSurveysCard />
+        {moduleOn('evaluations') && <PortalSurveysCard />}
         {family && (
           <>
             <p className="text-text-secondary">
@@ -396,14 +398,16 @@ function PortalPage({
                 date: `${formatWeekday(family.today, config)}, ${formatDate(family.today, config)}`,
               })}
             </p>
-            <TodayStrip students={family.children} today={family.today} month={family.month} />
+            {moduleOn('attendance') && (
+              <TodayStrip students={family.children} today={family.today} month={family.month} />
+            )}
           </>
         )}
         <div
           className={family ? 'grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start' : undefined}
         >
           <div className="min-w-0 space-y-6">{children}</div>
-          {family && (
+          {family && moduleOn('attendance') && (
             <AttendanceHeatmapCard
               students={family.children}
               selectedId={family.selectedId}
@@ -415,11 +419,13 @@ function PortalPage({
         </div>
         {family && selected && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <HomeworkCard students={family.children} />
-            <LatestResultCard
-              childId={selected.id}
-              childName={selected.fullName.split(' ')[0] ?? selected.fullName}
-            />
+            {moduleOn('homework') && <HomeworkCard students={family.children} />}
+            {moduleOn('exams') && (
+              <LatestResultCard
+                childId={selected.id}
+                childName={selected.fullName.split(' ')[0] ?? selected.fullName}
+              />
+            )}
             <NextHolidayCard />
           </div>
         )}
@@ -548,6 +554,7 @@ function ChildCard({
   now: Date;
 }) {
   const { t } = useTranslation('portal');
+  const feesOn = useModuleGate()('fees');
 
   const dueParts: string[] = [];
   if (child.dueDate !== null) {
@@ -578,11 +585,11 @@ function ChildCard({
                 ? formatServerAmount(child.totalDue, config)
                 : t('hero.nothingDue')}
             </p>
-            {dueParts.length > 0 && (
+            {feesOn && dueParts.length > 0 && (
               <p className="text-caption text-text-secondary">{dueParts.join(' · ')}</p>
             )}
           </div>
-          <DueThisMonthSection dues={child.dues} now={now} config={config} />
+          {feesOn && <DueThisMonthSection dues={child.dues} now={now} config={config} />}
         </div>
         <div className="flex items-center rounded-b-lg border-t border-border-subtle pr-3 md:pr-4">
           <Link
@@ -613,6 +620,7 @@ function SingleStudentView({
   family: FamilyOverview;
 }) {
   const { t } = useTranslation('portal');
+  const feesOn = useModuleGate()('fees');
   const paymentsQuery = usePaymentsByStudent(child.id);
 
   const metaParts: string[] = [];
@@ -650,9 +658,9 @@ function SingleStudentView({
         </div>
       </Card>
 
-      <DueThisMonthCard dues={child.dues} now={now} config={config} />
+      {feesOn && <DueThisMonthCard dues={child.dues} now={now} config={config} />}
 
-      <RecentPayments query={paymentsQuery} config={config} />
+      {feesOn && <RecentPayments query={paymentsQuery} config={config} />}
     </PortalPage>
   );
 }

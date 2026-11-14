@@ -14,6 +14,7 @@ import { SubstitutionsService } from '../../../routines/substitutions.service';
 import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { AlertWriterService } from '../../engine/alert-writer.service';
 import type { RuleContext } from '../rule.types';
+import { ModuleStateReader } from '../../../auth/guards/module-state.reader';
 import { ClassStartingRule } from './class-starting.rule';
 import { RoutineSubstitutionTodayRule } from './routine-substitution-today.rule';
 import { RoutineUncoveredPeriodsRule } from './routine-uncovered-periods.rule';
@@ -184,6 +185,8 @@ describe('Period rules (integration)', () => {
           provide: SchoolCalendarService,
           useValue: { getWorkingDays: async () => ({ dates: [DAY] }) },
         },
+        // No module switch is set, so every module reads as on.
+        { provide: ModuleStateReader, useValue: { forTenant: async () => ({ platform: {}, school: {} }) } },
         ClassStartingRule,
         RoutineSubstitutionTodayRule,
         RoutineUncoveredPeriodsRule,

@@ -55,7 +55,7 @@
     "SETTINGS_TEST": "সংযোগ পরীক্ষা"
   },
   "entityTypes": {
-    "Student": "শিক্ষার্থী",
+    "Student": "$t(common:entities.student_one)",
     "FeeStructure": "ফি কাঠামো",
     "Payment": "পেমেন্ট",
     "Invoice": "চালান",
@@ -68,10 +68,10 @@
     "AttendanceDevice": "উপস্থিতি ডিভাইস",
     "AttendanceRecord": "উপস্থিতি রেকর্ড",
     "AttendanceSession": "উপস্থিতি সেশন",
-    "Class": "শ্রেণি",
-    "ClassSection": "শ্রেণি ও শাখা",
+    "Class": "$t(common:entities.class_one)",
+    "ClassSection": "$t(common:entities.class_one) ও $t(common:entities.section_one)",
     "Enrollment": "ভর্তি",
-    "Guardian": "অভিভাবক",
+    "Guardian": "$t(common:entities.guardian_one)",
     "InvitationBatch": "আমন্ত্রণের দফা",
     "RefreshToken": "সেশন",
     "SchoolHoliday": "স্কুলের ছুটি",

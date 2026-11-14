@@ -15,7 +15,7 @@ const SCOPE_LABELS: Record<string, string> = {
   'platform.recovery_codes': 'make new recovery codes',
 };
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformApprovalPendingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.approval_pending');
   readonly messages = {
@@ -44,14 +44,19 @@ export class PlatformApprovalPendingRule implements AttentionRuleShape {
     const owners = await platformAdminRecipients(this.dataSource);
     if (!owners.length) return [];
 
-    const rows: { id: string; scope: string; requestedBy: string; fullName: string | null; expiresAt: Date }[] =
-      await this.dataSource.query(
-        `SELECT a.id, a.scope, a.requested_by AS "requestedBy", u.full_name AS "fullName", a.expires_at AS "expiresAt"
+    const rows: {
+      id: string;
+      scope: string;
+      requestedBy: string;
+      fullName: string | null;
+      expiresAt: Date;
+    }[] = await this.dataSource.query(
+      `SELECT a.id, a.scope, a.requested_by AS "requestedBy", u.full_name AS "fullName", a.expires_at AS "expiresAt"
            FROM platform_approvals a JOIN users u ON u.id = a.requested_by
           WHERE a.status = 'PENDING' AND a.expires_at > $1
           ORDER BY a.created_at`,
-        [ctx.now],
-      );
+      [ctx.now],
+    );
     const findings: RuleFinding[] = [];
     for (const r of rows) {
       // Only the OTHER owner can decide, so only they hear about it.

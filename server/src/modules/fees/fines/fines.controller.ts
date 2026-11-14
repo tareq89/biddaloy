@@ -32,13 +32,15 @@ import {
   QueryFinesDto,
 } from './dto/fines.dto';
 import { toFamilyFine } from '../dto/family.dto';
-import { Permission, isGuardianRole } from '@biddaloy/shared';
+import { Permission, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('fines')
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.fines)
 export class FinesController {
   constructor(
     @Inject(FinesService) private readonly finesService: FinesService,
@@ -93,6 +95,7 @@ export class FinesController {
   }
 
   @Post('fees/bills/:id/waive')
+  @RequiresModule(ModuleKey.fees) // a bill waive, not a fine
   @RequirePermissions(Permission.FEE_APPROVE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

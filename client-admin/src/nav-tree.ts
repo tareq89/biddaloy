@@ -1,5 +1,5 @@
 import type { EntityLabel } from '@biddaloy/shared';
-import { Permission, type STAFF_ROLES } from '@biddaloy/shared';
+import { ModuleKey, Permission, type STAFF_ROLES } from '@biddaloy/shared';
 
 /**
  * [30.1.3]'s staff nav as plain, serialisable data — no JSX, no hooks, so
@@ -27,6 +27,8 @@ export interface StaffNavItemDef {
   readonly to: string;
   /** Omitted → every signed-in staff role sees the item (e.g. Dashboard). */
   readonly permission?: Permission;
+  /** Switchable module (Epic 77 D16, D46). Omitted = core, never hidden. */
+  readonly module?: ModuleKey;
   readonly label: StaffNavLabel;
   /** [30.5.1] Extra terms `CommandPalette`'s Page tab matches this item
    * against, alongside its translated `label` (en + bn) — plain-language
@@ -70,6 +72,7 @@ export const STAFF_NAV_ITEMS = {
   // [52.4.1] Top-level (ungrouped) work queue, rendered above the groups (D23).
   applications: {
     id: 'applications',
+    module: ModuleKey.applications,
     to: '/applications',
     permission: Permission.APPLICATION_SUBMIT,
     label: { key: 'applications' },
@@ -111,6 +114,7 @@ export const STAFF_NAV_ITEMS = {
   // `PROGRAM_READ` (`route-permissions.ts`).
   'people.programs': {
     id: 'people.programs',
+    module: ModuleKey.programs,
     to: '/programs',
     permission: Permission.PROGRAM_READ,
     label: { key: 'programs' },
@@ -120,6 +124,7 @@ export const STAFF_NAV_ITEMS = {
   // (`route-permissions.ts`), `admission:review`.
   'people.admissionIntakes': {
     id: 'people.admissionIntakes',
+    module: ModuleKey.admission,
     to: '/admissions/intakes',
     permission: Permission.ADMISSION_REVIEW,
     label: { key: 'admissionIntakes' },
@@ -128,6 +133,7 @@ export const STAFF_NAV_ITEMS = {
   // nav item above.
   'people.admissionApplicants': {
     id: 'people.admissionApplicants',
+    module: ModuleKey.admission,
     to: '/admissions/applicants',
     permission: Permission.ADMISSION_REVIEW,
     label: { key: 'admissionApplicants' },
@@ -135,6 +141,7 @@ export const STAFF_NAV_ITEMS = {
   // [39.4.2] Admission lifecycle report — gated like the route itself.
   'people.admissionReports': {
     id: 'people.admissionReports',
+    module: ModuleKey.admission,
     to: '/admissions/reports',
     permission: Permission.STUDENT_LIFECYCLE_MANAGE,
     label: { key: 'admissionReports' },
@@ -154,6 +161,7 @@ export const STAFF_NAV_ITEMS = {
   // never sees it.
   'people.evaluations': {
     id: 'people.evaluations',
+    module: ModuleKey.evaluations,
     to: '/staff/evaluations',
     permission: Permission.ACR_READ,
     label: { key: 'evaluations' },
@@ -172,6 +180,7 @@ export const STAFF_NAV_ITEMS = {
   },
   'academics.homework': {
     id: 'academics.homework',
+    module: ModuleKey.homework,
     to: '/academics/homework',
     permission: Permission.HOMEWORK_READ,
     label: { key: 'homework' },
@@ -179,12 +188,14 @@ export const STAFF_NAV_ITEMS = {
   },
   'academics.syllabus': {
     id: 'academics.syllabus',
+    module: ModuleKey.syllabus,
     to: '/academics/syllabus',
     permission: Permission.SYLLABUS_READ,
     label: { key: 'syllabus' },
   },
   'examsResults.gradingScales': {
     id: 'examsResults.gradingScales',
+    module: ModuleKey.exams,
     to: '/grading-scales',
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
@@ -196,6 +207,7 @@ export const STAFF_NAV_ITEMS = {
   // marks/analysis exam pickers load for teachers and executives.
   'examsResults.exams': {
     id: 'examsResults.exams',
+    module: ModuleKey.exams,
     to: '/exams',
     permission: Permission.EXAM_MANAGE,
     label: { entity: 'exam' },
@@ -203,6 +215,7 @@ export const STAFF_NAV_ITEMS = {
   // [35.5.1] `EXAM_MANAGE` — same gate as `examsResults.exams` (D36).
   'examsResults.examTemplates': {
     id: 'examsResults.examTemplates',
+    module: ModuleKey.exams,
     to: '/exams/templates',
     permission: Permission.EXAM_MANAGE,
     label: { key: 'examTemplates' },
@@ -212,6 +225,7 @@ export const STAFF_NAV_ITEMS = {
   // results, not a write action like `/results`'s `RESULT_PROCESS`.
   'examsResults.analysis': {
     id: 'examsResults.analysis',
+    module: ModuleKey.exams,
     to: '/analysis',
     permission: Permission.MARK_VIEW,
     label: { key: 'analysis' },
@@ -219,6 +233,7 @@ export const STAFF_NAV_ITEMS = {
   // [26.6.1] D22: PROMOTION_MANAGE (admin).
   'examsResults.promotion': {
     id: 'examsResults.promotion',
+    module: ModuleKey.exams,
     to: '/promotions',
     permission: Permission.PROMOTION_MANAGE,
     label: { key: 'promotion' },
@@ -228,18 +243,21 @@ export const STAFF_NAV_ITEMS = {
   // gives above.
   'examsResults.seatPlans': {
     id: 'examsResults.seatPlans',
+    module: ModuleKey.seatPlans,
     to: '/exams/seat-plans',
     permission: Permission.SEAT_PLAN_MANAGE,
     label: { key: 'seatPlans' },
   },
   'academics.routineSetup': {
     id: 'academics.routineSetup',
+    module: ModuleKey.routines,
     to: '/routines/setup',
     permission: Permission.ROUTINE_MANAGE,
     label: { key: 'routineSetup' },
   },
   'academics.routineBuilder': {
     id: 'academics.routineBuilder',
+    module: ModuleKey.routines,
     to: '/routines',
     permission: Permission.ROUTINE_MANAGE,
     label: { key: 'routineBuilder' },
@@ -251,6 +269,7 @@ export const STAFF_NAV_ITEMS = {
   // not just the builder.
   'academics.myRoutine': {
     id: 'academics.myRoutine',
+    module: ModuleKey.routines,
     to: '/routines/my',
     permission: Permission.ROUTINE_READ,
     label: { key: 'myRoutine' },
@@ -276,6 +295,7 @@ export const STAFF_NAV_ITEMS = {
   },
   'attendance.attendance': {
     id: 'attendance.attendance',
+    module: ModuleKey.attendance,
     to: '/attendance',
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'attendance' },
@@ -283,12 +303,14 @@ export const STAFF_NAV_ITEMS = {
   },
   'attendance.attendanceReports': {
     id: 'attendance.attendanceReports',
+    module: ModuleKey.attendance,
     to: '/attendance/reports',
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'attendanceReports' },
   },
   'attendance.attendanceRegister': {
     id: 'attendance.attendanceRegister',
+    module: ModuleKey.attendance,
     to: '/attendance/register',
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'attendanceRegister' },
@@ -296,6 +318,7 @@ export const STAFF_NAV_ITEMS = {
   // [76.4.03] Uploads history; `/attendance/import` and the detail route open from it (D14).
   'attendance.uploads': {
     id: 'attendance.uploads',
+    module: ModuleKey.attendance,
     to: '/attendance/imports',
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'uploads' },
@@ -305,36 +328,42 @@ export const STAFF_NAV_ITEMS = {
   // switcher on the existing `attendance.attendance` item.
   'attendance.staffAttendance': {
     id: 'attendance.staffAttendance',
+    module: ModuleKey.staffAttendance,
     to: '/attendance/staff',
     permission: Permission.STAFF_ATTENDANCE_READ,
     label: { key: 'staffAttendance' },
   },
   'finance.dues': {
     id: 'finance.dues',
+    module: ModuleKey.fees,
     to: '/fees/dues',
     permission: Permission.FEE_COLLECT,
     label: { key: 'studentDues' },
   },
   'finance.recordPayment': {
     id: 'finance.recordPayment',
+    module: ModuleKey.fees,
     to: '/payments/record',
     permission: Permission.PAYMENT_RECORD,
     label: { key: 'recordPayment' },
   },
   'finance.feeStructures': {
     id: 'finance.feeStructures',
+    module: ModuleKey.fees,
     to: '/fee-structures',
     permission: Permission.FEE_STRUCTURE_READ,
     label: { key: 'feeStructures' },
   },
   'finance.generateFees': {
     id: 'finance.generateFees',
+    module: ModuleKey.fees,
     to: '/fees/generate',
     permission: Permission.FEE_GENERATE,
     label: { key: 'generateFees' },
   },
   'finance.recurringSchedules': {
     id: 'finance.recurringSchedules',
+    module: ModuleKey.fees,
     to: '/fees/schedules',
     permission: Permission.SCHEDULE_MANAGE,
     label: { key: 'recurringSchedules' },
@@ -343,6 +372,7 @@ export const STAFF_NAV_ITEMS = {
   // gate `route-permissions.ts` uses for this route.
   'finance.fines': {
     id: 'finance.fines',
+    module: ModuleKey.fines,
     to: '/fees/fines',
     permission: Permission.FEE_READ,
     label: { key: 'fines' },
@@ -350,12 +380,14 @@ export const STAFF_NAV_ITEMS = {
   // [31.3.1] The payments list — same gate as its route (`PAYMENT_READ`).
   'finance.payments': {
     id: 'finance.payments',
+    module: ModuleKey.fees,
     to: '/payments',
     permission: Permission.PAYMENT_READ,
     label: { key: 'payments' },
   },
   'finance.invoices': {
     id: 'finance.invoices',
+    module: ModuleKey.fees,
     to: '/invoices',
     permission: Permission.INVOICE_READ,
     label: { entity: 'invoice' },
@@ -364,12 +396,14 @@ export const STAFF_NAV_ITEMS = {
   // equals its route's `STAFF_ROUTE_PERMISSIONS` entry.
   'examsResults.marksEntry': {
     id: 'examsResults.marksEntry',
+    module: ModuleKey.exams,
     to: '/marks',
     permission: Permission.MARK_VIEW,
     label: { key: 'marksEntry' },
   },
   'examsResults.results': {
     id: 'examsResults.results',
+    module: ModuleKey.exams,
     to: '/results',
     permission: Permission.RESULT_PROCESS,
     label: { key: 'results' },
@@ -378,6 +412,7 @@ export const STAFF_NAV_ITEMS = {
   // a teacher reads their own classes' finals; build and publish stay ADMIN-only.
   'examsResults.finalResults': {
     id: 'examsResults.finalResults',
+    module: ModuleKey.exams,
     to: '/results/final',
     permission: Permission.RESULT_READ,
     label: { key: 'finalResults' },
@@ -385,12 +420,14 @@ export const STAFF_NAV_ITEMS = {
   },
   'academics.routineReview': {
     id: 'academics.routineReview',
+    module: ModuleKey.routines,
     to: '/routines/review',
     permission: Permission.ROUTINE_READ,
     label: { key: 'routineReview' },
   },
   'academics.routineSubstitutions': {
     id: 'academics.routineSubstitutions',
+    module: ModuleKey.routines,
     to: '/routines/substitutions',
     permission: Permission.ROUTINE_MANAGE,
     label: { key: 'routineSubstitutions' },
@@ -405,6 +442,7 @@ export const STAFF_NAV_ITEMS = {
   },
   'reports.collectionsReport': {
     id: 'reports.collectionsReport',
+    module: ModuleKey.fees,
     to: '/reports/collections',
     permission: Permission.REPORT_COLLECTIONS_READ,
     label: { key: 'collectionsReport' },
@@ -420,6 +458,7 @@ export const STAFF_NAV_ITEMS = {
   // [53.4.01] Notices: first in Communications.
   'communications.notices': {
     id: 'communications.notices',
+    module: ModuleKey.notices,
     to: '/communications/notices',
     permission: Permission.NOTICE_POST,
     label: { key: 'notices' },
@@ -427,6 +466,7 @@ export const STAFF_NAV_ITEMS = {
   },
   'communications.sendMessage': {
     id: 'communications.sendMessage',
+    module: ModuleKey.messaging,
     to: '/communications/send',
     permission: Permission.COMMUNICATION_SEND,
     label: { key: 'sendMessage' },
@@ -448,12 +488,14 @@ export const STAFF_NAV_ITEMS = {
   },
   'communications.feeReminders': {
     id: 'communications.feeReminders',
+    module: ModuleKey.fees,
     to: '/communications/reminders',
     permission: Permission.COMMUNICATION_BULK_SEND,
     label: { key: 'feeReminders' },
   },
   'communications.reminderHistory': {
     id: 'communications.reminderHistory',
+    module: ModuleKey.messaging,
     to: '/communications/batches',
     permission: Permission.COMMUNICATION_BULK_SEND,
     label: { key: 'reminderHistory' },
@@ -461,6 +503,7 @@ export const STAFF_NAV_ITEMS = {
   // [97.4.02] D21: tenant-wide list, same gate as Reminder history.
   'communications.messageLog': {
     id: 'communications.messageLog',
+    module: ModuleKey.messaging,
     to: '/communications/message-log',
     permission: Permission.COMMUNICATION_BULK_SEND,
     label: { key: 'messageLog' },
@@ -483,6 +526,7 @@ export const STAFF_NAV_ITEMS = {
   },
   'reports.applications': {
     id: 'reports.applications',
+    module: ModuleKey.applications,
     to: '/applications/reports',
     permission: Permission.APPLICATION_MANAGE,
     label: { key: 'applicationsReportsNav' },
@@ -510,6 +554,7 @@ export const STAFF_NAV_ITEMS = {
   // [40.2.04] The school website (Epic 40), ADMIN-only like its API.
   'administration.website': {
     id: 'administration.website',
+    module: ModuleKey.website,
     to: '/website',
     permission: Permission.WEBSITE_MANAGE,
     label: { key: 'website' },

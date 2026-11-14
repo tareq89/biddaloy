@@ -1,10 +1,10 @@
-import { Permission } from '@biddaloy/shared';
+import { ModuleKey, moduleEnabled, Permission, UserRole } from '@biddaloy/shared';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
 import { STAFF_NAV_GROUPS, STAFF_TOP_NAV_ITEMS } from './nav-tree';
-import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
+import { routeModule, STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { routeTree } from './routeTree.gen';
 
 /**
@@ -172,4 +172,34 @@ describe('nav-tree.ts nav items agree with STAFF_ROUTE_PERMISSIONS', () => {
       expect(`Permission.${navPermission}`).toBe(`Permission.${STAFF_ROUTE_PERMISSIONS[routeId]}`);
     },
   );
+});
+
+describe('routeModule [77.3.1]', () => {
+  const offRoutes = (school: object, role: UserRole = UserRole.ADMIN) =>
+    Object.keys(STAFF_ROUTE_PERMISSIONS).filter((id) => {
+      const module = routeModule(id);
+      return module !== undefined && !moduleEnabled({ school, role }, module);
+    });
+
+  it('fines off refuses exactly the fines routes', () => {
+    expect(offRoutes({ fines: { on: false } }).sort()).toEqual([
+      '/_staff/fees/fines/',
+      '/_staff/fees/fines/rules',
+    ]);
+  });
+
+  it('syllabus host route is gated per tab: topics by syllabus, plans and library by studyPlans', () => {
+    const host = '/_staff/academics/syllabus/';
+    expect(routeModule(host)).toBe(ModuleKey.syllabus);
+    expect(routeModule(host, { tab: 'topics' })).toBe(ModuleKey.syllabus);
+    expect(routeModule(host, { tab: 'plans' })).toBe(ModuleKey.studyPlans);
+    expect(routeModule(host, { tab: 'library' })).toBe(ModuleKey.studyPlans);
+  });
+
+  it('TEACHER with homework role-off loses the homework routes; ADMIN keeps them', () => {
+    const school = { homework: { offForRoles: [UserRole.TEACHER] } };
+    expect(offRoutes(school, UserRole.TEACHER).every((id) => id.includes('/homework'))).toBe(true);
+    expect(offRoutes(school, UserRole.TEACHER)).not.toHaveLength(0);
+    expect(offRoutes(school, UserRole.ADMIN)).toEqual([]);
+  });
 });

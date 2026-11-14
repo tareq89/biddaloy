@@ -28,10 +28,12 @@ import {
   QueryExamComponentDto,
   CopyExamComponentsDto,
 } from './dto/exams.dto';
-import { Permission, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 @ApiTags('exam-components')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams/:examId/components')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ExamComponentsController {

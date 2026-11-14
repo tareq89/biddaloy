@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Reflector } from '@nestjs/core';
 import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import type { ModuleStateReader } from '../../modules/auth/guards/module-state.reader';
 import { PresetsController } from './presets.controller';
 import { PresetRegistryService } from './preset-registry.service';
 import { makeTestPack } from './__fixtures__/test-pack';
@@ -36,7 +37,9 @@ describe('PresetsController', () => {
   });
 
   it('ADMIN allowed, TEACHER rejected with 403 (permission guard)', () => {
-    const guard = new PermissionsGuard(new Reflector());
+    const guard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
     const ctx = (role: string) =>
       ({
         getHandler: () => PresetsController.prototype.list,

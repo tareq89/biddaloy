@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -34,6 +34,7 @@ import {
   QueryHomeworkDto,
   UpdateHomeworkAssignmentDto,
 } from './dto/homework.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * `@Roles(...)` is the coarse gate; `HomeworkAccessService` (injected inside
@@ -42,6 +43,7 @@ import {
 @ApiTags('homework')
 @ApiTenantAuth()
 @Controller()
+@RequiresModule(ModuleKey.homework)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class HomeworkController {
   constructor(

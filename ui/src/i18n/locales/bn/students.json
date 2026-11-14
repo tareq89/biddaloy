@@ -3,15 +3,15 @@
     "overdue": "সংশ্লিষ্ট শিক্ষার্থীর ভর্তি ফি পরিশোধের সময়সীমা উত্তীর্ণ হয়েছে"
   },
   "list": {
-    "title": "শিক্ষার্থী",
-    "caption": "শিক্ষার্থী",
-    "addStudent": "শিক্ষার্থী যোগ করুন",
-    "importStudents": "শিক্ষার্থী আমদানি",
+    "title": "$t(common:entities.student_one)",
+    "caption": "$t(common:entities.student_one)",
+    "addStudent": "$t(common:entities.student_one) যোগ করুন",
+    "importStudents": "$t(common:entities.student_one) আমদানি",
     "searchLabel": "খুঁজুন",
-    "classLabel": "শ্রেণি",
-    "allClasses": "সকল শ্রেণি",
-    "sectionLabel": "শাখা",
-    "allSections": "সকল শাখা",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সকল $t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "allSections": "সকল $t(common:entities.section_one)",
     "statusLabel": "অবস্থা",
     "allStatuses": "সকল অবস্থা",
     "genderFilterLabel": "লিঙ্গ",
@@ -25,9 +25,9 @@
     "columnRoll": "রোল",
     "columnRegistration": "রেজিস্ট্রেশন নম্বর",
     "columnName": "নাম",
-    "columnClass": "শ্রেণি",
-    "columnSection": "শাখা",
-    "columnGuardian": "অভিভাবক",
+    "columnClass": "$t(common:entities.class_one)",
+    "columnSection": "$t(common:entities.section_one)",
+    "columnGuardian": "$t(common:entities.guardian_one)",
     "columnStatus": "অবস্থা",
     "columnActions": "কাজ",
     "columnDateOfBirth": "জন্ম তারিখ",
@@ -39,10 +39,10 @@
     "sendReminder": "রিমাইন্ডার পাঠান",
     "exportCsv": "সিএসভি এক্সপোর্ট",
     "clearSelection": "নির্বাচন বাতিল",
-    "emptyMessage": "কোনো শিক্ষার্থী পাওয়া যায়নি",
+    "emptyMessage": "কোনো $t(common:entities.student_one) পাওয়া যায়নি",
     "errorMessage": "শিক্ষার্থীদের তথ্য লোড করা যায়নি",
-    "announceResults_one": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
-    "announceResults_other": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
+    "announceResults_one": "{{total}} জনের মধ্যে {{visible}} জন $t(common:entities.student_one)",
+    "announceResults_other": "{{total}} জনের মধ্যে {{visible}} জন $t(common:entities.student_one)",
     "noGuardian": "—",
     "emptyValue": "—",
     "shiftLabel": "শিফট",
@@ -56,9 +56,9 @@
     "religionFilterLabel": "ধর্ম",
     "religionFilterPlaceholder": "শিক্ষার্থীর রেকর্ডে যেভাবে লেখা আছে",
     "searchPlaceholder": "নাম, রোল বা রেজিস্ট্রেশন নম্বর",
-    "cardSubtitle": "{{class}} · শাখা {{section}} · রোল {{roll}}",
-    "emptyExplanation": "প্রথম শিক্ষার্থী যোগ করলে তালিকা এখানে দেখা যাবে।",
-    "emptyTeacherExplanation": "এ বছর আপনি যে শাখায় পড়ান, শুধু সেই শাখার শিক্ষার্থী এখানে দেখা যায়। শাখা পেতে স্কুলের অ্যাডমিনকে বলুন।"
+    "cardSubtitle": "{{class}} · $t(common:entities.section_one) {{section}} · রোল {{roll}}",
+    "emptyExplanation": "প্রথম $t(common:entities.student_one) যোগ করলে তালিকা এখানে দেখা যাবে।",
+    "emptyTeacherExplanation": "এ বছর আপনি যে শাখায় পড়ান, শুধু সেই শাখার $t(common:entities.student_one) এখানে দেখা যায়। $t(common:entities.section_one) পেতে স্কুলের অ্যাডমিনকে বলুন।"
   },
   "sendReminderDialog": {
     "title": "রিমাইন্ডার পাঠান",
@@ -101,7 +101,7 @@
       "recurringFees": "স্বয়ংক্রিয় বিল",
       "payments": "পেমেন্ট",
       "invoices": "চালান",
-      "guardians": "অভিভাবক",
+      "guardians": "$t(common:entities.guardian_one)",
       "communication": "যোগাযোগ",
       "activity": "কার্যক্রম",
       "attendance": "উপস্থিতি",
@@ -121,17 +121,17 @@
       "bloodGroup": "রক্তের গ্রুপ"
     },
     "enrollment": {
-      "columnClass": "শ্রেণি",
+      "columnClass": "$t(common:entities.class_one)",
       "columnAcademicYear": "শিক্ষাবর্ষ",
       "columnStatus": "অবস্থা",
       "columnEnrolledAt": "ভর্তির তারিখ",
       "emptyMessage": "এখনো কোনো ভর্তির ইতিহাস নেই।",
       "errorMessage": "ভর্তির ইতিহাস লোড করা যায়নি।",
-      "moveClassAction": "শ্রেণি পরিবর্তন",
+      "moveClassAction": "$t(common:entities.class_one) পরিবর্তন",
       "title": "ভর্তির ইতিহাস",
-      "classValue": "{{class}} · শাখা {{section}}",
+      "classValue": "{{class}} · $t(common:entities.section_one) {{section}}",
       "cardSubtitle": "{{class}} · ভর্তি {{date}}",
-      "emptyExplanation": "শ্রেণি পরিবর্তন করলে বা নতুন বছরে ভর্তি হলে এখানে দেখা যাবে।"
+      "emptyExplanation": "$t(common:entities.class_one) পরিবর্তন করলে বা নতুন বছরে ভর্তি হলে এখানে দেখা যাবে।"
     },
     "fees": {
       "totalBilled": "মোট বিল",
@@ -224,14 +224,14 @@
       "columnRelationship": "সম্পর্ক",
       "primary": "প্রধান যোগাযোগ",
       "emptyMessage": "কোনো অভিভাবকের তথ্য নেই।",
-      "caption": "{{name}}-এর অভিভাবক",
+      "caption": "{{name}}-এর $t(common:entities.guardian_one)",
       "columnPhone": "ফোন",
       "columnEmail": "ইমেইল",
       "columnPreferred": "পছন্দের মাধ্যম",
       "cardSubtitle": "{{relationship}} · {{phone}}",
       "view": "{{name}}-এর বিবরণ দেখুন",
-      "emptyExplanation": "শিক্ষার্থীর তথ্য সম্পাদনা করে অভিভাবক যোগ করুন।",
-      "editHintBefore": "অভিভাবক যোগ বা বদল করতে",
+      "emptyExplanation": "শিক্ষার্থীর তথ্য সম্পাদনা করে $t(common:entities.guardian_one) যোগ করুন।",
+      "editHintBefore": "$t(common:entities.guardian_one) যোগ বা বদল করতে",
       "editHintLink": "শিক্ষার্থীর তথ্য সম্পাদনা করুন",
       "editHintAfter": "।",
       "columnArrival": "আগমন বার্তা",
@@ -257,13 +257,13 @@
           "stop": "বন্ধ করুন",
           "always": "সবসময়",
           "never": "কখনো না",
-          "clear": "শিক্ষক ঠিক করবেন"
+          "clear": "$t(common:entities.teacher_one) ঠিক করবেন"
         },
         "lockedNote": "অ্যাডমিন এটি ঠিক করে দিয়েছেন। এখান থেকে বদলানো যাবে না।",
         "error": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
         "setBy": "{{name}} ঠিক করেছেন, {{date}} তারিখে",
         "lockedBy": "{{name}} অ্যাডমিন হিসেবে ঠিক করেছেন, {{date}} তারিখে",
-        "notificationsOff": "অভিভাবক সব বার্তা বন্ধ রেখেছেন। কিছু পাঠানো হবে না।",
+        "notificationsOff": "$t(common:entities.guardian_one) সব বার্তা বন্ধ রেখেছেন। কিছু পাঠানো হবে না।",
         "disabled": "এই স্কুলে আগমন বার্তা বন্ধ আছে।"
       }
     },
@@ -314,7 +314,7 @@
       "emptyExplanation": "বাড়ির কাজ দেওয়া হলে অগ্রগতি এখানে দেখা যাবে।"
     },
     "deleteDialog": {
-      "title": "শিক্ষার্থী মুছে ফেলুন",
+      "title": "$t(common:entities.student_one) মুছে ফেলুন",
       "description": "এটি {{name}}-কে সক্রিয় তালিকা থেকে সরিয়ে দেবে। সাপোর্টের মাধ্যমে এটি পুনরুদ্ধার করা গেলেও, এখান থেকে নয়।",
       "confirm": "মুছে ফেলুন",
       "deleting": "মুছে ফেলা হচ্ছে…",
@@ -322,12 +322,12 @@
       "blockedOpenMoney": "এই শিক্ষার্থীর ফি বাকি আছে বা ওয়ালেটে টাকা আছে। আগে স্কুল ছাড়ার তথ্য লিখুন, নয়তো টাকার হিসাব মিটিয়ে নিন।"
     },
     "moveClassDialog": {
-      "title": "শ্রেণি পরিবর্তন",
-      "description": "{{name}}-কে ভিন্ন শ্রেণি বা শাখায় স্থানান্তর করুন।",
-      "classLabel": "শ্রেণি",
+      "title": "$t(common:entities.class_one) পরিবর্তন",
+      "description": "{{name}}-কে ভিন্ন $t(common:entities.class_one) বা শাখায় স্থানান্তর করুন।",
+      "classLabel": "$t(common:entities.class_one)",
       "classLockedHint": "অন্য শ্রেণিতে নিতে শুধু অ্যাডমিন পারেন; প্রমোশন ব্যবহার করুন।",
       "classPlaceholder": "বাছুন",
-      "sectionLabel": "শাখা",
+      "sectionLabel": "$t(common:entities.section_one)",
       "sectionPlaceholder": "বাছুন",
       "capacityWarning": "এই শাখাটি পূর্ণ ({{enrolled}}/{{capacity}})। আপনি চাইলে এগিয়ে যেতে পারেন।",
       "confirm": "স্থানান্তর করুন",
@@ -337,10 +337,10 @@
     },
     "facts": {
       "registrationNumber": "রেজিস্ট্রেশন নম্বর",
-      "class": "শ্রেণি",
-      "classValue": "{{class}} · শাখা {{section}}",
+      "class": "$t(common:entities.class_one)",
+      "classValue": "{{class}} · $t(common:entities.section_one) {{section}}",
       "roll": "রোল",
-      "primaryGuardian": "প্রধান অভিভাবক"
+      "primaryGuardian": "প্রধান $t(common:entities.guardian_one)"
     },
     "overrideBadge": {
       "promote": "বিশেষ বিবেচনায় উত্তীর্ণ",
@@ -368,7 +368,7 @@
       "subtitle": "{{name}}-এর জন্য জমা পড়া সব আবেদন, নতুনটি আগে।",
       "newPaper": "কাগজের আবেদন লিখুন",
       "empty": "এখনো কোনো আবেদন নেই",
-      "emptyExplanation": "অভিভাবক বা শিক্ষার্থী আবেদন করলে এখানে দেখা যাবে।",
+      "emptyExplanation": "$t(common:entities.guardian_one) বা $t(common:entities.student_one) আবেদন করলে এখানে দেখা যাবে।",
       "error": "আবেদন লোড করা যায়নি।",
       "seeAll": "সব দেখুন",
       "paper": "কাগজে জমা",
@@ -378,18 +378,18 @@
     }
   },
   "new": {
-    "title": "শিক্ষার্থী যোগ করুন",
-    "submitAction": "শিক্ষার্থী যোগ করুন"
+    "title": "$t(common:entities.student_one) যোগ করুন",
+    "submitAction": "$t(common:entities.student_one) যোগ করুন"
   },
   "edit": {
-    "title": "শিক্ষার্থী সম্পাদনা",
+    "title": "$t(common:entities.student_one) সম্পাদনা",
     "submitAction": "পরিবর্তন সংরক্ষণ করুন"
   },
   "form": {
     "sections": {
       "identity": "পরিচিতি",
-      "placement": "শ্রেণি বিন্যাস",
-      "guardians": "অভিভাবক",
+      "placement": "$t(common:entities.class_one) বিন্যাস",
+      "guardians": "$t(common:entities.guardian_one)",
       "preferences": "পছন্দসমূহ",
       "guardiansHelp": "যিনি আগে থেকে আছেন তাঁকে খুঁজে যুক্ত করুন, না পেলে নতুন যোগ করুন।"
     },
@@ -423,7 +423,7 @@
     },
     "errors": {
       "fullNameRequired": "পূর্ণ নাম আবশ্যক।",
-      "classSectionRequired": "একটি শ্রেণি ও শাখা নির্বাচন করুন।",
+      "classSectionRequired": "একটি $t(common:entities.class_one) ও $t(common:entities.section_one) নির্বাচন করুন।",
       "rollNumberInvalid": "রোল নম্বর অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে।",
       "fullNameBnTooLong": "বাংলা নাম সর্বোচ্চ ২০০ অক্ষরের হতে পারে।",
       "bloodGroupInvalid": "তালিকা থেকে একটি রক্তের গ্রুপ বেছে নিন।",
@@ -439,23 +439,23 @@
       "leaveAction": "সংরক্ষণ ছাড়া ছেড়ে যান"
     },
     "guardians": {
-      "selectedLabel": "যুক্ত অভিভাবক",
+      "selectedLabel": "যুক্ত $t(common:entities.guardian_one)",
       "removeAction": "{{name}}-কে সরান",
-      "searchLabel": "অভিভাবক খুঁজুন",
+      "searchLabel": "$t(common:entities.guardian_one) খুঁজুন",
       "searchPlaceholder": "নাম বা ফোন নম্বর দিয়ে খুঁজুন",
-      "noResults": "কোনো অভিভাবক পাওয়া যায়নি।",
-      "addNewAction": "নতুন অভিভাবক যোগ করুন",
+      "noResults": "কোনো $t(common:entities.guardian_one) পাওয়া যায়নি।",
+      "addNewAction": "নতুন $t(common:entities.guardian_one) যোগ করুন",
       "newGuardian": {
         "nameLabel": "অভিভাবকের পূর্ণ নাম",
         "relationshipLabel": "শিক্ষার্থীর সাথে অভিভাবকের সম্পর্ক",
         "phoneLabel": "অভিভাবকের ফোন",
         "emailLabel": "অভিভাবকের ইমেইল",
         "nameRequired": "অভিভাবকের নাম আবশ্যক।",
-        "saveAction": "অভিভাবক যোগ করুন",
+        "saveAction": "$t(common:entities.guardian_one) যোগ করুন",
         "cancelAction": "বাতিল",
-        "createError": "অভিভাবক যোগ করা যায়নি। তথ্য দেখে আবার চেষ্টা করুন।"
+        "createError": "$t(common:entities.guardian_one) যোগ করা যায়নি। তথ্য দেখে আবার চেষ্টা করুন।"
       },
-      "unknownName": "অভিভাবক"
+      "unknownName": "$t(common:entities.guardian_one)"
     },
     "bloodGroupNotSet": "দেওয়া নেই",
     "cancelAction": "বাতিল করুন"

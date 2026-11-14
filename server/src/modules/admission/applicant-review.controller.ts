@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -17,7 +18,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { AdmissionDocumentType, Permission } from '@biddaloy/shared';
+import { AdmissionDocumentType, Permission, ModuleKey } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -38,6 +39,7 @@ import { ApplicantListResponseDto } from './dto/applicant-list-response.dto';
 @ApiTags('admission')
 @ApiTenantAuth()
 @Controller('admission/applicants')
+@RequiresModule(ModuleKey.admission)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.ADMISSION_REVIEW)
 export class ApplicantReviewController {

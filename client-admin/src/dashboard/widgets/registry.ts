@@ -7,6 +7,8 @@
 import type { DashboardWidgetKey, WidgetSize } from '@biddaloy/shared';
 import * as React from 'react';
 
+import type { Gated } from '../../module-gate';
+
 export interface WidgetProps {
   variant: 'full' | 'compact' | 'tile';
   size: WidgetSize;
@@ -42,3 +44,51 @@ export const WIDGET_COMPONENTS = new Map<DashboardWidgetKey, React.ComponentType
     retryableLazy(load),
   ]),
 );
+
+/**
+ * [77.3 / #3921, D37] The module each dashboard widget belongs to, or `'core'` for the areas that
+ * are never off. `Record` over the key union: a new widget key fails to compile until it picks one.
+ * Lives here, not in the shared catalogue (a shared file), see the lane report.
+ */
+export const WIDGET_MODULES: Record<DashboardWidgetKey, Gated> = {
+  'attendance-today': 'attendance',
+  'staff-today': 'staffAttendance',
+  'collection-month': 'fees',
+  'mark-entry-progress': 'exams',
+  'syllabus-progress': 'syllabus',
+  'at-risk-students': 'attendance',
+  'sms-balance': 'messaging',
+  'failed-messages': 'messaging',
+  upcoming: 'core',
+  'homework-submission-rate': 'homework',
+  'recent-activity': 'core',
+  'my-routine-today': 'routines',
+  'my-pending-sections': 'attendance',
+  'my-mark-deadlines': 'exams',
+  'homework-to-check': 'homework',
+  'class-teacher-streaks': 'attendance',
+  'my-leave-balance': 'staffAttendance',
+  'my-syllabus-progress': 'syllabus',
+  'collection-today': 'fees',
+  'collection-by-month': 'fees',
+  'dues-ageing': 'fees',
+  'dues-by-class': 'fees',
+  'fee-generation-status': 'fees',
+  'reminders-pending': 'fees',
+  'recent-payments': 'fees',
+  'committee-enrollment': 'core',
+  'committee-attendance': 'attendance',
+  'committee-finance': 'fees',
+  'committee-pass-rate': 'exams',
+  'seat-plan-status': 'seatPlans',
+  'results-state': 'exams',
+  'admissions-today': 'admission',
+  'guardians-incomplete': 'core',
+  'students-added-today': 'core',
+  'approvals-pending': 'applications',
+  'print-queue': 'core',
+  'setup-checklist': 'core',
+  'syllabus-vs-plan': 'syllabus',
+  'my-lessons-to-mark': 'syllabus',
+  'latest-notices': 'notices',
+};

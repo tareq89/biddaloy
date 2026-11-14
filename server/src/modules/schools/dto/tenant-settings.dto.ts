@@ -31,6 +31,10 @@ import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { MessagingMediumSettings } from '../settings/messaging-settings.validator';
 import { AttentionRulesConstraint } from '../settings/attention-rules.validator';
+import {
+  LabelsBlockConstraint,
+  ModulesBlockConstraint,
+} from '../settings/modules-settings.validator';
 import { UniqueLabelListConstraint } from '../settings/unique-labels.validator';
 import {
   ApprovalMode,
@@ -1034,4 +1038,16 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => ExamsSettingsDto)
   exams?: ExamsSettingsDto;
+
+  /** [77.1.02] Per-module switches; `null` for a key removes it. Not `lock` (platform-owned). */
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  @OptionalSetting()
+  @Validate(ModulesBlockConstraint)
+  modules?: Record<string, unknown>;
+
+  /** [77.1.02] Renamed words; `null` for a key removes it. */
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  @OptionalSetting()
+  @Validate(LabelsBlockConstraint)
+  labels?: Record<string, unknown>;
 }

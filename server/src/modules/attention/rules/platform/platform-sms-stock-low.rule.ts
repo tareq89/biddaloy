@@ -11,7 +11,7 @@ import { PlatformTenantResolver, platformRecipients } from './platform-tenant';
  * [100 D8] Owner notice: the provider's SMS stock is close to what schools have bought and not
  * used, or the last stock figure is old. Amber only; "oversold" is the red one.
  */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformSmsStockLowRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.sms.stock_low');
   readonly messages = {

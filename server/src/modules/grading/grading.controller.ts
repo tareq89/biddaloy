@@ -15,7 +15,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { ApprovalScope, JwtPayload, Permission } from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
@@ -44,6 +45,7 @@ import {
  */
 @ApiTags('grading')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('grading/scales')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
 export class GradingController {

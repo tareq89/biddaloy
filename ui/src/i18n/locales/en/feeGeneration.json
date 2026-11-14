@@ -4,13 +4,13 @@
     "cancel": "Cancel"
   },
   "audience": {
-    "heading": "Students",
+    "heading": "$t(common:entities.student_other)",
     "selectedCount": "{{n}} selected",
     "searchLabel": "Search students",
     "searchPlaceholder": "Search by name or roll number",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
-    "sectionLabel": "Section",
+    "sectionLabel": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "programLabel": "Program",
     "anyProgram": "Any program",
@@ -57,7 +57,7 @@
   },
   "steps": {
     "year": "Academic year",
-    "scope": "Class and section",
+    "scope": "$t(common:entities.class_one) and $t(common:entities.section_one)",
     "period": "Month and year",
     "review": "Review"
   },
@@ -68,9 +68,9 @@
     "range": "{{start}} to {{end}}"
   },
   "scope": {
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
-    "sectionLabel": "Section",
+    "sectionLabel": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "hint": "Leave both on \"All\" to run the whole school for this academic year."
   },
@@ -88,8 +88,8 @@
   "review": {
     "heading": "Check this before generating",
     "academicYearLabel": "Academic year",
-    "classLabel": "Class",
-    "sectionLabel": "Section",
+    "classLabel": "$t(common:entities.class_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
     "periodLabel": "Month",
     "period": "{{month}} {{year}}",
     "countLoading": "Counting the students in scope…",

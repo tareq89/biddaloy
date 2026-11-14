@@ -40,6 +40,10 @@ describe('@AllowWhenSuspendedForBilling allowlist', () => {
       'modules/auth/decorators/allow-when-suspended-for-billing.decorator.ts',
       'modules/auth/guards/context.guard.ts',
       'modules/billing/billing.controller.ts',
+      // [Epic 100] a school that is suspended for billing can still buy and pay an SMS package
+      'modules/sms-bundles/orders/sms-bundle-orders.controller.ts',
+      'modules/sms-bundles/payment/sms-bundle-pay.controller.ts',
+      'modules/sms-bundles/receipts/sms-bundle-receipt.controller.ts',
       'modules/workbook/export/workbook.controller.ts',
     ]);
   });

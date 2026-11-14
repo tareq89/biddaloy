@@ -15,6 +15,9 @@ import { LeaveRecord } from '../leave/entities/leave-record.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { RoutineSubstitution } from '../routines/entities/routine-substitution.entity';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
+import { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
@@ -62,6 +65,7 @@ export class StudyPlanAutoDeliveriesScheduler extends WorkerHost implements OnMo
     private readonly plans: StudyPlansService,
     @Inject(BULK_IMPORT_REDIS) private readonly redis: Redis,
     private readonly tenantStatus: TenantStatusService,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -89,6 +93,8 @@ export class StudyPlanAutoDeliveriesScheduler extends WorkerHost implements OnMo
 
   /** One tenant: gate (deadline, school day, once-a-day marker), then write. */
   async sweepTenant(tenantId: string): Promise<void> {
+    // [77.2.10] D9: module off -> skip the school. A read failure throws into process()'s per-tenant catch.
+    if (!(await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.studyPlans))) return;
     // A restore is rewriting this school's data (#2210). Skip before the once-a-day marker so the
     // next 15-minute tick still writes today's rows once the restore ends.
     if (await this.tenantStatus.isRestoring(tenantId, { failClosed: true })) {

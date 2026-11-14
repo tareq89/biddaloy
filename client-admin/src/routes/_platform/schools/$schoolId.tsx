@@ -30,6 +30,7 @@ import { ArchiveRestoreIcon, LogInIcon, RotateCcwIcon, UserPlusIcon } from 'luci
 import * as React from 'react';
 
 import { LoginAsDialog } from '../../../features/cockpit/login-as/login-as-dialog';
+import { ModulesTab } from '../../../features/cockpit/school-360/modules-tab';
 import { OverviewTab } from '../../../features/cockpit/school-360/overview-tab';
 import { PeopleTab } from '../../../features/cockpit/school-360/people-tab';
 import { ArchiveSchoolDialog } from '../../../features/cockpit/school-controls/archive-school-dialog';
@@ -50,7 +51,7 @@ import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
 import { StatusActionDialog } from './-detail/status-action-dialog';
 
-const TAB_IDS = ['overview', 'people', 'supportAccess', 'notes', 'health'] as const;
+const TAB_IDS = ['overview', 'people', 'supportAccess', 'notes', 'health', 'modules'] as const;
 
 export const Route = createFileRoute('/_platform/schools/$schoolId')({
   // The active tab is `?tab=`; an unknown value falls back to Overview (useDetailShellTab).
@@ -65,6 +66,7 @@ export const Route = createFileRoute('/_platform/schools/$schoolId')({
       'schoolControl',
       'schoolSupport',
       'school360',
+      'settings',
       'loginAs',
       'common',
     ),
@@ -164,6 +166,7 @@ function SchoolDetailPage() {
     },
     { id: 'notes', label: t360('tabs.notes'), content: <NotesTab schoolId={schoolId} /> },
     { id: 'health', label: t360('tabs.health'), content: <HealthTab schoolId={schoolId} /> },
+    { id: 'modules', label: t360('tabs.modules'), content: <ModulesTab schoolId={schoolId} /> },
   ];
 
   return (

@@ -8,7 +8,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { PlatformTenantResolver, platformRecipients } from './platform-tenant';
 
 /** [100 D8] Owner notice (red): schools hold more unused SMS than the provider has in stock. */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformSmsOversoldRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.sms.oversold');
   readonly messages = {

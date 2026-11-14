@@ -8,6 +8,7 @@ import supertest from 'supertest';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { DenyWhenImpersonatingInterceptor } from '../../auth/deny-when-impersonating.interceptor';
 import { SupportSessionsController } from './support-sessions.controller';
 import { SupportSessionsService } from './support-sessions.service';
@@ -37,6 +38,10 @@ describe('SupportSessionsController', () => {
         { provide: SupportSessionsService, useValue: service },
         DenyWhenImpersonatingInterceptor,
         Reflector,
+        {
+          provide: ModuleStateReader,
+          useValue: { forTenant: async () => ({ platform: {}, school: {} }) },
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))

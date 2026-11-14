@@ -9,6 +9,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
+import { gateTabs, useModuleGate, visibleTab } from '../../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ClassFormDialog } from './-class-form-dialog';
@@ -65,6 +66,7 @@ function ClassDetailPage() {
 
   const classQuery = useClass(classId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
+  const moduleOn = useModuleGate();
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const canViewPerformance = useHasPermission(Permission.MARK_VIEW);
   const { t: tPerformance } = useTranslation('performance');
@@ -98,6 +100,64 @@ function ClassDetailPage() {
   }
 
   const klass = classQuery.data;
+
+  const tabs = gateTabs(
+    [
+      {
+        id: 'sections',
+        module: 'core',
+        label: t('detail.tabSections'),
+        content: <SectionsTab classId={klass.id} />,
+      },
+      {
+        id: 'students',
+        module: 'core',
+        label: t('detail.tabStudents'),
+        content: <StudentsTab classId={klass.id} />,
+      },
+      {
+        id: 'feeStructures',
+        module: 'fees',
+        label: t('detail.tabFeeStructures'),
+        content: <FeeStructuresTab classId={klass.id} />,
+      },
+      {
+        id: 'teachers',
+        module: 'core',
+        label: t('detail.tabTeachers'),
+        content: <TeachersTab classId={klass.id} />,
+      },
+      {
+        id: 'subjects',
+        module: 'core',
+        label: t('detail.tabSubjects'),
+        content: <SubjectsTab classId={klass.id} academicYearId={klass.academic_year.id} />,
+      },
+      {
+        id: 'homework',
+        module: 'homework',
+        label: t('detail.tabHomework'),
+        content: <HomeworkTab classId={klass.id} />,
+      },
+      ...(canViewPerformance
+        ? [
+            {
+              id: 'performance',
+              module: 'exams',
+              label: tPerformance('title'),
+              content: (
+                <PerformanceTab
+                  classId={klass.id}
+                  className={klass.name}
+                  academicYearId={klass.academic_year.id}
+                />
+              ),
+            },
+          ]
+        : []),
+    ],
+    moduleOn,
+  );
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -141,54 +201,8 @@ function ClassDetailPage() {
             allowed: canManage,
           },
         ]}
-        tabs={[
-          {
-            id: 'sections',
-            label: t('detail.tabSections'),
-            content: <SectionsTab classId={klass.id} />,
-          },
-          {
-            id: 'students',
-            label: t('detail.tabStudents'),
-            content: <StudentsTab classId={klass.id} />,
-          },
-          {
-            id: 'feeStructures',
-            label: t('detail.tabFeeStructures'),
-            content: <FeeStructuresTab classId={klass.id} />,
-          },
-          {
-            id: 'teachers',
-            label: t('detail.tabTeachers'),
-            content: <TeachersTab classId={klass.id} />,
-          },
-          {
-            id: 'subjects',
-            label: t('detail.tabSubjects'),
-            content: <SubjectsTab classId={klass.id} academicYearId={klass.academic_year.id} />,
-          },
-          {
-            id: 'homework',
-            label: t('detail.tabHomework'),
-            content: <HomeworkTab classId={klass.id} />,
-          },
-          ...(canViewPerformance
-            ? [
-                {
-                  id: 'performance',
-                  label: tPerformance('title'),
-                  content: (
-                    <PerformanceTab
-                      classId={klass.id}
-                      className={klass.name}
-                      academicYearId={klass.academic_year.id}
-                    />
-                  ),
-                },
-              ]
-            : []),
-        ]}
-        activeTab={activeTab}
+        tabs={tabs}
+        activeTab={visibleTab(tabs, activeTab)}
         onTabChange={setActiveTab}
       />
 

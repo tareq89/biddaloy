@@ -29,7 +29,8 @@ import {
   QueryFeeGenerationsDto,
   RemoveUncollectedResultDto,
 } from './dto/fee-generations.dto';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * [16.1.4] Read-only log of fee-generation batches (`fee_generations`) — the
@@ -41,6 +42,7 @@ import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 @ApiTenantAuth()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @Controller('fees/generations')
+@RequiresModule(ModuleKey.fees)
 export class FeeGenerationsController {
   constructor(
     private readonly service: FeeGenerationsService,

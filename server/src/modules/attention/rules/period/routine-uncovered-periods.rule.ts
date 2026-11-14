@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import { endOfLocalDay } from '../rule-context.service';
@@ -8,7 +8,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { roleRecipients } from '../structure/role-recipients';
 import { earliest, loadDaySlots, loadTeachers } from './period-data';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.routines })
 export class RoutineUncoveredPeriodsRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('routine.uncovered_periods');
   readonly messages = {

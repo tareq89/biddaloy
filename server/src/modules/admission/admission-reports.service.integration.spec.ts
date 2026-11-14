@@ -7,6 +7,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { AdmissionReportsService } from './admission-reports.service';
 import { AdmissionReportsController } from './admission-reports.controller';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import type { ModuleStateReader } from '../../modules/auth/guards/module-state.reader';
 import { UserRole } from '@biddaloy/shared';
 
 /** [39.5.1] Lifecycle report: counts/rows, class + year filters, tenant isolation, permission. */
@@ -73,7 +74,11 @@ describe('AdmissionReportsService (integration)', () => {
     );
   }
 
-  async function seedAdmitted(tenant: string, ctx: Awaited<ReturnType<typeof seedTenant>>, cls: number) {
+  async function seedAdmitted(
+    tenant: string,
+    ctx: Awaited<ReturnType<typeof seedTenant>>,
+    cls: number,
+  ) {
     n += 1;
     const [intake] = await ds.query(
       `INSERT INTO admission_intakes (tenant_id, class_section_id, title, seat_count, open_date, close_date)
@@ -96,7 +101,16 @@ describe('AdmissionReportsService (integration)', () => {
 
   afterAll(async () => {
     if (!ds) return;
-    for (const t of ['admission_applicants', 'admission_intakes', 'student_lifecycle_events', 'enrollments', 'students', 'class_sections', 'classes', 'academic_years']) {
+    for (const t of [
+      'admission_applicants',
+      'admission_intakes',
+      'student_lifecycle_events',
+      'enrollments',
+      'students',
+      'class_sections',
+      'classes',
+      'academic_years',
+    ]) {
       await ds.query(`DELETE FROM ${t} WHERE tenant_id IN ($1, $2)`, [T1, T2]);
     }
     await ds.query(`DELETE FROM schools WHERE id IN ($1, $2)`, [T1, T2]);
@@ -144,8 +158,10 @@ describe('AdmissionReportsService (integration)', () => {
     expect(Object.values(leak.counts).every((v) => v === 0)).toBe(true);
   });
 
-  it('TEACHER gets 403, ADMIN passes', () => {
-    const guard = new PermissionsGuard(new Reflector());
+  it('TEACHER gets 403, ADMIN passes', async () => {
+    const guard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
     const ctx = (role: string) =>
       ({
         getHandler: () => AdmissionReportsController.prototype.lifecycle,
@@ -153,6 +169,6 @@ describe('AdmissionReportsService (integration)', () => {
         switchToHttp: () => ({ getRequest: () => ({ currentTenant: { role } }) }),
       }) as unknown as ExecutionContext;
     expect(() => guard.canActivate(ctx(UserRole.TEACHER))).toThrow(ForbiddenException);
-    expect(guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
+    expect(await guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
   });
 });

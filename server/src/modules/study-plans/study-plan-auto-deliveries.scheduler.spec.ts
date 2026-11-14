@@ -15,6 +15,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     findAllActive: ReturnType<typeof vi.fn>;
     getResolvedSettings: ReturnType<typeof vi.fn>;
   };
+  let moduleState: { forTenant: ReturnType<typeof vi.fn> };
   let scheduler: StudyPlanAutoDeliveriesScheduler;
   let write: ReturnType<typeof vi.spyOn>;
 
@@ -23,6 +24,8 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     redis = { set: vi.fn().mockResolvedValue('OK'), del: vi.fn().mockResolvedValue(1) };
     calendar = { isNonWorkingDay: vi.fn().mockResolvedValue(false) };
     tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
+    // [77.2.10] every module on unless a test says otherwise
+    moduleState = { forTenant: vi.fn().mockResolvedValue({ platform: {}, school: {} }) };
     schools = {
       findAllActive: vi.fn().mockResolvedValue([{ id: 'ta' }]),
       getResolvedSettings: vi.fn().mockResolvedValue(settings),
@@ -40,6 +43,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
       {} as never,
       redis as never,
       tenantStatus as never,
+      moduleState as never,
     );
     write = vi.spyOn(scheduler, 'writeAutoRows').mockResolvedValue(0);
   });
@@ -141,5 +145,32 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     await scheduler.process();
     expect(write).toHaveBeenCalledTimes(2);
     expect(redis.del).toHaveBeenCalledWith('tenant:ta:study-plans:auto:2026-10-15');
+  });
+
+  // [77.2.10] D9: studyPlans off for ta -> ta skipped, tb still written. Gate runs first, so no
+  // marker is taken for the off school.
+  it('skips a school with study plans off and still writes the next', async () => {
+    at('2026-10-15T12:01:00Z');
+    schools.findAllActive.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
+    moduleState.forTenant.mockImplementation(async (id: string) => ({
+      platform: {},
+      school: id === 'ta' ? { studyPlans: { on: false } } : {},
+    }));
+    await scheduler.process();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0]![0]).toBe('tb');
+    expect(redis.set).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips a school whose module state cannot be read and still writes the next', async () => {
+    at('2026-10-15T12:01:00Z');
+    schools.findAllActive.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
+    moduleState.forTenant.mockImplementation(async (id: string) => {
+      if (id === 'ta') throw new Error('db down');
+      return { platform: {}, school: {} };
+    });
+    await scheduler.process();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0]![0]).toBe('tb');
   });
 });

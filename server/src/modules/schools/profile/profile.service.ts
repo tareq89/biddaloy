@@ -2,11 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
+import type { PlatformModules, SchoolLabels, SchoolModules } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { UpdateSchoolProfileDto } from './dto/update-school-profile.dto';
 import { AuditService } from '../../audit/audit.service';
 import { RequestContext } from '../../../common/request-context.util';
 import { buildLogoUrl } from './logo-key';
+import { SchoolsService } from '../schools.service';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 
 /** The six text fields [15.5.2] exposes on the profile — used both for the
  * GET response shape and to compute the changed-fields audit diff. */
@@ -22,6 +25,13 @@ export type SchoolProfileView = {
   email: string | null;
   registration_id: string | null;
   logo_url: string | null;
+};
+
+/** GET view: the profile plus the [Epic 77] inputs every role needs to hide
+ * modules and show the school's words. Neither block holds a secret. */
+export type SchoolProfileReadView = SchoolProfileView & {
+  modules: { platform: PlatformModules; school: SchoolModules };
+  labels: SchoolLabels;
 };
 
 function toProfileView(school: School): SchoolProfileView {
@@ -43,14 +53,20 @@ export class SchoolProfileService {
     @InjectRepository(School)
     private readonly repo: Repository<School>,
     private readonly auditService: AuditService,
+    private readonly schools: SchoolsService,
+    private readonly moduleState: ModuleStateReader,
   ) {}
 
-  async getProfile(schoolId: string): Promise<SchoolProfileView> {
+  async getProfile(schoolId: string): Promise<SchoolProfileReadView> {
     const school = await this.repo.findOne({ where: { id: schoolId } });
     if (!school) {
       throw new NotFoundException('School not found');
     }
-    return toProfileView(school);
+    const [modules, labels] = await Promise.all([
+      this.moduleState.forTenant(schoolId),
+      this.schools.getSchoolLabels(schoolId),
+    ]);
+    return { ...toProfileView(school), modules, labels };
   }
 
   async updateProfile(

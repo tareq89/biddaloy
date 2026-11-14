@@ -10,7 +10,8 @@ import {
   parentApiSession,
   post,
 } from '../api';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { test } from '../fixtures/settings-lock';
+import { expect, loggedIn } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages';
 

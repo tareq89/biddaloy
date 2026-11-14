@@ -72,7 +72,9 @@ import {
   ReportRunKind,
   UserRole,
   isGuardianRole,
+  ModuleKey,
 } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
@@ -119,6 +121,7 @@ class ExportPaymentsQueryDto extends WithExportFormat(QueryPaymentDto) {}
 )
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.fees)
 export class FeeController implements OnModuleInit {
   constructor(
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,

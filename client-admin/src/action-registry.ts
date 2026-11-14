@@ -1,4 +1,4 @@
-import { Permission } from '@biddaloy/shared';
+import { ModuleKey, Permission } from '@biddaloy/shared';
 
 import type { StaffNavGroupId } from './nav-tree';
 
@@ -61,6 +61,8 @@ export interface PaletteAction {
   readonly synonyms?: readonly string[];
   /** `null` = any role (not a route: E17 `help.thisPage`). */
   readonly permission: Permission | null;
+  /** Switchable module (Epic 77 D16, D46). Omitted = core, never hidden. */
+  readonly module?: ModuleKey;
   /** Extra permissions the action needs on top of the route's `permission` (all must hold). */
   readonly alsoRequires?: readonly Permission[];
   readonly kind: ActionKind;
@@ -93,6 +95,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // [52.4.1] Applications (D25). Decide rights come from the catalogue, so these only need submit.
   {
     id: 'applications.new',
+    module: ModuleKey.applications,
     label: { en: 'New application', bn: 'নতুন আবেদন' },
     permission: Permission.APPLICATION_SUBMIT,
     kind: 'navigate',
@@ -101,6 +104,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'applications.inbox',
+    module: ModuleKey.applications,
     label: { en: 'Applications waiting for me', bn: 'আমার সিদ্ধান্তের অপেক্ষায় থাকা আবেদন' },
     permission: Permission.APPLICATION_SUBMIT,
     kind: 'navigate',
@@ -109,6 +113,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'applications.apply-leave',
+    module: ModuleKey.applications,
     label: { en: 'Apply for leave', bn: 'ছুটির আবেদন করুন' },
     permission: Permission.APPLICATION_SUBMIT,
     kind: 'navigate',
@@ -117,6 +122,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'payments.record',
+    module: ModuleKey.fees,
     label: { en: 'Record payment', bn: 'পেমেন্ট রেকর্ড করুন' },
     permission: Permission.PAYMENT_RECORD,
     kind: 'navigate',
@@ -161,6 +167,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'examTemplates.createExam',
+    module: ModuleKey.exams,
     label: { en: 'Create exam from template', bn: 'টেমপ্লেট থেকে পরীক্ষা তৈরি করুন' },
     permission: Permission.EXAM_MANAGE,
     kind: 'modal',
@@ -169,6 +176,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'seatPlans.generate',
+    module: ModuleKey.seatPlans,
     label: { en: 'Generate seat plan', bn: 'সিট প্ল্যান তৈরি করুন' },
     permission: Permission.SEAT_PLAN_MANAGE,
     kind: 'navigate',
@@ -177,6 +185,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'seatPlans.publish',
+    module: ModuleKey.seatPlans,
     label: { en: 'Publish seat plan', bn: 'সিট প্ল্যান প্রকাশ করুন' },
     permission: Permission.SEAT_PLAN_MANAGE,
     kind: 'modal',
@@ -188,6 +197,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'communications.giveNotice',
+    module: ModuleKey.notices,
     label: { en: 'Give a notice', bn: 'নোটিশ দিন' },
     permission: Permission.NOTICE_POST,
     kind: 'navigate',
@@ -196,6 +206,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'notices.open',
+    module: ModuleKey.notices,
     label: { en: 'Open notices', bn: 'নোটিশ খুলুন' },
     permission: Permission.NOTICE_POST,
     kind: 'navigate',
@@ -204,6 +215,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'communications.sendMessage',
+    module: ModuleKey.messaging,
     label: { en: 'Send message', bn: 'বার্তা পাঠান' },
     permission: Permission.COMMUNICATION_SEND,
     kind: 'navigate',
@@ -230,6 +242,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'communications.sendFeeReminder',
+    module: ModuleKey.fees,
     label: { en: 'Send fee reminder', bn: 'ফি রিমাইন্ডার পাঠান' },
     permission: Permission.COMMUNICATION_BULK_SEND,
     kind: 'navigate',
@@ -238,6 +251,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'communications.messageLog',
+    module: ModuleKey.messaging,
     label: { en: 'Message log', bn: 'বার্তার তালিকা' },
     permission: Permission.COMMUNICATION_BULK_SEND,
     kind: 'navigate',
@@ -246,6 +260,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'attendance.take',
+    module: ModuleKey.attendance,
     label: { en: 'Take attendance', bn: 'উপস্থিতি নিন' },
     permission: Permission.ATTENDANCE_READ,
     kind: 'navigate',
@@ -255,6 +270,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // [76.4.03] Attendance sheet import (D15). `sectionId` rides along only when the page has one.
   {
     id: 'attendance.import',
+    module: ModuleKey.attendance,
     label: { en: 'Upload attendance sheet', bn: 'হাজিরা শীট আপলোড করুন' },
     permission: Permission.ATTENDANCE_MARK,
     kind: 'navigate',
@@ -268,6 +284,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'attendance.imports',
+    module: ModuleKey.attendance,
     label: { en: 'Attendance uploads', bn: 'উপস্থিতির আপলোড' },
     permission: Permission.ATTENDANCE_READ,
     kind: 'navigate',
@@ -280,6 +297,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // ATTENDANCE_READ; edit mode needs ATTENDANCE_MARK (stricter, on purpose).
   {
     id: 'attendance.pending',
+    module: ModuleKey.attendance,
     label: { en: "Today's pending attendance", bn: 'আজকের বাকি উপস্থিতি' },
     permission: Permission.ATTENDANCE_READ,
     kind: 'navigate',
@@ -288,6 +306,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'attendance.register.edit',
+    module: ModuleKey.attendance,
     label: { en: 'Edit monthly register', bn: 'মাসিক খাতা সম্পাদনা' },
     permission: Permission.ATTENDANCE_MARK,
     kind: 'navigate',
@@ -298,6 +317,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // from `route-permissions.ts`'s `/_staff/attendance/staff/` entry.
   {
     id: 'attendance.markStaff',
+    module: ModuleKey.staffAttendance,
     label: { en: 'Mark staff attendance', bn: 'কর্মীর উপস্থিতি নিন' },
     permission: Permission.STAFF_ATTENDANCE_READ,
     kind: 'navigate',
@@ -306,6 +326,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'fees.generate',
+    module: ModuleKey.fees,
     label: { en: 'Create fee bills', bn: 'ফির বিল তৈরি করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'navigate',
@@ -324,6 +345,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // (no fine id to open one *for*), so it lands on the plain list.
   {
     id: 'fines.log',
+    module: ModuleKey.fines,
     label: { en: 'Log fine', bn: 'জরিমানা যোগ করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'navigate',
@@ -333,6 +355,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'fines.generate',
+    module: ModuleKey.fines,
     label: { en: 'Generate fines', bn: 'জরিমানা তৈরি করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'navigate',
@@ -341,6 +364,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'fines.waive',
+    module: ModuleKey.fines,
     label: { en: 'Waive fine', bn: 'জরিমানা মাফ করুন' },
     permission: Permission.FEE_APPROVE,
     kind: 'modal',
@@ -356,6 +380,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // than the route's ACR_READ gate on purpose (see `ROUTE_PERMISSION_EXCEPTIONS`).
   {
     id: 'acr.start',
+    module: ModuleKey.evaluations,
     label: { en: 'Start ACR', bn: 'এসিআর শুরু করুন' },
     permission: Permission.ACR_WRITE,
     kind: 'modal',
@@ -377,6 +402,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // the route's ACR_READ gate, same as `acr.start`.
   {
     id: 'surveys.publish',
+    module: ModuleKey.evaluations,
     label: { en: 'Publish teacher survey', bn: 'শিক্ষক জরিপ চালু করুন' },
     permission: Permission.ACR_WRITE,
     kind: 'navigate',
@@ -465,6 +491,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'grading.copyScale',
+    module: ModuleKey.exams,
     label: { en: 'Copy grading scale', bn: 'গ্রেডিং স্কেল কপি করুন' },
     permission: Permission.GRADING_SCALE_MANAGE,
     kind: 'modal',
@@ -478,6 +505,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'programs.add',
+    module: ModuleKey.programs,
     label: { en: 'Add program', bn: 'প্রোগ্রাম যোগ করুন' },
     permission: Permission.PROGRAM_MANAGE,
     kind: 'modal',
@@ -486,6 +514,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'programs.enrol',
+    module: ModuleKey.programs,
     label: { en: 'Enrol students', bn: 'শিক্ষার্থী তালিকাভুক্ত করুন' },
     permission: Permission.PROGRAM_MANAGE,
     kind: 'modal',
@@ -499,6 +528,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'programs.recordMilestone',
+    module: ModuleKey.programs,
     label: { en: 'Record achievement', bn: 'অর্জন রেকর্ড করুন' },
     permission: Permission.PROGRAM_READ,
     kind: 'modal',
@@ -544,6 +574,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'my-class.take-attendance',
+    module: ModuleKey.attendance,
     label: { en: "Take my class's attendance", bn: 'আমার শ্রেণির উপস্থিতি নিন' },
     permission: Permission.MY_CLASS_VIEW,
     kind: 'navigate',
@@ -565,6 +596,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // stricter than the route's MY_CLASS_VIEW; both must hold (see `ROUTE_PERMISSION_EXCEPTIONS`).
   {
     id: 'arrival-notice.requests',
+    module: ModuleKey.attendance,
     label: { en: 'Arrival notice requests', bn: 'আগমন বার্তার অনুরোধ' },
     permission: Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
     synonyms: ['আগমন', 'arrival', 'reached school'],
@@ -575,6 +607,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'routines.openMyRoutine',
+    module: ModuleKey.routines,
     label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },
     permission: Permission.ROUTINE_READ,
     kind: 'navigate',
@@ -583,6 +616,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'routines.addSubstitution',
+    module: ModuleKey.routines,
     label: { en: 'Add substitute teacher', bn: 'বদলি শিক্ষক যোগ করুন' },
     permission: Permission.ROUTINE_MANAGE,
     kind: 'modal',
@@ -591,6 +625,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'routines.copyLastYearRoutine',
+    module: ModuleKey.routines,
     label: { en: "Copy last year's routine", bn: 'গত বছরের রুটিন কপি করুন' },
     // The copy button itself is `ROUTINE_MANAGE`-gated inside
     // `review.tsx` — but that route's own blanket gate is `ROUTINE_READ`
@@ -604,6 +639,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'results.enterMarks',
+    module: ModuleKey.exams,
     label: { en: 'Enter marks', bn: 'নম্বর প্রবেশ করান' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
@@ -614,6 +650,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // `exams.printAdmitCards` does), so this typechecks before the import route is in the route tree.
   {
     id: 'marks.uploadSheet',
+    module: ModuleKey.exams,
     label: { en: 'Upload marks sheet', bn: 'নম্বরের শীট আপলোড' },
     synonyms: ['import marks', 'marks excel', 'নম্বর ইমপোর্ট'],
     // Stricter than `/marks`'s MARK_VIEW gate: uploading writes marks.
@@ -635,6 +672,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'results.process',
+    module: ModuleKey.exams,
     label: { en: 'Process result', bn: 'ফলাফল প্রক্রিয়া করুন' },
     permission: Permission.RESULT_PROCESS,
     kind: 'modal',
@@ -645,6 +683,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'results.publish',
+    module: ModuleKey.exams,
     label: { en: 'Publish result', bn: 'ফলাফল প্রকাশ করুন' },
     // Matches `/_staff/results/`'s own gate (`RESULT_PROCESS`), not
     // `RESULT_PUBLISH` — see `route-permissions.ts`'s comment on why the
@@ -656,6 +695,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'results.sendSms',
+    module: ModuleKey.exams,
     label: { en: 'Send result SMS', bn: 'ফলাফল এসএমএস পাঠান' },
     permission: Permission.RESULT_PROCESS,
     kind: 'modal',
@@ -668,6 +708,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // route's `RESULT_READ` gate (`ROUTE_PERMISSION_EXCEPTIONS`).
   {
     id: 'final-result.open',
+    module: ModuleKey.exams,
     label: { en: 'Open final results', bn: 'চূড়ান্ত ফলাফল খুলুন' },
     synonyms: ['annual result', 'বার্ষিক ফলাফল'],
     permission: Permission.RESULT_READ,
@@ -677,6 +718,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'final-result.process',
+    module: ModuleKey.exams,
     label: { en: 'Build final result', bn: 'চূড়ান্ত ফলাফল তৈরি করুন' },
     permission: Permission.RESULT_PROCESS,
     alsoRequires: [Permission.RESULT_READ],
@@ -686,6 +728,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'final-result.publish',
+    module: ModuleKey.exams,
     label: { en: 'Publish final result', bn: 'চূড়ান্ত ফলাফল প্রকাশ করুন' },
     permission: Permission.RESULT_PUBLISH,
     alsoRequires: [Permission.RESULT_READ],
@@ -695,6 +738,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'admissions.reviewApplicant',
+    module: ModuleKey.admission,
     label: { en: 'Review applicant', bn: 'আবেদনকারী পর্যালোচনা করুন' },
     permission: Permission.ADMISSION_REVIEW,
     kind: 'navigate',
@@ -705,6 +749,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'admissions.admitApplicant',
+    module: ModuleKey.admission,
     label: { en: 'Admit applicant', bn: 'আবেদনকারী ভর্তি করুন' },
     permission: Permission.ADMISSION_REVIEW,
     kind: 'modal',
@@ -716,6 +761,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'analysis.meritList',
+    module: ModuleKey.exams,
     label: { en: 'Analysis: merit list', bn: 'বিশ্লেষণ: মেধা তালিকা' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
@@ -727,6 +773,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'analysis.defaultedList',
+    module: ModuleKey.exams,
     label: { en: 'Analysis: defaulters', bn: 'বিশ্লেষণ: অকৃতকার্য/অনুপস্থিত' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
@@ -759,6 +806,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'exams.copyComponents',
+    module: ModuleKey.exams,
     label: { en: 'Copy exam components', bn: 'পরীক্ষার উপাদান কপি করুন' },
     permission: Permission.EXAM_MANAGE,
     kind: 'modal',
@@ -769,6 +817,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'homework.assign',
+    module: ModuleKey.homework,
     label: { en: 'Assign homework', bn: 'বাড়ির কাজ দিন' },
     permission: Permission.HOMEWORK_ASSIGN,
     kind: 'navigate',
@@ -777,6 +826,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'homework.import',
+    module: ModuleKey.homework,
     label: { en: 'Upload homework (CSV)', bn: 'বাড়ির কাজ আপলোড করুন (CSV)' },
     permission: Permission.HOMEWORK_IMPORT,
     kind: 'navigate',
@@ -785,6 +835,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'syllabus.markTopic',
+    module: ModuleKey.syllabus,
     // Gated on SYLLABUS_READ (must match the target route's own gate, see
     // route-permissions.ts), so the label promises only what a read-only
     // user can actually do here — open the syllabus screen. Mark/edit/
@@ -803,6 +854,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'studyPlans.markToday',
+    module: ModuleKey.studyPlans,
     label: { en: "Mark today's lessons", bn: 'আজকের পাঠ জানান' },
     permission: Permission.ROUTINE_READ,
     kind: 'navigate',
@@ -811,6 +863,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'studyPlans.open',
+    module: ModuleKey.studyPlans,
     label: { en: 'Open study plans', bn: 'পাঠ পরিকল্পনা খুলুন' },
     permission: Permission.SYLLABUS_READ,
     kind: 'navigate',
@@ -820,6 +873,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'studyPlans.create',
+    module: ModuleKey.studyPlans,
     label: { en: 'New study plan', bn: 'নতুন পাঠ পরিকল্পনা' },
     // Stricter than the syllabus route's SYLLABUS_READ: the wizard is the only
     // thing this opens (see ROUTE_PERMISSION_EXCEPTIONS in the test).
@@ -830,6 +884,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'studyPlans.library',
+    module: ModuleKey.studyPlans,
     label: { en: 'Template library', bn: 'টেমপ্লেট লাইব্রেরি' },
     permission: Permission.SYLLABUS_READ,
     kind: 'navigate',
@@ -838,6 +893,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'promotions.promote',
+    module: ModuleKey.exams,
     label: { en: 'Promote students', bn: 'শিক্ষার্থী প্রমোশন দিন' },
     permission: Permission.PROMOTION_MANAGE,
     kind: 'navigate',
@@ -1010,6 +1066,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'feeStructures.create',
+    module: ModuleKey.fees,
     label: { en: 'Add fee structure', bn: 'ফি কাঠামো যোগ করুন' },
     permission: Permission.FEE_STRUCTURE_CREATE,
     kind: 'modal',
@@ -1018,6 +1075,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'feeSchedules.create',
+    module: ModuleKey.fees,
     label: { en: 'Add automatic billing rule', bn: 'স্বয়ংক্রিয় বিলের নিয়ম যোগ করুন' },
     permission: Permission.SCHEDULE_MANAGE,
     kind: 'navigate',
@@ -1050,6 +1108,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'grading.createScale',
+    module: ModuleKey.exams,
     label: { en: 'Add grading scale', bn: 'গ্রেডিং পদ্ধতি যোগ করুন' },
     permission: Permission.GRADING_SCALE_MANAGE,
     kind: 'modal',
@@ -1058,6 +1117,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'examTemplates.create',
+    module: ModuleKey.exams,
     label: { en: 'Add exam structure', bn: 'পরীক্ষার কাঠামো যোগ করুন' },
     permission: Permission.EXAM_MANAGE,
     kind: 'modal',
@@ -1129,6 +1189,34 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings?section=academics&devices=new' }),
   },
+  // [77.4.02] D31. SETTINGS_MANAGE is the closest gate the palette has: the section itself shows for ADMIN only.
+  {
+    id: 'settings.modulesWords.kind',
+    label: { en: 'Choose institution kind', bn: 'প্রতিষ্ঠানের ধরন বাছাই করুন' },
+    synonyms: ['template', 'school type', 'coaching', 'madrasa'],
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=modulesWords' }),
+  },
+  {
+    id: 'settings.modulesWords.modules',
+    label: { en: 'Turn modules on or off', bn: 'মডিউল চালু বা বন্ধ করুন' },
+    synonyms: ['feature', 'switch'],
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=modulesWords&tab=modules' }),
+  },
+  {
+    id: 'settings.modulesWords.words',
+    label: { en: 'Change words', bn: 'শব্দ বদলান' },
+    synonyms: ['label', 'rename', 'batch', 'section'],
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=modulesWords&tab=words' }),
+  },
   {
     id: 'settings.backup',
     label: { en: 'Backup and restore', bn: 'ব্যাকআপ ও রিস্টোর' },
@@ -1141,6 +1229,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // [40.2.04] Epic 40. `?publish=1` opens the publish confirm on the Overview tab.
   {
     id: 'website.open',
+    module: ModuleKey.website,
     label: { en: 'Open the school website', bn: 'স্কুলের ওয়েবসাইট খুলুন' },
     synonyms: ['site', 'web', 'ওয়েব'],
     permission: Permission.WEBSITE_MANAGE,
@@ -1150,6 +1239,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'website.publish',
+    module: ModuleKey.website,
     label: { en: 'Publish the school website', bn: 'স্কুলের ওয়েবসাইট প্রকাশ করুন' },
     synonyms: ['site', 'web', 'ওয়েব'],
     permission: Permission.WEBSITE_MANAGE,
@@ -1161,6 +1251,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // [48.3.15] Epic 48 D14. With the route's id they land on that exam / student, never a list.
   {
     id: 'exams.printAdmitCards',
+    module: ModuleKey.exams,
     label: { en: 'Print admit cards', bn: 'প্রবেশপত্র প্রিন্ট করুন' },
     permission: Permission.EXAM_MANAGE,
     // Printing itself is DOCUMENT_PRINT: without it the action would land on a tab that cannot print.
@@ -1177,6 +1268,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // for a PUBLISHED exam, so the palette cannot open the dialog itself).
   {
     id: 'exams.publishWebsite',
+    module: ModuleKey.exams,
     label: { en: 'Show results on the website', bn: 'ওয়েবসাইটে ফলাফল দেখান' },
     synonyms: ['website results', 'publish results online', 'ওয়েবসাইট ফলাফল'],
     permission: Permission.RESULT_PUBLISH,

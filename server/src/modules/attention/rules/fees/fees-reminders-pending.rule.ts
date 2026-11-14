@@ -1,12 +1,12 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from '../structure/role-recipients';
 
 /** Flagged-dues students nobody has reminded in the last 7 days. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.fees })
 export class FeesRemindersPendingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('fees.reminders_pending');
   readonly messages = {

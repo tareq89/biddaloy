@@ -1,11 +1,11 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { SmsCreditService } from '../../../communications/credits/sms-credit.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.messaging })
 export class CommsSmsCreditLowRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('comms.sms_credit_low');
   readonly messages = {

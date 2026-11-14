@@ -32,6 +32,7 @@ import { z } from 'zod';
 
 import { IssueCertificateModal } from '../../../components/print/certificates/issue-certificate-modal';
 import { SubjectApplicationsTab } from '../../../features/applications/subject-applications-tab';
+import { gateTabs, useModuleGate, visibleTab } from '../../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
@@ -210,6 +211,7 @@ function StudentDetailPage() {
   // [67.2.08] Never blocks the page: error/403 leaves `data` undefined and the strip renders nothing.
   const alerts = useStudentAttention(studentId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
+  const moduleOn = useModuleGate();
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = React.useState(false);
@@ -281,6 +283,185 @@ function StudentDetailPage() {
 
   const guardians = studentQuery.data?.guardians ?? [];
   const primaryGuardian = guardians.find((g) => g.is_primary_contact) ?? guardians[0];
+
+  const buildTabs = (student: NonNullable<typeof studentQuery.data>) =>
+    gateTabs(
+      [
+        {
+          id: 'overview',
+          module: 'core',
+          label: t('detail.tabs.overview'),
+          content: <OverviewTab studentId={studentId} />,
+        },
+        {
+          id: 'guardians',
+          module: 'core',
+          label: t('detail.tabs.guardians'),
+          content: <GuardiansTab studentId={studentId} />,
+        },
+        {
+          id: 'enrollment',
+          module: 'core',
+          label: t('detail.tabs.enrollment'),
+          content: (
+            <EnrollmentTab
+              studentId={studentId}
+              studentName={student.full_name}
+              enrollmentStatus={student.enrollment_status}
+            />
+          ),
+        },
+        {
+          id: 'attendance',
+          module: 'attendance',
+          label: t('detail.tabs.attendance'),
+          content: <AttendanceTab studentId={studentId} />,
+        },
+        {
+          id: 'results',
+          module: 'exams',
+          // [19.9.1] — 'exams' namespace: exam-owned, mounted here.
+          label: t('detail.tabs.results', { ns: 'exams' }),
+          content: <ResultsPanel studentId={studentId} />,
+        },
+        {
+          id: 'homework',
+          module: 'homework',
+          label: t('detail.tabs.homework'),
+          content: <HomeworkTab studentId={studentId} />,
+        },
+        {
+          id: 'subject-choices',
+          module: 'exams',
+          // [19.6.1] — 'exams' namespace, not 'students': this tab
+          // is the fourth-subject picker, owned by the exams
+          // feature even though it's mounted on student detail.
+          label: t('detail.tabs.fourthSubject', { ns: 'exams' }),
+          content: <SubjectChoicesPanel studentId={studentId} />,
+        },
+        {
+          id: 'programs',
+          module: 'programs',
+          // [34.5.1] — 'programs' namespace, same pattern as above.
+          label: t('detail.tabs.programs', { ns: 'programs' }),
+          content: (
+            <ProgramsPanel
+              studentId={studentId}
+              enrolOpen={search.enrolProgram === '1'}
+              onEnrolOpenChange={(open) => setKey('enrolProgram', open ? '1' : undefined)}
+              recordEnrollmentId={search.recordMilestone}
+              onRecordChange={(id) => setKey('recordMilestone', id)}
+            />
+          ),
+        },
+        ...(canViewPerformance
+          ? [
+              {
+                id: 'performance',
+                module: 'exams',
+                label: tPerformance('title'),
+                content: <PerformanceTab studentId={studentId} subjectName={student.full_name} />,
+              },
+            ]
+          : []),
+        {
+          id: 'fees',
+          module: 'fees',
+          label: t('detail.tabs.fees'),
+          content: <FeesTab studentId={studentId} />,
+        },
+        {
+          id: 'fines',
+          module: 'fines',
+          label: t('detail.tabs.fines'),
+          content: (
+            <FinesTab
+              studentId={studentId}
+              logOpen={search.logFine === '1'}
+              onLogOpenChange={(open) => setKey('logFine', open ? '1' : undefined)}
+            />
+          ),
+        },
+        {
+          id: 'recurring-fees',
+          module: 'fees',
+          label: t('detail.tabs.recurringFees'),
+          content: <RecurringFeesTab studentId={studentId} />,
+        },
+        {
+          id: 'payments',
+          module: 'fees',
+          label: t('detail.tabs.payments'),
+          content: <PaymentsTab studentId={studentId} />,
+        },
+        {
+          id: 'invoices',
+          module: 'fees',
+          label: t('detail.tabs.invoices'),
+          content: <InvoicesTab studentId={studentId} />,
+        },
+        {
+          id: 'communication',
+          module: 'messaging',
+          label: t('detail.tabs.communication'),
+          content: <CommunicationTab studentId={studentId} />,
+        },
+        ...(canReadNotes
+          ? [
+              {
+                id: 'notes',
+                module: 'core',
+                label: t('detail.tabs.notes'),
+                content: <NotesTab studentId={studentId} />,
+              },
+            ]
+          : []),
+        ...(canReadRecords
+          ? [
+              {
+                id: 'records',
+                module: 'core',
+                label: t('detail.tabs.records'),
+                content: <RecordsTab studentId={studentId} />,
+              },
+            ]
+          : []),
+        ...(canPrint || canIssueCertificate || canReadRegister
+          ? [
+              {
+                id: 'documents',
+                module: 'core',
+                label: t('detail.tabs.documents'),
+                content: <DocumentsTab studentId={studentId} />,
+              },
+            ]
+          : []),
+        ...(canManageApplications
+          ? [
+              {
+                id: 'applications',
+                module: 'applications',
+                label: t('detail.tabs.applications'),
+                content: (
+                  <SubjectApplicationsTab
+                    subject={{ kind: 'STUDENT', studentId }}
+                    subjectName={student.full_name}
+                    ns="students"
+                  />
+                ),
+              },
+            ]
+          : []),
+        {
+          id: 'activity',
+          module: 'core',
+          label: t('detail.tabs.activity'),
+          content: <ActivityTab studentId={studentId} />,
+        },
+      ],
+      moduleOn,
+    );
+  const tabs = studentQuery.data ? buildTabs(studentQuery.data) : [];
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -438,166 +619,9 @@ function StudentDetailPage() {
                 search: { student: studentId },
               },
             ]}
-            activeTab={activeTab}
+            activeTab={visibleTab(tabs, activeTab)}
             onTabChange={setActiveTab}
-            tabs={[
-              {
-                id: 'overview',
-                label: t('detail.tabs.overview'),
-                content: <OverviewTab studentId={studentId} />,
-              },
-              {
-                id: 'guardians',
-                label: t('detail.tabs.guardians'),
-                content: <GuardiansTab studentId={studentId} />,
-              },
-              {
-                id: 'enrollment',
-                label: t('detail.tabs.enrollment'),
-                content: (
-                  <EnrollmentTab
-                    studentId={studentId}
-                    studentName={studentQuery.data.full_name}
-                    enrollmentStatus={studentQuery.data.enrollment_status}
-                  />
-                ),
-              },
-              {
-                id: 'attendance',
-                label: t('detail.tabs.attendance'),
-                content: <AttendanceTab studentId={studentId} />,
-              },
-              {
-                id: 'results',
-                // [19.9.1] — 'exams' namespace: exam-owned, mounted here.
-                label: t('detail.tabs.results', { ns: 'exams' }),
-                content: <ResultsPanel studentId={studentId} />,
-              },
-              {
-                id: 'homework',
-                label: t('detail.tabs.homework'),
-                content: <HomeworkTab studentId={studentId} />,
-              },
-              {
-                id: 'subject-choices',
-                // [19.6.1] — 'exams' namespace, not 'students': this tab
-                // is the fourth-subject picker, owned by the exams
-                // feature even though it's mounted on student detail.
-                label: t('detail.tabs.fourthSubject', { ns: 'exams' }),
-                content: <SubjectChoicesPanel studentId={studentId} />,
-              },
-              {
-                id: 'programs',
-                // [34.5.1] — 'programs' namespace, same pattern as above.
-                label: t('detail.tabs.programs', { ns: 'programs' }),
-                content: (
-                  <ProgramsPanel
-                    studentId={studentId}
-                    enrolOpen={search.enrolProgram === '1'}
-                    onEnrolOpenChange={(open) => setKey('enrolProgram', open ? '1' : undefined)}
-                    recordEnrollmentId={search.recordMilestone}
-                    onRecordChange={(id) => setKey('recordMilestone', id)}
-                  />
-                ),
-              },
-              ...(canViewPerformance
-                ? [
-                    {
-                      id: 'performance',
-                      label: tPerformance('title'),
-                      content: (
-                        <PerformanceTab
-                          studentId={studentId}
-                          subjectName={studentQuery.data.full_name}
-                        />
-                      ),
-                    },
-                  ]
-                : []),
-              {
-                id: 'fees',
-                label: t('detail.tabs.fees'),
-                content: <FeesTab studentId={studentId} />,
-              },
-              {
-                id: 'fines',
-                label: t('detail.tabs.fines'),
-                content: (
-                  <FinesTab
-                    studentId={studentId}
-                    logOpen={search.logFine === '1'}
-                    onLogOpenChange={(open) => setKey('logFine', open ? '1' : undefined)}
-                  />
-                ),
-              },
-              {
-                id: 'recurring-fees',
-                label: t('detail.tabs.recurringFees'),
-                content: <RecurringFeesTab studentId={studentId} />,
-              },
-              {
-                id: 'payments',
-                label: t('detail.tabs.payments'),
-                content: <PaymentsTab studentId={studentId} />,
-              },
-              {
-                id: 'invoices',
-                label: t('detail.tabs.invoices'),
-                content: <InvoicesTab studentId={studentId} />,
-              },
-              {
-                id: 'communication',
-                label: t('detail.tabs.communication'),
-                content: <CommunicationTab studentId={studentId} />,
-              },
-              ...(canReadNotes
-                ? [
-                    {
-                      id: 'notes',
-                      label: t('detail.tabs.notes'),
-                      content: <NotesTab studentId={studentId} />,
-                    },
-                  ]
-                : []),
-              ...(canReadRecords
-                ? [
-                    {
-                      id: 'records',
-                      label: t('detail.tabs.records'),
-                      content: <RecordsTab studentId={studentId} />,
-                    },
-                  ]
-                : []),
-              ...(canPrint || canIssueCertificate || canReadRegister
-                ? [
-                    {
-                      id: 'documents',
-                      label: t('detail.tabs.documents'),
-                      content: <DocumentsTab studentId={studentId} />,
-                    },
-                  ]
-                : []),
-              ...(canManageApplications
-                ? [
-                    {
-                      id: 'applications',
-                      label: t('detail.tabs.applications'),
-                      content: (
-                        <SubjectApplicationsTab
-                          subject={{ kind: 'STUDENT', studentId }}
-                          subjectName={studentQuery.data.full_name}
-                          ns="students"
-                        />
-                      ),
-                    },
-                  ]
-                : []),
-              {
-                id: 'activity',
-                label: t('detail.tabs.activity'),
-                content: <ActivityTab studentId={studentId} />,
-              },
-            ]}
+            tabs={tabs}
           />
 
           <SendReminderDialog
