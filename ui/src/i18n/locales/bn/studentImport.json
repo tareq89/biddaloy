@@ -1,5 +1,5 @@
 {
-  "title": "শিক্ষার্থী আমদানি",
+  "title": "$t(common:entities.student_one) আমদানি",
   "template": {
     "title": "১. টেমপ্লেট ডাউনলোড করুন",
     "explanation": "প্রতি সারিতে একজন শিক্ষার্থীর তথ্য দিয়ে টেমপ্লেটটি পূরণ করুন। প্রথম সারির শিরোনাম বদলাবেন না, আর ২ নম্বর উদাহরণ সারিটি মুছে ফেলুন।",
@@ -15,13 +15,13 @@
     "columns": {
       "student_name": "শিক্ষার্থীর পূর্ণ নাম, যেমন আরিফা খাতুন।",
       "class": "চলতি শিক্ষাবর্ষে বিদ্যমান একটি শ্রেণির নাম, যেমন Class 5।",
-      "section": "সেই শ্রেণির একটি শাখা, যেমন A।",
+      "section": "সেই শ্রেণির একটি $t(common:entities.section_one), যেমন A।",
       "roll": "একটি পূর্ণসংখ্যা, শাখার মধ্যে অনন্য। ফাঁকা রাখলে বাদ যাবে।",
       "registration_number": "উপেক্ষিত — নিবন্ধন নম্বর সিস্টেম নিজে তৈরি করে।",
       "guardian1_name": "প্রধান অভিভাবকের পূর্ণ নাম।",
       "guardian1_phone": "বাংলাদেশি মোবাইল নম্বর, যেমন 01712345678 বা +8801712345678।",
       "guardian1_email": "একটি ইমেইল ঠিকানা। ফাঁকা রাখলে বাদ যাবে।",
-      "guardian2_name": "দ্বিতীয় অভিভাবকের নাম। একজন অভিভাবক থাকলে ফাঁকা রাখুন।",
+      "guardian2_name": "দ্বিতীয় অভিভাবকের নাম। একজন $t(common:entities.guardian_one) থাকলে ফাঁকা রাখুন।",
       "guardian2_phone": "দ্বিতীয় অভিভাবকের নাম থাকলে আবশ্যক। ফোন নম্বরের ফরম্যাট প্রথম অভিভাবকের মতোই।",
       "guardian2_email": "দ্বিতীয় অভিভাবকের ইমেইল। ফাঁকা রাখলে বাদ যাবে।",
       "home_address": "শিক্ষার্থীর বাসার ঠিকানা। ফাঁকা রাখলে বাদ যাবে।",
@@ -34,8 +34,8 @@
     "headerName": "কলামের শিরোনাম:",
     "labels": {
       "student_name": "শিক্ষার্থীর নাম",
-      "class": "শ্রেণি",
-      "section": "শাখা",
+      "class": "$t(common:entities.class_one)",
+      "section": "$t(common:entities.section_one)",
       "roll": "রোল",
       "registration_number": "রেজিস্ট্রেশন নম্বর",
       "guardian1_name": "প্রধান অভিভাবকের নাম",
@@ -51,7 +51,7 @@
   },
   "upload": {
     "title": "২. আপনার ফাইল আপলোড করুন",
-    "explanation": "CSV বা XLSX, সর্বোচ্চ ৫ মেগাবাইট এবং প্রতি ফাইলে ২,০০০ শিক্ষার্থী।"
+    "explanation": "CSV বা XLSX, সর্বোচ্চ ৫ মেগাবাইট এবং প্রতি ফাইলে ২,০০০ $t(common:entities.student_one)।"
   },
   "preview": {
     "willCreate_one": "{{count}} জন শিক্ষার্থী তৈরি হবে।",
@@ -60,8 +60,8 @@
     "previewCaption_other": "প্রথম {{count}} টি সারি",
     "columns": {
       "name": "নাম",
-      "class": "শ্রেণি",
-      "section": "শাখা",
+      "class": "$t(common:entities.class_one)",
+      "section": "$t(common:entities.section_one)",
       "guardianPhone": "অভিভাবকের ফোন"
     },
     "title": "প্রিভিউ",
@@ -72,12 +72,12 @@
   "result": {
     "title": "৩. ফলাফল",
     "allImported": "{{count}} জন শিক্ষার্থীর সবাই আমদানি হয়েছে।",
-    "partialSummary": "{{total}} জনের মধ্যে {{success}} জন শিক্ষার্থী আমদানি হয়েছে। {{errors}}টি সারিতে সমস্যা ছিল।",
+    "partialSummary": "{{total}} জনের মধ্যে {{success}} জন $t(common:entities.student_one) আমদানি হয়েছে। {{errors}}টি সারিতে সমস্যা ছিল।",
     "importAnother": "আরেকটি ফাইল আমদানি করুন",
-    "goToList": "শিক্ষার্থী তালিকায় যান"
+    "goToList": "$t(common:entities.student_one) তালিকায় যান"
   },
   "notifications": {
-    "imported": "{{total}} জনের মধ্যে {{success}} জন শিক্ষার্থী আমদানি হয়েছে।",
+    "imported": "{{total}} জনের মধ্যে {{success}} জন $t(common:entities.student_one) আমদানি হয়েছে।",
     "partial": "{{total}} জনের মধ্যে {{success}} জন আমদানি হয়েছে, {{errors}} জন ব্যর্থ হয়েছে।",
     "failed": "আমদানি ব্যর্থ হয়েছে।"
   },

@@ -18,15 +18,27 @@ export type UseModuleState = ModuleState & { loading: boolean };
  * not lock a school out of its own screens; the server still enforces.
  */
 export function useModuleState(key: ModuleKey): UseModuleState {
+  return useModuleResolver()(key);
+}
+
+/**
+ * Same rules as `useModuleState`, one hook call for many keys: the shell
+ * filters dozens of nav items and palette rows, which a per-key hook cannot
+ * do without hooks in a loop.
+ */
+export function useModuleResolver(): (key: ModuleKey) => UseModuleState {
   const { data, isPending } = useSchoolProfile();
   const role = useActiveRole() as UserRole | null;
-  if (isPending) return { on: true, source: 'default', loading: true };
-  return {
-    ...resolveModuleState(
-      { platform: data?.modules.platform ?? null, school: data?.modules.school ?? null, role },
-      key,
-    ),
-    loading: false,
+  return (key) => {
+    if (isPending) return { on: true, source: 'default', loading: true };
+    return {
+      ...resolveModuleState(
+        // `modules` can be missing on a stubbed or older profile; never crash the shell over it.
+        { platform: data?.modules?.platform ?? null, school: data?.modules?.school ?? null, role },
+        key,
+      ),
+      loading: false,
+    };
   };
 }
 

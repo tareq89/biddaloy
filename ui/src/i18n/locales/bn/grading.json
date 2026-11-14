@@ -9,7 +9,7 @@
     "columnAcademicYear": "শিক্ষাবর্ষ",
     "columnClass": "কোন শ্রেণির জন্য",
     "columnBands": "গ্রেড",
-    "yearDefault": "সব শ্রেণি",
+    "yearDefault": "সব $t(common:entities.class_one)",
     "errorMessage": "গ্রেডিং পদ্ধতি লোড করা যায়নি।",
     "subtitle": "কত শতাংশ নম্বরে কোন গ্রেড আর জিপিএ, তা প্রতি শিক্ষাবর্ষে এখানে ঠিক হয়।",
     "bandCount_one": "{{n}}টি",
@@ -26,7 +26,7 @@
     "academicYearLabel": "শিক্ষাবর্ষ",
     "academicYearPlaceholder": "বাছুন",
     "classLabel": "কোন শ্রেণির জন্য",
-    "yearDefault": "বর্ষের সব শ্রেণি",
+    "yearDefault": "বর্ষের সব $t(common:entities.class_one)",
     "errorMessage": "গ্রেডিং পদ্ধতি তৈরি করা যায়নি। আবার চেষ্টা করুন।",
     "save": "তৈরি করুন",
     "saving": "তৈরি হচ্ছে…",
@@ -34,7 +34,7 @@
     "classHelp": "কোনো শ্রেণির নিজের পদ্ধতি থাকলে সেই শ্রেণিতে সেটিই খাটে।"
   },
   "detail": {
-    "copy": "অন্য শ্রেণি বা বর্ষে কপি করুন",
+    "copy": "অন্য $t(common:entities.class_one) বা বর্ষে কপি করুন",
     "startFromNctb": "NCTB-র গ্রেড বসান",
     "problemsHeading": "এই পদ্ধতি এখনো সংরক্ষণ করা যাবে না:",
     "save": "সংরক্ষণ করুন",
@@ -92,10 +92,10 @@
   },
   "copyDialog": {
     "title": "গ্রেডিং পদ্ধতি কপি করুন",
-    "description": "„{{name}}“-এর গ্রেডগুলো অন্য শ্রেণি বা বর্ষে কপি হবে।",
+    "description": "„{{name}}“-এর গ্রেডগুলো অন্য $t(common:entities.class_one) বা বর্ষে কপি হবে।",
     "academicYearLabel": "কোন শিক্ষাবর্ষে",
     "classLabel": "কোন শ্রেণিতে",
-    "yearDefault": "সব শ্রেণি",
+    "yearDefault": "সব $t(common:entities.class_one)",
     "willCreate_one": "{{n}}টি গ্রেড কপি হবে।",
     "willCreate_other": "{{n}}টি গ্রেড কপি হবে।",
     "occupiedError": "ওই শ্রেণির এই বর্ষে আগে থেকেই গ্রেড আছে। বদলাতে চাইলে সেটি খুলুন।",
@@ -114,19 +114,19 @@
     "approvalHint": "সংরক্ষণের আগে অতিরিক্ত অনুমোদন চাওয়া হতে পারে।"
   },
   "marksEntry": {
-    "subtitleHint": "পরীক্ষা বাছুন, তারপর শাখা ও বিষয়ের নম্বর তালিকা খুলুন।",
+    "subtitleHint": "পরীক্ষা বাছুন, তারপর $t(common:entities.section_one) ও বিষয়ের নম্বর তালিকা খুলুন।",
     "subtitleProgress": "{{total}}টি নম্বর তালিকার মধ্যে {{submitted}}টি জমা হয়েছে",
     "examOption": "{{exam}} · {{class}}",
     "searchLabel": "খুঁজুন",
-    "searchPlaceholder": "শাখা বা বিষয়",
+    "searchPlaceholder": "$t(common:entities.section_one) বা বিষয়",
     "statusLabel": "অবস্থা",
     "statusAll": "সব",
     "statusDraft": "জমা বাকি",
     "statusSubmitted": "জমা হয়েছে",
-    "columnSection": "শাখা",
+    "columnSection": "$t(common:entities.section_one)",
     "columnSubject": "বিষয়",
     "columnStatus": "অবস্থা",
-    "sectionValue": "শাখা {{name}}",
+    "sectionValue": "$t(common:entities.section_one) {{name}}",
     "enterMarks": "নম্বর দিন",
     "viewMarks": "নম্বর দেখুন",
     "emptyTitle": "এখনো কোনো নম্বর তালিকা নেই",
@@ -138,8 +138,8 @@
     "noExamsText": "পরীক্ষা তৈরি হলে এখানে নম্বর দেওয়া যাবে।"
   },
   "marksSheet": {
-    "studentCount_one": "{{n}} জন শিক্ষার্থী",
-    "studentCount_other": "{{n}} জন শিক্ষার্থী",
+    "studentCount_one": "{{n}} জন $t(common:entities.student_one)",
+    "studentCount_other": "{{n}} জন $t(common:entities.student_one)",
     "keyboardHelp": "নম্বর লিখে <k>Enter</k> চাপলে নিচের ঘরে যাবে। অনুপস্থিত হলে <k>A</k>, মওকুফ হলে <k>E</k> চাপুন। শেষে <k>Ctrl+Enter</k> চেপে জমা দিন।",
     "submittedAt": "{{time}}-এ জমা দেওয়া হয়েছে। শুধু অ্যাডমিন আবার খুলতে পারেন।",
     "reopen": "আবার খুলুন",
@@ -170,8 +170,8 @@
     "smsQueued": "{{n}}টি বার্তা সারিবদ্ধ হয়েছে।"
   },
   "analysisPage": {
-    "subtitle": "পরীক্ষা বেছে মেধা তালিকা, অকৃতকার্য শিক্ষার্থী আর বিষয়ভিত্তিক পাস-ফেল দেখুন।",
-    "allSections": "সব শাখা",
+    "subtitle": "পরীক্ষা বেছে মেধা তালিকা, অকৃতকার্য $t(common:entities.student_one) আর বিষয়ভিত্তিক পাস-ফেল দেখুন।",
+    "allSections": "সব $t(common:entities.section_one)",
     "tabs": {
       "merit": "মেধা তালিকা",
       "defaulted": "অকৃতকার্য ও অনুপস্থিত",
@@ -189,13 +189,13 @@
     "reasonAbsent": "অনুপস্থিত: {{subjects}}",
     "gradeCount": "{{grade}}: {{n}}",
     "notProcessedTitle": "এই পরীক্ষার ফলাফল এখনো তৈরি হয়নি",
-    "notProcessedText": "ফলাফল প্রক্রিয়া করা হলে এখানে মেধা তালিকা, অকৃতকার্য শিক্ষার্থী আর পাসের হার দেখা যাবে।",
+    "notProcessedText": "ফলাফল প্রক্রিয়া করা হলে এখানে মেধা তালিকা, অকৃতকার্য $t(common:entities.student_one) আর পাসের হার দেখা যাবে।",
     "openExam": "পরীক্ষার পাতা খুলুন",
     "noRowsTitle": "এই বাছাইয়ে কোনো ফলাফল নেই",
     "noRowsText": "এখানে দেখানোর মতো কোনো ফলাফল এখনো নেই।",
     "noDefaultersTitle": "সবাই কৃতকার্য হয়েছে",
     "noDefaultersText": "এই পরীক্ষায় কেউ অকৃতকার্য বা অনুপস্থিত হয়নি।",
-    "noRowsSectionText": "অন্য শাখা বেছে দেখুন।"
+    "noRowsSectionText": "অন্য $t(common:entities.section_one) বেছে দেখুন।"
   },
   "fields": {
     "scaleName": "নাম",

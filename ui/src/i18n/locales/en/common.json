@@ -503,5 +503,10 @@
     "chosenEmptyTitle": "No one chosen yet",
     "chosenEmptyExplanation": "Add people from the list.",
     "remove": "Remove from chosen list"
+  },
+  "moduleOff": {
+    "title": "This part is not turned on for your institution",
+    "turnOn": "Turn on",
+    "askAdmin": "Ask your admin"
   }
 }

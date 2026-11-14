@@ -2,7 +2,7 @@
   "facts": {
     "number": "নম্বর",
     "applicant": "আবেদনকারী",
-    "student": "শিক্ষার্থী",
+    "student": "$t(common:entities.student_one)",
     "staff": "কর্মী",
     "submitted": "জমা",
     "step": "ধাপ",
@@ -35,7 +35,7 @@
   "followUp": {
     "print": "{{document}} প্রিন্ট করুন",
     "marks": "নম্বর দেখুন",
-    "substitute": "বদলি শিক্ষক ঠিক করুন"
+    "substitute": "বদলি $t(common:entities.teacher_one) ঠিক করুন"
   },
   "body": {
     "letterTitle": "আবেদনপত্র",
@@ -81,7 +81,7 @@
   "events": {
     "SUBMITTED": "{{actor}} আবেদন জমা দিয়েছেন",
     "STEP_APPROVED": "{{actor}} ধাপ {{n}} অনুমোদন করেছেন",
-    "stepSkipped": "শ্রেণি শিক্ষকের ধাপ বাদ পড়েছে",
+    "stepSkipped": "$t(common:entities.class_one) $t(common:entities.teacher_one)-এর ধাপ বাদ পড়েছে",
     "APPROVED": "{{actor}} অনুমোদন করেছেন",
     "REJECTED": "{{actor}} নামঞ্জুর করেছেন",
     "UNDER_CONSIDERATION": "{{actor}} বিবেচনাধীন রেখেছেন",
@@ -149,7 +149,7 @@
     "REVOKE_ONLY_STAFF_LEAVE": "শুধু কর্মীর ছুটির ক্ষেত্রে নেওয়া দিন ফেরত দেওয়া যায়।",
     "DATE_IN_FUTURE": "ভবিষ্যতের তারিখ দেওয়া যাবে না।",
     "NO_ACTIVE_ENROLLMENT": "এই শিক্ষার্থীর কোনো চলমান ভর্তি নেই।",
-    "SECTION_UNCHANGED": "শিক্ষার্থী আগে থেকেই ওই শাখায় আছে।",
+    "SECTION_UNCHANGED": "$t(common:entities.student_one) আগে থেকেই ওই শাখায় আছে।",
     "NOT_FOUND": "আবেদনটি পাওয়া যায়নি।",
     "fallback": "সিদ্ধান্ত সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"
   },

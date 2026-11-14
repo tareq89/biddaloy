@@ -27,6 +27,7 @@ import * as React from 'react';
 
 import { AttendancePendingCard } from '../../components/attendance-pending-card';
 import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
+import { useModuleGate } from '../../module-gate';
 import { PinnedReportCards, UsefulReportsCard } from '../report-cards/report-cards';
 
 import { BriefingSlot } from './briefing-slot';
@@ -58,6 +59,7 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
   const navigate = useNavigate();
   const region = useTenantRegionConfig();
   const { role, pref, isLoading } = useDashboardPrefs();
+  const moduleOn = useModuleGate();
   const today = React.useMemo(() => new Date(), []);
   // [8.10.7.5.06] COMMITTEE header: privacy line, print button, "month · year" subtitle (D49).
   const isCommittee = role === UserRole.COMMITTEE;
@@ -74,9 +76,10 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
             catalogue: WIDGET_CATALOGUE,
             defaults: ROLE_DEFAULT_LAYOUTS,
             can: (p) => hasPermission(role, p),
+            moduleOn,
           })
         : { visible: [], hidden: [] },
-    [role, pref],
+    [role, pref, moduleOn],
   );
   // [8.10.7.7.03] D15: a brand-new school (nothing set up, not hidden) sees the
   // checklist alone instead of an empty grid. Same query the card uses (shared cache).

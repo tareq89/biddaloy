@@ -1104,3 +1104,150 @@ Example: the school switches Fees off. `GET /api/v1/fee-structures` answers 403 
 - 2026-11-13. **"Unreadable state" quietly became "success".** Fees-daily logged and returned when it could not read the module state, so a run-now or restore catch-up job finished green and that day was never retried. Fix: it throws; the nightly loop already reports per school to Sentry, the other two jobs fail visibly. Rule candidate: a job that skips on purpose says so; a job that cannot decide fails.
 - 2026-11-13. **One file can hold two modules.** `POST /fees/bills/:id/waive` lives in the fines controller but is tagged fees; the reminder routes live in the communications controller but are tagged fees (D39), while message history is messaging. The tag is per handler, so the table-driven spec (`modules-off.e2e-spec.ts`) pins these by name. `SYLLABUS_VS_PLAN` stays on `syllabus`: it is a syllabus card that only adds the plan line when a plan exists.
 - 2026-11-13. **The table is driven by the key list.** `ROUTES` is a `Record<ModuleKey, string>`, so a new key without a row does not compile, and a row whose route is not tagged with that key in `route-status.snapshot.txt` fails the drift test. The snapshot MODULE column was already filled by earlier tickets, so the wave close changed no snapshot line (D48).
+
+### Wave 3 (client hiding, #3920 to #3922)
+
+How a switch reaches a page that is already open:
+
+```mermaid
+sequenceDiagram
+  participant A as Admin (settings PATCH)
+  participant S as Server
+  participant P as Open page (profile cached)
+  A->>S: modules: fines off
+  Note over S: next request reads the school row, refuses at once
+  P->>P: still shows Fines (cached profile, staleTime 30 s)
+  P->>S: window focus after 30 s: GET /schools/me/profile
+  S-->>P: modules.school.fines.on = false
+  P->>P: sidebar, tab, palette drop Fines
+```
+
+Example: ADMIN switches Fines off while a teacher has the student page open. The
+teacher's `PUT /fines` is refused with 403 right away. The Fines tab disappears the
+next time the tab regains focus after 30 s, or on any reload.
+
+- 2026-11-13. **The page does not hear about a switch; it asks again.** The profile query has `staleTime` 30 s and refetches on window focus. So "hidden within 30 s" is true only when something wakes the page; the server is the only instant gate. Fix: `modules-hiding.spec.ts` moves the page clock 31 s, fires a bubbling `visibilitychange` and polls. Rule candidate: say which event makes a cached value refresh, not only how long it lives.
+- 2026-11-13. **A test fixture sent a body the server rejects.** `setModules` omitted `version: 1`, so every settings PATCH was a 400 and no e2e had ever run it. Fix: the fixture sends the version. Rule candidate: run a new fixture once against the real endpoint in the ticket that adds it.
+- 2026-11-13. **A hidden portal URL shows a load error, not the refusal page.** Only the staff shell renders `ModuleOffState`. In the portal, `/portal/routine` with Routines off shows the generic "could not load" card (the server still answers 403). Cost: the e2e asserts only that the link is gone. Fix: tracked in #4127. Rule candidate: when a decision names "the URL shows the refusal page", list every shell it must hold in.
+- 2026-11-13. **Modules are school-wide, so a browser test that flips one disturbs its neighbours.** Each test restores in `finally` and keeps the off window short; the spec uses Fines, Homework and Routines only. Rule candidate: a spec that changes school settings says so in its header comment.
+
+### Wave 4 (the screen, #3923 to #3928)
+
+What an admin does on Settings › Modules & words, and what each click saves:
+
+```mermaid
+flowchart LR
+  C[Kind card] -->|click 1| V[Preview<br/>read only, GET preview]
+  V -->|click 2: Apply| A[POST apply<br/>modules + words in one PATCH]
+  M[Modules switch] -->|one click| P1[PATCH modules<br/>Undo toast]
+  W[Words tab] -->|Save| P2[PATCH labels<br/>only changed rows]
+  A --> R[profile refetch]
+  P1 --> R
+  P2 --> R
+  R --> U[sidebar, titles, words change<br/>in the same tab, no reload]
+```
+
+Example: the admin of a coaching centre opens the screen, clicks "Coaching centre", reads
+"Off: Fines, Programs; Section becomes Batch", clicks Apply. Two clicks. The sidebar loses
+Fines and "Classes" reads "Courses". Apply only turns modules off or renames; to turn Fines
+back on the admin uses its switch.
+
+- 2026-11-13. **The preview is a full-page modal, so the sidebar is behind it.** The first run of the journey asserted "Fines still in the sidebar" while the preview was open and failed: the shell is inert behind the modal. Fix: assert the sidebar before opening and after Apply only. Rule candidate: say in the ticket which surface is reachable while a full-page modal is open.
+- 2026-11-13. **No screen prints the Section word yet.** Only the nav and breadcrumbs go through `useEntityLabel`, and none of them uses `section` (the section crumbs in `route-crumbs.ts` read a fixed `nav` string). So "a page title with the Section word changes" cannot be asserted. Cost: the journey asserts the Words tab's own field plus the Class word in the sidebar. Fix: reported with the epic wrap-up. Rule candidate: before writing "the title changes", grep for a caller of the word.
+- 2026-11-13. **Apply never turns a module on, so a test cannot undo it through the screen.** The journey resets with `setModules`/`setLabels` (`null` removes a key) in `finally`. Rule candidate: any spec that changes school settings resets over the API and says so in its header.
+- 2026-11-13. **The built app's service worker hides requests from `page.route`.** The failed-save test blocks service workers (`test.use({ serviceWorkers: 'block' })`) before routing the PATCH to 500. Without it the switch would save for real.
+- 2026-11-13. **A second browser needs its nav groups opened by hand.** The `loggedIn` fixture seeds the "expanded" preference; a context built by `loginAsFreshUser` does not, so the teacher's Homework link sat in a collapsed group. Fix: the teacher context writes the same localStorage keys.
+
+### Wave 5 (words reach screens, print and SMS, #3929 to #3932)
+
+Where a renamed word shows up, and where it does not yet:
+
+```mermaid
+flowchart LR
+  L[school labels<br/>section = Batch, student = Trainee] --> UI[page copy<br/>$t common:entities.*]
+  L --> SMS[SMS body<br/>smsWord at send time]
+  L --> PR[print template<br/>copied in ONCE, when created]
+  UI --> Y[29 converted namespaces:<br/>Students, Classes, Fees ...]
+  UI -. not yet .-> N[nav, dashboard, teacherAssignments<br/>+ 42 namespaces still stock]
+  PR -. old templates keep stock .-> O[template made BEFORE the rename]
+```
+
+Example: the admin renames Section to Batch (bn: ব্যাচ) and Student to Trainee.
+`/students` now has the heading "Trainees" and `/classes` has a column "Batches". The
+sidebar item for students also reads "Trainees" (it already used the school's word), but
+the rest of the menu text is still stock, because `nav` is not converted. An admit card made from
+the suggestion after the rename says "Batch:"; the one made yesterday still says "Section:".
+The absence-notice SMS starts "Dear Parent," once Guardian is renamed to Parent.
+
+- 2026-11-14. **Part of the menu, the dashboard and the teacher-assignments pages still show stock words.** The sidebar items for students, guardians, staff, academic years, classes, exams and invoices already follow the school's words through `useEntityLabel` (`client-admin/src/nav-tree.ts`; the wave-4 journey asserts the class word). Section and Teacher have no sidebar item. The rest of the `nav` text, the `dashboard` and the `teacherAssignments` strings are not converted. The guide generator (`client-admin/src/help/guide-gen`) copies the `nav`, `dashboard` and `teacherAssignments` strings into `docs/user-guide/**`, where a `$t(...)` would print raw and rewrite committed files. So `entity-words.mjs` skips those three (`SKIP_NS`). Cost: `modules-words-reach.spec.ts` asserts the Students and Classes pages (converted page copy), not the menu text. Correction: an earlier version of this note said the whole sidebar showed stock words; the entity items never did. Fix: convert them once the generator resolves nesting. Rule candidate: before converting a namespace, grep who else reads its JSON.
+- 2026-11-14. **A printed template is a copy, not a view.** The words are swapped into the template when it is created from a suggestion (`applyPrintWords` in `PrintTemplatesService.create`). A template made before the rename keeps "Section:" and does not follow later renames. Cost: none yet, but an admin may expect it to follow. Fix: documented, pinned by the e2e (before keeps stock, after carries the word). Rule candidate: any "word baked into stored content" feature states whether old rows follow.
+- 2026-11-14. **The absence-notice preview is the SMS check.** `POST /attendance/sections/:id/absence-notice/preview` returns `message_preview`, built by the same `absenceTemplate()` the send uses, so Playwright can assert the text with no new endpoint. The text follows the school's locale: "Dear Parent," (en) or "প্রিয় পিতামাতা," (bn).
+- 2026-11-14. **62 namespaces are converted; 3 more still have stock words (`reportDesigner`, `website`, `printTemplates`); 10 are skipped on purpose (`common`, `nav`, `dashboard`, `teacherAssignments`, `platform`, `schoolControl`, `schoolsList`, `verify`, `demo`, `calendarImport`; each reason is a comment above `SKIP_NS` in the script).** Continue with `node scripts/codemods/entity-words.mjs --dry` (lists what is left), then `--apply ns1,ns2` per batch, then `--check` (fails if a capitalised stock word is left in a converted namespace; it does not catch lowercase words, "a/an" forms or Bangla case suffixes like শাখায় — `--dry` counts over 1,100 lowercase English words that `--check` never flags, so read the review list too). State lives in `scripts/codemods/entity-words.converted.json`.
+- 2026-11-14. **A UI label that a server parser accepts must stay stock text.** The first codemod batches turned the teacher designation labels in `staff.json` (`teacherForm.designations.*`, e.g. "Class teacher") into `$t(...)` references. `server/src/modules/users/staff-bulk-upload.parser.ts` accepts those exact strings in an uploaded staff file, and `staff-bulk-upload.labels.spec.ts` compares its hard-coded list with `staff.json`, so `ci:local` failed on it. Cost: one CI round; production was never affected (the parser's list is hard-coded). Fix: restored the stock text and added `designations` to the codemod's `SKIP_SEGMENTS`. Rule candidate: before converting a namespace, grep the server for code that reads or matches its strings (workbook values are D5-stable); a drift-guard spec is the signal.
+- 2026-11-14. **Mixed words are visible.** While a namespace is unconverted, one screen can say "Trainees" in the title and "Student" in a button from a stock string. Cost: looks odd for a school that renamed early. Fix: finish the conversion before the feature is announced. Rule candidate: ship a rename feature with the conversion of every screen it names, or hide it.
+- 2026-11-14. **The codemod is not quite finished.** Final state of this lane: 62 of 110 namespaces converted, 10 skipped with a reason, 3 left (`reportDesigner`, `website`, `printTemplates`, about 8 strings; `website` has a generic page "Section" that must stay stock). Keys the e2e reads through its non-nesting `t()` or the raw JSON stay stock and sit on the `allow` list in `entity-words.converted.json` (`billing.buy.seats`, `noticeCompose` audience tab and class filter, `trial.seatLimit.title`). Rule candidate: give `e2e/i18n.ts` a nesting resolver, then those keys can convert.
+
+### Wave 6 (the platform layer, #3933 to #3935)
+
+Who can say "off", and which one wins:
+
+```mermaid
+flowchart LR
+  O[owner, step-up code] --> M[global map<br/>PUT /platform/modules]
+  O --> K[per-school lock<br/>PUT /platform/schools/:id/modules/:key/lock]
+  A[school admin] --> C[own choice<br/>PATCH school settings]
+  M --> R[resolveModuleState]
+  K --> R
+  C --> R
+  R --> Z[platform off, then lock, then own choice]
+```
+
+Example: the owner turns Fines off for everyone. The school's own choice stays On in the database, and `GET /platform/schools/:id/modules` still shows `fines.on = true`. Turned back on, the school has Fines again with no action from its admin.
+
+- 2026-11-14. **The cockpit had no way to read a school's own module choices.** #3934 (the school 360 Modules tab) stopped: the plan listed the writes but no read, so the tab could not show "your school: On". A lane found it, not the planner. Cost: a stop and one new route. Fix: addendum `GET /platform/schools/:id/modules` (own choice and lock only, no platform map). Rule candidate: for every owner write screen, the plan names the read that fills it.
+- 2026-11-14. **A school PATCH of `null` deleted a platform lock.** The lock lives inside the same `modules.<key>` entry as the school's own choice, so `{ homework: null }` (the "remove my choice" call) removed the lock too. Cost: found before merge. Fix: `keepModuleLocks` (`tenant-settings-resolver.ts`) puts a stored lock back after the merge; the school's own choice still goes. Rule candidate: for a block two owners write, add a test where the weaker owner deletes its own part.
+- 2026-11-14. **The route-status snapshot once showed extra rows, and nobody found out why.** During a long loop `route-status.snapshot.txt` listed extra `platform/alerts` and `platform/announcements` rows that this branch did not add; the next run was clean. Cost: a re-run; the cause is unexplained. Fix: none yet, watch CI on the stacked PRs. Rule candidate: when the snapshot test differs on a clean tree, save the diff before re-running.
+- 2026-11-14. **Some words are still unconverted.** Wave 5 left the nav, the dashboard and teacher assignments on stock words, and the cockpit screens use stock words by design (the cockpit has no school, so no labels). Cost: none, but a reader may think it is a bug. Rule candidate: say in the ticket which surfaces are owner-side (stock words) and which are school-side.
+- 2026-11-14. **The e2e changes PLATFORM-WIDE state.** `e2e/platform/modules.spec.ts` flips the global map and a lock, so it takes the school-settings lock and restores the map (to the value it read first, not to empty), the lock and both schools' choices in `finally`. It was run together with `modules-hiding.spec.ts` to show they do not collide. Rule candidate: a spec that writes platform state says so in its header and restores the previous value.
+- 2026-11-14. **The codemod must not nest the Words tab names.** `settings.json` holds the Words tab ("Stock word" column, module, word and institution-kind names) next to ordinary page copy, so a plain codemod pass would show the school's own word where the screen means the stock one. Cost: caught before apply, by reading the dry run. Fix: `modulesWords`, `kinds`, `kindNames` join `SKIP_SEGMENTS` in `scripts/codemods/entity-words.mjs`. Rule candidate: before converting a namespace, list the subtrees whose job is to show the stock text, and skip them.
+
+### Epic close (#3937)
+
+What Epic 77 shipped: a school can switch whole parts of the product off (Modules), hide one part from one role, and rename core words (Words). An owner can lock a module for one school or for all. Ready-made starting points ("institution kinds") set both at once.
+
+Who wins when the three owners disagree:
+
+| Order | Who                         | What it can do                                                          |
+| ----- | --------------------------- | ----------------------------------------------------------------------- |
+| 1     | Platform, all schools       | Off here means off everywhere.                                          |
+| 2     | Platform, one school (lock) | Off here means off for that school; the school cannot undo it.          |
+| 3     | The school's own choice     | On or Off, plus "who can't see it" (roles). Used only if 1 and 2 allow. |
+
+Example: the owner locks Homework off for school A. Admin of A sets Homework On. Teachers of A still get `403 This part is not turned on for your institution`. The owner lifts the lock: Homework is On again, with no action by A.
+
+The demo shows it. One demo branch (`bmsc-primary`) runs the Coaching kind through `InstitutionKindService.apply`, so Fines, Programs, Evaluations and Seat plans are off, Class reads "Course" and Section reads "Batch". Homework is also off for teachers (a role switch the kind never defines). The other two branches keep everything on, in stock words.
+
+```mermaid
+flowchart LR
+  K[shared INSTITUTION_KINDS<br/>coaching] --> A[InstitutionKindService.apply]
+  A --> U[SchoolsService.updateSettings<br/>audit rows]
+  U --> S[bmsc-primary settings]
+```
+
+- 2026-11-14. **The seed copied the kind by hand.** Wave 1 wrote Fines off and "Batch" straight into the demo branch, so the demo would drift the day the Coaching kind changed. Fix (#3937): the seed applies the kind and the spec reads the expected switches and words from `INSTITUTION_KINDS`. Rule candidate: a demo that shows a definition applies the definition, never a copy.
+
+Deferred, and where each item is tracked (nothing here is silently dropped):
+
+| Item                                                                                                                     | Where                                          |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| 42 namespaces still on stock words (the codemod continues)                                                               | #3929 (open)                                   |
+| `nav` text, `dashboard` and `teacherAssignments` strings still stock; the guide generator must resolve nesting first     | #3929, see Wave 5                              |
+| At-risk widget and `/reports/catalogue` ignore the module switch                                                         | #4125                                          |
+| Portal: a hidden-module URL shows a load error, not the refusal page                                                     | #4127                                          |
+| Attendance device routes ignore the Attendance module switch                                                             | #4120                                          |
+| e2e specs that read visibility or words are not protected from the settings-mutating journeys                            | #4132                                          |
+| CI production audit fails on the `@astrojs/node` advisory (site). Found while running the epic's CI, not caused by it    | #4133                                          |
+| Usability test with real admins (D36, four tasks, one coaching centre) is still open; no real user has tried the screens | #3904                                          |
+| Apply never turns a module On (D24), so "undo a kind" is done by hand on the Modules tab                                 | by design, Wave 4 note above                   |
+| Unchecked kinds: College, Qawmi madrasa, Technical (`verified: false`)                                                   | `docs/architecture/20-presets.md`              |
+| Route-status snapshot once showed extra rows, cause unknown                                                              | Wave 6 note above; watch CI on the stacked PRs |

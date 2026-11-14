@@ -11,6 +11,7 @@ import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
+import { GlobalModulesCard } from '../../../features/cockpit/school-360/modules-tab';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { QueuesTable } from './-queues-table';
@@ -25,7 +26,8 @@ import { SystemCard } from './-system-card';
 const REFRESH_MS = 30_000;
 
 export const Route = createFileRoute('/_platform/operations/')({
-  loader: () => loadRouteNamespaces('platformOperations', 'approval'),
+  // `school360` holds the module card's words, `settings` the module names (shared with the school).
+  loader: () => loadRouteNamespaces('platformOperations', 'approval', 'school360', 'settings'),
   component: OperationsPage,
 });
 
@@ -89,6 +91,7 @@ function OperationsPage() {
           }
         />
       )}
+      <GlobalModulesCard />
     </PageContainer>
   );
 }

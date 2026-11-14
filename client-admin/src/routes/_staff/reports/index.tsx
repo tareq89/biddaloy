@@ -46,6 +46,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { PlusIcon, StarIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { useModuleGate } from '../../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import {
@@ -187,6 +188,7 @@ function ReportsHubPage() {
   const { t: tDesigner } = useTranslation('reportDesigner');
   const { locale } = useLocale();
   const role = useActiveRole();
+  const moduleOn = useModuleGate();
   const canDesign = useHasPermission(Permission.REPORTS_DESIGN);
   const catalogue = useReportCatalogue();
   const [search, setSearch] = React.useState('');
@@ -224,7 +226,10 @@ function ReportsHubPage() {
       cards: folder.reports.map(defined),
     });
   }
-  const visibleCoded = visibleCodedReports((permission) => roleHasPermission(role, permission));
+  const visibleCoded = visibleCodedReports(
+    (permission) => roleHasPermission(role, permission),
+    moduleOn,
+  );
   for (const [folderId, title] of Object.entries(CODED_FOLDERS)) {
     const cards = visibleCoded.filter((r) => r.folder === folderId).map(coded);
     if (cards.length > 0)

@@ -1,9 +1,9 @@
 {
-  "title": "আমার শ্রেণি",
-  "empty": "আপনি এখনো কোনো শাখার শ্রেণি শিক্ষক নন — অ্যাডমিনকে জানান।",
-  "pickerSubtitle": "কোন শাখা দেখবেন, বাছুন।",
-  "sectionsHeading": "আপনার শাখা",
-  "emptyTitle": "এখনো কোনো শাখা নেই",
+  "title": "আমার $t(common:entities.class_one)",
+  "empty": "আপনি এখনো কোনো শাখার $t(common:entities.class_one) $t(common:entities.teacher_one) নন — অ্যাডমিনকে জানান।",
+  "pickerSubtitle": "কোন $t(common:entities.section_one) দেখবেন, বাছুন।",
+  "sectionsHeading": "আপনার $t(common:entities.section_one)",
+  "emptyTitle": "এখনো কোনো $t(common:entities.section_one) নেই",
   "loadError": "আপনার শাখার তালিকা আনা যায়নি।",
   "loading": "লোড হচ্ছে…",
   "retry": "আবার চেষ্টা করুন",
@@ -19,7 +19,7 @@
     "dues": "বকেয়া",
     "homework": "বাড়ির কাজ",
     "results": "ফলাফল",
-    "roster": "শিক্ষার্থী",
+    "roster": "$t(common:entities.student_one)",
     "arrival": "আগমন বার্তা",
     "notes": "মন্তব্য ও আচরণ",
     "groups": "গ্রুপ"
@@ -38,7 +38,7 @@
     "dues": "কোনো বকেয়া নেই।",
     "homework": "এখনও কোনো বাড়ির কাজ নেই।",
     "results": "এখনও কোনো ফলাফল নেই।",
-    "roster": "এই শাখায় কোনো শিক্ষার্থী নেই।"
+    "roster": "এই শাখায় কোনো $t(common:entities.student_one) নেই।"
   },
   "cardError": "এই কার্ডটি লোড করা যায়নি।",
   "roll": "রোল {{roll}}",
@@ -52,7 +52,7 @@
   "resultsSummary": {
     "average": "গড় নম্বর",
     "passRate": "পাসের হার",
-    "failed": "অকৃতকার্য শিক্ষার্থী"
+    "failed": "অকৃতকার্য $t(common:entities.student_one)"
   },
   "callGuardian": "{{name}}-এর অভিভাবককে ফোন করুন",
   "noPhone": "ফোন নেই",
@@ -62,14 +62,14 @@
   "absentCount_one": "{{n}} জন",
   "absentCount_other": "{{n}} জন",
   "duesTotal": "মোট বকেয়া",
-  "duesStudents": "শিক্ষার্থী",
+  "duesStudents": "$t(common:entities.student_one)",
   "studentCount_one": "{{n}} জন",
   "studentCount_other": "{{n}} জন",
   "arrival": {
     "waiting": "অপেক্ষায়",
     "on": "চালু",
     "waitingBadge": "{{n}}টি অপেক্ষায়",
-    "empty": "কোনো অভিভাবক এখনও আগমন বার্তা চাননি।",
+    "empty": "কোনো $t(common:entities.guardian_one) এখনও আগমন বার্তা চাননি।",
     "addYourself": "নিজে যোগ করুন",
     "once": "একবার",
     "everyDay": "প্রতিদিন",
@@ -85,16 +85,16 @@
     "dialog": {
       "title": "নিজে যোগ করুন",
       "description": "এই শাখার কোনো অভিভাবকের জন্য আগমন বার্তা চালু করুন।",
-      "student": "শিক্ষার্থী",
-      "guardian": "অভিভাবক",
+      "student": "$t(common:entities.student_one)",
+      "guardian": "$t(common:entities.guardian_one)",
       "how": "কত বার",
       "save": "যোগ করুন",
       "cancel": "বাতিল",
-      "noGuardians": "এই শিক্ষার্থীর এখনও কোনো অভিভাবক নেই।",
+      "noGuardians": "এই শিক্ষার্থীর এখনও কোনো $t(common:entities.guardian_one) নেই।",
       "error": "যোগ করা যায়নি। আবার চেষ্টা করুন।",
       "added": "আগমন বার্তা চালু হয়েছে"
     },
-    "notificationsOff": "অভিভাবক সব বার্তা বন্ধ রেখেছেন। কিছু পাঠানো হবে না।",
+    "notificationsOff": "$t(common:entities.guardian_one) সব বার্তা বন্ধ রেখেছেন। কিছু পাঠানো হবে না।",
     "disabled": "এই স্কুলে আগমন বার্তা বন্ধ আছে।"
   },
   "arrivalCount": "আগমন অনুরোধ ({{n}})",
@@ -113,7 +113,7 @@
     "forFinal": "চূড়ান্ত ফলাফল",
     "roll": "রোল",
     "remarkLabel": "শ্রেণিশিক্ষকের মন্তব্য",
-    "remarkPlaceholder": "শিক্ষার্থী সম্পর্কে এক-দুই লাইন লিখুন",
+    "remarkPlaceholder": "$t(common:entities.student_one) সম্পর্কে এক-দুই লাইন লিখুন",
     "charCount": "{{count}}/{{max}}",
     "conductLabel": "আচরণ ও সহশিক্ষা",
     "gradeOption": "গ্রেড {{grade}}",
@@ -124,7 +124,7 @@
     "saved": "সংরক্ষণ হয়েছে।",
     "saveError": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
     "loadError": "শিক্ষার্থীদের তালিকা লোড করা যায়নি।",
-    "empty": "এই শাখায় কোনো শিক্ষার্থী নেই।",
+    "empty": "এই শাখায় কোনো $t(common:entities.student_one) নেই।",
     "cancel": "বাতিল",
     "cardSummary": "{{target}} — {{done}} জনের দেওয়া, {{left}} জন বাকি",
     "cardNone": "এখনো চূড়ান্ত ফলাফল তৈরি হয়নি।",

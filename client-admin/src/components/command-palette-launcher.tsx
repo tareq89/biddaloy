@@ -31,7 +31,7 @@
  * check alone is not enough to gate a shortcut the sidebar wouldn't
  * already show.
  */
-import { Permission } from '@biddaloy/shared';
+import { ModuleKey, Permission } from '@biddaloy/shared';
 import {
   Button,
   CommandPalette,
@@ -44,6 +44,7 @@ import {
 import {
   hasPermission,
   useActiveRole,
+  useModuleResolver,
   useDebouncedValue,
   useEntityLabel,
   usePaletteSearch,
@@ -88,6 +89,13 @@ export function CommandPaletteLauncher({
   const { t, i18n } = useTranslation('nav');
   const navigate = useNavigate();
   const activeRole = useActiveRole();
+  // [77.3.1] D16: Ctrl+K never lists a page or action of a module that is off.
+  const moduleState = useModuleResolver();
+  const moduleOn = (module: ModuleKey | undefined) =>
+    module === undefined || moduleState(module).on;
+  const offModules = Object.values(ModuleKey)
+    .filter((key) => !moduleState(key).on)
+    .join();
   const signOutToLogin = useSignOutToLogin();
   const { pageHref: helpHref } = useHelp();
   const demo = useDemoMode();
@@ -301,7 +309,9 @@ export function CommandPaletteLauncher({
       rankByMatch(
         items
           .filter(
-            (item) => item.permission === undefined || hasPermission(activeRole, item.permission),
+            (item) =>
+              moduleOn(item.module) &&
+              (item.permission === undefined || hasPermission(activeRole, item.permission)),
           )
           .map((item) => ({ item, label: resolveNavLabel(item.label, 'items') }))
           .filter(({ item, label }) => matchesNavSearch(label, item.synonyms, trimmedQuery))
@@ -317,7 +327,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled, helpHref]);
+  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled, helpHref, offModules]);
 
   // Action tab — `ACTIONS` (30.4.2), one section per nav group. Hidden when
   // the role lacks the permission; *disabled with a reason* (not hidden) when
@@ -357,6 +367,7 @@ export function CommandPaletteLauncher({
           .filter(
             (action) =>
               action.group === 'top' &&
+              moduleOn(action.module) &&
               (action.permission === null || hasPermission(activeRole, action.permission)) &&
               (action.id !== HELP_ACTION_ID || helpHref !== null) &&
               (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
@@ -376,6 +387,7 @@ export function CommandPaletteLauncher({
             .filter(
               (action) =>
                 action.group === group.id &&
+                moduleOn(action.module) &&
                 (action.permission === null || hasPermission(activeRole, action.permission)) &&
                 (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
                 matchesNavSearch(action.label[locale], action.synonyms, trimmedQuery),
@@ -386,7 +398,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions, helpHref]);
+  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions, helpHref, offModules]);
 
   const peopleTab: CommandPaletteTab = {
     id: 'people',

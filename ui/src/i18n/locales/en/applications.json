@@ -1,12 +1,12 @@
 {
   "types": {
     "STAFF_LEAVE": "Staff leave",
-    "STUDENT_LEAVE": "Student leave",
+    "STUDENT_LEAVE": "$t(common:entities.student_one) leave",
     "FEE_WAIVER": "Fee waiver",
     "TESTIMONIAL": "Testimonial",
     "TRANSFER_CERTIFICATE": "Transfer certificate (TC)",
     "READMISSION": "Readmission",
-    "SECTION_CHANGE": "Section change",
+    "SECTION_CHANGE": "$t(common:entities.section_one) change",
     "SCRIPT_RECHECK": "Script recheck",
     "ID_CARD_REPRINT": "ID card reprint",
     "GENERAL": "General application"
@@ -25,13 +25,13 @@
     "OTHER": "Other"
   },
   "addressees": {
-    "CLASS_TEACHER": "Class teacher",
+    "CLASS_TEACHER": "$t(common:entities.class_one) teacher",
     "HEADMASTER": "Headmaster",
     "OFFICE": "Office",
     "STAFF_USER": "A specific staff member"
   },
   "steps": {
-    "CLASS_TEACHER": "Class teacher",
+    "CLASS_TEACHER": "$t(common:entities.class_one) teacher",
     "ADDRESSEE": "{{name}}",
     "PERMISSION_LEAVE_APPROVE": "Leave approver",
     "PERMISSION_DISCOUNT_RULE_MANAGE": "Accounts",

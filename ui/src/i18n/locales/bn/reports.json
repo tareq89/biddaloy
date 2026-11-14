@@ -104,14 +104,14 @@
     "reset": "আবার শুরু থেকে",
     "change": "বদলান",
     "required": "আবশ্যক",
-    "allClasses": "সব শ্রেণি",
-    "allSections": "সব শাখা",
+    "allClasses": "সব $t(common:entities.class_one)",
+    "allSections": "সব $t(common:entities.section_one)",
     "from": "শুরুর তারিখ",
     "to": "শেষ তারিখ",
     "missing": {
       "ACADEMIC_YEAR": "একটি শিক্ষাবর্ষ বেছে নিন",
-      "CLASS": "একটি শ্রেণি বেছে নিন",
-      "SECTION": "একটি শাখা বেছে নিন",
+      "CLASS": "একটি $t(common:entities.class_one) বেছে নিন",
+      "SECTION": "একটি $t(common:entities.section_one) বেছে নিন",
       "DATE": "একটি তারিখ বেছে নিন",
       "DATE_RANGE": "প্রথম ও শেষ তারিখ বেছে নিন",
       "ENUM": "একটি বেছে নিন",
@@ -157,7 +157,7 @@
     "truncated": "শুধু প্রথম {{n}}টি সারি দেখানো হচ্ছে। বাকিটা দেখতে বাছাই ছোট করুন।",
     "empty": {
       "title": "এই বাছাইয়ে কেউ মেলেনি",
-      "explanation": "অন্য শ্রেণি বেছে দেখুন, অথবা ওপরের বাছাই বদলান।"
+      "explanation": "অন্য $t(common:entities.class_one) বেছে দেখুন, অথবা ওপরের বাছাই বদলান।"
     },
     "errors": {
       "slow": "রিপোর্টটি আসতে বেশি সময় লাগছে। ফিল্টার ছোট করুন, তারপর আবার চেষ্টা করুন।",
@@ -181,15 +181,15 @@
     "picker": {
       "title": "যা যা লাগবে বেছে নিন",
       "searchLabel": "খুঁজুন",
-      "searchPlaceholder": "খুঁজুন: নাম, শ্রেণি, ফি…",
+      "searchPlaceholder": "খুঁজুন: নাম, $t(common:entities.class_one), ফি…",
       "found": "{{n}}টি পাওয়া গেছে",
       "noMatch": "কিছু পাওয়া যায়নি। অন্য শব্দ লিখে দেখুন।",
       "empty": "এখানে বেছে নেওয়ার মতো কিছু নেই",
       "remove": "সরান",
       "topics": {
         "student": "ছাত্র",
-        "class": "শ্রেণি ও শাখা",
-        "guardian": "অভিভাবক",
+        "class": "$t(common:entities.class_one) ও $t(common:entities.section_one)",
+        "guardian": "$t(common:entities.guardian_one)",
         "fee": "ফি",
         "payment": "পেমেন্ট",
         "attendance": "হাজিরা",
@@ -204,7 +204,7 @@
       },
       "hints": {
         "show": "এখানে যা রাখবেন, রিপোর্টে সেটাই দেখা যাবে।",
-        "split": "এখানে যা রাখবেন, তার ভিত্তিতে ভাগ হবে। যেমন শ্রেণি।",
+        "split": "এখানে যা রাখবেন, তার ভিত্তিতে ভাগ হবে। যেমন $t(common:entities.class_one)।",
         "count": "কতজন বা কত টাকা, তা এখানে রাখুন।"
       },
       "lock": {
@@ -253,8 +253,8 @@
       "dependsNone": "কিছুর ওপর নয়",
       "types": {
         "ACADEMIC_YEAR": "শিক্ষাবর্ষ",
-        "CLASS": "শ্রেণি",
-        "SECTION": "শাখা",
+        "CLASS": "$t(common:entities.class_one)",
+        "SECTION": "$t(common:entities.section_one)",
         "DATE": "তারিখ",
         "DATE_RANGE": "তারিখের সীমা",
         "ENUM": "তালিকা থেকে একটি",
@@ -398,9 +398,9 @@
     "dismiss": "এই কার্ড লুকান",
     "thisYear": "এই শিক্ষাবর্ষে এখনো খোলা হয়নি।",
     "lines": {
-      "student-list": "প্রতিটি বর্তমান ছাত্রছাত্রী: শ্রেণি, শাখা ও অভিভাবকের ফোনসহ।",
+      "student-list": "প্রতিটি বর্তমান ছাত্রছাত্রী: $t(common:entities.class_one), $t(common:entities.section_one) ও অভিভাবকের ফোনসহ।",
       "student-count-banbeis": "প্রতিটি শ্রেণিতে কতজন ছাত্র ও ছাত্রী, ধর্ম অনুযায়ী।",
-      "staff-by-type-gender": "পদবি অনুযায়ী কতজন শিক্ষক ও কর্মচারী আছেন।",
+      "staff-by-type-gender": "পদবি অনুযায়ী কতজন $t(common:entities.teacher_one) ও কর্মচারী আছেন।",
       "public-exam-results": "প্রতিটি পাবলিক পরীক্ষা ও সালে কতজন অংশ নিয়েছে ও কতজন পাস করেছে।",
       "defaulters-guardian-contact": "যাদের বিল বাকি, কত বাকি এবং কাকে ফোন করবেন।"
     }

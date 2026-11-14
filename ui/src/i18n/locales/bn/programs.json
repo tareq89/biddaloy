@@ -7,7 +7,7 @@
     "columns": {
       "name": "নাম",
       "milestones": "মাইলস্টোন",
-      "activeStudents": "সক্রিয় শিক্ষার্থী",
+      "activeStudents": "সক্রিয় $t(common:entities.student_one)",
       "reportCard": "রিপোর্ট কার্ডে",
       "status": "অবস্থা"
     },
@@ -23,11 +23,11 @@
     "archivedBadge": "আর্কাইভড",
     "tabs": {
       "milestones": "মাইলস্টোন",
-      "students": "শিক্ষার্থী",
+      "students": "$t(common:entities.student_one)",
       "programs": "প্রোগ্রাম"
     },
     "factMilestones": "মাইলস্টোন",
-    "factActiveStudents": "সক্রিয় শিক্ষার্থী",
+    "factActiveStudents": "সক্রিয় $t(common:entities.student_one)",
     "factReportCard": "রিপোর্ট কার্ডে",
     "milestoneCount_one": "{{n}}টি",
     "milestoneCount_other": "{{n}}টি",
@@ -57,7 +57,7 @@
     "unarchive": "আর্কাইভ থেকে ফেরান",
     "delete": "মুছে ফেলুন",
     "deleteConfirm": "এই প্রোগ্রাম মুছবেন? এটি ফেরানো যাবে না।",
-    "deleteConflict": "এই প্রোগ্রামে শিক্ষার্থী তালিকাভুক্ত আছে — মোছার বদলে আর্কাইভ করুন।",
+    "deleteConflict": "এই প্রোগ্রামে $t(common:entities.student_one) তালিকাভুক্ত আছে — মোছার বদলে আর্কাইভ করুন।",
     "deleteConfirmButton": "মুছে ফেলুন"
   },
   "milestones": {
@@ -87,27 +87,27 @@
   },
   "dialogs": {
     "enrol": {
-      "title": "শিক্ষার্থী তালিকাভুক্ত করুন",
-      "class": "শ্রেণি",
-      "section": "শাখা",
-      "students": "শিক্ষার্থী",
+      "title": "$t(common:entities.student_one) তালিকাভুক্ত করুন",
+      "class": "$t(common:entities.class_one)",
+      "section": "$t(common:entities.section_one)",
+      "students": "$t(common:entities.student_one)",
       "startedOn": "শুরুর তারিখ",
-      "skipped_one": "{{n}} জন শিক্ষার্থী আগেই তালিকাভুক্ত, বাদ দেওয়া হয়েছে।",
-      "skipped_other": "{{n}} জন শিক্ষার্থী আগেই তালিকাভুক্ত, বাদ দেওয়া হয়েছে।",
+      "skipped_one": "{{n}} জন $t(common:entities.student_one) আগেই তালিকাভুক্ত, বাদ দেওয়া হয়েছে।",
+      "skipped_other": "{{n}} জন $t(common:entities.student_one) আগেই তালিকাভুক্ত, বাদ দেওয়া হয়েছে।",
       "errorMessage": "শিক্ষার্থীদের তালিকাভুক্ত করা যায়নি",
-      "pickClassFirst": "শিক্ষার্থী দেখতে আগে শ্রেণি বাছুন।"
+      "pickClassFirst": "$t(common:entities.student_one) দেখতে আগে $t(common:entities.class_one) বাছুন।"
     },
     "record": {
       "title": "অর্জন রেকর্ড করুন",
       "milestone": "মাইলস্টোন",
-      "students": "শিক্ষার্থী",
+      "students": "$t(common:entities.student_one)",
       "achievedOn": "অর্জনের তারিখ",
       "score": "স্কোর",
       "grade": "গ্রেড",
       "remark": "মন্তব্য",
       "save": "সংরক্ষণ করুন",
       "errorMessage": "অর্জন রেকর্ড করা যায়নি",
-      "noStudents": "এই প্রোগ্রামে কোনো সক্রিয় শিক্ষার্থী নেই।",
+      "noStudents": "এই প্রোগ্রামে কোনো সক্রিয় $t(common:entities.student_one) নেই।",
       "scoreInvalid": "নম্বর সংখ্যায় লিখুন।"
     },
     "program": "প্রোগ্রাম",
@@ -126,9 +126,9 @@
     "loadError": "এই শিক্ষার্থীর প্রোগ্রাম লোড করা যায়নি"
   },
   "studentTab": {
-    "empty": "এই প্রোগ্রামে এখনও কোনো শিক্ষার্থী তালিকাভুক্ত নেই",
-    "listLabel": "তালিকাভুক্ত শিক্ষার্থী",
-    "emptyExplanation": "শিক্ষার্থী তালিকাভুক্ত করলে তাদের অগ্রগতি এখানে দেখা যাবে।"
+    "empty": "এই প্রোগ্রামে এখনও কোনো $t(common:entities.student_one) তালিকাভুক্ত নেই",
+    "listLabel": "তালিকাভুক্ত $t(common:entities.student_one)",
+    "emptyExplanation": "$t(common:entities.student_one) তালিকাভুক্ত করলে তাদের অগ্রগতি এখানে দেখা যাবে।"
   },
   "portal": {
     "title": "প্রোগ্রাম",
@@ -146,7 +146,7 @@
   },
   "actions": {
     "add": "প্রোগ্রাম যোগ করুন",
-    "enrol": "শিক্ষার্থী তালিকাভুক্ত করুন",
+    "enrol": "$t(common:entities.student_one) তালিকাভুক্ত করুন",
     "record": "অর্জন রেকর্ড করুন"
   },
   "fields": {

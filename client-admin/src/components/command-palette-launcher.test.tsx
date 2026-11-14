@@ -323,6 +323,26 @@ describe('CommandPaletteLauncher', () => {
     expect(text.indexOf('Student dues')).toBeLessThan(text.indexOf('Fee structures'));
   });
 
+  it('[77.3.1] an off module is gone from both the Page and the Action tab (D16)', async () => {
+    server.use(
+      http.get('/api/v1/schools/me/profile', () =>
+        HttpResponse.json({
+          modules: { platform: {}, school: { fines: { on: false } } },
+          labels: {},
+        }),
+      ),
+    );
+    const { user } = await openPalette();
+    await user.keyboard('{Control>}3{/Control}');
+    // Fees stay on, so the Action list is loaded; only the fines action is gone.
+    await screen.findByRole('option', { name: /Create fee bills/ });
+    expect(screen.queryByRole('option', { name: /Waive fine/ })).toBeNull();
+
+    await user.keyboard('{Control>}2{/Control}');
+    await screen.findByRole('option', { name: /Student dues/ });
+    expect(screen.queryByRole('option', { name: /^Fines/ })).toBeNull();
+  });
+
   it('Action tab shows context actions disabled with a reason; click does nothing', async () => {
     const { user } = await openPalette();
     await user.keyboard('{Control>}3{/Control}');

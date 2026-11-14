@@ -28,7 +28,11 @@ import { School } from './entities/school.entity';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { localToday } from '../attendance/attendance-policy.util';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
-import { mergeModulesLabels, resolveTenantSettings } from './settings/tenant-settings-resolver';
+import {
+  keepModuleLocks,
+  mergeModulesLabels,
+  resolveTenantSettings,
+} from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
@@ -426,6 +430,8 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
     isPlatformAdmin = false,
+    /** Runs inside the settings transaction, so its writes commit or roll back with the update. */
+    inTransaction?: (manager: EntityManager) => Promise<void>,
   ): Promise<Record<string, unknown>> {
     // [33.3.1] `organisationRenames` rides alongside the PATCH as a write
     // instruction, not a stored setting — pulled out of the plain patch
@@ -508,7 +514,8 @@ export class SchoolsService {
       ] as const) {
         if (patch === undefined) continue;
         const before = storedBlocks[name] ?? {};
-        const after = mergeModulesLabels(before, patch);
+        const merged = mergeModulesLabels(before, patch);
+        const after = name === 'modules' ? keepModuleLocks(before, merged) : merged;
         mergedSettings[name] = after;
         if (JSON.stringify(before) !== JSON.stringify(after)) {
           blockAudits.push({ action, before, after });
@@ -537,6 +544,7 @@ export class SchoolsService {
         (modulesPatch !== undefined || labelsPatch !== undefined) &&
         Object.keys(plainPatch).every((k) => k === 'version')
       ) {
+        await inTransaction?.(manager);
         return school.settings;
       }
 
@@ -571,6 +579,7 @@ export class SchoolsService {
         manager,
       );
 
+      await inTransaction?.(manager);
       return school.settings;
     });
 

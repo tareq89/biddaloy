@@ -5,7 +5,7 @@
     "profile": "স্কুলের পরিচয়",
     "structure": "ক্লাস",
     "sections": "সেকশন",
-    "students": "শিক্ষার্থী",
+    "students": "$t(common:entities.student_one)",
     "staff": "কর্মী",
     "feeStructures": "ফি",
     "guardianInvites": "অভিভাবকদের ডাকুন",

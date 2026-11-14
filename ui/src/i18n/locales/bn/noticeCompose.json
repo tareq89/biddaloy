@@ -61,7 +61,7 @@
     "readOnly": "প্রকাশের পর কারা পাবে তা বদলানো যায় না।",
     "tabs": {
       "guardians": "অভিভাবক",
-      "staff": "সব শিক্ষক/স্টাফ",
+      "staff": "সব $t(common:entities.teacher_one)/স্টাফ",
       "students": "ছাত্র",
       "named": "নাম ধরে",
       "examFailed": "পরীক্ষায় ফেল",
@@ -71,7 +71,7 @@
     },
     "filters": {
       "class": "শ্রেণি",
-      "section": "শাখা",
+      "section": "$t(common:entities.section_one)",
       "roles": "ভূমিকা",
       "kind": "কাকে খুঁজবেন",
       "kindStaff": "স্টাফ",
@@ -79,7 +79,7 @@
       "name": "নাম",
       "target": "কাদের পাঠাবেন",
       "targetStudents": "ছাত্রছাত্রী",
-      "targetGuardians": "অভিভাবক",
+      "targetGuardians": "$t(common:entities.guardian_one)",
       "exam": "পরীক্ষা",
       "belowPercent": "উপস্থিতি এর নিচে (%)",
       "shift": "শিফট",
@@ -88,7 +88,7 @@
     },
     "columns": {
       "name": "নাম",
-      "detail": "শ্রেণি বা ভূমিকা",
+      "detail": "$t(common:entities.class_one) বা ভূমিকা",
       "contact": "যোগাযোগ"
     },
     "reach": {
@@ -106,7 +106,7 @@
       "COMMITTEE": "কমিটি"
     },
     "loadError": "তালিকা আনা যায়নি",
-    "pickClass": "মানুষ দেখতে একটি শ্রেণি বাছুন।",
+    "pickClass": "মানুষ দেখতে একটি $t(common:entities.class_one) বাছুন।",
     "pickRole": "মানুষ দেখতে একটি ভূমিকা বাছুন।",
     "examsLoading": "পরীক্ষা আনা হচ্ছে...",
     "examsError": "পরীক্ষা আনা যায়নি। আবার চেষ্টা করুন।",

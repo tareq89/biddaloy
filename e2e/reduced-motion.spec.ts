@@ -1,4 +1,5 @@
-import { expect, guest, loggedIn, test } from './fixtures/test';
+import { expect, guest, loggedIn } from './fixtures/test';
+import { test } from './fixtures/settings-lock';
 import { makeT } from './i18n';
 import { ListShellPage } from './pages/list-shell';
 

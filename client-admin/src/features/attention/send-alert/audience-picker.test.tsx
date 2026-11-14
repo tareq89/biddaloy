@@ -104,7 +104,7 @@ describe('AudiencePicker', () => {
     let latest: ManualAudience = {};
     renderPicker((v) => (latest = v));
 
-    await user.click(await screen.findByRole('checkbox', { name: 'Students of sections' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Students of Sections' }));
     await user.click(await screen.findByRole('combobox', { name: 'Add a section' }));
     await user.click(await screen.findByRole('option', { name: 'Class 7 – A' }));
     await waitFor(() => expect(latest).toEqual({ sectionIds: ['s1'] }));

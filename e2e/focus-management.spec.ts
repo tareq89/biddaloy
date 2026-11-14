@@ -1,4 +1,5 @@
-import { expect, loggedIn, test } from './fixtures/test';
+import { expect, loggedIn } from './fixtures/test';
+import { test } from './fixtures/settings-lock';
 
 /**
  * [8.9.7]'s three ACs only a real browser can prove:
