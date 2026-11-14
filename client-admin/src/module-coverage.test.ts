@@ -79,6 +79,7 @@ const CORE_ACTION_PREFIX: Record<string, CoreArea> = {
   account: 'settings',
   settings: 'settings',
   billing: 'settings',
+  'sms-bundle': 'settings',
   presets: 'settings',
   students: 'students',
   guardians: 'guardians',
