@@ -372,3 +372,45 @@ sequenceDiagram
 - A new Idempotency-Key is made whenever the coupon, the package or a rejected submit changes the request body.
 - The red "SMS almost finished" notice needed no client code: the attention card already renders the server rule's `actionUrl`. A test proves it (#3879).
 - Not done here: the human usability test (tasks d and e) and the bn copy check; see #3844 and #3891.
+
+## Money map: every order in one picture (Epic 100)
+
+Read this first. The sections above explain each box.
+
+```mermaid
+flowchart TD
+  subgraph Price
+    PL[Plan: price per seat<br/>GET/POST /platform/plans]
+    PK[SMS package: units, price, validity<br/>/platform/sms-packages]
+    CP[Coupon: percent 1-99, or 100 = free<br/>/platform/coupons]
+  end
+  PL --> SO[Seat order<br/>POST /billing/orders]
+  PK --> BO[Package order<br/>POST /sms-bundles/orders]
+  CP -. seats only, first months of one order .-> SO
+  SO --> AMT{amount to pay}
+  BO --> AMT
+  AMT -->|0| FREE[PAID at once, method COUPON, no bKash]
+  AMT -->|above 0| PAY[bKash or offline payment]
+  FREE --> RCPT
+  PAY --> RCPT[Receipt SMR-YYYY-NNNNNN<br/>VAT line frozen at payment]
+  RCPT --> RF{owner refund?}
+  RF -->|seat order, amount above 0| R1[REFUNDED, seats recomputed]
+  RF -->|package, no unit used| R2[lot REFUNDED]
+  RF -->|package, a unit was drawn| X1[409 BUNDLE_ALREADY_USED]
+  RF -->|free by coupon| X2[409 ORDER_NOT_REFUNDABLE]
+  R1 --> BK[Money goes back in the bKash panel, by hand]
+  R2 --> BK
+```
+
+Worked example, whole paisa (no decimals anywhere): 200 seats, 3 months, plan 1000 paisa, `DEMO-HALF` is 50%.
+
+| Step | Paisa |
+|---|---|
+| List price: 200 x 3 x 1000 | 600000 |
+| Discount: 50% of 600000 | 300000 |
+| To pay (prices include VAT) | 300000 |
+| VAT inside it at 15% (display only): 300000 minus floor(300000 x 100 / 115) | 39131 |
+
+With a 100% coupon the same order is `0` to pay: it is `PAID` at once, the receipt says "free by coupon", and refund answers `409`.
+
+**Deviation from the first plan:** a free order is not refundable. The owner decided that next month the school pays or the operation stops (#4126). Route names above are checked against the controllers in `server/src/modules/billing/`, `coupons/`, `sms-bundles/`.
