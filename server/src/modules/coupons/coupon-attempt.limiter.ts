@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { COUPON_FAIL_LIMIT, COUPON_FAIL_WINDOW_MINUTES } from '@biddaloy/shared';
 
 export interface CouponAttemptRedis {
@@ -11,7 +11,7 @@ export interface CouponAttemptRedis {
 const KEY_PREFIX = 'coupon-fails:';
 const WINDOW_MS = COUPON_FAIL_WINDOW_MINUTES * 60_000;
 
-/** The one answer for "too many wrong tries" and for "cannot tell because Redis is down". */
+/** The answer for "too many wrong tries" (429). */
 export function couponTryLater(): HttpException {
   return new HttpException(
     {
@@ -26,7 +26,7 @@ export function couponTryLater(): HttpException {
  * [Epic 100 D23, D29] Wrong-code tries per school: COUPON_FAIL_LIMIT in COUPON_FAIL_WINDOW_MINUTES,
  * then 429. A success does not reset the count. Preview and redeem both call `assertAllowed`
  * before and `recordFailure` after a refusal. Unlike the login limiter this FAILS CLOSED: with
- * Redis down `assertAllowed` throws the same 429, so a coupon cannot be brute-forced during an outage.
+ * Redis down `assertAllowed` throws 503 (Rule 15: the limit cannot be checked, so no try), so a coupon cannot be brute-forced during an outage.
  */
 export class CouponAttemptLimiter {
   private readonly logger = new Logger(CouponAttemptLimiter.name);
@@ -39,7 +39,10 @@ export class CouponAttemptLimiter {
       count = Number((await this.redis.get(KEY_PREFIX + schoolId)) ?? 0);
     } catch (error) {
       this.logger.error(`Coupon limiter unavailable, failing closed: ${String(error)}`);
-      throw couponTryLater();
+      throw new ServiceUnavailableException({
+        message: 'Try again in a few minutes.',
+        details: { code: 'COUPON_CHECK_UNAVAILABLE' },
+      });
     }
     if (count >= COUPON_FAIL_LIMIT) throw couponTryLater();
   }

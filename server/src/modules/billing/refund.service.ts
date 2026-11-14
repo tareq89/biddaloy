@@ -40,7 +40,7 @@ export class RefundService {
     private readonly notices: MoneyNoticesService,
   ) {}
 
-  /** PAID -> REFUNDED, once. Later orders keep their periods (D44). */
+  /** PAID -> REFUNDED, once. Later orders keep their periods (D44). A zero-amount order (grant or 100% coupon) has nothing to pay back: 409. */
   async refundSeatOrder(
     orderId: string,
     reason: string,
@@ -57,7 +57,7 @@ export class RefundService {
       const [rows]: [{ amount_paisa: string }[], number] = await m.query(
         `UPDATE seat_orders SET status = $2, refunded_at = now(), refund_reason = $3,
                 refunded_by_user_id = $4
-          WHERE id = $1 AND status = $5 AND unit_price_paisa > 0
+          WHERE id = $1 AND status = $5 AND amount_paisa > 0
           RETURNING amount_paisa::text AS amount_paisa`,
         [orderId, SeatOrderStatus.REFUNDED, reason, actorUserId, SeatOrderStatus.PAID],
       );
