@@ -20,6 +20,7 @@ import {
   parseServerDate,
   serverAmountToMinorUnits,
 } from '@biddaloy/ui/utils';
+import { Link } from '@tanstack/react-router';
 
 import { DiscountCell } from './discount-cell';
 
@@ -71,6 +72,7 @@ export function CartTable({
   amountDueMinorUnits,
 }: CartTableProps) {
   const { t } = useTranslation('payments');
+  const { t: tOnline } = useTranslation('onlinePayments');
   const allBills = students.flatMap((student) => student.bills);
 
   if (allBills.length === 0) {
@@ -130,6 +132,15 @@ export function CartTable({
                   >
                     <div className="col-span-2 flex flex-wrap items-center gap-2 md:col-span-1">
                       <span className="font-medium">{bill.fee_name}</span>
+                      {bill.waiting_submission && (
+                        <Link
+                          to="/payments/online/$id"
+                          params={{ id: bill.waiting_submission.id }}
+                          className="rounded-full bg-status-partial-bg px-2 py-0.5 text-label text-status-partial-fg underline-offset-2 hover:underline"
+                        >
+                          {tOnline('record.waitingTag')}
+                        </Link>
+                      )}
                       {bill.is_late_fee && (
                         <span className="rounded-full bg-status-due-bg px-2 py-0.5 text-label text-status-due-fg">
                           {t('record.cart.lateFee')}

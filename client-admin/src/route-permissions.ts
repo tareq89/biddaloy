@@ -92,6 +92,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // read-only list); it is gated like that list will be, the same as `/payments/$id`.
   '/_staff/payments/': Permission.PAYMENT_READ,
   '/_staff/payments/record': Permission.PAYMENT_RECORD,
+  '/_staff/payments/online/': Permission.PAYMENT_RECORD,
+  '/_staff/payments/online/$id': Permission.PAYMENT_RECORD,
   // [16.6.2] the payment detail page — gated on the read permission, not
   // `PAYMENT_RECORD`, since viewing a past payment's allocations/reversal
   // state is a distinct capability from recording a new one.

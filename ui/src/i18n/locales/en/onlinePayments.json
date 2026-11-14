@@ -3,6 +3,7 @@
   "subtitle": "Payment proofs that guardians have sent and that need your answer.",
   "tabsLabel": "Online payment lists",
   "tabs": { "waiting": "Waiting for confirmation" },
+  "record": { "waitingTag": "Waiting for confirmation" },
   "list": {
     "caption": "Payment proofs waiting for confirmation",
     "count_one": "{{count}} payment proof waiting",
