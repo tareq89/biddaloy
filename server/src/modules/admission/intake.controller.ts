@@ -2,7 +2,9 @@ import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -18,6 +20,8 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { IntakeService } from './intake.service';
+import { AdmissionStageService } from './admission-stage.service';
+import { CreateStageDto, UpdateStageDto } from './dto/stage.dto';
 import { CreateIntakeDto } from './dto/create-intake.dto';
 import { UpdateIntakeDto } from './dto/update-intake.dto';
 
@@ -30,7 +34,10 @@ import { UpdateIntakeDto } from './dto/update-intake.dto';
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.ADMISSION_REVIEW)
 export class IntakeController {
-  constructor(private readonly intakes: IntakeService) {}
+  constructor(
+    private readonly intakes: IntakeService,
+    private readonly stages: AdmissionStageService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Open a new admission intake window for a class section.' })
@@ -70,5 +77,46 @@ export class IntakeController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.intakes.close(id, tenant.id);
+  }
+
+  @Get(':id/stages')
+  @ApiOperation({ summary: 'List the stages of a round, in order.' })
+  listStages(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.stages.list(id, tenant.id);
+  }
+
+  @Post(':id/stages')
+  @ApiOperation({ summary: 'Add a stage at the end of a round.' })
+  createStage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateStageDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.stages.create(id, dto, tenant.id);
+  }
+
+  @Patch(':id/stages/:stageId')
+  @ApiOperation({ summary: 'Edit a stage of a round.' })
+  updateStage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @Body() dto: UpdateStageDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.stages.update(id, stageId, dto, tenant.id);
+  }
+
+  @Delete(':id/stages/:stageId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a stage that has no results (409 otherwise).' })
+  removeStage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.stages.remove(id, stageId, tenant.id);
   }
 }

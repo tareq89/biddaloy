@@ -1,4 +1,5 @@
 DELETE /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+DELETE /admission-intakes/:id/stages/:stageId | IntakeController | perm: ADMISSION_REVIEW
 DELETE /admission/applicants/:id/documents | ApplicantReviewController | perm: ADMISSION_REVIEW
 DELETE /applications/:id/attachments/:attachmentId | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
 DELETE /attendance/devices/:id | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
@@ -79,6 +80,7 @@ GET /acr/criteria | AcrCriteriaController | perm: ACR_READ
 GET /acr/staff/:userId | AcrAssessmentsController | perm: ACR_READ
 GET /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
 GET /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
+GET /admission-intakes/:id/stages | IntakeController | perm: ADMISSION_REVIEW
 GET /admission/applicants | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id/documents/:type | ApplicantReviewController | perm: ADMISSION_REVIEW
@@ -514,6 +516,7 @@ PATCH /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
 PATCH /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
 PATCH /admission-intakes/:id/close | IntakeController | perm: ADMISSION_REVIEW
+PATCH /admission-intakes/:id/stages/:stageId | IntakeController | perm: ADMISSION_REVIEW
 PATCH /attendance/arrival-subscriptions/:id | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_MANAGE
 PATCH /attendance/arrival-subscriptions/:id/lock | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_LOCK
 PATCH /attendance/records/:recordId | AttendanceController | perm: ATTENDANCE_MARK
@@ -601,6 +604,7 @@ POST /acr/assessments | AcrAssessmentsController | perm: ACR_WRITE
 POST /acr/assessments/:id/complete | AcrAssessmentsController | perm: ACR_WRITE
 POST /acr/assessments/:id/reopen | AcrAssessmentsController | perm: ACR_WRITE
 POST /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
+POST /admission-intakes/:id/stages | IntakeController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/admit | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW

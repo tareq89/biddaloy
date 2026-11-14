@@ -83,6 +83,14 @@ export function homeworkTargetTaken(): ConflictException {
   });
 }
 
+// [#4172] A pipeline stage that already holds applicant results cannot be removed. Fixed text, no ids.
+export function admissionStageHasResults(): ConflictException {
+  return new ConflictException({
+    message: 'This stage has results and cannot be deleted',
+    details: { code: 'ADMISSION_STAGE_HAS_RESULTS' },
+  });
+}
+
 function mapHomeworkActiveUnique(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;
   const { code, constraint } = exception.driverError as { code?: string; constraint?: string };

@@ -262,6 +262,11 @@ import { StudentPublicExam } from './modules/students/entities/student-public-ex
 import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
+import { AdmissionStage } from './modules/admission/entities/admission-stage.entity';
+import { AdmissionStageResult } from './modules/admission/entities/admission-stage-result.entity';
+import { AdmissionList } from './modules/admission/entities/admission-list.entity';
+import { AdmissionListMember } from './modules/admission/entities/admission-list-member.entity';
+import { AdmissionFeeProof } from './modules/admission/entities/admission-fee-proof.entity';
 import { PromotionRun } from './modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from './modules/promotions/entities/promotion-entry.entity';
 
@@ -389,6 +394,11 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             AdmissionIntake,
             AdmissionApplicant,
             AdmissionEvaluation,
+            AdmissionStage,
+            AdmissionStageResult,
+            AdmissionList,
+            AdmissionListMember,
+            AdmissionFeeProof,
             SeatPlan,
             SeatPlanSchedule,
             SeatAllocation,
