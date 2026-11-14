@@ -67,6 +67,7 @@ export {
   type RoutineGridCell,
 } from './routine-grid';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
+export { ImageViewer, type ImageViewerFile, type ImageViewerProps } from './image-viewer';
 export {
   BulkUploadPreview,
   type BulkUploadPreviewProps,
