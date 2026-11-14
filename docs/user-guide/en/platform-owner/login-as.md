@@ -26,7 +26,7 @@ Open a school the way one of its people sees it, so you can find out what went w
 **Go to:** **Schools** in the console's left menu, then press the school. You can also start from **Users**.
 **Before you start:** be a platform owner with two-step sign-in on ([Recovery codes and two-step sign-in](recovery-codes.md)). Have your authenticator app ready.
 
-Every school decides whether Biddaloy support may log in: **Allowed**, **Ask each time** or **Blocked**. What you do next depends on that choice. Everything you do is written in the school's list and in the [audit](school-control.md#task-audit).
+Every school decides whether SchoolManager support may log in: **Allowed**, **Ask each time** or **Blocked**. What you do next depends on that choice. Everything you do is written in the school's list and in the [audit](school-control.md#task-audit).
 
 [Log in as someone](#task-main) · [The three choices of a school](#task-states) · [Emergency access](#task-emergency) · [End the visit](#task-end) · [Problems and fixes](#trouble)
 
@@ -72,9 +72,9 @@ Every school decides whether Biddaloy support may log in: **Allowed**, **Ask eac
 
 | What you see                                                    | What it means                                    | What next                               |
 | --------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------- |
-| A new tab with the banner "Biddaloy support, as (name), (role)" | You are inside the school                        | Do the work, then press **End**         |
+| A new tab with the banner "SchoolManager support, as (name), (role)" | You are inside the school                        | Do the work, then press **End**         |
 | **Waiting for approval**                                        | The school asks every time; its admins were told | Wait; see below                         |
-| **This school does not allow Biddaloy support access.**         | The school chose **Blocked**                     | See [Emergency access](#task-emergency) |
+| **This school does not allow SchoolManager support access.**         | The school chose **Blocked**                     | See [Emergency access](#task-emergency) |
 
 ---
 
@@ -86,7 +86,7 @@ Every school decides whether Biddaloy support may log in: **Allowed**, **Ask eac
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Allowed**       | After your code, the school opens in a new tab at once.                                                                                                            |
 | **Ask each time** | The box shows **Waiting for approval. We told the school admins.** and **Time left 24 h**. When an admin approves, the school opens. Press **Cancel** to withdraw. |
-| **Blocked**       | The box says "This school does not allow Biddaloy support access." Only [emergency access](#task-emergency) is left.                                               |
+| **Blocked**       | The box says "This school does not allow SchoolManager support access." Only [emergency access](#task-emergency) is left.                                               |
 
 The school's choice also shows in the school's tab **Support access**, with the last 20 visits. Only a school admin can change it; you cannot.
 
@@ -107,11 +107,11 @@ The school's admins are told right away, and the visit shows in their list as **
 
 ### What the school sees <a href="#task-school" id="task-school"></a>
 
-While you are inside, the school sees the banner "Biddaloy support, as (name), (role)", with **View only** if you chose it. Five minutes before the time runs out it says "5 minutes left. Biddaloy support will close." and then "1 minute left." The school's admins see the visit in **Settings → Biddaloy support access**: who, when, why, normal or emergency, and how many changes were made ([the school admin's page](../administration/support-access.md)).
+While you are inside, the school sees the banner "SchoolManager support, as (name), (role)", with **View only** if you chose it. Five minutes before the time runs out it says "5 minutes left. SchoolManager support will close." and then "1 minute left." The school's admins see the visit in **Settings → SchoolManager support access**: who, when, why, normal or emergency, and how many changes were made ([the school admin's page](../administration/support-access.md)).
 
 ### End the visit <a href="#task-end" id="task-end"></a>
 
-Press **End** in the banner. The tab closes by itself. If the browser does not close it, the tab says "Biddaloy support has ended. You can close this tab." A school admin can also end it, and it ends by itself when the time is over. A link that was already used says "This link has already been used or has run out of time"; open Login as again.
+Press **End** in the banner. The tab closes by itself. If the browser does not close it, the tab says "SchoolManager support has ended. You can close this tab." A school admin can also end it, and it ends by itself when the time is over. A link that was already used says "This link has already been used or has run out of time"; open Login as again.
 
 ---
 
@@ -148,7 +148,7 @@ Logging in as someone is strong. The reason and the code make sure it is really 
 **Related pages**
 
 - [**School control and audit**](school-control.md) — the tabs, trial, rename, archive and the Login as log.
-- [**Biddaloy support access (school admin)**](../administration/support-access.md) — what the school admin sees and decides.
+- [**SchoolManager support access (school admin)**](../administration/support-access.md) — what the school admin sees and decides.
 
 ---
 

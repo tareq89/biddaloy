@@ -707,7 +707,7 @@ See: [**Roles & access**](roles.md).
 **Related pages**
 
 - [**Roles & access**](roles.md) — who can open Settings.
-- [**Biddaloy support access**](support-access.md) — choose who from Biddaloy can sign in to your school.
+- [**SchoolManager support access**](support-access.md) — choose who from SchoolManager can sign in to your school.
 - [**Modules and words**](modules-and-words.md) — choose your institution kind, turn parts On or Off, change your words.
 - [**Buying an SMS package**](sms-packages.md) — buy SMS with bKash and see when they end.
 - [**Using a coupon**](seat-coupon.md) — take a discount off a seat order.

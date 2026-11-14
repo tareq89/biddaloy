@@ -142,7 +142,7 @@ In the **Files** panel:
 | What you see                                                             | What to do                                                                                             | Who can help |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------ |
 | **… is not a field of this document. It was left in the artwork.**       | The name is wrong for this document; check the spelling against the kit's **fields** layer             | Designer     |
-| **Font not available, using Biddaloy Sans**                              | [Upload the font](#assets), or ask the designer to use the school's font                               | Admin        |
+| **Font not available, using the default font**                              | [Upload the font](#assets), or ask the designer to use the school's font                               | Admin        |
 | **Your artboard is … mm. This template is … mm.**                        | The artboard is not the paper size; export again at the right size                                     | Designer     |
 | **"…" mixes a field with other words. …**                                | Put each `{{…}}` in its own text box                                                                   | Designer     |
 | **No … texts were found. The file will be used as the background only.** | The placeholders were outlined; export again with live text                                            | Designer     |

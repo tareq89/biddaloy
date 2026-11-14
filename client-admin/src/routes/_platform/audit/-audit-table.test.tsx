@@ -23,7 +23,7 @@ afterEach(async () => {
 const props = { loading: false, isFetching: false };
 
 describe('AuditTable', () => {
-  it('labels a Login as row "Biddaloy support (as Rahim)"', async () => {
+  it('labels a Login as row "SchoolManager support (as Rahim)"', async () => {
     const { localeReady } = renderWithProviders(
       <AuditTable
         {...props}
@@ -32,7 +32,7 @@ describe('AuditTable', () => {
       { locale: 'en' },
     );
     await localeReady;
-    expect(await screen.findAllByText('Biddaloy support (as Rahim)')).not.toHaveLength(0);
+    expect(await screen.findAllByText('SchoolManager support (as Rahim)')).not.toHaveLength(0);
   });
 
   it('shows the plain actor for a normal row and Platform for none', async () => {

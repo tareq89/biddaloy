@@ -1,5 +1,5 @@
 /**
- * [99.G4.04] The last 90 days of Biddaloy support logins on this school (who, when, why, type,
+ * [99.G4.04] The last 90 days of SchoolManager support logins on this school (who, when, why, type,
  * how many changes) and the other platform actions on it. A live row has End, behind a confirm
  * dialog. Words follow `tenant-control-glossary.md`: the screen never says "session".
  */

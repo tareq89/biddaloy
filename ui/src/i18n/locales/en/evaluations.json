@@ -7,7 +7,7 @@
   },
   "acr": {
     "title": "Annual Confidential Report",
-    "documentTitle": "{{name}} — ACR {{year}} · Biddaloy",
+    "documentTitle": "{{name}} — ACR {{year}} · SchoolManager",
     "start": "Start ACR",
     "startTitle": "Start an ACR",
     "staffLabel": "Staff member",
@@ -275,7 +275,7 @@
       "errorSummary": "Not saved: fix {{count}} field(s)."
     },
     "detail": {
-      "documentTitle": "{{title}} — Survey · Biddaloy",
+      "documentTitle": "{{title}} — Survey · SchoolManager",
       "loadError": "Couldn't load this survey.",
       "publish": "Publish",
       "publishing": "Publishing…",

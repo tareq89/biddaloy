@@ -24,7 +24,7 @@ knownIssues: []
 A coupon gives your school a discount when you buy seats. You type the code, see the new price, and only then buy.
 
 **Go to:** **Administration → [Settings](settings.md)** in the left menu, then the category **Seats & billing**, then **Buy seats**. View this page on a computer.
-**Before you start:** be an Admin and have the coupon code from Biddaloy.
+**Before you start:** be an Admin and have the coupon code from SchoolManager.
 
 A coupon is for **seats only**. It does not work on SMS packages.
 
@@ -68,7 +68,7 @@ A coupon is for **seats only**. It does not work on SMS packages.
 | What you see                                     | What it means                                   | What next                                      |
 | ------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------- |
 | **Price**, **Coupon**, **New total**             | The coupon is accepted and shows the new price. | Press **Create order**.                        |
-| **This coupon cannot be used.**                  | The code did not work. The page never says why. | Check the code, or ask Biddaloy for a new one. |
+| **This coupon cannot be used.**                  | The code did not work. The page never says why. | Check the code, or ask SchoolManager for a new one. |
 | **Too many tries, wait a little and try again.** | You tried too many times.                       | Wait about 15 minutes and try again.           |
 
 ---
@@ -95,7 +95,7 @@ A coupon works on **one order**. Some coupons give the discount only for the fir
 
 | What you see                                     | What to do                                                               | Who can help |
 | ------------------------------------------------ | ------------------------------------------------------------------------ | ------------ |
-| **This coupon cannot be used.**                  | Check the code letter by letter. Capital or small letters do not matter. | Biddaloy     |
+| **This coupon cannot be used.**                  | Check the code letter by letter. Capital or small letters do not matter. | SchoolManager     |
 | **Too many tries, wait a little and try again.** | Wait, then try once more.                                                | —            |
 | **We could not create the order. Try again.**    | Press **Create order** again.                                            | —            |
 | The **Have a coupon?** line is not there         | Open **Seats & billing** from an Admin account.                          | —            |
