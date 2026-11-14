@@ -167,6 +167,14 @@ export function marksGridSubmitted(): ConflictException {
   });
 }
 
+/** Same code, for a direct marks write (autosave): no user id or time in the text (#3578). */
+export function marksGridSubmittedForEdit(): ConflictException {
+  return new ConflictException({
+    message: 'This marks list is submitted. Ask an admin to reopen it before changing marks.',
+    details: { code: 'GRID_SUBMITTED' },
+  });
+}
+
 export function marksSheetExpired(): GoneException {
   return new GoneException({
     message: 'This upload has expired. Upload the sheet again.',

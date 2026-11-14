@@ -259,9 +259,7 @@ export class MarksService {
         subjectId: dto.subject_id,
       });
       if (grid.state === MarkGridState.SUBMITTED) {
-        throw new ConflictException(
-          `This grid was submitted (by user "${grid.submitted_by}" at ${grid.submitted_at?.toISOString()}) — reopen it before entering more marks.`,
-        );
+        throw marksGridSubmittedForEdit();
       }
 
       const repo = manager.getRepository(Mark);

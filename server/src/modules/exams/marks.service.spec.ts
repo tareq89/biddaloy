@@ -348,7 +348,7 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('refuses a write to a SUBMITTED grid, naming who and when', async () => {
+  it('refuses a write to a SUBMITTED grid with GRID_SUBMITTED and no user id or time (#3578)', async () => {
     const submittedAt = new Date('2026-01-01T00:00:00Z');
     const { service } = await buildService({
       grid: { state: MarkGridState.SUBMITTED, submitted_by: 'admin-1', submitted_at: submittedAt },
@@ -364,7 +364,12 @@ describe('MarksService.upsertBatch', () => {
         UserRole.TEACHER,
         'user-1',
       ),
-    ).rejects.toThrow(ConflictException);
+    ).rejects.toMatchObject({
+      response: {
+        message: 'This marks list is submitted. Ask an admin to reopen it before changing marks.',
+        details: { code: 'GRID_SUBMITTED' },
+      },
+    });
   });
 
   it('propagates an authorization rejection (a class teacher with no subject grant)', async () => {
