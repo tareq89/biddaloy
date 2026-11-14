@@ -601,7 +601,8 @@
       "whoCantSee": "Pick the roles that should not see this module. Admins always see it.",
       "bnWord": "The Bangla word. Leave it empty to keep the usual word.",
       "applyKind": "Apply changes your modules and words to match the institution kind. Your data stays as it is."
-    }
+    },
+    "proofEnabled": "Guardians pay by hand, then send the transaction number and a photo. You confirm it."
   },
   "helpRequired": {
     "schoolName": "Yes",
@@ -863,5 +864,23 @@
       "invalid": "Use 1 to 40 characters, with no < or >.",
       "partialRow": "Fill all three words, or clear the whole row to go back to the stock word"
     }
+  },
+  "onlinePayments": {
+    "title": "Online payments",
+    "description": "Let guardians pay fees from the portal. Money goes straight to your school's account.",
+    "proofEnabled": "Allow payment proofs",
+    "methodsTitle": "Proof methods and instructions",
+    "methodsIntro": "Tick the ways a guardian can pay, then write what to tell them.",
+    "instructionsLabel": "What to tell the guardian",
+    "counter": "{{count}} / {{max}}",
+    "preview": "How guardians see it",
+    "previewEmpty": "Nothing written yet.",
+    "methods": {
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket",
+      "BANK_TRANSFER": "Bank transfer"
+    },
+    "tooLong": "Use at most {{max}} characters."
   }
 }
