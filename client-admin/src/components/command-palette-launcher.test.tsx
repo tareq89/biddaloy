@@ -52,6 +52,37 @@ describe('CommandPaletteLauncher', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/guardians/guardian-1'));
   });
 
+  it('selecting a payment result opens the paying student [#886]', async () => {
+    server.use(
+      http.get('/api/v1/search', () =>
+        HttpResponse.json({
+          payments: [
+            {
+              id: 'payment-1',
+              transaction_reference: 'TXN-886',
+              student_name: 'Rahim Uddin',
+              student_id: 'student-886',
+            },
+          ],
+        }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search… Ctrl+K' }))[0]!);
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'TXN');
+    await user.click(await screen.findByRole('option', { name: /TXN-886/ }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students/student-886'));
+  });
+
   it('selecting a student result navigates to its own detail page', async () => {
     server.use(
       http.get('/api/v1/search', () =>

@@ -19355,6 +19355,7 @@ export interface components {
             id: string;
             transaction_reference: string | null;
             student_name: string | null;
+            student_id: string | null;
         };
         SearchResultsDto: {
             students?: components["schemas"]["SearchStudentResult"][];

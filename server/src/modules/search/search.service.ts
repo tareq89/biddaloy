@@ -320,9 +320,14 @@ export class SearchService {
   ): Promise<SearchPaymentResult[]> {
     const like = `%${term}%`;
     const rows = await this.studentRepo.manager.query<
-      Array<{ id: string; transaction_reference: string | null; student_name: string | null }>
+      Array<{
+        id: string;
+        transaction_reference: string | null;
+        student_name: string | null;
+        student_id: string | null;
+      }>
     >(
-      `SELECT p.id, p.transaction_reference, s.full_name AS student_name
+      `SELECT p.id, p.transaction_reference, s.full_name AS student_name, s.id AS student_id
        FROM payments p
        LEFT JOIN students s ON s.id = p.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
        WHERE p.tenant_id = $1

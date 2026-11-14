@@ -93,6 +93,10 @@ export class SearchPaymentResult {
 
   @ApiProperty({ nullable: true, type: 'string' })
   student_name: string | null;
+
+  /** The paying student, for navigation. Null when the student is deleted or missing. */
+  @ApiProperty({ nullable: true, type: 'string' })
+  student_id: string | null;
 }
 
 /** A group absent from this object means the caller lacks the
