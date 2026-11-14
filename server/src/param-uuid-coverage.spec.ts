@@ -25,6 +25,7 @@ const NON_UUID_PARAMS = new Map<string, number>([
   ['modules/website/public/public-site.controller.ts:key', 1], // `logo` or a media id (service checks)
   ['modules/website/site-enquiries.controller.ts:host', 1], // site host name (public enquiry)
   ['modules/presets/presets.controller.ts:id', 1], // preset key such as bd/nctb
+  ['modules/presets/platform-modules.controller.ts:key', 1], // module key slug, checked against ModuleKey (unknown = 400 fixed text, not echoed)
   ['modules/presets/institution-kind.controller.ts:id', 2], // institution kind slug (preview, apply), checked against the shared INSTITUTION_KINDS (unknown = 400 fixed text, not echoed)
   ['modules/print/templates/print-templates.controller.ts:key', 1], // artwork key
   ['modules/print/templates/print-templates.controller.ts:side', 1], // artwork side name

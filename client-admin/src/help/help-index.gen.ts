@@ -5139,6 +5139,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 0,
   },
+  'administration.modulesWords': {
+    title: { bn: 'মডিউল ও শব্দ', en: 'Modules and words' },
+    summary: {
+      bn: 'প্রতিষ্ঠানের ধরন বাছুন, সিস্টেমের কোন অংশ চালু বা বন্ধ থাকবে ঠিক করুন, কিছু ভূমিকার কাছ থেকে অংশ লুকান, আর শ্রেণি, শাখা, শিক্ষার্থী, অভিভাবক ও শিক্ষকের জায়গায় আপনার নিজের শব্দ বসান।',
+      en: 'Choose your institution kind, turn parts of the system On or Off, hide a part from some roles, and change what your school calls a class, section, student, guardian or teacher.',
+    },
+    path: 'administration/modules-and-words',
+    anchor: '',
+    knownIssues: 1,
+  },
   'help.glossary': {
     title: { bn: 'শব্দের তালিকা', en: 'Glossary' },
     summary: {

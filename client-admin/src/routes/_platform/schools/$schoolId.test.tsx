@@ -42,8 +42,8 @@ describe('/schools/$schoolId', () => {
     // Facts: link name + long-form created date.
     expect(screen.getByText('Link name')).toBeTruthy();
     expect(screen.getByText(formatDate('2026-01-15', REGION_BD_BN))).toBeTruthy();
-    // #3820: five tabs, no back link, no settings link.
-    expect(screen.getAllByRole('tab')).toHaveLength(5);
+    // #3820 + #3934: six tabs, no back link, no settings link.
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
     expect(screen.queryByRole('link', { name: 'Back to schools' })).toBeNull();
     expect(screen.queryByRole('link', { name: /settings/i })).toBeNull();
 

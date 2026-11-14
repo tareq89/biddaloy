@@ -4,7 +4,8 @@ import type { Browser, BrowserContext, Page, PlaywrightWorkerArgs } from '@playw
 import { adminApiSession, loginAsFreshUser } from '../api';
 import { shells } from '../config';
 import { setLabels, setModules } from '../fixtures/modules';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { test } from '../fixtures/settings-lock';
+import { expect, loggedIn } from '../fixtures/test';
 import { t } from '../i18n';
 import { AppShellPage } from '../pages/app-shell';
 import { ModulesWordsPage } from '../pages/modules-words-page';
@@ -14,7 +15,8 @@ import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
  * [Epic 77 / #3928] Settings › Modules & words, end to end: the four D36 usability tasks as
  * journeys, plus the failed-save revert.
  *
- * THIS SPEC CHANGES SCHOOL SETTINGS. Modules and words are school-wide, so every test puts
+ * THIS SPEC CHANGES SCHOOL SETTINGS and takes the school-settings lock (fixtures/settings-lock.ts)
+ * for each test, so specs that also change them never overlap across workers. Modules and words are school-wide, so every test puts
  * back each module and word it touched in `finally` (straight over the API: "apply" never turns
  * a module back on, and `null` is how a word returns to its stock value). The tests run in
  * order, one at a time.

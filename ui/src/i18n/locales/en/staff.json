@@ -152,16 +152,16 @@
     "tabs": {
       "profile": "Profile",
       "permissions": "Permissions",
-      "teachingAssignments": "Teacher assignments",
+      "teachingAssignments": "$t(common:entities.teacher_one) assignments",
       "hrRecord": "HR record",
       "loginHistory": "Login history",
       "documents": "Documents",
       "applications": "Applications"
     },
     "teachingAssignments": {
-      "caption": "Classes and sections this teacher is assigned to",
-      "columnClass": "Class & section",
-      "columnSection": "Section",
+      "caption": "$t(common:entities.class_other) and sections this teacher is assigned to",
+      "columnClass": "$t(common:entities.class_one) & section",
+      "columnSection": "$t(common:entities.section_one)",
       "columnRole": "Duty",
       "columnSubject": "Subject",
       "columnActions": "Actions",
@@ -171,8 +171,8 @@
       "emptyMessage": "No assignments yet",
       "errorMessage": "Could not load teaching assignments. Please try again.",
       "announceResults": "Showing {{count}} of {{total}} assignments",
-      "title": "Teacher assignments",
-      "emptyExplanation": "Classes and subjects given to this teacher show up here.",
+      "title": "$t(common:entities.teacher_one) assignments",
+      "emptyExplanation": "$t(common:entities.class_other) and subjects given to this teacher show up here.",
       "removeConfirmTitle": "Remove this assignment?",
       "removeConfirmDescription": "The teacher will be removed from {{sectionName}}.",
       "removeConfirm": "Remove"
@@ -186,7 +186,7 @@
       "columnJoined": "Joined",
       "columnLastLogin": "Last login",
       "emptyValue": "—",
-      "teacherHeading": "Teacher profile",
+      "teacherHeading": "$t(common:entities.teacher_one) profile",
       "employeeId": "Employee ID",
       "designations": "Designations",
       "subject": "Subject specialization",
@@ -412,8 +412,8 @@
   "permissions": {
     "groups": {
       "users": "Staff & accounts",
-      "students": "Students",
-      "guardians": "Guardians",
+      "students": "$t(common:entities.student_other)",
+      "guardians": "$t(common:entities.guardian_other)",
       "admissions": "Admissions",
       "fees": "Fees",
       "invoicesPayments": "Invoices & payments",

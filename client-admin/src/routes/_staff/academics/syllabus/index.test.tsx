@@ -79,9 +79,9 @@ describe('/academics/syllabus', () => {
       locale: 'en',
     });
 
-    const pickTitle = await screen.findByText('Pick a class and a subject');
+    const pickTitle = await screen.findByText('Pick a Class and a subject');
     expect(pickTitle.tagName).toBe('H2');
-    expect(screen.getByText('Pick a class and subject to see its syllabus.')).toBeTruthy();
+    expect(screen.getByText('Pick a Class and subject to see its syllabus.')).toBeTruthy();
 
     const user = userEvent.setup();
     await pickClassAndSubject(user);
@@ -378,7 +378,7 @@ describe('/academics/syllabus', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('Pick a class and a subject')).toBeTruthy();
+    expect(await screen.findByText('Pick a Class and a subject')).toBeTruthy();
     expect(listed).toBe(false);
   });
 

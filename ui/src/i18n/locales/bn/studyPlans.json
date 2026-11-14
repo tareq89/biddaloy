@@ -4,8 +4,8 @@
     "subtitle": "{{term}} · {{count}}টি পাঠ পরিকল্পনা, {{behind}}টি পিছিয়ে",
     "filters": {
       "search": "খুঁজুন",
-      "searchPlaceholder": "শাখা বা বিষয়ের নাম",
-      "class": "শ্রেণি",
+      "searchPlaceholder": "$t(common:entities.section_one) বা বিষয়ের নাম",
+      "class": "$t(common:entities.class_one)",
       "subject": "বিষয়",
       "term": "টার্ম",
       "wholeYear": "পুরো বছর",
@@ -13,7 +13,7 @@
       "all": "সব"
     },
     "columns": {
-      "section": "শাখা",
+      "section": "$t(common:entities.section_one)",
       "subject": "বিষয়",
       "term": "টার্ম",
       "owner": "দায়িত্বে",
@@ -41,7 +41,7 @@
   "create": {
     "title": "নতুন পাঠ পরিকল্পনা",
     "steps": {
-      "scope": "শাখা · বিষয় · টার্ম",
+      "scope": "$t(common:entities.section_one) · বিষয় · টার্ম",
       "start": "কীভাবে শুরু",
       "preview": "প্রিভিউ",
       "save": "সংরক্ষণ"
@@ -49,7 +49,7 @@
     "stepOf": "ধাপ {{current}}/{{total}}",
     "scopeSummary": "যার জন্য পরিকল্পনা",
     "change": "বদলান",
-    "section": "শাখা",
+    "section": "$t(common:entities.section_one)",
     "carryOver": {
       "title_one": "আগের টার্মের বাকি {{count}}টি পাঠ যোগ করবেন?",
       "title_other": "আগের টার্মের বাকি {{count}}টি পাঠ যোগ করবেন?",
@@ -69,7 +69,7 @@
     "templatesFor_one": "{{class}} · {{subject}} — {{count}}টি টেমপ্লেট",
     "templatesFor_other": "{{class}} · {{subject}} — {{count}}টি টেমপ্লেট",
     "templateMeta": "{{lessons}}টি পাঠ · {{periods}} পিরিয়ড · হালনাগাদ {{date}}",
-    "noTemplates": "এই শ্রেণি আর বিষয়ের কোনো টেমপ্লেট এখনো নেই।",
+    "noTemplates": "এই $t(common:entities.class_one) আর বিষয়ের কোনো টেমপ্লেট এখনো নেই।",
     "openLibrary": "টেমপ্লেট লাইব্রেরি খুলুন",
     "sampleCsv": "নমুনা নামান",
     "capacity": "{{term}}-এ আনুমানিক {{available}}টি পিরিয়ড আছে। এই পাঠগুলোতে লাগবে {{needed}}টি — প্রিভিউতে কোনগুলো বাদ দেবেন বেছে নিন।",
@@ -97,11 +97,11 @@
   },
   "library": {
     "info": "শিক্ষকরা যেকোনো টেমপ্লেট কপি করে নিজের পরিকল্পনা বানাতে পারেন — কপি হলো আলাদা, টেমপ্লেট বদলালে কপি বদলায় না। টেমপ্লেট যোগ ও সম্পাদনা করেন অ্যাডমিন ও একাডেমিক কো-অর্ডিনেটর।",
-    "subtitle": "স্কুলের পাঠ পরিকল্পনার টেমপ্লেট · শ্রেণি আর বিষয় কোড দিয়ে সাজানো, প্রতি বছর কাজে লাগে",
+    "subtitle": "স্কুলের পাঠ পরিকল্পনার টেমপ্লেট · $t(common:entities.class_one) আর বিষয় কোড দিয়ে সাজানো, প্রতি বছর কাজে লাগে",
     "searchPlaceholder": "টেমপ্লেটের নাম",
     "nameTaken": "এই নামে একটি টেমপ্লেট আগেই আছে।",
     "lessonsError": "টেমপ্লেটের পাঠগুলো লোড করা যায়নি।",
-    "classGrade": "{{grade}} শ্রেণি",
+    "classGrade": "{{grade}} $t(common:entities.class_one)",
     "columns": {
       "subject": "বিষয় · কোড",
       "name": "টেমপ্লেটের নাম",
@@ -120,7 +120,7 @@
     "addFromCsv": "CSV থেকে যোগ করুন",
     "form": {
       "name": "টেমপ্লেটের নাম",
-      "classGrade": "শ্রেণি",
+      "classGrade": "$t(common:entities.class_one)",
       "subject": "বিষয়",
       "source": "উৎস",
       "fromPlan": "পাঠ পরিকল্পনা থেকে",
@@ -216,7 +216,7 @@
   },
   "copy": {
     "title": "অন্য শাখায় কপি",
-    "section": "শাখা",
+    "section": "$t(common:entities.section_one)",
     "save": "কপি করুন",
     "notYours": "ওই শাখায় আপনি {{subject}} পড়ান না।",
     "exists": "ওই শাখায় এই টার্মের পরিকল্পনা আগে থেকেই আছে।",
@@ -233,8 +233,8 @@
   "owner": {
     "title": "দায়িত্ব বদলান",
     "explain": "সাধারণত রুটিনের শিক্ষকই পরিকল্পনার দায়িত্বে থাকেন।",
-    "routineTeacher": "রুটিনের শিক্ষক ({{names}})",
-    "specific": "নির্দিষ্ট শিক্ষক"
+    "routineTeacher": "রুটিনের $t(common:entities.teacher_one) ({{names}})",
+    "specific": "নির্দিষ্ট $t(common:entities.teacher_one)"
   },
   "addToLibrary": {
     "title": "টেমপ্লেট লাইব্রেরিতে রাখুন",

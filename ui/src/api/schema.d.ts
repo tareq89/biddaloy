@@ -8799,6 +8799,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The platform module map (absent key = on). */
+        get: operations["PlatformModulesController_get_v1"];
+        /** Replace the platform module map. Needs a step-up token. */
+        put: operations["PlatformModulesController_replace_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own module choices and platform locks. */
+        get: operations["PlatformModulesController_getForSchool_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/modules/{key}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Lock a module on or off for one school, or give control back with null. Needs a step-up token. */
+        put: operations["PlatformModulesController_setLock_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/print-templates": {
         parameters: {
             query?: never;
@@ -19748,6 +19800,40 @@ export interface components {
         InstitutionKindChangesDto: {
             modules: components["schemas"]["KindModuleChangeDto"][];
             labels: components["schemas"]["KindLabelChangeDto"][];
+        };
+        PlatformModulesResponseDto: {
+            modules: {
+                [key: string]: boolean;
+            };
+        };
+        SchoolModuleStateDto: {
+            /** @description The school's own choice. */
+            on?: boolean;
+            /**
+             * @description Platform lock, if any.
+             * @enum {string}
+             */
+            lock?: "on" | "off";
+        };
+        SchoolModulesResponseDto: {
+            modules: {
+                [key: string]: components["schemas"]["SchoolModuleStateDto"];
+            };
+        };
+        PlatformModulesDto: {
+            /** @description Module key to false (off for every school). An absent key is on. */
+            modules: {
+                [key: string]: boolean;
+            };
+        };
+        ModuleLockDto: {
+            /** @enum {string|null} */
+            lock: "on" | "off" | null;
+        };
+        ModuleLockResponseDto: {
+            key: string;
+            /** @enum {string|null} */
+            lock: "on" | "off" | null;
         };
         PrintTemplate: {
             id: string;
@@ -43566,6 +43652,119 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PlatformModulesController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModulesResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformModulesController_replace_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformModulesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModulesResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformModulesController_getForSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolModulesResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformModulesController_setLock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleLockDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleLockResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };

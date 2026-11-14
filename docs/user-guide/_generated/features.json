@@ -979,6 +979,14 @@
     "routes": ["/support-access/requests/$requestId", "/support/enter", "/welcome/support-access"]
   },
   {
+    "id": "administration.modulesWords",
+    "kind": "administration",
+    "path": "administration/modules-and-words",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
     "id": "help.glossary",
     "kind": "help",
     "path": "help/glossary",

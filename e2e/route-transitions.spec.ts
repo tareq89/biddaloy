@@ -1,4 +1,5 @@
-import { expect, loggedIn, test } from './fixtures/test';
+import { expect, loggedIn } from './fixtures/test';
+import { test } from './fixtures/settings-lock';
 
 /**
  * [8.14.5] — the route-transitions ticket's own acceptance criteria,

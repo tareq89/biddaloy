@@ -4,7 +4,7 @@
     "caption": "Admission rounds",
     "addIntake": "Add admission round",
     "columnTitle": "Title",
-    "columnClassSection": "Class / Section",
+    "columnClassSection": "$t(common:entities.class_one) / $t(common:entities.section_one)",
     "columnSeatCount": "Seats",
     "columnStatus": "Status",
     "statusOpen": "Open",
@@ -28,7 +28,7 @@
   },
   "form": {
     "titleLabel": "Title",
-    "classSectionLabel": "Class / Section",
+    "classSectionLabel": "$t(common:entities.class_one) / $t(common:entities.section_one)",
     "seatCountLabel": "Seat count",
     "openDateLabel": "Open date",
     "closeDateLabel": "Close date",
@@ -37,8 +37,8 @@
     "documentBirthCertificate": "Birth certificate",
     "documentTranscript": "Transcript",
     "dateRangeError": "Close date must not be before open date.",
-    "datesHelp": "Guardians can apply online between these two dates.",
-    "documentsHelp": "Guardians must upload these when applying."
+    "datesHelp": "$t(common:entities.guardian_other) can apply online between these two dates.",
+    "documentsHelp": "$t(common:entities.guardian_other) must upload these when applying."
   },
   "detail": {
     "closeNow": "Close now",

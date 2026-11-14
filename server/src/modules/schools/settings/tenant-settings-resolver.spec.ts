@@ -1,5 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { mergeModulesLabels, resolveTenantSettings } from './tenant-settings-resolver';
+import {
+  keepModuleLocks,
+  mergeModulesLabels,
+  resolveTenantSettings,
+} from './tenant-settings-resolver';
+
+describe('keepModuleLocks [77.6.01]', () => {
+  const stored = { fees: { on: false, lock: 'off' }, exams: { on: false } };
+
+  it('puts the platform lock back when the school removes the entry, but not its own choice', () => {
+    const merged = mergeModulesLabels(stored, { fees: null, exams: null });
+    expect(keepModuleLocks(stored, merged)).toEqual({ fees: { lock: 'off' } });
+  });
+
+  it('leaves an ordinary patch alone', () => {
+    const merged = mergeModulesLabels(stored, { fees: { on: true } });
+    expect(keepModuleLocks(stored, merged)).toEqual({
+      fees: { on: true, lock: 'off' },
+      exams: { on: false },
+    });
+  });
+});
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_ATTENTION_SETTINGS,

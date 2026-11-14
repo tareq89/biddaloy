@@ -99,6 +99,7 @@
 - [Administration](administration/settings.md)
   - [Changing the school's settings](administration/settings.md)
   - [Biddaloy support access](administration/support-access.md)
+  - [Modules and words](administration/modules-and-words.md)
   - [Roles and permissions](administration/roles.md)
   - [Activity log](administration/audit-logs.md)
   - [Ready-made curriculum](administration/curriculum-preset.md)

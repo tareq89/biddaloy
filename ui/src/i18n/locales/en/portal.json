@@ -175,7 +175,7 @@
       "examTitle": "{{exam}}",
       "examMeta": "From {{date}} · how much of the syllabus is taught",
       "examMetaNoDate": "How much of the syllabus is taught",
-      "teacher": "Teacher: {{names}}",
+      "teacher": "$t(common:entities.teacher_one): {{names}}",
       "examRemaining": "The remaining {{count}} lessons should finish by {{date}}.",
       "planFinish": "Whole plan expected to finish by {{date}}",
       "notStarted": "Not started yet",

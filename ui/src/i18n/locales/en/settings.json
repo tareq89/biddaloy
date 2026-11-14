@@ -98,7 +98,7 @@
     "academicYearStartMonth": "Academic year start month",
     "identifiersLegend": "Address and ID numbers",
     "identifiersNational": "National ID check rule",
-    "identifiersStudent": "Student ID check rule",
+    "identifiersStudent": "$t(common:entities.student_one) ID check rule",
     "description": "How numbers, money and dates appear on every page.",
     "localeBnBd": "Bangla (Bangladesh)",
     "localeEnBd": "English (Bangladesh)",
@@ -172,7 +172,7 @@
     "shiftUseSchoolTimes": "Use school times",
     "periodLegend": "Period attendance",
     "periodEnabled": "Take attendance in each period",
-    "periodHelp": "Teachers can mark each period of the routine. The daily percentage, fines and messages still use the whole-day register.",
+    "periodHelp": "$t(common:entities.teacher_other) can mark each period of the routine. The daily percentage, fines and messages still use the whole-day register.",
     "specialTimings": {
       "legend": "Special timings (Ramadan, winter)",
       "help": "Use different period times and late cut-offs for these dates only. Other dates keep the normal times.",
@@ -204,12 +204,12 @@
       "legend": "Who marks daily attendance",
       "ANY": "Anyone assigned (today's rule)",
       "ANYHelp": "Any teacher of the section can mark the day.",
-      "CLASS_TEACHER": "Class teacher roll call",
+      "CLASS_TEACHER": "$t(common:entities.class_one) teacher roll call",
       "CLASS_TEACHERHelp": "Only the class teacher marks the day.",
       "FIRST_PERIOD": "First-period teacher",
       "FIRST_PERIODHelp": "Whoever teaches the first period marks the day.",
       "DEVICE": "Attendance machine",
-      "DEVICEHelp": "The machine fills the day. Teachers correct what it missed.",
+      "DEVICEHelp": "The machine fills the day. $t(common:entities.teacher_other) correct what it missed.",
       "deviceNote": "After the absence cutoff, students the machine did not see are marked absent. The class teacher can still correct.",
       "teacherNote": "Subject teachers can view the register but not save it."
     }
@@ -343,7 +343,7 @@
     "renameConfirm": "Save",
     "renameCancel": "Cancel",
     "emptyList": "No values yet.",
-    "description": "Classes and sections use these names. Press Save after renaming or removing.",
+    "description": "$t(common:entities.class_other) and sections use these names. Press Save after renaming or removing.",
     "undoRemoveAction": "Undo remove",
     "removeInUse": "\"{{value}}\" is still used by classes or sections, so it can't be removed. Rename it instead.",
     "removeInUseSummary": "Nothing was saved. Fix the value marked above and try again."
@@ -447,7 +447,7 @@
   },
   "studyPlans": {
     "legend": "Study plans",
-    "description": "Teachers report every period each day. Choose who hears about a missed report, and when.",
+    "description": "$t(common:entities.teacher_other) report every period each day. Choose who hears about a missed report, and when.",
     "summaryTitle": "What happens with these settings",
     "summary": {
       "deadline": "Time is up. Unreported periods stay \"open\".",
@@ -457,11 +457,11 @@
       "escalateValue_other": "After {{count}} school days",
       "escalate": "The academic coordinator and admin are told.",
       "digestValue": "End of week {{time}}",
-      "digest": "Guardians and the committee get a summary."
+      "digest": "$t(common:entities.guardian_other) and the committee get a summary."
     },
     "statusDeadline": "Status deadline",
     "statusDeadlineHelp": "Same school day. Reporting after this still counts, but late.",
-    "reminderTime": "Teacher reminder",
+    "reminderTime": "$t(common:entities.teacher_one) reminder",
     "reminderTimeHelp": "Next school day, only if something is still open.",
     "escalateAfter": "Tell the academic coordinator and admin after",
     "escalateSuffix": "school days not reported",
@@ -664,7 +664,7 @@
     "columns": {
       "name": "Name",
       "kind": "Kind",
-      "section": "Section",
+      "section": "$t(common:entities.section_one)",
       "lastSeen": "Last seen",
       "status": "Status"
     },
@@ -689,7 +689,7 @@
       "name": "Name",
       "nameError": "Enter a name for the machine.",
       "kind": "Kind",
-      "section": "Section (optional)",
+      "section": "$t(common:entities.section_one) (optional)",
       "roster": "Roster access",
       "rosterHelp": "Lets the machine download the student list.",
       "saveError": "Could not add the machine. Try again.",
