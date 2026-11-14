@@ -282,7 +282,7 @@ describe('BkashService.handleCallback', () => {
     t.orders.findForPayment.mockResolvedValue({ ...order, status: SeatOrderStatus.PAID });
     t.orders.markPaid.mockResolvedValue({ applied: false });
     vi.spyOn(t.svc['logger'], 'error').mockImplementation(() => undefined);
-    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success' });
+    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'failure', kind: 'SEAT' });
     expect(orphanInsert()).toBeDefined();
   });
 
