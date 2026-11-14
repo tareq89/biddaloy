@@ -3,7 +3,16 @@
 A school buys **seats** (BDT 10 per student per month). An order starts `PENDING`, becomes
 `PAID` once, and `EntitlementService` recomputes `schools.seat_limit` from paid orders.
 This doc covers the **bKash pay step** (Epic 49 W4, #1820) and the **receipt** (W5, #1822).
-Code: `server/src/modules/billing/` (`bkash/` for the gateway).
+Code: `server/src/modules/billing/` (`bkash/` holds billing's service, controller, reconciler).
+The bKash HTTP client is shared with school online payments and lives in
+`server/src/modules/payment-gateways/bkash/` (`bkash.client.ts`, `bkash-hosts.ts`).
+
+```mermaid
+flowchart LR
+  B["billing/bkash/bkash.service"] --> C["payment-gateways/bkash/bkash.client"]
+  S["school online payments"] --> C
+  C --> H["bkash-hosts.ts (fixed hosts)"]
+```
 
 ## The flow
 
@@ -253,6 +262,14 @@ flowchart LR
 - **Receipt email as a queue job**: it runs right after commit in the same process, not in BullMQ. Move it to a queue if the notice provider gets slow.
 - **CI**: no real bKash call (no credentials); the client and service are covered by unit specs
   with a mocked bKash, and the API e2e covers the public callback's refusal paths.
+
+## Learnings (Epic 291, bKash client lift)
+
+| What we found | What we did | Rule for next time |
+|---|---|---|
+| One client now serves billing (operator env creds) and schools (own creds). A caller-supplied `baseUrl` or `cacheKey` could point a tenant at another host or share one token across tenants. | Tenant creds carry only `environment` + `tenantId`. The client picks the host from `BKASH_HOSTS[environment]` (unknown or empty environment throws) and builds the token key itself: `bkash:token:<tenantId>:<environment>`. Billing passes no creds and keeps `bkash:token`. | Never accept a URL or a cache key from a caller; derive both inside the client. |
+
+Example: school `S1` on `SANDBOX` caches its token at `bkash:token:S1:SANDBOX`; switching to `PRODUCTION` gets a different key, so a sandbox token is never sent to production.
 
 ## Epic 100 Wave 0 — what we learned
 
