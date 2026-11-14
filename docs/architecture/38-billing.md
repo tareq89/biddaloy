@@ -295,3 +295,19 @@ next order only; orders already made keep their price.
 | A double bKash callback is safe because the order is `PENDING` only once.                                                                                       | The e2e sends two at the same time and a third later: one payment row, no orphan.                                                              | Keep the pay step a conditional `UPDATE`.                                       |
 | Deploy smoke treated preview and SMS package orders as "not deployed yet" (a 404 passed).                                                                       | Both are live, so a 404 now fails. `SMOKE_MONEY=1` and `SMOKE_MONEY_STRICT=1` are in the example env files.                                    | Remove the "late route" flag in the PR that ships the route.                    |
 | The demo school had no plans, coupons or refunds.                                                                                                               | The `billing` slice seeds a second plan, a `DEMO-HALF` coupon, one coupon order and one refunded order; the four coverage exemptions are gone. | A new table ships with its seed rows.                                           |
+
+## Learning: cockpit money, Wave 1
+
+```mermaid
+flowchart LR
+  A[Six new tables<br/>catalog, orders, stock, readings, lots, draws] --> B[Registered in app.module entity list]
+  B --> C[SmsBundlesModule<br/>boot spec resolves it]
+  D[CreditsModule<br/>forFeature adds lots and draws] --> C
+```
+
+- The module shell was added empty (no providers) so Wave 2 could add providers and controllers
+  without touching `app.module.ts` again. It no longer needs `forFeature` for its own four
+  entities: its services use the `DataSource`; `CreditsModule` registers the two lot entities.
+- A new entity is not "known" until it is in the production `entities: [...]` list in
+  `app.module.ts`. The boot spec checks the six tables exist.
+- The lot lifecycle and lock order are drawn in `05-communications.md`.
