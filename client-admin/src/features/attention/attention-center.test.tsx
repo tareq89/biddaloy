@@ -1,13 +1,21 @@
 /** [67.2.04] The shared attention hook: bar, modal, seen, navigation, `?alerts=1`, error state. */
 import '@biddaloy/ui/test';
 
-import { AlertCategory, AlertRecipientState, AlertSeverity, AlertSource } from '@biddaloy/shared';
+import {
+  alertRuleMeta,
+  AlertCategory,
+  AlertRecipientState,
+  AlertSeverity,
+  AlertSource,
+  UserRole,
+} from '@biddaloy/shared';
 import { NotificationBell } from '@biddaloy/ui/components';
 import {
   alertItemFactory,
   attentionSummaryFactory,
   cleanupTestState,
   renderWithRouter,
+  smsAlertFactory,
   server,
 } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute, useSearch } from '@tanstack/react-router';
@@ -15,6 +23,8 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { Route as SettingsRoute } from '../../routes/_staff/settings';
 
 import { useAttentionCenter } from './attention-center';
 
@@ -34,13 +44,16 @@ function Layout() {
 function renderCenter(initial = '/') {
   const root = createRootRoute();
   const mk = (path: string) => createRoute({ getParentRoute: () => root, path, component: Layout });
-  return renderWithRouter(root.addChildren([mk('/'), mk('/dashboard'), mk('/notifications')]), {
-    locale: 'en',
-    role: 'ADMIN',
-    tenantId: 'school-1',
-    accessToken: 'a.b.c',
-    initialEntries: [initial],
-  });
+  return renderWithRouter(
+    root.addChildren([mk('/'), mk('/dashboard'), mk('/notifications'), mk('/settings')]),
+    {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+      accessToken: 'a.b.c',
+      initialEntries: [initial],
+    },
+  );
 }
 
 const item = (over = {}) =>
@@ -204,5 +217,55 @@ describe('useAttentionCenter', () => {
     const before = calls;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(calls).toBeGreaterThan(before));
+  });
+
+  describe('[100.4.04] SMS credit alerts', () => {
+    it('red sms.low comes first, counts as urgent and opens the buy dialog link', async () => {
+      const low = smsAlertFactory('low', { recipientId: 'r-low' });
+      const expiring = smsAlertFactory('expiring', { recipientId: 'r-exp' });
+      mockAttention({ critical: 1, warning: 1, reminder: 0, activeTotal: 2 }, [low, expiring]);
+      const { router } = renderCenter();
+      await userEvent.click(await screen.findByRole('button', { name: /1 urgent/i }));
+      const cards = await screen.findAllByText(/SMS credit/);
+      expect(cards[0]?.textContent).toBe('SMS credit is almost finished');
+      expect(low.severity).toBe(AlertSeverity.CRITICAL);
+      expect(expiring.severity).toBe(AlertSeverity.WARNING);
+      await userEvent.click(screen.getAllByRole('button', { name: /Buy SMS/ })[0]!);
+      await waitFor(() => expect(router.state.location.pathname).toBe('/settings'));
+      const search = router.state.location.search as Record<string, unknown>;
+      expect(search.section).toBe('communication');
+      expect(String(search.smsBuy)).toBe('1');
+    });
+
+    it('amber sms.expiring navigates with smsBuy=1 too', async () => {
+      mockAttention({ critical: 0, warning: 1, reminder: 0, activeTotal: 1 }, [
+        smsAlertFactory('expiring'),
+      ]);
+      const { router } = renderCenter();
+      await userEvent.click(await screen.findByRole('button', { name: /1 warning/i }));
+      await userEvent.click(await screen.findByRole('button', { name: /Buy SMS/ }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/settings'));
+      expect(String((router.state.location.search as Record<string, unknown>).smsBuy)).toBe('1');
+    });
+
+    it('is admin-only: a teacher is not a recipient of either rule', () => {
+      for (const key of ['sms.low', 'sms.expiring'] as const) {
+        const { roles } = alertRuleMeta(key);
+        expect(roles).toContain(UserRole.ADMIN);
+        expect(roles).not.toContain(UserRole.TEACHER);
+      }
+    });
+
+    it('the settings route search accepts smsBuy=1 and drops other values', () => {
+      const schema = SettingsRoute.options.validateSearch as unknown as {
+        parse: (s: unknown) => Record<string, unknown>;
+      };
+      const validate = (s: unknown) => schema.parse(s);
+      expect(validate({ section: 'communication', smsBuy: 1 })).toMatchObject({
+        section: 'communication',
+        smsBuy: 1,
+      });
+      expect(validate({ smsBuy: 2 }).smsBuy).toBeUndefined();
+    });
   });
 });

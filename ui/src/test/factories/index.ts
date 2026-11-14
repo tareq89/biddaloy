@@ -34,5 +34,6 @@ export {
   alertItemFactory,
   attentionSummaryFactory,
   platformAttentionHealthFactory,
+  smsAlertFactory,
   studentAlertFactory,
 } from './attention.factory';
