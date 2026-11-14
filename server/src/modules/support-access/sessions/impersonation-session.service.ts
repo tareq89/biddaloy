@@ -465,7 +465,7 @@ export class ImpersonationSessionService {
   }
 
   /**
-   * D31: lazy expiry. ACTIVE rows past `expires_at` flip to EXPIRED and get their missing ENDED row,
+   * D31: lazy expiry. ACTIVE rows past `expires_at`, and REQUESTED/APPROVED rows past `ticket_expires_at`, flip to EXPIRED and get their missing ENDED row,
    * once. The key already left Redis by TTL.
    * ponytail: no scheduler (D31). A row nobody lists, creates on or ends stays ACTIVE in the table;
    * `shownStatus` hides that from every reader. Add a repeatable job if a report needs it exact at rest.
@@ -475,7 +475,10 @@ export class ImpersonationSessionService {
     scope: { id?: string; schoolId?: string; platformAdminId?: string },
   ): Promise<void> {
     const params: unknown[] = [];
-    const conds = ["status = 'ACTIVE'", 'expires_at <= now()'];
+    // An unredeemed ticket (APPROVED) past `ticket_expires_at` expires too, so it stops counting as open.
+    const conds = [
+      "((status = 'ACTIVE' AND expires_at <= now()) OR (status IN ('REQUESTED','APPROVED') AND ticket_expires_at <= now()))",
+    ];
     for (const [col, v] of [
       ['id', scope.id],
       ['tenant_id', scope.schoolId],
@@ -489,7 +492,7 @@ export class ImpersonationSessionService {
     const rows: EndedRow[] = await this.rowsOf(
       m.query(
         `UPDATE impersonation_sessions
-            SET status = $1, ended_at = expires_at, ended_by = $2
+            SET status = $1, ended_at = COALESCE(expires_at, ticket_expires_at), ended_by = $2
           WHERE id IN (
                 SELECT id FROM impersonation_sessions
                  WHERE ${conds.join(' AND ')} ORDER BY id FOR UPDATE)
