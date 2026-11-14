@@ -1,3 +1,4 @@
+import { localToday } from '../attendance/attendance-policy.util';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, QueryFailedError, Repository } from 'typeorm';
@@ -269,7 +270,8 @@ export class CalendarFeedService {
 
     const settings = await this.schoolsService.getResolvedSettings(token.tenant_id);
     const timezone = settings.region?.timezone ?? 'UTC';
-    const today = new Date().toISOString().slice(0, 10);
+    // The tenant's own calendar day (#933), the same one `assertNotPast` uses, not the UTC date.
+    const today = localToday(timezone);
     const from = addDaysIso(today, -FEED_PAST_DAYS);
     const to = addDaysIso(today, FEED_FUTURE_DAYS);
 

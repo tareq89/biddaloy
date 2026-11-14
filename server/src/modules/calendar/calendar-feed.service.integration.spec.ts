@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, getDataSourceToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
@@ -187,6 +187,43 @@ describe('CalendarFeedService (integration)', () => {
 
       const { body } = await service.render(rawToken);
       expect(body).not.toContain('Far Future Event');
+    });
+
+    it('anchors the window to the tenant-local day, not the UTC date [#933]', async () => {
+      const { url } = await service.getOrCreate(TENANT_ID, SEED_ADMIN_USER_ID);
+      const rawToken = url
+        .split('/')
+        .pop()!
+        .replace(/\.ics$/, '');
+      // 20:00 UTC is already the next day in Asia/Dhaka: tenant-local today is 2026-09-23, so the
+      // window starts 2026-06-25 and a 2026-06-24 event (inside a UTC-anchored window) is out.
+      vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-09-22T20:00:00Z') });
+      try {
+        const eventRepo = dataSource.getRepository(CalendarEvent);
+        for (const [name, day] of [
+          ['Edge Out', '2026-06-24'],
+          ['Edge In', '2026-06-25'],
+        ]) {
+          await eventRepo.save(
+            eventRepo.create({
+              tenant_id: TENANT_ID,
+              academic_year_id: yearId,
+              type: CalendarEventType.EVENT,
+              name,
+              start_date: day,
+              end_date: day,
+              audience: CalendarAudience.ALL,
+              published_at: new Date(),
+            }),
+          );
+        }
+
+        const { body } = await service.render(rawToken);
+        expect(body).toContain('Edge In');
+        expect(body).not.toContain('Edge Out');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('same-day ETag is stable across renders when nothing changed', async () => {
