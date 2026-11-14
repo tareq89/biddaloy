@@ -143,6 +143,7 @@ describe('RetentionService', () => {
     // backup is safe that is about to be deleted.
     const row = makeJob('raced-1', { expires_at: new Date('2020-01-01T00:00:00.000Z') });
     jobs.push(row);
+    repo.find.mockImplementationOnce(async () => []); // [735] the recovery pass reads first
     repo.find.mockImplementationOnce(async () => {
       // Return the stale, unpinned snapshot the pass would have read...
       const snapshot = { ...row, pinned: false };
@@ -232,6 +233,40 @@ describe('RetentionService', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('[735] finishes a deletion a crash left half-done (DELETED but storage_key kept) on the next sweep', async () => {
+    const stuck = makeJob('stuck-1', { status: WorkbookJobStatus.DELETED });
+    jobs.push(stuck);
+    // the mock `find` ignores the storage_key predicate: only a keyed row exists here
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+    expect(storage.delete).toHaveBeenCalledWith(`tenants/${TENANT_ID}/backups/stuck-1.xlsx`);
+    expect(stuck.storage_key).toBeNull();
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: AuditAction.BACKUP_DELETED, entity_id: 'stuck-1' }),
+      txManager,
+    );
+  });
+
+  it('[735] a lost claim in the cap pass re-reads the total instead of deleting one more backup', async () => {
+    const big = String(STORAGE_CAP_BYTES * 0.6);
+    const a = makeJob('cap-a', { size_bytes: big, created_at: new Date('2026-01-01T00:00:00Z') });
+    const b = makeJob('cap-b', { size_bytes: big, created_at: new Date('2026-01-02T00:00:00Z') });
+    jobs.push(a, b);
+    // another worker deletes `cap-a` between this pass's read and its claim
+    let first = true;
+    const realUpdate = repo.update.getMockImplementation()!;
+    repo.update.mockImplementation(async (criteria: any, patch: any) => {
+      if (first && criteria?.id === 'cap-a') {
+        first = false;
+        a.status = WorkbookJobStatus.DELETED;
+        a.storage_key = null;
+      }
+      return realUpdate(criteria, patch);
+    });
+    await service.enforce(TENANT_ID, new Date('2026-01-15T00:00:00.000Z'));
+    // 0.6 x cap remains: under the cap, so cap-b must survive
+    expect(b.status).toBe(WorkbookJobStatus.DONE);
   });
 
   it('deletes an unpinned job whose expires_at is in the past and audits BACKUP_DELETED', async () => {
