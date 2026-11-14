@@ -1,4 +1,9 @@
-import { SeatOrderStatus, type BillingSummary, type SeatOrderDto } from '@biddaloy/shared';
+import {
+  SeatOrderStatus,
+  type BillingSummary,
+  type OrderPreviewResponse,
+  type SeatOrderDto,
+} from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -6,11 +11,12 @@ import { apiClient } from '../api/client';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
-export type { BillingSummary, SeatOrderDto };
+export type { BillingSummary, OrderPreviewResponse, SeatOrderDto };
 
 export interface CreateSeatOrderInput {
   seats: number;
   months: number;
+  coupon_code?: string;
   /** One per dialog open; a retry reuses it so a dropped response never makes a second order. */
   idempotency_key: string;
 }
@@ -91,4 +97,19 @@ export async function openBillingReceipt(orderId: string): Promise<void> {
     tab.close();
     throw error;
   }
+}
+
+export interface OrderPreviewInput {
+  seats: number;
+  months: number;
+  coupon_code?: string;
+}
+
+/** `POST /billing/orders/preview` — prices a purchase with an optional coupon. No write, no key. */
+export function useOrderPreview() {
+  return useMutation({
+    mutationFn: async (input: OrderPreviewInput) =>
+      (await apiClient.post<OrderPreviewResponse>('/billing/orders/preview', input)).data,
+    retry: false,
+  });
 }
