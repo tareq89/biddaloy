@@ -1,4 +1,4 @@
-import { EntityManager, In, IsNull } from 'typeorm';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { EnrollmentStatus } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { ExamSchedule } from './entities/exam-schedule.entity';
@@ -227,4 +227,29 @@ export async function subjectSitters(
     }
   }
   return out;
+}
+
+/**
+ * Enrollments on a section's grid: ACTIVE ones, plus a student who has since left but already
+ * holds a mark for this exam, so a reopened exam can still show and fix that mark (#2341).
+ */
+export function gridEnrollments(
+  repo: Repository<Enrollment>,
+  exam: Pick<Exam, 'id' | 'academic_year_id' | 'class_id'>,
+  tenantId: string,
+  sectionId: string,
+) {
+  return repo
+    .createQueryBuilder('e')
+    .leftJoinAndSelect('e.section', 'section')
+    .where('e.tenant_id = :tenantId', { tenantId })
+    .andWhere('e.academic_year_id = :yearId', { yearId: exam.academic_year_id })
+    .andWhere('e.class_id = :classId', { classId: exam.class_id })
+    .andWhere('e.section_id = :sectionId', { sectionId })
+    .andWhere(
+      `(e.enrollment_status = :active OR EXISTS (
+         SELECT 1 FROM marks m WHERE m.exam_id = :examId AND m.tenant_id = :tenantId
+           AND m.student_id = e.student_id))`,
+      { active: EnrollmentStatus.ACTIVE, examId: exam.id },
+    );
 }

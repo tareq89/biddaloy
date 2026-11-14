@@ -27,7 +27,12 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { effectiveSittingDate, joinedAfterExam, subjectSitters } from './exam-cohort';
+import {
+  effectiveSittingDate,
+  gridEnrollments,
+  joinedAfterExam,
+  subjectSitters,
+} from './exam-cohort';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 /**
@@ -269,16 +274,12 @@ export class MarkGridService {
     // exam's own (academic_year_id, class_id) with section_id = sectionId —
     // not `Student.class_section_id`, which is the student's CURRENT
     // placement and can point elsewhere for an old exam after promotion.
-    const enrollments = await this.enrollmentRepo.find({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: exam.academic_year_id,
-        class_id: exam.class_id,
-        section_id: sectionId,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-      },
-      relations: { section: true },
-    });
+    const enrollments = await gridEnrollments(
+      this.enrollmentRepo,
+      exam,
+      tenantId,
+      sectionId,
+    ).getMany();
     const [studentsUnsorted, components, marks, grid] = await Promise.all([
       enrollments.length === 0
         ? Promise.resolve([])

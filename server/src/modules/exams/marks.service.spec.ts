@@ -123,10 +123,21 @@ async function buildService(
   // D17: the "student belongs to this section" IDOR guard now checks
   // Enrollment (exam's year/class/section, ACTIVE), not
   // Student.class_section_id.
+  // `gridEnrollments` (exam-cohort.ts) builds a query; the stub keeps the ids the guard asks about.
   const enrollmentRepo: any = {
-    count: vi.fn(
-      async ({ where }: any) => enrolledCount ?? (where.student_id.value as string[]).length,
-    ),
+    createQueryBuilder: vi.fn(() => {
+      let ids: string[] = [];
+      const qb: any = {
+        leftJoinAndSelect: () => qb,
+        where: () => qb,
+        andWhere: (_sql: string, params?: { studentIds?: string[] }) => {
+          if (params?.studentIds) ids = params.studentIds;
+          return qb;
+        },
+        getCount: async () => enrolledCount ?? ids.length,
+      };
+      return qb;
+    }),
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
   const resultsService = {

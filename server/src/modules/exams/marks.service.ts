@@ -9,7 +9,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import {
   AuditAction,
-  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkGridState,
@@ -32,6 +31,7 @@ import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
 import { lockExam } from './exam-lock';
 import { lockGrid } from './mark-grid.service';
+import { gridEnrollments } from './exam-cohort';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
@@ -134,16 +134,9 @@ export class MarksService {
     // latter is the student's CURRENT placement and drifts away from an
     // old exam's year/class after promotion.
     const studentIds = [...new Set(dto.cells.map((c) => c.student_id))];
-    const enrolledCount = await this.enrollmentRepo.count({
-      where: {
-        student_id: In(studentIds),
-        tenant_id: tenantId,
-        academic_year_id: exam.academic_year_id,
-        class_id: exam.class_id,
-        section_id: dto.section_id,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-      },
-    });
+    const enrolledCount = await gridEnrollments(this.enrollmentRepo, exam, tenantId, dto.section_id)
+      .andWhere('e.student_id IN (:...studentIds)', { studentIds })
+      .getCount();
     if (enrolledCount !== studentIds.length) {
       throw new BadRequestException('One or more students are not enrolled in this section.');
     }
