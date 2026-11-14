@@ -15,7 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { FeeType, PaymentMethod, PeriodType } from '@biddaloy/shared';
+import { FeeType, PaymentMethod, PaymentSubmissionSource, PeriodType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { MAX_CART_STUDENTS } from '../checkout-cart.service';
 import { Payment } from '../entities/payment.entity';
@@ -162,6 +162,7 @@ export class CartBillDto {
   is_late_fee: boolean;
   is_overdue: boolean;
   suggested_allocation: number;
+  waiting_submission: { id: string; source: PaymentSubmissionSource } | null;
 }
 
 /** One student within `GET /payments/cart`'s response — mirrors

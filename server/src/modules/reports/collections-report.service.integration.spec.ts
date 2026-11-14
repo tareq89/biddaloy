@@ -1085,4 +1085,106 @@ describe('CollectionsReportService', () => {
       expect(rows[0].student_name).toBe('=HYPERLINK("http://evil.example","click")');
     });
   });
+
+  describe('Online / Guardian proof buckets (#3972)', () => {
+    async function submit(source: 'ONLINE' | 'PROOF') {
+      const rows = await dataSource.query(
+        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, provider)
+         VALUES ($1, $2, 'CONFIRMED', $3, $4, 1000, $5, $6) RETURNING id`,
+        [
+          SEED_TENANT_ID,
+          source,
+          COLLECTOR_USER_ID,
+          source === 'PROOF' ? 'CASH' : null,
+          source === 'PROOF' ? '2026-03-15' : null,
+          source === 'ONLINE' ? 'BKASH' : null,
+        ],
+      );
+      return rows[0].id as string;
+    }
+    async function bill(submissionId: string, studentId: string, feeId: string, paymentId: string) {
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start, payment_id)
+         VALUES ($1, $2, $3, $4, 500, $5)`,
+        [SEED_TENANT_ID, submissionId, feeId, studentId, paymentId],
+      );
+    }
+    afterEach(async () => {
+      await dataSource.query(`DELETE FROM payment_submission_bills`);
+      await dataSource.query(`DELETE FROM payment_submissions`);
+    });
+
+    it('counter, online and proof payments land in three buckets, whole-paisa totals', async () => {
+      const st = await makeStudent();
+      const f1 = await makeStudentFee(st.id, { occurrence: 1 });
+      const f2 = await makeStudentFee(st.id, { occurrence: 2 });
+      await makePayment(st.id, SEED_TENANT_ID, { received_by_user_id: COLLECTOR_USER_ID });
+      const online = await makePayment(st.id);
+      const proof = await makePayment(st.id);
+      await bill(await submit('ONLINE'), st.id, f1.id, online.id);
+      await bill(await submit('PROOF'), st.id, f2.id, proof.id);
+
+      const { by_collector } = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-03-01',
+        to: '2026-03-31',
+      });
+      const counter = by_collector.find((c) => c.user_id === COLLECTOR_USER_ID);
+      const on = by_collector.find((c) => c.full_name === 'Online');
+      const pr = by_collector.find((c) => c.full_name === 'Guardian proof');
+      expect(by_collector).toHaveLength(3);
+      for (const row of [counter, on, pr]) {
+        expect(row?.count).toBe(1);
+        expect(Math.round((row?.collected ?? 0) * 100)).toBe(100000);
+        expect(Math.round((row?.net ?? 0) * 100)).toBe(100000);
+      }
+      expect(on?.user_id).toBeNull();
+      expect(pr?.user_id).toBeNull();
+    });
+
+    it('two bill rows on one payment still count once', async () => {
+      const st = await makeStudent();
+      const f1 = await makeStudentFee(st.id, { occurrence: 1 });
+      const f2 = await makeStudentFee(st.id, { occurrence: 2 });
+      const pay = await makePayment(st.id);
+      const sub = await submit('ONLINE');
+      await bill(sub, st.id, f1.id, pay.id);
+      await bill(sub, st.id, f2.id, pay.id);
+
+      const { by_collector } = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-03-01',
+        to: '2026-03-31',
+      });
+      expect(by_collector).toHaveLength(1);
+      expect(by_collector[0].full_name).toBe('Online');
+      expect(by_collector[0].count).toBe(1);
+      expect(Math.round(by_collector[0].collected * 100)).toBe(100000);
+    });
+
+    it('a reversal of the online payment nets 0 inside the Online bucket', async () => {
+      const st = await makeStudent();
+      const f1 = await makeStudentFee(st.id);
+      const pay = await makePayment(st.id);
+      await bill(await submit('ONLINE'), st.id, f1.id, pay.id);
+      const rev = await makePayment(st.id, SEED_TENANT_ID, {
+        received_by_user_id: COLLECTOR_USER_ID,
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: pay.id,
+      });
+      await paymentRepo.update(pay.id, {
+        reversed_by_payment_id: rev.id,
+        payment_status: PaymentStatus.REFUNDED,
+      });
+
+      const { by_collector } = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-03-01',
+        to: '2026-03-31',
+      });
+      expect(by_collector).toHaveLength(1);
+      expect(by_collector[0].full_name).toBe('Online');
+      expect(by_collector[0].user_id).toBeNull();
+      expect(by_collector[0].count).toBe(2);
+      expect(Math.round(by_collector[0].net * 100)).toBe(0);
+      expect(by_collector.some((c) => c.user_id === COLLECTOR_USER_ID)).toBe(false);
+    });
+  });
 });

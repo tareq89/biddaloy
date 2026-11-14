@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Not, Repository } from 'typeorm';
 import {
@@ -32,6 +33,16 @@ import { SchoolsService } from '../schools/schools.service';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
+
+/** [3.x D45] In-process bus; emitted AFTER a reversal commits (same shape as `attentionEvents`). */
+export const PAYMENTS_REVERSED = 'payments.reversed';
+export const paymentEvents = new EventEmitter();
+export interface PaymentsReversedPayload {
+  paymentId: string;
+  tenantId: string;
+  actorUserId: string;
+  reason: string;
+}
 
 interface UndoneDebitAudit {
   debit_id: string;
@@ -471,6 +482,8 @@ export class PaymentReversalService {
 
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId });
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
+    const reversed: PaymentsReversedPayload = { paymentId, tenantId, actorUserId, reason };
+    paymentEvents.emit(PAYMENTS_REVERSED, reversed);
 
     return reversalPayment;
   }

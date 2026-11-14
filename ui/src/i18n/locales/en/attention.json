@@ -286,6 +286,10 @@
         "name": "Fee reminders to send",
         "help": "Reminds you about dues with no reminder sent."
       },
+      "payment_proofs_waiting": {
+        "name": "Payment proofs waiting",
+        "help": "Reminds you about guardian payment proofs nobody has reviewed."
+      },
       "unassigned_students": {
         "name": "$t(common:entities.student_other) without fees this month",
         "help": "Warns about students with no fee assigned."

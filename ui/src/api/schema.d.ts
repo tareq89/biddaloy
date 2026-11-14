@@ -6668,6 +6668,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/payment-proofs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment proofs for the caller's linked children. */
+        get: operations["ProofSubmissionsController_list_v1"];
+        put?: never;
+        /** Submit a payment proof (TrxID and/or up to 2 JPG/PNG/PDF files). */
+        post: operations["ProofSubmissionsController_submit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-proofs/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a waiting proof (submitter only). */
+        post: operations["ProofSubmissionsController_withdraw_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-proofs/{id}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream one proof file. */
+        get: operations["ProofSubmissionsController_file_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backup/export": {
         parameters: {
             query?: never;
@@ -15463,6 +15515,15 @@ export interface components {
             reference_last4: string | null;
             payment_date: string;
         };
+        PublicReceiptHowPaidDto: {
+            /** @enum {string} */
+            source: "PROOF" | "ONLINE";
+            method: string;
+            trx_id_last4: string | null;
+            /** @description ISO timestamp; the client shows only the date ("verified by the school on ..."). */
+            verified_on: string | null;
+            paid_at: string | null;
+        };
         PublicReceiptDto: {
             invoice_number: string;
             kind: string;
@@ -15471,6 +15532,7 @@ export interface components {
             students: components["schemas"]["PublicReceiptStudentDto"][];
             totals: components["schemas"]["PublicReceiptTotalsDto"];
             payment: components["schemas"]["PublicReceiptPaymentDto"];
+            how_paid: components["schemas"]["PublicReceiptHowPaidDto"] | null;
         };
         PushPublicKeyResponseDto: {
             enabled: boolean;
@@ -18459,6 +18521,40 @@ export interface components {
             supersedes_import_id: string | null;
             created_at: string;
             rows: components["schemas"]["AttendanceImportDetailRowDto"][];
+        };
+        CreateProofSubmissionDto: {
+            billIds: string[];
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            amount: number;
+            /** @example 2026-11-14 */
+            paidOn: string;
+            reference?: string;
+        };
+        ProofSubmissionBillDto: {
+            studentFeeId: string;
+            studentId: string;
+            amount: string;
+        };
+        ProofSubmissionFileDto: {
+            id: string;
+            contentType: string;
+            sizeBytes: number;
+        };
+        ProofSubmissionResponseDto: {
+            id: string;
+            /** @enum {string} */
+            status: "PENDING" | "CONFIRMED" | "REJECTED" | "DISCARDED" | "WITHDRAWN" | "COMPLETED" | "FAILED" | "CANCELLED" | "EXPIRED" | "REVERSED";
+            /** @enum {string|null} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET" | null;
+            amount: string;
+            paidOn: string | null;
+            reference: string | null;
+            submittedByUserId: string;
+            /** Format: date-time */
+            createdAt: string;
+            bills: components["schemas"]["ProofSubmissionBillDto"][];
+            files: components["schemas"]["ProofSubmissionFileDto"][];
         };
         RequestExportDto: {
             /**
@@ -39336,6 +39432,140 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AttendanceImportDetailDto"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_list_v1: {
+        parameters: {
+            query?: {
+                studentId?: string;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofSubmissionResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_submit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CreateProofSubmissionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofSubmissionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_withdraw_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofSubmissionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_file_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
