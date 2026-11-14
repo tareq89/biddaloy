@@ -788,3 +788,30 @@ Example: 3 guardians, one unticked, so the message log gets 2 SMS rows, each bod
 - **Guide drift fixed:** the staff guide said the dashboard bar button is "I have read this". The bar button is **Mark as read** (`attention:notice.acknowledge`); "I have read this" is the button on the notice itself (`portalNotices:detail.acknowledge`).
 - **Route snapshot:** `/n/$token` is a client route, not a server route, so `route-status.snapshot.txt` has no line for it. The server side (`/public/notices/:token*`) is already listed, answering PASS for every column.
 - **Not done by an agent:** the screen-reader pass and the usability re-run with real people. See `docs/ux-research/epic-53-notices.md`.
+
+## Learning: cockpit money, Wave 1 (Epic 100)
+
+A school's SMS credit is now a stack of **lots** (one per purchase, grant or legacy balance),
+each with its own expiry. The balance row is a cache of the lots, not the truth.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE: purchase / grant / backfill creates a lot
+    ACTIVE --> ACTIVE: reserve draws units (soonest expiry first)<br/>debit spends them, release returns them
+    ACTIVE --> USED_UP: last unit spent
+    ACTIVE --> EXPIRED: expireDue, only units nobody holds
+    ACTIVE --> REFUNDED: refund, only if no unit was ever drawn
+    USED_UP --> [*]
+    EXPIRED --> [*]
+    REFUNDED --> [*]
+```
+
+- **Balance is a cache.** `sms_credit_balance` = the sum of usable lot units. `sms-credit:reconcile`
+  checks it against the lots and reports any drift; `SmsCreditService` stays the only writer of both.
+- **Lock order.** Balance row first, then the lot rows. `reserve`, `expireDue` and the refund's
+  `closeUntouchedLot` all take them in that order, so they cannot deadlock each other.
+- **The `legacy:` draw.** Old reservations (made before lots) have no draw rows. Settling one
+  creates a `legacy:<tenant>` draw on the fly, so an in-flight send from before the deploy settles.
+- **Receipts.** Wave 1 numbered only seat orders (`SMR-YYYY-NNNNNN`). #3858 (Wave 2) put SMS
+  package orders in the same series.
+- **Not in Wave 1:** no route or DTO changed, so `schema.d.ts` did not change (it does in Wave 3).
