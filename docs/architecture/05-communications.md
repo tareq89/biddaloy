@@ -859,3 +859,71 @@ flowchart TD
 - The note "SchoolManagerP SMS is unmasked for now" is always visible next to the packages.
 - The buy flow is remounted per package so a different package never reuses an Idempotency-Key.
 - Alerts `sms.low` (red) and `sms.expiring` (amber) link to `/settings?section=communication&smsBuy=1`.
+
+## SMS money on one page: tables, the balance rule, the life of a package (Epic 100 W6)
+
+The pieces are explained above (lot states, source switch). This is the whole picture.
+
+```mermaid
+erDiagram
+  SMS_BUNDLE_ORDER ||--o| SMS_CREDIT_LOT : "pay creates one lot"
+  SMS_CREDIT_LOT ||--o{ SMS_CREDIT_LOT_DRAW : "a send draws from it"
+  SMS_CREDIT_BALANCE ||--o{ SMS_CREDIT_LOT : "cache of its school's lots"
+  SMS_STOCK_ENTRY {
+    date bought_on
+    int sms_count
+    string cost_paisa
+  }
+  SMS_CREDIT_LOT {
+    int units_total
+    int remaining
+    int reserved_units
+    int debited_units
+    int expired_units
+    date expires_at
+  }
+  SMS_CREDIT_BALANCE {
+    int available
+    int reserved
+  }
+```
+
+`sms_stock_entries` stands alone: it is the owner's own record of SMS bought from the provider. It
+is never joined to a school's lots; it only feeds the oversold check.
+
+**The rule the reconcile job checks** (`sms-credit-lot-invariants.ts`):
+
+- `sms_credit_balance.available` = the sum of `remaining` over the school's lots.
+- `sms_credit_balance.reserved` = the sum of `open_units` over the school's open draws.
+- Every lot: `remaining + reserved_units + debited_units + expired_units = units_total`.
+
+Example: a school buys 1000 SMS (one lot, `remaining` 1000). A bulk send of 300 reserves them:
+lot `remaining` 700, `reserved_units` 300, balance `available` 700, `reserved` 300. When the
+provider accepts 290 and refuses 10: `debited_units` 290, the 10 are released to `remaining` 710.
+
+```mermaid
+sequenceDiagram
+  participant A as School admin
+  participant S as Server
+  participant B as bKash
+  participant C as SmsCreditService
+  A->>S: POST /sms-bundles/orders (package)
+  A->>S: POST /sms-bundles/orders/:id/pay/bkash
+  S->>B: create payment
+  B-->>S: callback, Completed, same amount
+  S->>C: grant lot (units, expires_at = now + validity_days)
+  Note over C: each send: reserve, then debit or release
+  Note over S: daily job: expireDue closes what no one holds
+  S-->>A: sms.expiring attention card: amber within 7 days, red within 1 day
+```
+
+**Why the resolver ignores the saved own block (D9).** When a school picks SchoolManagerP, its
+saved own-provider block is kept (so switching back works at once) but not read.
+`messaging-config.resolver.ts` rewrites the stored medium to `{ metering: 'PLATFORM' }` when
+`source` is `SCHOOLMANAGERP`. If it read the block, a leftover own key could send the SMS through
+the school's provider while the school's package credit was still being charged. The same reading
+(`readSmsSource`) decides billing, so who sends and who pays cannot disagree. A school with no
+saved `source` behaves as before.
+
+**One writer.** Only `SmsCreditService` writes the balance, ledger, lots and draws. The rule and
+its enforcing test are in [08-security.md, Money-table writers](08-security.md#candidate-rule-money-tier-tables-have-one-writer).
