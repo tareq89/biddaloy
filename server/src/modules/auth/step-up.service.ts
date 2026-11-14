@@ -82,6 +82,9 @@ export const PLATFORM_APPROVAL_SCOPES: readonly ApprovalScope[] = [
   ApprovalScope.PLATFORM_ANNOUNCE_ALL,
   ApprovalScope.PLATFORM_OPS_ACTION,
   ApprovalScope.PLATFORM_SCHOOL_CONTROL,
+  // [Epic 100 #3870] Coupon writes; without these the coupon routes' step-up could never be minted.
+  ApprovalScope.PLATFORM_COUPON,
+  ApprovalScope.PLATFORM_COUPON_FREE,
 ];
 
 export interface StepUpOtpRequestResult {

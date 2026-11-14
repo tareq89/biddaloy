@@ -114,8 +114,6 @@ import { PlatformPayment } from './modules/billing/entities/platform-payment.ent
 import { BillingModule } from './modules/billing/billing.module';
 import { SmsBundlesModule } from './modules/sms-bundles/sms-bundles.module';
 import { PlansModule } from './modules/plans/plans.module';
-import { CouponsModule } from './modules/coupons/coupons.module';
-import { RevenueModule } from './modules/revenue/revenue.module';
 import { IdleAccountModule } from './modules/billing/idle-account.module';
 import { PlatformAlert } from './modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
@@ -138,10 +136,6 @@ import { SmsCreditBalance } from './modules/communications/credits/entities/sms-
 import { SmsCreditLot } from './modules/communications/credits/entities/sms-credit-lot.entity';
 import { SmsCreditLotDraw } from './modules/communications/credits/entities/sms-credit-lot-draw.entity';
 import { SmsBundleCatalog } from './modules/sms-bundles/entities/sms-bundle-catalog.entity';
-import { Plan } from './modules/plans/entities/plan.entity';
-import { Coupon } from './modules/coupons/entities/coupon.entity';
-import { CouponSchool } from './modules/coupons/entities/coupon-school.entity';
-import { CouponRedemption } from './modules/coupons/entities/coupon-redemption.entity';
 import { SmsBundleOrder } from './modules/sms-bundles/entities/sms-bundle-order.entity';
 import { SmsStockEntry } from './modules/sms-bundles/entities/sms-stock-entry.entity';
 import { SmsProviderBalanceReading } from './modules/sms-bundles/entities/sms-provider-balance-reading.entity';
@@ -624,8 +618,6 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     // [98.1.99] Cockpit identity: platform owners, MFA. Wave 1 touches app.module only here (D27).
     PlatformIdentityModule,
     PlatformControlModule,
-    CouponsModule,
-    RevenueModule,
     MfaModule,
     CockpitAuthModule,
   ],
