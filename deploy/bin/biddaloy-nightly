@@ -117,7 +117,7 @@ drill_smoke() {
     -e REDIS_URL=redis://redis:6379/15 \
     -e SMOKE_SCHOOL_SLUG -e SMOKE_ADMIN_EMAIL -e SMOKE_ADMIN_PASSWORD -e SMOKE_TEACHER_EMAIL \
     -e SMOKE_TEACHER_PASSWORD -e SMOKE_COCKPIT_EMAIL -e SMOKE_COCKPIT_PASSWORD -e SMOKE_COCKPIT_TOTP_SECRET \
-    -e SMOKE_COCKPIT_DOMAIN -e SMOKE_APP_DOMAIN -e SMOKE_FENCE_ORIGIN \
+    -e SMOKE_COCKPIT_DOMAIN -e SMOKE_APP_DOMAIN -e SMOKE_FENCE_ORIGIN -e SMOKE_IMPERSONATION \
     app sh -c 'node server/dist/main.js >&2 & pid=$!
       for i in $(seq 1 60); do
         wget -q -O /dev/null http://127.0.0.1:3000/api/health && break
