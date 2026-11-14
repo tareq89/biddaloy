@@ -40,6 +40,8 @@ import { StudentLifecycleService } from '../students/student-lifecycle.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { RequestContext } from '../../common/request-context.util';
 import { todayInSchoolTz } from '../../common/time';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import { CreatePromotionRunDto, PatchPromotionEntryDto } from './dto/promotions.dto';
 import {
   suggestOutcome,
@@ -111,6 +113,19 @@ export class PromotionsService {
   // ────────────────────────
   //  Target suggestion (step 2)
   // ────────────────────────
+
+  /**
+   * The "Groups pending" item (D15) is evaluated on demand after every write that can change it
+   * (run created, entries edited, refreshed, deleted or committed), not only by the 5-minute
+   * sweep (#4057). Call after the write's transaction commits.
+   */
+  private recheckGroupsPending(tenantId: string, userId?: string | null): void {
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'promotion.groups_pending',
+      actorUserId: userId ?? undefined,
+    });
+  }
 
   async suggestTarget(
     sourceClassId: string,
@@ -523,7 +538,7 @@ export class PromotionsService {
       occupied_count: occupancyById.get(s.id) ?? 0,
     }));
 
-    return this.runRepo.manager.transaction(async (manager) => {
+    const createdRun = await this.runRepo.manager.transaction(async (manager) => {
       const runRepo = manager.getRepository(PromotionRun);
       const entryRepo = manager.getRepository(PromotionEntry);
 
@@ -576,6 +591,8 @@ export class PromotionsService {
 
       return run;
     });
+    this.recheckGroupsPending(tenantId, userId);
+    return createdRun;
   }
 
   /** Source-section group_name per section id, for the given cohort. */
@@ -697,7 +714,10 @@ export class PromotionsService {
 
         return runRepo.findOneOrFail({ where: { id: run.id }, relations: [] });
       })
-      .then(async (run) => this.findOne(run.id, tenantId));
+      .then(async (run) => {
+        this.recheckGroupsPending(tenantId, userId);
+        return this.findOne(run.id, tenantId);
+      });
   }
 
   /** M3 — counts students already sitting in each target section (they get
@@ -884,7 +904,10 @@ export class PromotionsService {
 
         return run.id;
       })
-      .then((runId2) => this.findOne(runId2, tenantId));
+      .then((runId2) => {
+        this.recheckGroupsPending(tenantId, userId);
+        return this.findOne(runId2, tenantId);
+      });
   }
 
   // ────────────────────────
@@ -910,6 +933,7 @@ export class PromotionsService {
     if (!result.affected) {
       throw new ConflictException('Run status changed before it could be deleted');
     }
+    this.recheckGroupsPending(tenantId);
   }
 
   // ────────────────────────
@@ -1377,6 +1401,7 @@ export class PromotionsService {
       return { id: run.id };
     });
 
+    this.recheckGroupsPending(tenantId, userId);
     return outcome;
   }
 

@@ -735,7 +735,7 @@ export function ArrivalNoticesCard({ sectionId }: { sectionId: string }) {
 
 // --- 9. Groups pending (Epic 69, D15) -------------------------------------
 
-const RUN_URL = /^\/promotions\/([0-9a-f-]{36})$/i;
+const RUN_URL = /^\/promotions\/([0-9a-f-]{36})(?:\/groups)?$/i;
 
 /** One card per draft promotion run that still has ungrouped students in this section.
  * The run id comes from the attention item (`actionUrl`), because a class teacher cannot
