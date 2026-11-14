@@ -12,7 +12,11 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import type { PlatformSchoolBillingDetail, SeatOrderDto } from '@biddaloy/ui/hooks';
+import type {
+  PlatformBundleOrder,
+  PlatformSchoolBillingDetail,
+  SeatOrderDto,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency, formatDate, formatNumber } from '@biddaloy/ui/utils';
 
@@ -24,14 +28,33 @@ const STATUS_TONE = {
   REFUNDED: 'neutral',
 } as const;
 
+const PACKAGE_TONE = {
+  PENDING_PAYMENT: 'warning',
+  PAID: 'success',
+  ACTIVE: 'success',
+  USED_UP: 'neutral',
+  EXPIRED: 'neutral',
+  CANCELLED: 'neutral',
+  REFUNDED: 'neutral',
+} as const;
+
+/** The detail as the server answers it: `plan` and typed `bundle_orders` (#3888, D47). */
+export type SchoolBillingDetail = Omit<PlatformSchoolBillingDetail, 'bundle_orders'> & {
+  plan?: { id: string; name: string; unit_price_paisa: number } | null;
+  bundle_orders?: PlatformBundleOrder[];
+};
+
 export interface SchoolBillingViewProps {
-  detail?: PlatformSchoolBillingDetail | undefined;
+  detail?: SchoolBillingDetail | undefined;
   loading: boolean;
   error?: boolean;
   onRetry: () => void;
   onGrant: () => void;
   onRecordPayment: (order: SeatOrderDto) => void;
   onRevive: () => void;
+  onRefundSeat?: (order: SeatOrderDto) => void;
+  onRefundPackage?: (order: PlatformBundleOrder) => void;
+  onChangePlan?: () => void;
 }
 
 export function SchoolBillingView({
@@ -42,8 +65,12 @@ export function SchoolBillingView({
   onGrant,
   onRecordPayment,
   onRevive,
+  onRefundSeat,
+  onRefundPackage,
+  onChangePlan,
 }: SchoolBillingViewProps) {
   const { t } = useTranslation('platform');
+  const { t: tm } = useTranslation('moneyBilling');
   const config = useRegionConfig();
 
   if (loading) {
@@ -99,10 +126,57 @@ export function SchoolBillingView({
       id: 'status',
       header: t('subscriptions.panel.columnStatus'),
       accessorFn: (o) => (
-        <StatusBadge
-          tone={STATUS_TONE[o.status]}
-          label={t(`subscriptions.orderStatus.${o.status}`)}
-        />
+        <div className="grid gap-1">
+          <StatusBadge
+            tone={STATUS_TONE[o.status]}
+            label={t(`subscriptions.orderStatus.${o.status}`)}
+          />
+          {o.status === SeatOrderStatus.PAID && o.amount_paisa <= 0 && (
+            <span className="text-caption text-text-secondary">{tm('refund.freeOrder')}</span>
+          )}
+        </div>
+      ),
+      card: 'badge',
+    },
+  ];
+
+  const packageColumns: DataTableColumn<PlatformBundleOrder>[] = [
+    {
+      id: 'created',
+      header: tm('packages.columnDate'),
+      accessorFn: (o) => (o.paid_at ? formatDate(o.paid_at, config) : '–'),
+      card: 'subtitle',
+    },
+    {
+      id: 'package',
+      header: tm('packages.columnPackage'),
+      accessorFn: (o) =>
+        tm('packages.line', {
+          name: o.bundle_name ?? '',
+          count: formatNumber(o.sms_count, config),
+        }),
+      card: 'title',
+    },
+    {
+      id: 'amount',
+      header: tm('packages.columnAmount'),
+      accessorFn: (o) => formatCurrency(o.amount_paisa ?? 0, config),
+      align: 'end',
+      card: 'field',
+    },
+    {
+      id: 'status',
+      header: tm('packages.columnStatus'),
+      accessorFn: (o) => (
+        <div className="grid gap-1">
+          <StatusBadge
+            tone={PACKAGE_TONE[o.status as keyof typeof PACKAGE_TONE] ?? 'neutral'}
+            label={tm(`packages.status.${o.status}`)}
+          />
+          {!o.refundable && o.units_used > 0 && o.status !== 'REFUNDED' && (
+            <span className="text-caption text-text-secondary">{tm('refund.partlyUsed')}</span>
+          )}
+        </div>
       ),
       card: 'badge',
     },
@@ -129,6 +203,24 @@ export function SchoolBillingView({
           </dd>
         </div>
       </dl>
+
+      {detail.plan !== undefined && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="plan-line">
+          <p>
+            {detail.plan
+              ? tm('plan.line', {
+                  name: detail.plan.name,
+                  price: formatCurrency(detail.plan.unit_price_paisa, config),
+                })
+              : tm('plan.none')}
+          </p>
+          {!detail.deleted && onChangePlan && (
+            <Button type="button" variant="outline" onClick={onChangePlan}>
+              {tm('plan.change')}
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {!detail.deleted && (
@@ -166,12 +258,55 @@ export function SchoolBillingView({
                   onClick: () => onRecordPayment(o),
                 },
               ]
-            : []
+            : o.status === SeatOrderStatus.PAID && o.amount_paisa > 0 && onRefundSeat
+              ? [
+                  {
+                    intent: 'remove',
+                    label: tm('refund.action'),
+                    display: 'text',
+                    onClick: () => onRefundSeat(o),
+                  },
+                ]
+              : []
         }
         loading={false}
         isFetching={false}
         emptyState={{ title: t('subscriptions.panel.noOrders'), explanation: '' }}
       />
+
+      {detail.bundle_orders && (
+        <>
+          <h3 className="text-h3">{tm('packages.heading')}</h3>
+          <DataTable
+            tableId="platform-school-package-orders"
+            caption={tm('packages.heading')}
+            columns={packageColumns}
+            data={detail.bundle_orders}
+            getRowId={(o) => o.id}
+            sorting={null}
+            onSortingChange={() => undefined}
+            page={1}
+            pageSize={100}
+            totalCount={detail.bundle_orders.length}
+            onPageChange={() => undefined}
+            rowActions={(o) =>
+              o.refundable && onRefundPackage
+                ? [
+                    {
+                      intent: 'remove',
+                      label: tm('refund.action'),
+                      display: 'text',
+                      onClick: () => onRefundPackage(o),
+                    },
+                  ]
+                : []
+            }
+            loading={false}
+            isFetching={false}
+            emptyState={{ title: tm('packages.empty'), explanation: '' }}
+          />
+        </>
+      )}
     </div>
   );
 }

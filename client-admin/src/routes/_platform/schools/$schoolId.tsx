@@ -68,6 +68,8 @@ export const Route = createFileRoute('/_platform/schools/$schoolId')({
       'school360',
       'settings',
       'loginAs',
+      'moneyBilling',
+      'moneyPlans',
       'common',
     ),
   component: SchoolDetailPage,

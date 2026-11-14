@@ -1,0 +1,50 @@
+{
+  "plan": {
+    "line": "Plan: {{name}}, {{price}} per seat, per month",
+    "none": "This school has no plan yet.",
+    "change": "Change plan",
+    "changeFor": "Change plan for {{name}}"
+  },
+  "packages": {
+    "heading": "SMS packages",
+    "empty": "This school has not bought an SMS package yet.",
+    "columnDate": "Date",
+    "columnPackage": "Package",
+    "columnAmount": "Amount",
+    "columnStatus": "Status",
+    "line": "{{name}}, {{count}} SMS",
+    "status": {
+      "PENDING_PAYMENT": "Waiting for payment",
+      "PAID": "Paid",
+      "ACTIVE": "Active",
+      "USED_UP": "Used up",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded"
+    }
+  },
+  "refund": {
+    "action": "Refund",
+    "actionFor": "Refund {{order}}",
+    "freeOrder": "This order was free, so there is nothing to refund.",
+    "partlyUsed": "Some of this package is already used, so it cannot be refunded.",
+    "seatSummary": "{{seats}} seats for {{months}} months",
+    "title": "Refund {{amount}}?",
+    "description": "{{name}}: {{summary}}.",
+    "reason": "Reason",
+    "reasonHelp": "After you save, send the money back from the bKash panel. You will be asked for your code.",
+    "submit": "Refund",
+    "done": "Done",
+    "resultTitle": "Refund saved",
+    "instruction": "Return the money from the bKash panel; this app only records the refund.",
+    "reference": "Use this reference: {{ref}}",
+    "couponKept": "A coupon used on this order is not given back.",
+    "alreadyRefunded": "This order was already refunded.",
+    "errors": {
+      "reason": "Write a reason of 5 to 300 characters.",
+      "notRefundable": "This order cannot be refunded.",
+      "used": "Some of this package is already used, so it cannot be refunded.",
+      "generic": "Could not refund. Try again."
+    }
+  }
+}
