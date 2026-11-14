@@ -467,7 +467,7 @@
       "INVOICE_SEND": "চালান পাঠানো ও শেয়ার",
       "INVOICE_DELETE": "চালান মোছা",
       "PAYMENT_RECORD": "পেমেন্ট রেকর্ড",
-      "PAYMENT_SUBMIT": "পেমেন্ট জমা দেওয়া (অভিভাবক)",
+      "PAYMENT_SUBMIT": "পেমেন্ট জমা দেওয়া ($t(common:entities.guardian_one))",
       "PAYMENT_READ": "সব পেমেন্ট দেখা",
       "PAYMENT_REFUND": "টাকা ফেরত",
       "PAYMENT_REVERSE": "পেমেন্ট বাতিল",
