@@ -329,7 +329,11 @@ TEST_ENV_UP=""
 test_env_down() {
   [ -n "$TEST_ENV_UP" ] && bash scripts/test-env.sh down || true
 }
-trap test_env_down EXIT
+# Every EXIT trap re-exits with the script's own status: bash 3.2 (macOS) lets
+# the trap's last command overwrite it, so a crash (e.g. an unbound variable)
+# exited 0 (#1405, #1669).
+EXIT_TRAP='rc=$?; test_env_down; exit $rc'
+trap "$EXIT_TRAP" EXIT
 provision_stack() {
   if [ -z "$TEST_ENV_UP" ]; then
     TEST_ENV_UP="$(bash scripts/test-env.sh up)"
@@ -481,7 +485,7 @@ if should_run "lighthouse"; then
       kill "$LH_PREVIEW_PID" 2>/dev/null || true
     fi
   }
-  trap 'cleanup_lighthouse; test_env_down' EXIT
+  trap 'rc=$?; cleanup_lighthouse; test_env_down; exit $rc' EXIT
   yarn build:client-admin
   yarn workspace @biddaloy/client-admin preview --port 5174 &
   LH_PREVIEW_PID=$!
@@ -492,7 +496,7 @@ if should_run "lighthouse"; then
     --collect.url=http://localhost:5174/fees/dues \
     --collect.url="$STUDENT_URL"
   cleanup_lighthouse
-  trap test_env_down EXIT
+  trap "$EXIT_TRAP" EXIT
   section_done "lighthouse"
 fi
 
