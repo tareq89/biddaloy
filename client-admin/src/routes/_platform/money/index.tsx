@@ -33,7 +33,7 @@ function SmsStatePage() {
     } else if (line.target.tab === 'stock') {
       void navigate({ to: '/money', search: { record: 1 } });
     } else if (line.target.tab === 'packages') {
-      void navigate({ to: '/money/packages' as never });
+      void navigate({ to: '/money/packages' });
     } else {
       document.getElementById('sms-schools-title')?.scrollIntoView?.({ block: 'start' });
     }
