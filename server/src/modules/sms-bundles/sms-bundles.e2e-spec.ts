@@ -205,7 +205,7 @@ describe('sms-bundles E2E', () => {
           .expect(302);
         expect(res.header.location).toContain('smsOrder=');
         expect(res.header.location).not.toContain('smsBuy');
-        expect(res.header.location).toContain(`order=${orderId}`);
+        expect(res.header.location).toContain(`smsOrder=${orderId}`);
         expect(res.header.location).toContain('payment=success');
 
         const order = await call('get', `sms-bundles/orders/${orderId}`, tokens.admin).expect(200);

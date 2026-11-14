@@ -9,7 +9,7 @@ sources:
   - client-admin/src/features/billing/SeatsBillingSection.tsx
   - server/src/modules/coupons/
 labels: [billing:coupon.*, billing:buy.*]
-helpIds: []
+helpIds: [administration.seatCoupon]
 devices: [desktop]
 entry: [sidebar]
 keywords: [coupon, discount, free seats, seat order, কুপন, ছাড়, সিট]
@@ -65,11 +65,11 @@ A coupon is for **seats only**. It does not work on SMS packages.
 
 ## How to know it worked <a href="#confirm" id="confirm"></a>
 
-| What you see | What it means | What next |
-| --- | --- | --- |
-| **Price**, **Coupon**, **New total** | The coupon is accepted and shows the new price. | Press **Create order**. |
-| **This coupon cannot be used.** | The code did not work. The page never says why. | Check the code, or ask Biddaloy for a new one. |
-| **Too many tries, wait a little and try again.** | You tried too many times. | Wait about 15 minutes and try again. |
+| What you see                                     | What it means                                   | What next                                      |
+| ------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------- |
+| **Price**, **Coupon**, **New total**             | The coupon is accepted and shows the new price. | Press **Create order**.                        |
+| **This coupon cannot be used.**                  | The code did not work. The page never says why. | Check the code, or ask Biddaloy for a new one. |
+| **Too many tries, wait a little and try again.** | You tried too many times.                       | Wait about 15 minutes and try again.           |
 
 ---
 
@@ -93,21 +93,21 @@ A coupon works on **one order**. Some coupons give the discount only for the fir
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see | What to do | Who can help |
-| --- | --- | --- |
-| **This coupon cannot be used.** | Check the code letter by letter. Capital or small letters do not matter. | Biddaloy |
-| **Too many tries, wait a little and try again.** | Wait, then try once more. | — |
-| **We could not create the order. Try again.** | Press **Create order** again. | — |
-| The **Have a coupon?** line is not there | Open **Seats & billing** from an Admin account. | — |
+| What you see                                     | What to do                                                               | Who can help |
+| ------------------------------------------------ | ------------------------------------------------------------------------ | ------------ |
+| **This coupon cannot be used.**                  | Check the code letter by letter. Capital or small letters do not matter. | Biddaloy     |
+| **Too many tries, wait a little and try again.** | Wait, then try once more.                                                | —            |
+| **We could not create the order. Try again.**    | Press **Create order** again.                                            | —            |
+| The **Have a coupon?** line is not there         | Open **Seats & billing** from an Admin account.                          | —            |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role | Use a coupon |
-| --- | --- |
-| Admin | Yes |
-| Every other school role | No access |
+| Role                    | Use a coupon |
+| ----------------------- | ------------ |
+| Admin                   | Yes          |
+| Every other school role | No access    |
 
 ---
 

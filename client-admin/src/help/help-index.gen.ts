@@ -5149,6 +5149,26 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 1,
   },
+  'administration.smsPackages': {
+    title: { bn: 'SMS প্যাকেজ কেনা', en: 'Buying an SMS package' },
+    summary: {
+      bn: 'আপনার স্কুলের কয়টি SMS বাকি আর কবে শেষ হবে দেখুন, বিকাশে প্যাকেজ কিনুন, আর SMS প্রায় শেষ হলে কী করবেন জানুন।',
+      en: 'See how many SMS your school has left and when they end, buy a package with bKash, and know what to do when SMS are almost finished.',
+    },
+    path: 'administration/sms-packages',
+    anchor: '',
+    knownIssues: 2,
+  },
+  'administration.seatCoupon': {
+    title: { bn: 'কুপন ব্যবহার করা', en: 'Using a coupon' },
+    summary: {
+      bn: 'সিট কেনার সময় কুপন লিখুন, টাকা দেওয়ার আগে নতুন দাম দেখুন, আর কুপনে অর্ডার বিনামূল্যের হলে কী হয় জানুন।',
+      en: 'Type a coupon when you buy seats, see the new price before you pay, and know what happens when a coupon makes the order free.',
+    },
+    path: 'administration/seat-coupon',
+    anchor: '',
+    knownIssues: 0,
+  },
   'help.glossary': {
     title: { bn: 'শব্দের তালিকা', en: 'Glossary' },
     summary: {

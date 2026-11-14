@@ -11,7 +11,7 @@ sources:
   - client-admin/src/pages/settings/SmsSourceCard.tsx
   - server/src/modules/sms-bundles/
 labels: [smsBundles:*, settings:smsCredit.*]
-helpIds: []
+helpIds: [administration.smsPackages]
 devices: [desktop]
 entry: [sidebar, dashboard:attention]
 keywords: [sms package, buy sms, sms credit, sms expiry, bkash, unmasked sms, এসএমএস প্যাকেজ, এসএমএস কিনুন]
@@ -150,6 +150,17 @@ Every paid package gets a numbered receipt, in the same series as your seat rece
 | ----------------------- | ------------ | ------------- |
 | Admin                   | Yes          | Yes           |
 | Every other school role | No access    | No access     |
+
+---
+
+## Known issues <a href="#known-issues" id="known-issues"></a>
+
+Checked in version 0.1.0, 2026-11-14. Each line is removed once it is fixed.
+
+| Problem                                                                                   | Whose, and when                                   | Is data saved?                       | What to do for now                       |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
+| There is no button to go back to your own SMS company after you chose the platform's SMS. | A school admin who switched to the platform's SMS | Yes, the choice is saved             | Ask the platform owner to switch it back |
+| A bought package shows no link to download its receipt.                                   | A school admin after a package payment            | Yes, the receipt is made and emailed | Open the receipt from the email          |
 
 ---
 
