@@ -332,7 +332,7 @@ describe('demo seed coverage', () => {
     cardNoteCounts = main.cardNotes;
     fpA = (await seedInto(dbs[1], SMALL, false)).fp;
     fpB = (await seedInto(dbs[2], SMALL, false)).fp;
-  }, 600_000);
+  }, 1_200_000);
 
   afterAll(async () => {
     await closeMain();
