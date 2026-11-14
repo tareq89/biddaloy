@@ -40,8 +40,8 @@ export class BkashCallbackController {
       const paymentID = str(query.paymentID, 64);
       const status = str(query.status, 32);
       if (!paymentID || !status) throw new Error('bad callback query');
-      const { orderId, outcome } = await this.bkash.handleCallback(paymentID, status);
-      res.redirect(302, this.bkash.returnUrl(orderId, outcome));
+      const { orderId, outcome, kind } = await this.bkash.handleCallback(paymentID, status);
+      res.redirect(302, this.bkash.returnUrl(orderId, outcome, kind));
     } catch (err) {
       this.logger.warn(`bKash callback refused: ${err instanceof Error ? err.message : 'error'}`);
       res.redirect(302, this.bkash.errorUrl());
