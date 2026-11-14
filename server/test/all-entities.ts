@@ -100,6 +100,11 @@ import { StudyPlanTemplate } from '../src/modules/study-plans/entities/study-pla
 import { AdmissionIntake } from '../src/modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from '../src/modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from '../src/modules/admission/entities/admission-evaluation.entity';
+import { AdmissionStage } from '../src/modules/admission/entities/admission-stage.entity';
+import { AdmissionStageResult } from '../src/modules/admission/entities/admission-stage-result.entity';
+import { AdmissionList } from '../src/modules/admission/entities/admission-list.entity';
+import { AdmissionListMember } from '../src/modules/admission/entities/admission-list-member.entity';
+import { AdmissionFeeProof } from '../src/modules/admission/entities/admission-fee-proof.entity';
 import { SeatPlan } from '../src/modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../src/modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from '../src/modules/seat-plans/entities/seat-allocation.entity';
@@ -282,6 +287,11 @@ export const ALL_ENTITIES = [
   AdmissionIntake,
   AdmissionApplicant,
   AdmissionEvaluation,
+  AdmissionStage,
+  AdmissionStageResult,
+  AdmissionList,
+  AdmissionListMember,
+  AdmissionFeeProof,
   SeatPlan,
   SeatPlanSchedule,
   SeatAllocation,

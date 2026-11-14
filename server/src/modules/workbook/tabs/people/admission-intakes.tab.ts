@@ -90,7 +90,9 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
   toRow(entity: AdmissionIntake, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
-      class_section: ctx.keyOf('sections', entity.class_section_id),
+      class_section: entity.class_section_id
+        ? ctx.keyOf('sections', entity.class_section_id)
+        : null,
       title: entity.title,
       seat_count: entity.seat_count,
       open_date: entity.open_date,

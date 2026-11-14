@@ -348,6 +348,10 @@ export class ApplicantReviewService {
             )
           ).id;
 
+      // Pipeline rounds have no fixed section; the admit flow (later ticket) picks one.
+      if (!intake.class_section_id) {
+        throw new BadRequestException('This round has no section to admit into');
+      }
       await this.studentService.create(
         {
           full_name: applicant.applicant_name,
