@@ -34,6 +34,10 @@ POST   /api/v1/admission-intakes                                                
 GET    /api/v1/admission-intakes/:id                                             401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 PATCH  /api/v1/admission-intakes/:id                                             401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 PATCH  /api/v1/admission-intakes/:id/close                                       401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission-intakes/:id/stages                                      401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+POST   /api/v1/admission-intakes/:id/stages                                      401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+DELETE /api/v1/admission-intakes/:id/stages/:stageId                             401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+PATCH  /api/v1/admission-intakes/:id/stages/:stageId                             401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/applicants                                              401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/applicants/:id                                          401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/applicants/:id/admit                                    401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission

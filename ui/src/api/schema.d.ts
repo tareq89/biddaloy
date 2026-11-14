@@ -9011,6 +9011,42 @@ export interface paths {
         patch: operations["IntakeController_close_v1"];
         trace?: never;
     };
+    "/api/v1/admission-intakes/{id}/stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the stages of a round, in order. */
+        get: operations["IntakeController_listStages_v1"];
+        put?: never;
+        /** Add a stage at the end of a round. */
+        post: operations["IntakeController_createStage_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission-intakes/{id}/stages/{stageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a stage that has no results (409 otherwise). */
+        delete: operations["IntakeController_removeStage_v1"];
+        options?: never;
+        head?: never;
+        /** Edit a stage of a round. */
+        patch: operations["IntakeController_updateStage_v1"];
+        trace?: never;
+    };
     "/api/v1/admission/applicants": {
         parameters: {
             query?: never;
@@ -20617,32 +20653,139 @@ export interface components {
             /** @enum {string|null} */
             status: "TAUGHT" | "PARTLY" | "NOT_TAUGHT" | null;
         };
+        /** @enum {string} */
+        AdmissionTemplateKey: "APPLY_ONLY" | "WRITTEN" | "WRITTEN_VIVA" | "LOTTERY" | "FIRST_COME" | "GPA_MERIT";
         CreateIntakeDto: {
             title: string;
             /** Format: uuid */
-            class_section_id: string;
+            class_id?: string;
+            /**
+             * Format: uuid
+             * @description Legacy; the class is derived from it.
+             */
+            class_section_id?: string;
+            template_key?: components["schemas"]["AdmissionTemplateKey"];
             seat_count: number;
             open_date: string;
             close_date: string;
-            required_document_types: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
+            required_document_types: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT" | "SSC_MARKSHEET" | "TRANSFER_CERTIFICATE" | "QUOTA_CERTIFICATE")[];
+            /** @description Admission-number prefix. */
+            roll_prefix?: string | null;
+            /** @description Whole paisa; omit or null = no fee. */
+            fee_amount_paisa?: number | null;
+            fee_pay_methods?: ("BKASH" | "NAGAD" | "ROCKET" | "BANK")[];
+            /** @description Field catalogue keys. */
+            form_fields?: ("name" | "dob" | "gender" | "religion" | "blood_group" | "birth_reg_no" | "nationality" | "photo" | "father_name" | "father_phone" | "father_occupation" | "father_nid" | "mother_name" | "mother_phone" | "mother_occupation" | "mother_nid" | "guardian_name" | "guardian_phone" | "present_address" | "permanent_address" | "previous_school" | "previous_class" | "ssc_gpa" | "ssc_roll" | "ssc_board" | "ssc_year" | "group_preference" | "siblings_in_school" | "quota_freedom_fighter" | "quota_teacher_child" | "quota_disabled" | "quota_ethnic_minority" | "special_needs" | "transport_need" | "heard_of_us")[];
+            publish_channels?: string[];
+            tie_break?: string[];
+            show_names_publicly?: boolean;
+            widget_always_show?: boolean;
+            auto_activate_lists?: boolean;
         };
         UpdateIntakeDto: {
             title?: string;
             /** Format: uuid */
+            class_id?: string;
+            /**
+             * Format: uuid
+             * @description Legacy; the class is derived from it.
+             */
             class_section_id?: string;
             seat_count?: number;
             open_date?: string;
             close_date?: string;
-            required_document_types?: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
+            required_document_types?: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT" | "SSC_MARKSHEET" | "TRANSFER_CERTIFICATE" | "QUOTA_CERTIFICATE")[];
+            /** @description Admission-number prefix. */
+            roll_prefix?: string | null;
+            /** @description Whole paisa; omit or null = no fee. */
+            fee_amount_paisa?: number | null;
+            fee_pay_methods?: ("BKASH" | "NAGAD" | "ROCKET" | "BANK")[];
+            /** @description Field catalogue keys. */
+            form_fields?: ("name" | "dob" | "gender" | "religion" | "blood_group" | "birth_reg_no" | "nationality" | "photo" | "father_name" | "father_phone" | "father_occupation" | "father_nid" | "mother_name" | "mother_phone" | "mother_occupation" | "mother_nid" | "guardian_name" | "guardian_phone" | "present_address" | "permanent_address" | "previous_school" | "previous_class" | "ssc_gpa" | "ssc_roll" | "ssc_board" | "ssc_year" | "group_preference" | "siblings_in_school" | "quota_freedom_fighter" | "quota_teacher_child" | "quota_disabled" | "quota_ethnic_minority" | "special_needs" | "transport_need" | "heard_of_us")[];
+            publish_channels?: string[];
+            tie_break?: string[];
+            show_names_publicly?: boolean;
+            widget_always_show?: boolean;
+            auto_activate_lists?: boolean;
+        };
+        AdmissionIntake: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            class_section: components["schemas"]["ClassSection"] | null;
+            class_section_id: string | null;
+            class: components["schemas"]["Class"] | null;
+            class_id: string | null;
+            academic_year: components["schemas"]["AcademicYear"] | null;
+            academic_year_id: string | null;
+            /** @enum {string} */
+            template_key: "WRITTEN" | "APPLY_ONLY" | "WRITTEN_VIVA" | "LOTTERY" | "FIRST_COME" | "GPA_MERIT";
+            roll_prefix: string | null;
+            roll_counter: number;
+            fee_amount_paisa: number | null;
+            fee_pay_methods: ("BKASH" | "NAGAD" | "ROCKET" | "BANK")[];
+            form_fields: string[];
+            publish_channels: string[];
+            tie_break: string[];
+            show_names_publicly: boolean;
+            widget_always_show: boolean;
+            auto_activate_lists: boolean;
+            title: string;
+            seat_count: number;
+            open_date: string;
+            close_date: string;
+            required_document_types: ("TRANSFER_CERTIFICATE" | "TRANSCRIPT" | "BIRTH_CERTIFICATE" | "PHOTO" | "SSC_MARKSHEET" | "QUOTA_CERTIFICATE")[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        AdmissionStage: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            intake: components["schemas"]["AdmissionIntake"];
+            intake_id: string;
+            position: number;
+            /** @enum {string} */
+            kind: "NONE" | "WRITTEN" | "VIVA" | "GPA" | "LOTTERY" | "FIRST_COME";
+            title: string | null;
+            config: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
         };
         /** @enum {string} */
-        AdmissionDocumentType: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT";
+        AdmissionStageKind: "NONE" | "WRITTEN" | "VIVA" | "LOTTERY" | "FIRST_COME" | "GPA";
+        CreateStageDto: {
+            kind: components["schemas"]["AdmissionStageKind"];
+            title?: string | null;
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateStageDto: {
+            kind?: components["schemas"]["AdmissionStageKind"];
+            title?: string | null;
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        AdmissionDocumentType: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT" | "SSC_MARKSHEET" | "TRANSFER_CERTIFICATE" | "QUOTA_CERTIFICATE";
         AdmissionApplicantDocumentDto: {
             type: components["schemas"]["AdmissionDocumentType"];
             storage_key: string;
         };
         /** @enum {string} */
-        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
         AdmissionApplicantResponseDto: {
             /** Format: uuid */
             id: string;
@@ -20685,24 +20828,6 @@ export interface components {
             /** @enum {string} */
             decision?: "SHORTLIST" | "ADMIT" | "REJECT";
         };
-        AdmissionIntake: {
-            id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            class_section: components["schemas"]["ClassSection"];
-            class_section_id: string;
-            title: string;
-            seat_count: number;
-            open_date: string;
-            close_date: string;
-            required_document_types: ("TRANSCRIPT" | "BIRTH_CERTIFICATE" | "PHOTO")[];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
         AdmissionApplicant: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -20719,7 +20844,18 @@ export interface components {
             home_address: string | null;
             documents: Record<string, never>[];
             /** @enum {string} */
-            status: "REJECTED" | "PENDING" | "SHORTLISTED" | "ADMITTED";
+            status: "REJECTED" | "PENDING" | "EXPIRED" | "SHORTLISTED" | "ADMITTED" | "FEE_PENDING" | "OFFERED" | "WAITING";
+            roll_number: string | null;
+            /** @enum {string} */
+            source: "ONLINE" | "CLERK";
+            quota_tags: string[];
+            extra_fields: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            fee_state: "CONFIRMED" | "NONE" | "AWAITING" | "SENT_BACK";
+            merit_rank: number | null;
+            sibling_student_id: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -20740,7 +20876,7 @@ export interface components {
         };
         ApplicantStatusDto: {
             /** @enum {string} */
-            status: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+            status: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
             applicant_name: string;
             intake_title: string;
         };
@@ -20968,7 +21104,7 @@ export interface components {
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** @enum {string} */
-            document_kind: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT" | "EXAM_ADMIT_CARD" | "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
+            document_kind: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT" | "EXAM_ADMIT_CARD" | "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE" | "ADMISSION_ADMIT_CARD" | "ADMISSION_ATTENDANCE_SHEET" | "ADMISSION_LIST";
             /** @enum {string} */
             layout_kind: "FIXED" | "FLOWING";
             name: string;
@@ -45354,11 +45490,151 @@ export interface operations {
             };
         };
     };
+    IntakeController_listStages_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionStage"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IntakeController_createStage_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStageDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionStage"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IntakeController_removeStage_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                stageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IntakeController_updateStage_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                stageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionStage"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ApplicantReviewController_findAll_v1: {
         parameters: {
             query?: {
                 intakeId?: string;
-                status?: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+                status?: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
                 search?: string;
                 page?: number;
                 limit?: number;
@@ -45577,7 +45853,7 @@ export interface operations {
             };
             path: {
                 id: string;
-                type: "TRANSCRIPT" | "BIRTH_CERTIFICATE" | "PHOTO";
+                type: "TRANSFER_CERTIFICATE" | "TRANSCRIPT" | "BIRTH_CERTIFICATE" | "PHOTO" | "SSC_MARKSHEET" | "QUOTA_CERTIFICATE";
             };
             cookie?: never;
         };
@@ -46495,7 +46771,7 @@ export interface operations {
     PrintTemplatesController_list_v1: {
         parameters: {
             query?: {
-                document_kind?: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT" | "EXAM_ADMIT_CARD" | "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
+                document_kind?: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT" | "EXAM_ADMIT_CARD" | "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE" | "ADMISSION_ADMIT_CARD" | "ADMISSION_ATTENDANCE_SHEET" | "ADMISSION_LIST";
                 include_archived?: boolean;
             };
             header: {
