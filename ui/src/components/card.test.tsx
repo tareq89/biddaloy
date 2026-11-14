@@ -77,4 +77,26 @@ describe('Card', () => {
     expect(screen.getByText('Yes').className).toContain('md:p-5');
     expect(screen.getByText('No').className).not.toMatch(/\bp-4\b|md:p-5/);
   });
+
+  it('is a region when named, so aria-labelledby is not ignored on a bare div (#2193)', () => {
+    render(
+      <Card aria-labelledby="t">
+        <h2 id="t">Digest</h2>
+      </Card>,
+    );
+    expect(screen.getByRole('region', { name: 'Digest' })).toBeTruthy();
+  });
+
+  it('keeps an explicit role and adds none to an unnamed card', () => {
+    render(
+      <>
+        <Card role="group" aria-label="Pack">
+          x
+        </Card>
+        <Card>plain</Card>
+      </>,
+    );
+    expect(screen.getByRole('group', { name: 'Pack' })).toBeTruthy();
+    expect(screen.queryAllByRole('region')).toHaveLength(0);
+  });
 });

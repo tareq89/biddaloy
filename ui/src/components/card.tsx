@@ -31,10 +31,14 @@ export type CardProps = React.ComponentProps<'div'> & {
 
 export function Card({ className, asChild = false, padded = false, ...props }: CardProps) {
   const Comp = asChild ? Slot.Root : 'div';
+  // A bare div ignores aria-labelledby / aria-label, so a named card becomes a region landmark.
+  // `asChild` keeps the child's own element and role (a `section` is already a region).
+  const named = !asChild && (props['aria-labelledby'] || props['aria-label']);
 
   return (
     <Comp
       data-slot="card"
+      {...(named && props.role === undefined ? { role: 'region' } : {})}
       className={cn(
         'rounded-lg border border-border-subtle bg-card shadow-e1',
         padded && 'p-4 md:p-5',
