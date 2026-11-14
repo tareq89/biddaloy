@@ -206,9 +206,11 @@ export interface RefundResultDto {
 
 // ---- VAT ----
 export interface VatSettingDto {
-  /** Basis points: 1500 = 15%. */
-  rate_bps: number;
-  changed_at: string | null;
+  enabled: boolean;
+  /** Percent with two decimals (15 = 15%); null when VAT is off. */
+  rate_percent: number | null;
+  label: string;
+  registration: string | null;
 }
 
 // ---- Revenue ----

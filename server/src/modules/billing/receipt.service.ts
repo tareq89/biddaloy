@@ -6,6 +6,7 @@ import { resolveAppBaseUrl } from '../account-access/app-base-url.util';
 import { resolveTemplateLocale } from '../account-access/account-access-templates';
 import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
+import { readReceiptSnapshot } from './receipt-snapshot';
 import { renderBundleReceiptHtml, renderReceiptHtml } from './receipt.template';
 
 interface ReceiptRow {
@@ -19,7 +20,7 @@ interface ReceiptRow {
   period_start: string;
   period_end: string;
   paid_at: Date;
-  receipt_snapshot: { name: string; address: string | null; vat: string | null } | null;
+  receipt_snapshot: unknown;
   name: string;
   address: string | null;
   locale: string | null;
@@ -54,12 +55,13 @@ export class ReceiptService {
       [orderId, schoolId],
     );
     if (!r) throw new NotFoundException('Receipt not found');
+    const snap = readReceiptSnapshot(r.receipt_snapshot);
     return renderReceiptHtml({
       receiptNumber: r.receipt_number,
       orderId: r.id,
       // Frozen at payment; the live school row only fills in rows that predate the snapshot.
-      schoolName: r.receipt_snapshot?.name ?? r.name,
-      schoolAddress: r.receipt_snapshot ? r.receipt_snapshot.address : r.address,
+      schoolName: snap?.name ?? r.name,
+      schoolAddress: snap ? snap.address : r.address,
       seats: r.seats,
       months: r.months,
       unitPricePaisa: r.unit_price_paisa,
@@ -71,7 +73,9 @@ export class ReceiptService {
       paidAt: r.paid_at,
       // Stored as `bn-BD`/`en-BD`; no stored region means the bn-BD default (#3041).
       locale: resolveTemplateLocale(r.locale ?? DEFAULT_REGION_SETTINGS.locale),
-      vatRegistration: r.receipt_snapshot?.vat ?? null,
+      vat: snap?.vat ?? null,
+      discountPaisa: snap?.discount_paisa,
+      couponCode: snap?.coupon_code,
     });
   }
 
@@ -86,7 +90,7 @@ export class ReceiptService {
       price_paisa: string;
       expires_on: string;
       paid_at: Date;
-      receipt_snapshot: { name: string; address: string | null } | null;
+      receipt_snapshot: unknown;
       name: string;
       address: string | null;
       locale: string | null;
@@ -107,22 +111,24 @@ export class ReceiptService {
       [orderId, schoolId],
     );
     if (!r) throw new NotFoundException('Receipt not found');
+    const snap = readReceiptSnapshot(r.receipt_snapshot);
     return renderBundleReceiptHtml({
       receiptNumber: r.receipt_number,
       orderId: r.id,
-      schoolName: r.receipt_snapshot?.name ?? r.name,
-      schoolAddress: r.receipt_snapshot ? r.receipt_snapshot.address : r.address,
+      schoolName: snap?.name ?? r.name,
+      schoolAddress: snap ? snap.address : r.address,
       packageName: r.name_snapshot,
       smsCount: r.sms_count,
       validityDays: r.validity_days,
-      amountPaisa: Number(r.price_paisa),
+      amountPaisa: snap?.paid_paisa ?? Number(r.price_paisa),
       expiresOn: r.expires_on,
       method: r.method ?? '',
       reference: r.reference,
       paidAt: r.paid_at,
       locale: resolveTemplateLocale(r.locale ?? DEFAULT_REGION_SETTINGS.locale),
-      vatLine: null, // #3869
-      couponLine: null,
+      vat: snap?.vat ?? null,
+      discountPaisa: snap?.discount_paisa,
+      couponCode: snap?.coupon_code,
     });
   }
 

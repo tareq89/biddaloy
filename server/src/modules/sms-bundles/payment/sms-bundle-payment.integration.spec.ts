@@ -15,6 +15,11 @@ describe('SmsBundlePaymentService (integration)', () => {
   let credits: SmsCreditService;
   let svc: SmsBundlePaymentService;
   let failPurchase = false;
+  let vatSetting = {
+    rate_bp: null as number | null,
+    label: 'VAT',
+    registration: null as string | null,
+  };
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
@@ -36,6 +41,7 @@ describe('SmsBundlePaymentService (integration)', () => {
       credits,
       { isOversold: async () => false } as never,
       { emailReceipt: async () => undefined } as never,
+      { get: async () => vatSetting } as never,
     );
   }, 60000);
 
@@ -89,6 +95,50 @@ describe('SmsBundlePaymentService (integration)', () => {
       [school],
     );
     expect(Number(available)).toBe(500);
+  });
+
+  it('freezes the VAT in the receipt snapshot: a later rate change leaves it alone', async () => {
+    vatSetting = { rate_bp: 1500, label: 'VAT', registration: 'BIN-7' };
+    const { id } = await order();
+    await pay(id);
+    vatSetting = { rate_bp: 500, label: 'GST', registration: null };
+    const [{ receipt_snapshot: snap }] = await ds.query(
+      `SELECT receipt_snapshot FROM sms_bundle_orders WHERE id = $1`,
+      [id],
+    );
+    expect(snap.vat).toEqual({
+      registration: 'BIN-7',
+      rate_bp: 1500,
+      label: 'VAT',
+      vat_paisa: 1305,
+      net_paisa: 8695,
+    });
+    vatSetting = { rate_bp: null, label: 'VAT', registration: null };
+  });
+
+  it('a paid amount that differs from the price: VAT and the payment row use the paid amount', async () => {
+    vatSetting = { rate_bp: 1500, label: 'VAT', registration: 'BIN-7' };
+    try {
+      const { id } = await order(); // price 10000
+      await svc.markPaid(id, {
+        method: PlatformPaymentMethod.BKASH,
+        gateway_ref: `TRX${sfx()}`,
+        amount_paisa: '9000',
+      });
+      const [{ receipt_snapshot: snap }] = await ds.query(
+        `SELECT receipt_snapshot FROM sms_bundle_orders WHERE id = $1`,
+        [id],
+      );
+      const [{ amount_paisa }] = await ds.query(
+        `SELECT amount_paisa::text FROM platform_payments WHERE bundle_order_id = $1`,
+        [id],
+      );
+      expect(amount_paisa).toBe('9000');
+      expect(snap.vat.vat_paisa + snap.vat.net_paisa).toBe(9000);
+      expect(snap.vat.vat_paisa).toBeLessThan(1305); // 1305 is the VAT of the 10000 price
+    } finally {
+      vatSetting = { rate_bp: null, label: 'VAT', registration: null };
+    }
   });
 
   it('callback and reconciler at once: one payment, one lot, one receipt number', async () => {

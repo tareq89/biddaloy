@@ -4,6 +4,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { PlatformPaymentMethod, SmsBundleOrderStatus as S } from '@biddaloy/shared';
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
 import { ReceiptService } from '../../billing/receipt.service';
+import { buildReceiptSnapshot } from '../../billing/receipt-snapshot';
+import { VatService } from '../../billing/vat.service';
 import { nextReceiptNumber } from '../../billing/receipt-number.util';
 import { SmsAllocationService } from '../stock/sms-allocation.service';
 import { canMove } from '../orders/sms-bundle-orders.service';
@@ -28,6 +30,7 @@ export class SmsBundlePaymentService {
     private readonly credits: SmsCreditService,
     private readonly allocation: SmsAllocationService,
     private readonly receipts: ReceiptService,
+    private readonly vat: VatService,
   ) {}
 
   /** Just what a payment route needs; undefined for an unknown id. */
@@ -105,18 +108,19 @@ export class SmsBundlePaymentService {
         },
         { manager: m },
       );
+      const [school] = await m.query('SELECT name, address FROM schools WHERE id = $1', [
+        order.school_id,
+      ]);
+      const snapshot = buildReceiptSnapshot(
+        school,
+        await this.vat.get(m),
+        Number(payment.amount_paisa ?? order.price_paisa),
+      );
       await m.query(
-        `UPDATE sms_bundle_orders SET status = $2, receipt_number = $3,
-           receipt_snapshot = (SELECT jsonb_build_object('name', s.name, 'address', s.address, 'vat', $4::text)
-                                 FROM schools s WHERE s.id = sms_bundle_orders.school_id),
+        `UPDATE sms_bundle_orders SET status = $2, receipt_number = $3, receipt_snapshot = $4::jsonb,
            updated_at = now()
          WHERE id = $1`,
-        [
-          orderId,
-          S.ACTIVE,
-          await nextReceiptNumber(m),
-          process.env.BILLING_VAT_REGISTRATION?.trim() || null,
-        ],
+        [orderId, S.ACTIVE, await nextReceiptNumber(m), JSON.stringify(snapshot)],
       );
       await payment.onApplied?.(m);
       return { applied: true };

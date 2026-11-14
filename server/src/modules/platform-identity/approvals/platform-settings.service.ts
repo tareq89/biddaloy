@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../../audit/audit.service';
 import { PlatformSetting } from '../entities/platform-setting.entity';
@@ -16,8 +16,9 @@ export class PlatformSettingsService {
     private readonly audit: AuditService,
   ) {}
 
-  async get<T = unknown>(key: string): Promise<T> {
-    const row = await this.repo.findOne({ where: { key } });
+  async get<T = unknown>(key: string, manager?: EntityManager): Promise<T> {
+    const repo = manager ? manager.getRepository(PlatformSetting) : this.repo;
+    const row = await repo.findOne({ where: { key } });
     return (row ? row.value : DEFAULTS[key]) as T;
   }
 

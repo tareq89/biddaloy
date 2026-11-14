@@ -113,6 +113,7 @@ import { SeatOrder } from './modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from './modules/billing/entities/platform-payment.entity';
 import { BillingModule } from './modules/billing/billing.module';
 import { SmsBundlesModule } from './modules/sms-bundles/sms-bundles.module';
+import { PlansModule } from './modules/plans/plans.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { RevenueModule } from './modules/revenue/revenue.module';
 import { IdleAccountModule } from './modules/billing/idle-account.module';
@@ -565,6 +566,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     CommunicationsModule,
     BillingModule,
     SmsBundlesModule,
+    PlansModule,
     CouponsModule,
     RevenueModule,
     IdleAccountModule,

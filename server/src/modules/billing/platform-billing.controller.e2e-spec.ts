@@ -133,6 +133,30 @@ describe('platform billing E2E', () => {
     expect(o.status).toBe('PENDING');
   });
 
+  it('refund routes: a school token is 403, a platform owner without an approval token is 403, nothing changes', async () => {
+    const orderId = await newPendingOrder();
+    const body = { reason: 'Refund attempt without approval' };
+    for (const who of ['admin', 'localSuper'] as const) {
+      await as(who).post(`orders/${orderId}/refund`, body).expect(403);
+      await as(who).post(`sms-bundle-orders/${randomUUID()}/refund`, body).expect(403);
+    }
+    await supertest(app.getHttpServer())
+      .post(`${API}/orders/${orderId}/refund`)
+      .send(body)
+      .expect(401);
+    // Platform owner, no X-Approval-Token: the approval gate refuses before anything runs.
+    await as('super')
+      .post(`orders/${orderId}/refund`, body)
+      .set('Idempotency-Key', randomUUID())
+      .expect(403);
+    await as('super')
+      .post(`sms-bundle-orders/${randomUUID()}/refund`, body)
+      .set('Idempotency-Key', randomUUID())
+      .expect(403);
+    const [o] = await ds.query(`SELECT status FROM seat_orders WHERE id = $1`, [orderId]);
+    expect(o.status).toBe('PENDING');
+  });
+
   it('lists schools with entitlement, filters and search; limit > 100 and bad filter are 400', async () => {
     const page = (await as('super').get(`schools?search=Platform Billing E2E`).expect(200))
       .body as {
