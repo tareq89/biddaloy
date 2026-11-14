@@ -735,7 +735,9 @@ export class UserService {
     // One login serves every school the person belongs to, so a school may not
     // retarget it: that would let this school's admin reset the password and
     // sign in as the person in the other school. [68.1.#2209, TEN-01]
-    const emailChanges = dto.email !== undefined && (email ?? null) !== (current.email ?? null);
+    const emailChanges =
+      dto.email !== undefined &&
+      (email ?? null) !== (current.email ? normalizeEmail(current.email) : null);
     const phoneChanges = dto.phone !== undefined && (phone ?? null) !== storedPhone;
     if (
       (emailChanges || phoneChanges) &&
