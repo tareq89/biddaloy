@@ -108,18 +108,21 @@ export class StaffBulkUploadService {
     const seen = new Set<string>();
 
     for (const { rowNumber, values: v, numericMobile } of parsed) {
-      const rowErrors: { column: string | null; value?: string; message: string }[] = [];
-      const err = (column: string | null, message: string, value?: string) =>
-        rowErrors.push({ column, message, value: value || undefined });
+      const rowErrors: { column: string | null; value?: string; message: string; code: string }[] =
+        [];
+      const err = (column: string | null, code: string, message: string, value?: string) =>
+        rowErrors.push({ column, code, message, value: value || undefined });
       const notes: string[] = [];
 
       const role = parseRole(v.role);
-      if (!role) err('role', 'Unknown role, or a role that cannot be imported', v.role);
-      if (!v.name) err('name', 'Name is required');
-      if (!v.mobile && !v.email) err(null, 'Give a mobile number or an email');
+      if (!role)
+        err('role', 'ROLE_UNKNOWN', 'Unknown role, or a role that cannot be imported', v.role);
+      if (!v.name) err('name', 'NAME_REQUIRED', 'Name is required');
+      if (!v.mobile && !v.email) err(null, 'CONTACT_REQUIRED', 'Give a mobile number or an email');
       if (numericMobile) {
         err(
           'mobile',
+          'MOBILE_NUMERIC',
           "Mobile was typed as a number, so a leading 0 may be lost. Format the column as Text and re-type it, e.g. '01711000101'",
           v.mobile,
         );
@@ -139,7 +142,16 @@ export class StaffBulkUploadService {
       for (const e of await validate(dto)) {
         if (!COLUMN[e.property]) continue;
         invalid.add(e.property);
-        err(COLUMN[e.property], Object.values(e.constraints ?? {}).join('; '), raw[e.property]);
+        err(
+          COLUMN[e.property],
+          e.property === 'phone'
+            ? 'MOBILE_INVALID'
+            : e.property === 'email'
+              ? 'EMAIL_INVALID'
+              : 'FIELD_INVALID',
+          Object.values(e.constraints ?? {}).join('; '),
+          raw[e.property],
+        );
       }
 
       const email = dto.email && !invalid.has('email') ? normalizeEmail(dto.email) : undefined;
@@ -149,7 +161,8 @@ export class StaffBulkUploadService {
         ['mobile', phone],
       ] as const) {
         if (!id) continue;
-        if (seen.has(`${column}:${id}`)) err(column, 'Appears more than once in this file', id);
+        if (seen.has(`${column}:${id}`))
+          err(column, 'DUPLICATE_IN_FILE', 'Appears more than once in this file', id);
         seen.add(`${column}:${id}`);
       }
 
@@ -158,13 +171,21 @@ export class StaffBulkUploadService {
       const hitA = email ? byEmail.get(email) : undefined;
       const hitB = phone ? byPhone.get(phone) : undefined;
       if (hitA && hitB && hitA.id !== hitB.id) {
-        err(null, 'The email and the mobile number belong to two different accounts');
+        err(
+          null,
+          'ACCOUNT_CLASH',
+          'The email and the mobile number belong to two different accounts',
+        );
       } else if (hitA || hitB) {
         const user = (hitA ?? hitB) as User;
         const roles = rolesByUser.get(user.id);
         if (user.deleted_at || !roles) {
           // Deliberately vague: do not reveal which other school holds this identifier.
-          err(null, 'This email or mobile number is already used by another account');
+          err(
+            null,
+            'ACCOUNT_IN_OTHER_SCHOOL',
+            'This email or mobile number is already used by another account',
+          );
         } else if (role && roles.active.has(role)) {
           action = 'skip';
           notes.push('Already a member — skipped');
@@ -176,6 +197,7 @@ export class StaffBulkUploadService {
           const have = [...roles.active, ...roles.former].join(', ');
           err(
             'role',
+            'ROLE_CHANGE',
             `This person is already in this school as ${have}; the import does not change roles`,
             v.role,
           );
