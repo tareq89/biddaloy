@@ -13,7 +13,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { AuthGuard } from '@nestjs/passport';
 import supertest from 'supertest';
-import { ApprovalGuard } from '../auth/guards/approval.guard';
+import { ApprovalGuard, ApprovalService } from '../auth/guards/approval.guard';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { TwoPersonGuard } from '../platform-identity/approvals/two-person.guard';
 import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
@@ -46,6 +46,7 @@ describe('PlatformCouponsController', () => {
     isFree: vi.fn(),
   };
   const enforce = vi.fn();
+  const consume = vi.fn();
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -53,7 +54,13 @@ describe('PlatformCouponsController', () => {
     otherOwner = true;
     svc.create.mockResolvedValue({ id: ID });
     svc.isFree.mockResolvedValue(false);
-    enforce.mockResolvedValue(undefined);
+    enforce.mockImplementation(async () => {
+      if (!otherOwner) throw new HttpException({ details: { code: 'APPROVAL_REQUESTED' } }, 403);
+    });
+    consume.mockImplementation(async (req: { headers: Record<string, string> }) => {
+      if (!req.headers['x-approval-token']) throw new ForbiddenException();
+      return { approverId: 'owner-1' };
+    });
     svc.update.mockResolvedValue({ id: ID });
     svc.list.mockResolvedValue({ items: [], nextCursor: null });
     svc.usage.mockResolvedValue({ uses: 0 });
@@ -64,17 +71,12 @@ describe('PlatformCouponsController', () => {
         return true;
       },
     };
-    const twoPersonStub: CanActivate = {
-      canActivate: () => {
-        if (!otherOwner) throw new HttpException({ details: { code: 'APPROVAL_REQUESTED' } }, 403);
-        return true;
-      },
-    };
     const mod = await Test.createTestingModule({
       controllers: [PlatformCouponsController],
       providers: [
         { provide: CouponsService, useValue: svc },
-        { provide: TwoPersonGuard, useValue: { enforce, canActivate: twoPersonStub.canActivate } },
+        { provide: TwoPersonGuard, useValue: { enforce } },
+        { provide: ApprovalService, useValue: { consume } },
       ],
     })
       // A school-app token and an `imp` token are 401 on the real cockpit strategy; the stub stands for them.
@@ -88,8 +90,6 @@ describe('PlatformCouponsController', () => {
       })
       .overrideGuard(PlatformAdminGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(TwoPersonGuard)
-      .useValue(twoPersonStub)
       .overrideGuard(ApprovalGuard)
       .useValue(approvalStub)
       .overrideInterceptor(IdempotencyInterceptor)

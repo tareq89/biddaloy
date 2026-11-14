@@ -22,9 +22,8 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { ApprovalScope } from '@biddaloy/shared';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
-import { ApprovalGuard } from '../auth/guards/approval.guard';
+import { ApprovalGuard, ApprovalService } from '../auth/guards/approval.guard';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
-import { RequireTwoPerson } from '../platform-identity/approvals/require-two-person.decorator';
 import { TwoPersonGuard } from '../platform-identity/approvals/two-person.guard';
 import type { CockpitPrincipal } from '../platform-identity/cockpit-principal';
 import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
@@ -66,6 +65,7 @@ export class PlatformCouponsController {
   constructor(
     private readonly coupons: CouponsService,
     private readonly twoPerson: TwoPersonGuard,
+    private readonly approvals: ApprovalService,
   ) {}
 
   @Get()
@@ -99,29 +99,37 @@ export class PlatformCouponsController {
   @HttpCode(HttpStatus.CREATED)
   @FailClosedWithoutRedis()
   @Throttle({ default: STRICT_RATE_LIMIT })
-  @UseGuards(ApprovalGuard, TwoPersonGuard)
+  // [#4141] No guards for the two single-use approvals: they are claimed in the handler, AFTER the
+  // interceptor, so a retry with the same Idempotency-Key replays the stored 201 instead of 403.
   @RequireApproval(ApprovalScope.PLATFORM_COUPON_FREE)
-  @RequireTwoPerson(
-    ApprovalScope.PLATFORM_COUPON_FREE,
-    (req) => ({
-      action: 'Create a free (100 percent) coupon',
-      code: req.body?.code,
-      percent: 100,
-      scope: req.body?.scope ?? 'ALL',
-    }),
-    true,
-  )
   @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({
     summary:
       'Create a 100 percent coupon. Needs a step-up token, the other owner and an `Idempotency-Key`.',
   })
-  createFree(
+  async createFree(
     @Body() dto: CreateFreeCouponDto,
     @Headers('idempotency-key') key: string | undefined,
     @Req() req: CockpitReq,
   ) {
     requireKey(key);
+    // Same two checks the guards made, in the same order: step-up token, then the other owner
+    // (strict: with no second owner a free coupon is never made).
+    await this.approvals.consume(
+      req as unknown as Parameters<ApprovalService['consume']>[0],
+      ApprovalScope.PLATFORM_COUPON_FREE,
+    );
+    await this.twoPerson.enforce(
+      req,
+      ApprovalScope.PLATFORM_COUPON_FREE,
+      {
+        action: 'Create a free (100 percent) coupon',
+        code: req.body?.code,
+        percent: 100,
+        scope: req.body?.scope ?? 'ALL',
+      },
+      true,
+    );
     return this.coupons.create(dto as CreateCouponDto, { free: true }, actorOf(req));
   }
 
