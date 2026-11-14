@@ -21,6 +21,7 @@ import { BillingController } from '../../src/modules/billing/billing.controller'
 import { PlatformBillingController } from '../../src/modules/billing/platform-billing.controller';
 import { SmsBundleOrdersController } from '../../src/modules/sms-bundles/orders/sms-bundle-orders.controller';
 import { SmsBundlePayController } from '../../src/modules/sms-bundles/payment/sms-bundle-pay.controller';
+import { ProofSubmissionsController } from '../../src/modules/payment-submissions/proof-submissions.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -59,6 +60,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   // [Epic 100 #3875] Seat orders, coupons and refunds.
   BillingController,
   PlatformBillingController,
+  ProofSubmissionsController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -128,6 +130,11 @@ export const FAIL_CLOSED = [
 // and routes that check no password or code. confirm-phone checks a code, but OtpService.verify
 // itself answers 503 when Redis is down, so it cannot fail open.
 export const FAIL_OPEN = [
+  // [3.x/#3965 D19] Guardian proof routes: no password or code; Idempotency-Key fails open by design.
+  'POST /portal/payment-proofs',
+  'GET /portal/payment-proofs',
+  'POST /portal/payment-proofs/:id/withdraw',
+  'GET /portal/payment-proofs/:id/files/:fileId',
   // Bearer-token only banner status and end for a Login as session: no password or code.
   'GET /auth/impersonation/me',
   'POST /auth/impersonation/end',

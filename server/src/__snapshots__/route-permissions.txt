@@ -351,6 +351,8 @@ GET /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('coc
 GET /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/users | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
+GET /portal/payment-proofs | ProofSubmissionsController | perm: PAYMENT_SUBMIT
+GET /portal/payment-proofs/:id/files/:fileId | ProofSubmissionsController | perm: PAYMENT_SUBMIT
 GET /portal/students/:studentId/statement | StudentStatementController | perm: FEE_READ
 GET /presets | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/:id | PresetsController | perm: CURRICULUM_PRESET_APPLY
@@ -812,6 +814,8 @@ POST /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('co
 POST /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/step-up | PlatformStepUpController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/users/:id/logout | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
+POST /portal/payment-proofs | ProofSubmissionsController | perm: PAYMENT_SUBMIT
+POST /portal/payment-proofs/:id/withdraw | ProofSubmissionsController | perm: PAYMENT_SUBMIT
 POST /presets/apply | PresetApplyController | perm: CURRICULUM_PRESET_APPLY
 POST /print-assets | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
 POST /print-assets/:id/archive | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
