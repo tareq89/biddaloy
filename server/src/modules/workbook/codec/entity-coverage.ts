@@ -1,4 +1,8 @@
 import type { EntityTarget } from 'typeorm';
+import { Plan } from '../../plans/entities/plan.entity';
+import { Coupon } from '../../coupons/entities/coupon.entity';
+import { CouponSchool } from '../../coupons/entities/coupon-school.entity';
+import { CouponRedemption } from '../../coupons/entities/coupon-redemption.entity';
 import { SeatOrder } from '../../billing/entities/seat-order.entity';
 import { PlatformPayment } from '../../billing/entities/platform-payment.entity';
 import { CalendarEventClass } from '../../calendar/entities/calendar-event-class.entity';
@@ -87,6 +91,23 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     SeatOrder,
     'Platform-owned billing money (Epic 49): the school pays the platform, so it never enters the school workbook.',
   ],
+  [
+    Plan,
+    'Platform-owned pricing plan (Epic 100): no tenant, set by the platform, never enters the school workbook.',
+  ],
+
+  [Coupon, 'Platform-owned discount code (Epic 100): no tenant, never enters the school workbook.'],
+
+  [
+    CouponSchool,
+    'Platform-owned coupon-to-school grant (Epic 100): decided by the platform, not school data.',
+  ],
+
+  [
+    CouponRedemption,
+    'Platform-owned coupon use record (Epic 100): tied to platform billing money, not school data.',
+  ],
+
   [PlatformPayment, 'Platform-owned billing payment record (Epic 49), not school data.'],
   [
     SmsBundleCatalog,

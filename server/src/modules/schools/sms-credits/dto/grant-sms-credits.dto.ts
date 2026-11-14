@@ -44,6 +44,6 @@ export class GrantSmsCreditsDto {
     description: 'ISO date the granted lot expires. Future, at most 3 years ahead. Default: never.',
   })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   expires_at?: string;
 }

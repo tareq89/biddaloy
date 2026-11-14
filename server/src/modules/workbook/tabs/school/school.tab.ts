@@ -76,6 +76,7 @@ const excluded: readonly string[] = [
   'seat_limit', // commercial state of the destination tenant; a file must not raise its seats
   'onboarding', // setup progress of the destination tenant
   'is_platform', // [Epic 98] marks the platform's own school; a file must never flip it
+  'plan_id', // commercial state of the destination tenant (the plan it pays by); a file must not switch a school's plan
   'created_in_demo', // how the destination school was made (demo visitor signup); a file must not flip it, the demo reset and boot check rely on it
 ];
 
