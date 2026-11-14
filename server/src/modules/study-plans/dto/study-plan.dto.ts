@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
@@ -23,6 +24,7 @@ import { STUDY_PLAN_LIMITS } from '@biddaloy/shared';
 export class StudyPlanLessonDto {
   @IsOptional()
   @IsString()
+  @MaxLength(STUDY_PLAN_LIMITS.lessonIdMax)
   id?: string;
 
   @IsString()
@@ -78,6 +80,7 @@ export class ExamMarkerDto {
   exam_id: string;
 
   @IsString()
+  @MaxLength(STUDY_PLAN_LIMITS.lessonIdMax)
   up_to_lesson_id: string;
 }
 

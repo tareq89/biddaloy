@@ -540,6 +540,156 @@ describe('StudyPlansService (integration)', () => {
     });
   });
 
+  describe('hardening [#2034]', () => {
+    let planId: string;
+    beforeEach(async () => {
+      await routineSlot({ sectionId: sec7A, subjectId: math, teacherIds: [teacherT] });
+      planId = (
+        await service.create(
+          {
+            section_id: sec7A,
+            subject_id: math,
+            academic_term_id: null,
+            lessons: [
+              { id: 'l1', title: 'One', periods: 1 },
+              { id: 'l2', title: 'Two', periods: 1 },
+            ],
+          },
+          TENANT,
+          admin(),
+        )
+      ).id;
+    });
+    const makeExam = (name: string) =>
+      dataSource
+        .getRepository(Exam)
+        .save({
+          tenant_id: TENANT,
+          academic_year_id: yearId,
+          class_id: class7,
+          name,
+          kind: 'TERM',
+        });
+
+    it('a routine slot that starts after the year ended does not make its teacher an owner', async () => {
+      expect(await service.ownerTeacherIds(TENANT, sec7A, math, yearId)).toEqual([teacherT]);
+      await dataSource.query(
+        `UPDATE routine_slots SET valid_from = '2027-02-01' WHERE section_id = $1 AND subject_id = $2`,
+        [sec7A, math],
+      );
+      expect(await service.ownerTeacherIds(TENANT, sec7A, math, yearId)).toEqual([]);
+    });
+
+    it('a teacher list shows only owned plans and pages them', async () => {
+      await service.create(
+        { section_id: sec7B, subject_id: math, academic_term_id: null },
+        TENANT,
+        admin(),
+      );
+      const list = await service.findAll({ limit: 1, page: 1 }, TENANT, teacher(userT));
+      expect(list.total).toBe(1);
+      expect(list.data.map((p) => p.id)).toEqual([planId]);
+      expect((await service.findAll({}, TENANT, teacher(userU))).total).toBe(0);
+    });
+
+    it('a round-tripped lesson list keeps a dead topic link and a dead exam marker', async () => {
+      const topic = await dataSource
+        .getRepository(SyllabusTopic)
+        .save({ tenant_id: TENANT, class_id: class7, subject_id: math, name: 'T', sequence: 1 });
+      await service.replaceLessons(
+        planId,
+        [
+          { id: 'l1', title: 'One', periods: 1, topic_id: topic.id },
+          { id: 'l2', title: 'Two', periods: 1 },
+        ],
+        TENANT,
+        admin(),
+      );
+      const exam = await makeExam('Gone');
+      await service.setExamMarkers(
+        planId,
+        [{ exam_id: exam.id, up_to_lesson_id: 'l2' }],
+        TENANT,
+        admin(),
+      );
+      await dataSource.query('DELETE FROM syllabus_topics WHERE id = $1', [topic.id]);
+      await dataSource.getRepository(Exam).softDelete({ id: exam.id });
+
+      const read = await service.findOneForCaller(planId, TENANT, admin());
+      await service.replaceLessons(planId, read.lessons as StudyPlanLesson[], TENANT, admin());
+      await service.setExamMarkers(planId, read.exam_markers, TENANT, admin());
+
+      const row = await dataSource.getRepository(StudyPlan).findOneByOrFail({ id: planId });
+      expect(row.lessons.find((l) => l.id === 'l1')?.topic_id).toBe(topic.id);
+      expect(row.exam_markers).toEqual([{ exam_id: exam.id, up_to_lesson_id: 'l2' }]);
+    });
+
+    it('a live topic the client clears stays cleared', async () => {
+      const topic = await dataSource
+        .getRepository(SyllabusTopic)
+        .save({ tenant_id: TENANT, class_id: class7, subject_id: math, name: 'T', sequence: 1 });
+      await service.replaceLessons(
+        planId,
+        [{ id: 'l1', title: 'One', periods: 1, topic_id: topic.id }] as StudyPlanLesson[],
+        TENANT,
+        admin(),
+      );
+      await service.replaceLessons(
+        planId,
+        [{ id: 'l1', title: 'One', periods: 1 }] as StudyPlanLesson[],
+        TENANT,
+        admin(),
+      );
+      const row = await dataSource.getRepository(StudyPlan).findOneByOrFail({ id: planId });
+      expect(row.lessons[0].topic_id).toBeUndefined();
+    });
+
+    it('a lesson edit and a marker edit at the same time never leave a marker on a removed lesson', async () => {
+      const exam = await makeExam('Mid');
+      await Promise.all([
+        service.replaceLessons(
+          planId,
+          [{ id: 'l1', title: 'One', periods: 1 }] as StudyPlanLesson[],
+          TENANT,
+          admin(),
+        ),
+        service
+          .setExamMarkers(planId, [{ exam_id: exam.id, up_to_lesson_id: 'l2' }], TENANT, admin())
+          .catch(() => undefined),
+      ]);
+      const row = await dataSource.getRepository(StudyPlan).findOneByOrFail({ id: planId });
+      const ids = new Set(row.lessons.map((l) => l.id));
+      expect(row.exam_markers.every((m) => ids.has(m.up_to_lesson_id))).toBe(true);
+    });
+
+    it('refuses a lesson id or marker lesson id longer than the limit (400)', async () => {
+      const err = await service
+        .replaceLessons(
+          planId,
+          [{ id: 'x'.repeat(65), title: 'One', periods: 1 }] as StudyPlanLesson[],
+          TENANT,
+          admin(),
+        )
+        .catch((e) => e);
+      expect(status(err)).toBe(400);
+    });
+
+    it('copy to a same-class section leaves out a marker whose exam is gone', async () => {
+      const exam = await makeExam('Mid');
+      await service.setExamMarkers(
+        planId,
+        [{ exam_id: exam.id, up_to_lesson_id: 'l1' }],
+        TENANT,
+        admin(),
+      );
+      await dataSource.getRepository(Exam).softDelete({ id: exam.id });
+      const copy = await service.copyToSection(planId, sec7B, TENANT, admin());
+      expect(copy.exam_markers).toEqual([]);
+      const row = await dataSource.getRepository(StudyPlan).findOneByOrFail({ id: copy.id });
+      expect(row.exam_markers).toEqual([]);
+    });
+  });
+
   describe('copyToSection', () => {
     let planId: string;
     let topicId: string;
