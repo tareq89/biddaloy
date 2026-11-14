@@ -170,13 +170,14 @@ POLL="${STAGING_REFRESH_POLL_SECS:-60}"
 [[ "$POLL" =~ ^[1-9][0-9]*$ ]] || { say "STAGING_REFRESH_POLL_SECS must be a positive integer"; exit 2; }
 deadline_secs=$((10#${DEADLINE%%:*} * 3600 + 10#${DEADLINE##*:} * 60))
 
-# 0 found, 1 missing (aws prints nothing), 2 aws itself failed (auth, 403, network).
+# 0 found, 1 missing (404), 2 aws itself failed (auth, 403, network). `head-object` asks for this
+# exact key; `s3 ls` matched by prefix, so a near-name key passed the check (#3270).
 BUCKET_ERROR=0
 backup_status() {
   local err rc=0
-  err="$(aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://${BACKUP_S3_BUCKET}/${KEY}" 2>&1 >/dev/null)" || rc=$?
+  err="$(aws s3api head-object --endpoint-url "$BACKUP_S3_ENDPOINT" --bucket "$BACKUP_S3_BUCKET" --key "$KEY" 2>&1 >/dev/null)" || rc=$?
   [[ $rc -eq 0 ]] && return 0
-  [[ -z "$err" ]] && return 1
+  [[ "$err" == *"(404)"* || "$err" == *NoSuchKey* || "$err" == *"Not Found"* ]] && return 1
   return 2
 }
 if [[ "$FROM" == latest-daily ]]; then
