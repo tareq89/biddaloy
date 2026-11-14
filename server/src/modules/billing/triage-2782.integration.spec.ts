@@ -5,6 +5,7 @@
  * F8 and F9 are REAL but live outside billing (pinned as today's behaviour, see their notes).
  */
 import { randomUUID } from 'crypto';
+import { Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
@@ -214,6 +215,43 @@ describe('#2782 triage (integration)', () => {
     await svc.reconcilePending();
     expect(await statusOf(o.id)).toBe(SeatOrderStatus.PAID);
     expect(await orphans(o.id)).toEqual([{ reason: 'ORDER_NOT_PENDING' }]);
+  }, 20000);
+
+  it('#4151: the same payment settled twice (callback + reconciler race) is benign: no double-payment ERROR, no orphan', async () => {
+    afterCutoff();
+    const sid = await newSchool();
+    const o = await pending(sid);
+    const { svc, client } = bkashWorld();
+    client.create.mockResolvedValueOnce(created('PAYR1'));
+    await svc.startPayment(sid, o.id);
+    client.query.mockResolvedValue(tx(o.id, 'PAYR1', 'Completed'));
+    client.execute.mockResolvedValue(tx(o.id, 'PAYR1', 'Completed'));
+    const errors = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await Promise.all([
+        svc.handleCallback('PAYR1', 'success'),
+        svc.handleCallback('PAYR1', 'success'),
+      ]);
+      expect(errors.mock.calls.filter((c) => String(c[0]).includes('double payment'))).toEqual([]);
+    } finally {
+      errors.mockRestore();
+    }
+    expect(await statusOf(o.id)).toBe(SeatOrderStatus.PAID);
+    expect(await orphans(o.id)).toEqual([]);
+  }, 20000);
+
+  it('#4151: a DIFFERENT trxID completing on a settled order still logs the double-payment ERROR', async () => {
+    const { svc, client, o } = await twoAttempts('PAYS');
+    client.query.mockImplementation(async (pid: string) => tx(o.id, pid, 'Completed'));
+    const errors = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await svc.reconcilePending();
+      expect(errors.mock.calls.filter((c) => String(c[0]).includes('double payment'))).toHaveLength(
+        1,
+      );
+    } finally {
+      errors.mockRestore();
+    }
   }, 20000);
 
   it('F1 review: a mismatching earlier payment does not stop the real one being settled', async () => {
