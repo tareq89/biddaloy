@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { Logger } from '@nestjs/common';
+import { ConflictException, Logger } from '@nestjs/common';
 import { IsNull } from 'typeorm';
 import { DocumentKind, PrintAssetKind, validateTemplateDefinition } from '@biddaloy/shared';
 import type { PresetCertificateKind, PresetPack, TemplateDefinition } from '@biddaloy/shared';
@@ -149,6 +149,20 @@ export const writeCertificates: ApplyWriter = async (ctx) => {
         throw new Error(`Ready-made ${suggestion.key} is invalid: ${result.errors.join('; ')}`);
       }
       const definition = result.data;
+
+      // UQ_print_templates_name is per tenant across ALL kinds, the skip rule above is per kind: a live
+      // template of another kind with this name would make the insert a raw 500 (#1985).
+      const clash = await templates
+        .createQueryBuilder('t')
+        .where('t.tenant_id = :tenantId AND t.archived_at IS NULL', { tenantId })
+        .andWhere('lower(t.name) = lower(:name)', { name: cert.names[lang] })
+        .getExists();
+      if (clash) {
+        throw new ConflictException({
+          message: 'A print template already uses a name this preset needs. Rename it and apply again.',
+          details: { code: 'PRESET_TEMPLATE_NAME_TAKEN' },
+        });
+      }
 
       const template = await templates.save(
         templates.create({
