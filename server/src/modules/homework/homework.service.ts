@@ -120,7 +120,7 @@ export class HomeworkService {
   async create(dto: CreateHomeworkDto, ctx: CallerContext): Promise<Homework> {
     // class_id/subject_id must belong to this tenant before any access
     // check runs against them — assertCanManageClass short-circuits without
-    // a lookup for tenant-scope roles (`hasTenantScope`), so an ADMIN could otherwise create
+    // a lookup for tenant-wide roles (`hasTenantDataScope` + `HOMEWORK_ASSIGN`), so an ADMIN could otherwise create
     // homework pointing at another tenant's class/subject id.
     await this.access.assertClassAndSubjectInTenant(dto.class_id, dto.subject_id, ctx.tenantId);
     // Creation is scoped to a class/subject, not a section/student yet, so

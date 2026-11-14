@@ -15,7 +15,7 @@ interface Row {
 }
 
 /** Roles that get a staff ID card: every employee role. Not COMMITTEE (not an
- * employee, D16), PARENT, STUDENT or SUPER_ADMIN. */
+ * employee, D17), PARENT, STUDENT or SUPER_ADMIN. */
 export const STAFF_CARD_ROLES: readonly UserRole[] = EMPLOYEE_ROLES.filter(
   (role) => role !== UserRole.SUPER_ADMIN,
 );
