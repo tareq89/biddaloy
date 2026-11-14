@@ -105,6 +105,30 @@ describe('MyProofsTab', () => {
     expect(within(cards[2]!).queryByRole('button', { name: 'Withdraw' })).toBeNull();
   });
 
+  it('revokes every blob URL it made when the tab unmounts', async () => {
+    const created: string[] = [];
+    const revoked: string[] = [];
+    URL.createObjectURL = () => {
+      const u = `blob:test/${created.length}`;
+      created.push(u);
+      return u;
+    };
+    URL.revokeObjectURL = (u: string) => void revoked.push(u);
+    mock([proof({ files: [{ id: 'f1', contentType: 'image/png', sizeBytes: 3 }] })]);
+    server.use(
+      http.get('/api/v1/portal/payment-proofs/:id/files/:fileId', () =>
+        HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+          headers: { 'Content-Type': 'image/png' },
+        }),
+      ),
+    );
+    const view = renderPortalCard(<MyProofsTab />);
+    await waitFor(() => expect(created.length).toBeGreaterThan(0));
+    view.unmount();
+    // Every URL made was revoked: create and revoke are paired.
+    expect([...revoked].sort()).toEqual([...created].sort());
+  });
+
   it('withdraw asks first, then posts once', async () => {
     const withdrawn = mock([proof({ id: 'mine-pending' })]);
     renderPortalCard(<MyProofsTab />);

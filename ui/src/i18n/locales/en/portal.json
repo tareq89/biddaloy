@@ -583,6 +583,7 @@
     "loading": "Loading your payment proofs",
     "error": "Could not load your payment proofs.",
     "empty": "No payment proofs yet",
+    "unknownStudent": "Student",
     "method": "Method",
     "trxId": "Transaction ID",
     "submittedOn": "Submitted on",

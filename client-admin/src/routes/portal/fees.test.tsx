@@ -909,6 +909,27 @@ describe('/portal/fees', () => {
     });
   });
 
+  describe('[3.x/#3975] proofs tab independence', () => {
+    it('is reachable and does not fetch the fee queries when they would fail', async () => {
+      standardMocks();
+      server.use(
+        http.get('/api/v1/invoices', () => {
+          invoiceRequests.push('called');
+          return HttpResponse.json(apiErrorBody(500, 'boom', '/api/v1/invoices'), {
+            status: 500,
+          });
+        }),
+        http.get('/api/v1/portal/payment-proofs', () => HttpResponse.json([])),
+      );
+      renderFees('/portal/fees?tab=proofs');
+
+      expect(await screen.findByText('No payment proofs yet')).toBeTruthy();
+      expect(invoiceRequests).toEqual([]);
+      // The proofs tab has no student picker or child subtitle.
+      expect(screen.queryByRole('navigation', { name: 'Choose a student' })).toBeNull();
+    });
+  });
+
   describe('states and contracts', () => {
     it('shows no h1 while loading', async () => {
       standardMocks();

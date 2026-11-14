@@ -237,7 +237,11 @@ function PortalFees() {
   const selected =
     students.find((student) => student.id === search.student) ?? students[0] ?? undefined;
 
-  const summaryQuery = useStudentFeeSummary(selected?.id);
+  // [3.x/#3975] On the proofs tab the five bills queries stay parked: that tab must not
+  // wait on, fail on, or fire them.
+  const onProofs = search.tab === 'proofs';
+  const billsId = onProofs ? undefined : selected?.id;
+  const summaryQuery = useStudentFeeSummary(billsId);
   // `GET /invoices` defaults to 10 per page, and a monthly fee schedule
   // issues twelve invoices a year — so the default silently hides part of
   // the first year and more of every year after. 100 is the server's own
@@ -255,19 +259,39 @@ function PortalFees() {
   // under the `invoiceKeys.list({})` key staff surfaces share.
   const invoicesQuery = useQuery({
     ...invoicesQueryOptions(
-      selected === undefined ? {} : { student_id: selected.id, limit: INVOICE_HISTORY_LIMIT },
+      billsId === undefined ? {} : { student_id: billsId, limit: INVOICE_HISTORY_LIMIT },
     ),
-    enabled: selected !== undefined,
+    enabled: billsId !== undefined,
   });
-  const walletQuery = useStudentWallet(selected?.id);
-  const schedulesQuery = useFamilyStudentSchedules(selected?.id);
+  const walletQuery = useStudentWallet(billsId);
+  const schedulesQuery = useFamilyStudentSchedules(billsId);
   // [38.4.5] `GET /fees/fines` narrows to the caller's own linked students
   // server-side (`FamilyAccessService`, same as every other query on this
   // page), so `student_id` here is just which child's fines to show, not
   // an access check.
-  const finesQuery = useFines(selected === undefined ? {} : { student_id: selected.id }, {
-    enabled: selected !== undefined,
+  const finesQuery = useFines(billsId === undefined ? {} : { student_id: billsId }, {
+    enabled: billsId !== undefined,
   });
+
+  function goTab(tab: string): void {
+    void navigate({
+      to: '/portal/fees',
+      search: (prev) => ({ ...prev, tab: tab === 'proofs' ? 'proofs' : undefined }),
+    });
+  }
+
+  if (onProofs) {
+    // No student subtitle or picker: the proofs tab lists every child's proofs, and it
+    // loads its own data, so nothing here gates it.
+    return (
+      <PageContainer>
+        <PageHeader title={tNav('items.portalFees')} />
+        <FeesTabs tab="proofs" onTab={goTab}>
+          <MyProofsTab />
+        </FeesTabs>
+      </PageContainer>
+    );
+  }
 
   if (studentsQuery.isPending) return <FeesSkeleton label={t('fees.loading')} />;
 
@@ -360,59 +384,61 @@ function PortalFees() {
           <HelpHint helpId="portal.fees.action.pickStudent" />
         </div>
       )}
-      <Tabs
-        value={search.tab ?? 'bills'}
-        onValueChange={(tab) =>
-          void navigate({
-            to: '/portal/fees',
-            search: (prev) => ({ ...prev, tab: tab === 'proofs' ? 'proofs' : undefined }),
-          })
-        }
-        className="gap-4"
-      >
-        <TabsList variant="line" aria-label={t('proofs.tabsLabel')}>
-          <TabsTrigger value="bills" className="h-11 flex-none px-3 md:h-10">
-            {t('proofs.tabBills')}
-          </TabsTrigger>
-          <TabsTrigger value="proofs" className="h-11 flex-none px-3 md:h-10">
-            {t('proofs.tabProofs')}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="proofs">
-          <MyProofsTab />
-        </TabsContent>
-        <TabsContent value="bills">
-          <div className="grid gap-6 md:grid-cols-3 md:items-start">
-            <div className="min-w-0 space-y-6 md:col-span-2">
-              <FeesSummary summary={summaryQuery.data} config={config} />
-              <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
-              {finesQuery.data.items.length > 0 && (
-                <FinesCard fines={finesQuery.data.items} config={config} />
-              )}
-              <InvoicesCard
-                invoices={invoicesQuery.data.data}
-                total={invoicesQuery.data.total}
-                config={config}
+      <FeesTabs tab="bills" onTab={goTab}>
+        <div className="grid gap-6 md:grid-cols-3 md:items-start">
+          <div className="min-w-0 space-y-6 md:col-span-2">
+            <FeesSummary summary={summaryQuery.data} config={config} />
+            <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
+            {finesQuery.data.items.length > 0 && (
+              <FinesCard fines={finesQuery.data.items} config={config} />
+            )}
+            <InvoicesCard
+              invoices={invoicesQuery.data.data}
+              total={invoicesQuery.data.total}
+              config={config}
+            />
+            {showPushOptIn && invoicesQuery.data.data.length > 0 && (
+              <PushOptInCard
+                onEnable={handlePushOptInEnable}
+                onDismiss={handlePushOptInDismiss}
+                enabling={push.loading}
               />
-              {showPushOptIn && invoicesQuery.data.data.length > 0 && (
-                <PushOptInCard
-                  onEnable={handlePushOptInEnable}
-                  onDismiss={handlePushOptInDismiss}
-                  enabling={push.loading}
-                />
-              )}
-            </div>
-            {/* A div, not an aside: the app shell already has one aside landmark. */}
-            <div className="space-y-6">
-              {showWallet && <WalletCard wallet={wallet} config={config} />}
-              {showRecurring && (
-                <RecurringFeesCard schedules={schedulesQuery.data} config={config} />
-              )}
-            </div>
+            )}
           </div>
-        </TabsContent>
-      </Tabs>
+          {/* A div, not an aside: the app shell already has one aside landmark. */}
+          <div className="space-y-6">
+            {showWallet && <WalletCard wallet={wallet} config={config} />}
+            {showRecurring && <RecurringFeesCard schedules={schedulesQuery.data} config={config} />}
+          </div>
+        </div>
+      </FeesTabs>
     </PageContainer>
+  );
+}
+
+/** The two tabs; only the open tab's body is rendered, so the other costs nothing. */
+function FeesTabs({
+  tab,
+  onTab,
+  children,
+}: {
+  tab: 'bills' | 'proofs';
+  onTab: (tab: string) => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation('portal');
+  return (
+    <Tabs value={tab} onValueChange={onTab} className="gap-4">
+      <TabsList variant="line" aria-label={t('proofs.tabsLabel')}>
+        <TabsTrigger value="bills" className="h-11 flex-none px-3 md:h-10">
+          {t('proofs.tabBills')}
+        </TabsTrigger>
+        <TabsTrigger value="proofs" className="h-11 flex-none px-3 md:h-10">
+          {t('proofs.tabProofs')}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value={tab}>{children}</TabsContent>
+    </Tabs>
   );
 }
 
