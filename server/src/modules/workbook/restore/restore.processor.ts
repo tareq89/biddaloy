@@ -576,8 +576,15 @@ export class RestoreProcessor extends WorkerHost {
     }
   }
 
+  /**
+   * [#2356] Fires for every failed job, including one whose worker crashed (BullMQ reports it
+   * `stalled`) and so never reached `terminate`: that row is still QUEUED/RUNNING and the school
+   * is read-only while the lock lives. Close the row and give the lock back now instead of
+   * leaving it to the 1 h TTL. A job that already ended through `terminate` only gets the
+   * release, which is a compare-and-delete no-op by then.
+   */
   @OnWorkerEvent('failed')
-  onFailed(job: Job<RestoreJobData> | undefined, err: Error): void {
+  async onFailed(job: Job<RestoreJobData> | undefined, err: Error): Promise<void> {
     if (!job) return;
     this.logger.error({
       msg: 'workbook restore job failed',
@@ -585,5 +592,25 @@ export class RestoreProcessor extends WorkerHost {
       workbook_job_id: job.data.jobId,
       error: err?.message,
     });
+    try {
+      const row = await this.jobs.findOne({ where: { id: job.data.jobId } });
+      if (!row) return;
+      if (row.status === WorkbookJobStatus.QUEUED || row.status === WorkbookJobStatus.RUNNING) {
+        await this.terminate(row, row.tenant_id, {
+          status: WorkbookJobStatus.FAILED,
+          error: 'RESTORE_INTERRUPTED',
+          failedTab: row.progress?.tab ?? null,
+          cause: err,
+        });
+      } else {
+        await this.restoreService.release(row.tenant_id, row.id).catch(() => undefined);
+      }
+    } catch (cleanupErr) {
+      this.logger.error(
+        `RestoreProcessor: cleanup after failed job ${job.data.jobId} failed: ${
+          cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+        }`,
+      );
+    }
   }
 }
