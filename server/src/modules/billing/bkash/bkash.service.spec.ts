@@ -186,7 +186,7 @@ describe('BkashService.handleCallback', () => {
   it('Completed + matching invoice and amount -> paid once, with the bKash trxID', async () => {
     t.client.query.mockResolvedValue(initiated);
     t.client.execute.mockResolvedValue(completed);
-    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success' });
+    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success', kind: 'SEAT' });
     expect(t.orders.markPaid).toHaveBeenCalledTimes(1);
     expect(t.orders.markPaid).toHaveBeenCalledWith(
       ORDER_ID,
@@ -270,7 +270,8 @@ describe('BkashService.handleCallback', () => {
   it('a second callback after the order is PAID executes nothing and pays nothing', async () => {
     t.client.query.mockResolvedValue(completed);
     t.orders.findForPayment.mockResolvedValue({ ...order, status: SeatOrderStatus.PAID });
-    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success' });
+    t.dataSource.query.mockResolvedValue([{ one: 1 }]); // the paying trxID already has its row
+    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success', kind: 'SEAT' });
     expect(t.client.execute).not.toHaveBeenCalled();
     expect(t.orders.markPaid).not.toHaveBeenCalled();
   });
@@ -292,7 +293,11 @@ describe('BkashService.handleCallback', () => {
 
   it('a cancelled return leaves the order PENDING and reports the outcome', async () => {
     t.client.query.mockResolvedValue(initiated);
-    expect(await callback('cancel')).toEqual({ orderId: ORDER_ID, outcome: 'cancel' });
+    expect(await callback('cancel')).toEqual({
+      orderId: ORDER_ID,
+      outcome: 'cancel',
+      kind: 'SEAT',
+    });
     expect(t.client.execute).not.toHaveBeenCalled();
     expect(t.orders.markPaid).not.toHaveBeenCalled();
     expect(t.orders.markFailed).not.toHaveBeenCalled();
@@ -404,7 +409,11 @@ describe('#2782 findings (unit)', () => {
   it('F2: a "success" return that did not complete reports failure, not success', async () => {
     t.client.query.mockResolvedValue(initiated);
     t.client.execute.mockResolvedValue({ ...initiated });
-    expect(await callback('success')).toEqual({ orderId: ORDER_ID, outcome: 'failure' });
+    expect(await callback('success')).toEqual({
+      orderId: ORDER_ID,
+      outcome: 'failure',
+      kind: 'SEAT',
+    });
   });
 
   it('F10: bKash saying Cancelled marks the payment dead, so offline payment is not blocked', async () => {
@@ -466,6 +475,54 @@ describe('BkashService bundle orders (#3858)', () => {
       expect.objectContaining({ gateway_ref: 'TRX1', amount_paisa: '300000' }),
     );
     expect(t.orders.markPaid).not.toHaveBeenCalled();
+  });
+
+  it('#3858: a Completed payment on an order no longer waiting is kept as an orphan, even from the latest paymentID', async () => {
+    asBundle(vi.fn().mockResolvedValue({ applied: false }));
+    t.dataSource.query.mockImplementation(async (sql: string) =>
+      String(sql).includes('FROM sms_bundle_orders WHERE id')
+        ? [{ ...bundleRow, status: 'CANCELLED' }]
+        : [],
+    );
+    t.client.query.mockResolvedValue(completed);
+    const err = vi.spyOn(t.svc['logger'], 'error').mockImplementation(() => undefined);
+    expect(await callback('success')).toEqual({
+      orderId: ORDER_ID,
+      outcome: 'failure',
+      kind: 'BUNDLE',
+    });
+    const ins = orphanInsert()!;
+    expect(ins.sql).toContain('bundle_order_id');
+    expect(JSON.parse(ins.params[4] as string)).toMatchObject({
+      orphan: true,
+      orphan_reason: 'ORDER_NOT_PENDING',
+    });
+    expect(err).toHaveBeenCalledWith(expect.stringContaining('double payment'));
+  });
+
+  it('a replay of the payment that paid the order records nothing and does not warn', async () => {
+    const { markPaid } = asBundle();
+    t.dataSource.query.mockImplementation(async (sql: string) => {
+      const q = String(sql);
+      if (q.includes('FROM sms_bundle_orders WHERE id'))
+        return [{ ...bundleRow, status: 'ACTIVE' }];
+      return q.includes('SELECT 1 FROM platform_payments') ? [{ one: 1 }] : [];
+    });
+    t.client.query.mockResolvedValue(completed);
+    const err = vi.spyOn(t.svc['logger'], 'error').mockImplementation(() => undefined);
+    await callback('success');
+    expect(markPaid).not.toHaveBeenCalled();
+    expect(orphanInsert()).toBeUndefined();
+    expect(err).not.toHaveBeenCalled();
+  });
+
+  it('a bundle order returns to the SMS page, a seat order to billing', () => {
+    expect(t.svc.returnUrl(ORDER_ID, 'success', 'BUNDLE')).toBe(
+      `http://localhost:5174/settings?section=communication&smsBuy=1&order=${ORDER_ID}&payment=success`,
+    );
+    expect(t.svc.returnUrl(ORDER_ID, 'cancel')).toBe(
+      `http://localhost:5174/settings?section=billing&order=${ORDER_ID}&payment=cancel`,
+    );
   });
 
   it('a mismatched bundle payment is kept as an orphan on bundle_order_id', async () => {
