@@ -47,6 +47,9 @@ function isSeatLimitError(err: ConflictException): boolean {
 /** The shape `StudentService.create` auto-numbers (`REG-<year>-NNNN`). */
 const AUTO_REGISTRATION_NUMBER = /^REG-\d{4}-\d+$/;
 
+/** Thrown inside the commit transaction to roll the whole file back after row errors were collected. */
+class BulkUploadRolledBack extends Error {}
+
 class BulkRowError extends BadRequestException {
   constructor(
     message: string,
@@ -440,50 +443,59 @@ export class StudentBulkUploadService {
 
     // [13.2.3] Refuse the whole file up front so a full school never gets a partial import. Each
     // row's own create re-checks under the lock, which covers a concurrent create racing this one.
-    await this.classRepo.manager.transaction(async (m) => {
-      // [LIFE-12] Validate ran before this; another staging of the same file may have committed
-      // since. Refuse the whole file rather than import those students twice.
-      const live = await this.liveStudentsByDedupKey(m, tenantId, staged.rows);
-      const clash = staged.rows.find((r) => live.has(rowDedupKey(r)));
-      if (clash) {
-        throw new ConflictException({
-          message: `Row ${clash.rowNumber} (${clash.student_name}) was imported after this file was validated. Re-validate the file.`,
-          details: { code: 'BULK_UPLOAD_ALREADY_IMPORTED', row: clash.rowNumber },
-        });
-      }
-      await assertSeatsAvailable(m, tenantId, staged.rows.length);
-    });
-
+    // [#692] The whole file is ONE transaction: each row runs in its own savepoint so every bad row
+    // is reported, and any error rolls the whole file back (all-or-nothing).
     const errors: BulkUploadErrorDto[] = [];
-    const createdStudentIds: string[] = [];
+    let createdStudentIds: string[] = [];
     const guardianCache = new Map<string, string>();
 
-    for (const row of staged.rows) {
-      try {
-        const studentId = await this.createRow(row, tenantId, guardianCache, userId);
-        createdStudentIds.push(studentId);
-      } catch (err) {
-        // [13.2.3] A concurrent create can fill the school mid-commit. Report that row (and every
-        // later one, which will hit the same wall) as an error, so the audit row and the response
-        // match what was actually written instead of the whole request failing after a partial write.
-        if (err instanceof ConflictException && isSeatLimitError(err)) {
-          errors.push({ row: row.rowNumber, field: 'seat_limit', reason: err.message });
-        } else if (err instanceof BadRequestException) {
-          errors.push({
-            row: row.rowNumber,
-            ...(err instanceof BulkRowError && err.field !== undefined ? { field: err.field } : {}),
-            ...(err instanceof BulkRowError && err.value !== undefined ? { value: err.value } : {}),
-            reason: this.describeError(err),
+    try {
+      await this.classRepo.manager.transaction(async (m) => {
+        // [LIFE-12] Validate ran before this; another staging of the same file may have committed
+        // since. Refuse the whole file rather than import those students twice.
+        const live = await this.liveStudentsByDedupKey(m, tenantId, staged.rows);
+        const clash = staged.rows.find((r) => live.has(rowDedupKey(r)));
+        if (clash) {
+          throw new ConflictException({
+            message: `Row ${clash.rowNumber} (${clash.student_name}) was imported after this file was validated. Re-validate the file.`,
+            details: { code: 'BULK_UPLOAD_ALREADY_IMPORTED', row: clash.rowNumber },
           });
-        } else if (err instanceof HttpException) {
-          // e.g. ROLL_NUMBER_EXHAUSTED: a deliberate, user-safe message.
-          errors.push({ row: row.rowNumber, reason: this.describeError(err) });
-        } else {
-          // Never echo database text; the original goes to the log only.
-          this.logger.error(`Bulk upload row ${row.rowNumber} failed`, (err as Error)?.stack);
-          errors.push({ row: row.rowNumber, reason: 'Could not be created' });
         }
-      }
+        await assertSeatsAvailable(m, tenantId, staged.rows.length);
+
+        for (const row of staged.rows) {
+          try {
+            const studentId = await this.createRow(row, tenantId, guardianCache, userId, m);
+            createdStudentIds.push(studentId);
+          } catch (err) {
+            if (err instanceof ConflictException && isSeatLimitError(err)) {
+              errors.push({ row: row.rowNumber, field: 'seat_limit', reason: err.message });
+            } else if (err instanceof BadRequestException) {
+              errors.push({
+                row: row.rowNumber,
+                ...(err instanceof BulkRowError && err.field !== undefined
+                  ? { field: err.field }
+                  : {}),
+                ...(err instanceof BulkRowError && err.value !== undefined
+                  ? { value: err.value }
+                  : {}),
+                reason: this.describeError(err),
+              });
+            } else if (err instanceof HttpException) {
+              // e.g. ROLL_NUMBER_EXHAUSTED: a deliberate, user-safe message.
+              errors.push({ row: row.rowNumber, reason: this.describeError(err) });
+            } else {
+              // Never echo database text; the original goes to the log only.
+              this.logger.error(`Bulk upload row ${row.rowNumber} failed`, (err as Error)?.stack);
+              errors.push({ row: row.rowNumber, reason: 'Could not be created' });
+            }
+          }
+        }
+        if (errors.length > 0) throw new BulkUploadRolledBack();
+      });
+    } catch (err) {
+      if (!(err instanceof BulkUploadRolledBack)) throw err;
+      createdStudentIds = []; // nothing was written
     }
 
     await this.auditService.record({
@@ -632,11 +644,13 @@ export class StudentBulkUploadService {
     tenantId: string,
     guardianCache: Map<string, string>,
     userId: string | undefined,
+    outer: EntityManager,
   ): Promise<string> {
     const guardianResolutions: { phone: string; id: string }[] = [];
     let studentId: string;
     try {
-      studentId = await this.classRepo.manager.transaction(async (manager) => {
+      // Nested in the file's transaction: a savepoint, so one bad row rolls back only itself.
+      studentId = await outer.transaction(async (manager) => {
         const guardianIds: string[] = [];
 
         const g1Id = await this.resolveGuardian(

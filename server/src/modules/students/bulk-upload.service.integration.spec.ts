@@ -512,7 +512,7 @@ describe('StudentBulkUploadService (integration)', () => {
   });
 
   describe('[2606] commit never 500s after a partial write', () => {
-    it('reports a failing row, still creates the others and writes one audit row', async () => {
+    it('[692] reports every failing row and rolls the whole file back (all-or-nothing), with one audit row', async () => {
       const file = await buildXlsxFile(
         ['A', 'B', 'C', 'D'].map((n, i) =>
           rowValues(headers, {
@@ -531,16 +531,22 @@ describe('StudentBulkUploadService (integration)', () => {
       });
       try {
         const result = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
-        expect(result.success_count).toBe(3);
+        expect(result.success_count).toBe(0);
+        expect(result.created_student_ids).toEqual([]);
         expect(result.error_count).toBe(1);
         expect(result.errors[0]).toMatchObject({ row: 4, reason: 'Could not be created' });
         expect(JSON.stringify(result)).not.toContain('boom');
       } finally {
         spy.mockRestore();
       }
+      // nothing of the file stays: A, B and D were rolled back with C
+      const kept = await studentRepo.count({
+        where: { tenant_id: TENANT_ID, full_name: In(['Partial A', 'Partial B', 'Partial D']) },
+      });
+      expect(kept).toBe(0);
       const audits = await auditLogRepo.find({ where: { action: AuditAction.BULK_UPLOAD } });
       expect(audits).toHaveLength(1);
-      expect(audits[0].new_values).toMatchObject({ success_count: 3, error_count: 1 });
+      expect(audits[0].new_values).toMatchObject({ success_count: 0, error_count: 1 });
     });
 
     it('makes a roll above the cap a validate error and excludes it from rows_to_create', async () => {
