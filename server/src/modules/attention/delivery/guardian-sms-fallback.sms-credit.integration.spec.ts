@@ -367,10 +367,12 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     // Simulate a concurrent replica: its row lands between our "already sent?" check and our insert.
     const realQuery = ds.query.bind(ds);
     let planted = false;
-    ds.query = (async (sql: string, params?: any[]) => {
+    // Forward every argument: EntityManager.query passes its queryRunner as the 3rd one, and dropping it
+    // moves the statement to another pooled connection that waits on the transaction's own row lock.
+    ds.query = (async (sql: string, params?: any[], qr?: any) => {
       if (!planted && /SELECT reference_key FROM communication_logs/.test(sql)) {
         planted = true;
-        const result = await realQuery(sql, params);
+        const result = await realQuery(sql, params, qr);
         await realQuery(
           `INSERT INTO communication_logs (tenant_id, medium, recipient_address, recipient_name, message_body, status, trigger, reference_key)
            VALUES ($1, 'SMS', '+8801700000000', 'x', 'x', 'QUEUED', 'AUTOMATED', $2)`,
@@ -378,7 +380,7 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
         );
         return result;
       }
-      return realQuery(sql, params);
+      return realQuery(sql, params, qr);
     }) as any;
     try {
       expect(await service.runTenant(school(), new Date())).toBe(0);
