@@ -10,7 +10,7 @@ const body = field(data.body, lang);
 const s = (v: unknown) => (typeof v === 'string' ? v : undefined);
 const loc = lang === 'en' ? 'en-GB' : 'bn-BD';
 // Open intakes (never marked empty by the server: the text above still shows without them).
-const intakes = feed.filter((i) => s(i.link)?.startsWith('/'));
+const intakes = feed.filter((i) => s(i.link)?.startsWith('http'));
 const deadline = (i: Record<string, unknown>) => formatDay(s(i.deadline), loc, { dateStyle: 'long' });
 ---
 {(title || body || intakes.length > 0) && (
