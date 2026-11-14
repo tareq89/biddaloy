@@ -496,13 +496,11 @@ export class FeeController implements OnModuleInit {
     const who = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
     // [83.0] D5 — teaching-only on purpose; no `includeCoordinated`.
     const scope = await this.teacherScope.assertCanSeeGuardian({ ...who, guardianId });
-    const payments = await this.paymentService.findByGuardian(guardianId, tenant.id);
     // A sibling in another section is dropped for a TEACHER; `null` = unrestricted.
     // [83.0] D5 — teaching-only on purpose; no `includeCoordinated`.
     const scoped = await this.teacherScope.scopedStudentIds({ ...who, scope });
-    if (!scoped) return payments;
-    const visible = new Set(scoped);
-    return payments.filter((p) => visible.has(p.student_id));
+    // [#2455] The service keeps only the visible students' allocations of a multi-student payment.
+    return this.paymentService.findByGuardian(guardianId, tenant.id, scoped ?? undefined);
   }
 
   @Get('payments/invoices/student/:studentId')

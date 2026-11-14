@@ -17,6 +17,7 @@ import { RequestContext } from '../../common/request-context.util';
 import { PaymentStatus, AuditAction, FeeType } from '@biddaloy/shared';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
+import { toPaisa } from '../../common/constants/money';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
@@ -550,22 +551,7 @@ export class PaymentService {
       });
     }
 
-    return this.repo.find({
-      where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
-      // `allocations.student_fee.fee_structure` is what lets
-      // `toFamilyPayment()` (called on this result for PARENT/STUDENT
-      // callers) fill in `fee_name`/`period_start` — without it those
-      // fields are always null even when the underlying data exists.
-      // [16.8.2] `invoice` backs `FamilyPaymentDto.invoice_number` — the
-      // document number a family quotes back to the office.
-      relations: [
-        'allocations',
-        'allocations.student_fee',
-        'allocations.student_fee.fee_structure',
-        'invoice',
-      ],
-      order: { payment_date: 'DESC' },
-    });
+    return this.findForStudents([studentId], tenantId);
   }
 
   /** [8.11.4]'s Payment History tab — every payment recorded for any of a
@@ -574,19 +560,58 @@ export class PaymentService {
    * cross-tenant guardian ID never falls through to the payments query.
    * One `IN (...)` query over the guardian's `student_ids`, not a
    * per-student loop. */
-  async findByGuardian(guardianId: string, tenantId: string) {
+  async findByGuardian(guardianId: string, tenantId: string, onlyStudentIds?: string[]) {
     const guardian = await this.guardianService.findOne(guardianId, tenantId);
-    const studentIds = (guardian.students ?? []).map((s) => s.id);
+    const allowed = onlyStudentIds && new Set(onlyStudentIds);
+    const studentIds = (guardian.students ?? [])
+      .map((s) => s.id)
+      .filter((id) => !allowed || allowed.has(id));
 
     if (studentIds.length === 0) {
       return [];
     }
 
-    return this.repo.find({
-      where: { student_id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ['allocations', 'student'],
-      order: { payment_date: 'DESC' },
-    });
+    return this.findForStudents(studentIds, tenantId);
+  }
+
+  /**
+   * [#2455] A checkout for several students is ONE payment keyed on the first student, so
+   * ownership is read from the allocations (`student_fee.student_id`). A payment is returned when
+   * its `student_id` or any allocation belongs to `studentIds`; when it also covers other students,
+   * only the allocations of `studentIds` are kept and `total_amount` becomes their sum (whole paisa).
+   */
+  private async findForStudents(studentIds: string[], tenantId: string): Promise<Payment[]> {
+    const payments = await this.repo
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.student', 'student')
+      .leftJoinAndSelect('payment.allocations', 'allocation')
+      .leftJoinAndSelect('allocation.student_fee', 'student_fee')
+      .leftJoinAndSelect('student_fee.fee_structure', 'fee_structure')
+      .leftJoinAndSelect('payment.invoice', 'invoice')
+      .where('payment.tenant_id = :tenantId', { tenantId })
+      .andWhere('payment.deleted_at IS NULL')
+      .andWhere(
+        `(payment.student_id IN (:...studentIds) OR EXISTS (
+          SELECT 1 FROM payment_allocations pa JOIN student_fees sf ON sf.id = pa.student_fee_id
+           WHERE pa.payment_id = payment.id AND sf.student_id IN (:...studentIds)))`,
+        { studentIds },
+      )
+      .orderBy('payment.payment_date', 'DESC')
+      .getMany();
+
+    const mine = new Set(studentIds);
+    const out: Payment[] = [];
+    for (const payment of payments) {
+      const all = payment.allocations ?? [];
+      const own = all.filter((a) => a.student_fee && mine.has(a.student_fee.student_id));
+      if (all.length > 0 && own.length === 0) continue;
+      if (own.length < all.length) {
+        payment.allocations = own;
+        payment.total_amount = own.reduce((sum, a) => sum + toPaisa(a.allocated_amount), 0) / 100;
+      }
+      out.push(payment);
+    }
+    return out;
   }
 
   async getInvoiceSummary(studentId: string, tenantId: string) {
@@ -622,17 +647,7 @@ export class PaymentService {
     // Get payments for this student — same `allocations.student_fee.fee_structure`
     // join as `findByStudent` above, needed for `toFamilyPayment()`'s
     // fee_name/period_start on the family-facing `getInvoiceSummary` response.
-    const payments = await this.repo.find({
-      where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: [
-        'allocations',
-        'allocations.student_fee',
-        'allocations.student_fee.fee_structure',
-        // [16.8.2] Backs `FamilyPaymentDto.invoice_number`.
-        'invoice',
-      ],
-      order: { payment_date: 'DESC' },
-    });
+    const payments = await this.findForStudents([studentId], tenantId);
 
     return {
       student_id: studentId,
