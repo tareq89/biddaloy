@@ -10,6 +10,10 @@
  */
 export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
 export * from './applications';
+export * from './platform-coupons';
+export * from './platform-money-revenue';
+export * from './platform-money-sms';
+export * from './platform-plans';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { useOnline } from './use-online';
