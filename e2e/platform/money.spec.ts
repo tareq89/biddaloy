@@ -56,7 +56,9 @@ const recordButton = (page: Page) =>
   page.getByRole('button', { name: t('moneyStock.record'), exact: true }).last();
 
 /** A number out of a formatted amount ("৳1,250.00" -> 1250). */
-const amount = (s: string) => Number(s.replace(/[^0-9.]/g, ''));
+// The e2e locale is Bangla, so amounts print with Bangla digits (০-৯): map them first.
+const amount = (s: string) =>
+  Number(s.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/[^0-9.]/g, ''));
 
 const suffix = crypto.randomUUID().slice(0, 6).toUpperCase();
 let school: Awaited<ReturnType<typeof registerTrialSchool>>;
