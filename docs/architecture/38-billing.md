@@ -349,3 +349,26 @@ flowchart LR
 - A new entity is not "known" until it is in the production `entities: [...]` list in
   `app.module.ts`. The boot spec checks the six tables exist.
 - The lot lifecycle and lock order are drawn in `05-communications.md`.
+
+## Learning: cockpit money, Wave 4 (school screens)
+
+```mermaid
+sequenceDiagram
+  participant A as Admin
+  participant D as Seat buy dialog
+  participant S as Server
+  A->>D: types coupon HALF, presses Apply
+  D->>S: POST /billing/orders/preview (seats, months, code)
+  S-->>D: list total, discount, new total (nothing saved)
+  A->>D: presses Buy
+  D->>S: POST seat order (coupon_code only if applied)
+  S-->>D: order (amount 0 means PAID, no bKash)
+```
+
+- **Preview before create.** The coupon row only calls the preview route. An order exists only after Buy. Changing seats or months clears the preview, because the discount depends on them.
+- **Three deep-link params on `/settings`:** `smsBuy=1` opens the SMS package dialog, `smsOrder=<uuid>` is the bKash return for a package order, `coupon=1` opens the coupon row (use with `buy=1`). All use `.catch(undefined)`.
+- **The price comes from the server.** `useBillingSummary().unit_price_paisa` feeds the dialog; `SEAT_UNIT_PRICE_PAISA` is gone from the client.
+- **One failure sentence** for every invalid coupon reason, and one for try-later. The screen never says why.
+- A new Idempotency-Key is made whenever the coupon, the package or a rejected submit changes the request body.
+- The red "SMS almost finished" notice needed no client code: the attention card already renders the server rule's `actionUrl`. A test proves it (#3879).
+- Not done here: the human usability test (tasks d and e) and the bn copy check; see #3844 and #3891.
