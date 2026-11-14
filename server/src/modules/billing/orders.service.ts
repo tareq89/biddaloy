@@ -219,13 +219,16 @@ export class OrdersService {
     if (code) {
       // Preview first (reads only): the order row must carry the final numbers (CHECK), and
       // `redeemInTx` needs the order row to exist.
-      const p = await this.coupons.preview({
-        schoolId: input.schoolId,
-        code,
-        seats: input.seats,
-        months: input.months,
-        unitPaisa: unit,
-      });
+      const p = await this.coupons.preview(
+        {
+          schoolId: input.schoolId,
+          code,
+          seats: input.seats,
+          months: input.months,
+          unitPaisa: unit,
+        },
+        m,
+      );
       couponId = p.couponId;
       discount = p.discountPaisa;
     }
@@ -371,7 +374,7 @@ export class OrdersService {
         );
         const snapshot = buildReceiptSnapshot(
           school,
-          await this.vat.get(),
+          await this.vat.get(m),
           Number(payment.amount_paisa ?? paid.amount_paisa),
           order.coupon_code
             ? { coupon_code: order.coupon_code, discount_paisa: Number(order.discount_paisa) }

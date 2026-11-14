@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  ApprovalScope,
   AuditAction,
   PlatformPaymentMethod,
   SeatOrderStatus,
@@ -45,6 +46,7 @@ export class RefundService {
     orderId: string,
     reason: string,
     actorUserId: string,
+    approverId: string,
   ): Promise<RefundResult> {
     const out = await this.dataSource.transaction(async (m) => {
       // Same school lock `payInTx` takes: a refund and a payment never recompute at once.
@@ -57,7 +59,7 @@ export class RefundService {
       const [rows]: [{ amount_paisa: string }[], number] = await m.query(
         `UPDATE seat_orders SET status = $2, refunded_at = now(), refund_reason = $3,
                 refunded_by_user_id = $4
-          WHERE id = $1 AND status = $5 AND unit_price_paisa > 0
+          WHERE id = $1 AND status = $5 AND unit_price_paisa > 0 AND amount_paisa > 0
           RETURNING amount_paisa::text AS amount_paisa`,
         [orderId, SeatOrderStatus.REFUNDED, reason, actorUserId, SeatOrderStatus.PAID],
       );
@@ -79,6 +81,7 @@ export class RefundService {
         rows[0].amount_paisa,
         reason,
         actorUserId,
+        approverId,
       );
       return { applied: true, schoolId: school.school_id };
     });
@@ -94,6 +97,7 @@ export class RefundService {
     orderId: string,
     reason: string,
     actorUserId: string,
+    approverId: string,
   ): Promise<RefundResult> {
     const out = await this.dataSource.transaction(async (m) => {
       const [order]: { school_id: string; status: string; price_paisa: string }[] = await m.query(
@@ -121,6 +125,7 @@ export class RefundService {
         order.price_paisa,
         reason,
         actorUserId,
+        approverId,
       );
       return { applied: true };
     });
@@ -136,8 +141,9 @@ export class RefundService {
     amountPaisa: string,
     reason: string,
     actorUserId: string,
+    approverId: string,
   ) {
-    return this.audit.record(
+    return this.audit.recordApproved(
       {
         action: AuditAction.ORDER_REFUNDED,
         entity_type: entity,
@@ -145,6 +151,8 @@ export class RefundService {
         tenant_id: schoolId,
         performed_by_user_id: actorUserId,
         new_values: { order_id: orderId, amount_paisa: amountPaisa, reason },
+        approved_by_user_id: approverId,
+        approval_scope: ApprovalScope.PLATFORM_REFUND,
       },
       m,
     );

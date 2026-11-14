@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { EntityManager } from 'typeorm';
 import { PlatformSettingsService } from '../platform-identity/approvals/platform-settings.service';
 
 export const VAT_KEY = 'billing.vat';
@@ -16,8 +17,8 @@ const DEFAULT: VatSetting = { rate_bp: null, label: 'VAT', registration: null };
 export class VatService {
   constructor(private readonly settings: PlatformSettingsService) {}
 
-  async get(): Promise<VatSetting> {
-    const v = await this.settings.get<Partial<VatSetting> | undefined>(VAT_KEY);
+  async get(manager?: EntityManager): Promise<VatSetting> {
+    const v = await this.settings.get<Partial<VatSetting> | undefined>(VAT_KEY, manager);
     return {
       rate_bp: typeof v?.rate_bp === 'number' ? v.rate_bp : null,
       label: v?.label || DEFAULT.label,

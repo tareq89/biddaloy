@@ -63,6 +63,12 @@ describe('readReceiptSnapshot', () => {
       discount_paisa: 0,
     });
   });
+  it('paid_paisa round-trips; an old snapshot without it reads undefined', () => {
+    const vat = { rate_bp: null, label: 'VAT', registration: null };
+    const s = buildReceiptSnapshot(school, vat, 4200);
+    expect(readReceiptSnapshot(JSON.parse(JSON.stringify(s)))?.paid_paisa).toBe(4200);
+    expect(readReceiptSnapshot({ name: 'S' })?.paid_paisa).toBeUndefined();
+  });
   it('null in, null out', () => {
     expect(readReceiptSnapshot(null)).toBeNull();
   });

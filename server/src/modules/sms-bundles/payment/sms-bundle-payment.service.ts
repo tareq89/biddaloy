@@ -113,7 +113,7 @@ export class SmsBundlePaymentService {
       ]);
       const snapshot = buildReceiptSnapshot(
         school,
-        await this.vat.get(),
+        await this.vat.get(m),
         Number(payment.amount_paisa ?? order.price_paisa),
       );
       await m.query(

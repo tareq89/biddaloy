@@ -70,16 +70,28 @@ describe('PlatformVatController', () => {
 describe('UpdateVatDto', () => {
   const errs = async (o: object) =>
     (await validate(plainToInstance(UpdateVatDto, o))).map((e) => e.property);
-  it.each([
-    [{ enabled: true }, 'rate_percent'],
-    [{ enabled: true, rate_percent: 0 }, 'rate_percent'],
-    [{ enabled: true, rate_percent: 50.01 }, 'rate_percent'],
-    [{ enabled: true, rate_percent: 5.123 }, 'rate_percent'],
-    [{ enabled: true, rate_percent: 5, label: '' }, 'label'],
-    [{ enabled: true, rate_percent: 5, label: 'x'.repeat(21) }, 'label'],
-    [{ enabled: false, registration: 'x'.repeat(41) }, 'registration'],
-  ])('refuses %j', async (o, prop) => {
-    expect(await errs(o)).toContain(prop);
+  it('refuses a missing rate when enabled', async () => {
+    expect(await errs({ enabled: true })).toContain('rate_percent');
+  });
+  it('refuses a zero rate', async () => {
+    expect(await errs({ enabled: true, rate_percent: 0 })).toContain('rate_percent');
+  });
+  it('refuses a rate above 50', async () => {
+    expect(await errs({ enabled: true, rate_percent: 50.01 })).toContain('rate_percent');
+  });
+  it('refuses a rate with 3 decimals', async () => {
+    expect(await errs({ enabled: true, rate_percent: 5.123 })).toContain('rate_percent');
+  });
+  it('refuses an empty label', async () => {
+    expect(await errs({ enabled: true, rate_percent: 5, label: '' })).toContain('label');
+  });
+  it('refuses a 21-char label', async () => {
+    expect(await errs({ enabled: true, rate_percent: 5, label: 'x'.repeat(21) })).toContain(
+      'label',
+    );
+  });
+  it('refuses a 41-char registration', async () => {
+    expect(await errs({ enabled: false, registration: 'x'.repeat(41) })).toContain('registration');
   });
   it('accepts the bounds and off with no rate', async () => {
     expect(await errs({ enabled: true, rate_percent: 0.01 })).toEqual([]);

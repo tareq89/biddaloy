@@ -14,6 +14,7 @@ export interface ReceiptSnapshot {
   name: string | null;
   address: string | null;
   vat: ReceiptVat | null;
+  paid_paisa?: number;
   coupon_code?: string | null;
   discount_paisa?: number;
 }
@@ -39,6 +40,7 @@ export function buildReceiptSnapshot(
           net_paisa: paidPaisa - vat_paisa,
         }
       : null,
+    paid_paisa: paidPaisa,
     ...extra,
   };
 }
@@ -64,6 +66,7 @@ export function readReceiptSnapshot(raw: unknown): ReceiptSnapshot | null {
     name: typeof r.name === 'string' ? r.name : null,
     address: typeof r.address === 'string' ? r.address : null,
     vat,
+    paid_paisa: typeof r.paid_paisa === 'number' ? r.paid_paisa : undefined,
     coupon_code: typeof r.coupon_code === 'string' ? r.coupon_code : null,
     discount_paisa: typeof r.discount_paisa === 'number' ? r.discount_paisa : 0,
   };

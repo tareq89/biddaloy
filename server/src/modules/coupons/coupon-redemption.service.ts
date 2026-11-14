@@ -88,14 +88,14 @@ export class CouponRedemptionService {
   ) {}
 
   /** Same validation and math as `redeemInTx`, no write. A refusal counts as a wrong try. */
-  async preview(input: CouponPriceInput): Promise<CouponPreview> {
+  async preview(input: CouponPriceInput, manager?: EntityManager): Promise<CouponPreview> {
     await this.limiter.assertAllowed(input.schoolId);
     try {
       const code = normaliseCouponCode(input.code);
       if (!code) throw couponNotValid();
-      const c = await this.find(this.db.manager, code);
+      const c = await this.find(manager ?? this.db.manager, code);
       if (!c || !this.usableNow(c)) throw couponNotValid();
-      await this.checkSchool(this.db.manager, c, input.schoolId);
+      await this.checkSchool(manager ?? this.db.manager, c, input.schoolId);
       return { couponId: c.id, ...this.price(c, input) };
     } catch (e) {
       await this.countIfRefused(input.schoolId, e);
@@ -203,7 +203,8 @@ export class CouponRedemptionService {
     );
     if (!r) throw couponNotValid();
     // Only the free route (PERCENT 100) may price an order at 0; a big FIXED coupon must not bypass it.
-    if (r.amountPaisa === 0 && !(c.discount_kind === 'PERCENT' && c.percent === 100)) throw couponNotValid();
+    if (r.amountPaisa === 0 && !(c.discount_kind === 'PERCENT' && c.percent === 100))
+      throw couponNotValid();
     return r;
   }
 

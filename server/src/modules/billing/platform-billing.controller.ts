@@ -9,16 +9,18 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApprovalScope, JwtPayload } from '@biddaloy/shared';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
-import { ApprovalGuard } from '../auth/guards/approval.guard';
+import { ApprovalService } from '../auth/guards/approval.guard';
 import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
@@ -43,6 +45,7 @@ export class PlatformBillingController {
   constructor(
     private readonly service: PlatformBillingService,
     private readonly refunds: RefundService,
+    private readonly approvals: ApprovalService,
   ) {}
 
   @Get('schools')
@@ -93,7 +96,6 @@ export class PlatformBillingController {
   @Post('orders/:id/refund')
   @HttpCode(200)
   @FailClosedWithoutRedis()
-  @UseGuards(ApprovalGuard)
   @RequireApproval(ApprovalScope.PLATFORM_REFUND)
   @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({
@@ -101,23 +103,28 @@ export class PlatformBillingController {
       'Refund a PAID seat order: entitlement is recomputed, the coupon use is kept. Needs an `Idempotency-Key` header. Money goes back through the bKash panel.',
   })
   @ApiOkResponse({ type: RefundResultDto })
-  refundSeatOrder(
+  async refundSeatOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RefundDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @CurrentUser() user: JwtPayload,
+    @Req() req: Request,
   ) {
     // Rule 25: the interceptor is a no-op without the header, so the 400 is explicit.
     if (idempotencyKey === undefined) {
       throw new BadRequestException('Idempotency-Key header is required to refund.');
     }
-    return this.refunds.refundSeatOrder(id, dto.reason, user.sub);
+    // Consumed here, after the idempotency interceptor, so a replay never needs a new token.
+    const approval = await this.approvals.consume(
+      req as unknown as Parameters<ApprovalService['consume']>[0],
+      ApprovalScope.PLATFORM_REFUND,
+    );
+    return this.refunds.refundSeatOrder(id, dto.reason, user.sub, approval.approverId);
   }
 
   @Post('sms-bundle-orders/:id/refund')
   @HttpCode(200)
   @FailClosedWithoutRedis()
-  @UseGuards(ApprovalGuard)
   @RequireApproval(ApprovalScope.PLATFORM_REFUND)
   @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({
@@ -125,16 +132,22 @@ export class PlatformBillingController {
       'Refund an ACTIVE SMS package order while no unit was used (409 BUNDLE_ALREADY_USED after). Needs an `Idempotency-Key` header. Money goes back through the bKash panel.',
   })
   @ApiOkResponse({ type: RefundResultDto })
-  refundBundleOrder(
+  async refundBundleOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RefundDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @CurrentUser() user: JwtPayload,
+    @Req() req: Request,
   ) {
     if (idempotencyKey === undefined) {
       throw new BadRequestException('Idempotency-Key header is required to refund.');
     }
-    return this.refunds.refundBundleOrder(id, dto.reason, user.sub);
+    // Consumed here, after the idempotency interceptor, so a replay never needs a new token.
+    const approval = await this.approvals.consume(
+      req as unknown as Parameters<ApprovalService['consume']>[0],
+      ApprovalScope.PLATFORM_REFUND,
+    );
+    return this.refunds.refundBundleOrder(id, dto.reason, user.sub, approval.approverId);
   }
 
   @Post('schools/:id/grant')

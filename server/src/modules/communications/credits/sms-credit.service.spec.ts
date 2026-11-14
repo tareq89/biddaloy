@@ -526,18 +526,29 @@ describe('SmsCreditService', () => {
       expect(m.query).toHaveBeenCalledTimes(2);
     });
 
-    it.each([
-      ['a reserved unit', lot({ remaining: 49, reserved_units: 1 }), 0],
-      ['a debited unit', lot({ remaining: 49, debited_units: 1 }), 0],
-      ['an open draw row', lot(), 1],
-      ['a used-up lot', lot({ status: 'USED_UP', remaining: 0 }), 0],
-    ])('refuses %s with BUNDLE_ALREADY_USED and writes nothing', async (_n, l, draws) => {
+    const expectUsed = async (l: unknown, draws = 0) => {
       const m = mgr(l, draws);
       await expect(service.closeUntouchedLot(m as any, TENANT_ID, 'o1')).rejects.toMatchObject({
         response: { details: { code: 'BUNDLE_ALREADY_USED' } },
       });
       expect(m.insert).not.toHaveBeenCalled();
       expect(m.query).not.toHaveBeenCalled();
+    };
+
+    it('refuses a reserved unit with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot({ remaining: 49, reserved_units: 1 }));
+    });
+
+    it('refuses a debited unit with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot({ remaining: 49, debited_units: 1 }));
+    });
+
+    it('refuses an open draw row with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot(), 1);
+    });
+
+    it('refuses a used-up lot with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot({ status: 'USED_UP', remaining: 0 }));
     });
 
     it('an already refunded lot is closed:false; no lot is ORDER_NOT_REFUNDABLE', async () => {

@@ -125,7 +125,7 @@ describe('RefundService (integration)', () => {
     await entitlement.recomputeAndNotify(s);
     expect(await limit(s)).toBe(25);
 
-    const first = await svc.refundSeatOrder(id, 'Paid twice by mistake', by);
+    const first = await svc.refundSeatOrder(id, 'Paid twice by mistake', by, 'a1');
     expect(first).toMatchObject({ applied: true, order_id: id, note: REFUND_NOTE });
     expect(await limit(s)).toBe(0);
     const [row] = await ds.query(
@@ -144,7 +144,7 @@ describe('RefundService (integration)', () => {
     expect(audits).toHaveLength(1);
 
     refundDone.mockClear();
-    const again = await svc.refundSeatOrder(id, 'Paid twice by mistake', by);
+    const again = await svc.refundSeatOrder(id, 'Paid twice by mistake', by, 'a1');
     expect(again.applied).toBe(false);
     expect(refundDone).not.toHaveBeenCalled();
     const [row2] = await ds.query('SELECT refunded_at FROM seat_orders WHERE id = $1', [id]);
@@ -166,7 +166,7 @@ describe('RefundService (integration)', () => {
        VALUES ($1, 'BKASH', 'TRX123', 25000)`,
       [id],
     );
-    const res = await svc.refundSeatOrder(id, 'Customer asked back', by);
+    const res = await svc.refundSeatOrder(id, 'Customer asked back', by, 'a1');
     expect(res.gateway_ref).toBe('TRX123');
     const [c] = await ds.query('SELECT uses_count FROM coupons WHERE id = $1', [couponId]);
     expect(Number(c.uses_count)).toBe(3);
@@ -176,7 +176,7 @@ describe('RefundService (integration)', () => {
     const s = await school();
     const by = await actor();
     const grant = await seatOrder(s, { price: 0 });
-    await expect(svc.refundSeatOrder(grant, 'Not a sale', by)).rejects.toMatchObject({
+    await expect(svc.refundSeatOrder(grant, 'Not a sale', by, 'a1')).rejects.toMatchObject({
       response: { details: { code: 'ORDER_NOT_REFUNDABLE' } },
     });
     const [{ id: pending }] = await ds.query(
@@ -185,7 +185,21 @@ describe('RefundService (integration)', () => {
        VALUES ($1, 5, 1, 1000, 5000, CURRENT_DATE, CURRENT_DATE + 30, 'PENDING', $2) RETURNING id`,
       [s, randomUUID()],
     );
-    await expect(svc.refundSeatOrder(pending, 'Not paid yet', by)).rejects.toMatchObject({
+    await expect(svc.refundSeatOrder(pending, 'Not paid yet', by, 'a1')).rejects.toMatchObject({
+      response: { details: { code: 'ORDER_NOT_REFUNDABLE' } },
+    });
+  });
+
+  it('a fully discounted PAID seat order (amount 0) is 409 ORDER_NOT_REFUNDABLE', async () => {
+    const s = await school();
+    const by = await actor();
+    const [{ id }] = await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, discount_paisa,
+                                period_start, period_end, status, idempotency_key)
+       VALUES ($1, 25, 1, 1000, 0, 25000, CURRENT_DATE - 1, CURRENT_DATE + 30, 'PAID', $2) RETURNING id`,
+      [s, randomUUID()],
+    );
+    await expect(svc.refundSeatOrder(id, 'Free order', by, 'a1')).rejects.toMatchObject({
       response: { details: { code: 'ORDER_NOT_REFUNDABLE' } },
     });
   });
@@ -196,7 +210,7 @@ describe('RefundService (integration)', () => {
     const id = await bundle(s, 100);
     expect(await balance(s)).toMatchObject({ available: 100 });
 
-    const res = await svc.refundBundleOrder(id, 'Bought the wrong one', by);
+    const res = await svc.refundBundleOrder(id, 'Bought the wrong one', by, 'a1');
     expect(res).toMatchObject({ applied: true, order_id: id, note: REFUND_NOTE });
     expect(await balance(s)).toMatchObject({ available: 0, reserved: 0 });
     expect(await ledgerSum(s)).toBe(0);
@@ -214,7 +228,7 @@ describe('RefundService (integration)', () => {
     expect(inv.every((r) => r.lotsBroken.length === 0)).toBe(true);
     expect(inv[0]).toMatchObject({ available: 0, lotsRemaining: 0 });
 
-    expect((await svc.refundBundleOrder(id, 'Bought the wrong one', by)).applied).toBe(false);
+    expect((await svc.refundBundleOrder(id, 'Bought the wrong one', by, 'a1')).applied).toBe(false);
     expect(await balance(s)).toMatchObject({ available: 0 });
   });
 
@@ -223,7 +237,7 @@ describe('RefundService (integration)', () => {
     const by = await actor();
     const id = await bundle(s, 100);
     expect(await credits.reserve(s, 1, `r-${id}`)).toEqual({ ok: true });
-    await expect(svc.refundBundleOrder(id, 'Too late for this', by)).rejects.toMatchObject({
+    await expect(svc.refundBundleOrder(id, 'Too late for this', by, 'a1')).rejects.toMatchObject({
       response: { details: { code: 'BUNDLE_ALREADY_USED' } },
     });
     expect(await balance(s)).toMatchObject({ available: 99, reserved: 1 });
@@ -265,7 +279,7 @@ describe('RefundService (integration)', () => {
     let refund!: Promise<unknown>;
     const outcome = ds.transaction(async (m) => {
       await m.query('SELECT 1 FROM sms_credit_balance WHERE tenant_id = $1 FOR UPDATE', [s]);
-      refund = svc.refundBundleOrder(id, 'Racing the sender', by).catch((e: unknown) => e);
+      refund = svc.refundBundleOrder(id, 'Racing the sender', by, 'a1').catch((e: unknown) => e);
       await untilBlocked(1);
       // What a winning reserve leaves behind, written while the refund waits on the lock.
       await m.query(

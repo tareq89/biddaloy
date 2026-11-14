@@ -120,7 +120,7 @@ export class ReceiptService {
       packageName: r.name_snapshot,
       smsCount: r.sms_count,
       validityDays: r.validity_days,
-      amountPaisa: Number(r.price_paisa),
+      amountPaisa: snap?.paid_paisa ?? Number(r.price_paisa),
       expiresOn: r.expires_on,
       method: r.method ?? '',
       reference: r.reference,

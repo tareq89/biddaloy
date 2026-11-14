@@ -61,7 +61,12 @@ describe('OrdersService', () => {
       expect.stringMatching(/^SMR-\d{4}-000007$/),
       expect.any(String),
     ]);
-    expect(JSON.parse(q.mock.calls[8][1][2])).toEqual({ name: 'S', address: null, vat: null });
+    expect(JSON.parse(q.mock.calls[8][1][2])).toEqual({
+      name: 'S',
+      address: null,
+      vat: null,
+      paid_paisa: 5000,
+    });
     expect(receipts.emailReceipt).toHaveBeenCalledWith('o1');
     expect(entitlement.recompute).toHaveBeenCalledWith('s1', expect.anything());
     expect(entitlement.afterCommit).toHaveBeenCalledWith('s1');
