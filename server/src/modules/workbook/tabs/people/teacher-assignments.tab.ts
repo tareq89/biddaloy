@@ -173,7 +173,7 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
         tab: 'teacher_assignments',
         row: rowNo,
         column: 'teacher',
-        message: `Column "teacher": no teacher with the key "${teacherKey}" was found.`,
+        message: `Column "teacher": no teacher was found.`,
         severity: 'error',
         value: teacherKey,
       });
@@ -186,7 +186,7 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
         tab: 'teacher_assignments',
         row: rowNo,
         column: 'class',
-        message: `Column "class": no class named "${classKey}" was found.`,
+        message: `Column "class": no class was found.`,
         severity: 'error',
         value: classKey,
       });
@@ -199,7 +199,7 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
         tab: 'teacher_assignments',
         row: rowNo,
         column: 'academic_year',
-        message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+        message: `Column "academic_year": no academic year was found.`,
         severity: 'error',
         value: academicYearKey,
       });
@@ -212,7 +212,7 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
         tab: 'teacher_assignments',
         row: rowNo,
         column: 'section',
-        message: `Column "section": no section with the key "${sectionKey}" was found.`,
+        message: `Column "section": no section was found.`,
         severity: 'error',
         value: sectionKey,
       });
@@ -229,7 +229,7 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
           tab: 'teacher_assignments',
           row: rowNo,
           column: 'subject',
-          message: `Column "subject": no subject with the code "${subjectKey}" was found.`,
+          message: `Column "subject": no subject with the code was found.`,
           severity: 'error',
           value: subjectKey,
         });

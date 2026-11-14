@@ -140,7 +140,7 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
         tab: 'admission_intakes',
         row: rowNo,
         column: 'class_section',
-        message: `Column "class_section": no section with the key "${classSectionKey}" was found.`,
+        message: `Column "class_section": no section was found.`,
         severity: 'error',
         value: classSectionKey,
       });

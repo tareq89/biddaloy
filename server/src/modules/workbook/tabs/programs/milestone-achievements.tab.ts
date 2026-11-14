@@ -148,7 +148,7 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
         tab: 'milestone_achievements',
         row: rowNo,
         column: 'enrollment',
-        message: `Column "enrollment": no program enrollment "${enrollmentKey}" was found.`,
+        message: `Column "enrollment": no program enrollment was found.`,
         severity: 'error',
         value: enrollmentKey,
       });
@@ -161,7 +161,7 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
         tab: 'milestone_achievements',
         row: rowNo,
         column: 'milestone',
-        message: `Column "milestone": no program milestone "${milestoneKey}" was found.`,
+        message: `Column "milestone": no program milestone was found.`,
         severity: 'error',
         value: milestoneKey,
       });
@@ -178,7 +178,7 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
           tab: 'milestone_achievements',
           row: rowNo,
           column: 'recorded_by',
-          message: `Column "recorded_by": no user with email "${recordedByKey}" was found.`,
+          message: `Column "recorded_by": no user with email was found.`,
           severity: 'error',
           value: recordedByKey,
         });

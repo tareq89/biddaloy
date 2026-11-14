@@ -182,7 +182,7 @@ export const routineSlotsTab: TabSpec<RoutineSlot, RoutineSlotRow> = {
         tab: 'routine_slots',
         row: rowNo,
         column: 'routine',
-        message: `Column "routine": no routine named "${routineKey}" was found.`,
+        message: `Column "routine": no routine was found.`,
         severity: 'error',
         value: routineKey,
       });
@@ -194,7 +194,7 @@ export const routineSlotsTab: TabSpec<RoutineSlot, RoutineSlotRow> = {
         tab: 'routine_slots',
         row: rowNo,
         column: 'section',
-        message: `Column "section": no section named "${sectionKey}" was found.`,
+        message: `Column "section": no section was found.`,
         severity: 'error',
         value: sectionKey,
       });
@@ -206,7 +206,7 @@ export const routineSlotsTab: TabSpec<RoutineSlot, RoutineSlotRow> = {
         tab: 'routine_slots',
         row: rowNo,
         column: 'period_slot',
-        message: `Column "period_slot": no period slot named "${periodSlotKey}" was found.`,
+        message: `Column "period_slot": no period slot was found.`,
         severity: 'error',
         value: periodSlotKey,
       });
@@ -218,7 +218,7 @@ export const routineSlotsTab: TabSpec<RoutineSlot, RoutineSlotRow> = {
         tab: 'routine_slots',
         row: rowNo,
         column: 'subject',
-        message: `Column "subject": no subject named "${subjectKey}" was found.`,
+        message: `Column "subject": no subject was found.`,
         severity: 'error',
         value: subjectKey,
       });
@@ -232,7 +232,7 @@ export const routineSlotsTab: TabSpec<RoutineSlot, RoutineSlotRow> = {
           tab: 'routine_slots',
           row: rowNo,
           column: 'room',
-          message: `Column "room": no room named "${roomKey}" was found.`,
+          message: `Column "room": no room was found.`,
           severity: 'error',
           value: roomKey,
         });

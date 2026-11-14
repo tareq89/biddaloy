@@ -237,7 +237,7 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
           tab: 'guardians',
           row: rowNo,
           column: 'user',
-          message: `Column "user": no user with the key "${userKey}" was found.`,
+          message: `Column "user": no user was found.`,
           severity: 'error',
           value: userKey,
         });

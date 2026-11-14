@@ -343,7 +343,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
           tab: 'student_fees',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student with registration number "${studentKey}" was found.`,
+          message: `Column "student": no student with registration number was found.`,
           severity: 'error',
           value: studentKey,
         });
@@ -359,7 +359,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
           tab: 'student_fees',
           row: rowNo,
           column: 'academic_year',
-          message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+          message: `Column "academic_year": no academic year was found.`,
           severity: 'error',
           value: academicYearKey,
         });
@@ -375,7 +375,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
           tab: 'student_fees',
           row: rowNo,
           column: 'fee_structure',
-          message: `Column "fee_structure": no fee structure "${feeStructureKey}" was found.`,
+          message: `Column "fee_structure": no fee structure was found.`,
           severity: 'error',
           value: feeStructureKey,
         });
@@ -391,7 +391,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
           tab: 'student_fees',
           row: rowNo,
           column: 'fine_rule',
-          message: `Column "fine_rule": no fine rule "${fineRuleKey}" was found.`,
+          message: `Column "fine_rule": no fine rule was found.`,
           severity: 'error',
           value: fineRuleKey,
         });

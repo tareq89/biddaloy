@@ -145,7 +145,7 @@ export const reportSchedulesTab: TabSpec<ReportSchedule, ReportScheduleRow> = {
     const reportKey = v.report as string;
     const definitionId = ctx.ref('report_definitions', reportKey);
     if (!definitionId) {
-      return fail('report', `Column "report": no report with the key "${reportKey}" was found.`);
+      return fail('report', `Column "report": no report was found.`);
     }
     if (!LOCAL_TIME.test(v.local_time as string)) {
       return fail('local_time', 'Column "local_time": expected a time like 08:30.');

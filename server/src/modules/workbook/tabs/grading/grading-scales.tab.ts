@@ -137,7 +137,7 @@ export const gradingScalesTab: TabSpec<GradingScale, GradingScaleRow> = {
           tab: 'grading_scales',
           row: rowNo,
           column: 'academic_year',
-          message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+          message: `Column "academic_year": no academic year was found.`,
           severity: 'error',
           value: academicYearKey,
         });
@@ -153,7 +153,7 @@ export const gradingScalesTab: TabSpec<GradingScale, GradingScaleRow> = {
           tab: 'grading_scales',
           row: rowNo,
           column: 'class',
-          message: `Column "class": no class named "${classKey}" was found.`,
+          message: `Column "class": no class was found.`,
           severity: 'error',
           value: classKey,
         });

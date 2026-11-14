@@ -178,7 +178,7 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
         tab: 'admission_applicants',
         row: rowNo,
         column: 'intake',
-        message: `Column "intake": no admission intake with the key "${intakeKey}" was found.`,
+        message: `Column "intake": no admission intake was found.`,
         severity: 'error',
         value: intakeKey,
       });

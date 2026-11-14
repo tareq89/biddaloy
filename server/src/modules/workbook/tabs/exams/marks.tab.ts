@@ -169,7 +169,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
           tab: 'marks',
           row: rowNo,
           column: 'exam',
-          message: `Column "exam": no exam "${examKey}" was found.`,
+          message: `Column "exam": no exam was found.`,
           severity: 'error',
           value: examKey,
         });
@@ -185,7 +185,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
           tab: 'marks',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student "${studentKey}" was found.`,
+          message: `Column "student": no student was found.`,
           severity: 'error',
           value: studentKey,
         });
@@ -201,7 +201,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
           tab: 'marks',
           row: rowNo,
           column: 'subject',
-          message: `Column "subject": no subject "${subjectKey}" was found.`,
+          message: `Column "subject": no subject was found.`,
           severity: 'error',
           value: subjectKey,
         });
@@ -217,7 +217,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
           tab: 'marks',
           row: rowNo,
           column: 'component',
-          message: `Column "component": no exam component "${componentKey}" was found.`,
+          message: `Column "component": no exam component was found.`,
           severity: 'error',
           value: componentKey,
         });
@@ -233,7 +233,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
           tab: 'marks',
           row: rowNo,
           column: 'entered_by',
-          message: `Column "entered_by": no user "${entered_byKey}" was found.`,
+          message: `Column "entered_by": no user was found.`,
           severity: 'error',
           value: entered_byKey,
         });

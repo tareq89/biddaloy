@@ -119,7 +119,7 @@ export const routineSlotTeachersTab: TabSpec<RoutineSlotTeacher, RoutineSlotTeac
         tab: 'routine_slot_teachers',
         row: rowNo,
         column: 'routine_slot',
-        message: `Column "routine_slot": no routine slot named "${routineSlotKey}" was found.`,
+        message: `Column "routine_slot": no routine slot was found.`,
         severity: 'error',
         value: routineSlotKey,
       });
@@ -131,7 +131,7 @@ export const routineSlotTeachersTab: TabSpec<RoutineSlotTeacher, RoutineSlotTeac
         tab: 'routine_slot_teachers',
         row: rowNo,
         column: 'teacher',
-        message: `Column "teacher": no teacher with employee_id "${teacherKey}" was found.`,
+        message: `Column "teacher": no teacher with employee_id was found.`,
         severity: 'error',
         value: teacherKey,
       });

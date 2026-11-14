@@ -380,7 +380,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         tab: 'students',
         row: rowNo,
         column: 'section',
-        message: `Column "section": no section with the key "${sectionKey}" was found.`,
+        message: `Column "section": no section was found.`,
         severity: 'error',
         value: sectionKey,
       });
@@ -397,7 +397,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         tab: 'students',
         row: rowNo,
         column: 'class',
-        message: `Column "class": no class named "${classKey}" was found.`,
+        message: `Column "class": no class was found.`,
         severity: 'error',
         value: classKey,
       });
@@ -410,7 +410,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         tab: 'students',
         row: rowNo,
         column: 'academic_year',
-        message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+        message: `Column "academic_year": no academic year was found.`,
         severity: 'error',
         value: academicYearKey,
       });
@@ -425,7 +425,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
           tab: 'students',
           row: rowNo,
           column: 'user',
-          message: `Column "user": no user with the key "${userKey}" was found.`,
+          message: `Column "user": no user was found.`,
           severity: 'error',
           value: userKey,
         });
@@ -443,7 +443,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
           tab: 'students',
           row: rowNo,
           column: 'guardian_phones',
-          message: `Column "guardian_phones": no guardian with the key "${key}" was found.`,
+          message: `Column "guardian_phones": no guardian was found.`,
           severity: 'error',
           value: key,
         });

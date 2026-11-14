@@ -286,7 +286,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
           tab: 'promotion_entries',
           row: rowNo,
           column,
-          message: `Column "${column}": no ${ref.replace('_', ' ')} "${key}" was found.`,
+          message: `Column "${column}": no ${ref.replace('_', ' ')} was found.`,
           severity: 'error',
           value: key,
         });
@@ -303,7 +303,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
           tab: 'promotion_entries',
           row: rowNo,
           column,
-          message: `Column "${column}": no ${noun} "${key}" was found.`,
+          message: `Column "${column}": no ${noun} was found.`,
           severity: 'error',
           value: key,
         });

@@ -105,7 +105,7 @@ function unresolved(rowNo: number, column: string, key: string, what: string): R
     tab: 'student_lifecycle_events',
     row: rowNo,
     column,
-    message: `Column "${column}": no ${what} with the key "${key}" was found.`,
+    message: `Column "${column}": no ${what} was found.`,
     severity: 'error',
     value: key,
   };

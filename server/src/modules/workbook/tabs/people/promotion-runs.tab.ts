@@ -236,7 +236,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
         tab: 'promotion_runs',
         row: rowNo,
         column: 'source_class',
-        message: `Column "source_class": no class named "${sourceClassKey}" was found.`,
+        message: `Column "source_class": no class was found.`,
         severity: 'error',
         value: sourceClassKey,
       });
@@ -249,7 +249,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
         tab: 'promotion_runs',
         row: rowNo,
         column: 'source_academic_year',
-        message: `Column "source_academic_year": no academic year named "${sourceYearKey}" was found.`,
+        message: `Column "source_academic_year": no academic year was found.`,
         severity: 'error',
         value: sourceYearKey,
       });
@@ -262,7 +262,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
         tab: 'promotion_runs',
         row: rowNo,
         column: 'target_academic_year',
-        message: `Column "target_academic_year": no academic year named "${targetYearKey}" was found.`,
+        message: `Column "target_academic_year": no academic year was found.`,
         severity: 'error',
         value: targetYearKey,
       });
@@ -279,7 +279,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
           tab: 'promotion_runs',
           row: rowNo,
           column: 'target_class',
-          message: `Column "target_class": no class named "${targetClassKey}" was found.`,
+          message: `Column "target_class": no class was found.`,
           severity: 'error',
           value: targetClassKey,
         });
@@ -314,7 +314,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
           tab: 'promotion_runs',
           row: rowNo,
           column: 'exams',
-          message: `Column "exams": no exam "${examKey}" was found.`,
+          message: `Column "exams": no exam was found.`,
           severity: 'error',
           value: examKeys.join(';'),
         });
@@ -332,7 +332,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
           tab: 'promotion_runs',
           row: rowNo,
           column,
-          message: `Column "${column}": no user "${key}" was found.`,
+          message: `Column "${column}": no user was found.`,
           severity: 'error',
           value: key,
         });

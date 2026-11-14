@@ -213,18 +213,18 @@ export const studyPlansTab: TabSpec<StudyPlan, StudyPlanRow> = {
 
     const sectionKey = values.section as string;
     const sectionId = ctx.ref('sections', sectionKey);
-    if (!sectionId) fail('section', `no section "${sectionKey}" was found.`, sectionKey);
+    if (!sectionId) fail('section', `no section was found.`, sectionKey);
 
     const subjectKey = values.subject as string;
     const subjectId = ctx.ref('subjects', subjectKey);
-    if (!subjectId) fail('subject', `no subject with code "${subjectKey}" was found.`, subjectKey);
+    if (!subjectId) fail('subject', `no subject was found.`, subjectKey);
 
     const teacherKey = values.owner_override_teacher as string | null;
     let teacherId: string | null = null;
     if (teacherKey) {
       teacherId = ctx.ref('teachers', teacherKey) ?? null;
       if (!teacherId)
-        fail('owner_override_teacher', `no teacher "${teacherKey}" was found.`, teacherKey);
+        fail('owner_override_teacher', `no teacher was found.`, teacherKey);
     }
 
     if (errors.length > 0) return { errors };

@@ -166,7 +166,7 @@ export const examTemplateComponentsTab: TabSpec<ExamTemplateComponent, ExamTempl
             tab: 'exam_template_components',
             row: rowNo,
             column: 'template',
-            message: `Column "template": no exam template named "${templateKey}" was found.`,
+            message: `Column "template": no exam template was found.`,
             severity: 'error',
             value: templateKey,
           },

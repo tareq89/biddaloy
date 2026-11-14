@@ -178,7 +178,7 @@ export const gradingBandsTab: TabSpec<GradingBand, GradingBandRow> = {
           tab: 'grading_bands',
           row: rowNo,
           column: 'scale',
-          message: `Column "scale": no grading scale "${scaleKey}" was found.`,
+          message: `Column "scale": no grading scale was found.`,
           severity: 'error',
           value: scaleKey,
         });

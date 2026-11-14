@@ -121,7 +121,7 @@ export const programEnrollmentsTab: TabSpec<ProgramEnrollment, ProgramEnrollment
         tab: 'program_enrollments',
         row: rowNo,
         column: 'program',
-        message: `Column "program": no program named "${programKey}" was found.`,
+        message: `Column "program": no program was found.`,
         severity: 'error',
         value: programKey,
       });
@@ -134,7 +134,7 @@ export const programEnrollmentsTab: TabSpec<ProgramEnrollment, ProgramEnrollment
         tab: 'program_enrollments',
         row: rowNo,
         column: 'student',
-        message: `Column "student": no student with registration number "${studentKey}" was found.`,
+        message: `Column "student": no student with registration number was found.`,
         severity: 'error',
         value: studentKey,
       });

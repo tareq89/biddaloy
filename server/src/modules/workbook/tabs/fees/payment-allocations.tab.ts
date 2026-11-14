@@ -157,7 +157,7 @@ export const paymentAllocationsTab: TabSpec<PaymentAllocation, PaymentAllocation
           tab: 'payment_allocations',
           row: rowNo,
           column: 'payment',
-          message: `Column "payment": no payment "${paymentKey}" was found.`,
+          message: `Column "payment": no payment was found.`,
           severity: 'error',
           value: paymentKey,
         });
@@ -173,7 +173,7 @@ export const paymentAllocationsTab: TabSpec<PaymentAllocation, PaymentAllocation
           tab: 'payment_allocations',
           row: rowNo,
           column: 'student_fee',
-          message: `Column "student_fee": no student fee "${studentFeeKey}" was found.`,
+          message: `Column "student_fee": no student fee was found.`,
           severity: 'error',
           value: studentFeeKey,
         });
