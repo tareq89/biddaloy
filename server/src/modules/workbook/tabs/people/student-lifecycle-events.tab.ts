@@ -9,6 +9,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 import { optionalKeyOf } from '../../codec/tab-spec';
 
 /**
@@ -125,11 +126,13 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
   // tenant's own export on restore. See TabSpec.allowDuplicateKeys.
   allowDuplicateKeys: true,
 
-  load(tenantId: string, m: EntityManager): Promise<StudentLifecycleEvent[]> {
-    return m.find(StudentLifecycleEvent, {
+  async load(tenantId: string, m: EntityManager): Promise<StudentLifecycleEvent[]> {
+    const rows = await m.find(StudentLifecycleEvent, {
       where: { tenant_id: tenantId },
       relations: ['student'],
     });
+    // #2755 (D12): a blank recorded_by clears a current member, keeps one who has left.
+    return stampActorKeys(tenantId, rows, 'recorded_by_user_id', 'recorded_by_key', m);
   },
 
   toRow(entity: StudentLifecycleEvent, ctx: ExportContext): Record<string, unknown> {
@@ -223,8 +226,8 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
     if (row.destination !== existing.destination) changed.push('destination');
     if (row.remark !== existing.remark) changed.push('remark');
     if (
-      row.recorded_by_user_id !== null &&
-      row.recorded_by_user_id !== existing.recorded_by_user_id
+      nullableActor(row.recorded_by_user_id, existing, 'recorded_by_user_id', 'recorded_by_key') !==
+      (existing.recorded_by_user_id ?? null)
     )
       changed.push('recorded_by');
     if (row.created_at && row.created_at !== formatDateTime(existing.created_at)) {
@@ -249,7 +252,14 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
     event.reason = row.reason;
     event.destination = row.destination;
     event.remark = row.remark;
-    event.recorded_by_user_id = row.recorded_by_user_id ?? existing?.recorded_by_user_id ?? null;
+    event.recorded_by_user_id = nullableActor(
+      row.recorded_by_user_id,
+      existing,
+      'recorded_by_user_id',
+      'recorded_by_key',
+    );
+    // `load()` joined `student`; a loaded relation beats its FK column on save.
+    event.student = undefined as never;
     if (row.created_at) event.created_at = new Date(row.created_at);
     // Rows only: no StudentLifecycleService / EnrollmentsService — restore never replays side effects.
     return m.save(StudentLifecycleEvent, event);
