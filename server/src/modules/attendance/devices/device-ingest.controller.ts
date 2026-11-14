@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiHeader, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import { DeviceAuthGuard } from './device-auth.guard';
 import { CurrentDevice } from './current-device.decorator';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
@@ -45,9 +47,9 @@ const DEVICE_INGEST_RATE_LIMIT = { limit: 120, ttl: 60_000 };
  * (without `ThrottlerModule`) and would break on. Not worth the
  * complexity for a rate-limit tier, not an authorization boundary.
  */
-// module: attendance, but NOT tagged `@RequiresModule` here. This controller runs on
-// `DeviceAuthGuard`, not `PermissionsGuard`, so the tag would not be enforced. The device
-// gate needs its own follow-up.
+// module: attendance. Enforced by `DeviceAuthGuard` itself (PermissionsGuard does not run here);
+// the tag only feeds the route snapshot's MODULE column (#4120).
+@RequiresModule(ModuleKey.attendance)
 @ApiTags('attendance-devices')
 @ApiHeader({ name: 'X-Device-Key', required: true, description: "The device's credential." })
 @Controller('attendance')

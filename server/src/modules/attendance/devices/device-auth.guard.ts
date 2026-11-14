@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AttendanceDeviceStatus } from '@biddaloy/shared';
+import { AttendanceDeviceStatus, ModuleKey, resolveModuleState } from '@biddaloy/shared';
+import { moduleOff } from '../../../common/filters/known-errors';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { hashDeviceKey } from './device.service';
@@ -30,6 +32,7 @@ export class DeviceAuthGuard implements CanActivate {
     @InjectRepository(AttendanceDevice)
     private readonly deviceRepo: Repository<AttendanceDevice>,
     private readonly tenantStatus: TenantStatusService,
+    private readonly moduleState: ModuleStateReader,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -56,6 +59,13 @@ export class DeviceAuthGuard implements CanActivate {
         message: 'This school is suspended.',
         details: { code: 'TENANT_SUSPENDED' },
       });
+    }
+
+    // The Attendance module switch also stops devices (#4120). PermissionsGuard does not run on
+    // these routes, so the gate lives here; one fixed refusal, no module state in the text.
+    const state = await this.moduleState.forTenant(device.tenant_id);
+    if (!resolveModuleState({ ...state, role: undefined }, ModuleKey.attendance).on) {
+      throw moduleOff();
     }
 
     // `last_seen_at` is not written here — a write on every request turns
