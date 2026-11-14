@@ -18,6 +18,10 @@ const SEATS = 1400;
 const MONTHS = 12;
 /** Paisa per seat per month (BDT 10, the Epic 49 list price). */
 const UNIT_PRICE_PAISA = 1000;
+/** [Epic 100] The second plan (paisa per seat per month) and the demo coupon (50% off, 3 months at most). */
+const PLUS_PRICE_PAISA = 1500;
+const COUPON_CODE = 'DEMO-HALF';
+const SMALL_ORDER_MONTHS = 3;
 
 /**
  * [49/#2184] One PAID seat order plus its offline-bank payment per branch, so Settings >

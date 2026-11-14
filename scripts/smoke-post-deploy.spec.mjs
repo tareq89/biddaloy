@@ -703,15 +703,13 @@ describe('smoke-post-deploy', () => {
       expect((await go({ [key]: json(200, {}) })).failed).toBe(1);
       expect((await go({ [key]: json(403, {}) })).failed).toBe(1);
     });
-    it('404 on a later-wave route passes unless strict; orders 404 always fails', async () => {
-      const late = {
+    it('404 on any money route fails now that preview and SMS package orders are live', async () => {
+      const gone = {
         'POST /api/v1/sms-bundles/orders': json(404, {}),
         'POST /api/v1/billing/orders/preview': json(404, {}),
       };
-      const soft = await go(late);
-      expect(soft.failed).toBe(0);
-      expect(soft.lines.join('\n')).toContain('skipped: route not deployed yet');
-      expect((await go(late, { ...MONEY, SMOKE_MONEY_STRICT: '1' })).failed).toBe(2);
+      expect((await go(gone)).failed).toBe(2);
+      expect((await go(gone, { ...MONEY, SMOKE_MONEY_STRICT: '1' })).failed).toBe(2);
       expect((await go({ 'POST /api/v1/billing/orders': json(404, {}) })).failed).toBe(1);
     });
     it('a network error is a FAIL', async () => {

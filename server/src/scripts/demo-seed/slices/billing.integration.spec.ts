@@ -14,6 +14,7 @@ const SUMMARY = `SELECT o.idempotency_key AS k, o.seats, o.months, o.status,
        o.amount_paisa::text AS amount, p.amount_paisa::text AS paid, p.method,
        o.period_start::text AS s, o.period_end::text AS e
   FROM seat_orders o JOIN platform_payments p ON p.seat_order_id = o.id
+ WHERE o.idempotency_key NOT LIKE '%-extra-%'
  ORDER BY o.idempotency_key`;
 
 describe('billing slice (integration)', () => {
@@ -27,6 +28,7 @@ describe('billing slice (integration)', () => {
     await ds.query(`DELETE FROM seat_orders`);
     await ds.query(`DELETE FROM coupons`);
     await ds.query(`DELETE FROM schools WHERE name LIKE 'bmsc-%'`);
+    await ds.query(`DELETE FROM plans WHERE name = 'Plus'`);
     const ctx = await createContext({
       ds,
       app,

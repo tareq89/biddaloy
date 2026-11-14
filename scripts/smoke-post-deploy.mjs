@@ -351,7 +351,8 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   } else {
     const strict = env.SMOKE_MONEY_STRICT === '1';
     const bogus = 'smoke-bogus-0';
-    // `lateRoute`: the route ships in a later wave, so a 404 passes unless SMOKE_MONEY_STRICT=1.
+    // `lateRoute`: a route that ships in a later wave: a 404 passes unless SMOKE_MONEY_STRICT=1.
+    // [Epic 100 #3875] Preview and the SMS package orders are live, so none is marked late now.
     const money = async (label, method, path, passes, lateRoute = false) => {
       let status = 'network error';
       let good = false;
@@ -392,14 +393,12 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       'POST',
       '/api/v1/sms-bundles/orders',
       (r) => r.status === 401,
-      true,
     );
     await money(
       'order preview needs a token',
       'POST',
       '/api/v1/billing/orders/preview',
       (r) => r.status === 401,
-      true,
     );
   }
 
