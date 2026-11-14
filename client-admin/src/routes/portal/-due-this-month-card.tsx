@@ -1,8 +1,9 @@
-import { Button, Card } from '@biddaloy/ui/components';
+import { Card } from '@biddaloy/ui/components';
 import type { FeeDueEntry, PaymentOptions } from '@biddaloy/ui/hooks';
 import { useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
-import { Link } from '@tanstack/react-router';
+
+import { PayLine } from './-pay-line';
 
 /**
  * [38.4.5] One child's "due this month" figures — rendered from the same
@@ -46,29 +47,6 @@ interface DueProps {
   config: RegionConfig;
   /** [3.4.01] The school's guardian payment toggles. Absent (not loaded) = no pay line at all. */
   payOptions?: Pick<PaymentOptions, 'onlineEnabled' | 'proofEnabled'> | undefined;
-}
-
-function PayLine({
-  options,
-  total,
-  config,
-}: {
-  options: DueProps['payOptions'];
-  total: number;
-  config: RegionConfig;
-}) {
-  const { t } = useTranslation('portalPay');
-  if (!options) return null;
-  if (!options.onlineEnabled && !options.proofEnabled) {
-    return <p className="text-text-secondary">{t('dueCard.officeOnly')}</p>;
-  }
-  return (
-    <Button asChild className="w-full md:w-auto">
-      <Link to="/portal/fees/pay">
-        {t('dueCard.pay', { amount: formatServerAmount(total, config) })}
-      </Link>
-    </Button>
-  );
 }
 
 function DueBody({ dues, now, config, payOptions }: DueProps) {

@@ -41,7 +41,7 @@ async function setProofSwitch(
   session: ApiSession,
   payments: { proofEnabled: boolean; proofMethods: { method: string; instructions: string }[] },
 ): Promise<void> {
-  await patch(request, session, `/schools/${session.tenantId}/settings`, { payments });
+  await patch(request, session, `/schools/${session.tenantId}/settings`, { version: 1, payments });
 }
 
 test.describe('payment proofs: guardian sends -> accountant decides -> guardian sees', () => {
