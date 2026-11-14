@@ -149,10 +149,16 @@ export const slice: DemoSlice = {
 
       if (plan.fate === 'PENDING') {
         // The waiting ones look like they arrived `daysAgo` days ago (the oldest turns the alert red).
+        const arrived = new Date(Date.parse(`${ctx.anchor}T04:00:00Z`) - plan.daysAgo * 86_400_000);
         await ctx.ds.query(`UPDATE payment_submissions SET created_at = $2 WHERE id = $1`, [
           made.id,
-          new Date(Date.parse(`${ctx.anchor}T04:00:00Z`) - plan.daysAgo * 86_400_000),
+          arrived,
         ]);
+        // The opening event must show the same "arrived" time as the list.
+        await ctx.ds.query(
+          `UPDATE payment_submission_events SET created_at = $2 WHERE submission_id = $1`,
+          [made.id, arrived],
+        );
       } else if (plan.fate === 'CONFIRMED') {
         await review.confirm(made.id, staff);
         rows += 2;
