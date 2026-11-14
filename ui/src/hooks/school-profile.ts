@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { apiClient } from '../api/client';
-import { applyTenantWords } from '../i18n/tenant-words';
+import { applyTenantWordsWhenLoaded } from '../i18n/tenant-words';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
@@ -56,7 +56,12 @@ export function useSchoolProfile(options: { enabled?: boolean } = {}) {
   const labels = query.data?.labels;
   const loaded = query.data !== undefined;
   React.useEffect(() => {
-    if (loaded) applyTenantWords(i18n, labels);
+    if (!loaded) return;
+    let current = true;
+    void applyTenantWordsWhenLoaded(i18n, labels, () => current);
+    return () => {
+      current = false;
+    };
   }, [i18n, labels, loaded]);
   return query;
 }

@@ -1,4 +1,4 @@
-import type { SchoolLabels, SchoolModules } from '@biddaloy/shared';
+import { TENANT_SETTINGS_SCHEMA_VERSION, type SchoolLabels, type SchoolModules } from '@biddaloy/shared';
 import type { APIRequestContext } from '@playwright/test';
 
 import { patch, type ApiSession } from '../api';
@@ -12,7 +12,10 @@ export async function setModules(
   session: ApiSession,
   modules: { [K in keyof SchoolModules]: SchoolModules[K] | null },
 ): Promise<void> {
-  await patch(request, session, `/schools/${session.tenantId}/settings`, { version: 1, modules });
+  await patch(request, session, `/schools/${session.tenantId}/settings`, {
+    version: TENANT_SETTINGS_SCHEMA_VERSION,
+    modules,
+  });
 }
 
 /** Same for renamed words. */
@@ -21,5 +24,8 @@ export async function setLabels(
   session: ApiSession,
   labels: { [K in keyof SchoolLabels]: SchoolLabels[K] | null },
 ): Promise<void> {
-  await patch(request, session, `/schools/${session.tenantId}/settings`, { version: 1, labels });
+  await patch(request, session, `/schools/${session.tenantId}/settings`, {
+    version: TENANT_SETTINGS_SCHEMA_VERSION,
+    labels,
+  });
 }

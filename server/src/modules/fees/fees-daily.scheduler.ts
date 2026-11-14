@@ -195,10 +195,24 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
   private async runTenant(tenantId: string, todayOverride?: string): Promise<void> {
     // [77.2.10] D9: Fees off -> no schedules, no late fees (fines also off by dependency). Gated
     // here, not in process(), so run-now and restore-catch-up are covered, and before the restore
-    // re-queue so an off school is never re-queued. Unreadable state throws (see moduleOn).
-    if (!(await this.moduleOn(tenantId, ModuleKey.fees))) return;
-    // Read both switches up front: an unreadable state throws before any bill is written.
-    const finesOn = !!this.fineSweepService && (await this.moduleOn(tenantId, ModuleKey.fines));
+    // re-queue so an off school is never re-queued. Unreadable state is never "off".
+    try {
+      if (!(await this.moduleOn(tenantId, ModuleKey.fees))) return;
+      // Read both switches up front: an unreadable state fails before any bill is written.
+      // Fines is re-read right before the sweep; this read only fails early on unreadable state.
+      if (this.fineSweepService) await this.moduleOn(tenantId, ModuleKey.fines);
+    } catch (error) {
+      // A catch-up carries a fixed `today` the nightly run cannot recover, so keep it alive by
+      // re-queueing it. The nightly run rethrows so its per-tenant loop captures it.
+      if (!todayOverride) throw error;
+      this.logger.error(`fees-daily: module state unreadable for tenant ${tenantId}: ${String(error)}`);
+      await this.queue.add(
+        'restore-catch-up',
+        { tenantId, today: todayOverride },
+        { delay: FEES_DAILY_RESTORE_RETRY_MS, removeOnComplete: true, removeOnFail: 100 },
+      );
+      return;
+    }
     const today = todayOverride ?? (await this.schoolsService.todayFor(tenantId));
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run picks the period up only while still inside it (due on or
@@ -256,7 +270,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // outer `process()` loop. `runDue` itself already no-ops silently when
     // no academic year covers the target month, so this only ever logs a
     // genuine failure.
-    if (this.fineSweepService && finesOn) {
+    if (this.fineSweepService && (await this.moduleOn(tenantId, ModuleKey.fines))) {
       try {
         await this.fineSweepService.runDue(tenantId, today);
       } catch (error) {

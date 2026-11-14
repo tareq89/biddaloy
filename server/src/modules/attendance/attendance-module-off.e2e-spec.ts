@@ -10,14 +10,9 @@ import { MODULE_OFF_MESSAGE } from '../../common/filters/known-errors';
 import { setModules } from '@test/helpers/modules.helper';
 import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/constants';
 
-/**
- * [77.2.01] One case per module key this ticket tags. The full table-driven spec is
- * the wave-2 close (77.2.10). Each URL is a dashboard widget route of a tagged controller.
- */
-const CASES = [
-  { key: ModuleKey.attendance, url: '/api/v1/dashboard/widgets/attendance-today' },
-  { key: ModuleKey.staffAttendance, url: '/api/v1/dashboard/widgets/staff-today' },
-] as const;
+/** [77.2.01] Dashboard widget routes of the tagged controllers. */
+const ATTENDANCE_URL = '/api/v1/dashboard/widgets/attendance-today';
+const STAFF_URL = '/api/v1/dashboard/widgets/staff-today';
 
 describe('[77.2.01] attendance + staff attendance controllers honour the module switch', () => {
   let app: INestApplication;
@@ -49,14 +44,20 @@ describe('[77.2.01] attendance + staff attendance controllers honour the module 
     await app.close();
   });
 
-  for (const { key, url } of CASES) {
-    it(`${key}: off -> 403 fixed text for ADMIN, on -> 200`, async () => {
-      await setModules(app, SEED_TENANT_ID, { [key]: { on: false } });
-      const off = await get(url).expect(403);
-      expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+  async function expectOffThenOn(key: ModuleKey, url: string) {
+    await setModules(app, SEED_TENANT_ID, { [key]: { on: false } });
+    const off = await get(url).expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
 
-      await setModules(app, SEED_TENANT_ID, { [key]: null });
-      await get(url).expect(200);
-    });
+    await setModules(app, SEED_TENANT_ID, { [key]: null });
+    await get(url).expect(200);
   }
+
+  it('attendance: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await expectOffThenOn(ModuleKey.attendance, ATTENDANCE_URL);
+  });
+
+  it('staffAttendance: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await expectOffThenOn(ModuleKey.staffAttendance, STAFF_URL);
+  });
 });

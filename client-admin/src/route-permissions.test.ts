@@ -1,4 +1,4 @@
-import { moduleEnabled, Permission, UserRole } from '@biddaloy/shared';
+import { ModuleKey, moduleEnabled, Permission, UserRole } from '@biddaloy/shared';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
@@ -186,6 +186,14 @@ describe('routeModule [77.3.1]', () => {
       '/_staff/fees/fines/',
       '/_staff/fees/fines/rules',
     ]);
+  });
+
+  it('syllabus host route is gated per tab: topics by syllabus, plans and library by studyPlans', () => {
+    const host = '/_staff/academics/syllabus/';
+    expect(routeModule(host)).toBe(ModuleKey.syllabus);
+    expect(routeModule(host, { tab: 'topics' })).toBe(ModuleKey.syllabus);
+    expect(routeModule(host, { tab: 'plans' })).toBe(ModuleKey.studyPlans);
+    expect(routeModule(host, { tab: 'library' })).toBe(ModuleKey.studyPlans);
   });
 
   it('TEACHER with homework role-off loses the homework routes; ADMIN keeps them', () => {
