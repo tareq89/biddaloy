@@ -1,5 +1,6 @@
+import { INSTITUTION_KINDS } from '@biddaloy/shared';
 import { getActiveTenant } from '@biddaloy/ui/api';
-import { Card, Skeleton } from '@biddaloy/ui/components';
+import { Button, Card, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
 import { Info } from 'lucide-react';
@@ -7,8 +8,22 @@ import * as React from 'react';
 
 import { CurriculumPresetForm } from '../../../pages/curriculum-preset/CurriculumPresetPage';
 import { usePresetStatus } from '../../../pages/curriculum-preset/use-preset-status';
+import { KindCards } from '../../../pages/settings/modules-words/KindCards';
+import {
+  useApplyKind,
+  useInstitutionKinds,
+} from '../../../pages/settings/modules-words/use-institution-kinds';
 
 import { StepNav } from './step-nav';
+
+const appliedKeyFor = (schoolId: string | null | undefined) => `welcome-kind-applied:${schoolId}`;
+const readApplied = (schoolId: string | null | undefined) => {
+  try {
+    return sessionStorage.getItem(appliedKeyFor(schoolId));
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Step 2: the curriculum preset's own flow. A school that already has classes or
@@ -20,6 +35,47 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
   const schoolId = getActiveTenant();
   const status = usePresetStatus();
   const [presetStep, setPresetStep] = React.useState('pick');
+  const kinds = useInstitutionKinds();
+  const applyKind = useApplyKind();
+  const [pickedPack, setPickedPack] = React.useState<string | undefined>();
+  // undefined = untouched (follow the pack), null = the admin cleared it.
+  const [chosenKind, setChosenKind] = React.useState<string | null | undefined>();
+  const [failedKind, setFailedKind] = React.useState<string | null>(null);
+  // Kept for the tab session so coming back to this step never applies the same kind again silently.
+  const [appliedKind, setAppliedKind] = React.useState(() => readApplied(schoolId));
+  const packId = pickedPack ?? status.data?.preset?.id;
+  const suggested =
+    INSTITUTION_KINDS.find((k) => packId && k.matchesPresetIds.includes(packId))?.id ?? null;
+  const kindId = chosenKind !== undefined ? chosenKind : (appliedKind ?? suggested);
+
+  // A kind that is only suggested by a pack that is not applied yet is not applied by a skip.
+  const explicit = chosenKind != null || status.data?.state === 'APPLIED';
+  const pendingKind = !!kindId && explicit && kindId !== appliedKind && kindId !== failedKind;
+
+  /** Applies the picked kind once; false when it failed (the error stays on screen). */
+  async function applyPicked(): Promise<boolean> {
+    if (kindId && pendingKind) {
+      try {
+        await applyKind.mutateAsync(kindId);
+        setAppliedKind(kindId);
+        try {
+          sessionStorage.setItem(appliedKeyFor(schoolId), kindId);
+        } catch {
+          // storage blocked: the guard just lasts as long as this step stays mounted
+        }
+      } catch {
+        // Rule 25: never retried. The error stays on screen; the next click moves on.
+        setFailedKind(kindId);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async function next() {
+    if (await applyPicked()) onNext();
+  }
+
   const wizardOpen = !!schoolId && !!status.data && status.data.state === 'AVAILABLE';
 
   return (
@@ -44,18 +100,67 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
           schoolId={schoolId}
           stepId={presetStep}
           onStepChange={setPresetStep}
+          onPickChange={setPickedPack}
         />
       ) : null}
-      {/* The preset flow has its own Next / Apply: ours stays a quiet skip until it is applied. */}
+      <KindCards
+        kinds={kinds.data}
+        loading={kinds.isPending}
+        error={kinds.isError}
+        onRetry={() => void kinds.refetch()}
+        disabled={applyKind.isPending}
+        selectedId={kindId ?? undefined}
+        onSelect={(id) => {
+          if (applyKind.isPending) return;
+          setChosenKind(id === kindId ? null : id);
+        }}
+        title={t('guided.curriculum.kind.title')}
+        intro={t('guided.curriculum.kind.intro')}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        className="self-start"
+        disabled={!kindId || applyKind.isPending}
+        onClick={() => setChosenKind(null)}
+      >
+        {t('guided.curriculum.kind.skip')}
+      </Button>
+      {failedKind && failedKind === kindId && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('guided.curriculum.kind.applyError')}{' '}
+          <Link
+            to="/settings"
+            search={{ section: 'modulesWords' }}
+            className="font-medium underline"
+          >
+            {t('guided.curriculum.kind.applyErrorLink')}
+          </Link>
+        </p>
+      )}
+      {/* The preset flow has its own Next / Apply: ours stays a quiet skip until it is applied.
+          Skip never changes settings; picking a kind has its own labelled apply action. */}
+      {wizardOpen && pendingKind && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="self-start"
+          disabled={applyKind.isPending}
+          onClick={() => void applyPicked()}
+        >
+          {t('guided.curriculum.kind.apply')}
+        </Button>
+      )}
       {wizardOpen ? (
         <StepNav
           onBack={onBack}
           onPrimary={onNext}
+          busy={applyKind.isPending}
           quiet
           primaryLabel={t('guided.curriculum.skip')}
         />
       ) : (
-        <StepNav onBack={onBack} onPrimary={onNext} />
+        <StepNav onBack={onBack} onPrimary={() => void next()} busy={applyKind.isPending} />
       )}
     </div>
   );

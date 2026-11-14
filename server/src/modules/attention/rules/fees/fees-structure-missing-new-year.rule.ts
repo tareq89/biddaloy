@@ -1,13 +1,13 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { addDaysIso } from '../rule-context.service';
 import { roleRecipients } from '../structure/role-recipients';
 
 /** The next academic year starts soon and has no fee structure. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.fees })
 export class FeesStructureMissingNewYearRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('fees.structure_missing_new_year');
   readonly messages = {

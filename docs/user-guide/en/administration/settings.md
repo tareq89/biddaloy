@@ -82,6 +82,7 @@ The **Settings** page is split into **categories**, such as **School** or **Fina
   - [Alerts & reminders](#task-alerts)
   - [Printing](#task-printing)
   - [Sign-in & security](#task-security)
+  - [Modules & words](#task-modules-words)
   - [Backup](#task-backup)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
@@ -511,6 +512,10 @@ This category has one part: **Ways to sign in**. "How teachers, staff and guardi
 
 <img src="img/settings-security.png" alt="Sign-in & security; 1 · switch for sign-in with a code sent to the phone 2 · Save; admin">
 
+### Modules & words <a href="#task-modules-words" id="task-modules-words"></a>
+
+This category has three parts: the **Institution kind** cards, and the tabs **Modules** and **Words**. Here you choose your institution kind (you see what changes first, then press **Apply**), turn modules On or Off, hide a module from some roles with **Who can't see it**, and change what your school calls a class, section, student, guardian and teacher. Only the Admin sees this category. A switch saves at once; the **Words** tab has one **Save**. The steps are on [**Modules and words**](modules-and-words.md).
+
 ### Backup <a href="#task-backup" id="task-backup"></a>
 
 This category has two parts: **Backup** and **Restore from a backup**. To see the category you need the permission to manage backups, which the Admin has.
@@ -701,6 +706,7 @@ See: [**Roles & access**](roles.md).
 
 - [**Roles & access**](roles.md) — who can open Settings.
 - [**Biddaloy support access**](support-access.md) — choose who from Biddaloy can sign in to your school.
+- [**Modules and words**](modules-and-words.md) — choose your institution kind, turn parts On or Off, change your words.
 - [**Taking attendance**](../attendance/attendance.md) — where the attendance policy applies.
 - [**Creating fee bills**](../finance/generate-fees.md) — where the fee rules apply.
 - [**Ready-made curriculum**](curriculum-preset.md) — put the subjects and classes of a new school in at once.

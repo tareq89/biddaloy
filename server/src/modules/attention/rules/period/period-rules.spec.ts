@@ -7,6 +7,7 @@ vi.mock('../homework/homework-not-submitted.rule', () => ({
   loadNotSubmitted: (...a: unknown[]) => loadNotSubmitted(...a),
 }));
 
+import { render } from '../messages';
 import { ClassStartingRule } from './class-starting.rule';
 import { RoutineSubstitutionTodayRule } from './routine-substitution-today.rule';
 import { RoutineUncoveredPeriodsRule } from './routine-uncovered-periods.rule';
@@ -72,6 +73,13 @@ function fixture(f: Fx = {}) {
   return { ds: { query }, query, resolve: { resolveTenantDay }, resolveTenantDay };
 }
 
+const modules = (homeworkOn: boolean) => ({
+  forTenant: async () => ({
+    platform: {},
+    school: homeworkOn ? {} : { homework: { on: false } },
+  }),
+});
+
 const placeholders = (s: string) =>
   [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1].replace(/_(en|bn)$/, '')).sort();
 
@@ -80,7 +88,7 @@ beforeEach(() => loadNotSubmitted.mockReset().mockResolvedValue([]));
 describe('period rules: shared contract', () => {
   const f = fixture();
   const rules: [string, AttentionRule][] = [
-    ['class.starting', new ClassStartingRule(f.ds as never, f.resolve as never)],
+    ['class.starting', new ClassStartingRule(f.ds as never, f.resolve as never, modules(true) as never)],
     [
       'routine.substitution_today',
       new RoutineSubstitutionTodayRule(f.ds as never, f.resolve as never),
@@ -103,7 +111,7 @@ describe('period rules: shared contract', () => {
 
 describe('ClassStartingRule', () => {
   const run = (f: ReturnType<typeof fixture>, over: Partial<RuleContext> = {}) =>
-    new ClassStartingRule(f.ds as never, f.resolve as never).evaluate(ctx(over));
+    new ClassStartingRule(f.ds as never, f.resolve as never, modules(true) as never).evaluate(ctx(over));
 
   it('opens 10 minutes before the period and closes at its end', async () => {
     expect(await run(fixture(), { localTime: '09:49' })).toEqual([]);
@@ -135,6 +143,31 @@ describe('ClassStartingRule', () => {
     ]);
     const [finding] = await run(fixture());
     expect(finding.params.notSubmitted).toBe(2);
+  });
+
+  it('homework off: no homework lookup, no homework text or step', async () => {
+    const rule = new ClassStartingRule(
+      fixture().ds as never,
+      fixture().resolve as never,
+      modules(false) as never,
+    );
+    const [finding] = await rule.evaluate(ctx());
+    expect(loadNotSubmitted).not.toHaveBeenCalled();
+    const en = render(rule.messages, 'en', finding.params);
+    expect(en.why).toBe('Your next class.');
+    expect(en.steps).toEqual(['Open your routine for today.']);
+  });
+
+  it('homework on: text and step are kept', async () => {
+    const rule = new ClassStartingRule(
+      fixture().ds as never,
+      fixture().resolve as never,
+      modules(true) as never,
+    );
+    const [finding] = await rule.evaluate(ctx());
+    const en = render(rule.messages, 'en', finding.params);
+    expect(en.why).toContain('homework');
+    expect(en.steps).toHaveLength(2);
   });
 
   it('local-midnight edge: the Dhaka date is resolved and a 00:05 period is open at 00:00', async () => {

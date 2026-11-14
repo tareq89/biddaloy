@@ -28,7 +28,11 @@ import { School } from './entities/school.entity';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { localToday } from '../attendance/attendance-policy.util';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
-import { mergeModulesLabels, resolveTenantSettings } from './settings/tenant-settings-resolver';
+import {
+  keepModuleLocks,
+  mergeModulesLabels,
+  resolveTenantSettings,
+} from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
 import { decryptSecretFields, encryptSecretFields } from './settings/settings-encryption.util';
@@ -51,7 +55,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
-import { attentionEvents } from '../attention/attention.constants';
+import { attentionEvents, attentionKeys } from '../attention/attention.constants';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 import { ReviveSchoolDto } from './dto/revive-school.dto';
@@ -280,6 +284,30 @@ export class SchoolsService {
     return resolveTenantSettings(school.settings);
   }
 
+  /**
+   * [77.2.10] A module switch changes which alerts the bar counts, so drop the school's cached
+   * bar summaries (every user and role) instead of waiting out ATTENTION_SUMMARY_TTL_SECONDS.
+   * Best effort: Redis down only means the old <= 60 s lag.
+   */
+  private async dropAttentionSummaries(schoolId: string): Promise<void> {
+    try {
+      let cursor = '0';
+      do {
+        const [next, keys] = await this.redis.scan(
+          cursor,
+          'MATCH',
+          attentionKeys.summaryPattern(schoolId),
+          'COUNT',
+          200,
+        );
+        if (keys.length) await this.redis.del(...keys);
+        cursor = next;
+      } while (cursor !== '0');
+    } catch (err) {
+      this.logger.warn(`attention summary drop failed for ${schoolId}: ${(err as Error).message}`);
+    }
+  }
+
   /** [77.1.02] Typed `modules` block of a school (absent = every module on). */
   async getSchoolModules(schoolId: string): Promise<SchoolModules> {
     return (await this.getResolvedSettings(schoolId)).modules ?? {};
@@ -402,6 +430,8 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
     isPlatformAdmin = false,
+    /** Runs inside the settings transaction, so its writes commit or roll back with the update. */
+    inTransaction?: (manager: EntityManager) => Promise<void>,
   ): Promise<Record<string, unknown>> {
     // [33.3.1] `organisationRenames` rides alongside the PATCH as a write
     // instruction, not a stored setting — pulled out of the plain patch
@@ -484,7 +514,8 @@ export class SchoolsService {
       ] as const) {
         if (patch === undefined) continue;
         const before = storedBlocks[name] ?? {};
-        const after = mergeModulesLabels(before, patch);
+        const merged = mergeModulesLabels(before, patch);
+        const after = name === 'modules' ? keepModuleLocks(before, merged) : merged;
         mergedSettings[name] = after;
         if (JSON.stringify(before) !== JSON.stringify(after)) {
           blockAudits.push({ action, before, after });
@@ -513,6 +544,7 @@ export class SchoolsService {
         (modulesPatch !== undefined || labelsPatch !== undefined) &&
         Object.keys(plainPatch).every((k) => k === 'version')
       ) {
+        await inTransaction?.(manager);
         return school.settings;
       }
 
@@ -547,10 +579,12 @@ export class SchoolsService {
         manager,
       );
 
+      await inTransaction?.(manager);
       return school.settings;
     });
 
     this.settingsCache.invalidate(schoolId);
+    if (modulesPatch !== undefined) await this.dropAttentionSummaries(schoolId);
     if (plainPatch.communications !== undefined) {
       for (const ruleKey of ['comms.provider_missing', 'setup.incomplete'] as const) {
         emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey, actorUserId: userId });

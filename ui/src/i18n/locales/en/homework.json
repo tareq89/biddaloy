@@ -2,17 +2,17 @@
   "list": {
     "title": "Homework",
     "caption": "Homework assigned across classes and sections",
-    "classLabel": "Class",
-    "allClasses": "All classes",
-    "sectionLabel": "Section",
-    "allSections": "All sections",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "All $t(common:entities.class_other)",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "allSections": "All $t(common:entities.section_other)",
     "subjectLabel": "Subject",
     "allSubjects": "All subjects",
     "statusLabel": "Status",
     "allStatuses": "All statuses",
     "columnTitle": "Title",
     "columnSubject": "Subject",
-    "columnClass": "Class",
+    "columnClass": "$t(common:entities.class_one)",
     "columnGradingMode": "Grading mode",
     "columnCreated": "Created",
     "assignHomework": "Assign homework",
@@ -25,7 +25,7 @@
   },
   "detail": {
     "subjectLabel": "Subject",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "gradingModeLabel": "Grading mode",
     "createdLabel": "Created",
     "descriptionLabel": "Description",
@@ -38,10 +38,10 @@
     "assignments": {
       "title": "Who has this homework",
       "help": "Each row is one section or one student. Use Due date to move the due date; work already handed in stays. Use Change to give it to someone else.",
-      "caption": "Sections and students who have this homework",
+      "caption": "$t(common:entities.section_other) and students who have this homework",
       "columnTarget": "Given to",
-      "sectionTarget": "Section {{section}}",
-      "studentTarget": "{{student}} · Section {{section}}",
+      "sectionTarget": "$t(common:entities.section_one) {{section}}",
+      "studentTarget": "{{student}} · $t(common:entities.section_one) {{section}}",
       "emptyTitle": "Not given to anyone yet",
       "emptyExplanation": "Give this homework to a section or a student.",
       "loadError": "Could not load who has this homework.",
@@ -59,12 +59,12 @@
       "deactivate": "Deactivate {{target}}",
       "deactivateShort": "Deactivate",
       "deactivateTitle": "Deactivate this homework for {{target}}?",
-      "deactivateDescription": "Students and parents will stop seeing it, and no one can hand it in. Work already handed in is kept. You can reactivate it later.",
+      "deactivateDescription": "$t(common:entities.student_other) and parents will stop seeing it, and no one can hand it in. Work already handed in is kept. You can reactivate it later.",
       "deactivated": "Deactivated.",
       "reactivate": "Reactivate {{target}}",
       "reactivateShort": "Reactivate",
       "reactivateTitle": "Reactivate this homework for {{target}}?",
-      "reactivateDescription": "Students and parents will see it again, and can hand it in until the due date.",
+      "reactivateDescription": "$t(common:entities.student_other) and parents will see it again, and can hand it in until the due date.",
       "reactivated": "Active again.",
       "rowChanged": "This row was already changed. The list is up to date now.",
       "targetTaken": "This homework is already assigned to that section or student. Pick another one, or change the row that is already there."
@@ -89,18 +89,18 @@
   },
   "form": {
     "createTitle": "Create homework",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "subjectLabel": "Subject",
     "titleLabel": "Title",
     "descriptionLabel": "Description",
     "gradingModeLabel": "Grading mode",
     "targetLabel": "Assign to",
     "target": {
-      "section": "Section",
-      "student": "Student"
+      "section": "$t(common:entities.section_one)",
+      "student": "$t(common:entities.student_one)"
     },
-    "sectionLabel": "Section",
-    "studentLabel": "Student",
+    "sectionLabel": "$t(common:entities.section_one)",
+    "studentLabel": "$t(common:entities.student_one)",
     "assignedDateLabel": "Assigned date",
     "dueDateLabel": "Due date",
     "gradingMode": {
@@ -174,7 +174,7 @@
       "requiredYes": "Required",
       "requiredNo": "Optional",
       "columns": {
-        "class": "The name of a class that exists in the current academic year, e.g. Class 5.",
+        "class": "The name of a class that exists in the current academic year, e.g. $t(common:entities.class_one) 5.",
         "section": "A section of that class, e.g. A.",
         "subject": "A subject name that already exists, e.g. Mathematics.",
         "assigned_date": "Year-month-day, e.g. 2026-10-01.",
@@ -185,8 +185,8 @@
       "count_other": "{{n}} columns",
       "headerName": "Column header:",
       "labels": {
-        "class": "Class",
-        "section": "Section",
+        "class": "$t(common:entities.class_one)",
+        "section": "$t(common:entities.section_one)",
         "subject": "Subject",
         "assigned_date": "Date given",
         "due_date": "Due date",
@@ -203,7 +203,7 @@
       "columns": {
         "assignedDate": "Assigned date",
         "dueDate": "Due date",
-        "where": "Class · Section · Subject"
+        "where": "$t(common:entities.class_one) · $t(common:entities.section_one) · Subject"
       },
       "title": "Preview",
       "subtitle_one": "The first {{n}} row of your file will be added like this.",

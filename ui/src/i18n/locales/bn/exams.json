@@ -10,11 +10,11 @@
     "columnStatus": "অবস্থা",
     "errorMessage": "পরীক্ষার তালিকা লোড করা যায়নি।",
     "announceResults": "{{total}} টির মধ্যে {{visible}} টি পরীক্ষা দেখানো হচ্ছে",
-    "subtitle": "প্রতিটি পরীক্ষা একটি শ্রেণি ও একটি শিক্ষাবর্ষের।",
-    "columnClass": "শ্রেণি",
+    "subtitle": "প্রতিটি পরীক্ষা একটি $t(common:entities.class_one) ও একটি শিক্ষাবর্ষের।",
+    "columnClass": "$t(common:entities.class_one)",
     "columnAcademicYear": "শিক্ষাবর্ষ",
-    "classLabel": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
     "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন",
     "view": "দেখুন",
     "edit": "সম্পাদনা",
@@ -38,16 +38,16 @@
   "examForm": {
     "createTitle": "পরীক্ষা যোগ করুন",
     "editTitle": "পরীক্ষা সম্পাদনা করুন",
-    "description": "একটি পরীক্ষা একটি শ্রেণি ও একটি শিক্ষাবর্ষের অন্তর্গত।",
+    "description": "একটি পরীক্ষা একটি $t(common:entities.class_one) ও একটি শিক্ষাবর্ষের অন্তর্গত।",
     "nameLabel": "নাম",
     "namePlaceholder": "যেমন: অর্ধ-বার্ষিক ২০২৬",
     "kindLabel": "ধরন",
     "academicYearLabel": "শিক্ষাবর্ষ",
     "academicYearPlaceholder": "বাছুন",
-    "classLabel": "শ্রেণি",
+    "classLabel": "$t(common:entities.class_one)",
     "classPlaceholder": "বাছুন",
     "errorNameRequired": "নাম আবশ্যক।",
-    "errorAcademicYearClassRequired": "শিক্ষাবর্ষ ও শ্রেণি আবশ্যক।",
+    "errorAcademicYearClassRequired": "শিক্ষাবর্ষ ও $t(common:entities.class_one) আবশ্যক।",
     "errorMessage": "পরীক্ষা সংরক্ষণ করা যায়নি।",
     "duplicateMessage": "এই নামে আগেই একটি পরীক্ষা আছে।",
     "saving": "সংরক্ষণ হচ্ছে…",
@@ -72,7 +72,7 @@
     },
     "edit": "সম্পাদনা",
     "facts": {
-      "class": "শ্রেণি",
+      "class": "$t(common:entities.class_one)",
       "academicYear": "শিক্ষাবর্ষ",
       "kind": "ধরন",
       "publishedAt": "ফলাফল প্রকাশ"
@@ -113,14 +113,14 @@
   "progressPanel": {
     "loadError": "জমাদানের অগ্রগতি লোড করা যায়নি।",
     "submittedOf": "{{total}} টির মধ্যে {{submitted}} টি নম্বর তালিকা জমা হয়েছে",
-    "tableCaption": "বাকি থাকা শাখা-বিষয় নম্বর তালিকাসমূহ",
-    "columnSection": "শাখা",
+    "tableCaption": "বাকি থাকা $t(common:entities.section_one)-বিষয় নম্বর তালিকাসমূহ",
+    "columnSection": "$t(common:entities.section_one)",
     "title": "নম্বর জমার অগ্রগতি",
     "hint": "সব তালিকা জমা হলে ফলাফল প্রক্রিয়া করুন।",
     "outstandingTitle": "যে তালিকা এখনো জমা হয়নি",
-    "outstandingHelp": "কলম চাপলে ওই শাখা ও বিষয়ের নম্বর দেওয়ার পাতা খুলবে।",
+    "outstandingHelp": "কলম চাপলে ওই $t(common:entities.section_one) ও বিষয়ের নম্বর দেওয়ার পাতা খুলবে।",
     "columnSubject": "বিষয়",
-    "sectionValue": "শাখা {{name}}",
+    "sectionValue": "$t(common:entities.section_one) {{name}}",
     "enterMarks": "নম্বর দিন",
     "allSubmittedTitle": "সব নম্বর তালিকা জমা হয়েছে",
     "allSubmittedText": "এখন ফলাফল প্রক্রিয়া করা যায়।",
@@ -215,7 +215,7 @@
     "examPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
     "stateDraft": "খসড়া",
     "tableCaption": "আপনি যেসব নম্বর তালিকায় নম্বর দিতে পারবেন",
-    "columnSection": "শাখা · বিষয়",
+    "columnSection": "$t(common:entities.section_one) · বিষয়",
     "columnState": "অবস্থা",
     "loadError": "নম্বর তালিকা লোড করা যায়নি।",
     "empty": "এই পরীক্ষার জন্য এখনো কোনো নম্বর তালিকা নেই — কম্পোনেন্ট সেটআপ হওয়ার পর আবার দেখুন।",
@@ -235,7 +235,7 @@
     "rowSaved": "সংরক্ষিত",
     "absentShort": "অনু",
     "exemptShort": "মওকুফ",
-    "empty": "এই শাখায় কোনো শিক্ষার্থী নেই।",
+    "empty": "এই শাখায় কোনো $t(common:entities.student_one) নেই।",
     "readOnlyBanner": "{{name}} দ্বারা {{time}} তারিখে জমা দেওয়া হয়েছে — শুধু পঠনযোগ্য।",
     "reopenAction": "পুনরায় খুলুন"
   },
@@ -344,7 +344,7 @@
     "conductLabel": "আচরণ ও সহশিক্ষা",
     "noGrade": "—",
     "attendance": "উপস্থিতি",
-    "guardian": "অভিভাবক"
+    "guardian": "$t(common:entities.guardian_one)"
   },
   "analysis": {
     "tabs": {
@@ -352,13 +352,13 @@
       "defaulted": "অকৃতকার্য/অনুপস্থিত",
       "passFail": "পাস / ফেল"
     },
-    "sectionFilter": "শাখা",
-    "allSections": "সকল শাখা",
+    "sectionFilter": "$t(common:entities.section_one)",
+    "allSections": "সকল $t(common:entities.section_one)",
     "print": "প্রিন্ট",
     "downloadCsv": "সিএসভি ডাউনলোড",
     "empty": {
       "notProcessed": "প্রথমে ফলাফল প্রসেস করুন।",
-      "noDefaulters": "কোনো অকৃতকার্য/অনুপস্থিত শিক্ষার্থী নেই — সবাই পাস করেছে।"
+      "noDefaulters": "কোনো অকৃতকার্য/অনুপস্থিত $t(common:entities.student_one) নেই — সবাই পাস করেছে।"
     },
     "reasons": {
       "failed": "ফেল: {{subjects}}",
@@ -366,9 +366,9 @@
     },
     "merit": {
       "columnPosition": "অবস্থান",
-      "columnSectionPosition": "শাখা অবস্থান",
+      "columnSectionPosition": "$t(common:entities.section_one) অবস্থান",
       "columnStudent": "রোল · নাম",
-      "columnSection": "শাখা",
+      "columnSection": "$t(common:entities.section_one)",
       "columnTotal": "মোট",
       "columnGpa": "জিপিএ",
       "columnGrade": "গ্রেড",
@@ -378,7 +378,7 @@
     },
     "defaulted": {
       "columnStudent": "রোল · নাম",
-      "columnSection": "শাখা",
+      "columnSection": "$t(common:entities.section_one)",
       "columnReasons": "কারণ",
       "columnTotal": "মোট",
       "columnGpa": "জিপিএ",
@@ -462,7 +462,7 @@
     "yearLabel": "শিক্ষাবর্ষ",
     "loadError": "চূড়ান্ত ফলাফল লোড করা যায়নি।",
     "list": {
-      "classColumn": "শ্রেণি",
+      "classColumn": "$t(common:entities.class_one)",
       "statusColumn": "অবস্থা",
       "publishedColumn": "প্রকাশের তারিখ",
       "start": "শুরু করুন",
@@ -545,7 +545,7 @@
       "title": "চূড়ান্ত ফলাফল প্রকাশ করবেন?",
       "description": "প্রকাশের পর অভিভাবকেরা ফল দেখতে পাবেন।",
       "warning": "{{remark}} জন শিক্ষার্থীর মন্তব্য নেই, {{conduct}} জনের আচরণ ও সহশিক্ষার গ্রেড নেই।",
-      "warningLink": "শাখা দেখুন",
+      "warningLink": "$t(common:entities.section_one) দেখুন",
       "confirm": "প্রকাশ করুন",
       "errorMessage": "চূড়ান্ত ফলাফল প্রকাশ করা যায়নি।"
     },
@@ -564,8 +564,8 @@
       "errorMessage": "এসএমএস পাঠানো যায়নি।"
     },
     "results": {
-      "sectionFilter": "শাখা",
-      "allSections": "সব শাখা",
+      "sectionFilter": "$t(common:entities.section_one)",
+      "allSections": "সব $t(common:entities.section_one)",
       "roll": "রোল",
       "name": "নাম",
       "totalMarks": "মোট নম্বর",
@@ -579,26 +579,26 @@
       "fail": "অকৃতকার্য",
       "emptyBuilt": "ফল তৈরি করলে এখানে দেখা যাবে।",
       "loadError": "ফল লোড করা যায়নি।",
-      "noRows": "কোনো শিক্ষার্থী পাওয়া যায়নি",
+      "noRows": "কোনো $t(common:entities.student_one) পাওয়া যায়নি",
       "noRowsHint": "সেকশন বা খোঁজা বদলে দেখুন।",
       "searchNote": "শুধু এই পাতার {{shown}} জনের মধ্যে খোঁজা হচ্ছে। তালিকা ছোট করতে সেকশন বেছে নিন।"
     },
     "detail": {
       "loadError": "এই চূড়ান্ত ফলাফল লোড করা যায়নি।",
       "facts": {
-        "class": "শ্রেণি",
+        "class": "$t(common:entities.class_one)",
         "academicYear": "শিক্ষাবর্ষ",
-        "students": "শিক্ষার্থী",
+        "students": "$t(common:entities.student_one)",
         "failed": "অকৃতকার্য",
         "publishedAt": "প্রকাশের তারিখ"
       }
     },
     "print": {
-      "studentLabel": "শিক্ষার্থী",
+      "studentLabel": "$t(common:entities.student_one)",
       "printAll": "সব কার্ড ছাপুন",
       "tabulation": "টেবুলেশন শিট",
       "notBuilt": "আগে ফল তৈরি করুন, তারপর কার্ড ছাপতে পারবেন।",
-      "noStudents": "এই সেকশনে কোনো শিক্ষার্থী নেই।",
+      "noStudents": "এই সেকশনে কোনো $t(common:entities.student_one) নেই।",
       "loadError": "কার্ড লোড করা যায়নি। আবার চেষ্টা করুন।",
       "noStudentsHint": "অন্য সেকশন বেছে নিন।",
       "cappedNote": "{{total}} জনের মধ্যে প্রথম {{shown}} জন দেখানো হচ্ছে। বাকিদের এক সেকশন করে ছাপুন।",
@@ -612,7 +612,7 @@
     "showNames": "নাম দেখাও",
     "showNamesHelp": "এটি বন্ধ থাকলে ওয়েবসাইটে শুধু রোল আর নম্বর দেখা যাবে।",
     "publishTitle": "এই ফলাফল স্কুলের ওয়েবসাইটে দেখাবেন?",
-    "publishBody": "আপনার ওয়েবসাইটে যে-ই আসবে, সে এই পরীক্ষা, শ্রেণি, রোল আর গ্রেড দেখতে পাবে।",
+    "publishBody": "আপনার ওয়েবসাইটে যে-ই আসবে, সে এই পরীক্ষা, $t(common:entities.class_one), রোল আর গ্রেড দেখতে পাবে।",
     "publishNamesOn": " শিক্ষার্থীদের নামও দেখানো হবে।",
     "publishNamesOff": " শিক্ষার্থীদের নাম দেখানো হবে না।",
     "publishConfirm": "ওয়েবসাইটে দেখান",

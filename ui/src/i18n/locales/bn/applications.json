@@ -6,7 +6,7 @@
     "TESTIMONIAL": "প্রশংসাপত্র",
     "TRANSFER_CERTIFICATE": "ছাড়পত্র (টিসি)",
     "READMISSION": "পুনরায় ভর্তি",
-    "SECTION_CHANGE": "শাখা পরিবর্তন",
+    "SECTION_CHANGE": "$t(common:entities.section_one) পরিবর্তন",
     "SCRIPT_RECHECK": "খাতা পুনর্নিরীক্ষা",
     "ID_CARD_REPRINT": "পরিচয়পত্র পুনর্মুদ্রণ",
     "GENERAL": "সাধারণ আবেদন"
@@ -25,18 +25,18 @@
     "OTHER": "অন্যান্য"
   },
   "addressees": {
-    "CLASS_TEACHER": "শ্রেণি শিক্ষক",
-    "HEADMASTER": "প্রধান শিক্ষক",
+    "CLASS_TEACHER": "$t(common:entities.class_one) $t(common:entities.teacher_one)",
+    "HEADMASTER": "প্রধান $t(common:entities.teacher_one)",
     "OFFICE": "অফিস",
     "STAFF_USER": "নির্দিষ্ট কর্মী"
   },
   "steps": {
-    "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+    "CLASS_TEACHER": "$t(common:entities.class_one) $t(common:entities.teacher_one)",
     "ADDRESSEE": "{{name}}",
     "PERMISSION_LEAVE_APPROVE": "ছুটি অনুমোদনকারী",
-    "PERMISSION_DISCOUNT_RULE_MANAGE": "হিসাব শাখা",
-    "PERMISSION_STUDENT_LIFECYCLE_MANAGE": "প্রধান শিক্ষক",
-    "ROLES_ADMIN": "প্রধান শিক্ষক",
+    "PERMISSION_DISCOUNT_RULE_MANAGE": "হিসাব $t(common:entities.section_one)",
+    "PERMISSION_STUDENT_LIFECYCLE_MANAGE": "প্রধান $t(common:entities.teacher_one)",
+    "ROLES_ADMIN": "প্রধান $t(common:entities.teacher_one)",
     "ROLES_EXAM_CONTROLLER": "পরীক্ষা নিয়ন্ত্রক",
     "ROLES_OFFICE_STAFF": "অফিস"
   },

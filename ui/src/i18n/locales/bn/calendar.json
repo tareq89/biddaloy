@@ -17,8 +17,8 @@
   },
   "filters": {
     "typesLabel": "ইভেন্টের ধরন",
-    "classLabel": "শ্রেণি",
-    "allClasses": "সব শ্রেণি",
+    "classLabel": "$t(common:entities.class_one)",
+    "allClasses": "সব $t(common:entities.class_one)",
     "allTypes": "সব ধরন"
   },
   "types": {

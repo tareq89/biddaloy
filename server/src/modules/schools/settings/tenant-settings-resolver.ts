@@ -187,6 +187,24 @@ export function mergeModulesLabels(
   return merge(stored, patch) as Record<string, unknown>;
 }
 
+/**
+ * [77.6.01] `lock` is platform-owned (D50). A school PATCH that sets a module to `null` removes
+ * the entry, so put back any lock the stored block had; the school's own choice still goes.
+ */
+export function keepModuleLocks(
+  stored: unknown,
+  merged: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!isPlainObject(stored)) return merged;
+  const out = { ...merged };
+  for (const [key, entry] of Object.entries(stored)) {
+    if (!isPlainObject(entry) || !entry.lock) continue;
+    const kept = isPlainObject(out[key]) ? (out[key] as Record<string, unknown>) : {};
+    out[key] = { ...kept, lock: entry.lock };
+  }
+  return out;
+}
+
 const CONDUCT_KEY = /^[a-z][a-z0-9_]{1,30}$/;
 
 /** [70.2.01] Read-side guard mirroring `ExamsSettingsDto`: a stored list that is not

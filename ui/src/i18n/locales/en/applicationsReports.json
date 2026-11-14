@@ -24,7 +24,7 @@
   "viewApplication": "View — {{serial}}",
   "onLeaveTitle": "On leave today",
   "onLeaveStaff": "Staff",
-  "onLeaveStudents": "Students",
+  "onLeaveStudents": "$t(common:entities.student_other)",
   "onLeaveEmpty": "No one is on leave today.",
   "until": "until {{date}}",
   "typeTitle": "By type and status",

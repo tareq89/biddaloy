@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
@@ -9,7 +9,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { childFindings } from './family-data';
 
 /** Today's periods that were cancelled or given to a substitute, per child's section. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.routines })
 export class RoutineChangedTodayRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('routine.changed_today');
   readonly messages = {

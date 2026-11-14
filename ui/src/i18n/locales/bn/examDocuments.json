@@ -11,7 +11,7 @@
   "admitCard": {
     "title": "প্রবেশপত্র",
     "description": "প্রতি A4 পাতায় ২টি, আসন, কক্ষ ও বিষয়ের সময়সূচিসহ",
-    "chooseHint": "পরের ধাপে বাছুন: সবাই, শুধু বাকিরা, না শাখা অনুযায়ী",
+    "chooseHint": "পরের ধাপে বাছুন: সবাই, শুধু বাকিরা, না $t(common:entities.section_one) অনুযায়ী",
     "examinees": "পরীক্ষার্থী",
     "printed": "প্রিন্ট হয়েছে",
     "remaining": "বাকি",
@@ -23,10 +23,10 @@
     "title": "কোন প্রবেশপত্র?",
     "all": "সবাই ({{n}})",
     "remaining": "শুধু বাকিরা ({{n}})",
-    "section": "একটি শাখা",
-    "sectionLabel": "শাখা",
+    "section": "একটি $t(common:entities.section_one)",
+    "sectionLabel": "$t(common:entities.section_one)",
     "next": "প্রিভিউ",
-    "sectionPlaceholder": "শাখা বাছুন",
+    "sectionPlaceholder": "$t(common:entities.section_one) বাছুন",
     "groupLabel": "কোন প্রবেশপত্র"
   },
   "routine": {
@@ -49,13 +49,13 @@
   },
   "stickers": {
     "title": "সিট স্টিকার",
-    "description": "বেঞ্চে লাগানোর জন্য রোল, নাম ও শ্রেণি",
+    "description": "বেঞ্চে লাগানোর জন্য রোল, নাম ও $t(common:entities.class_one)",
     "meta": "প্রতি পাতায় {{perPage}}টি · মোট {{total}}টি",
     "action": "স্টিকার প্রিন্ট করুন"
   },
   "marksSheet": {
     "title": "ফাঁকা নম্বর-শিট",
-    "description": "শিক্ষক হাতে নম্বর লিখবেন, পরে এন্ট্রি হবে",
+    "description": "$t(common:entities.teacher_one) হাতে নম্বর লিখবেন, পরে এন্ট্রি হবে",
     "meta": "{{count}}টি বিষয় · শাখা অনুযায়ী",
     "action": "নম্বর-শিট প্রিন্ট করুন"
   },
@@ -68,7 +68,7 @@
     "title": "টেবুলেশন",
     "description": "পুরো শাখার নম্বর এক শিটে, A4 আড়াআড়ি",
     "action": "টেবুলেশন প্রিন্ট করুন",
-    "summary": "এই শাখা: পরীক্ষার্থী {{examinees}} · উত্তীর্ণ {{passed}} · অনুত্তীর্ণ {{failed}}"
+    "summary": "এই $t(common:entities.section_one): পরীক্ষার্থী {{examinees}} · উত্তীর্ণ {{passed}} · অনুত্তীর্ণ {{failed}}"
   },
   "resultCertificate": {
     "title": "ফলাফল সনদ",
@@ -79,7 +79,7 @@
   },
   "meritCertificate": {
     "title": "মেধা সনদ",
-    "description": "শ্রেণিতে ১ম থেকে ৩য়; শাখা বা সেরা কয়েকজনও বাছা যায়",
+    "description": "শ্রেণিতে ১ম থেকে ৩য়; $t(common:entities.section_one) বা সেরা কয়েকজনও বাছা যায়",
     "action": "সনদ প্রিন্ট করুন"
   },
   "merit": {
@@ -92,7 +92,7 @@
     "count_one": "{{n}} জন",
     "continue": "এগিয়ে যান",
     "topLabel": "সেরা কত জন (১–৫০)",
-    "none": "কোনো শিক্ষার্থী পাওয়া যায়নি।"
+    "none": "কোনো $t(common:entities.student_one) পাওয়া যায়নি।"
   },
   "unavailable": {
     "noSeatPlan": "এখনো কোনো সিট প্ল্যান প্রকাশ হয়নি।",
@@ -138,8 +138,8 @@
     "seat": "আসন",
     "roll": "রোল",
     "name": "নাম",
-    "section": "শাখা",
-    "class": "শ্রেণি",
+    "section": "$t(common:entities.section_one)",
+    "class": "$t(common:entities.class_one)",
     "room": "কক্ষ {{room}}",
     "seats": "আসন {{from}}–{{to}}",
     "present": "উপস্থিত",
@@ -158,13 +158,13 @@
     "exam": "পরীক্ষা"
   },
   "sign": {
-    "classTeacher": "শ্রেণি শিক্ষক",
+    "classTeacher": "$t(common:entities.class_one) $t(common:entities.teacher_one)",
     "examController": "পরীক্ষা নিয়ন্ত্রক",
-    "headTeacher": "প্রধান শিক্ষক",
+    "headTeacher": "প্রধান $t(common:entities.teacher_one)",
     "invigilator": "পরিদর্শক"
   },
-  "sectionLabel": "শাখা",
-  "sectionPlaceholder": "শাখা বাছুন",
+  "sectionLabel": "$t(common:entities.section_one)",
+  "sectionPlaceholder": "$t(common:entities.section_one) বাছুন",
   "fields": {
     "admitGroup": "কোন প্রবেশপত্র",
     "meritScope": "কিসের ভিত্তিতে",

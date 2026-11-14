@@ -9,6 +9,7 @@ import {
   LocaleSwitcher,
   NotificationBell,
   SchoolInvitesCard,
+  SkeletonText,
   SyncStatusIndicator,
   TenantBar,
   ThemeToggle,
@@ -21,6 +22,7 @@ import {
   useApplicationPendingCount,
   useActiveRole,
   useEntityLabel,
+  useModuleResolver,
   useSchoolInvitesCardProps,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -37,6 +39,7 @@ import {
 import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
+import { ModuleOffState } from '../components/module-off-state';
 import { PlatformAlertBanner } from '../components/platform-alert-banner';
 import { ReadOnlyNoticeGate } from '../components/read-only-notice';
 import { RestoreInProgressBar } from '../components/restore-in-progress-bar';
@@ -62,7 +65,7 @@ import {
   type StaffNavLabel,
 } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
-import { STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
+import { routeModule, STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
 import { useActiveSchoolName } from '../use-active-school-name';
 import { useBreadcrumbs } from '../use-breadcrumbs';
 
@@ -162,6 +165,14 @@ function StaffLayout() {
   // the chrome itself (31.2.6). The bottom bar is not rendered on chromeless routes (D14, D22).
   const chromeless = matches[matches.length - 1]?.staticData.chromeless === true;
   const requiredPermission = leafRouteId ? STAFF_ROUTE_PERMISSIONS[leafRouteId] : undefined;
+  // [77.3.1] D16/D32: a module that is off drops out of the nav and its URL shows the refusal page.
+  const moduleState = useModuleResolver();
+  const isModuleOn = (def: StaffNavItemDef) =>
+    def.module === undefined || moduleState(def.module).on;
+  const leafModule = leafRouteId
+    ? routeModule(leafRouteId, matches[matches.length - 1]?.search as { tab?: unknown })
+    : undefined;
+  const leafModuleState = leafModule ? moduleState(leafModule) : undefined;
   const onDenied = () => void navigate({ to: '/' });
   const isAuditLogsRoute = leafRouteId === '/_staff/audit-logs/';
 
@@ -215,8 +226,10 @@ function StaffLayout() {
       ...(def.pinnedLabel !== undefined && {
         pinnedLabel: resolveLabel(def.pinnedLabel, 'groups'),
       }),
-      ...(def.pinnedItems !== undefined && { pinnedItems: def.pinnedItems.map(toNavItem) }),
-      items: def.items.map(toNavItem),
+      ...(def.pinnedItems !== undefined && {
+        pinnedItems: def.pinnedItems.filter(isModuleOn).map(toNavItem),
+      }),
+      items: def.items.filter(isModuleOn).map(toNavItem),
     };
   }
 
@@ -229,10 +242,12 @@ function StaffLayout() {
   // filter the sidebar uses, so the two surfaces cannot drift apart.
   const cells =
     (activeRole ? STAFF_BOTTOM_NAV[activeRole as StaffRole] : undefined) ?? STAFF_BOTTOM_NAV.ADMIN;
-  const bottomItems = cells.map((c) => ({
-    ...toNavItem(STAFF_NAV_ITEMS[c.id]),
-    label: t(`bottomNavCells.${c.shortLabelKey}`),
-  }));
+  const bottomItems = cells
+    .filter((c) => isModuleOn(STAFF_NAV_ITEMS[c.id]))
+    .map((c) => ({
+      ...toNavItem(STAFF_NAV_ITEMS[c.id]),
+      label: t(`bottomNavCells.${c.shortLabelKey}`),
+    }));
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const visibleCells = bottomItems.filter(
     (i) => i.permission === undefined || hasPermission(activeRole, i.permission),
@@ -245,10 +260,12 @@ function StaffLayout() {
   // queue, not an alarm); only fetched for roles that can see the item.
   const regionConfig = useRegionConfig();
   const pending = useApplicationPendingCount({
-    enabled: hasPermission(activeRole, STAFF_NAV_ITEMS.applications.permission),
+    enabled:
+      hasPermission(activeRole, STAFF_NAV_ITEMS.applications.permission) &&
+      isModuleOn(STAFF_NAV_ITEMS.applications),
   });
   const pendingTotal = pending.data?.total ?? 0;
-  const navItems = STAFF_TOP_NAV_ITEMS.map((def) => {
+  const navItems = STAFF_TOP_NAV_ITEMS.filter(isModuleOn).map((def) => {
     const item = toNavItem(def);
     if (def.id !== 'applications' || pendingTotal === 0) return item;
     const badge =
@@ -320,7 +337,15 @@ function StaffLayout() {
             ? { explanation: t('forbidden.explanation', { ns: 'auditLogs' }) }
             : {})}
         >
-          <Outlet />
+          {leafModuleState?.loading ? (
+            <SkeletonText lines={6} />
+          ) : leafModuleState && !leafModuleState.on ? (
+            <ModuleOffState
+              isAdmin={activeRole === UserRole.ADMIN || activeRole === UserRole.SUPER_ADMIN}
+            />
+          ) : (
+            <Outlet />
+          )}
         </RequirePermission>
       ) : (
         // Fail-closed: no map entry for this route ID means

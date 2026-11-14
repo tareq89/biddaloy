@@ -1,0 +1,12 @@
+%% title: How institution kind, modules and words fit together
+%% desc: The admin presses Apply on an institution kind, which turns some modules Off and sets some words. The admin can also turn a module On or Off by hand, or use Who can't see it to hide an On module from chosen roles, never from Admin. A module the platform turned off or locked cannot be changed by the school. A module that is Off disappears from the menu, search, tabs, portal, widgets and report links, and its address shows This part is not turned on for your institution.
+flowchart LR
+  K["Institution kind<br/>you see a preview first"]:::admin -->|Apply| M["Modules On or Off"]
+  K -->|Apply| W["Words<br/>for example Course and Batch"]
+  A["Admin turns a module<br/>On or Off by hand"]:::admin --> M
+  P["Platform turned it off<br/>or locked it"]:::note -->|you cannot change it| M
+  M -->|Off| X["Gone from menu, search,<br/>tabs, portal, widgets, report links"]
+  X --> R["Its address shows<br/>This part is not turned on<br/>for your institution"]
+  M -->|On| H["Who can't see it<br/>hides it from chosen roles<br/>never from Admin"]:::admin
+  classDef admin fill:#e7f5ff,stroke:#1971c2,color:#0b3d66
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

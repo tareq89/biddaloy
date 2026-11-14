@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import { addDaysIso, localDateTimeToUtc } from '../rule-context.service';
@@ -9,7 +9,7 @@ import { loadNotSubmitted } from './homework-not-submitted.rule';
 import { groupByStudent } from './homework-due-today.rule';
 
 /** Runs at `eveningAt`: `EVENING_RULE_KEYS` decides that, no time gate here. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.homework })
 export class HomeworkDueTomorrowRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('homework.due_tomorrow');
   readonly messages = {

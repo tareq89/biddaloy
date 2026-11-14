@@ -99,6 +99,7 @@
 - [প্রশাসন](administration/settings.md)
   - [স্কুলের সেটিংস ঠিক করা](administration/settings.md)
   - [বিডডালয় সহায়তা প্রবেশ](administration/support-access.md)
+  - [মডিউল ও শব্দ](administration/modules-and-words.md)
   - [ভূমিকা ও অনুমতি](administration/roles.md)
   - [কার্যক্রমের রেকর্ড](administration/audit-logs.md)
   - [তৈরি শিক্ষাক্রম](administration/curriculum-preset.md)

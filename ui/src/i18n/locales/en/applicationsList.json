@@ -22,7 +22,7 @@
     "step": "Step",
     "status": "Status"
   },
-  "paper": "Guardian · submitted on paper",
+  "paper": "$t(common:entities.guardian_one) · submitted on paper",
   "stepShort": "{{current}}/{{total}} · {{label}}",
   "rowActions": {
     "view": "Open application {{serial}}",
@@ -36,7 +36,7 @@
     "allTypes": "All types",
     "status": "Status",
     "allStatuses": "All statuses",
-    "class": "Class",
+    "class": "$t(common:entities.class_one)",
     "allClasses": "All classes",
     "date": "Submitted on",
     "from": "From",

@@ -23,7 +23,7 @@
     "archivedBadge": "Archived",
     "tabs": {
       "milestones": "Milestones",
-      "students": "Students",
+      "students": "$t(common:entities.student_other)",
       "programs": "Programs"
     },
     "factMilestones": "Milestones",
@@ -88,9 +88,9 @@
   "dialogs": {
     "enrol": {
       "title": "Enrol students",
-      "class": "Class",
-      "section": "Section",
-      "students": "Students",
+      "class": "$t(common:entities.class_one)",
+      "section": "$t(common:entities.section_one)",
+      "students": "$t(common:entities.student_other)",
       "startedOn": "Started on",
       "skipped_one": "{{n}} student already enrolled, skipped.",
       "skipped_other": "{{n}} students already enrolled, skipped.",
@@ -100,7 +100,7 @@
     "record": {
       "title": "Record achievement",
       "milestone": "Milestone",
-      "students": "Students",
+      "students": "$t(common:entities.student_other)",
       "achievedOn": "Achieved on",
       "score": "Score",
       "grade": "Grade",

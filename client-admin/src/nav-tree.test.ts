@@ -1,4 +1,10 @@
-import { Permission, roleHasPermission, STAFF_ROLES, UserRole } from '@biddaloy/shared';
+import {
+  moduleEnabled,
+  Permission,
+  roleHasPermission,
+  STAFF_ROLES,
+  UserRole,
+} from '@biddaloy/shared';
 import { hasPermission } from '@biddaloy/ui/hooks';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
@@ -271,5 +277,36 @@ describe('rankByMatch', () => {
       'A',
       'B',
     ]);
+  });
+});
+
+describe('nav item modules [77.3.1]', () => {
+  const hiddenIds = (school: object, role: UserRole = UserRole.ADMIN) =>
+    allGroupItems()
+      .filter((item) => item.module !== undefined)
+      .filter((item) => !moduleEnabled({ school, role }, item.module!))
+      .map((item) => item.id);
+
+  it('fines off hides the fines item and nothing else', () => {
+    expect(hiddenIds({ fines: { on: false } })).toEqual(['finance.fines']);
+  });
+
+  it('fees off also hides fines (D38) and the fee pages', () => {
+    const hidden = hiddenIds({ fees: { on: false } });
+    expect(hidden).toContain('finance.fines');
+    expect(hidden).toContain('finance.dues');
+    expect(hidden).not.toContain('people.students');
+  });
+
+  it('TEACHER with homework role-off loses homework; ADMIN keeps it', () => {
+    const school = { homework: { offForRoles: [UserRole.TEACHER] } };
+    expect(hiddenIds(school, UserRole.TEACHER)).toEqual(['academics.homework']);
+    expect(hiddenIds(school, UserRole.ADMIN)).toEqual([]);
+  });
+
+  it('core items never carry a module', () => {
+    for (const id of ['dashboard', 'people.students', 'administration.settings'] as const) {
+      expect(STAFF_NAV_ITEMS[id]).not.toHaveProperty('module');
+    }
   });
 });

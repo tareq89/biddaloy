@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import { addDaysIso } from '../rule-context.service';
@@ -8,7 +8,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { childFindings, openFeesByStudent } from './family-data';
 
 /** Open fees falling due in the next 3 days. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.fees })
 export class FeesDueSoonRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('fees.due_soon');
   readonly messages = {

@@ -9,12 +9,12 @@ import {
   AttendanceStatus,
   AuditAction,
   DailyAttendanceSource,
+  ModuleKey,
 } from '@biddaloy/shared';
 import { assertDateNotInClosedYear } from '../../common/utils/year-open.guard';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { sectionRosterIdsBySection } from '../enrollments/section-roster';
 import { AuditService } from '../audit/audit.service';
-import { ModuleKey } from '@biddaloy/shared';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';

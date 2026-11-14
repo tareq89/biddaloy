@@ -15,7 +15,7 @@
   "system": "System",
   "copyValue": "#{{n}}",
   "kind": {
-    "STUDENT_ID_CARD": "Student ID card",
+    "STUDENT_ID_CARD": "$t(common:entities.student_one) ID card",
     "STAFF_ID_CARD": "Staff ID card",
     "ACR_ASSESSMENT": "ACR (confidential report)",
     "EXAM_ADMIT_CARD": "Admit card",
@@ -127,7 +127,7 @@
     "col": {
       "serial": "Serial",
       "kind": "Kind",
-      "student": "Student",
+      "student": "$t(common:entities.student_one)",
       "issuedOn": "Issued on",
       "issuedBy": "Issued by",
       "copy": "Copy"
@@ -167,11 +167,11 @@
       "admitted": "Admitted",
       "dues": "Dues",
       "roll": "Roll",
-      "section": "Section",
-      "class": "Class"
+      "section": "$t(common:entities.section_one)",
+      "class": "$t(common:entities.class_one)"
     },
     "empty": "Nothing waiting to be printed.",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
     "emptyExplanation": "Everything is printed. New work shows up here."
   },

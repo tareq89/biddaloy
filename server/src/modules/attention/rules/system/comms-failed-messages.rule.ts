@@ -1,10 +1,10 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.messaging })
 export class CommsFailedMessagesRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('comms.failed_messages');
   readonly messages = {

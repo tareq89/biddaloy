@@ -12,7 +12,7 @@ function roleAllowed(respondent: string, role: string): boolean {
   return respondent === (role === UserRole.STUDENT ? 'STUDENTS' : 'GUARDIANS');
 }
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class SurveysPendingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('surveys.pending');
   readonly messages = {

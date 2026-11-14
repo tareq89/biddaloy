@@ -1,35 +1,35 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { DiscoveryModule } from '@nestjs/core';
-import { AlertCadence, alertRuleMeta } from '@biddaloy/shared';
+import { AlertCadence, ModuleKey, alertRuleMeta } from '@biddaloy/shared';
 import { AttentionRule } from './attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape } from './rule.types';
 import { RuleRegistryService } from './rule-registry.service';
 
 const msg = { title: 't', why: 'w', steps: [] };
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 class FakeA implements AttentionRuleShape {
   meta = alertRuleMeta('class.starting');
   messages = { bn: msg, en: msg };
   evaluate = async () => [];
 }
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 class FakeB implements AttentionRuleShape {
   meta = alertRuleMeta('homework.due_today');
   messages = { bn: msg, en: msg };
   evaluate = async () => [];
 }
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 class DupOfA implements AttentionRuleShape {
   meta = alertRuleMeta('class.starting');
   messages = { bn: msg, en: msg };
   evaluate = async () => [];
 }
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 class CopiedMeta implements AttentionRuleShape {
   // A copy, not the catalogue object: must be rejected.
   meta = { ...alertRuleMeta('class.starting') };
@@ -37,7 +37,7 @@ class CopiedMeta implements AttentionRuleShape {
   evaluate = async () => [];
 }
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 class EmptyTitle implements AttentionRuleShape {
   meta = alertRuleMeta('class.starting');
   messages = { bn: { ...msg, title: '' }, en: msg };
@@ -50,6 +50,13 @@ async function boot(providers: unknown[]) {
     providers: [RuleRegistryService, ...(providers as never[])],
   }).compile();
   return mod;
+}
+
+@AttentionRule({ module: ModuleKey.homework })
+class HomeworkTagged implements AttentionRuleShape {
+  meta = alertRuleMeta('homework.due_today');
+  messages = { bn: msg, en: msg };
+  evaluate = async () => [];
 }
 
 describe('RuleRegistryService', () => {

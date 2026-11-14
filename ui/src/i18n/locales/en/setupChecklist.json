@@ -3,9 +3,9 @@
   "progress": "{{done}} of {{total}} done",
   "items": {
     "profile": "School profile",
-    "structure": "Classes",
-    "sections": "Sections",
-    "students": "Students",
+    "structure": "$t(common:entities.class_other)",
+    "sections": "$t(common:entities.section_other)",
+    "students": "$t(common:entities.student_other)",
     "staff": "Staff",
     "feeStructures": "Fees",
     "guardianInvites": "Invite guardians",

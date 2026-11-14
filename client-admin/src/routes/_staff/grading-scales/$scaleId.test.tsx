@@ -327,7 +327,8 @@ describe('/grading-scales/$scaleId', () => {
 
     it('is absent with AVAILABLE', async () => {
       const calls = mount('ADMIN', 'AVAILABLE');
-      expect(await screen.findAllByText('Class 6 Scale')).toHaveLength(2);
+      // [77.3.1] the module gate shows a skeleton until the school profile loads, so wait for the page too.
+      await waitFor(() => expect(screen.getAllByText('Class 6 Scale')).toHaveLength(2));
       await waitFor(() => expect(calls()).toBe(1));
       expect(screen.queryByText(/This comes from your ready-made curriculum/)).toBeNull();
     });

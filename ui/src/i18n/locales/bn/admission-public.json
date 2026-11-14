@@ -92,7 +92,7 @@
     },
     "subtitle": "ফর্ম জমা দেওয়ার পর পাওয়া রেফারেন্স নম্বর আর অভিভাবকের মোবাইল নম্বর দিন।",
     "unknown": "আবেদনের অবস্থা বোঝা যায়নি। স্কুলে যোগাযোগ করুন।",
-    "studentLabel": "শিক্ষার্থী",
+    "studentLabel": "$t(common:entities.student_one)",
     "roundLabel": "ভর্তি পর্ব",
     "newApplication": "নতুন আবেদন করুন",
     "badges": {

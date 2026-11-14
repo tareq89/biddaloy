@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from './role-recipients';
@@ -11,7 +11,7 @@ const STATE_LABEL: Record<string, { en: string; bn: string }> = {
   REVIEW: { en: 'waiting for review', bn: 'পর্যালোচনার অপেক্ষায়' },
 };
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.routines })
 export class RoutineNotPublishedRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('routine.not_published');
   readonly messages = {

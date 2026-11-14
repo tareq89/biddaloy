@@ -62,7 +62,7 @@
     "tabs": {
       "guardians": "Guardians",
       "staff": "All teachers and staff",
-      "students": "Students",
+      "students": "$t(common:entities.student_other)",
       "named": "By name",
       "examFailed": "Failed an exam",
       "feeDue": "Fee due",
@@ -71,15 +71,15 @@
     },
     "filters": {
       "class": "Class",
-      "section": "Section",
+      "section": "$t(common:entities.section_one)",
       "roles": "Roles",
       "kind": "Search for",
       "kindStaff": "Staff",
-      "kindStudents": "Students",
+      "kindStudents": "$t(common:entities.student_other)",
       "name": "Name",
       "target": "Send to",
-      "targetStudents": "Students",
-      "targetGuardians": "Guardians",
+      "targetStudents": "$t(common:entities.student_other)",
+      "targetGuardians": "$t(common:entities.guardian_other)",
       "exam": "Exam",
       "belowPercent": "Attendance below (%)",
       "shift": "Shift",
@@ -88,7 +88,7 @@
     },
     "columns": {
       "name": "Name",
-      "detail": "Class or role",
+      "detail": "$t(common:entities.class_one) or role",
       "contact": "Reach"
     },
     "reach": {
