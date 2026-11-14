@@ -168,7 +168,11 @@ describe('Teacher section scope (75.6)', () => {
     });
 
     it('a teacher with no assignment gets empty lists, not an error', async () => {
-      await dataSource.query(`DELETE FROM teacher_class_sections`);
+      // Only this fixture's teacher: a global DELETE raced other specs' rows (#2464).
+      await dataSource.query(
+        `DELETE FROM teacher_class_sections WHERE teacher_id IN (SELECT id FROM teachers WHERE user_id = $1)`,
+        [fx.teacherUserId],
+      );
       const students = await asTeacher('get', '/students').expect(200);
       expect(students.body).toMatchObject({ data: [], total: 0 });
       const ids = await asTeacher('get', '/students/ids').expect(200);
