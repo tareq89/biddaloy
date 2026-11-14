@@ -15,8 +15,11 @@ test('en: _one and _other resolve to the stock word', () => {
 });
 
 test('bn: one word for both forms', () => {
-  const lookup = (k: string) =>
-    ({ 'common.entities.class_one': 'শ্রেণি', 'common.entities.class_other': 'শ্রেণি' })[k];
+  const m: Record<string, string> = {
+    'common.entities.class_one': 'শ্রেণি',
+    'common.entities.class_other': 'শ্রেণি',
+  };
+  const lookup = (k: string) => m[k];
   expect(resolveNesting('$t(common:entities.class_one)', lookup)).toBe('শ্রেণি');
   expect(resolveNesting('$t(common:entities.class_other)', lookup)).toBe('শ্রেণি');
   expect(makeT('bn')('common.entities.class_other')).toBe('শ্রেণি');
