@@ -517,13 +517,13 @@ GET    /api/v1/platform/audit                                                   
 GET    /api/v1/platform/audit/sessions                                           401 PASS 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/backups/health                                           401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/billing/orders/:id/offline-payment                       401 PASS 403 403 403 403 403 403 403 403 403 403 403
-POST   /api/v1/platform/billing/orders/:id/refund                                401 403 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/orders/:id/refund                                401 PASS 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/billing/schools                                          401 PASS 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/billing/schools/:id                                      401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/billing/schools/:id/grant                                401 PASS 403 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/billing/schools/:id/plan                                 401 403 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/billing/sms-bundle-orders/:id/offline-payment            401 PASS 403 403 403 403 403 403 403 403 403 403 403
-POST   /api/v1/platform/billing/sms-bundle-orders/:id/refund                     401 403 403 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/sms-bundle-orders/:id/refund                     401 PASS 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/coupons                                                  401 PASS 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/coupons                                                  401 403 401 401 401 401 401 401 401 401 401 401 401
 PATCH  /api/v1/platform/coupons/:id                                              401 403 401 401 401 401 401 401 401 401 401 401 401
