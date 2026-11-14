@@ -70,7 +70,12 @@ import uxGuardsPlugin from './eslint-rules/ux-guards.mjs';
 // every plain `.mjs`/`.ts` config file (vite.config, this file itself) with
 // "don't have parserOptions set to generate type information" at
 // rule-execution time.
-export const typeCheckedRules = tseslint.configs.recommendedTypeChecked;
+export const typeCheckedRules = [
+  ...tseslint.configs.recommendedTypeChecked,
+  // The preset re-enables the typescript-eslint rule with default options, which
+  // ignores our `^_` convention. `unused-imports/no-unused-vars` already covers it.
+  { rules: { '@typescript-eslint/no-unused-vars': 'off' } },
+];
 
 // Turns off every `no-unsafe-*` rule the type-checked preset enables
 // (assignment, member-access, call, return, argument) for spec/test files —
