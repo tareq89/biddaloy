@@ -60,7 +60,7 @@ describe('billing slice (integration)', () => {
   });
 
   it('writes one PAID order and one matching payment per school around the anchor', async () => {
-    expect(await run()).toBe(10); // 6 orders+payments, 2 coupons, 1 coupon school, 1 redemption
+    expect(await run()).toBe(14); // 10 orders+payments, 2 coupons, 1 coupon school, 1 plan
     const rows = await ds.query(SUMMARY);
     expect(rows.map((r: { k: string }) => r.k)).toEqual(SLUGS.map((s) => `demo-${s}-1`).sort());
     for (const r of rows) {
@@ -80,16 +80,33 @@ describe('billing slice (integration)', () => {
               (SELECT count(*)::int FROM coupon_redemptions) AS redemptions,
               (SELECT count(*)::int FROM coupon_schools) AS chosen,
               (SELECT count(*)::int FROM seat_orders WHERE plan_id = '00000000-0000-4000-8000-000000000001') AS on_default_plan,
-              (SELECT discount_paisa::text FROM coupon_redemptions) AS discount
+              (SELECT discount_paisa::text FROM coupon_redemptions r JOIN coupons c ON c.id = r.coupon_id WHERE c.code = 'DEMOWELCOME') AS discount
          FROM coupons`,
     );
     expect(c).toEqual({
       coupons: 2,
-      redemptions: 1,
+      redemptions: 2,
       chosen: 1,
-      on_default_plan: 3,
+      on_default_plan: 4,
       discount: String(1400 * 12 * 100),
     });
+  });
+
+  it('seeds the Plus plan, a 50 percent coupon order and a refunded order', async () => {
+    await run();
+    const rows = await ds.query(
+      `SELECT o.status, o.discount_paisa::text AS discount, o.refund_reason, o.refunded_at IS NOT NULL AS refunded,
+              o.refunded_by_user_id IS NULL AS no_by, p.name AS plan
+         FROM seat_orders o JOIN plans p ON p.id = o.plan_id
+        WHERE o.idempotency_key LIKE '%-extra-%' ORDER BY o.idempotency_key`,
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r: { status: string }) => r.status === 'REFUNDED')).toMatchObject({
+      plan: 'Plus',
+      refunded: true,
+      refund_reason: 'Paid twice by mistake',
+    });
+    expect(rows.find((r: { status: string }) => r.status === 'PAID').discount).toBe(String((200 * 3 * 1000) / 2));
   });
 
   it('is deterministic for the same anchor', async () => {
