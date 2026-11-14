@@ -16,6 +16,7 @@ import { QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
 import { MONTH_NAMES, periodStartFromLabel } from './invoice-period.util';
 import { renderInvoiceHtml } from './invoice-print.template';
+import { PaymentOrigin } from './invoice-payment-origin';
 import { renderInvoicePosHtml, PosPrintWidth } from './invoice-print-pos.template';
 import { StorageService } from '../storage/storage.service';
 import { readLogoDataUrl } from '../schools/profile/logo-data-url';
@@ -502,12 +503,22 @@ export class InvoicesService {
     // carries the bearer token `GET /schools/:id/logo` needs.
     const logoDataUrl = await readLogoDataUrl(this.storage, issuer.logo_key);
 
+    const origin = await this.getPaymentOrigin(invoice);
+
     if (format === 'pos58' || format === 'pos80') {
       // [16.5.2] POS renders from the snapshot's own `payment` block, not
       // the live `payments` table — a thermal receipt shows the one
       // payment this document was issued for, not the full history the
       // A4 format's "Payment History" table lists.
-      return renderInvoicePosHtml(invoice, issuer, logoDataUrl, format, linkedStudentIds, null);
+      return renderInvoicePosHtml(
+        invoice,
+        issuer,
+        logoDataUrl,
+        format,
+        linkedStudentIds,
+        null,
+        origin,
+      );
     }
 
     const payments = invoice.payment_id
@@ -516,7 +527,57 @@ export class InvoicesService {
           order: { payment_date: 'DESC' },
         })
       : [];
-    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl, linkedStudentIds);
+    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl, linkedStudentIds, origin);
+  }
+
+  /** [3.2.03, D8] Read-only join `invoice.payment_id` -> `payment_submission_bills`
+   * -> `payment_submissions` (+ verifier name). `null` for a counter payment,
+   * a credit note, or an invoice with no payment. Tenant-scoped on every table. */
+  async getPaymentOrigin(invoice: Invoice): Promise<PaymentOrigin | null> {
+    if (!invoice.payment_id || invoice.kind === InvoiceKind.CREDIT_NOTE) return null;
+    const rows: Array<{
+      source: 'PROOF' | 'ONLINE';
+      method: string | null;
+      provider: string | null;
+      reference_normalised: string | null;
+      provider_trx_id: string | null;
+      created_at: Date;
+      decided_at: Date | null;
+      settled_at: Date | null;
+      verifier_name: string | null;
+    }> = await this.repo.manager.query(
+      `SELECT s.source, s.method, s.provider, s.reference_normalised, s.provider_trx_id,
+              s.created_at, s.decided_at, s.settled_at, u.full_name AS verifier_name
+         FROM payment_submission_bills b
+         JOIN payment_submissions s ON s.id = b.submission_id AND s.tenant_id = b.tenant_id
+         LEFT JOIN users u ON u.id = s.decided_by_user_id
+        WHERE b.payment_id = $1 AND b.tenant_id = $2
+        ORDER BY s.created_at, s.id
+        LIMIT 1`,
+      [invoice.payment_id, invoice.tenant_id],
+    );
+    const r = rows[0];
+    if (!r) return null;
+    const iso = (d: Date | null) => (d ? new Date(d).toISOString() : null);
+    return r.source === 'ONLINE'
+      ? {
+          source: 'ONLINE',
+          method: r.provider ?? '',
+          trx_id: r.provider_trx_id,
+          submitted_at: null,
+          verified_by_name: null,
+          verified_at: null,
+          paid_at: iso(r.settled_at),
+        }
+      : {
+          source: 'PROOF',
+          method: r.method ?? '',
+          trx_id: r.reference_normalised,
+          submitted_at: iso(r.created_at),
+          verified_by_name: r.verifier_name,
+          verified_at: iso(r.decided_at),
+          paid_at: null,
+        };
   }
 }
 

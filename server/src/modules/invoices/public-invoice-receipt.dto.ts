@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Invoice, InvoiceSnapshotLine } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
+import { PaymentOrigin } from './invoice-payment-origin';
 import { signedAmount } from './invoice-print-format.util';
 
 /** Classes, not interfaces — same `@nestjs/swagger` CLI plugin reason as
@@ -54,6 +55,32 @@ export class PublicReceiptPaymentDto {
   payment_date: string;
 }
 
+/** [3.2.03, D38] How a guardian-submitted payment arrived. Deliberately has
+ * NO verifier name: the public receipt says only "verified by the school". */
+export class PublicReceiptHowPaidDto {
+  @ApiProperty({ enum: ['PROOF', 'ONLINE'] })
+  source: 'PROOF' | 'ONLINE';
+
+  @ApiProperty()
+  method: string;
+
+  /** Masked to the last 4 characters like `payment.reference_last4` (Rule 13). */
+  @ApiProperty({ nullable: true, type: 'string' })
+  trx_id_last4: string | null;
+
+  /** PROOF: the day the school verified it. ONLINE: null. */
+  @ApiProperty({
+    nullable: true,
+    type: 'string',
+    description: 'ISO timestamp; the client shows only the date ("verified by the school on ...").',
+  })
+  verified_on: string | null;
+
+  /** ONLINE: when the gateway settled it. PROOF: null. */
+  @ApiProperty({ nullable: true, type: 'string' })
+  paid_at: string | null;
+}
+
 export class PublicReceiptDto {
   @ApiProperty()
   invoice_number: string;
@@ -75,6 +102,10 @@ export class PublicReceiptDto {
 
   @ApiProperty({ type: () => PublicReceiptPaymentDto })
   payment: PublicReceiptPaymentDto;
+
+  /** `null` for a counter payment. */
+  @ApiProperty({ type: () => PublicReceiptHowPaidDto, nullable: true })
+  how_paid: PublicReceiptHowPaidDto | null;
 }
 
 /** Redacts everything but the last 4 characters of a payment reference —
@@ -105,6 +136,7 @@ export function buildPublicReceiptDto(
   invoice: Invoice,
   issuer: IssuerSnapshot,
   logoUrl: string | null,
+  origin: PaymentOrigin | null = null,
 ): PublicReceiptDto {
   const { snapshot } = invoice;
   return {
@@ -144,5 +176,15 @@ export function buildPublicReceiptDto(
       reference_last4: redactReference(snapshot.payment.reference),
       payment_date: snapshot.payment.payment_date,
     },
+    // Allow-list copy: `verified_by_name` is never read here (D38).
+    how_paid: origin
+      ? {
+          source: origin.source,
+          method: origin.method,
+          trx_id_last4: redactReference(origin.trx_id),
+          verified_on: origin.verified_at,
+          paid_at: origin.paid_at,
+        }
+      : null,
   };
 }
