@@ -72,7 +72,10 @@ describe('GuardianProvisioningService', () => {
     auditLogRepo = { createQueryBuilder: vi.fn() };
     authTokens = { latest: vi.fn().mockResolvedValue(null) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
-    queue = { add: vi.fn().mockResolvedValue(undefined) };
+    queue = {
+      add: vi.fn().mockResolvedValue(undefined),
+      getJob: vi.fn().mockResolvedValue(undefined),
+    };
 
     service = new GuardianProvisioningService(
       guardianRepo,
@@ -446,7 +449,10 @@ describe('GuardianProvisioningService', () => {
           actorUserId: 'admin-1',
           batchId: result.batch_id,
         }),
-        expect.objectContaining({ attempts: 3 }),
+        expect.objectContaining({
+          attempts: 3,
+          jobId: `invite-guardian-${TENANT}-g1`,
+        }),
       );
       expect(audit.record).toHaveBeenCalledTimes(1);
       expect(audit.record).toHaveBeenCalledWith(
@@ -458,6 +464,51 @@ describe('GuardianProvisioningService', () => {
       expect(result.queued).toBe(2);
       expect(result.skipped).toEqual([]);
       expect(result.next_after).toBeNull();
+    });
+
+    it('[#501] a guardian another request already queued is skipped for this batch, not queued twice', async () => {
+      guardianRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ many: [makeGuardian({ id: 'g1' })] }),
+      );
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+      // BullMQ keeps the first job for an id and hands it back: it carries the other batch's id.
+      queue.add.mockResolvedValue({ data: { batchId: 'someone-elses-batch' } });
+
+      const result = await service.dispatch({
+        tenantId: TENANT,
+        actorUserId: 'admin-1',
+        selection: { all: true },
+      });
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.UPDATE,
+          entity_type: 'InvitationBatch',
+          new_values: expect.objectContaining({
+            batch_id: result.batch_id,
+            guardian_id: 'g1',
+            reason: 'already_pending',
+          }),
+        }),
+      );
+    });
+
+    it('[#501] a failed job left behind is removed so the guardian can be invited again', async () => {
+      guardianRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ many: [makeGuardian({ id: 'g1' })] }),
+      );
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+      const stale = { isFailed: vi.fn().mockResolvedValue(true), remove: vi.fn() };
+      queue.getJob.mockResolvedValue(stale);
+
+      await service.dispatch({
+        tenantId: TENANT,
+        actorUserId: 'admin-1',
+        selection: { all: true },
+      });
+
+      expect(stale.remove).toHaveBeenCalledTimes(1);
+      expect(queue.add).toHaveBeenCalledTimes(1);
     });
 
     it('[503] writes the batch row before the first enqueue and marks it failed when enqueue throws', async () => {

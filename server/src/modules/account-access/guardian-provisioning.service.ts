@@ -282,7 +282,14 @@ export class GuardianProvisioningService {
     let enqueuedInvites = 0;
     try {
       for (const entry of to_invite) {
-        await this.queue.add(
+        // One job per guardian (#501): the job id is the atomic claim. Two identical requests
+        // that both previewed this guardian add the same id, and BullMQ keeps only the first.
+        // The explicit resend path is a different method and is not affected.
+        const jobId = `invite-guardian-${input.tenantId}-${entry.guardian_id}`;
+        const stale = await this.queue.getJob(jobId);
+        // A failed job is kept by `removeOnFail`; it must not block a fresh invite.
+        if (stale && (await stale.isFailed())) await stale.remove();
+        const job = await this.queue.add(
           'invite-guardian',
           {
             tenantId: input.tenantId,
@@ -292,10 +299,28 @@ export class GuardianProvisioningService {
             counted: !entry.join_request,
           },
           {
+            jobId,
             attempts: 3,
             backoff: { type: 'exponential', delay: 5000 },
           },
         );
+        if (job?.data?.batchId !== undefined && job.data.batchId !== batchId) {
+          // Another request already queued this guardian: nothing is sent for this batch, so
+          // count it as skipped the way the processor does, or the batch would never drain.
+          await this.audit.record({
+            action: AuditAction.UPDATE,
+            entity_type: 'InvitationBatch',
+            entity_id: batchId,
+            tenant_id: input.tenantId,
+            performed_by_user_id: input.actorUserId,
+            new_values: {
+              batch_id: batchId,
+              guardian_id: entry.guardian_id,
+              reason: 'already_pending',
+            },
+          });
+          continue;
+        }
         if (!entry.join_request) enqueuedInvites += 1;
       }
     } catch (err) {
