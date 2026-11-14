@@ -493,9 +493,9 @@ describe('NoticeSmsService (integration)', () => {
     // writes the first recipient's hash for real (with the approve's own manager), then dies
     const links = vi
       .spyOn(service, 'createPersonalLinks')
-      .mockImplementation(async (noticeId, ids, em) => {
+      .mockImplementation(async (noticeId, ids, tenantId, em) => {
         expect(em).toBeDefined();
-        await real(noticeId, ids.slice(0, 1), em);
+        await real(noticeId, ids.slice(0, 1), tenantId, em);
         insideTx = (await em!.query(countLinked, [noticeId]))[0].c;
         outsideTx = (await ds.query(countLinked, [noticeId]))[0].c;
         throw new Error('link write down');

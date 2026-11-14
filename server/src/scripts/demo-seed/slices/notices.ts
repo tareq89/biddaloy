@@ -192,6 +192,7 @@ export const slice: DemoSlice = {
     await links.createPersonalLinks(
       admission,
       noLoginRows.map((r) => r.id),
+      T,
     );
 
     // 5. a class notice written by the demo teacher, to students and guardians of their own sections.

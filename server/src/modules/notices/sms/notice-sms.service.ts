@@ -388,6 +388,7 @@ export class NoticeSmsService {
         const tokens = await this.links.createPersonalLinks(
           id,
           will.map((r) => r.recipient.id),
+          tenantId,
           tx,
         );
         const tokenOf = new Map(tokens.map((t) => [t.recipientId, t.token]));
@@ -427,7 +428,14 @@ export class NoticeSmsService {
         try {
           await this.credits.settle(tenantId, batchKey, 'RELEASE');
         } catch (re) {
-          this.logger.error(`notice sms credit release failed: ${(re as Error).message}`);
+          // Stranded reservation: structured so a log alert can find it (a retry would reserve again).
+          this.logger.error({
+            msg: 'notice sms credit release failed - reservation left stranded',
+            tenant_id: tenantId,
+            notice_id: id,
+            batch_key: batchKey,
+            error: (re as Error).message,
+          });
         }
       }
       // The 409's transaction rolled back (lock released); close the dead request on its own.
