@@ -64,7 +64,8 @@ export class AlertsReportService {
     const [counts, [facts], [previous]] = await Promise.all([
       this.dataSource.query(
         `SELECT rule_key, params->>'sectionId' AS section_id, MAX(params->>'sectionLabel') AS section_label,
-                COUNT(*)::int AS n
+                COUNT(*)::int AS n,
+                MAX(CASE severity WHEN 'CRITICAL' THEN 3 WHEN 'WARNING' THEN 2 ELSE 1 END)::int AS sev_rank
            FROM alerts WHERE ${cur.where} GROUP BY 1, 2`,
         cur.params,
       ),
@@ -89,6 +90,7 @@ export class AlertsReportService {
       section_id: string | null;
       section_label: string | null;
       n: number;
+      sev_rank: number;
     };
     const sections = new Map<string, string>();
     for (const c of counts as Count[])
@@ -102,6 +104,11 @@ export class AlertsReportService {
       if (!byRule.has(c.rule_key)) byRule.set(c.rule_key, new Map());
       byRule.get(c.rule_key)!.set(c.section_id, c.n);
     }
+    // The badge shows the worst severity actually raised that month, not the catalogue default.
+    const SEVERITY_BY_RANK = ['REMINDER', 'REMINDER', 'WARNING', 'CRITICAL'] as const;
+    const worstRank = new Map<string, number>();
+    for (const c of counts as Count[])
+      worstRank.set(c.rule_key, Math.max(worstRank.get(c.rule_key) ?? 1, c.sev_rank));
     const rows = [...byRule]
       .sort(([a], [b]) => (RULE_ORDER.get(a) ?? 999) - (RULE_ORDER.get(b) ?? 999))
       .map(([ruleKey, cellMap]) => {
@@ -113,7 +120,7 @@ export class AlertsReportService {
         return {
           ruleKey,
           category: meta?.category as AlertsReportDto['rows'][number]['category'],
-          severity: meta?.severity as AlertsReportDto['rows'][number]['severity'],
+          severity: SEVERITY_BY_RANK[worstRank.get(ruleKey) ?? 1] as AlertsReportDto['rows'][number]['severity'],
           cells,
           total: cells.reduce((sum, c) => sum + c.count, 0),
         };
