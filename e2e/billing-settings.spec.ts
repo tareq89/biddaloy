@@ -1,6 +1,7 @@
 import bn from '../ui/src/i18n/locales/bn/billing.json' with { type: 'json' };
 
 import { expect, loggedIn, test } from './fixtures/test';
+import { t } from './i18n';
 
 /**
  * [49.10 #1825] Settings > Seats & billing: an ADMIN opens the section, starts a purchase and the
@@ -19,7 +20,7 @@ test('admin buys seats and sees the pending order', async ({ page }) => {
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
 
-  await dialog.getByLabel(bn.buy.seats).fill('150');
+  await dialog.getByLabel(t('billing.buy.seats')).fill('150');
   await dialog.getByLabel(bn.buy.months).fill('2');
   await dialog.getByRole('button', { name: bn.buy.submit }).click();
 

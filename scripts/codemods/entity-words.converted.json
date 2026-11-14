@@ -63,12 +63,5 @@
     "syllabus",
     "trial"
   ],
-  "allow": {
-    "en:noticeCompose:audience.tabs.guardians": "e2e notices.spec getByRole tab by this label via the non-nesting e2e t()",
-    "bn:noticeCompose:audience.tabs.guardians": "e2e notices.spec getByRole tab by this label via the non-nesting e2e t()",
-    "en:noticeCompose:audience.filters.class": "e2e notices.spec picks by this label via the non-nesting e2e t()",
-    "bn:noticeCompose:audience.filters.class": "e2e notices.spec picks by this label via the non-nesting e2e t()",
-    "en:trial:seatLimit.title": "e2e seat-limit.spec getByText via the non-nesting e2e t()",
-    "bn:billing:buy.seats": "e2e billing-settings.spec getByLabel(bn.buy.seats) reads the JSON raw"
-  }
+  "allow": {}
 }

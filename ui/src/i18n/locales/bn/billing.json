@@ -17,7 +17,7 @@
     "action": "সিট কিনুন",
     "title": "সিট কিনুন",
     "description": "কতজন $t(common:entities.student_one) এবং কত মাসের জন্য, তা বেছে নিন।",
-    "seats": "সিট (শিক্ষার্থী)",
+    "seats": "সিট ($t(common:entities.student_one))",
     "months": "মাস",
     "price": "প্রতি সিট প্রতি মাসে {{price}}",
     "total": "মোট",

@@ -60,7 +60,7 @@
     "intro": "Choose who should get this notice.",
     "readOnly": "The audience cannot be changed after publishing.",
     "tabs": {
-      "guardians": "Guardians",
+      "guardians": "$t(common:entities.guardian_other)",
       "staff": "All teachers and staff",
       "students": "$t(common:entities.student_other)",
       "named": "By name",
@@ -70,7 +70,7 @@
       "orgGroup": "Shift, version or group"
     },
     "filters": {
-      "class": "Class",
+      "class": "$t(common:entities.class_one)",
       "section": "$t(common:entities.section_one)",
       "roles": "Roles",
       "kind": "Search for",
