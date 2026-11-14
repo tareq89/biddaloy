@@ -153,19 +153,21 @@ export function MyNoticeDetail({ id, inPage = false }: { id: string; inPage?: bo
   );
 }
 
-export function MyNoticePage({ id }: { id: string }) {
+export function MyNoticePage({ id, showBackLink = true }: { id: string; showBackLink?: boolean }) {
   const { t } = useTranslation('portalNotices');
   // Same query key as the detail below, so this is the one "seen" read, not a second one.
   const title = useMyNotice(id).data?.title;
   return (
     <PageContainer>
-      <Link
-        to="/portal/notices"
-        className="inline-flex min-h-11 items-center gap-1 font-medium text-primary"
-      >
-        <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        {t('title')}
-      </Link>
+      {showBackLink ? (
+        <Link
+          to="/portal/notices"
+          className="inline-flex min-h-11 items-center gap-1 font-medium text-primary"
+        >
+          <ArrowLeftIcon className="size-4" aria-hidden="true" />
+          {t('title')}
+        </Link>
+      ) : null}
       <PageHeader title={title ?? t('title')} />
       <MyNoticeDetail id={id} inPage />
     </PageContainer>
