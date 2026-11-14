@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { daysUntil, defaultSeats, orderTotalPaisa, parseWhole } from './billing-math';
 
 describe('billing math', () => {
-  it('prices seats x months x 1000 paisa, as an integer', () => {
-    expect(orderTotalPaisa(100, 3)).toBe(300_000);
-    expect(orderTotalPaisa(100_000, 24)).toBe(2_400_000_000);
+  it('prices seats x months x the given unit price, as an integer', () => {
+    expect(orderTotalPaisa(100, 3, 1000)).toBe(300_000);
+    expect(orderTotalPaisa(100, 3, 1500)).toBe(450_000);
+    expect(orderTotalPaisa(100_000, 24, 1000)).toBe(2_400_000_000);
   });
 
   it('prefills the uncovered students, never under 100', () => {
