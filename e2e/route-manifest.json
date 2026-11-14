@@ -1099,6 +1099,36 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/money",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/money/packages",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "list"
+    },
+    {
+      "path": "/money/plans",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "list"
+    },
+    {
+      "path": "/money/coupons",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "list"
+    },
+    {
+      "path": "/money/revenue",
+      "role": "super_admin",
+      "host": "cockpit",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/support/enter",
       "role": "guest",
       "archetype": "bespoke"

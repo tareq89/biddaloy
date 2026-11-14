@@ -67,6 +67,11 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_platform/users/': '[99.5.15] cockpit page, has its own nav, not the staff sidebar',
   '/_platform/audit/': '[99.5.15] cockpit page, has its own nav, not the staff sidebar',
   '/_platform/announcements/': '[99.5.15] cockpit page, has its own nav, not the staff sidebar',
+  '/_platform/money/': '[100.5.gI-02] cockpit page, has its own nav, not the staff sidebar',
+  '/_platform/money/packages': '[100.5.gI-02] cockpit Money tab, reached from the Money page',
+  '/_platform/money/plans': '[100.5.gI-02] cockpit Money tab, reached from the Money page',
+  '/_platform/money/coupons': '[100.5.gI-02] cockpit Money tab, reached from the Money page',
+  '/_platform/money/revenue': '[100.5.gI-02] cockpit Money tab, reached from the Money page',
   '/support/enter': '[99.5.15] opened in a new tab by Login as, signed-out, no nav',
   '/welcome/support-access':
     '[99.5.15] one-time step for a school admin, redirected to, not a nav item',

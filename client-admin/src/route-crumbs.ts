@@ -102,6 +102,18 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_platform/users/': [{ label: { key: 'platformUsers' } }],
   '/_platform/audit/': [{ label: { key: 'platformAudit' } }],
   '/_platform/announcements/': [{ label: { key: 'platformAnnouncements' } }],
+  // [100.5.gI-02] Cockpit > Money > <tab> (D13).
+  '/_platform/money/': [{ label: { key: 'cockpit' }, to: '/schools' }, { label: { key: 'money' } }],
+  ...Object.fromEntries(
+    (['packages', 'plans', 'coupons', 'revenue'] as const).map((tab) => [
+      `/_platform/money/${tab}`,
+      [
+        { label: { key: 'cockpit' }, to: '/schools' },
+        { label: { key: 'money' }, to: '/money' },
+        { label: { key: `money${tab[0]!.toUpperCase()}${tab.slice(1)}` } },
+      ],
+    ]),
+  ),
   '/_platform/schools/$schoolId': [
     // [99.5.15] The cockpit's own crumb, linked to its home (the schools list).
     { label: { key: 'cockpit' }, to: '/schools' },
