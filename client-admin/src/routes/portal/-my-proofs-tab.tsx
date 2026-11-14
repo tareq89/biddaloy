@@ -33,7 +33,9 @@ const STATUS_TONE: Partial<Record<PaymentSubmissionStatus, StatusTone>> = {
 
 /** The proof file route needs the bearer token, so an `<img src>` cannot reach it: fetch blobs. */
 function useProofFileUrls(proof: ProofSubmission): (string | null)[] {
-  const results = useQueries({
+  // `combine` hands back a structurally shared array: same reference until a blob changes.
+  const blobs = useQueries({
+    combine: (rs) => rs.map((r) => r.data ?? null),
     queries: proof.files.map((file) => ({
       queryKey: ['payment-submissions', 'portal-file', proof.id, file.id] as const,
       queryFn: async ({ signal }: { signal: AbortSignal }) =>
@@ -46,13 +48,13 @@ function useProofFileUrls(proof: ProofSubmission): (string | null)[] {
       staleTime: Infinity,
     })),
   });
-  const arrived = results.map((r) => (r.data ? '1' : '0')).join('');
-  const urls = React.useMemo(
-    () => results.map((r) => (r.data ? URL.createObjectURL(r.data) : null)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `arrived` tracks which blobs came in
-    [arrived, proof.id],
-  );
-  React.useEffect(() => () => urls.forEach((u) => u && URL.revokeObjectURL(u)), [urls]);
+  // Create and revoke are paired in one effect, so StrictMode's double run cannot leak a URL.
+  const [urls, setUrls] = React.useState<(string | null)[]>([]);
+  React.useEffect(() => {
+    const made = blobs.map((b) => (b ? URL.createObjectURL(b) : null));
+    setUrls(made);
+    return () => made.forEach((u) => u && URL.revokeObjectURL(u));
+  }, [blobs]);
   return urls;
 }
 
@@ -105,7 +107,10 @@ function ProofCard({
           <h3 className="text-h3">{studentName}</h3>
           <p className="font-semibold tabular-nums">{formatServerAmount(proof.amount, config)}</p>
         </div>
-        <StatusBadge tone={tone} label={t(`proofs.status.${proof.status}`)} />
+        <StatusBadge
+          tone={tone}
+          label={t(`proofs.status.${proof.status}`, { defaultValue: proof.status })}
+        />
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-caption text-text-secondary">
         {proof.method && (
@@ -190,7 +195,7 @@ export function MyProofsTab() {
     proof.bills
       .map((b) => names.get(b.studentId))
       .filter((n, i, all): n is string => !!n && all.indexOf(n) === i)
-      .join(', ');
+      .join(', ') || t('proofs.unknownStudent');
 
   return (
     <div className="space-y-3">
