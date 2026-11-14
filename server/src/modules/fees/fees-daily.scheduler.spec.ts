@@ -515,6 +515,17 @@ describe('FeesDailyScheduler', () => {
         expect(lateFee.applyDue).not.toHaveBeenCalled();
       });
 
+      it('fines switched off during the run: the sweep re-reads and skips', async () => {
+        const offState = { platform: {}, school: { fines: { on: false } } };
+        moduleState.forTenant
+          .mockResolvedValueOnce({ platform: {}, school: {} }) // fees read
+          .mockResolvedValueOnce({ platform: {}, school: {} }) // fines read at the head
+          .mockResolvedValue(offState); // fines read right before the sweep
+        await withSweeps.process();
+        expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
+        expect(fineSweep.runDue).not.toHaveBeenCalled();
+      });
+
       it('all on: everything runs as before', async () => {
         await withSweeps.process();
         expect(lateFee.applyDue).toHaveBeenCalledTimes(1);

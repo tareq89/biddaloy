@@ -29,7 +29,8 @@ export function render(
   return {
     title: sub(m.title),
     why: sub(m.why),
-    steps: m.steps.map(sub),
+    // A step that renders empty (an optional step a school has off) is dropped.
+    steps: m.steps.map(sub).filter((x) => x.trim() !== ''),
     ...(m.action !== undefined ? { action: sub(m.action) } : {}),
   };
 }

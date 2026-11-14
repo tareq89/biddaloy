@@ -198,7 +198,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // re-queue so an off school is never re-queued. Unreadable state throws (see moduleOn).
     if (!(await this.moduleOn(tenantId, ModuleKey.fees))) return;
     // Read both switches up front: an unreadable state throws before any bill is written.
-    const finesOn = !!this.fineSweepService && (await this.moduleOn(tenantId, ModuleKey.fines));
+    // Fines is re-read right before the sweep; this read only fails early on unreadable state.
+    if (this.fineSweepService) await this.moduleOn(tenantId, ModuleKey.fines);
     const today = todayOverride ?? (await this.schoolsService.todayFor(tenantId));
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run picks the period up only while still inside it (due on or
@@ -256,7 +257,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // outer `process()` loop. `runDue` itself already no-ops silently when
     // no academic year covers the target month, so this only ever logs a
     // genuine failure.
-    if (this.fineSweepService && finesOn) {
+    if (this.fineSweepService && (await this.moduleOn(tenantId, ModuleKey.fines))) {
       try {
         await this.fineSweepService.runDue(tenantId, today);
       } catch (error) {

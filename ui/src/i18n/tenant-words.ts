@@ -38,3 +38,23 @@ export function applyTenantWords(i18n: I18nInstance, labels: SchoolLabels | unde
   // accepted, it is idempotent.
   i18n.emit('languageChanged', i18n.language);
 }
+
+/**
+ * Loads the en + bn `common` bundles first, then applies. Capturing stock words from a bundle
+ * that is still loading would store `undefined`, and `addResource` on a missing bundle makes
+ * i18next treat a partial one as loaded. A failed load applies nothing (returns false).
+ */
+export async function applyTenantWordsWhenLoaded(
+  i18n: I18nInstance,
+  labels: SchoolLabels | undefined,
+  isCurrent: () => boolean = () => true,
+): Promise<boolean> {
+  try {
+    await Promise.all([i18n.loadLanguages('en'), i18n.loadLanguages('bn')]);
+  } catch {
+    return false;
+  }
+  if (!isCurrent()) return false;
+  applyTenantWords(i18n, labels);
+  return true;
+}
