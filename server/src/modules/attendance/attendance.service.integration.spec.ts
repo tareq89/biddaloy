@@ -1063,6 +1063,7 @@ describe('AttendanceService (integration)', () => {
           role: UserRole.ADMIN,
           userId: ADMIN_USER_ID,
           tenantId: TENANT_ID,
+          date: TODAY(),
         });
         const mine = sections.find((s) => s.section_id === sectionId)!;
         expect(mine.today!.scanned_but_absent).toBe(1);
@@ -1089,6 +1090,7 @@ describe('AttendanceService (integration)', () => {
           role: UserRole.ADMIN,
           userId: ADMIN_USER_ID,
           tenantId: TENANT_ID,
+          date: TODAY(),
         });
         expect(sections.find((s) => s.section_id === sectionId)!.today!.scanned_but_absent).toBe(1);
       });
