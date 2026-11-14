@@ -190,6 +190,13 @@ describe('payment-submissions slice (integration, 2 years, scale 0.25)', () => {
       `SELECT status, count(*)::int AS n FROM payment_submissions WHERE source = 'PROOF' GROUP BY status`,
     );
     expect(Object.fromEntries(byStatus.map((r) => [r.status, r.n]))).toEqual(PROOF_STATUS_COUNTS);
+    // A waiting proof's opening event shows the same "arrived" time as the list.
+    const drift = await ds.query(
+      `SELECT count(*)::int AS n FROM payment_submissions s
+         JOIN payment_submission_events e ON e.submission_id = s.id
+        WHERE s.status = 'PENDING' AND e.created_at <> s.created_at`,
+    );
+    expect(drift[0].n).toBe(0);
 
     // The second waiting proof reuses the first one's TrxID, so the reviewer sees the flag (D25).
     const flags = await q(
