@@ -23,7 +23,6 @@ export async function pickDate(
   user: UserEvent,
   triggerName: string | RegExp,
   iso: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _config: RegionConfig = REGION_BD_BN,
 ): Promise<void> {
   await user.click(screen.getByRole('button', { name: dateTriggerName(triggerName) }));
