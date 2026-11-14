@@ -129,7 +129,7 @@
       "news": "সংবাদ",
       "notices": "নোটিশ",
       "blog": "ব্লগ",
-      "teachers": "শিক্ষক",
+      "teachers": "$t(common:entities.teacher_one)",
       "results": "ফলাফল",
       "contact": "যোগাযোগ"
     },
@@ -138,7 +138,7 @@
       "about": "আমাদের কথা",
       "academics": "পড়াশোনা",
       "admissions": "ভর্তি",
-      "teachers": "শিক্ষক",
+      "teachers": "$t(common:entities.teacher_one)",
       "notices": "নোটিশ",
       "events": "অনুষ্ঠান",
       "blog": "সংবাদ",

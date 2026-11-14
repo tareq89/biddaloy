@@ -5,7 +5,7 @@
 // for future en coverage.
 //
 // Deliberately not react-i18next: specs need plain string lookup +
-// `{{var}}` interpolation, nothing more.
+// `{{var}}` interpolation + `$t(ns:key)` nesting (stock words), nothing more.
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
 import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
@@ -25,6 +25,7 @@ import bnAttention from '../ui/src/i18n/locales/bn/attention.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
 import bnBulkImport from '../ui/src/i18n/locales/bn/bulkImport.json';
+import bnBilling from '../ui/src/i18n/locales/bn/billing.json';
 import bnCalendar from '../ui/src/i18n/locales/bn/calendar.json';
 import bnCertificates from '../ui/src/i18n/locales/bn/certificates.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
@@ -98,6 +99,7 @@ import enAttention from '../ui/src/i18n/locales/en/attention.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
 import enBulkImport from '../ui/src/i18n/locales/en/bulkImport.json';
+import enBilling from '../ui/src/i18n/locales/en/billing.json';
 import enCalendar from '../ui/src/i18n/locales/en/calendar.json';
 import enCertificates from '../ui/src/i18n/locales/en/certificates.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
@@ -195,6 +197,7 @@ const catalogs = {
     attention: bnAttention,
     auth: bnAuth,
     backup: bnBackup,
+    billing: bnBilling,
     bulkImport: bnBulkImport,
     calendar: bnCalendar,
     classes: bnClasses,
@@ -279,6 +282,7 @@ const catalogs = {
     attention: enAttention,
     auth: enAuth,
     backup: enBackup,
+    billing: enBilling,
     bulkImport: enBulkImport,
     calendar: enCalendar,
     classes: enClasses,
@@ -348,30 +352,65 @@ export type Locale = keyof typeof catalogs;
 /** Suite-wide default; `makeT('en')` for a suite that switches locale. */
 export const DEFAULT_LOCALE: Locale = 'bn';
 
+const NESTING = /\$t\(\s*([\w-]+):([\w.-]+)\s*\)/g;
+const MAX_NESTING_DEPTH = 5;
+
+/**
+ * Resolves i18next nesting (`$t(common:entities.class_one)`) the way the app does for a school
+ * with no custom words: the nested key is read from the same locale's catalogs (the key already
+ * carries its `_one`/`_other` suffix, so there is no plural logic), recursively. A cycle, a
+ * missing key or a depth over 5 throws; a literal `$t(` never leaks out. `lookup` takes `ns.path`.
+ */
+export function resolveNesting(
+  text: string,
+  lookup: (key: string) => string | undefined,
+  depth = 0,
+  trail: string[] = [],
+): string {
+  if (!text.includes('$t(')) return text;
+  if (depth >= MAX_NESTING_DEPTH) {
+    throw new Error(`i18n nesting deeper than ${MAX_NESTING_DEPTH}: ${trail.join(' -> ')}`);
+  }
+  const out = text.replace(NESTING, (_m, ns: string, path: string) => {
+    const key = `${ns}.${path}`;
+    if (trail.includes(key)) {
+      throw new Error(`i18n nesting cycle: ${[...trail, key].join(' -> ')}`);
+    }
+    const nested = lookup(key);
+    if (nested === undefined) throw new Error(`i18n nested key not found: ${key}`);
+    return resolveNesting(nested, lookup, depth + 1, [...trail, key]);
+  });
+  if (out.includes('$t(')) throw new Error(`i18n nesting left unresolved: ${out}`);
+  return out;
+}
+
 export function makeT(locale: Locale = DEFAULT_LOCALE) {
-  return function translate(key: string, params?: Record<string, string | number>): string {
+  const raw = (key: string): string | undefined => {
     const [namespace, ...path] = key.split('.');
     let node: unknown = catalogs[locale][namespace as keyof (typeof catalogs)['bn']];
     for (const segment of path) {
       if (node === null || typeof node !== 'object') break;
       node = (node as Record<string, unknown>)[segment];
     }
-    if (typeof node !== 'string') {
+    return typeof node === 'string' ? node : undefined;
+  };
+  return function t(key: string, params?: Record<string, string | number>): string {
+    const node = raw(key);
+    if (node === undefined) {
       throw new Error(`i18n key not found for locale "${locale}": ${key}`);
     }
-    // Expand i18next nesting, `$t(ns:path.to.key)`, like the app's i18n layer does.
-    node = node.replace(/\$t\(([\w-]+):([\w.]+)\)/g, (_m, ns: string, p: string) =>
-      translate(`${ns}.${p}`, params),
-    );
-    if (!params) return node as string;
-    return (node as string).replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
-      if (!(name in params)) return match;
-      const v = params[name];
-      // Mirrors the app's numeral formatter: numbers follow the locale's digits, strings stay.
-      return locale === 'bn' && typeof v === 'number'
-        ? String(v).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)] ?? d)
-        : String(v);
-    });
+    const filled = !params
+      ? node
+      : node.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
+          if (!(name in params)) return match;
+          const v = params[name];
+          // Mirrors the app's numeral formatter: numbers follow the locale's digits, strings stay.
+          return locale === 'bn' && typeof v === 'number'
+            ? String(v).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)] ?? d)
+            : String(v);
+        });
+    // Nesting after interpolation, from the same catalogs: the stock word of a school with no custom words.
+    return resolveNesting(filled, raw, 0, [key]);
   };
 }
 

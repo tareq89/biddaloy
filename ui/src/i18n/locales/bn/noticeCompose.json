@@ -60,7 +60,7 @@
     "intro": "এই নোটিশ কারা পাবেন তা বাছুন।",
     "readOnly": "প্রকাশের পর কারা পাবে তা বদলানো যায় না।",
     "tabs": {
-      "guardians": "অভিভাবক",
+      "guardians": "$t(common:entities.guardian_one)",
       "staff": "সব $t(common:entities.teacher_one)/স্টাফ",
       "students": "ছাত্র",
       "named": "নাম ধরে",
@@ -70,7 +70,7 @@
       "orgGroup": "শিফট, ভার্সন বা গ্রুপ"
     },
     "filters": {
-      "class": "শ্রেণি",
+      "class": "$t(common:entities.class_one)",
       "section": "$t(common:entities.section_one)",
       "roles": "ভূমিকা",
       "kind": "কাকে খুঁজবেন",
