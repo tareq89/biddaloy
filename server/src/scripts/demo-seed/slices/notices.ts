@@ -378,6 +378,18 @@ export const slice: DemoSlice = {
       `UPDATE alerts a SET raised_at = n.published_at, last_evaluated_at = n.published_at
          FROM notices n WHERE a.subject_type = 'notice' AND a.subject_id = n.id`,
     );
+    // [#3459] The real SMS request stamped "now": date it from the notice, and close the task
+    // when the decision landed.
+    await ctx.ds.query(
+      `UPDATE notices SET sms_requested_at = published_at WHERE tenant_id = $1 AND sms_requested_at IS NOT NULL`,
+      [T],
+    );
+    await ctx.ds.query(
+      `UPDATE alerts a SET resolved_at = COALESCE(n.sms_decided_at, n.published_at + interval '3 hours')
+         FROM notices n
+        WHERE a.id = n.sms_task_alert_id AND n.tenant_id = $1 AND a.resolved_at IS NOT NULL`,
+      [T],
+    );
     await ctx.ds.query(
       `UPDATE alert_recipients ar SET resolved_at = n.published_at + interval '3 hours'
          FROM alerts a JOIN notices n ON n.id = a.subject_id
