@@ -54,6 +54,12 @@ done
 # Unknown Host on the catch-all server (plain HTTP gets 444).
 docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -H 'Host: other.test' \
   "http://$EDGE_IP/api/v1/public/verify/SECRET8?token=SECRET9" || true
+# Upstream down: nginx's error log would write the full request line (secret included).
+docker stop accesslog-upstream >/dev/null
+for path in '/api/v1/calendar/feed/SECRET13.ics' '/reset-password?token=SECRET14'; do
+  docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null \
+    --resolve "example.test:80:$EDGE_IP" "http://example.test$path" || true
+done
 sleep 1
 
 logs=$(docker logs accesslog-edge 2>&1)
