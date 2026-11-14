@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SmsSourceCard } from './SmsSourceCard';
+import { SmsSourceCard, SmsSwitchBackCard } from './SmsSourceCard';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -48,6 +48,39 @@ describe('SmsSourceCard', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: 'Switch to SchoolManagerP SMS' }),
     );
+    expect(await screen.findByRole('alert')).toBeTruthy();
+  });
+});
+
+describe('SmsSwitchBackCard [4145]', () => {
+  it('asks first, then switches back to the own SMS company only', async () => {
+    let body: unknown;
+    server.use(
+      http.put('/api/v1/communications/sms-source', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ source: 'OWN', ownProviderSaved: true });
+      }),
+    );
+    render(<SmsSwitchBackCard />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Switch to our own SMS company' }),
+    );
+    expect(body).toBeUndefined(); // nothing is sent before the confirm
+    await userEvent.click(await screen.findByRole('button', { name: 'Switch' }));
+    await waitFor(() => expect(body).toEqual({ source: 'OWN' }));
+  });
+
+  it('says so when switching back fails', async () => {
+    server.use(
+      http.put('/api/v1/communications/sms-source', () =>
+        HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 }),
+      ),
+    );
+    render(<SmsSwitchBackCard />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Switch to our own SMS company' }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Switch' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
   });
 });

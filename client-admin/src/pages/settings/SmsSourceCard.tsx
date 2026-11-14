@@ -3,9 +3,10 @@
  * The own-provider settings are never touched: the switch only changes who sends (D9).
  * Shown at the bottom of the page and, flat, inside the dialog a Buy press opens.
  */
-import { Button, Card } from '@biddaloy/ui/components';
+import { Button, Card, ConfirmDialog } from '@biddaloy/ui/components';
 import { usePutSmsSource } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import * as React from 'react';
 
 export interface SmsSourceCardProps {
   /** Runs after the server accepted the switch. */
@@ -43,6 +44,41 @@ export function SmsSourceCard({ onSwitched, onCancel }: SmsSourceCardProps) {
           {t(inFlow ? 'source.switchAndBuy' : 'source.switch')}
         </Button>
       </div>
+    </Card>
+  );
+}
+
+/**
+ * [#4145] The way back: "Use our own SMS company" for a school that sends through SchoolManagerP
+ * SMS. Behind a confirm; the saved company details and the bought SMS are untouched (D9).
+ */
+export function SmsSwitchBackCard() {
+  const { t } = useTranslation('smsBundles');
+  const put = usePutSmsSource();
+  const [confirming, setConfirming] = React.useState(false);
+  return (
+    <Card padded className="mt-6">
+      <h3 className="text-h3">{t('source.backTitle')}</h3>
+      <p className="mt-1 text-sm">{t('source.backBody')}</p>
+      {put.isError && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          {t('source.failed')}
+        </p>
+      )}
+      <div className="mt-3">
+        <Button variant="outline" onClick={() => setConfirming(true)}>
+          {t('source.backAction')}
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={t('source.backConfirmTitle')}
+        description={t('source.backConfirmBody')}
+        confirmLabel={t('source.backConfirm')}
+        busy={put.isPending}
+        onConfirm={() => put.mutate({ source: 'OWN' }, { onSettled: () => setConfirming(false) })}
+      />
     </Card>
   );
 }

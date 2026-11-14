@@ -18,7 +18,7 @@ import * as React from 'react';
 
 import { SmsBundlesPanel } from './SmsBundlesPanel';
 import { SmsCreditSectionView } from './SmsCreditSectionView';
-import { SmsSourceCard } from './SmsSourceCard';
+import { SmsSourceCard, SmsSwitchBackCard } from './SmsSourceCard';
 
 const PAGE_SIZE = 25; // D19
 const POLL_EVERY_MS = 3000;
@@ -107,8 +107,12 @@ export function SmsCreditSection({
         ) : undefined
       }
       afterHistory={
-        credits && sells && !isSuperAdmin && credits.source === 'OWN' ? (
-          <SmsSourceCard />
+        credits && sells && !isSuperAdmin ? (
+          credits.source === 'OWN' ? (
+            <SmsSourceCard />
+          ) : (
+            <SmsSwitchBackCard />
+          )
         ) : undefined
       }
     />

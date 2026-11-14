@@ -42,7 +42,13 @@
     "switch": "SchoolManagerP SMS-এ যান",
     "switchAndBuy": "বদলে এগিয়ে যান",
     "cancel": "এখন নয়",
-    "failed": "বদলানো যায়নি। আবার চেষ্টা করুন।"
+    "failed": "বদলানো যায়নি। আবার চেষ্টা করুন।",
+    "backTitle": "নিজের SMS কোম্পানি দিয়ে পাঠান",
+    "backBody": "এখন আপনার স্কুল SchoolManagerP SMS দিয়ে SMS পাঠায়। চাইলে নিজের SMS কোম্পানিতে ফিরে যেতে পারেন। আগে কেনা SMS শেষ তারিখ পর্যন্ত আপনার অ্যাকাউন্টে থাকবে।",
+    "backAction": "নিজের SMS কোম্পানিতে ফিরে যান",
+    "backConfirmTitle": "নিজের SMS কোম্পানিতে ফিরে যাবেন?",
+    "backConfirmBody": "নতুন SMS আপনার সংরক্ষিত তথ্য দিয়ে নিজের SMS কোম্পানির মাধ্যমে যাবে। যেকোনো সময় আবার SchoolManagerP SMS-এ যেতে পারবেন।",
+    "backConfirm": "ফিরে যান"
   },
   "history": {
     "kind": {
