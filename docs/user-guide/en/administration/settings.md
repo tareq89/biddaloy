@@ -342,6 +342,8 @@ The **Orders** list shows the last 20 orders: **Date**, **Seats**, **Months**, *
 
 > **Remember:** this part uses real money. If money was taken but the order does not show as paid, wait a little; do not pay twice.
 
+**Have a coupon?** In the buy window press **Have a coupon?**, type the code and press **Apply** to see the new total before you buy. See [Using a coupon](seat-coupon.md).
+
 <img src="img/settings-billing.png" alt="Seats & billing; 1 · three boxes 2 · Buy seats button 3 · total in the buy dialog 4 · Orders list; admin">
 
 ### Communication <a href="#task-communication" id="task-communication"></a>
@@ -393,10 +395,10 @@ A saved key or password is used as it is; you do not need to type it again to te
 | **That number or address isn't valid. Check it and try again.**                 | Fix the number or address.                                                                                     |
 | **We couldn't confirm it was sent. Check the Message log before trying again.** | The reply was lost. Open [**Message log**](../communications/message-log.md) first; the message may have gone. |
 
-**SMS credit** — this part is view-only; you cannot change anything here. There are two kinds:
+**SMS credit** — you type nothing here, but an Admin can buy more SMS: see [Buying an SMS package](sms-packages.md). There are two kinds:
 
 - **School's own SMS company — no credit needed**: the school pays its own company, so credit is not counted.
-- **Platform credit**: every SMS uses credit. Only the platform's super admin adds credit.
+- **Platform credit**: every SMS uses credit. Credit comes from the packages you buy, or from the platform's super admin.
 
 One credit = one part of an SMS. An English message is 160 characters in one part (153 per part if longer). A Bangla message is 70 characters in one part (67 per part if longer). So a Bangla message uses more credit.
 
@@ -707,6 +709,8 @@ See: [**Roles & access**](roles.md).
 - [**Roles & access**](roles.md) — who can open Settings.
 - [**Biddaloy support access**](support-access.md) — choose who from Biddaloy can sign in to your school.
 - [**Modules and words**](modules-and-words.md) — choose your institution kind, turn parts On or Off, change your words.
+- [**Buying an SMS package**](sms-packages.md) — buy SMS with bKash and see when they end.
+- [**Using a coupon**](seat-coupon.md) — take a discount off a seat order.
 - [**Taking attendance**](../attendance/attendance.md) — where the attendance policy applies.
 - [**Creating fee bills**](../finance/generate-fees.md) — where the fee rules apply.
 - [**Ready-made curriculum**](curriculum-preset.md) — put the subjects and classes of a new school in at once.
