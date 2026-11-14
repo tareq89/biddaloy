@@ -36,6 +36,7 @@ import { SmsSourceController } from './sms-source/sms-source.controller';
 import { SmsSourceService } from './sms-source/sms-source.service';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
+import { PaymentSubmissionNotificationsListener } from './payment-submission-notifications.listener';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { CommunicationsDashboardController } from './communications-dashboard.controller';
@@ -104,6 +105,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     ConnectionTestService,
     FeeNotificationsListener,
     InvoiceNotificationsListener,
+    PaymentSubmissionNotificationsListener,
     FeeNotifyProcessor,
     CommunicationsDashboardService,
     SmsSourceService,
