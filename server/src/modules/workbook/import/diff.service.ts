@@ -71,6 +71,7 @@ export class DiffService {
       const changedFields: Record<string, number> = {};
       const samples: TabDiff['samples'] = { creates: [], updates: [], deletes: [] };
       const matchedIds = new Set<string>();
+      const claimedBy = new Map<string, string>(); // matched entity id -> key of the row that took it
       let newSeats = 0; // students tab only: rows that end ACTIVE and were not an active seat
       const isActive = (x: unknown) =>
         (x as { enrollment_status?: string }).enrollment_status === EnrollmentStatus.ACTIVE;
@@ -89,7 +90,23 @@ export class DiffService {
         }
 
         const matchedId: unknown = (matched as { id?: unknown }).id;
-        if (typeof matchedId === 'string') matchedIds.add(matchedId);
+        if (typeof matchedId === 'string') {
+          // [#690] A second row claiming an entity another row already matched would be counted
+          // as a second update: refuse it, naming both rows.
+          const first = claimedBy.get(matchedId);
+          if (first !== undefined) {
+            diffErrors.push({
+              tab: tabSpec.name,
+              row: 0,
+              column: null,
+              severity: 'error',
+              message: `Rows "${first}" and "${tabSpec.keyOf(row as any)}" both match the same existing row. Give them distinct rows or remove one.`,
+            });
+            continue;
+          }
+          claimedBy.set(matchedId, tabSpec.keyOf(row as any));
+          matchedIds.add(matchedId);
+        }
 
         const changed = tabSpec.diffFields(row as any, matched);
         if (changed.length > 0) {

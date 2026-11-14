@@ -122,6 +122,26 @@ describe('DiffService', () => {
     expect(report.totals).toEqual({ creates: 1, updates: 1, unchanged: 1, deletes: 1 });
   });
 
+  it('[690] two rows matching one existing row is an error naming both, not two updates', async () => {
+    const tab = makeTab('a', { existing: [{ id: '1', key: 'k1', value: 'old' }] });
+    const validated = validatedFor({
+      a: {
+        present: true,
+        rows: [
+          { id: '1', key: 'other', value: 'a' }, // matches by id
+          { key: 'k1', value: 'b' }, // no id: matches the same entity by key
+        ],
+      },
+    });
+    const report = await service.diff(validated, 'tenant-1', manager, [tab]);
+    expect(report.tabs[0].updates).toBe(1);
+    expect(report.diffErrors).toHaveLength(1);
+    expect(report.diffErrors[0]).toMatchObject({ tab: 'a', severity: 'error' });
+    expect(report.diffErrors[0].message).toContain('other');
+    expect(report.diffErrors[0].message).toContain('k1');
+    expect(report.hardErrorCount).toBe(1);
+  });
+
   it('never produces deletes for a tab with deleteByAbsence: false', async () => {
     const tab = makeTab('a', {
       existing: [{ id: '1', key: 'k1', value: 'old' }],
