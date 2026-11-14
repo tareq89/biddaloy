@@ -388,6 +388,8 @@ export class StudentBulkUploadService {
       tenantId,
       userId ?? '',
       stagedPayload,
+      undefined,
+      'students',
     );
 
     return {
@@ -418,7 +420,12 @@ export class StudentBulkUploadService {
     tenantId: string,
     userId: string | undefined,
   ): Promise<BulkUploadResultDto> {
-    const staged = await this.staging.consume<StagedBulkUpload>(tenantId, userId ?? '', stagingId);
+    const staged = await this.staging.consume<StagedBulkUpload>(
+      tenantId,
+      userId ?? '',
+      stagingId,
+      'students',
+    );
     if (!staged) {
       throw new NotFoundException(
         'No staged upload found for this id. It may have expired or already been committed.',

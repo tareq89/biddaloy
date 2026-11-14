@@ -186,6 +186,8 @@ export class HomeworkBulkUploadService {
       tenantId,
       userId ?? '',
       stagedPayload,
+      undefined,
+      'homework',
     );
 
     return {
@@ -208,7 +210,12 @@ export class HomeworkBulkUploadService {
     tenantId: string,
     userId: string | undefined,
   ): Promise<HomeworkBulkUploadResultDto> {
-    const staged = await this.staging.consume<StagedBulkUpload>(tenantId, userId ?? '', stagingId);
+    const staged = await this.staging.consume<StagedBulkUpload>(
+      tenantId,
+      userId ?? '',
+      stagingId,
+      'homework',
+    );
     if (!staged) {
       throw new NotFoundException(
         'No staged upload found for this id. It may have expired or already been committed.',

@@ -1,3 +1,4 @@
+import { toPaisa } from '../../common/constants/money';
 import {
   Injectable,
   NotFoundException,
@@ -168,10 +169,8 @@ export class MarksService {
       // The column is numeric(6,2): round once here so the comparison, the
       // write and the audit row all see the value the database will hold.
       if (cell.value != null) cell.value = Number(cell.value).toFixed(2);
-      if (cell.value != null && Number(cell.value) > Number(component.full_marks)) {
-        throw new BadRequestException(
-          `value ${cell.value} exceeds full_marks (${component.full_marks}) for component "${component.name}".`,
-        );
+      if (cell.value != null && toPaisa(cell.value) > toPaisa(component.full_marks)) {
+        throw new BadRequestException('A mark cannot be above the full marks of its component.');
       }
     }
 

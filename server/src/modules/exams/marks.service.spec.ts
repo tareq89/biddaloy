@@ -305,7 +305,7 @@ describe('MarksService.upsertBatch', () => {
         UserRole.TEACHER,
         'user-1',
       ),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow('A mark cannot be above the full marks of its component.');
   });
 
   it('rejects an ABSENT cell carrying a value (D10)', async () => {

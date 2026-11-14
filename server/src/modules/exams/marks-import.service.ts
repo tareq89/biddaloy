@@ -329,7 +329,7 @@ export class MarksImportService {
       sectionId: grid.section_id,
       subjectId: grid.subject_id,
       cells,
-    });
+    }, undefined, 'marks-sheet');
     return { staging_id: stagingId, expires_at: expiresAt, summary, changes, errors };
   }
 
@@ -341,7 +341,12 @@ export class MarksImportService {
     userId: string,
     ctx: RequestContext,
   ): Promise<MarksSheetCommitResultDto> {
-    const staged = await this.staging.consume<StagedMarksSheet>(tenantId, userId, dto.staging_id);
+    const staged = await this.staging.consume<StagedMarksSheet>(
+      tenantId,
+      userId,
+      dto.staging_id,
+      'marks-sheet',
+    );
     if (
       !staged ||
       staged.examId !== examId ||
