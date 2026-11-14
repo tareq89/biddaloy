@@ -22,7 +22,10 @@ import { PlatformBillingController } from '../../src/modules/billing/platform-bi
 import { SmsBundleOrdersController } from '../../src/modules/sms-bundles/orders/sms-bundle-orders.controller';
 import { SmsBundlePayController } from '../../src/modules/sms-bundles/payment/sms-bundle-pay.controller';
 import { ProofReviewController } from '../../src/modules/payment-submissions/proof-review.controller';
-import { ProofSubmissionsController } from '../../src/modules/payment-submissions/proof-submissions.controller';
+import {
+  PortalPaymentController,
+  ProofSubmissionsController,
+} from '../../src/modules/payment-submissions/proof-submissions.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -62,6 +65,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   BillingController,
   PlatformBillingController,
   ProofSubmissionsController,
+  PortalPaymentController,
   ProofReviewController,
 ];
 
