@@ -460,6 +460,30 @@ describe('GuardianProvisioningService', () => {
       expect(result.next_after).toBeNull();
     });
 
+    it('[503] writes the batch row before the first enqueue and marks it failed when enqueue throws', async () => {
+      const guardians = [
+        makeGuardian({ id: 'g1' }),
+        makeGuardian({ id: 'g2', phone: '+8801711111112' }),
+      ];
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: guardians }));
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+      queue.add.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(
+        service.dispatch({ tenantId: TENANT, actorUserId: 'admin-1', selection: { all: true } }),
+      ).rejects.toThrow('redis down');
+
+      const firstAdd = queue.add.mock.invocationCallOrder[0];
+      expect(audit.record.mock.invocationCallOrder[0]).toBeLessThan(firstAdd);
+      expect(audit.record).toHaveBeenCalledTimes(2);
+      expect(audit.record).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          entity_type: 'InvitationBatch',
+          new_values: expect.objectContaining({ enqueue_failed: true, queued: 1 }),
+        }),
+      );
+    });
+
     it('[2870] `all` over the cap sends one slice and returns the cursor after it', async () => {
       // One more than the cap: dispatch must say more remain, never look complete.
       const guardians = Array.from({ length: MAX_BATCH_INVITE_SELECTION + 1 }, (_, i) =>

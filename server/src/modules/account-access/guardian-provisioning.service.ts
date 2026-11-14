@@ -263,23 +263,8 @@ export class GuardianProvisioningService {
     // could never count them as sent: only real invites are the batch's `queued` total.
     const invites = to_invite.filter((e) => !e.join_request).length;
 
-    for (const entry of to_invite) {
-      await this.queue.add(
-        'invite-guardian',
-        {
-          tenantId: input.tenantId,
-          guardianId: entry.guardian_id,
-          actorUserId: input.actorUserId,
-          batchId,
-          counted: !entry.join_request,
-        },
-        {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-        },
-      );
-    }
-
+    // The batch row goes first: a part-way enqueue failure must leave a record that
+    // batchStatus can find and that says how many jobs really went out.
     await this.audit.record({
       action: AuditAction.INVITATION_SENT,
       entity_type: 'InvitationBatch',
@@ -293,6 +278,37 @@ export class GuardianProvisioningService {
         skipped: skipped.length,
       },
     });
+
+    let enqueuedInvites = 0;
+    try {
+      for (const entry of to_invite) {
+        await this.queue.add(
+          'invite-guardian',
+          {
+            tenantId: input.tenantId,
+            guardianId: entry.guardian_id,
+            actorUserId: input.actorUserId,
+            batchId,
+            counted: !entry.join_request,
+          },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+          },
+        );
+        if (!entry.join_request) enqueuedInvites += 1;
+      }
+    } catch (err) {
+      await this.audit.record({
+        action: AuditAction.UPDATE,
+        entity_type: 'InvitationBatch',
+        entity_id: batchId,
+        tenant_id: input.tenantId,
+        performed_by_user_id: input.actorUserId,
+        new_values: { batch_id: batchId, enqueue_failed: true, queued: enqueuedInvites },
+      });
+      throw err;
+    }
 
     return { batch_id: batchId, queued: invites, next_after, skipped };
   }
