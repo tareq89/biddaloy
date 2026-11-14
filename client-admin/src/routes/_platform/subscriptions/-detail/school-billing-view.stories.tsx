@@ -1,8 +1,8 @@
 import { PlatformPaymentMethod, SeatOrderStatus } from '@biddaloy/shared';
-import type { PlatformSchoolBillingDetail, SeatOrderDto } from '@biddaloy/ui/hooks';
+import type { PlatformBundleOrder, SeatOrderDto } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { SchoolBillingView } from './school-billing-view';
+import { SchoolBillingView, type SchoolBillingDetail } from './school-billing-view';
 
 /** Epic 49 W4: one school's seats and orders. States: loading, error, empty, populated, idle. */
 const meta: Meta<typeof SchoolBillingView> = {
@@ -13,6 +13,9 @@ const meta: Meta<typeof SchoolBillingView> = {
     onGrant: () => {},
     onRecordPayment: () => {},
     onRevive: () => {},
+    onRefundSeat: () => {},
+    onRefundPackage: () => {},
+    onChangePlan: () => {},
   },
 };
 export default meta;
@@ -36,7 +39,22 @@ const order = (over: Partial<SeatOrderDto> = {}): SeatOrderDto => ({
   ...over,
 });
 
-const detail: PlatformSchoolBillingDetail = {
+const pkg = (over: Partial<PlatformBundleOrder> = {}): PlatformBundleOrder => ({
+  id: '00000000-0000-4000-8000-0000000000b1',
+  status: 'ACTIVE',
+  bundle_name: 'Starter',
+  sms_count: 5000,
+  amount_paisa: 150_000,
+  receipt_number: 'SMR-2026-000009',
+  paid_at: '2026-11-12T04:00:00.000Z',
+  refunded_at: null,
+  units_bought: 5000,
+  units_used: 0,
+  refundable: true,
+  ...over,
+});
+
+const detail: SchoolBillingDetail = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Ananta School',
   status: 'ACTIVE',
@@ -46,6 +64,7 @@ const detail: PlatformSchoolBillingDetail = {
   seats_used: 280,
   paid_until: '2027-01-19',
   pending_orders: 1,
+  plan: { id: 'plan-1', name: 'Standard', unit_price_paisa: 1000 },
   orders: [
     order(),
     order({
@@ -56,7 +75,50 @@ const detail: PlatformSchoolBillingDetail = {
   ],
 };
 
+const refundableDetail: SchoolBillingDetail = {
+  ...detail,
+  orders: [
+    ...detail.orders,
+    order({
+      id: '00000000-0000-4000-8000-0000000000a3',
+      status: SeatOrderStatus.REFUNDED,
+      method: PlatformPaymentMethod.OFFLINE_BANK,
+    }),
+    order({
+      id: '00000000-0000-4000-8000-0000000000a4',
+      status: SeatOrderStatus.PAID,
+      amount_paisa: 0,
+      method: PlatformPaymentMethod.OFFLINE_BANK,
+    }),
+  ],
+  bundle_orders: [
+    pkg(),
+    pkg({
+      id: '00000000-0000-4000-8000-0000000000b2',
+      status: 'USED_UP',
+      refundable: false,
+      units_used: 120,
+    }),
+    pkg({
+      id: '00000000-0000-4000-8000-0000000000b3',
+      status: 'REFUNDED',
+      refundable: false,
+      refunded_at: '2026-11-13T04:00:00.000Z',
+    }),
+  ],
+};
+
 export const Populated: Story = { args: { detail } };
+/** #3888 seat and package orders: Refund on paid rows, a refunded row, a free one, a used package. */
+export const Refundable: Story = {
+  args: { detail: refundableDetail },
+  parameters: { viewport: { defaultViewport: 'desktop1440' } },
+};
+export const RefundablePhone: Story = {
+  args: { detail: refundableDetail },
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+export const NoPackages: Story = { args: { detail: { ...detail, bundle_orders: [] } } };
 export const Empty: Story = {
   args: {
     detail: { ...detail, seats_entitled: 0, paid_until: null, pending_orders: 0, orders: [] },

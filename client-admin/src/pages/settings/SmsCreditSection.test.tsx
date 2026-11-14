@@ -57,6 +57,19 @@ describe('SmsCreditSection', () => {
     expect(screen.queryByText('Available')).toBeNull();
   });
 
+  it('offers the packages and the switch to a school on its own SMS company (metering OFF, source OWN)', async () => {
+    server.use(creditsWith({ metering: 'OFF', source: 'OWN' }));
+
+    renderWithProviders(<SmsCreditSection schoolId={SCHOOL_ID} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    expect(await screen.findByText('SMS packages')).toBeTruthy();
+    expect(screen.getByText('Send with SchoolManagerP SMS')).toBeTruthy();
+  });
+
   it('shows the platform mode label with the balance', async () => {
     server.use(
       http.get('/api/v1/communications/sms-credits', () =>

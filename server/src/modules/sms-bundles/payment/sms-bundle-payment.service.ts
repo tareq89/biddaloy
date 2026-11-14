@@ -9,6 +9,8 @@ import { VatService } from '../../billing/vat.service';
 import { nextReceiptNumber } from '../../billing/receipt-number.util';
 import { SmsAllocationService } from '../stock/sms-allocation.service';
 import { canMove } from '../orders/sms-bundle-orders.service';
+import { emitRecheck } from '../../attention/engine/attention-events';
+import { attentionEvents } from '../../attention/attention.constants';
 
 export interface BundlePaymentInput {
   method: PlatformPaymentMethod;
@@ -68,6 +70,7 @@ export class SmsBundlePaymentService {
     payment: BundlePaymentInput,
     manager?: EntityManager,
   ): Promise<{ applied: boolean }> {
+    let schoolId: string | null = null;
     const run = async (m: EntityManager) => {
       const [order]: {
         school_id: string;
@@ -82,6 +85,7 @@ export class SmsBundlePaymentService {
       );
       if (!order) throw new NotFoundException('Order not found');
       if (!canMove(order.status, S.PAID)) return { applied: false };
+      schoolId = order.school_id;
       await m.query(
         `INSERT INTO platform_payments (bundle_order_id, method, gateway_ref, amount_paisa, raw, recorded_by_user_id)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -128,7 +132,14 @@ export class SmsBundlePaymentService {
     if (manager) return run(manager); // the caller owns the commit, so it sends the email
     const res = await this.ds.transaction(run);
     // After commit; emailReceipt never throws, so the payment is never failed by the email.
-    if (res.applied) await this.receipts.emailReceipt(orderId);
+    if (res.applied) {
+      await this.receipts.emailReceipt(orderId);
+      // New units lift (or end) the red SMS notices now, not at the next daily tick (D19, D20).
+      if (schoolId) {
+        emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'sms.low' });
+        emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'sms.expiring' });
+      }
+    }
     return res;
   }
 }
