@@ -1,0 +1,58 @@
+import { InjectDataSource } from '@nestjs/typeorm';
+import type { DataSource } from 'typeorm';
+import { alertRuleMeta } from '@biddaloy/shared';
+import { ProviderBalanceReader } from '../../../sms-bundles/stock/provider-balance.reader';
+import { SmsAllocationService } from '../../../sms-bundles/stock/sms-allocation.service';
+import { AttentionRule } from '../attention-rule.decorator';
+import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
+import { PlatformTenantResolver, platformRecipients } from './platform-tenant';
+
+/**
+ * [100 D8] Owner notice: the provider's SMS stock is close to what schools have bought and not
+ * used, or the last stock figure is old. Amber only; "oversold" is the red one.
+ */
+@AttentionRule()
+export class PlatformSmsStockLowRule implements AttentionRuleShape {
+  readonly meta = alertRuleMeta('platform.sms.stock_low');
+  readonly messages = {
+    en: {
+      title: 'SMS stock is running low',
+      why: 'The provider has {stock} SMS and schools hold {promised} unused. Top up before they run out.',
+      steps: ['Open Money › SMS.', 'Buy more SMS from the provider and enter the new balance.'],
+      action: 'Open SMS stock',
+    },
+    bn: {
+      title: 'এসএমএস মজুত কমে আসছে',
+      why: 'প্রোভাইডারের কাছে {stock}টি এসএমএস আছে, আর স্কুলগুলোর কাছে {promised}টি অব্যবহৃত। শেষ হওয়ার আগে কিনে নিন।',
+      steps: ['টাকা › এসএমএস খুলুন।', 'প্রোভাইডার থেকে আরও এসএমএস কিনে নতুন ব্যালেন্স লিখুন।'],
+      action: 'এসএমএস মজুত খুলুন',
+    },
+  };
+
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly platform: PlatformTenantResolver,
+    private readonly reader: ProviderBalanceReader,
+    private readonly allocation: SmsAllocationService,
+  ) {}
+
+  async evaluate(ctx: RuleContext): Promise<RuleFinding[]> {
+    const pid = await this.platform.resolve();
+    if (!pid || ctx.tenantId !== pid) return [];
+    const balance = await this.reader.read(ctx.now);
+    const promised = await this.allocation.promisedUnused();
+    const low = balance.sms !== null && balance.sms * 10 < promised * 11; // below promised + 10%
+    // A figure last entered more than a week ago cannot be trusted, so it also raises the notice.
+    if (!low && !balance.stale) return [];
+    const recipients = await platformRecipients(this.dataSource);
+    if (!recipients.length) return [];
+    return [
+      {
+        dedupeKey: 'platform:sms-stock',
+        params: { stock: balance.sms ?? 0, promised },
+        actionUrl: '/platform/money/sms',
+        recipients,
+      },
+    ];
+  }
+}
