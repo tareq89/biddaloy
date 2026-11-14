@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InvoiceShareService } from './invoice-share.service';
+import { InvoicesService } from './invoices.service';
 import { StorageService } from '../storage/storage.service';
 import { School } from '../schools/entities/school.entity';
 import { resolveIssuer } from '../schools/profile/issuer-snapshot';
@@ -26,6 +27,7 @@ import { PUBLIC_INVOICE_RATE_LIMIT } from '../../rate-limit';
 export class PublicInvoiceController {
   constructor(
     private readonly shareService: InvoiceShareService,
+    private readonly invoicesService: InvoicesService,
     private readonly storage: StorageService,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
@@ -66,6 +68,11 @@ export class PublicInvoiceController {
     const issuer = resolveIssuer(invoice, school);
     const logoUrl = await readLogoDataUrl(this.storage, issuer.logo_key);
 
-    return buildPublicReceiptDto(invoice, issuer, logoUrl);
+    return buildPublicReceiptDto(
+      invoice,
+      issuer,
+      logoUrl,
+      await this.invoicesService.getPaymentOrigin(invoice),
+    );
   }
 }
