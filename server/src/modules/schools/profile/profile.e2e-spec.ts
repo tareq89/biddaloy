@@ -29,12 +29,14 @@ describe('School profile (e2e)', () => {
 
   const TENANT_ID = SEED_TENANT_ID;
   const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000000c7708';
+  // Real school the caller has NO membership in.
+  const STRANGER_TENANT_ID = '00000000-0000-4000-8000-0000000c7709';
   const READ_ROLES = [UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT];
   const PROFILE = '/api/v1/schools/me/profile';
   const clearStored = () =>
     dataSource.query(
       `UPDATE schools SET settings = settings - 'modules' - 'labels' WHERE id = ANY($1)`,
-      [[TENANT_ID, OTHER_TENANT_ID]],
+      [[TENANT_ID, OTHER_TENANT_ID, STRANGER_TENANT_ID]],
     );
   const read = (tenant = TENANT_ID, role?: UserRole) => {
     const req = supertest(app.getHttpServer())
@@ -65,6 +67,12 @@ describe('School profile (e2e)', () => {
         [SEED_ADMIN_USER_ID, TENANT_ID, role],
       );
     }
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Stranger Profile School', 'stranger-profile-school', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [STRANGER_TENANT_ID],
+    );
     await dataSource.query(
       `INSERT INTO schools (id, name, slug, created_at, updated_at)
        VALUES ($1, 'Other Profile School', 'other-profile-school', NOW(), NOW())
@@ -179,6 +187,10 @@ describe('School profile (e2e)', () => {
     }
     const other = await read(OTHER_TENANT_ID).expect(200);
     expect(other.body.modules.school).toEqual({ exams: { on: false } });
+  });
+
+  it('refuses a caller who is not a member of the requested school', async () => {
+    await read(STRANGER_TENANT_ID).expect(403);
   });
 
   it('refuses a missing or invalid X-Tenant-ID', async () => {

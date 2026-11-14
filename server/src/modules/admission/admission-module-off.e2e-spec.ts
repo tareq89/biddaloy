@@ -14,12 +14,6 @@ import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/con
  * [77.2.05] One case per module key this ticket tags (programs, admission, applications), plus the
  * public admission slug route. The full table-driven spec is the wave-2 close (77.2.10).
  */
-const CASES = [
-  { key: ModuleKey.programs, url: '/api/v1/programs' },
-  { key: ModuleKey.admission, url: '/api/v1/admission-intakes' },
-  { key: ModuleKey.applications, url: '/api/v1/applications' },
-] as const;
-
 describe('[77.2.05] programs, admission and applications controllers honour the module switch', () => {
   let app: INestApplication;
   let token: string;
@@ -50,16 +44,32 @@ describe('[77.2.05] programs, admission and applications controllers honour the 
     await app.close();
   });
 
-  for (const { key, url } of CASES) {
-    it(`${key}: off -> 403 fixed text for ADMIN, on -> 200`, async () => {
-      await setModules(app, SEED_TENANT_ID, { [key]: { on: false } });
-      const off = await get(url).expect(403);
-      expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+  it('programs: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.programs]: { on: false } });
+    const off = await get('/api/v1/programs').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
 
-      await setModules(app, SEED_TENANT_ID, { [key]: null });
-      await get(url).expect(200);
-    });
-  }
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.programs]: null });
+    await get('/api/v1/programs').expect(200);
+  });
+
+  it('admission: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.admission]: { on: false } });
+    const off = await get('/api/v1/admission-intakes').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.admission]: null });
+    await get('/api/v1/admission-intakes').expect(200);
+  });
+
+  it('applications: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.applications]: { on: false } });
+    const off = await get('/api/v1/applications').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.applications]: null });
+    await get('/api/v1/applications').expect(200);
+  });
 
   it('public admission: off -> the existing 404, on -> 200', async () => {
     const url = '/api/v1/public/admission/test-school';
