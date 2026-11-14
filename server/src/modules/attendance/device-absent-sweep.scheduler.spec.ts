@@ -85,7 +85,7 @@ describe('DeviceAbsentSweepScheduler', () => {
   });
 
   it('sweeps nothing when today is inside a closed year (D12)', async () => {
-    closedYears = [{ id: 'closed-year' }];
+    closedYears = [{ closed_at: new Date() }];
     build(settings(DailyAttendanceSource.DEVICE));
     expect(await scheduler.sweepTenant('t-1')).toBe(0);
     expect(sweepSection).not.toHaveBeenCalled();

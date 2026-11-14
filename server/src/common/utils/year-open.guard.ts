@@ -24,20 +24,23 @@ export async function assertYearOpen(
 /**
  * For writes keyed by a date, not a year (attendance). Refuses when ANY closed year of the
  * tenant covers the date, even if an open year overlaps it (D12). `isoDate` is `YYYY-MM-DD`.
+ * Call it inside the write's transaction, first, like `assertYearOpen`.
  */
 export async function assertDateNotInClosedYear(
   manager: EntityManager,
   tenantId: string,
   isoDate: string,
 ): Promise<void> {
-  const rows: Array<{ id: string }> = await manager.query(
-    `SELECT id FROM academic_years
-      WHERE tenant_id = $1 AND deleted_at IS NULL AND closed_at IS NOT NULL
+  // Every year covering the date is read, open or closed, `FOR SHARE`: a close that commits after
+  // this check needs the row `FOR UPDATE`, so it waits for the caller's transaction (#4067).
+  const rows: Array<{ closed_at: Date | null }> = await manager.query(
+    `SELECT closed_at FROM academic_years
+      WHERE tenant_id = $1 AND deleted_at IS NULL
         AND start_date <= $2::date AND end_date >= $2::date
-      LIMIT 1`,
+      FOR SHARE`,
     [tenantId, isoDate],
   );
-  if (rows.length > 0) throw yearClosed();
+  if (rows.some((r) => r.closed_at)) throw yearClosed();
 }
 
 /**
