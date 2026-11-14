@@ -25,6 +25,12 @@ import bnAttention from '../ui/src/i18n/locales/bn/attention.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
 import bnBilling from '../ui/src/i18n/locales/bn/billing.json';
+import bnMoney from '../ui/src/i18n/locales/bn/money.json';
+import bnMoneyBilling from '../ui/src/i18n/locales/bn/moneyBilling.json';
+import bnMoneyCoupons from '../ui/src/i18n/locales/bn/moneyCoupons.json';
+import bnMoneyPackages from '../ui/src/i18n/locales/bn/moneyPackages.json';
+import bnMoneyRevenue from '../ui/src/i18n/locales/bn/moneyRevenue.json';
+import bnMoneyStock from '../ui/src/i18n/locales/bn/moneyStock.json';
 import bnSmsBundles from '../ui/src/i18n/locales/bn/smsBundles.json';
 import bnBulkImport from '../ui/src/i18n/locales/bn/bulkImport.json';
 import bnCalendar from '../ui/src/i18n/locales/bn/calendar.json';
@@ -100,6 +106,12 @@ import enAttention from '../ui/src/i18n/locales/en/attention.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
 import enBilling from '../ui/src/i18n/locales/en/billing.json';
+import enMoney from '../ui/src/i18n/locales/en/money.json';
+import enMoneyBilling from '../ui/src/i18n/locales/en/moneyBilling.json';
+import enMoneyCoupons from '../ui/src/i18n/locales/en/moneyCoupons.json';
+import enMoneyPackages from '../ui/src/i18n/locales/en/moneyPackages.json';
+import enMoneyRevenue from '../ui/src/i18n/locales/en/moneyRevenue.json';
+import enMoneyStock from '../ui/src/i18n/locales/en/moneyStock.json';
 import enSmsBundles from '../ui/src/i18n/locales/en/smsBundles.json';
 import enBulkImport from '../ui/src/i18n/locales/en/bulkImport.json';
 import enCalendar from '../ui/src/i18n/locales/en/calendar.json';
@@ -200,6 +212,12 @@ const catalogs = {
     auth: bnAuth,
     backup: bnBackup,
     billing: bnBilling,
+    money: bnMoney,
+    moneyBilling: bnMoneyBilling,
+    moneyCoupons: bnMoneyCoupons,
+    moneyPackages: bnMoneyPackages,
+    moneyRevenue: bnMoneyRevenue,
+    moneyStock: bnMoneyStock,
     smsBundles: bnSmsBundles,
     bulkImport: bnBulkImport,
     calendar: bnCalendar,
@@ -286,6 +304,12 @@ const catalogs = {
     auth: enAuth,
     backup: enBackup,
     billing: enBilling,
+    money: enMoney,
+    moneyBilling: enMoneyBilling,
+    moneyCoupons: enMoneyCoupons,
+    moneyPackages: enMoneyPackages,
+    moneyRevenue: enMoneyRevenue,
+    moneyStock: enMoneyStock,
     smsBundles: enSmsBundles,
     bulkImport: enBulkImport,
     calendar: enCalendar,

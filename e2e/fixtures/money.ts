@@ -46,9 +46,10 @@ export async function deactivateSmsPackages(...ids: string[]): Promise<void> {
   await sql(`UPDATE sms_bundle_catalog SET active = false WHERE id = ANY($1::uuid[])`, [ids]);
 }
 
-/** The owner records the money for a package order (the same `markPaid` the bKash callback runs). */
-export async function ownerPaysPackageOrder(
+/** The owner records the money for an order (the same `markPaid` the bKash callback runs). */
+export async function ownerRecordsPayment(
   playwright: PlaywrightWorkerArgs['playwright'],
+  kind: 'orders' | 'sms-bundle-orders',
   orderId: string,
 ): Promise<void> {
   // Its own context: the cockpit login must not replace a school admin's cookie jar.
@@ -57,7 +58,7 @@ export async function ownerPaysPackageOrder(
   });
   try {
     const session = await platformApiSession(owner);
-    await post(owner, session, `/platform/billing/sms-bundle-orders/${orderId}/offline-payment`, {
+    await post(owner, session, `/platform/billing/${kind}/${orderId}/offline-payment`, {
       method: 'OFFLINE_CASH',
       reference: `E2E${crypto.randomUUID().slice(0, 8)}`,
       idempotency_key: `e2e-${crypto.randomUUID()}`,
@@ -66,3 +67,8 @@ export async function ownerPaysPackageOrder(
     await owner.dispose();
   }
 }
+
+export const ownerPaysPackageOrder = (
+  playwright: PlaywrightWorkerArgs['playwright'],
+  orderId: string,
+) => ownerRecordsPayment(playwright, 'sms-bundle-orders', orderId);
