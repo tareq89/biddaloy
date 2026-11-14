@@ -205,6 +205,23 @@ describe('ExportProcessor', () => {
     expect(Math.abs(expiresAt.getTime() - (Date.now() + expectedMs))).toBeLessThan(5000);
   });
 
+  it('[2129] a row pointing at an entity its tab does not export is left out with a warning, not a failed backup', async () => {
+    const origToRow = fakeTabB.toRow;
+    fakeTabB.load.mockResolvedValue([{ id: 'b1', ref: 'a1' }, { id: 'b2', ref: 'gone' }]);
+    fakeTabB.toRow = (e: any, ctx: any) => ({ id: e.id, ref: ctx.keyOf('fake_tab_a', e.ref) });
+    try {
+      await processor.process(fakeJob());
+    } finally {
+      fakeTabB.toRow = origToRow;
+    }
+    const [, patch] = jobsRepo.update.mock.calls.find(
+      (c: any[]) => c[1].status === WorkbookJobStatus.DONE,
+    );
+    expect(patch.row_counts).toEqual({ fake_tab_a: 2, fake_tab_b: 1 });
+    expect(patch.error).toContain('fake_tab_b: 1');
+    expect(storage.put).toHaveBeenCalledTimes(1);
+  });
+
   it('calls StorageService.put exactly once with a tenant-scoped xlsx key', async () => {
     await processor.process(fakeJob());
 
