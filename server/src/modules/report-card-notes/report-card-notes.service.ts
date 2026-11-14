@@ -289,7 +289,7 @@ export class ReportCardNotesService {
     if (!section) throw notFound();
   }
 
-  /** Cohort rows (ACTIVE or GRADUATED enrollment: the same cohort final results build, D25) of the section (or whole class) with their notes. */
+  /** Cohort rows (ACTIVE or GRADUATED enrollment, plus, for an exam, a leaver who has a result row there: the same cohort the results keep, D25) of the section (or whole class) with their notes. */
   private async rows(
     manager: EntityManager,
     tenantId: string,
@@ -308,12 +308,15 @@ export class ReportCardNotesService {
            FROM enrollments e
            JOIN students st ON st.id = e.student_id AND st.tenant_id = $1 AND st.deleted_at IS NULL
           WHERE e.tenant_id = $1 AND e.academic_year_id = $2 AND e.class_id = $3
-            AND e.enrollment_status IN ('ACTIVE', 'GRADUATED')
+            AND (e.enrollment_status IN ('ACTIVE', 'GRADUATED')
+              OR ($5::uuid IS NOT NULL AND EXISTS (
+                SELECT 1 FROM results r
+                 WHERE r.exam_id = $5::uuid AND r.tenant_id = $1 AND r.student_id = e.student_id AND r.deleted_at IS NULL)))
           ORDER BY st.id, (e.enrollment_status = 'ACTIVE') DESC
        ) cohort
         WHERE ($4::uuid IS NULL OR section_id = $4::uuid)
         ORDER BY roll_number, full_name, id`,
-      [tenantId, target.academic_year_id, target.class_id, sectionId],
+      [tenantId, target.academic_year_id, target.class_id, sectionId, target.exam_id],
     );
     const notes = new Map(
       (
