@@ -437,6 +437,43 @@ describe('FeeGenerationService (integration)', () => {
     expect(await studentFeeRepo.count({ where: { student_id: student.id } })).toBe(0);
   });
 
+  describe('skipMissingStudents (unattended runs) [#2368]', () => {
+    async function runWithOneDeleted(skipMissingStudents: boolean) {
+      const [kept, gone] = await studentRepo.save([makeStudent(), makeStudent()]);
+      const [structure] = await structureRepo.save([makeStructure()]);
+      await dataSource.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [gone.id]);
+      const result = await service
+        .generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [kept.id, gone.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+          { skipMissingStudents },
+        )
+        .catch((e) => e);
+      return { kept, gone, result };
+    }
+
+    it('bills the rest of the class when one student vanished', async () => {
+      const { kept, gone, result } = await runWithOneDeleted(true);
+      expect(result).not.toBeInstanceOf(Error);
+      expect(await studentFeeRepo.count({ where: { student_id: kept.id } })).toBe(1);
+      expect(await studentFeeRepo.count({ where: { student_id: gone.id } })).toBe(0);
+    });
+
+    it('still answers 404 for an explicit pick when the option is off', async () => {
+      const { kept, result } = await runWithOneDeleted(false);
+      expect(result).toBeInstanceOf(NotFoundException);
+      expect(await studentFeeRepo.count({ where: { student_id: kept.id } })).toBe(0);
+    });
+  });
+
   describe('period normalisation', () => {
     it('rejects a MONTH period_start that is not the 1st of a month', async () => {
       const student = await studentRepo.save(makeStudent());

@@ -470,6 +470,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         {
           source: FeeGenerationSource.SCHEDULE,
           recurringScheduleId: fresh.id,
+          // A student deleted while the class run is going is dropped, not a failed run (#2368).
+          skipMissingStudents: true,
           // [CodeRabbit review, PR #801] Reuse this transaction's own
           // manager rather than letting `generate()` open an independent
           // one — the bills it writes and the `last_run_period` update

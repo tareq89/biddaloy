@@ -287,6 +287,10 @@ export class FeeGenerationService {
       // counts as a duplicate, so the sweep never brings it back. A manual run (and its
       // preview) ignores deleted bills, so preview and generate agree.
       skipRemovedFineBills?: boolean;
+      // [#2368] Unattended runs (recurring schedule, fine sweep) resolve their own student ids,
+      // so a student deleted meanwhile is dropped instead of failing the whole class with a 404.
+      // Never on the HTTP DTO: an explicit admin pick keeps the 404.
+      skipMissingStudents?: boolean;
     },
   ): Promise<GenerateFeesResultDto> {
     const source = options?.source ?? FeeGenerationSource.MANUAL;
@@ -309,7 +313,10 @@ export class FeeGenerationService {
     const runBody = async (manager: EntityManager): Promise<void> => {
       // [69.3.03] A closed year takes no new bills (D4); payments are not guarded.
       await assertYearOpen(manager, tenantId, dto.academic_year_id);
-      const context = await this.loadContext(dto, tenantId, manager, { lockStudents: true });
+      const context = await this.loadContext(dto, tenantId, manager, {
+        lockStudents: true,
+        skipMissingStudents: options?.skipMissingStudents === true,
+      });
       inactiveSkipped = context.inactiveStudents.map(toInactiveDto);
       const targetStudents = dto.include_inactive
         ? [...context.activeStudents, ...context.inactiveStudents]
@@ -885,7 +892,7 @@ export class FeeGenerationService {
     dto: GenerateFeesPreviewDto,
     tenantId: string,
     manager: EntityManager,
-    opts: { lockStudents?: boolean } = {},
+    opts: { lockStudents?: boolean; skipMissingStudents?: boolean } = {},
   ): Promise<LoadedContext> {
     const academicYear = await manager.getRepository(AcademicYear).findOne({
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
@@ -930,7 +937,7 @@ export class FeeGenerationService {
       where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
       ...(opts.lockStudents ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
-    if (students.length !== new Set(studentIds).size) {
+    if (students.length !== new Set(studentIds).size && !opts.skipMissingStudents) {
       throw new NotFoundException('One or more student IDs not found');
     }
 

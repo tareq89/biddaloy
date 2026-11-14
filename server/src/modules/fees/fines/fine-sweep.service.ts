@@ -463,6 +463,8 @@ export class FineSweepService {
           source: FeeGenerationSource.FINE_RULE,
           billOverrides,
           skipRemovedFineBills,
+          // A student deleted while the sweep is going is dropped, not a failed run (#2368).
+          skipMissingStudents: true,
         },
       );
       result.fee_generation_ids.push(generated.fee_generation_id);
