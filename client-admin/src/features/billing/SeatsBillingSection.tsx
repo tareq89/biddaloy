@@ -34,6 +34,12 @@ export function SeatsBillingSection({
   const polling = !timedOut && (payment === undefined || payment === 'success');
   const query = useBillingSummary(polling ? returnOrderId : undefined);
   const [receiptError, setReceiptError] = React.useState(false);
+  // The receipt alert fades on its own instead of staying until the next click (#2768).
+  React.useEffect(() => {
+    if (!receiptError) return;
+    const id = setTimeout(() => setReceiptError(false), 8000);
+    return () => clearTimeout(id);
+  }, [receiptError]);
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(openBuy);
   // The palette's "Buy seats" lands here with `?buy=1` after this section may already be mounted.
