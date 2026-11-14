@@ -34,6 +34,7 @@ import { lockGrid } from './mark-grid.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { marksGridSubmittedForEdit } from '../../common/filters/known-errors';
 
 /** Postgres unique-violation code — same pattern as exams.service.ts's
  * own `isUniqueViolation`. */
