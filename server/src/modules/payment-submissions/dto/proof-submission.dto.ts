@@ -119,7 +119,8 @@ export class PaymentOptionsResponseDto {
 }
 
 export class WaitingSubmissionDto {
-  @ApiProperty() id: string;
+  /** Null when another linked guardian submitted it. */
+  @ApiProperty({ type: String, nullable: true }) id: string | null;
   @ApiProperty({ enum: PaymentSubmissionSource }) source: PaymentSubmissionSource;
 }
 

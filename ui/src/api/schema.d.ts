@@ -18719,7 +18719,7 @@ export interface components {
             proofMethods: components["schemas"]["PaymentOptionsMethodDto"][];
         };
         WaitingSubmissionDto: {
-            id: string;
+            id: string | null;
             /** @enum {string} */
             source: "ONLINE" | "PROOF";
         };

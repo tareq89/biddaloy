@@ -382,14 +382,18 @@ export class ProofSubmissionsService {
         [ctx.tenantId, ids],
       ),
       this.ds.query(
-        `SELECT b.student_fee_id, p.id, p.source FROM payment_submission_bills b
+        `SELECT b.student_fee_id, p.id, p.source, p.submitted_by_user_id FROM payment_submission_bills b
            JOIN payment_submissions p ON p.id = b.submission_id AND p.tenant_id = $1
           WHERE p.status = 'PENDING' AND b.tenant_id = $1 AND b.student_id = ANY($2::uuid[])`,
         [ctx.tenantId, ids],
       ),
     ]);
-    const hold = new Map<string, { id: string; source: PaymentSubmissionSource }>(
-      waiting.map((w: any) => [w.student_fee_id, { id: w.id, source: w.source }]),
+    // A co-guardian's waiting proof shows its source only: its id would open someone else's proof.
+    const hold = new Map<string, { id: string | null; source: PaymentSubmissionSource }>(
+      waiting.map((w: any) => [
+        w.student_fee_id,
+        { id: w.submitted_by_user_id === ctx.userId ? w.id : null, source: w.source },
+      ]),
     );
     return {
       students: students.map((s: any) => ({

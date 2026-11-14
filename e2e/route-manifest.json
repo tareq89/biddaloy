@@ -725,6 +725,19 @@
       "archetype": "form"
     },
     {
+      "path": "/payments/online",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
+      "path": "/payments/online/$id",
+      "params": {
+        "id": "seeded"
+      },
+      "role": "accountant",
+      "archetype": "detail"
+    },
+    {
       "path": "/communications/send",
       "role": "admin",
       "archetype": "form",
@@ -795,6 +808,11 @@
       "path": "/portal/fees",
       "role": "parent",
       "archetype": "list"
+    },
+    {
+      "path": "/portal/fees/pay",
+      "role": "parent",
+      "archetype": "form"
     },
     {
       "path": "/portal/statement",

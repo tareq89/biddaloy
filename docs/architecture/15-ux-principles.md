@@ -197,7 +197,7 @@ User menu → My account (profile, password, switch school/role, language, theme
 
 ```text
 Overview [have]
-Fees & invoices [have] · Pay online [3.0] · Statement [8.15] · Fines [38.0]
+Fees & invoices [have] · Pay (action on Fees & invoices) · Statement [8.15] · Fines [38.0]
 Attendance [have]
 Results [19.0] · Homework [have] · Syllabus [22.0] · Routine [21.0]
 Calendar [17.0]

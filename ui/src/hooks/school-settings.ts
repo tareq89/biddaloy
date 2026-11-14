@@ -14,6 +14,7 @@ import type {
   EvaluationsSettings,
   HomeworkSettings,
   InvitationStatus,
+  PaymentsSettings,
   StudyPlansSettings,
 } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -183,6 +184,8 @@ export interface MaskedTenantSettings {
   studyPlans?: StudyPlansSettings;
   /** [8.10.7] Not secret data. */
   dashboard?: DashboardSettings;
+  /** [Epic 3] Bkash credentials come back masked. */
+  payments?: PaymentsSettings;
 }
 
 export interface ConnectionTestResult {

@@ -116,6 +116,16 @@ describe('nav-tree', () => {
     expect(fIds.indexOf('finance.payments')).toBe(fIds.indexOf('finance.invoices') - 1);
   });
 
+  it('[#3978] Finance carries Online payments, gated like its routes, just before Payments', () => {
+    const finance = STAFF_NAV_GROUPS.find((group) => group.id === 'finance')!;
+    const fIds = finance.items.map((item) => item.id);
+    expect(fIds.indexOf('finance.onlinePayments')).toBe(fIds.indexOf('finance.payments') - 1);
+    expect(STAFF_NAV_ITEMS['finance.onlinePayments']).toMatchObject({
+      to: '/payments/online',
+      permission: 'PAYMENT_RECORD',
+    });
+  });
+
   it('[31.3.1] every staff role has 1-4 distinct bottom-bar cells it holds the permission for', () => {
     for (const role of STAFF_ROLES) {
       const cells = STAFF_BOTTOM_NAV[role];

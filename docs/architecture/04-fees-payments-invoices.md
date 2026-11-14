@@ -607,6 +607,25 @@ stateDiagram-v2
 - **Surprise:** the demo cannot reach DISCARDED by editing rows; it has to pay the bill first. Cost: the demo slice is order-sensitive. Fix: the `payment-submissions` slice files the proof, takes the counter payment through `CheckoutService`, then confirms through `ProofReviewService`. Login guardians are only about 5% of families, so a tiny CI run (`--scale 0.05`) may have too few open bills. The slice then files as many of its seven proofs as there are bills (at least one).
 - **Example:** guardian `guardian@bmsc.example` sends a bKash proof for ৳1,200 with TrxID `DM4K9XQ2LA`. Another family reuses `DM4K9XQ2LA`, so the accountant sees `DUPLICATE_PENDING` on the second one. The accountant confirms the first (one Payment, one invoice), rejects the second as `IMAGE_UNCLEAR`, and the guardian gets a push for each decision (push is off in the demo).
 
+### Learnings (Epic #291, Wave 4, 2026-11-15)
+
+Wave 4 put the screens in front of people: the guardian Pay page and "My payment proofs" tab, the accountant's Online payments list and review screen, and the settings card. The close wired them into the nav, breadcrumbs, palette and route guards.
+
+```mermaid
+flowchart LR
+  G["Guardian<br/>Overview due card"] -->|"Pay ৳1,200"| P["/portal/fees/pay"]
+  P -->|"proof + photo"| Q["Finance › Online payments<br/>(waiting)"]
+  Q -->|"Confirm & next"| I["Payment + invoice<br/>'How it was paid'"]
+  Q -->|"Reject + reason"| R["Guardian sees the reason<br/>in 'My payment proofs'"]
+```
+
+- **Surprise:** four lanes each added route files, and none could regenerate `routeTree.gen.ts` without colliding with the others. Cost: the route manifest, crumbs and permission guards were all red until the close. Fix: the close ticket regenerates the tree once (the Vite router plugin writes it on `vite build`) and never hand-edits it. Rule candidate: a lane ticket that adds a route must not commit `routeTree.gen.ts`; the wave close owns it.
+- **Surprise:** the Overview due card took a `payOptions` prop (#3974) but nothing on the Overview fetched the options, so the Pay button never showed. Cost: the guardian's main entry point was dead while every unit test passed, because the card was tested with the prop given. Fix: `usePaymentOptions()` in the Overview and a test that the Pay link renders. Rule candidate: when a component gets a new optional prop, add one test at the page that must feed it.
+- **Surprise:** the portal palette is pages-only, so the epic's "Pay fees" and "Submit payment proof" palette actions have nowhere to live. Cost: those two actions were not built. Fix: staff palette actions only (`payments.waiting`, `payments.onlineSettings`); the Pay page is reached from the due card and Fees & invoices. Rule candidate: check which palette a screen belongs to before listing palette actions in an epic.
+- **Surprise:** the sweep helper sends any `/payments/<id>` route to a real payment id, so `/payments/online/$id` would have been fed a payment id. Cost: a not-found card scanned instead of the review screen, silently. Fix: a branch for `/payments/online/$id` before it, using a fake UUID (same as `$requestId`). Rule candidate: when a new route shares a prefix with an old one, check the first-match resolvers.
+- **Surprise:** the portal cart returned a waiting proof's `id` for every linked guardian. Cost: a co-guardian received the id of a proof they did not send. Fix: `id` is returned only to the submitter; a co-guardian gets `source` and `id: null`. The Pay page only checks "is there a waiting proof", so nothing in the UI changed. Rule candidate: an id in a family-shared answer is a capability; return it only to its owner.
+- **Example:** guardian `Rahim` sends a bKash proof for ৳500 (TrxID `E2E41592653`, one photo). The accountant opens `/payments/online/<id>`, "Confirm & next" is focused, one press confirms it, and the invoice print shows "How it was paid: bKash, TrxID `E2E41592653`, verified by the accountant on the date". The second child's proof is rejected as `IMAGE_UNCLEAR`, and the guardian sees that reason in the proofs tab. Covered by `e2e/payment-proofs.spec.ts`.
+
 ## Student statement
 
 A statement answers one question for one student: **what was charged, what was paid, and what is still owed after each line?** It is a coded report (Epic 8.15 D10), not a defined one, because it is a ledger. The code is `server/src/modules/fees/statement/student-statement.service.ts`; the numbers are the same ones the student's fees tab and the dues list show.

@@ -91,6 +91,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/fees/dues': '/_staff/fees/dues',
   '/payments': '/_staff/payments/',
   '/payments/record': '/_staff/payments/record',
+  '/payments/online': '/_staff/payments/online/',
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
   '/results/final': '/_staff/results/final/',
