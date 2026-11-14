@@ -9,6 +9,8 @@ import { SmsCreditLedger } from '../../communications/credits/entities/sms-credi
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
 import { SmsBundleOrderSweepService } from '../orders/sms-bundle-order-sweep.service';
 import { SmsBundlePaymentService } from './sms-bundle-payment.service';
+import { ATTENTION_RECHECK } from '../../attention/engine/attention-events';
+import { attentionEvents } from '../../attention/attention.constants';
 
 describe('SmsBundlePaymentService (integration)', () => {
   let ds: DataSource;
@@ -95,6 +97,22 @@ describe('SmsBundlePaymentService (integration)', () => {
       [school],
     );
     expect(Number(available)).toBe(500);
+  });
+
+  it('asks the attention engine to recheck sms.low and sms.expiring once, when a payment applies', async () => {
+    const { id, school } = await order();
+    const seen: { tenantId: string; ruleKey: string }[] = [];
+    const listen = (p: { tenantId: string; ruleKey: string }) => {
+      if (p.tenantId === school) seen.push(p);
+    };
+    attentionEvents.on(ATTENTION_RECHECK, listen);
+    try {
+      await pay(id);
+      await pay(id); // a replay applies nothing, so it asks for nothing
+    } finally {
+      attentionEvents.off(ATTENTION_RECHECK, listen);
+    }
+    expect(seen.map((p) => p.ruleKey).sort()).toEqual(['sms.expiring', 'sms.low']);
   });
 
   it('freezes the VAT in the receipt snapshot: a later rate change leaves it alone', async () => {
