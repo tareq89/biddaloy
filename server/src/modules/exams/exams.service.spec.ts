@@ -42,9 +42,11 @@ function createRepoStub() {
   // `assertNoLiveDependents` reads metadata + counts with a query builder. `repo.liveChildren`
   // lists many-to-one child tables that point at the exam, each with its live row count.
   repo.liveChildren = [] as { table: string; n: number }[];
+  repo.seatPlanRows = [] as unknown[];
   repo.manager = {
     transaction: vi.fn(async (cb: any) =>
       cb({
+        query: vi.fn(async () => repo.seatPlanRows),
         getRepository: (e: any) => (e === Exam ? repo : repo.manager.getRepository(e)),
         connection: {
           entityMetadatas: repo.liveChildren.map((c: { table: string }) => ({
@@ -553,6 +555,16 @@ describe('ExamsService published guard (ACAD-05)', () => {
         message: 'This exam is still used by other records. Remove or reassign them first.',
         details: { code: 'EXAM_IN_USE', dependents: { final_result_weights: 1 } },
       },
+    });
+    expect(examRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('remove with a sitting in a published seat plan is a 409 and deletes nothing (#2385)', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => exam(ExamStatus.PUBLISHED));
+    examRepo.seatPlanRows.push({ '?column?': 1 });
+    await expect(service.remove('e1', TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'SITTING_IN_PUBLISHED_SEAT_PLAN' } },
     });
     expect(examRepo.softDelete).not.toHaveBeenCalled();
   });

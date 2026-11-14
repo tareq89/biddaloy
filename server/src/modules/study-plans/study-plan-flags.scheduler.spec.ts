@@ -403,6 +403,13 @@ describe('StudyPlanFlagsScheduler [66.2.05]', () => {
       await ok.run();
       expect(ok.enqueue).not.toHaveBeenCalled();
       expect(ok.settlePart).toHaveBeenCalledTimes(1);
+      // The released share is this run's batch, keyed per guardian, in segments, as a RELEASE (#2375).
+      const [tenant, batchKey, partKey, segments, mode] = ok.settlePart.mock.calls[0] as any[];
+      expect(tenant).toBe(TENANT);
+      expect(batchKey).toMatch(/^batch:/);
+      expect(partKey).toBe(`digest-skip:${batchKey.slice('batch:'.length)}:a`);
+      expect(segments).toBeGreaterThan(0);
+      expect(mode).toBe('RELEASE');
       const none = digest([kid('k1', [g('a')])], 0);
       await none.run();
       expect(none.enqueue).toHaveBeenCalledTimes(1);

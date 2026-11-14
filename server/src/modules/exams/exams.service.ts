@@ -418,6 +418,22 @@ export class ExamsService {
     await this.repo.manager.transaction(async (manager) => {
       const locked = await lockExam(manager, id, tenantId);
       await assertYearOpen(manager, tenantId, locked.academic_year_id);
+      // A sitting in a PUBLISHED seat plan is frozen (same rule as ExamSchedulesService); deleting the
+      // whole exam must not bypass it (#2385). Raw SQL keeps ExamsModule free of seat-plan imports.
+      const inPlan = await manager.query(
+        `SELECT 1 FROM seat_plan_schedules sps
+           JOIN exam_schedules es ON es.id = sps.exam_schedule_id AND es.tenant_id = $2
+           JOIN seat_plans sp ON sp.id = sps.seat_plan_id AND sp.tenant_id = $2 AND sp.deleted_at IS NULL
+          WHERE es.exam_id = $1 AND es.deleted_at IS NULL AND sps.tenant_id = $2
+            AND sps.deleted_at IS NULL AND sp.status = 'PUBLISHED' LIMIT 1`,
+        [id, tenantId],
+      );
+      if (inPlan.length > 0) {
+        throw new ConflictException({
+          message: 'A sitting of this exam is in a published seat plan. Unpublish the plan first.',
+          details: { code: 'SITTING_IN_PUBLISHED_SEAT_PLAN' },
+        });
+      }
       const liveResults = await manager
         .getRepository(Result)
         .count({ where: { exam_id: id, tenant_id: tenantId, deleted_at: IsNull() } });
