@@ -6,6 +6,7 @@ import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { IntakeService } from './intake.service';
 import { AdmissionStageService } from './admission-stage.service';
+import { AdmissionFormSchemaService } from './admission-form-schema.service';
 import { AdmissionStage } from './entities/admission-stage.entity';
 import { IntakeController } from './intake.controller';
 import { ApplicantReviewService } from './applicant-review.service';
@@ -76,6 +77,7 @@ import {
     AdmissionDashboardService,
     IntakeService,
     AdmissionStageService,
+    AdmissionFormSchemaService,
     ApplicantReviewService,
     AdmissionApplicantService,
     AdmissionNotificationService,

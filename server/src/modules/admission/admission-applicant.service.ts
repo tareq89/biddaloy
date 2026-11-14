@@ -22,6 +22,9 @@ import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
+import { GuardianService } from '../students/students.service';
+import { AdmissionFormSchemaService } from './admission-form-schema.service';
+import { ADMISSION_FIELD_CATALOGUE, validateExtraFields } from '@biddaloy/shared';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
@@ -90,6 +93,8 @@ export class AdmissionApplicantService {
     @InjectRepository(AdmissionApplicant)
     private readonly applicantRepo: Repository<AdmissionApplicant>,
     private readonly moduleState: ModuleStateReader,
+    private readonly formSchema: AdmissionFormSchemaService,
+    private readonly guardianService: GuardianService,
   ) {}
 
   /**
@@ -298,6 +303,28 @@ export class AdmissionApplicantService {
           throw duplicateRefusal();
         }
 
+        // D5: only the round's ticked fields are accepted. Errors are field-keyed codes and
+        // never carry a submitted value (Rule 23); one sentence for the whole operation.
+        const extra = dto.extra_fields ?? {};
+        const fieldErrors = validateExtraFields(this.formSchema.extraKeys(intake), extra);
+        if (Object.keys(fieldErrors).length > 0) {
+          throw new BadRequestException({
+            message: 'Some application fields are missing or not valid',
+            details: { code: 'INVALID_FORM_FIELDS', fields: fieldErrors },
+          });
+        }
+        // D10: quota is a tag. Only catalogue quota keys ticked for the round and set to true.
+        const quotaTags = ADMISSION_FIELD_CATALOGUE.filter(
+          (d) => d.group === 'quota' && extra[d.key] === true,
+        ).map((d) => d.key);
+        // D18: sibling tag when the guardian phone already belongs to a family with a student.
+        const guardian = await this.guardianService.findByPhoneAnyFormat(
+          dto.guardian_phone,
+          school.id,
+          manager,
+        );
+        const sibling = (guardian?.students ?? []).find((s) => !s.deleted_at);
+
         // Merge by document type rather than replacing the whole list — a
         // resubmission that only re-uploads a photo must not drop an
         // earlier birth certificate.
@@ -325,6 +352,9 @@ export class AdmissionApplicantService {
           existing.guardian_email = dto.guardian_email ?? null;
           existing.home_address = dto.home_address ?? null;
           existing.documents = merged;
+          existing.extra_fields = extra;
+          existing.quota_tags = quotaTags;
+          existing.sibling_student_id = sibling?.id ?? null;
           const saved = await applicantRepo.save(existing);
           return { reference_number: saved.reference_number, status: saved.status };
         }
@@ -363,6 +393,9 @@ export class AdmissionApplicantService {
             guardian_email: dto.guardian_email ?? null,
             home_address: dto.home_address ?? null,
             documents: merged,
+            extra_fields: extra,
+            quota_tags: quotaTags,
+            sibling_student_id: sibling?.id ?? null,
             status: AdmissionApplicantStatus.PENDING,
           }),
         );
