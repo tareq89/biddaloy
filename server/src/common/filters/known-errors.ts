@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   GoneException,
   HttpException,
   PayloadTooLargeException,
@@ -34,6 +35,14 @@ export function mapKnownError(exception: unknown): HttpException | null {
 // [76.2.06] One card per person per school (students + staff). Fixed sentence: never names who
 // holds it (Rule 23). Services pre-check where they can; the partial unique indexes are the backstop.
 const CARD_NO_INDEXES = new Set(['UQ_students_tenant_card_no', 'UQ_staff_profiles_tenant_card_no']);
+// [Epic 77, D10] One sentence for every off reason; never names the module, path or source (Rule 23).
+// Also pinned by scripts/smoke-post-deploy.mjs (moduleRefusal).
+export const MODULE_OFF_MESSAGE = 'This part is not turned on for your institution';
+
+export function moduleOff(): ForbiddenException {
+  return new ForbiddenException(MODULE_OFF_MESSAGE);
+}
+
 export const CARD_NO_TAKEN_MESSAGE = 'This card number is already in use';
 
 export function cardNoTaken(): ConflictException {

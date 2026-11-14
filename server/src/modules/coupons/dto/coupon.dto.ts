@@ -29,6 +29,7 @@ export class CreateCouponDto {
   @ApiProperty({ example: 'WELCOME10', description: '4-20 of A-Z, 0-9, "-"; upper-cased.' })
   @Transform(upper)
   @IsString()
+  @MaxLength(20)
   @Matches(COUPON_CODE_PATTERN)
   code: string;
 
@@ -98,11 +99,11 @@ export class CreateCouponDto {
   per_school_max?: number;
 
   @ApiProperty()
-  @IsDateString()
+  @IsDateString({ strict: true })
   starts_at: string;
 
   @ApiProperty()
-  @IsDateString()
+  @IsDateString({ strict: true })
   ends_at: string;
 }
 
@@ -123,7 +124,7 @@ export class UpdateCouponDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   ends_at?: string;
 
   @ApiPropertyOptional({ minimum: 1, description: 'Not below the uses so far.' })

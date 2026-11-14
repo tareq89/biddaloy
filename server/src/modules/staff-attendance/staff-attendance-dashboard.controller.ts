@@ -1,9 +1,10 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { DashboardWidgetKey, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { DashboardWidgetRoute } from '../dashboard/widget-permission.decorator';
@@ -13,6 +14,7 @@ import { StaffTodayWidgetDto } from './dto/staff-attendance-dashboard.dto';
 @ApiTags('dashboard')
 @ApiTenantAuth()
 @Controller()
+@RequiresModule(ModuleKey.staffAttendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StaffAttendanceDashboardController {
   constructor(private readonly service: StaffAttendanceDashboardService) {}

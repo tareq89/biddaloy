@@ -16,7 +16,7 @@ import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
 /** One alert per idle school: WARNING from day 20, CRITICAL from day 27 (same dedupe key). */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class AccountIdleRule implements AttentionRuleShape {
   meta = alertRuleMeta('account.idle');
   messages = {

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DataSource } from 'typeorm';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { ModuleKey, Permission, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
@@ -20,6 +20,9 @@ import { PermissionsGuard } from './permissions.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { RequirePermissions } from '../decorators/require-permissions.decorator';
 import { AuthenticatedOnly } from '../decorators/authenticated-only.decorator';
+import { RequiresModule } from '../decorators/require-module.decorator';
+import { MODULE_OFF_MESSAGE } from '../../../common/filters/known-errors';
+import { setModules } from '@test/helpers/modules.helper';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -58,7 +61,19 @@ class ProbeController {
   }
 }
 
-@Module({ controllers: [ProbeController] })
+// [Epic 77] A tagged controller: refuses with the fixed sentence while its module is off.
+@Controller('module-probe')
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.homework)
+class ModuleProbeController {
+  @Get()
+  @RequirePermissions(Permission.FEE_READ)
+  probe() {
+    return { ok: true };
+  }
+}
+
+@Module({ controllers: [ProbeController, ModuleProbeController] })
 class ProbeModule {}
 
 describe('PermissionsGuard wiring (regression)', () => {
@@ -139,5 +154,38 @@ describe('PermissionsGuard wiring (regression)', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.TEACHER)
       .expect(200);
+  });
+
+  describe('[Epic 77] @RequiresModule', () => {
+    const call = (role: UserRole) =>
+      supertest(app.getHttpServer())
+        .get('/api/v1/module-probe')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', role);
+
+    afterAll(async () => {
+      await setModules(app, TENANT_ID, { homework: null });
+    });
+
+    it('passes while the module is on', async () => {
+      await setModules(app, TENANT_ID, { homework: null });
+      await call(UserRole.ADMIN).expect(200);
+    });
+
+    it('refuses with the fixed sentence when the school turns it off, then passes again when on', async () => {
+      await setModules(app, TENANT_ID, { homework: { on: false } });
+      const res = await call(UserRole.ADMIN).expect(403);
+      expect(res.body.message).toBe(MODULE_OFF_MESSAGE);
+      await setModules(app, TENANT_ID, { homework: { on: true } });
+      await call(UserRole.ADMIN).expect(200);
+    });
+
+    it('refuses only the role it is off for', async () => {
+      await setModules(app, TENANT_ID, { homework: { offForRoles: [UserRole.TEACHER] } });
+      const res = await call(UserRole.TEACHER).expect(403);
+      expect(res.body.message).toBe(MODULE_OFF_MESSAGE);
+      await call(UserRole.ADMIN).expect(200);
+    });
   });
 });

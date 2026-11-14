@@ -1,6 +1,10 @@
+import type { PlatformModules, SchoolLabels, SchoolModules } from '@biddaloy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { apiClient } from '../api/client';
+import { applyTenantWordsWhenLoaded } from '../i18n/tenant-words';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
@@ -20,6 +24,9 @@ export interface SchoolProfile {
   email: string | null;
   registration_id: string | null;
   logo_url: string | null;
+  /** Epic 77: switchable-module state and tenant words, for every role. */
+  modules: { platform: PlatformModules; school: SchoolModules };
+  labels: SchoolLabels;
 }
 
 export type UpdateSchoolProfileInput = Partial<
@@ -37,13 +44,28 @@ export const schoolProfileKeys = createEntityKeys('school-profile');
  * it already knows the target school's name via its own `tenantId`/
  * `expectedSchoolName` props (a SUPER_ADMIN acting on a school that isn't
  * their active tenant has no "me" to resolve here anyway). */
-export function useSchoolProfile(options: { enabled?: boolean } = {}) {
-  return useQuery({
+export function useSchoolProfile(options: { enabled?: boolean; throwOnError?: boolean } = {}) {
+  const { i18n } = useTranslation();
+  const query = useQuery({
     queryKey: schoolProfileKeys.detail('me'),
     queryFn: async () => (await apiClient.get<SchoolProfile>('/schools/me/profile')).data,
     enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
+    // Absent: keep the app default. The shell passes false (see `useModuleResolver`).
+    ...(options.throwOnError === undefined ? {} : { throwOnError: options.throwOnError }),
   });
+  // Tenant words override the stock `entities.*` strings once loaded (D18).
+  const labels = query.data?.labels;
+  const loaded = query.data !== undefined;
+  React.useEffect(() => {
+    if (!loaded) return;
+    let current = true;
+    void applyTenantWordsWhenLoaded(i18n, labels, () => current);
+    return () => {
+      current = false;
+    };
+  }, [i18n, labels, loaded]);
+  return query;
 }
 
 /** Non-optimistic — same reasoning as `useUpdateSchoolSettings`: a

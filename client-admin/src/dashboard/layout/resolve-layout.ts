@@ -16,7 +16,8 @@ import type {
   WidgetSize,
 } from '@biddaloy/shared';
 
-import { WIDGET_COMPONENTS } from '../widgets/registry';
+import type { Gated } from '../../module-gate';
+import { WIDGET_COMPONENTS, WIDGET_MODULES } from '../widgets/registry';
 
 export interface LayoutItem {
   key: DashboardWidgetKey;
@@ -31,6 +32,8 @@ export interface ResolveLayoutInput {
   can: (permission: Permission) => boolean;
   /** Keys whose widget file exists; defaults to the file registry. */
   available?: ReadonlySet<DashboardWidgetKey>;
+  /** Is this module on? A widget of an off module is dropped (D37). Default: all on. */
+  moduleOn?: (module: Gated) => boolean;
 }
 
 const FILE_KEYS: ReadonlySet<DashboardWidgetKey> = new Set(WIDGET_COMPONENTS.keys());
@@ -42,10 +45,12 @@ export function resolveLayout({
   defaults,
   can,
   available = FILE_KEYS,
+  moduleOn = () => true,
 }: ResolveLayoutInput) {
   const allowed = (key: DashboardWidgetKey) => {
     const entry = catalogue[key] as WidgetCatalogueEntry | undefined;
     return Boolean(
+      moduleOn(WIDGET_MODULES[key]) &&
       entry?.roles.includes(role) &&
       entry.permissions.every(can) &&
       (!entry.needsEpic || available.has(key)),

@@ -1,13 +1,13 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import { endOfLocalDay } from '../rule-context.service';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { earliest, loadDaySlots, loadTeachers, type DaySlot } from './period-data';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.routines })
 export class RoutineSubstitutionTodayRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('routine.substitution_today');
   readonly messages = {

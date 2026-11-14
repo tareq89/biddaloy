@@ -37,9 +37,9 @@ export function slugFor(
   let base = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/^-|-$/g, '') // runs were collapsed to one '-' above
     .slice(0, 20 - (tag ? tag.length + 1 : 0))
-    .replace(/-+$/, '');
+    .replace(/-$/, '');
   if (base.length < 3 || RESERVED_SUBDOMAINS.includes(base)) base = 'school';
   return `${base}-${rand()}${tag ? `-${tag}` : ''}`;
 }

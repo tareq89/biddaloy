@@ -1,12 +1,12 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
 const STALE_MS = 7 * 86_400_000;
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.evaluations })
 export class AcrIncompleteRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('acr.incomplete');
   readonly messages = {

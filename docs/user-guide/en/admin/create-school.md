@@ -144,6 +144,7 @@ The wizard has three steps at the top: **Set up**, **Add people**, **Done**.
 2. If you chose **Step by step**, three pages come. At the bottom of each, press **Next**. To go back, press **Back**.
    - **Your school:** type the **School name (English)** and the **School name (Bangla)** (the Bangla name is optional). If you like, add a **School logo**. If you leave the English name empty, the message **Enter the school name.** appears.
    - **Classes and subjects:** pick a ready-made list, or press **Set up by hand**, or press **Skip this step**. If the school already has classes or students, a ready-made list cannot be applied.
+     Under the list there are **Institution kind** cards. Pressing one is optional. The kind that matches the list you pick is already chosen. Press **Leave as it is** to skip it. The kind is applied when you go on from this step, only if you pressed a card yourself or the list is already applied. It turns some modules Off and sets some words, and you can change it later in **Settings → Modules & words**. See [**Modules and words**](../administration/modules-and-words.md#task-wizard).
    - **Sections:** for each class, set how many sections it has (the names A, B and so on are made for you), then press **Create sections**.
 
    → A message like "3 sections created" appears.
@@ -234,6 +235,7 @@ Next time, come in through the normal [Signing in](../start/sign-in.md) page. Th
 **Related pages**
 
 - [**Setup order**](setup-order.md): the tasks after the wizard.
+- [**Modules and words**](../administration/modules-and-words.md): the institution kind and your own words.
 - [**How everything in your school fits together**](how-it-works.md): the structure of a school.
 
 ---

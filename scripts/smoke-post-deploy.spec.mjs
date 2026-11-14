@@ -355,6 +355,30 @@ describe('smoke-post-deploy', () => {
     });
   });
 
+  describe('moduleRefusal (Epic 77, D10)', () => {
+    const PATH = '/api/v1/fees';
+    const ON = { ...ENV, SMOKE_MODULE_OFF_PATH: PATH };
+    const out = (r) => JSON.stringify(r);
+    it('passes on the exact fixed sentence', async () => {
+      const f = fakeFetch({
+        [`GET ${PATH}`]: json(403, { message: 'This part is not turned on for your institution' }),
+      });
+      const r = await run(f, ON);
+      expect(exitCode(r)).toBe(0);
+      expect(r.lines.some((l) => l.startsWith('PASS') && l.includes('moduleRefusal'))).toBe(true);
+      expect(f.calls).toContain(`GET ${PATH}`);
+    });
+    it('fails on any other 403 text', async () => {
+      const f = fakeFetch({ [`GET ${PATH}`]: json(403, { message: 'Requires permission(s): X' }) });
+      expect(exitCode(await run(f, ON))).toBe(1);
+    });
+    it('is skipped when SMOKE_MODULE_OFF_PATH is unset', async () => {
+      const f = fakeFetch();
+      await run(f);
+      expect(f.calls).not.toContain(`GET ${PATH}`);
+    });
+  });
+
   describe('cockpit fence', () => {
     const FENCE = { ...ENV, SMOKE_COCKPIT_DOMAIN: 'cockpit.test', SMOKE_APP_DOMAIN: 'app.test' };
     const GOOD = {

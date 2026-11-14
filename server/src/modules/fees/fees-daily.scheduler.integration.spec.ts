@@ -84,6 +84,8 @@ import { acquire as acquireRestoreLock } from '../workbook/restore/restore-lock'
  * `late-fee.service.integration.spec.ts` instead.
  */
 const notifyAdds: { name: string; data: any; opts: any }[] = [];
+// [77.2.10] Module state: every module on (the default for a school with no modules block).
+const allModulesOn = { forTenant: async () => ({ platform: {}, school: {} }) } as any;
 const notifyQueue = {
   add: async (name: string, data: any, opts: any) => {
     notifyAdds.push({ name, data, opts });
@@ -275,6 +277,7 @@ describe('FeesDailyScheduler (integration)', () => {
         isRestoring: async () => false,
       } as any,
       notifyQueue,
+      allModulesOn,
     );
   }
 
@@ -298,6 +301,7 @@ describe('FeesDailyScheduler (integration)', () => {
           isRestoring: async () => restoring,
         } as any,
         notifyQueue,
+        allModulesOn,
       );
 
     await build(true).process({ data: { tenantId: TENANT_ID } } as any);
@@ -339,6 +343,7 @@ describe('FeesDailyScheduler (integration)', () => {
           isRestoring: async () => restoring,
         } as any,
         notifyQueue,
+        allModulesOn,
       );
 
     // 00:30 on the due day, restore running: nothing billed, catch-up queued for the due day.
@@ -401,6 +406,7 @@ describe('FeesDailyScheduler (integration)', () => {
       feeGenerationService,
       { isRestoring: async () => false } as any,
       notifyQueue,
+      allModulesOn,
     );
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
@@ -650,6 +656,7 @@ describe('FeesDailyScheduler (integration)', () => {
         feeGenerationService,
         { isRestoring: async () => false } as any,
         notifyQueue,
+        allModulesOn,
         withLateFees ? lateFeeService : undefined,
       ).process({ name, data: { tenantId: TENANT_ID, today } } as any);
     };
@@ -1272,6 +1279,7 @@ describe('FeesDailyScheduler (integration)', () => {
         {} as any,
         { isRestoring: async () => false } as any,
         notifyQueue,
+        allModulesOn,
         undefined,
         sweep,
       );
@@ -1346,6 +1354,7 @@ describe('FeesDailyScheduler (integration)', () => {
         // Real service over real Redis: reads the same key `acquire` wrote.
         new TenantStatusService(redis, {} as any, { get: () => undefined } as any),
         notifyQueue,
+        allModulesOn,
         undefined,
         fineSweepService,
       );

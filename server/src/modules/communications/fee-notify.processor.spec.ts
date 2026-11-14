@@ -2,38 +2,84 @@ import { describe, it, expect, vi } from 'vitest';
 import { FeeNotifyProcessor } from './fee-notify.processor';
 import { enqueueFeeNotify } from './communications.constants';
 
-function make() {
+const on = { platform: {}, school: {} };
+
+function make(state: unknown = on) {
   const fees = { handleFeesGenerated: vi.fn().mockResolvedValue(undefined) };
   const invoices = { handlePaymentRecorded: vi.fn().mockResolvedValue(undefined) };
-  return { fees, invoices, processor: new FeeNotifyProcessor(fees as any, invoices as any) };
+  const reader = { forTenant: vi.fn().mockResolvedValue(state) };
+  return {
+    fees,
+    invoices,
+    reader,
+    processor: new FeeNotifyProcessor(fees as any, invoices as any, reader as any),
+  };
 }
 
 describe('FeeNotifyProcessor', () => {
   it('routes fees.generated to the fee handler', async () => {
     const { processor, fees, invoices } = make();
-    await processor.process({ name: 'fees.generated', data: { a: 1 } } as any);
-    expect(fees.handleFeesGenerated).toHaveBeenCalledWith({ a: 1 });
+    await processor.process({ name: 'fees.generated', data: { a: 1, tenantId: 'A' } } as any);
+    expect(fees.handleFeesGenerated).toHaveBeenCalledWith({ a: 1, tenantId: 'A' });
     expect(invoices.handlePaymentRecorded).not.toHaveBeenCalled();
   });
 
   it('routes payments.recorded to the receipt handler', async () => {
     const { processor, fees, invoices } = make();
-    await processor.process({ name: 'payments.recorded', data: { b: 2 } } as any);
-    expect(invoices.handlePaymentRecorded).toHaveBeenCalledWith({ b: 2 });
+    await processor.process({ name: 'payments.recorded', data: { b: 2, tenant_id: 'A' } } as any);
+    expect(invoices.handlePaymentRecorded).toHaveBeenCalledWith({ b: 2, tenant_id: 'A' });
     expect(fees.handleFeesGenerated).not.toHaveBeenCalled();
   });
 
   it('rethrows a handler error so BullMQ retries', async () => {
     const { processor, fees } = make();
     fees.handleFeesGenerated.mockRejectedValue(new Error('boom'));
-    await expect(processor.process({ name: 'fees.generated', data: {} } as any)).rejects.toThrow(
-      'boom',
+    await expect(
+      processor.process({ name: 'fees.generated', data: { tenantId: 'A' } } as any),
+    ).rejects.toThrow('boom');
+  });
+
+  // Money: fees off for the school -> no new automatic notice, either event.
+  it('skips both events for a school with fees off', async () => {
+    const off = { platform: {}, school: { fees: { on: false } } };
+    const { processor, fees, invoices } = make(off);
+    await processor.process({ name: 'fees.generated', data: { tenantId: 'A' } } as any);
+    await processor.process({ name: 'payments.recorded', data: { tenant_id: 'A' } } as any);
+    expect(fees.handleFeesGenerated).not.toHaveBeenCalled();
+    expect(invoices.handlePaymentRecorded).not.toHaveBeenCalled();
+  });
+
+  it('keeps processing for a school with fees on while another is off', async () => {
+    const { processor, fees, reader } = make();
+    reader.forTenant.mockImplementation(async (id: string) =>
+      id === 'A' ? { platform: {}, school: { fees: { on: false } } } : on,
     );
+    await processor.process({ name: 'fees.generated', data: { tenantId: 'A' } } as any);
+    await processor.process({ name: 'fees.generated', data: { tenantId: 'B' } } as any);
+    expect(fees.handleFeesGenerated).toHaveBeenCalledTimes(1);
+    expect(fees.handleFeesGenerated).toHaveBeenCalledWith({ tenantId: 'B' });
+  });
+
+  it('rethrows a module read failure so BullMQ retries (never silently drops)', async () => {
+    const { processor, fees, reader } = make();
+    reader.forTenant.mockRejectedValue(new Error('db down'));
+    await expect(
+      processor.process({ name: 'fees.generated', data: { tenantId: 'A' } } as any),
+    ).rejects.toThrow('db down');
+    expect(fees.handleFeesGenerated).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown job name', async () => {
     const { processor } = make();
     await expect(processor.process({ name: 'nope', data: {} } as any)).rejects.toThrow(/Unknown/);
+  });
+
+  it('fails a job that carries no tenant id instead of running it ungated', async () => {
+    const { processor, fees } = make();
+    await expect(processor.process({ name: 'fees.generated', data: {} } as any)).rejects.toThrow(
+      /no tenant id/,
+    );
+    expect(fees.handleFeesGenerated).not.toHaveBeenCalled();
   });
 });
 

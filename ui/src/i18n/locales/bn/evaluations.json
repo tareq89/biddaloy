@@ -63,10 +63,10 @@
       "recommendations": "সুপারিশ"
     },
     "scores": {
-      "4": "অত্যন্ত ভালো",
-      "3": "ভালো",
+      "1": "দুর্বল",
       "2": "সন্তোষজনক",
-      "1": "দুর্বল"
+      "3": "ভালো",
+      "4": "অত্যন্ত ভালো"
     },
     "criteria": {
       "PUNCTUALITY": "সময়ানুবর্তিতা",
@@ -202,11 +202,11 @@
   "surveys": {
     "placeholderTitle": "জরিপ",
     "placeholderBody": "জরিপের ফলাফল এখানে দেখা যাবে।",
-    "title": "শিক্ষক জরিপ",
+    "title": "$t(common:entities.teacher_one) জরিপ",
     "new": "নতুন জরিপ",
     "loading": "জরিপ লোড হচ্ছে…",
     "empty": "এখনো কোনো জরিপ নেই।",
-    "emptyBody": "শিক্ষার্থী ও অভিভাবকদের মতামত জানতে একটি জরিপ তৈরি করুন।",
+    "emptyBody": "$t(common:entities.student_one) ও অভিভাবকদের মতামত জানতে একটি জরিপ তৈরি করুন।",
     "loadError": "জরিপ লোড করা যায়নি।",
     "columnTitle": "শিরোনাম",
     "columnStatus": "অবস্থা",
@@ -218,18 +218,18 @@
       "CLOSED": "বন্ধ"
     },
     "respondents": {
-      "STUDENTS": "শিক্ষার্থী",
-      "GUARDIANS": "অভিভাবক",
-      "BOTH": "শিক্ষার্থী ও অভিভাবক"
+      "STUDENTS": "$t(common:entities.student_one)",
+      "GUARDIANS": "$t(common:entities.guardian_one)",
+      "BOTH": "$t(common:entities.student_one) ও $t(common:entities.guardian_one)"
     },
     "form": {
-      "title": "নতুন শিক্ষক জরিপ",
+      "title": "নতুন $t(common:entities.teacher_one) জরিপ",
       "titleLabel": "জরিপের শিরোনাম",
-      "targetsLabel": "শিক্ষক ও বিষয়",
-      "teacherLabel": "শিক্ষক",
+      "targetsLabel": "$t(common:entities.teacher_one) ও বিষয়",
+      "teacherLabel": "$t(common:entities.teacher_one)",
       "subjectLabel": "বিষয়",
-      "addTarget": "আরেকজন শিক্ষক যোগ করুন",
-      "removeTarget": "শিক্ষক বাদ দিন",
+      "addTarget": "আরেকজন $t(common:entities.teacher_one) যোগ করুন",
+      "removeTarget": "$t(common:entities.teacher_one) বাদ দিন",
       "questionsLabel": "প্রশ্ন",
       "questionLabel": "প্রশ্ন {{n}}",
       "starsLabel": "১ থেকে ৫ তারকা রেটিং চান",
@@ -249,7 +249,7 @@
       "saved": "জরিপ খসড়া হিসেবে সংরক্ষিত হয়েছে।",
       "published": "জরিপ চালু হয়েছে।",
       "errorTitle": "শিরোনাম লিখুন।",
-      "errorTargets": "কমপক্ষে একজন শিক্ষক ও বিষয় যোগ করুন।",
+      "errorTargets": "কমপক্ষে একজন $t(common:entities.teacher_one) ও বিষয় যোগ করুন।",
       "errorQuestions": "কমপক্ষে একটি প্রশ্ন যোগ করুন।",
       "errorQuestionText": "প্রতিটি প্রশ্নে লেখা থাকতে হবে।",
       "errorMin": "ন্যূনতম উত্তর ৩ বা তার বেশি হতে হবে।",
@@ -264,14 +264,14 @@
       "sectionSchedule": "সময় ও ফলাফল",
       "targetsHelp": "যে শিক্ষককে যে বিষয়ের জন্য মূল্যায়ন করা হবে। শিক্ষককে ওই বিষয়ে নিযুক্ত থাকতে হবে।",
       "questionsHelp": "তিনটি সাধারণ প্রশ্ন আগে থেকেই দেওয়া আছে — চাইলে বদলান বা নতুন যোগ করুন।",
-      "teacherN": "শিক্ষক {{n}}",
+      "teacherN": "$t(common:entities.teacher_one) {{n}}",
       "subjectN": "বিষয় {{n}}",
-      "removeTargetN": "শিক্ষক {{n}} বাদ দিন",
+      "removeTargetN": "$t(common:entities.teacher_one) {{n}} বাদ দিন",
       "removeQuestionN": "প্রশ্ন {{n}} বাদ দিন",
       "errorRowSubject": "একটি বিষয় বাছুন।",
-      "errorRowTeacher": "একজন শিক্ষক বাছুন।",
-      "errorDuplicateTarget": "এই শিক্ষক ও বিষয় আগেই যোগ করা হয়েছে।",
-      "errorNotAssigned": "একজন শিক্ষক বাছাই করা বিষয়ে নিযুক্ত নন। শিক্ষক বা বিষয় বদলান।",
+      "errorRowTeacher": "একজন $t(common:entities.teacher_one) বাছুন।",
+      "errorDuplicateTarget": "এই $t(common:entities.teacher_one) ও বিষয় আগেই যোগ করা হয়েছে।",
+      "errorNotAssigned": "একজন $t(common:entities.teacher_one) বাছাই করা বিষয়ে নিযুক্ত নন। $t(common:entities.teacher_one) বা বিষয় বদলান।",
       "errorSummary": "জরিপ সংরক্ষণ হয়নি: {{count}}টি ঘর ঠিক করুন।"
     },
     "detail": {
@@ -337,7 +337,7 @@
     "closesOn": "{{date}} তারিখে শেষ হবে"
   },
   "palette": {
-    "publishSurvey": "শিক্ষক জরিপ চালু করুন",
+    "publishSurvey": "$t(common:entities.teacher_one) জরিপ চালু করুন",
     "startAcr": "এসিআর শুরু করুন",
     "reportIncident": "ঘটনা জানান"
   },
@@ -345,7 +345,7 @@
     "evaluations": "মূল্যায়ন"
   },
   "forbidden": "মূল্যায়ন দেখার অনুমতি আপনার নেই।",
-  "subtitle": "এসিআর, শিক্ষক জরিপ ও ঘটনা এক জায়গায়।",
+  "subtitle": "এসিআর, $t(common:entities.teacher_one) জরিপ ও ঘটনা এক জায়গায়।",
   "fields": {
     "staffMember": "কর্মী",
     "academicYear": "শিক্ষাবর্ষ",

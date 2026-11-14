@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -13,7 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { EMPLOYEE_ROLES, Permission, UserRole } from '@biddaloy/shared';
+import { EMPLOYEE_ROLES, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -53,6 +54,7 @@ type Actor = { sub: string };
 @ApiTags('applications')
 @ApiTenantAuth()
 @Controller('applications')
+@RequiresModule(ModuleKey.applications)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.APPLICATION_SUBMIT)
 export class ApplicationsController {

@@ -13,14 +13,14 @@
     "dateToLabel": "শেষের তারিখ",
     "includeReversed": "বাতিল হওয়াগুলোও দেখান",
     "columnDate": "তারিখ",
-    "columnStudent": "শিক্ষার্থী",
+    "columnStudent": "$t(common:entities.student_one)",
     "columnMethod": "পদ্ধতি",
     "columnReference": "লেনদেন রেফারেন্স",
     "columnAmount": "পরিমাণ",
     "columnStatus": "অবস্থা",
     "reversed": "বাতিল হয়েছে",
     "reversal": "বাতিলের এন্ট্রি",
-    "deletedStudent": "মুছে ফেলা শিক্ষার্থী",
+    "deletedStudent": "মুছে ফেলা $t(common:entities.student_one)",
     "view": "দেখুন",
     "emptyTitle": "এখনো কোনো পেমেন্ট নেই",
     "emptyText": "যে পেমেন্ট রেকর্ড করবেন তা এখানে দেখা যাবে।",
@@ -31,14 +31,14 @@
     "submitAction": "পেমেন্ট রেকর্ড করুন",
     "cancel": "বাতিল করুন",
     "students": {
-      "searchLabel": "শিক্ষার্থী খুঁজুন",
+      "searchLabel": "$t(common:entities.student_one) খুঁজুন",
       "searchPlaceholder": "নাম বা রোল নম্বর দিয়ে খুঁজুন",
-      "noResults": "এই অনুসন্ধানে কোনো শিক্ষার্থী পাওয়া যায়নি।",
+      "noResults": "এই অনুসন্ধানে কোনো $t(common:entities.student_one) পাওয়া যায়নি।",
       "rollAndClass": "রোল {{roll}} · {{className}} {{sectionName}}",
       "addSibling": "+ ভাইবোন যোগ করুন",
       "removeStudent": "{{name}}-কে সরান",
       "maxReached": "একবারে সর্বোচ্চ ১০ জন শিক্ষার্থীর জন্য পেমেন্ট করা যাবে।",
-      "addAnotherLabel": "আরেকজন শিক্ষার্থী যোগ করুন",
+      "addAnotherLabel": "আরেকজন $t(common:entities.student_one) যোগ করুন",
       "chip": "{{name}} · {{className}} {{sectionName}}"
     },
     "amountReceived": {
@@ -60,7 +60,7 @@
       "walletCredit": "জমা টাকা ব্যবহার করুন ({{amount}} আছে)",
       "walletAvailable": "{{amount}} পাওয়া যাচ্ছে",
       "amountDue": "প্রদেয় পরিমাণ",
-      "pickStudent": "বকেয়া বিল দেখতে আগে একজন শিক্ষার্থী বাছুন।",
+      "pickStudent": "বকেয়া বিল দেখতে আগে একজন $t(common:entities.student_one) বাছুন।",
       "columnStatus": "অবস্থা"
     },
     "discount": {
@@ -108,7 +108,7 @@
       "viewInvoice": "চালান দেখুন"
     },
     "sections": {
-      "students": "১. শিক্ষার্থী",
+      "students": "১. $t(common:entities.student_one)",
       "studentsHelp": "যার টাকা নিচ্ছেন তাকে খুঁজে বাছুন। ভাইবোনের টাকা একসাথে নিতে আরও যোগ করুন (সর্বোচ্চ ১০ জন)।",
       "bills": "২. বকেয়া বিল",
       "billsHelp": "প্রাপ্ত টাকা লিখলে সবচেয়ে পুরনো বিল থেকে ভাগ হয়ে যায়। যেকোনো ঘর নিজে বদলাতে পারেন।",
@@ -179,7 +179,7 @@
     "maxAmount": "সর্বোচ্চ"
   },
   "invoiceDetail": {
-    "student": "শিক্ষার্থী",
+    "student": "$t(common:entities.student_one)",
     "payment": "পেমেন্ট",
     "paymentValue": "{{method}} · {{date}}",
     "originalInvoice": "মূল চালান",

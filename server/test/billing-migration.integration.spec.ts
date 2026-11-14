@@ -4,6 +4,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Billing1791900000350 } from '../src/migrations/1791900000350-Billing';
 import { SeatOrderReceiptNumber1791900000400 } from '../src/migrations/1791900000400-SeatOrderReceiptNumber';
+import { PlansCouponsRefunds1792200000000 } from '../src/migrations/1792200000000-PlansCouponsRefunds';
 import { assertProductionConfig, billingFreeUntil } from '../src/config/env.validation';
 
 /**
@@ -51,16 +52,32 @@ describe('Billing1791900000350 (integration)', () => {
     return rows.map((r) => r.table_name).sort();
   }
 
-  function insertOrder(over: { seats?: number; months?: number; amount?: number; key?: string }) {
+  // [Epic 100] CHK_seat_orders_discount: amount = seats x months x unit price - discount.
+  function insertOrder(over: {
+    seats?: number;
+    months?: number;
+    amount?: number;
+    key?: string;
+    discount?: number;
+  }) {
     return dataSource.query(
-      `INSERT INTO "seat_orders" (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
-       VALUES ($1, $2, $3, 1000, $4, '2027-01-01', '2027-02-01', 'PENDING', $5) RETURNING id`,
-      [schoolId, over.seats ?? 10, over.months ?? 1, over.amount ?? 10000, over.key ?? 'k1'],
+      `INSERT INTO "seat_orders" (school_id, seats, months, unit_price_paisa, amount_paisa, discount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, $2, $3, 1000, $4, $6, '2027-01-01', '2027-02-01', 'PENDING', $5) RETURNING id`,
+      [
+        schoolId,
+        over.seats ?? 10,
+        over.months ?? 1,
+        over.amount ?? 10000,
+        over.key ?? 'k1',
+        over.discount ?? 0,
+      ],
     );
   }
 
   it('down() drops both tables, up() re-creates them', async () => {
     expect(await tableNames()).toEqual(['platform_payments', 'seat_orders']);
+    // [Epic 100] plans, coupons and refunds hang foreign keys and columns on seat_orders: undo them first.
+    await new PlansCouponsRefunds1792200000000().down(queryRunner);
     await migration.down(queryRunner);
     expect(await tableNames()).toEqual([]);
     await migration.up(queryRunner);
@@ -68,6 +85,7 @@ describe('Billing1791900000350 (integration)', () => {
     // down() dropped what later migrations added to these tables; put it back so later spec
     // files on this worker still see receipt_number (#1822).
     await new SeatOrderReceiptNumber1791900000400().up(queryRunner);
+    await new PlansCouponsRefunds1792200000000().up(queryRunner);
   });
 
   it('rejects seats < 1, months outside 1-24 and amounts over MONEY_MAX (in paisa)', async () => {
@@ -75,7 +93,10 @@ describe('Billing1791900000350 (integration)', () => {
     await expect(insertOrder({ months: 0 })).rejects.toThrow();
     await expect(insertOrder({ months: 25 })).rejects.toThrow();
     await expect(insertOrder({ amount: 10_000_000_000 })).rejects.toThrow();
-    await expect(insertOrder({ months: 24, amount: 9_999_999_999 })).resolves.toBeDefined();
+    // 416_667 seats x 24 months x 1000 = 10_000_008_000; less 8_001 discount = MONEY_MAX.
+    await expect(
+      insertOrder({ seats: 416_667, months: 24, amount: 9_999_999_999, discount: 8_001 }),
+    ).resolves.toBeDefined();
   });
 
   it('unique (school_id, idempotency_key): replay is rejected', async () => {

@@ -18,6 +18,9 @@ import { Student } from '../students/entities/student.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { BULK_IMPORT_REDIS } from '../bulk-import/import-staging.service';
+import { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
+import { isModuleOnForSchool } from '../schools/settings/school-modules.util';
 import { SchoolsService } from '../schools/schools.service';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
@@ -97,6 +100,7 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
     private readonly push: PushService,
     private readonly communications: CommunicationsService,
     private readonly smsCredit: SmsCreditService,
+    private readonly moduleState: ModuleStateReader,
   ) {
     super();
   }
@@ -126,6 +130,8 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
   }
 
   async sweepTenant(tenantId: string): Promise<void> {
+    // [77.2.10] D9: module off -> skip the school. A read failure throws into process()'s per-tenant catch.
+    if (!(await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.studyPlans))) return;
     const settings = await this.settingsReader.studyPlansSettings(tenantId);
     const resolved = await this.schools.getResolvedSettings(tenantId);
     const tz = resolved.region?.timezone ?? 'UTC';

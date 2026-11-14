@@ -21,6 +21,7 @@ import {
   REPORT_EXPORT_CLEANUP_QUEUE,
   REPORT_EXPORT_QUEUE,
 } from '../../reports/export/report-export.queue';
+import { SMS_EXPIRY_QUEUE } from '../../sms-bundles/expiry/sms-expiry.scheduler';
 import { STUDY_PLAN_AUTO_DELIVERIES_QUEUE } from '../../study-plans/study-plan-auto-deliveries.scheduler';
 import { STUDY_PLAN_FLAGS_QUEUE } from '../../study-plans/study-plan-flags.scheduler';
 import { CUSTOM_DOMAIN_QUEUE } from '../../website/custom-domain.processor';
@@ -55,6 +56,7 @@ export const OPS_QUEUES: readonly string[] = [
   REPORT_EXPORT_CLEANUP_QUEUE,
   REPORT_EXPORT_QUEUE,
   REPORT_SCHEDULE_QUEUE,
+  SMS_EXPIRY_QUEUE,
   STUDY_PLAN_AUTO_DELIVERIES_QUEUE,
   STUDY_PLAN_FLAGS_QUEUE,
   WORKBOOK_EXPORT_QUEUE,

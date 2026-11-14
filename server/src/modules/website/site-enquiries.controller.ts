@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -15,7 +16,7 @@ import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -43,6 +44,7 @@ type Tenant = { id: string };
  * school all answer the same 404), then Turnstile (fail-closed in production, Rule 22, D42), then
  * the write. `STRICT_RATE_LIMIT` (5/min) is per IP; the container forwards the visitor's IP.
  */
+// core: PublicEnquiryController is not tagged - public host route; PublicSiteService.liveForWrite -> live() answers 404 when website is off [77.2.06].
 @ApiTags('public-site')
 @Controller('public/site/by-host/:host/island/enquiry')
 export class PublicEnquiryController {
@@ -83,6 +85,7 @@ export class PublicEnquiryController {
 @ApiTags('website')
 @ApiTenantAuth()
 @Controller('website/enquiries')
+@RequiresModule(ModuleKey.website)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.WEBSITE_MANAGE)
 export class SiteEnquiriesController {

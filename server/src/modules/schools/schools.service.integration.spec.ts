@@ -25,6 +25,7 @@ import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { PromotionRun } from '../promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../promotions/entities/promotion-entry.entity';
+import { attentionKeys } from '../attention/attention.constants';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
@@ -105,6 +106,35 @@ describe('SchoolsService (integration)', () => {
       schoolRepo.create({ id: randomUUID(), name: 'Test School', slug: `school-${randomUUID()}` }),
     );
   }
+
+  describe('[77.2.10] a modules change drops the attention bar cache', () => {
+    it("deletes that school's cached bar summaries on a modules write, not on a labels write", async () => {
+      const redis = service['redis'];
+      const school = await createSchool();
+      const other = await createSchool();
+      const mine = attentionKeys.summary(school.id, SEED_ADMIN_USER_ID, 'ADMIN');
+      const mine2 = attentionKeys.summary(school.id, randomUUID(), 'TEACHER');
+      const theirs = attentionKeys.summary(other.id, SEED_ADMIN_USER_ID, 'ADMIN');
+      for (const k of [mine, mine2, theirs]) await redis.set(k, '{}', 'EX', 60);
+
+      // Words do not change which alerts show: cache stays.
+      await service.updateSettings(
+        school.id,
+        Object.assign(new TenantSettingsDto(), { labels: { student: { bn: 'শিক্ষার্থী' } } }),
+        SEED_ADMIN_USER_ID,
+      );
+      expect(await redis.exists(mine, mine2, theirs)).toBe(3);
+
+      await service.updateSettings(
+        school.id,
+        Object.assign(new TenantSettingsDto(), { modules: { fees: { on: false } } }),
+        SEED_ADMIN_USER_ID,
+      );
+      expect(await redis.exists(mine, mine2)).toBe(0);
+      expect(await redis.exists(theirs)).toBe(1); // another school's bar is untouched
+      await redis.del(theirs);
+    });
+  });
 
   describe('[Epic 99 #3805] searchForPlatform', () => {
     // A unique tag in every name keeps these rows apart from other tests' schools.

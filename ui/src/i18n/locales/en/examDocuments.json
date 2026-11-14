@@ -24,7 +24,7 @@
     "all": "Everyone ({{n}})",
     "remaining": "Not printed yet ({{n}})",
     "section": "One section",
-    "sectionLabel": "Section",
+    "sectionLabel": "$t(common:entities.section_one)",
     "next": "Preview",
     "sectionPlaceholder": "Choose a section",
     "groupLabel": "Which admit cards"
@@ -55,7 +55,7 @@
   },
   "marksSheet": {
     "title": "Blank marks sheet",
-    "description": "Teachers write marks by hand, entered later",
+    "description": "$t(common:entities.teacher_other) write marks by hand, entered later",
     "meta": "{{count}} subjects · by section",
     "action": "Print marks sheets"
   },
@@ -79,14 +79,14 @@
   },
   "meritCertificate": {
     "title": "Merit certificate",
-    "description": "Class positions 1st–3rd; by section or top N also possible",
+    "description": "$t(common:entities.class_one) positions 1st–3rd; by section or top N also possible",
     "action": "Print certificates"
   },
   "merit": {
     "dialogTitle": "Who gets a merit certificate?",
     "scope": "Rank by",
-    "scopeClass": "Class position",
-    "scopeSection": "Section position",
+    "scopeClass": "$t(common:entities.class_one) position",
+    "scopeSection": "$t(common:entities.section_one) position",
     "top": "Top",
     "count_other": "{{n}} students",
     "count_one": "{{n}} student",
@@ -138,8 +138,8 @@
     "seat": "Seat",
     "roll": "Roll",
     "name": "Name",
-    "section": "Section",
-    "class": "Class",
+    "section": "$t(common:entities.section_one)",
+    "class": "$t(common:entities.class_one)",
     "room": "Room {{room}}",
     "seats": "Seats {{from}}–{{to}}",
     "present": "Present",
@@ -158,12 +158,12 @@
     "exam": "Exam"
   },
   "sign": {
-    "classTeacher": "Class teacher",
+    "classTeacher": "$t(common:entities.class_one) teacher",
     "examController": "Exam controller",
     "headTeacher": "Head teacher",
     "invigilator": "Invigilator"
   },
-  "sectionLabel": "Section",
+  "sectionLabel": "$t(common:entities.section_one)",
   "sectionPlaceholder": "Choose a section",
   "fields": {
     "admitGroup": "Which admit cards",

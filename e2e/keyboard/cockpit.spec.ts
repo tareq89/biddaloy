@@ -11,7 +11,6 @@ import {
   resetOwners,
   setApprovals,
   smsCode,
-  stubLegacyPlatformRoutes,
   tc,
   test,
   warmUp,
@@ -148,7 +147,6 @@ const PLATFORM_ACTION_CASES = [
 for (const { query, url } of PLATFORM_ACTION_CASES) {
   test(`palette action "${query}" opens its page, keyboard only`, async ({ page }) => {
     await apiSignIn(page.request, owner);
-    await stubLegacyPlatformRoutes(page.context());
     await page.goto('/platform-owners');
     await page.waitForLoadState('networkidle');
 

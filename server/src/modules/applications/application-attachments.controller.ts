@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Controller,
   Delete,
@@ -24,7 +25,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { ATTACHMENT_LIMITS, Permission, UserRole } from '@biddaloy/shared';
+import { ATTACHMENT_LIMITS, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -41,6 +42,7 @@ type Actor = { sub: string };
 @ApiTags('applications')
 @ApiTenantAuth()
 @Controller('applications')
+@RequiresModule(ModuleKey.applications)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.APPLICATION_SUBMIT)
 export class ApplicationAttachmentsController {

@@ -1,12 +1,12 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { alertRuleMeta, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { addDaysIso } from '../rule-context.service';
 import { roleRecipients } from '../structure/role-recipients';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.seatPlans })
 export class ExamsSeatPlanMissingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('exams.seat_plan_missing');
   readonly messages = {

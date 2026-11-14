@@ -300,9 +300,10 @@ describe('mergeTenantSettings', () => {
   // [1811] A typed object, so a new DTO section without an entry is a compile
   // error, and one without a merge branch fails the `it` below. Excluded:
   // `organisationRenames` is a write instruction, not stored; `preset` is
-  // never PATCHed (Epic 35 D37) and is not on the DTO at all.
+  // never PATCHed (Epic 35 D37) and is not on the DTO at all; `modules`/`labels`
+  // are deep-merged in `SchoolsService.updateSettings` (77.1.02), not here.
   const EVERY_SECTION: Record<
-    Exclude<keyof TenantSettingsDto, 'version' | 'organisationRenames'>,
+    Exclude<keyof TenantSettingsDto, 'version' | 'organisationRenames' | 'modules' | 'labels'>,
     { marker: string }
   > = {
     region: { marker: 'region' },

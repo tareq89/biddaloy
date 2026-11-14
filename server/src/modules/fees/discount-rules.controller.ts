@@ -39,7 +39,9 @@ import {
   RoleScope,
   isGuardianRole,
   roleScope,
+  ModuleKey,
 } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * [16.7.3] `DiscountRule` CRUD. Writes require `DISCOUNT_RULE_MANAGE` +
@@ -59,6 +61,7 @@ import {
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
+@RequiresModule(ModuleKey.fees)
 export class DiscountRulesController {
   constructor(
     private readonly discountRulesService: DiscountRulesService,

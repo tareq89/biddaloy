@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { alertRuleMeta, AlertSeverity, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, AlertSeverity, UserRole, ModuleKey } from '@biddaloy/shared';
 import { SmsCreditService } from '../../../communications/credits/sms-credit.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
@@ -8,7 +8,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** [100 D21] Unused SMS expire within 7 days (amber) or 1 day (red). One finding per school, soonest date. */
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.messaging })
 export class CommsSmsExpiringRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('sms.expiring');
   readonly messages = {

@@ -7,7 +7,9 @@ import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { KIND_FIXTURES, NO_CHANGES } from '../../../pages/settings/modules-words/kind-fixtures';
 
 import { GuidedSetup } from './guided-setup';
 
@@ -146,6 +148,100 @@ describe('CurriculumStep', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+  });
+});
+
+describe('CurriculumStep institution kind', () => {
+  const applied: { id: unknown; key: string | null }[] = [];
+  const kindsApi = (apply?: () => Response) =>
+    server.use(
+      http.get('/api/v1/presets/status', () => HttpResponse.json({ state: 'AVAILABLE' })),
+      http.get('/api/v1/presets', () => HttpResponse.json([NCTB])),
+      http.get('/api/v1/institution-kinds', () => HttpResponse.json(KIND_FIXTURES)),
+      http.post('/api/v1/institution-kinds/:id/apply', ({ params, request }) => {
+        applied.push({ id: params.id, key: request.headers.get('Idempotency-Key') });
+        return apply ? apply() : HttpResponse.json(NO_CHANGES);
+      }),
+    );
+  const card = (name: RegExp) => screen.findByRole('button', { name });
+  const applyKind = () => userEvent.click(screen.getByRole('button', { name: 'Apply this kind' }));
+  const skip = () => userEvent.click(screen.getByRole('button', { name: 'Skip this step' }));
+  beforeEach(() => {
+    applied.length = 0;
+    sessionStorage.clear();
+  });
+
+  it('choosing NCTB pre-selects Secondary school, and finishing applies it once with a key', async () => {
+    kindsApi();
+    const { router } = renderAt(2);
+    expect((await card(/Secondary school/)).getAttribute('aria-pressed')).toBe('false');
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Choose' }))[0]!);
+    await waitFor(async () =>
+      expect((await card(/Secondary school/)).getAttribute('aria-pressed')).toBe('true'),
+    );
+    // only suggested, pack not applied: a skip applies nothing
+    await skip();
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(0);
+  });
+
+  it('an explicit pick applies once with a key, and coming back to the step never applies it again', async () => {
+    kindsApi();
+    const first = renderAt(2);
+    await userEvent.click(await card(/Secondary school/));
+    await applyKind();
+    await waitFor(() => expect(applied).toHaveLength(1));
+    await skip();
+    await waitFor(() => expect(first.router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(1);
+    expect(applied[0]).toMatchObject({ id: 'secondary' });
+    expect(applied[0]!.key).toBeTruthy();
+    await cleanupTestState();
+    const again = renderAt(2);
+    expect((await card(/Secondary school/)).getAttribute('aria-pressed')).toBe('true');
+    await skip();
+    await waitFor(() => expect(again.router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(1);
+  });
+
+  it('skip with a picked kind applies nothing; only the Apply action does', async () => {
+    kindsApi();
+    const { router } = renderAt(2);
+    await userEvent.click(await card(/Coaching centre/));
+    await skip();
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(0);
+  });
+
+  it('the admin can change the kind, or leave it as it is, and nothing is applied then', async () => {
+    kindsApi();
+    const { router } = renderAt(2);
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Choose' }))[0]!);
+    await userEvent.click(await card(/Coaching centre/));
+    expect((await card(/Secondary school/)).getAttribute('aria-pressed')).toBe('false');
+    expect((await card(/Coaching centre/)).getAttribute('aria-pressed')).toBe('true');
+    await userEvent.click(screen.getByRole('button', { name: 'Leave as it is' }));
+    expect((await card(/Coaching centre/)).getAttribute('aria-pressed')).toBe('false');
+    await skip();
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(0);
+  });
+
+  it('a failed apply shows the sentence and a pointer, is not retried, and the step still moves on', async () => {
+    kindsApi(() => HttpResponse.json({ message: 'boom' }, { status: 500 }));
+    const { router } = renderAt(2);
+    await userEvent.click(await card(/Coaching centre/));
+    await applyKind();
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      expect.stringContaining('Could not set the institution kind. Nothing was changed.'),
+    );
+    expect(screen.getByRole('link', { name: 'Settings › Modules & words' })).toBeTruthy();
+    expect(router.state.location.search).toMatchObject({ q: 2 });
+    // the failed kind is not retried, and skip moves on without a second request
+    await skip();
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+    expect(applied).toHaveLength(1);
   });
 });
 

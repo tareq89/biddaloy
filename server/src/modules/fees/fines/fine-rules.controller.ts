@@ -25,7 +25,8 @@ import {
   CopyFineRulesDto,
   toFineRuleDto,
 } from './dto/fine-rules.dto';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 
 /**
  * [38.2.1] `FineRule` CRUD + copy-from-last-year. Wired into
@@ -36,6 +37,7 @@ import { JwtPayload, Permission } from '@biddaloy/shared';
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.fines)
 export class FineRulesController {
   constructor(private readonly fineRulesService: FineRulesService) {}
 

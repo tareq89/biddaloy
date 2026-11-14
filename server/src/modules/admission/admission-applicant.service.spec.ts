@@ -78,7 +78,15 @@ async function resubmitPhoto(documents: AdmissionApplicantDocument[]) {
     todayFor: async () => '2026-03-16',
   } as unknown as SchoolsService;
 
-  const service = new AdmissionApplicantService(schools, storage, intakeRepo as never, {} as never);
+  const service = new AdmissionApplicantService(
+    schools,
+    storage,
+    intakeRepo as never,
+    {} as never,
+    {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as never,
+  );
   const dto = {
     intake_id: INTAKE_ID,
     reference_number: REFERENCE,

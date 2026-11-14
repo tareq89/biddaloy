@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { ForbiddenException } from '@nestjs/common';
 import { UserRole, Permission, CommunicationMedium } from '@biddaloy/shared';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import type { ModuleStateReader } from '../../../modules/auth/guards/module-state.reader';
 import { CreditsController } from './credits.controller';
 import { SmsCreditService } from './sms-credit.service';
 import { SmsCreditSummaryService } from './sms-credit-summary.service';
@@ -224,7 +225,9 @@ describe('CreditsController', () => {
   });
 
   describe('guards', () => {
-    const permissionsGuard = new PermissionsGuard(new Reflector());
+    const permissionsGuard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
     const handler = CreditsController.prototype.getSmsCredits;
 
     function context(role: UserRole) {
@@ -237,19 +240,19 @@ describe('CreditsController', () => {
       } as any;
     }
 
-    it('allows ADMIN', () => {
-      expect(permissionsGuard.canActivate(context(UserRole.ADMIN))).toBe(true);
+    it('allows ADMIN', async () => {
+      await expect(permissionsGuard.canActivate(context(UserRole.ADMIN))).resolves.toBe(true);
     });
 
-    it('allows ACCOUNTANT', () => {
-      expect(permissionsGuard.canActivate(context(UserRole.ACCOUNTANT))).toBe(true);
+    it('allows ACCOUNTANT', async () => {
+      await expect(permissionsGuard.canActivate(context(UserRole.ACCOUNTANT))).resolves.toBe(true);
     });
 
     // [78 D37] The readiness route needs only COMMUNICATION_SEND.
-    it('readiness: allows OFFICE_STAFF (COMMUNICATION_SEND, no COMMUNICATION_CREDIT_READ) and denies TEACHER', () => {
+    it('readiness: allows OFFICE_STAFF (COMMUNICATION_SEND, no COMMUNICATION_CREDIT_READ) and denies TEACHER', async () => {
       const readiness = CreditsController.prototype.getSmsReadiness;
       const ctx = (role: UserRole) => ({ ...context(role), getHandler: () => readiness }) as any;
-      expect(permissionsGuard.canActivate(ctx(UserRole.OFFICE_STAFF))).toBe(true);
+      await expect(permissionsGuard.canActivate(ctx(UserRole.OFFICE_STAFF))).resolves.toBe(true);
       expect(() => permissionsGuard.canActivate(ctx(UserRole.TEACHER))).toThrow(ForbiddenException);
     });
 

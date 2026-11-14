@@ -35,12 +35,14 @@ import {
 } from './dto/routine-slots.dto';
 import { CopyRoutineDto } from './dto/workflow.dto';
 import { FamilyAccessService } from '../students/family-access.service';
-import { JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [21.4.1] Routine document + its slots, plus the greedy-fill proposer. */
 @ApiTags('routines')
 @ApiTenantAuth()
 @Controller('routines')
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class RoutineSlotsController {
   constructor(

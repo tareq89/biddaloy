@@ -38,6 +38,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { SubjectApplicationsTab } from '../../../features/applications/subject-applications-tab';
+import { gateTabs, useModuleGate, visibleTab } from '../../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AcrTab } from './-detail/acr-tab';
@@ -130,6 +131,7 @@ function StaffDetailPage() {
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
   const [activeTab, setActiveTab] = useDetailShellTab(tabIds);
+  const moduleOn = useModuleGate();
 
   const [editUserOpen, setEditUserOpen] = React.useState(false);
   const [editTeacherOpen, setEditTeacherOpen] = React.useState(false);
@@ -138,129 +140,148 @@ function StaffDetailPage() {
 
   const regionConfig = useTenantRegionConfig();
 
-  const tabs = [
-    {
-      id: 'profile',
-      label: t('detail.tabs.profile'),
-      content: <ProfileTab userId={userId} onEditTeacher={() => setEditTeacherOpen(true)} />,
-    },
-    {
-      id: 'permissions',
-      label: t('detail.tabs.permissions'),
-      content: <PermissionsTab userId={userId} />,
-    },
-    ...(teacherTabPending
-      ? [
-          {
-            id: 'teachingAssignments',
-            label: t('detail.tabs.teachingAssignments'),
-            content: <Skeleton className="h-40 w-full" />,
-          },
-        ]
-      : []),
-    ...(teacher !== undefined
-      ? [
-          {
-            id: 'teachingAssignments',
-            label: t('detail.tabs.teachingAssignments'),
-            content: <TeachingAssignmentsTab teacherId={teacher.id} />,
-          },
-        ]
-      : []),
-    ...(canReadHrRecord
-      ? [
-          {
-            id: 'hrRecord',
-            label: t('detail.tabs.hrRecord'),
-            content: <HrRecordTab userId={userId} />,
-          },
-        ]
-      : []),
-    ...(canReadAcr
-      ? [
-          {
-            id: 'acr',
-            label: t('tabs.acr', { ns: 'evaluations' }),
-            content: <AcrTab userId={userId} />,
-          },
-          {
-            id: 'incidents',
-            label: t('tabs.incidents', { ns: 'evaluations' }),
-            content: <IncidentsTab userId={userId} />,
-          },
-          {
-            id: 'performance',
-            label: t('title', { ns: 'performance' }),
-            content: (
-              <PerformanceTab userId={userId} subjectName={userQuery.data?.full_name ?? ''} />
-            ),
-          },
-        ]
-      : []),
-    ...(canPrintStaffCard
-      ? [
-          {
-            id: 'documents',
-            label: t('detail.tabs.documents'),
-            content: (
-              <StaffDocumentsTab userId={userId} onOpenHrRecord={() => setActiveTab('hrRecord')} />
-            ),
-          },
-        ]
-      : []),
-    ...(hasStaffProfile && canReadStaffAttendance && userQuery.data?.staff_profile_id
-      ? [
-          {
-            id: 'attendanceLeave',
-            label: t('detailTab.label', { ns: 'staffAttendance' }),
-            content: (
-              <AttendanceLeaveTab
-                staffProfileId={userQuery.data.staff_profile_id}
-                userId={userId}
-                staffName={userQuery.data.full_name}
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(hasStaffProfile && canManageApplications && userQuery.data?.staff_profile_id
-      ? [
-          {
-            id: 'applications',
-            label: t('detail.tabs.applications'),
-            content: (
-              <SubjectApplicationsTab
-                subject={{
-                  kind: 'STAFF',
-                  staffProfileId: userQuery.data.staff_profile_id,
-                  userId,
-                }}
-                subjectName={userQuery.data.full_name}
-                ns="staff"
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(canManageWebsite && isWebPerson
-      ? [
-          {
-            id: 'websiteProfile',
-            label: t('tabs.websiteProfile'),
-            content: <WebsiteProfileTab userId={userId} />,
-          },
-        ]
-      : []),
-    ...(canReadAuditLogs
-      ? [
-          {
-            id: 'loginHistory',
-            label: t('detail.tabs.loginHistory'),
-            content: <LoginHistoryTab userId={userId} />,
-          },
-        ]
-      : []),
-  ];
+  const tabs = gateTabs(
+    [
+      {
+        id: 'profile',
+        module: 'core',
+        label: t('detail.tabs.profile'),
+        content: <ProfileTab userId={userId} onEditTeacher={() => setEditTeacherOpen(true)} />,
+      },
+      {
+        id: 'permissions',
+        module: 'core',
+        label: t('detail.tabs.permissions'),
+        content: <PermissionsTab userId={userId} />,
+      },
+      ...(teacherTabPending
+        ? [
+            {
+              id: 'teachingAssignments',
+              module: 'core',
+              label: t('detail.tabs.teachingAssignments'),
+              content: <Skeleton className="h-40 w-full" />,
+            },
+          ]
+        : []),
+      ...(teacher !== undefined
+        ? [
+            {
+              id: 'teachingAssignments',
+              module: 'core',
+              label: t('detail.tabs.teachingAssignments'),
+              content: <TeachingAssignmentsTab teacherId={teacher.id} />,
+            },
+          ]
+        : []),
+      ...(canReadHrRecord
+        ? [
+            {
+              id: 'hrRecord',
+              module: 'core',
+              label: t('detail.tabs.hrRecord'),
+              content: <HrRecordTab userId={userId} />,
+            },
+          ]
+        : []),
+      ...(canReadAcr
+        ? [
+            {
+              id: 'acr',
+              module: 'evaluations',
+              label: t('tabs.acr', { ns: 'evaluations' }),
+              content: <AcrTab userId={userId} />,
+            },
+            {
+              id: 'incidents',
+              module: 'evaluations',
+              label: t('tabs.incidents', { ns: 'evaluations' }),
+              content: <IncidentsTab userId={userId} />,
+            },
+            {
+              id: 'performance',
+              module: 'exams',
+              label: t('title', { ns: 'performance' }),
+              content: (
+                <PerformanceTab userId={userId} subjectName={userQuery.data?.full_name ?? ''} />
+              ),
+            },
+          ]
+        : []),
+      ...(canPrintStaffCard
+        ? [
+            {
+              id: 'documents',
+              module: 'core',
+              label: t('detail.tabs.documents'),
+              content: (
+                <StaffDocumentsTab
+                  userId={userId}
+                  onOpenHrRecord={() => setActiveTab('hrRecord')}
+                />
+              ),
+            },
+          ]
+        : []),
+      ...(hasStaffProfile && canReadStaffAttendance && userQuery.data?.staff_profile_id
+        ? [
+            {
+              id: 'attendanceLeave',
+              module: 'staffAttendance',
+              label: t('detailTab.label', { ns: 'staffAttendance' }),
+              content: (
+                <AttendanceLeaveTab
+                  staffProfileId={userQuery.data.staff_profile_id}
+                  userId={userId}
+                  staffName={userQuery.data.full_name}
+                />
+              ),
+            },
+          ]
+        : []),
+      ...(hasStaffProfile && canManageApplications && userQuery.data?.staff_profile_id
+        ? [
+            {
+              id: 'applications',
+              module: 'applications',
+              label: t('detail.tabs.applications'),
+              content: (
+                <SubjectApplicationsTab
+                  subject={{
+                    kind: 'STAFF',
+                    staffProfileId: userQuery.data.staff_profile_id,
+                    userId,
+                  }}
+                  subjectName={userQuery.data.full_name}
+                  ns="staff"
+                />
+              ),
+            },
+          ]
+        : []),
+      ...(canManageWebsite && isWebPerson
+        ? [
+            {
+              id: 'websiteProfile',
+              module: 'website',
+              label: t('tabs.websiteProfile'),
+              content: <WebsiteProfileTab userId={userId} />,
+            },
+          ]
+        : []),
+      ...(canReadAuditLogs
+        ? [
+            {
+              id: 'loginHistory',
+              module: 'core',
+              label: t('detail.tabs.loginHistory'),
+              content: <LoginHistoryTab userId={userId} />,
+            },
+          ]
+        : []),
+    ],
+    moduleOn,
+  );
 
   const user = userQuery.data;
 
@@ -345,7 +366,7 @@ function StaffDetailPage() {
                 onClick: () => setRemoveOpen(true),
               },
             ]}
-            activeTab={activeTab}
+            activeTab={visibleTab(tabs, activeTab)}
             onTabChange={setActiveTab}
             tabs={tabs}
           />

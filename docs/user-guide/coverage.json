@@ -106,5 +106,6 @@
   "platformOwner.loginAs": "done",
   "platformOwner.schoolControl": "done",
   "platformOwner.announcements": "done",
-  "administration.supportAccess": "done"
+  "administration.supportAccess": "done",
+  "administration.modulesWords": "done"
 }

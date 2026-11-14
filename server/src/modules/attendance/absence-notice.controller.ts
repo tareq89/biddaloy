@@ -12,9 +12,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -44,6 +45,7 @@ import {
 @ApiTags('attendance')
 @ApiTenantAuth()
 @Controller('attendance/sections/:sectionId/absence-notice')
+@RequiresModule(ModuleKey.attendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AbsenceNoticeController {
   constructor(

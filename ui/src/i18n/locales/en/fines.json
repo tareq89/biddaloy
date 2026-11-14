@@ -12,9 +12,9 @@
   "filters": {
     "monthLabel": "Month",
     "allMonths": "All months",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
-    "sectionLabel": "Section",
+    "sectionLabel": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "originLabel": "Source",
     "allOrigins": "All sources",
@@ -31,7 +31,7 @@
     "heading": "Totals for this list"
   },
   "columns": {
-    "student": "Student",
+    "student": "$t(common:entities.student_one)",
     "fine": "Fine",
     "reason": "Reason",
     "incidentDate": "Date",
@@ -53,7 +53,7 @@
   },
   "logForm": {
     "title": "Log fine",
-    "studentsLabel": "Students",
+    "studentsLabel": "$t(common:entities.student_other)",
     "feeLabel": "Fine type",
     "amountLabel": "Amount",
     "amountHint": "Leave blank to use the fine's default amount.",
@@ -77,9 +77,9 @@
     "title": "Make fines from rules",
     "description": "Fines are made from every active rule, using one month's attendance.",
     "monthLabel": "Month",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "All classes",
-    "sectionLabel": "Section",
+    "sectionLabel": "$t(common:entities.section_one)",
     "allSections": "All sections",
     "previewLine": "{{n}} students, {{total}}",
     "previewZero": "No fines would be generated for this month.",
@@ -108,7 +108,7 @@
     "previewZeroHint": "Pick another month or class.",
     "countTimes_one": "{{n}} time",
     "countTimes_other": "{{n}} times",
-    "columnStudent": "Student",
+    "columnStudent": "$t(common:entities.student_one)",
     "columnFine": "Fine",
     "columnCount": "Times",
     "columnAmount": "Amount"
@@ -136,7 +136,7 @@
       "ATTENDANCE_LATE": "Late arrivals"
     },
     "feeLabel": "Fine amount",
-    "classLabel": "Class",
+    "classLabel": "$t(common:entities.class_one)",
     "allClasses": "Whole school",
     "freePerPeriodLabel": "Free per month",
     "capPerPeriodLabel": "Cap per month",

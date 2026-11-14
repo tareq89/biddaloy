@@ -3,12 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import { NoticeStatus } from '@biddaloy/shared';
+import { ModuleKey, NoticeStatus, resolveModuleState } from '@biddaloy/shared';
 import { Notice } from '../entities/notice.entity';
 import { NoticeAttachment } from '../entities/notice-attachment.entity';
 import { NoticeRecipient } from '../entities/notice-recipient.entity';
 import { School } from '../../schools/entities/school.entity';
 import { SchoolsService } from '../../schools/schools.service';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { StorageService } from '../../storage/storage.service';
 import { PublicNoticeDto } from './public-notice.dto';
 
@@ -45,6 +46,7 @@ export class NoticeLinksService {
     @InjectRepository(School) private readonly schools: Repository<School>,
     private readonly schoolsService: SchoolsService,
     private readonly storage: StorageService,
+    private readonly moduleState: ModuleStateReader,
   ) {}
 
   /** Returns the raw token once; only its hash is kept. */
@@ -84,10 +86,7 @@ export class NoticeLinksService {
     const out: { recipientId: string; token: string }[] = [];
     for (const { id } of rows) {
       const token = generateRawToken();
-      await recipients.update(
-        { id, notice_id: noticeId },
-        { link_token_hash: hashToken(token) },
-      );
+      await recipients.update({ id, notice_id: noticeId }, { link_token_hash: hashToken(token) });
       out.push({ recipientId: id, token });
     }
     return out;
@@ -126,6 +125,10 @@ export class NoticeLinksService {
 
     const school = await this.schools.findOne({ where: { id: notice.tenant_id } });
     if (!school || school.status !== 'ACTIVE') return null;
+
+    // [77.2.06] notices off: same dead link as any other (D37).
+    const state = await this.moduleState.forTenant(notice.tenant_id);
+    if (!resolveModuleState(state, ModuleKey.notices).on) return null;
 
     if (notice.expires_on) {
       if (notice.expires_on < (await this.schoolsService.todayFor(notice.tenant_id))) return null;

@@ -34,7 +34,8 @@ import { StudentWalletResponseDto, WalletPayoutDto } from './dto/wallet.dto';
 import { ApprovalService } from '../auth/guards/approval.guard';
 // [16.8.2] Family-facing shapes live in the one allow-list module.
 import { FamilyStudentWalletResponseDto, toFamilyWalletTransaction } from './dto/family.dto';
-import { ApprovalScope, Permission, isGuardianRole } from '@biddaloy/shared';
+import { ApprovalScope, Permission, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { JwtPayload } from '@biddaloy/shared';
 
 /** Default page size for the wallet ledger shown on `GET /students/:id/wallet`. */
@@ -50,6 +51,7 @@ const WALLET_HISTORY_LIMIT = 50;
 @ApiExtraModels(StudentWalletResponseDto, FamilyStudentWalletResponseDto)
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.fees)
 export class WalletController {
   constructor(
     @Inject(WalletService) private readonly walletService: WalletService,

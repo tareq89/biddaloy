@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -13,7 +14,7 @@ import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -42,6 +43,7 @@ type Actor = { sub: string };
 @ApiTags('applications')
 @ApiTenantAuth()
 @Controller('applications')
+@RequiresModule(ModuleKey.applications)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ApplicationDecisionsController {
   constructor(private readonly service: ApplicationDecisionsService) {}

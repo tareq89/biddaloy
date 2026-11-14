@@ -78,6 +78,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 - **Example.** `GET /users/me` carries `@AuthenticatedOnly()` and the entry `{ path: '/users/me', reason: '10.4 — self-service: the id comes from the JWT, never the path' }`.
 - **Also.** `GET /portal/arrival-subscriptions` and `PUT /portal/arrival-subscriptions/:studentId` (Epic 84) are `@AuthenticatedOnly()` + `@Roles(PARENT)` with `IDENTITY_SCOPED` entries: the guardian is read from the JWT, and a child not linked to that guardian is a 404. Their six rows (four staff `attendance/arrival-subscriptions`, two portal) were added to `route-status.snapshot.txt` by 84.2.1; the lock route is `403` for teachers and every other school role.
 - **Test.** `server/src/permission-matrix.e2e-spec.ts` (marker and list match one-for-one), `route-guard-coverage.e2e-spec.ts`.
+- **`@RequiresModule` is an extra refusal, not a way in (Epic 77).** A route tagged `@RequiresModule('<key>')` is refused with `403` and the fixed sentence `MODULE_OFF_MESSAGE` when the school's module is off. `PermissionsGuard` checks the permission first, so a caller without the permission still gets the usual answer and never learns the module state. The tag never grants anything. A tag change is a reachability change: it shows in the `MODULE` column of `route-status.snapshot.txt` (Rule 20). Tests: `server/src/modules/auth/modules-off.e2e-spec.ts`, `permission-matrix.e2e-spec.ts`.
 
 ### Rule 2: Teacher reads are scoped to assigned sections
 
@@ -287,6 +288,7 @@ flowchart LR
 - **Rule.** A change in who can reach a route updates `server/src/route-status.snapshot.txt` in the same PR, and the PR lists each changed line with its ticket.
 - **Why.** Guard changes are easy to miss in a diff (D21). A `/platform/*` route also needs `PlatformAccessGuard` (a cockpit token only). `route-permissions.txt` records the guard; this snapshot shows which roles can reach the route.
 - **Example.** `GET /api/v1/platform/alerts  401 PASS 403 …` (`TENANT_SA` 403).
+- **Module column.** The snapshot carries a trailing `MODULE` column (Epic 77, `requiresModule` route metadata, `-` when untagged); a module tag change is a reachability change.
 - **Test.** `server/src/route-status-snapshot.e2e-spec.ts`. See `server/CLAUDE.md` "Route status snapshot".
 - **Log.** 2026-11-05 [81.0.1] D5b: `PATCH /exams/:examId/marks` and `POST /exams/:examId/marks/submit` flip `EXAM_CONTROLLER` 403 → PASS (it now holds `MARK_ENTER`, a backup for an absent teacher). Teacher scope, other roles and other routes unchanged.
 - **Log.** 2026-11-06 [81.2] D5a/D21: new routes `GET /exams/:examId/marks/sheet` (`MARK_VIEW`), `POST …/marks/sheet/validate` and `POST …/marks/sheet/commit` (`MARK_ENTER`; the two writes pass for `ADMIN`, `TEACHER` and `EXAM_CONTROLLER`; `EXECUTIVE` and every other role get 403). Lines are in `route-status.snapshot.txt`.

@@ -166,6 +166,45 @@ function overlayStudyPlansSettings(stored: unknown): StudyPlansSettings {
   return result;
 }
 
+/** [77.1.02] Deep merge per key; a key set to `null` removes it (D40). Write path. */
+export function mergeModulesLabels(
+  stored: unknown,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const merge = (base: unknown, change: unknown): unknown => {
+    if (!isPlainObject(change)) return change;
+    const out: Record<string, unknown> = isPlainObject(base) ? { ...base } : {};
+    for (const [k, v] of Object.entries(change)) {
+      // A school's `null` removes its own switches only: a platform-set `lock` (D50) survives.
+      const lock = isPlainObject(out[k]) ? (out[k] as Record<string, unknown>).lock : undefined;
+      if (v === null) {
+        if (lock === undefined) delete out[k];
+        else out[k] = { lock };
+      } else out[k] = merge(out[k], v);
+    }
+    return out;
+  };
+  return merge(stored, patch) as Record<string, unknown>;
+}
+
+/**
+ * [77.6.01] `lock` is platform-owned (D50). A school PATCH that sets a module to `null` removes
+ * the entry, so put back any lock the stored block had; the school's own choice still goes.
+ */
+export function keepModuleLocks(
+  stored: unknown,
+  merged: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!isPlainObject(stored)) return merged;
+  const out = { ...merged };
+  for (const [key, entry] of Object.entries(stored)) {
+    if (!isPlainObject(entry) || !entry.lock) continue;
+    const kept = isPlainObject(out[key]) ? (out[key] as Record<string, unknown>) : {};
+    out[key] = { ...kept, lock: entry.lock };
+  }
+  return out;
+}
+
 const CONDUCT_KEY = /^[a-z][a-z0-9_]{1,30}$/;
 
 /** [70.2.01] Read-side guard mirroring `ExamsSettingsDto`: a stored list that is not
@@ -394,10 +433,13 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     dashboard,
     exams: overlayExamsSettings(stored?.exams),
     supportAccess: readSupportAccess(stored),
+    // [77.1.02] Stored blocks were validated on write; read as stored, minus a non-object.
+    modules: isPlainObject(stored?.modules) ? stored.modules : {},
+    labels: isPlainObject(stored?.labels) ? stored.labels : {},
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),
     ...(applications ? { applications } : {}),
     ...(homework ? { homework } : {}),
-  };
+  } as TenantSettings;
 }

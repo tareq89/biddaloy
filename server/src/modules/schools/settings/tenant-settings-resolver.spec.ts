@@ -1,5 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTenantSettings } from './tenant-settings-resolver';
+import {
+  keepModuleLocks,
+  mergeModulesLabels,
+  resolveTenantSettings,
+} from './tenant-settings-resolver';
+
+describe('keepModuleLocks [77.6.01]', () => {
+  const stored = { fees: { on: false, lock: 'off' }, exams: { on: false } };
+
+  it('puts the platform lock back when the school removes the entry, but not its own choice', () => {
+    const merged = mergeModulesLabels(stored, { fees: null, exams: null });
+    expect(keepModuleLocks(stored, merged)).toEqual({ fees: { lock: 'off' } });
+  });
+
+  it('leaves an ordinary patch alone', () => {
+    const merged = mergeModulesLabels(stored, { fees: { on: true } });
+    expect(keepModuleLocks(stored, merged)).toEqual({
+      fees: { on: true, lock: 'off' },
+      exams: { on: false },
+    });
+  });
+});
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_ATTENTION_SETTINGS,
@@ -571,5 +592,14 @@ describe('resolveTenantSettings supportAccess [99.1.04]', () => {
   it('garbage falls back to the default', () => {
     const out = resolveTenantSettings({ supportAccess: { mode: 'NONSENSE' } });
     expect(out.supportAccess?.mode).toBe('allowed');
+  });
+});
+
+describe('mergeModulesLabels', () => {
+  it('a null patch removes a school entry but keeps a platform lock', () => {
+    const stored = { fees: { on: false, lock: 'off' }, library: { on: false } };
+    expect(mergeModulesLabels(stored, { fees: null, library: null })).toEqual({
+      fees: { lock: 'off' },
+    });
   });
 });

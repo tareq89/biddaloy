@@ -72,6 +72,18 @@ the nav tree under _Academics › Timetable & routines_, (c) register
 workbook tab for `routine_slots`. Any of those missing fails CI, not code
 review.
 
+**Module guards (Epic 77).** Two more drift tests join the registry guards. They
+keep an off module from leaving a stray link behind:
+
+| Guard                                        | Fails when                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `client-admin/src/module-coverage.test.ts`   | a nav item, palette action or staff route has no `module` (and is not a core area), or its module differs from its route's |
+| `client-admin/src/tab-card-coverage.test.ts` | a detail-page tab, portal page, dashboard widget or coded report has no valid `module`                                     |
+
+Example: a new "Library" tab on the student page with no `module:` line fails
+`tab-card-coverage.test.ts` with `tab "library" has no module`. The browser
+proof is `e2e/journeys/modules-hiding.spec.ts`.
+
 ## 3. Navigation tree
 
 Built from a full inventory (672 rows: the reference ERP's nav, its
@@ -168,7 +180,7 @@ Administration
   Print templates [have, 32.0] — library, then the full-screen editor
   Settings [have] → sub-pages:
     Attendance policy & times [have] · Communication providers [have] · Alerts & reminders [67.0]
-    Printers [have, 32.0] (calibration, margins) · School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
+    Printers [have, 32.0] (calibration, margins) · School profile & logo [have] · Region & locale [17.0] · Modules & words [have, 77.0]
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
     it] · Result templates library [19.0] · Backup & restore [have]
@@ -198,7 +210,7 @@ Account [have] — includes Notification preferences [67.0]
 ### 3.3 Platform (super-admin) tree
 
 ```text
-Schools [have] · Public holiday sets [17.0] · Preset library [N3]
+Schools [have] · Public holiday sets [17.0] · Preset library [N3] · Modules: school detail › Modules tab, per-school lock [have, 77.0]
   Schools list: Trial column, ?trial filter · Engine health card [67.0] · School detail: Trial card + "Extend trial" [13.0]
 ```
 
@@ -209,6 +221,25 @@ People, as shown above.)
 The setup checklist is a card on the Dashboard. The attention bar sits under the
 top bar on every shell; the trial warning is one of its rules (`trial.ending`).
 See [34-onboarding.md](34-onboarding.md) and [23-attention.md](23-attention.md).
+
+### 3.5 Modules & words (Epic 77)
+
+Where it lives: **Administration › Settings › Modules & words** (`/settings?section=modulesWords`), tabs **Modules** and **Words** in the URL (`?tab=`). ADMIN only. No top-level item. Palette actions: "Choose institution kind", "Turn modules on or off", "Change words".
+
+```mermaid
+flowchart LR
+  A[Admin turns Fines off] --> H[nav, palette, tabs, cards, widgets hide Fines]
+  A --> S[server refuses the routes: 403]
+  B[Bookmarked /fines] --> R[refusal page]
+  R -- ADMIN --> T["Turn on" link to Modules & words]
+  R -- everyone else --> Q["Ask your admin"]
+```
+
+- **Hiding.** Every nav item, palette action, detail-page tab, portal page, dashboard widget and coded report carries a `module`. When it is off, it is gone, not greyed out. Exceptions today: the at-risk widget and `/reports/catalogue` ignore the switch (#4125); attendance device routes ignore it (#4120).
+- **Refusal.** A URL to an off module shows one page with the fixed sentence "This part is not turned on for your institution" (`ModuleOffState`). ADMIN gets a "Turn on" button, others get "Ask your admin". The server answers the same URL with 403 and the same sentence. Exception: the portal shows a generic load error, not this page (#4127).
+- **Words.** The Words tab is a table: stock word, English one/many, Bangla, suggestion, and a line "shows as: 3 Batches". Screens read the school's word through `common:entities.*` (page copy converted so far: 29 namespaces, rest tracked in #3929).
+- **Platform modules.** The owner works in the cockpit, in two places. _Operations › Modules for all schools_ turns a module off for every school at once (a confirm dialog first; turning it back on restores each school's own choice). The school 360 _Modules_ tab locks a module on or off for one school. Both writes ask for the authenticator step-up. The school sees the module as off and a note that the platform turned it off or locked it; it cannot turn it on.
+- **Guards.** `client-admin/src/module-coverage.test.ts` and `tab-card-coverage.test.ts` (§2) fail CI when a new item has no `module`.
 
 ### 3.4 Placement decisions (final)
 
@@ -221,7 +252,7 @@ See [34-onboarding.md](34-onboarding.md) and [23-attention.md](23-attention.md).
 | P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | P6  | Notices live under **Communications**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | P7  | Fines live under **Finance › Fines** (list + Rules tab); money reuses Finance › Payments. Replaced the Attendance placement in Epic 38 because fines are generic, not attendance-only.                                                                                                                                                                                                                                                                                                                                                                            |
-| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| P8  | Online learning is **one item** so a module switch (Epic 77) can hide it whole.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | P10 | **Resolved (Epic 24.0):** Users merged into **People › Staff**. "Add user" is a dialog (`client-admin/src/routes/_staff/staff/-add-user-dialog.tsx`); there is no `administration.users` item.                                                                                                                                                                                                                                                                                                                                                                    |
 | P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).                                                                                                                                                                                                                                                                                                                                                                                      |

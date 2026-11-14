@@ -16,7 +16,10 @@ import {
   UserRole,
   hasTenantDataScope,
   isGuardianRole,
+  resolveModuleState,
 } from '@biddaloy/shared';
+import type { ModuleKey } from '@biddaloy/shared';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import { SchoolsService } from '../../schools/schools.service';
 import { SchoolCalendarService } from '../../calendar/school-calendar.service';
@@ -86,7 +89,31 @@ export class AttentionQueryService {
     private readonly teacherScope: TeacherScopeService,
     private readonly schools: SchoolsService,
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
+    private readonly moduleState: ModuleStateReader,
   ) {}
+
+  /**
+   * D9/D37: rule keys whose module is off for this role. Their alert rows stay in the table and
+   * come back when the module is switched on. D27: an unreadable state hides every module rule.
+   * Public: the push delivery asks it too, so a switched-off module never pushes.
+   */
+  async hiddenRuleKeys(tenantId: string, role?: string): Promise<string[]> {
+    const mods: [string, ModuleKey][] = [];
+    for (const r of this.registry.all()) {
+      const m = this.registry.moduleOf(r.meta.key);
+      if (m && m !== 'core') mods.push([r.meta.key, m]);
+    }
+    if (mods.length === 0) return [];
+    try {
+      const { platform, school } = await this.moduleState.forTenant(tenantId);
+      return mods
+        .filter(([, m]) => !resolveModuleState({ platform, school, role: role as UserRole }, m).on)
+        .map(([k]) => k);
+    } catch (e) {
+      this.logger.error(`Module state unreadable for tenant ${tenantId}: ${(e as Error).message}`);
+      return mods.map(([k]) => k);
+    }
+  }
 
   /** Public: 67.1.08 (#2051) renders pushes with it. */
   renderAlert(
@@ -196,20 +223,21 @@ export class AttentionQueryService {
     userId: string,
     role: string,
   ): Promise<CachedSummary> {
+    const hidden = await this.hiddenRuleKeys(tenantId, role);
     const where = `r.tenant_id = $1 AND r.user_id = $2 AND (r.role = $3 OR r.role IS NULL)
-      AND a.status = 'ACTIVE'`;
+      AND a.status = 'ACTIVE' AND a.rule_key <> ALL($4::text[])`;
     const [open, [{ total }]] = await Promise.all([
       // ponytail: bar counts cap at 200 open rows; the bar only needs "many".
       this.dataSource.query(
         `SELECT ${ITEM_COLS} ${ITEM_FROM} WHERE ${where} AND r.state = 'OPEN'
          ORDER BY ${BY_SEVERITY} LIMIT 200`,
-        [tenantId, userId, role],
+        [tenantId, userId, role, hidden],
       ),
       this.dataSource.query(
         `SELECT count(*)::int AS total FROM alert_recipients r
          JOIN alerts a ON a.id = r.alert_id AND a.tenant_id = r.tenant_id
          WHERE ${where} AND r.state IN ('OPEN','HIDDEN')`,
-        [tenantId, userId, role],
+        [tenantId, userId, role, hidden],
       ),
     ]);
     const count = (s: AlertSeverity) => (open as Row[]).filter((x) => x.severity === s).length;
@@ -245,14 +273,14 @@ export class AttentionQueryService {
   ): Promise<AlertItemsPageDto> {
     const role = this.assertOwnRole(activeRole, query.role);
     const locale = await this.localeFor(tenantId, query.locale);
-    const params: unknown[] = [tenantId, userId, role];
+    const params: unknown[] = [tenantId, userId, role, await this.hiddenRuleKeys(tenantId, role)];
     const arg = (v: unknown) => `$${params.push(v)}`;
     const history = query.tab === 'history';
     let where = `r.tenant_id = $1 AND r.user_id = $2 AND (r.role = $3 OR r.role IS NULL) AND ${
       history
         ? `r.state IN ('RESOLVED','EXPIRED')`
         : `r.state IN ('OPEN','HIDDEN') AND a.status = 'ACTIVE'`
-    }`;
+    } AND a.rule_key <> ALL($4::text[])`;
     if (query.category) where += ` AND a.category = ${arg(query.category)}`;
     if (query.sectionId) where += ` AND a.params->>'sectionId' = ${arg(query.sectionId)}`;
     if (query.studentId) {
@@ -420,12 +448,13 @@ export class AttentionQueryService {
        FROM alerts a
        LEFT JOIN alert_recipients r ON r.alert_id = a.id AND r.tenant_id = a.tenant_id
        WHERE a.tenant_id = $1 AND a.status = 'ACTIVE'
+         AND a.rule_key <> ALL($3::text[])
          AND ((a.subject_type = 'student' AND a.subject_id = $2)
               OR EXISTS (SELECT 1 FROM alert_recipients x
                          WHERE x.alert_id = a.id AND x.tenant_id = a.tenant_id AND x.student_id = $2))
        GROUP BY a.id
        ORDER BY ${BY_SEVERITY}`,
-      [tenantId, studentId],
+      [tenantId, studentId, await this.hiddenRuleKeys(tenantId, caller.role)],
     );
     return rows.map((r) => {
       const text = this.renderAlert(r, loc);

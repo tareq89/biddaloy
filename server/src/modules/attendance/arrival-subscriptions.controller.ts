@@ -21,9 +21,10 @@ import {
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
+import { Permission, UserRole, roleHasPermission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
@@ -57,6 +58,7 @@ const actor = (tenant: Tenant, user: User) => ({
 @ApiTags('attendance')
 @ApiTenantAuth()
 @Controller('attendance/arrival-subscriptions')
+@RequiresModule(ModuleKey.attendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ArrivalSubscriptionsController {
   constructor(private readonly service: ArrivalSubscriptionsService) {}
@@ -119,6 +121,7 @@ export class ArrivalSubscriptionsController {
 @ApiTags('portal')
 @ApiTenantAuth()
 @Controller('portal/arrival-subscriptions')
+@RequiresModule(ModuleKey.attendance)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class PortalArrivalSubscriptionsController {
   constructor(private readonly service: ArrivalSubscriptionsService) {}

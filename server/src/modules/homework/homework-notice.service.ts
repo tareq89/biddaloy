@@ -26,6 +26,7 @@ import {
 } from '../communications/fee-notification-template.util';
 import { joinStudentNames } from '../communications/reminder-template.util';
 import { SchoolsService } from '../schools/schools.service';
+import { smsWord } from '../communications/sms-words.util';
 
 /**
  * [22.3.3] Guardian notices for homework assignment + non-submission,
@@ -60,10 +61,11 @@ export class HomeworkNoticeService {
     const due = assignment.due_date;
     // [JOBS-09] The title stays as the teacher typed it.
     const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
+    const g = await this.guardianWord(assignment.tenant_id, bn);
     await this.sendToGuardians(assignment.tenant_id, students, bn, (names) =>
       bn
-        ? `প্রিয় অভিভাবক, ${names}-এর জন্য নতুন বাড়ির কাজ "${homework.title}" দেওয়া হয়েছে, জমার শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}।`
-        : `Dear Guardian, new homework "${homework.title}" has been assigned to ${names}, due ${due}.`,
+        ? `প্রিয় ${g}, ${names}-এর জন্য নতুন বাড়ির কাজ "${homework.title}" দেওয়া হয়েছে, জমার শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}।`
+        : `Dear ${g}, new homework "${homework.title}" has been assigned to ${names}, due ${due}.`,
     );
   }
 
@@ -91,20 +93,21 @@ export class HomeworkNoticeService {
     }
     const due = assignment.due_date;
     const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
+    const g = await this.guardianWord(assignment.tenant_id, bn);
     await this.sendToGuardians(assignment.tenant_id, students, bn, (names) => {
       if (kind === 'REACTIVATED') {
         return bn
-          ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}" আবার চালু হয়েছে। জমার শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}।`
-          : `Dear Guardian, homework "${homework.title}" for ${names} is back on. It is due ${due}.`;
+          ? `প্রিয় ${g}, ${names}-এর বাড়ির কাজ "${homework.title}" আবার চালু হয়েছে। জমার শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}।`
+          : `Dear ${g}, homework "${homework.title}" for ${names} is back on. It is due ${due}.`;
       }
       if (kind === 'WITHDRAWN') {
         return bn
-          ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}" বাতিল করা হয়েছে। জমা দিতে হবে না।`
-          : `Dear Guardian, homework "${homework.title}" for ${names} has been withdrawn. It does not need to be submitted.`;
+          ? `প্রিয় ${g}, ${names}-এর বাড়ির কাজ "${homework.title}" বাতিল করা হয়েছে। জমা দিতে হবে না।`
+          : `Dear ${g}, homework "${homework.title}" for ${names} has been withdrawn. It does not need to be submitted.`;
       }
       return bn
-        ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}"-এর জমার শেষ তারিখ এখন ${formatFeeNotificationDueDate('bn', due)}।`
-        : `Dear Guardian, the due date of homework "${homework.title}" for ${names} is now ${due}.`;
+        ? `প্রিয় ${g}, ${names}-এর বাড়ির কাজ "${homework.title}"-এর জমার শেষ তারিখ এখন ${formatFeeNotificationDueDate('bn', due)}।`
+        : `Dear ${g}, the due date of homework "${homework.title}" for ${names} is now ${due}.`;
     });
   }
 
@@ -119,11 +122,20 @@ export class HomeworkNoticeService {
     if (settings.homework?.notifyDefaulters !== true) return;
     const due = assignment.due_date;
     const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
+    const g = await this.guardianWord(assignment.tenant_id, bn);
     await this.sendToGuardians(assignment.tenant_id, defaulters, bn, (names) =>
       bn
-        ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}" (শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}) এখনও জমা হয়নি।`
-        : `Dear Guardian, homework "${homework.title}" (due ${due}) has not been submitted yet by ${names}.`,
+        ? `প্রিয় ${g}, ${names}-এর বাড়ির কাজ "${homework.title}" (শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}) এখনও জমা হয়নি।`
+        : `Dear ${g}, homework "${homework.title}" (due ${due}) has not been submitted yet by ${names}.`,
     );
+  }
+
+  /** The school's word for "guardian" in the notice language. Read once per job, never per recipient. */
+  private async guardianWord(tenantId: string, bn: boolean): Promise<string> {
+    const labels = await this.schoolsService.getSchoolLabels(tenantId);
+    return bn
+      ? smsWord(labels, 'guardian', 'bn', 'অভিভাবক')
+      : smsWord(labels, 'guardian', 'en', 'Guardian');
   }
 
   private async loadTargetStudents(assignment: HomeworkAssignment): Promise<Student[]> {

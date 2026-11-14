@@ -21,6 +21,7 @@ describe('DeviceAbsentSweepScheduler', () => {
   let dataSource: any;
   let schoolsService: any;
   let calendar: any;
+  let moduleState: any;
   let scheduler: DeviceAbsentSweepScheduler;
   let sweepSection: ReturnType<typeof vi.fn>;
 
@@ -43,9 +44,16 @@ describe('DeviceAbsentSweepScheduler', () => {
       getResolvedSettings: vi.fn(async () => s),
     };
     calendar = { isNonWorkingDay: vi.fn(async () => false) };
-    scheduler = new DeviceAbsentSweepScheduler(queue, dataSource, schoolsService, calendar, {
-      record: vi.fn(),
-    } as any);
+    // [77.2.10] every module on unless a test says otherwise
+    moduleState = { forTenant: vi.fn(async () => ({ platform: {}, school: {} })) };
+    scheduler = new DeviceAbsentSweepScheduler(
+      queue,
+      dataSource,
+      schoolsService,
+      calendar,
+      { record: vi.fn() } as any,
+      moduleState,
+    );
     sweepSection = vi.fn(async () => 2);
     (scheduler as any).sweepSection = sweepSection;
   }
@@ -125,5 +133,27 @@ describe('DeviceAbsentSweepScheduler', () => {
       .mockResolvedValue(settings(DailyAttendanceSource.ANY));
     await expect(scheduler.process()).resolves.toBeUndefined();
     expect(schoolsService.getResolvedSettings).toHaveBeenCalledTimes(2);
+  });
+
+  // [77.2.10] D9: attendance off for A -> A skipped (its settings are never even read), B still swept.
+  it('skips a school with attendance off and still sweeps the next', async () => {
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    moduleState.forTenant.mockImplementation(async (id: string) => ({
+      platform: {},
+      school: id === 'A' ? { attendance: { on: false } } : {},
+    }));
+    await scheduler.process();
+    expect(schoolsService.getResolvedSettings.mock.calls.map((c: any[]) => c[0])).toEqual(['B']);
+  });
+
+  // Fail closed: unreadable state skips that school and the sweep goes on.
+  it('skips a school whose module state cannot be read and still sweeps the next', async () => {
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    moduleState.forTenant.mockImplementation(async (id: string) => {
+      if (id === 'A') throw new Error('db down');
+      return { platform: {}, school: {} };
+    });
+    await expect(scheduler.process()).resolves.toBeUndefined();
+    expect(schoolsService.getResolvedSettings.mock.calls.map((c: any[]) => c[0])).toEqual(['B']);
   });
 });

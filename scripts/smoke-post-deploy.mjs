@@ -7,6 +7,8 @@
  * ENV_NAME=staging also runs the owner sign-in (SMOKE_COCKPIT_EMAIL/PASSWORD/TOTP_SECRET, D17).
  * Optional SMOKE_COCKPIT_DOMAIN + SMOKE_APP_DOMAIN (bare hosts): the cockpit fence checks.
  * Optional SMOKE_IMPERSONATION=1 (needs both domains): the Login as fence checks.
+ * Optional SMOKE_MODULE_OFF_PATH (a route of a module that is off for the smoke school): the admin
+ * smoke token must get 403 with a message (Epic 77, D10). Unset = skipped.
  * Optional SMOKE_FENCE_ORIGIN (e.g. http://nginx:80): send the fence requests to that origin with
  * the intended Host header, so a host behind Cloudflare Access is probed at nginx itself.
  *
@@ -178,11 +180,25 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     };
   }
 
+  // [Epic 77, D10] moduleRefusal: an off module's route answers 403 with a fixed sentence.
+  // Sentence pinned: MODULE_OFF_MESSAGE in server/src/common/filters/known-errors.ts.
+  if (!env.SMOKE_MODULE_OFF_PATH) {
+    out('moduleRefusal: skipped: SMOKE_MODULE_OFF_PATH not set');
+  } else {
+    await check('GET', env.SMOKE_MODULE_OFF_PATH, 'moduleRefusal', {
+      headers: sessions.admin,
+      expect: 403,
+      ok: (b) => b.message === 'This part is not turned on for your institution',
+    });
+  }
+
   const reads = [
     ['/api/v1/students?limit=1', 'teacher'],
     ['/api/v1/fees/dues?limit=1', 'admin'],
   ];
   for (const [path, who] of reads) {
+    // The module under test is off on purpose: its baseline read would 403 by design.
+    if (env.SMOKE_MODULE_OFF_PATH && path.startsWith(env.SMOKE_MODULE_OFF_PATH)) continue;
     if ((await check('GET', path, who, { headers: sessions[who] })) === null) return done();
   }
 

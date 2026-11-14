@@ -1,7 +1,8 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { DashboardWidgetKey, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -14,6 +15,7 @@ import { FailedMessagesWidgetDto, SmsBalanceWidgetDto } from './dto/communicatio
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@RequiresModule(ModuleKey.messaging)
 export class CommunicationsDashboardController {
   constructor(private readonly service: CommunicationsDashboardService) {}
 

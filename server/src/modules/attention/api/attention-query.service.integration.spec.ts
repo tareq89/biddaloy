@@ -31,6 +31,7 @@ describe('AttentionQueryService (integration)', () => {
   let tenantB: string;
   let me: string;
   let other: string;
+  let schoolModules: Record<string, { on?: boolean }> = {};
 
   beforeAll(async () => {
     redis = new Redis(process.env.REDIS_URL!);
@@ -40,7 +41,11 @@ describe('AttentionQueryService (integration)', () => {
     ]);
     ds = module.get(DataSource);
     writer = module.get(AlertWriterService);
-    const registry = { get: (k: string) => (k === RULE_KEY ? FAKE_RULE : undefined) };
+    const registry = {
+      get: (k: string) => (k === RULE_KEY ? FAKE_RULE : undefined),
+      all: () => [FAKE_RULE],
+      moduleOf: (k: string) => (k === RULE_KEY ? 'attendance' : undefined),
+    };
     const context = {
       build: async (tenantId: string, now: Date) => ({
         tenantId,
@@ -66,6 +71,7 @@ describe('AttentionQueryService (integration)', () => {
       {} as never,
       schools as never,
       redis,
+      { forTenant: async () => ({ platform: {}, school: schoolModules }) } as never,
     );
     const [school] = await ds.query(
       `INSERT INTO schools (name, slug) VALUES ('Query Other', 'query-other-' || substr(gen_random_uuid()::text, 1, 8)) RETURNING id`,
@@ -92,6 +98,7 @@ describe('AttentionQueryService (integration)', () => {
   });
 
   beforeEach(async () => {
+    schoolModules = {};
     await ds.query(`DELETE FROM alerts WHERE tenant_id IN ($1, $2)`, [SEED_TENANT_ID, tenantB]);
     await redis.del(
       ...Object.values(UserRole).map((r) => attentionKeys.summary(SEED_TENANT_ID, me, r)),
@@ -427,6 +434,27 @@ describe('AttentionQueryService (integration)', () => {
         await ds.query(`DELETE FROM alerts WHERE tenant_id = $1`, [SEED_TENANT_ID]);
         await ds.query(`DELETE FROM students WHERE id = $1`, [stu.id]);
       }
+    });
+  });
+
+  describe('module off hides alerts, data kept (D9, D37)', () => {
+    it('hides the alert while the module is off and shows it again when on', async () => {
+      const { alertId } = await add({ ruleKey: RULE_KEY, userId: me, role: 'TEACHER' });
+      const ids = async () => (await items()).items.map((i) => i.alertId);
+      expect(await ids()).toContain(alertId);
+
+      schoolModules = { attendance: { on: false } };
+      await redis.del(attentionKeys.summary(SEED_TENANT_ID, me, 'TEACHER'));
+      expect(await ids()).not.toContain(alertId);
+      expect((await summary()).activeTotal).toBe(0);
+      // D37: the row is still there, nothing was deleted
+      const rows = await ds.query(`SELECT 1 FROM alerts WHERE id = $1`, [alertId]);
+      expect(rows).toHaveLength(1);
+
+      schoolModules = {};
+      await redis.del(attentionKeys.summary(SEED_TENANT_ID, me, 'TEACHER'));
+      expect(await ids()).toContain(alertId);
+      expect((await summary()).activeTotal).toBe(1);
     });
   });
 });

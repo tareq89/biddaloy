@@ -1,3 +1,4 @@
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import {
   Body,
   CallHandler,
@@ -22,7 +23,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { catchError, throwError } from 'rxjs';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
@@ -60,6 +61,7 @@ class OversizeAsRejected implements NestInterceptor {
 @ApiTags('website')
 @ApiTenantAuth()
 @Controller('website/gallery')
+@RequiresModule(ModuleKey.website)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.WEBSITE_MANAGE)
 export class GalleryController {

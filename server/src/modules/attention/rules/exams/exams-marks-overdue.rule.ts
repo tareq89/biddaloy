@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, AlertSeverity } from '@biddaloy/shared';
+import { alertRuleMeta, AlertSeverity, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { addDaysIso } from '../rule-context.service';
@@ -63,7 +63,7 @@ export async function loadOutstandingGrids(
   );
 }
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.exams })
 export class ExamsMarksOverdueRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('exams.marks_overdue');
   readonly messages = {

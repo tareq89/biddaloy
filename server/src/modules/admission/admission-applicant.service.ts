@@ -12,10 +12,13 @@ import {
   AdmissionApplicantStatus,
   AdmissionApplicantDocument,
   AdmissionDocumentType,
+  ModuleKey,
+  resolveModuleState,
 } from '@biddaloy/shared';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { SchoolsService } from '../schools/schools.service';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
@@ -86,13 +89,25 @@ export class AdmissionApplicantService {
     private readonly intakeRepo: Repository<AdmissionIntake>,
     @InjectRepository(AdmissionApplicant)
     private readonly applicantRepo: Repository<AdmissionApplicant>,
+    private readonly moduleState: ModuleStateReader,
   ) {}
+
+  /**
+   * [77.2.05] Slug -> school, or the route's own 404 when the slug is unknown or admission is
+   * off. A public visitor is never told about modules (D37), so both look the same.
+   */
+  private async schoolOrNotFound(slug: string, message: string) {
+    const school = await this.schoolsService.findBySlug(slug);
+    if (!school) throw new NotFoundException(message);
+    const state = await this.moduleState.forTenant(school.id);
+    if (!resolveModuleState(state, ModuleKey.admission).on) throw new NotFoundException(message);
+    return school;
+  }
 
   /** `GET /public/admission/:slug` — every intake still open for
    * applications (D14: close_date not passed, seats not exhausted). */
   async listOpenIntakes(slug: string): Promise<PublicIntakeDto[]> {
-    const school = await this.schoolsService.findBySlug(slug);
-    if (!school) throw new NotFoundException('School not found');
+    const school = await this.schoolOrNotFound(slug, 'School not found');
 
     const today = await this.schoolsService.todayFor(school.id);
     const intakes = await this.intakeRepo
@@ -135,8 +150,7 @@ export class AdmissionApplicantService {
    * identically so the response never reveals which field was wrong or
    * that another applicant exists. */
   async getStatus(slug: string, dto: CheckApplicantStatusDto): Promise<ApplicantStatusDto> {
-    const school = await this.schoolsService.findBySlug(slug);
-    if (!school) throw new NotFoundException('Application not found');
+    const school = await this.schoolOrNotFound(slug, 'Application not found');
 
     const referenceNumber = normalizeReferenceNumber(dto.reference_number);
     const applicant = await this.applicantRepo.findOne({
@@ -183,8 +197,7 @@ export class AdmissionApplicantService {
     dto: SubmitApplicantDto,
     files: Express.Multer.File[],
   ): Promise<{ reference_number: string; status: string }> {
-    const school = await this.schoolsService.findBySlug(slug);
-    if (!school) throw new NotFoundException('School not found');
+    const school = await this.schoolOrNotFound(slug, 'School not found');
 
     // Honeypot: return a plausible-looking success without persisting
     // anything, so a bot filling every visible field can't tell it was

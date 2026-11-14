@@ -9,7 +9,7 @@ import { platformAdminRecipients } from './platform-admin-recipients';
 /** An owner with a confirmed authenticator and two or fewer unused recovery codes is told, alone. */
 export const RECOVERY_CODES_LOW_AT = 2;
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformRecoveryCodesLowRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.recovery_codes_low');
   readonly messages = {
