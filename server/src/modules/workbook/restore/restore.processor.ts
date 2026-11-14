@@ -11,6 +11,7 @@ import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { InvitationService } from '../../account-access/invitation.service';
 import { ALL_TABS } from '../codec/registry';
+import { dropStaleRelations } from '../codec/stale-relations';
 import { reviveRows, softDeletedRowIds } from '../codec/soft-deleted';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import { joinRequestedUsers } from '../tabs/people/users.tab';
@@ -292,6 +293,8 @@ export class RestoreProcessor extends WorkerHost {
             // D13: insert-only tabs never update an existing row. A kept row
             // is not a write, so only real upserts count as applied.
             const kept = insertOnly && existing !== null;
+            // [#2761] A loaded relation must not beat the FK the file changed (every tab).
+            if (!kept && existing !== null) dropStaleRelations(tab, typedRow, existing, m);
             const entity = kept
               ? existing
               : await tab.upsert(typedRow, existing, tenantId, m, row.requested_by_user_id);
