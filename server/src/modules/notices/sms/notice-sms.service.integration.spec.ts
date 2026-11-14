@@ -207,6 +207,11 @@ describe('NoticeSmsService (integration)', () => {
     expect((await svc.approve(T, id, approver)).queued).toBe(1);
   });
 
+  it('the same number in two formats counts and sends once', async () => {
+    const id = await notice([await guardian('01744444445'), await guardian('+8801744444445')]);
+    expect((await svc.approve(T, id, approver)).queued).toBe(1);
+  });
+
   it('unticked people get nothing', async () => {
     const a = await guardian('01755555555');
     const b = await guardian('01766666666');
