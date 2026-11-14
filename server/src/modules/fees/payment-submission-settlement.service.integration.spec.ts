@@ -19,6 +19,7 @@ import {
 } from '@biddaloy/shared';
 import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { CheckoutService } from './checkout.service';
+import { assertNoWaitingSubmissionBills } from './submission-bill-guard';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -390,6 +391,19 @@ describe('PaymentSubmissionSettlement (integration)', () => {
       expect(await payCount()).toBe(0);
     });
 
+    it('discards with BILL_REMOVED when a bill was soft-deleted after submit', async () => {
+      const s1 = await mkStudent();
+      const b1 = await mkBill(s1.id, 1000);
+      const sub = await mkSubmission([b1]);
+      await feeRepo.softDelete({ id: b1.id });
+
+      const res = await strict(sub.id);
+
+      expect(res).toMatchObject({ outcome: 'DISCARDED', paymentIds: [] });
+      expect((await reload(sub.id)).discard_reason).toBe('BILL_REMOVED');
+      expect(await payCount()).toBe(0);
+    });
+
     it('discards when a partial counter payment changed the balance', async () => {
       const s1 = await mkStudent();
       const b1 = await mkBill(s1.id, 1000);
@@ -646,6 +660,26 @@ describe('PaymentSubmissionSettlement (integration)', () => {
 
       expect(await walletTxRepo.count()).toBe(1);
       expect((await reload(sub.id)).status).toBe(PaymentSubmissionStatus.COMPLETED);
+    });
+  });
+
+  describe('assertNoWaitingSubmissionBills', () => {
+    it('refuses a bill a PENDING submission of the same school covers', async () => {
+      const s1 = await mkStudent();
+      const b1 = await mkBill(s1.id);
+      await mkSubmission([b1]);
+      await expect(
+        ds.transaction((m) => assertNoWaitingSubmissionBills(m, TENANT_ID, [b1.id])),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("ignores another school's PENDING submission row on the same bill id", async () => {
+      const s1 = await mkStudent();
+      const b1 = await mkBill(s1.id);
+      await mkSubmission([b1], { tenantId: OTHER_TENANT_ID });
+      await expect(
+        ds.transaction((m) => assertNoWaitingSubmissionBills(m, TENANT_ID, [b1.id])),
+      ).resolves.toBeUndefined();
     });
   });
 });
