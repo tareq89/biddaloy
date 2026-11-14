@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
 
@@ -143,5 +144,76 @@ describe('BkashClient', () => {
       callbackURL: 'https://app/cb',
     });
     expect(init.headers.authorization).toBe('tok');
+  });
+
+  describe('tenant credentials', () => {
+    const tenant = (id: string) => ({
+      environment: 'SANDBOX',
+      appKey: 'k-' + id,
+      appSecret: 'SECRET-' + id,
+      username: 'u-' + id,
+      password: 'PW-' + id,
+      cacheKey: `bkash:token:${id}`,
+    });
+
+    it('two tenants get two tokens, each cached under its own key', async () => {
+      fetchJson
+        .mockResolvedValueOnce({ id_token: 'tokA' })
+        .mockResolvedValueOnce({ id_token: 'tokB' });
+      const { client, redis } = build();
+      expect(await client.token(false, tenant('A'))).toBe('tokA');
+      expect(await client.token(false, tenant('B'))).toBe('tokB');
+      expect(redis.set).toHaveBeenCalledWith('bkash:token:A', 'tokA', 'EX', 3000);
+      expect(redis.set).toHaveBeenCalledWith('bkash:token:B', 'tokB', 'EX', 3000);
+      // Tenant A's grant used A's own creds, not env creds.
+      expect(JSON.parse(fetchJson.mock.calls[0][2].body)).toEqual({
+        app_key: 'k-A',
+        app_secret: 'SECRET-A',
+      });
+    });
+
+    it('reads the cache by tenant key, never the env key', async () => {
+      const { client, redis } = build();
+      redis.get.mockImplementation(async (k: string) => (k === 'bkash:token:A' ? 'cachedA' : null));
+      expect(await client.token(false, tenant('A'))).toBe('cachedA');
+      expect(fetchJson).not.toHaveBeenCalled();
+    });
+
+    it('the host comes only from the fixed list, never from the creds', async () => {
+      fetchJson.mockResolvedValueOnce({ id_token: 't' });
+      const { client } = build();
+      await client.token(false, { ...tenant('A'), baseUrl: 'https://evil.example' });
+      expect(fetchJson.mock.calls[0][1]).toBe(
+        'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/token/grant',
+      );
+      await expect(client.token(false, { ...tenant('A'), environment: 'EVIL' })).rejects.toThrow(
+        'bKash environment is not valid',
+      );
+    });
+
+    it('env path is unchanged: default creds use cache key bkash:token and the env host', async () => {
+      fetchJson.mockResolvedValueOnce({ id_token: 'tok' });
+      const { client, redis } = build();
+      await client.token();
+      expect(redis.set).toHaveBeenCalledWith('bkash:token', 'tok', 'EX', 3000);
+      expect(fetchJson.mock.calls[0][1]).toContain('https://tokenized.sandbox.bka.sh/v1.2.0-beta/');
+    });
+
+    it('a failed grant, a Redis outage and a guard refusal never leak credentials', async () => {
+      const logs: string[] = [];
+      const spy = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation((m) => void logs.push(String(m)));
+      fetchJson.mockResolvedValueOnce({ message: 'bad' }); // no id_token
+      const { client } = build({ get: vi.fn().mockRejectedValue(new Error('down')) });
+      let text = '';
+      await client.testConnection(tenant('A')).catch((e: Error) => (text = e.message));
+      assertSafe.mockRejectedValueOnce(new Error('blocked'));
+      await client.testConnection(tenant('A')).catch((e: Error) => (text += e.message));
+      spy.mockRestore();
+      const all = text + logs.join(' ');
+      for (const secret of ['SECRET-A', 'PW-A', 'k-A', 'u-A']) expect(all).not.toContain(secret);
+      expect(text).toContain('bKash token grant failed');
+    });
   });
 });

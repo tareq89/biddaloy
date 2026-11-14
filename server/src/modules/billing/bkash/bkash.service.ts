@@ -18,7 +18,11 @@ import { OTP_REDIS } from '../../account-access/otp.service';
 import { resolveAppBaseUrl } from '../../account-access/app-base-url.util';
 import { SmsBundlePaymentService } from '../../sms-bundles/payment/sms-bundle-payment.service';
 import { OrdersService } from '../orders.service';
-import { BkashClient, bdtToPaisa, type BkashPayment } from './bkash.client';
+import {
+  BkashClient,
+  bdtToPaisa,
+  type BkashPayment,
+} from '../../payment-gateways/bkash/bkash.client';
 
 /** order id -> the one bKash payment started for it, so a callback can be matched and reconciled. */
 export const PAYMENT_KEY = (orderId: string) => `bkash:pay:${orderId}`;

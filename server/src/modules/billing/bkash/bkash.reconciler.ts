@@ -4,7 +4,7 @@ import { ModuleRef } from '@nestjs/core';
 import { Queue } from 'bullmq';
 import { SmsBundleOrderSweepService } from '../../sms-bundles/orders/sms-bundle-order-sweep.service';
 import { isDemoMode } from '../../demo/demo-mode';
-import { BkashClient } from './bkash.client';
+import { BkashClient } from '../../payment-gateways/bkash/bkash.client';
 import { BkashService } from './bkash.service';
 
 export const BKASH_RECONCILE_QUEUE = 'bkash-reconcile';
