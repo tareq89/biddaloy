@@ -454,7 +454,7 @@ export class AttentionQueryService {
                          WHERE x.alert_id = a.id AND x.tenant_id = a.tenant_id AND x.student_id = $2))
        GROUP BY a.id
        ORDER BY ${BY_SEVERITY}`,
-      [tenantId, studentId, await this.hiddenRuleKeys(tenantId)],
+      [tenantId, studentId, await this.hiddenRuleKeys(tenantId, caller.role)],
     );
     return rows.map((r) => {
       const text = this.renderAlert(r, loc);

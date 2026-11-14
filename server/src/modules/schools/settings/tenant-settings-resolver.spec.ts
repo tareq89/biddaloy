@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTenantSettings } from './tenant-settings-resolver';
+import { mergeModulesLabels, resolveTenantSettings } from './tenant-settings-resolver';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_ATTENTION_SETTINGS,
@@ -571,5 +571,14 @@ describe('resolveTenantSettings supportAccess [99.1.04]', () => {
   it('garbage falls back to the default', () => {
     const out = resolveTenantSettings({ supportAccess: { mode: 'NONSENSE' } });
     expect(out.supportAccess?.mode).toBe('allowed');
+  });
+});
+
+describe('mergeModulesLabels', () => {
+  it('a null patch removes a school entry but keeps a platform lock', () => {
+    const stored = { fees: { on: false, lock: 'off' }, library: { on: false } };
+    expect(mergeModulesLabels(stored, { fees: null, library: null })).toEqual({
+      fees: { lock: 'off' },
+    });
   });
 });

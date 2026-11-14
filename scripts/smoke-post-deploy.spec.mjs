@@ -363,7 +363,9 @@ describe('smoke-post-deploy', () => {
       const f = fakeFetch({
         [`GET ${PATH}`]: json(403, { message: 'This part is not turned on for your institution' }),
       });
-      expect(out(await run(f, ON))).not.toContain('FAIL  moduleRefusal');
+      const r = await run(f, ON);
+      expect(exitCode(r)).toBe(0);
+      expect(r.lines.some((l) => l.startsWith('PASS') && l.includes('moduleRefusal'))).toBe(true);
       expect(f.calls).toContain(`GET ${PATH}`);
     });
     it('fails on any other 403 text', async () => {

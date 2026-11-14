@@ -427,17 +427,10 @@ describe('FeesDailyScheduler', () => {
       expect(queriedTenants()).toEqual(['B']);
     });
 
-    it('run-now and restore-catch-up reject on unreadable state, so the job fails instead of succeeding', async () => {
+    it('run-now rejects on unreadable state, so the job fails instead of succeeding', async () => {
       moduleState.forTenant.mockRejectedValue(new Error('db down'));
       await expect(
         scheduler.process({ name: 'run-now', data: { tenantId: TENANT } } as any),
-      ).rejects.toThrow('db down');
-      schoolsService.findById = vi.fn(async () => ({ id: TENANT, status: 'ACTIVE' }));
-      await expect(
-        scheduler.process({
-          name: 'restore-catch-up',
-          data: { tenantId: TENANT, today: '2026-03-01' },
-        } as any),
       ).rejects.toThrow('db down');
       expect(feeGenerationService.generate).not.toHaveBeenCalled();
     });
@@ -466,6 +459,23 @@ describe('FeesDailyScheduler', () => {
         data: { tenantId: TENANT, today: '2026-03-01' },
       } as any);
       expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('a restore catch-up with unreadable module state is re-queued with the same day', async () => {
+      moduleState.forTenant.mockImplementation(async () => {
+        throw new Error('db down');
+      });
+      schoolsService.findById = vi.fn(async () => ({ id: TENANT, status: 'ACTIVE' }));
+      await scheduler.process({
+        name: 'restore-catch-up',
+        data: { tenantId: TENANT, today: '2026-03-01' },
+      } as any);
+      expect(queue.add).toHaveBeenCalledWith(
+        'restore-catch-up',
+        { tenantId: TENANT, today: '2026-03-01' },
+        expect.objectContaining({ delay: expect.any(Number) }),
+      );
+      expect(feeGenerationService.generate).not.toHaveBeenCalled();
     });
 
     describe('late-fee and fine sweeps', () => {
@@ -513,6 +523,17 @@ describe('FeesDailyScheduler', () => {
         ).rejects.toThrow('db down');
         expect(feeGenerationService.generate).not.toHaveBeenCalled();
         expect(lateFee.applyDue).not.toHaveBeenCalled();
+      });
+
+      it('fines switched off during the run: the sweep re-reads and skips', async () => {
+        const offState = { platform: {}, school: { fines: { on: false } } };
+        moduleState.forTenant
+          .mockResolvedValueOnce({ platform: {}, school: {} }) // fees read
+          .mockResolvedValueOnce({ platform: {}, school: {} }) // fines read at the head
+          .mockResolvedValue(offState); // fines read right before the sweep
+        await withSweeps.process();
+        expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
+        expect(fineSweep.runDue).not.toHaveBeenCalled();
       });
 
       it('all on: everything runs as before', async () => {
