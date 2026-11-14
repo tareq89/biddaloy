@@ -9,6 +9,9 @@ import { AttentionController } from '../../attention/api/attention.controller';
 import { PushSubscriptionsController } from '../../push/push-subscriptions.controller';
 import { UserController } from '../../users/users.controller';
 import { StepUpController } from '../step-up.controller';
+import { FeeController } from '../../fees/fees.controller';
+import { FineSweepController } from '../../fees/fines/fine-sweep.controller';
+import { PrintJobsController } from '../../print/jobs/print-jobs.controller';
 
 /**
  * #2399 A3: every handler marked @AllowWhenSuspendedForBilling is open to a school whose trial ended.
@@ -86,7 +89,7 @@ describe('@AllowWhenReadOnly allowlist', () => {
       .sort();
   };
 
-  it('only the decorator, ContextGuard and the four controllers use the marker', () => {
+  it('only the decorator, ContextGuard and the seven controllers use the marker', () => {
     const users = sourceFiles(SRC)
       .filter((f) =>
         /@AllowWhenReadOnly\(|ALLOW_WHEN_READ_ONLY_KEY|'allowWhenReadOnly'/.test(
@@ -100,15 +103,22 @@ describe('@AllowWhenReadOnly allowlist', () => {
       'modules/auth/decorators/allow-when-read-only.decorator.ts',
       'modules/auth/guards/context.guard.ts',
       'modules/auth/step-up.controller.ts',
+      'modules/fees/fees.controller.ts',
+      'modules/fees/fines/fine-sweep.controller.ts',
+      'modules/print/jobs/print-jobs.controller.ts',
       'modules/push/push-subscriptions.controller.ts',
       'modules/users/users.controller.ts',
     ]);
   });
 
-  it('marks exactly the user-level writes', () => {
+  it('marks exactly the user-level writes and the read-only previews', () => {
     expect(markedOn(AttentionController)).toEqual(['hide', 'seen', 'snooze']);
     expect(markedOn(StepUpController)).toEqual(['requestOtp', 'verify']);
     expect(markedOn(PushSubscriptionsController)).toEqual(['remove', 'removeAll', 'subscribe']);
+    // #4112: read-shaped POST previews write nothing, so a read-only school may still run them.
+    expect(markedOn(FeeController)).toEqual(['previewGenerateFees']);
+    expect(markedOn(FineSweepController)).toEqual(['preview']);
+    expect(markedOn(PrintJobsController)).toEqual(['preview']);
     expect(markedOn(UserController)).toEqual([
       'updateDashboardLayout',
       'updateDigestPreference',

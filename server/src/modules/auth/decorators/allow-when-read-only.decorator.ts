@@ -4,7 +4,8 @@ export const ALLOW_WHEN_READ_ONLY_KEY = 'allowWhenReadOnly';
 
 /**
  * Epic 49 D9: a school over its seats is read-only, but a user's own, non-school writes stay
- * open (mark an alert seen, step up, push subscriptions, own preferences). ContextGuard skips
+ * open (mark an alert seen, step up, push subscriptions, own preferences), and so do POST-shaped
+ * previews that write nothing (fee generation dry runs, print preview; #4112). ContextGuard skips
  * the TENANT_READ_ONLY check for a marked handler. It does NOT open a suspended school.
  *
  * Method-level only (ContextGuard reads the handler). The allowlist is pinned by

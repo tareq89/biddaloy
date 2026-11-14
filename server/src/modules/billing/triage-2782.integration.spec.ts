@@ -23,6 +23,7 @@ import { ContextGuard } from '../auth/guards/context.guard';
 import { SchoolsService } from '../schools/schools.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { FeeController } from '../fees/fees.controller';
+import { FineSweepController } from '../fees/fines/fine-sweep.controller';
 import { PrintJobsController } from '../print/jobs/print-jobs.controller';
 import { VatService } from './vat.service';
 import { BillingModule } from './billing.module';
@@ -400,8 +401,7 @@ describe('#2782 triage (integration)', () => {
     expect(n[0].n).toBe(1);
   });
 
-  describe('F8 / F9 REAL, outside billing (new issue): read-only mode refuses POST-shaped previews', () => {
-    // Pinned as today's behaviour. When the fix lands (a read-shaped-POST allowance), flip these.
+  describe('F8 / F9 REAL (fixed, #4112): read-shaped POST previews stay open in read-only mode', () => {
     const UNTIL = new Date('2027-01-07T18:00:00.000Z');
     const guard = new ContextGuard(new Reflector(), {
       isActive: async () => true,
@@ -429,14 +429,20 @@ describe('#2782 triage (integration)', () => {
         getClass: () => class {},
       } as never);
 
-    it('F8: the fee-generation dry run ("writes nothing") gets 403 TENANT_READ_ONLY', async () => {
-      await expect(post(FeeController.prototype.previewGenerateFees)).rejects.toMatchObject({
-        status: 403,
-      });
+    it('F8: the fee-generation dry run ("writes nothing") passes the read-only check', async () => {
+      await expect(post(FeeController.prototype.previewGenerateFees)).resolves.toBe(true);
     });
 
-    it('F9: the print preview gets 403 TENANT_READ_ONLY', async () => {
-      await expect(post(PrintJobsController.prototype.preview)).rejects.toMatchObject({
+    it('F8b: the attendance-fine dry run passes the read-only check', async () => {
+      await expect(post(FineSweepController.prototype.preview)).resolves.toBe(true);
+    });
+
+    it('F9: the print preview passes the read-only check', async () => {
+      await expect(post(PrintJobsController.prototype.preview)).resolves.toBe(true);
+    });
+
+    it('a real write (fee generation) is still 403 TENANT_READ_ONLY', async () => {
+      await expect(post(FeeController.prototype.generateFees)).rejects.toMatchObject({
         status: 403,
       });
     });

@@ -28,6 +28,7 @@ import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { AllowWhenReadOnly } from '../auth/decorators/allow-when-read-only.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -253,6 +254,8 @@ export class FeeController implements OnModuleInit {
 
   // --- Fee Generation endpoints [16.3.1] ---
 
+  // Writes nothing, so a read-only (over-seat) school may still run it (#4112).
+  @AllowWhenReadOnly()
   @Post('fees/generate/preview')
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
