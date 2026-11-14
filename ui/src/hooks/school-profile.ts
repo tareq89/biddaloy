@@ -44,13 +44,15 @@ export const schoolProfileKeys = createEntityKeys('school-profile');
  * it already knows the target school's name via its own `tenantId`/
  * `expectedSchoolName` props (a SUPER_ADMIN acting on a school that isn't
  * their active tenant has no "me" to resolve here anyway). */
-export function useSchoolProfile(options: { enabled?: boolean } = {}) {
+export function useSchoolProfile(options: { enabled?: boolean; throwOnError?: boolean } = {}) {
   const { i18n } = useTranslation();
   const query = useQuery({
     queryKey: schoolProfileKeys.detail('me'),
     queryFn: async () => (await apiClient.get<SchoolProfile>('/schools/me/profile')).data,
     enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
+    // Absent: keep the app default. The shell passes false (see `useModuleResolver`).
+    ...(options.throwOnError === undefined ? {} : { throwOnError: options.throwOnError }),
   });
   // Tenant words override the stock `entities.*` strings once loaded (D18).
   const labels = query.data?.labels;

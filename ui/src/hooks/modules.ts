@@ -27,7 +27,10 @@ export function useModuleState(key: ModuleKey): UseModuleState {
  * do without hooks in a loop.
  */
 export function useModuleResolver(): (key: ModuleKey) => UseModuleState {
-  const { data, isPending } = useSchoolProfile();
+  // The shell calls this on every page. throwOnError false: the app default rethrows a
+  // suspended-school 403 into the route boundary, which would replace the whole shell (and its
+  // school switcher) on a page that makes no other request, such as /dashboard.
+  const { data, isPending } = useSchoolProfile({ throwOnError: false });
   const role = useActiveRole() as UserRole | null;
   return (key) => {
     if (isPending) return { on: true, source: 'default', loading: true };
