@@ -175,8 +175,12 @@ export function mergeModulesLabels(
     if (!isPlainObject(change)) return change;
     const out: Record<string, unknown> = isPlainObject(base) ? { ...base } : {};
     for (const [k, v] of Object.entries(change)) {
-      if (v === null) delete out[k];
-      else out[k] = merge(out[k], v);
+      // A school's `null` removes its own switches only: a platform-set `lock` (D50) survives.
+      const lock = isPlainObject(out[k]) ? (out[k] as Record<string, unknown>).lock : undefined;
+      if (v === null) {
+        if (lock === undefined) delete out[k];
+        else out[k] = { lock };
+      } else out[k] = merge(out[k], v);
     }
     return out;
   };
