@@ -187,6 +187,12 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   invoices: { null: ['notes', 'issuer_snapshot'], fake: ['snapshot'] },
   payments: { null: ['remarks', 'reversal_reason', 'issuer_snapshot', 'transaction_reference'] },
   payment_allocations: { null: ['notes'] },
+  // [3.1.99] Guardian payment submissions (Epic 3.0): TrxIDs and free text go; codes and hashes stay.
+  payment_submissions: {
+    null: ['reference_raw', 'reference_normalised', 'reject_note', 'discard_reason'],
+  },
+  payment_submission_files: { 'kept-public': ['original_name_hash'] },
+  payment_submission_events: { null: ['note'], 'kept-public': ['reason_code'] },
   student_fees: { null: ['note'] },
   // [100.3.gC-01] refund_reason is text the owner types; plan names are the owner's catalog text.
   seat_orders: { null: ['receipt_snapshot', 'refund_reason'] },

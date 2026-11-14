@@ -260,6 +260,13 @@ describe('scrub.sql', () => {
       },
       // CHK_platform_payments_one_order: exactly one of seat_order_id / bundle_order_id.
       platform_payments: { seat_order_id: lit(randomUUID()) + '::uuid' },
+      // CHK_payment_submissions_proof: a PROOF row has a method and no provider.
+      payment_submissions: {
+        source: `'PROOF'`,
+        provider: 'NULL',
+        method: `'CASH'`,
+        paid_on: `'2026-01-01'`,
+      },
       promotion_entries: { is_override: 'true' },
       applications: {
         applicant_user_id: lit(randomUUID()) + '::uuid',
