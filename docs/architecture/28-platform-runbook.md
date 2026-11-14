@@ -37,6 +37,7 @@ Why the setup looks like this: [30-deployment-target.md](30-deployment-target.md
 - [Part 16. Rotate a secret, lose a key](#part-16-rotate-a-secret-lose-a-key)
 - [Part 17. School websites](#part-17-school-websites)
 - [Part 18. Login as and school control](#part-18-login-as-and-school-control-owners)
+- [Part 19. Money: SMS stock, packages, coupons, refunds](#part-19-money-sms-stock-packages-coupons-refunds-owners)
 - [Known gaps](#known-gaps)
 
 ## Part 0. The picture and the order
@@ -2561,6 +2562,36 @@ Precedence: **platform off > lock > school's own choice**. A lock is for one sch
 - The global map does not hide a module from one role. Roles are the school's own setting.
 
 Where it lives: `server/src/modules/presets/platform-modules.service.ts`, the cockpit screens in `client-admin/src/features/cockpit/school-360/modules-tab.tsx`, the proof in `e2e/platform/modules.spec.ts`.
+
+## Part 19. Money: SMS stock, packages, coupons, refunds (owners)
+
+Owners do these in the cockpit under **Money** (tabs: SMS, Packages, Plans, Coupons, Revenue). Risky actions ask for an authenticator code first (a "step-up", as in Part 18). Bangla copy: [runbook-bn/money.md](runbook-bn/money.md). Design: [38-billing.md](38-billing.md), [05-communications.md](05-communications.md). Words on screen follow `docs/ux-research/cockpit-money-glossary.md`.
+
+```mermaid
+flowchart TD
+  A[You buy SMS from the provider] --> B[Money, SMS tab: Record SMS stock]
+  B --> C[Stock is what you can promise]
+  C --> D[Schools buy packages<br/>promised = unused SMS in schools' packages]
+  D --> E{promised above stock?}
+  E -->|no| F[Normal]
+  E -->|yes| G[Red line: oversold<br/>new package sales pause]
+  G --> H[Record the new stock or wait]
+```
+
+| Situation                            | What you do                                                                                                                                                                                                                                                    | Route behind it                                                                                   |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **You bought SMS from the provider** | **Money, SMS, Record SMS stock**: date, number of SMS, cost in taka, an optional note. A wrong row is deleted with a reason of 5 to 490 characters (it is hidden, not erased). Also enter the provider's own balance reading now and then.                     | `POST /platform/sms-stock`, `DELETE /platform/sms-stock/:id`, `POST /platform/sms-stock/balance`  |
+| **Read the red lines**               | **Stock low** (`platform.sms.stock_low`): stock is near what schools hold. **Oversold** (`platform.sms.oversold`): promised unused SMS is above stock. Both show as cockpit attention items. An unknown provider balance is never "oversold".                  | `GET /platform/money/sms`                                                                         |
+| **Oversold**                         | New package buys and payments answer `409 SMS_SALES_PAUSED`. Sending is never stopped and money already paid is never refused. Buy more SMS, record it as above, and sales resume by themselves. Do not edit a school's balance to "fix" it.                   | none (nothing to press)                                                                           |
+| **A school wants its money back**    | **Subscriptions**, the school, its order, **Refund**, a reason of 5 to 300 characters, the authenticator code. This only records the refund. **Then return the money in the bKash merchant panel by hand.**                                                    | `POST /platform/billing/orders/:id/refund`, `POST /platform/billing/sms-bundle-orders/:id/refund` |
+| **Make a coupon**                    | **Money, Coupons, New coupon**: code, percent 1 to 99 (or a fixed amount), end date, maximum uses, optional list of schools. Code, kind and percent never change after; use the active switch to stop one. **Usage** shows uses and total discount per school. | `POST /platform/coupons`, `PATCH /platform/coupons/:id`, `GET /platform/coupons/:id/usage`        |
+| **Make a 100% coupon**               | In the same coupon form set percent to 100. It needs your code **and the other owner's approval** (the screen shows "waiting for the other owner"), because the order is free and skips bKash. With only one owner on the platform it cannot be made.          | `POST /platform/coupons/free`                                                                     |
+
+**Refund rules to know.** Only a `PAID` seat order (or an `ACTIVE` package order) can be refunded, so a pending or already refunded one answers `409 ORDER_NOT_REFUNDABLE` too. A seat order must also have been paid an amount above 0: an order made free by a 100% coupon answers `409 ORDER_NOT_REFUNDABLE` (owner decision, #4126). A package order is refundable only while nothing was ever drawn from it. Any draw blocks the refund (`409 BUNDLE_ALREADY_USED`), even a reservation that was later released with no SMS sent. A refund keeps the coupon use. Every refund needs an `Idempotency-Key` (the screen adds it).
+
+**Example.** The school Greenview paid 300000 paisa (BDT 3000) for 3 months of seats and wants out the same day. You press Refund, give the reason "Closed the school, asked on the phone", type the code. The order turns `REFUNDED` and seats fall. Open the bKash panel, find the payment by amount, date and the payer's number, and return BDT 3000. The cockpit does not move money; it only records.
+
+**Oversold example.** Stock recorded: 10000 SMS. Schools hold 10500 unused. The red "Oversold" line shows and a new package buy by Greenview answers `409 SMS_SALES_PAUSED`. You record a new 5000 SMS purchase: promised 10500 is below stock 15000, so the line clears.
 
 ## Known gaps
 
