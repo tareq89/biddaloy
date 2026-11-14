@@ -301,3 +301,52 @@ The workbook has three new tabs (`student_lifecycle_events`, `student_notes`,
   as marked but the student is not in `student_count`.
 - Low-attendance flags read `students.enrollment_status`, not enrollments, because older-year
   enrollments can stay ACTIVE after a leave (#1217, unchanged).
+
+## 10. Epic 71 wave 1 learnings (admission pipeline foundation, 2026-11-15)
+
+Each bullet: **surprise**, what it **cost**, the **fix**, and a **rule candidate**.
+
+```mermaid
+flowchart LR
+  round[Round: admission_intakes] --> stage[admission_stages]
+  stage --> result[admission_stage_results]
+  round --> list[admission_lists] --> member[admission_list_members]
+  round --> app[admission_applicants] --> proof[admission_fee_proofs]
+```
+
+- **Stage delete races with result writes.** Surprise: stage delete checks "no results yet" under
+  the round lock, but nothing that writes `admission_stage_results` takes that lock, so a
+  concurrent write can slip in. Cost: a stage could vanish under a fresh result. Fix (owed): the
+  ticket that writes results locks the round (or stage) first, or an FK guard blocks the delete.
+  Rule candidate: a check made under a lock only holds if every writer takes the same lock.
+- **Stage kind can change after results exist.** Surprise: the update path does not refuse it.
+  Cost: a score recorded for a written test could end up under a lottery stage. Fix (owed):
+  refuse a kind change once results exist. Rule candidate: a column that gives rows meaning is
+  frozen once rows depend on it.
+- **`publish_channels` and `tie_break` accept any short string.** Surprise: only a length cap
+  guards them. Cost: a typo is stored silently. Fix (owed): pin the allowed values in a later
+  ticket (shared enum + DTO `@IsIn`). Rule candidate: no free-text column that code later
+  compares against fixed values.
+- **No DB upper bound on `fee_amount_paisa`.** Surprise: the CHECK only forbids negatives; the DTO
+  enforces `MONEY_MAX`. Cost: a direct insert can store an absurd fee. Fix: none yet, the DTO is
+  the only guard. Rule candidate: Rule 26 asks for DB CHECKs behind money; add an upper bound
+  when the column is next touched.
+- **Migration `down()` deletes section-less rounds.** Surprise: rolling back removes rounds with
+  no class section, together with their applicants and evaluations. Cost: data loss on rollback
+  once pipeline rounds exist. Fix: none (the old schema cannot hold them); take a backup first.
+  Rule candidate: say so in the migration header when `down()` is lossy.
+- **Excel inline dropdown is capped at 255 characters.** Surprise: when `DocumentKind` grew, the
+  print-templates tab of backup/restore broke. Cost: a red dropdown on a base branch. Fix:
+  templates skip the dropdown for long enums (`hasInlineDropdown`); a dropdown fed from a hidden
+  sheet would bring it back. Rule candidate: a growing enum must never be an inline list.
+- **Five new entities were missing from the `app.module.ts` entity list.** Cost: tables existed
+  in tests but not in the running app. Fix: added. Rule candidate: the entity-list guard should
+  fail on any entity file not registered.
+- **`AdmissionIntake` was missing from `YEAR_SCOPED_TABLES` (the `YEAR_SCOPED_WRITES` entry already existed).** Cost: a closed year's round could
+  still be edited (Rule 28). Fix: added. Rule candidate: a new `academic_year_id` column joins
+  the registry in the same PR.
+- **Client-admin has an exhaustive `Record<AdmissionDocumentType>`.** Cost: adding a document
+  type breaks the client build until the record is extended. Fix: extended. Rule candidate:
+  prefer `Partial<Record<...>>` with a fallback label for enums that grow.
+- **Demo seed:** the admission tables moved from the `people-ops` slice to their own `admission`
+  slice, one open round per template (six), so every new table has demo rows.

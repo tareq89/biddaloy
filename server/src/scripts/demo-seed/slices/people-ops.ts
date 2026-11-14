@@ -1,8 +1,4 @@
-import {
-  AdmissionApplicantStatus,
-  AdmissionDocumentType,
-  EnrollmentStatus,
-} from '@biddaloy/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 import { AcrFormVersion } from '../../../modules/acr/entities/acr-form-version.entity';
 import { AcrCriterion } from '../../../modules/acr/entities/acr-criterion.entity';
 import { AcrAssessment } from '../../../modules/acr/entities/acr-assessment.entity';
@@ -13,13 +9,7 @@ import { SurveyTarget } from '../../../modules/surveys/entities/survey-target.en
 import { SurveyResponse } from '../../../modules/surveys/entities/survey-response.entity';
 import { SurveyAnswer } from '../../../modules/surveys/entities/survey-answer.entity';
 import { StaffIncident } from '../../../modules/incidents/entities/staff-incident.entity';
-import { AdmissionIntake } from '../../../modules/admission/entities/admission-intake.entity';
-import { AdmissionApplicant } from '../../../modules/admission/entities/admission-applicant.entity';
-import { AdmissionEvaluation } from '../../../modules/admission/entities/admission-evaluation.entity';
 import { ACR_DEFAULT_CRITERIA } from '../../seed.evaluations';
-import { ADMISSION_NOTES } from '../../seed-data/demo-bn/texts';
-import { NAME_POOLS } from '../../seed-data/demo-bn/names';
-import { DHAKA_AREAS } from '../../seed-data/demo-bn/places';
 import { insertChunked } from '../bulk';
 import type { DemoSeedContext, DemoSlice } from '../context';
 import { orgIds } from './org';
@@ -28,37 +18,19 @@ import { teachersByTenant } from './staff';
 
 /**
  * [58.3.05] People operations: yearly ACRs for every teacher, student-feedback surveys, a few staff
- * incidents (one withdrawn) and an open admission intake with applicants in every status.
+ * incidents (one withdrawn). Admission moved to slices/admission.ts (Epic 71).
  * Bulk-inserted (D38); applicants skip the public controller, so no captcha is involved.
  */
 
 const DAY = 86_400_000;
 const addDays = (date: string, n: number) =>
   new Date(Date.parse(date) + n * DAY).toISOString().slice(0, 10);
-const bnNum = (n: number) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]);
 
 const ACR_YEARS = 3;
 const CURRENT_COMPLETED_RATE = 0.7;
 const INCIDENTS_PER_BRANCH = 3;
 const RESPONSE_RATE = 0.4;
 const SURVEY_TARGETS = 6;
-const APPLICANTS = 120;
-/** Class grade of the intake per branch kind, and the age of a child applying to it. */
-const INTAKE_GRADE = { PRIMARY: 1, HIGH: 6, COLLEGE: 11 } as const;
-const APPLICANT_AGE = { PRIMARY: 6, HIGH: 11, COLLEGE: 16 } as const;
-const STATUS_WEIGHTS = [
-  [AdmissionApplicantStatus.PENDING, 45],
-  [AdmissionApplicantStatus.SHORTLISTED, 25],
-  [AdmissionApplicantStatus.ADMITTED, 15],
-  [AdmissionApplicantStatus.REJECTED, 15],
-] as const;
-const DECISION = {
-  [AdmissionApplicantStatus.SHORTLISTED]: 'SHORTLIST',
-  [AdmissionApplicantStatus.ADMITTED]: 'ADMIT',
-  [AdmissionApplicantStatus.REJECTED]: 'REJECT',
-} as const;
-const REFERENCE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // as the public form generates
-
 const INCIDENTS = [
   ['COMMENDATION', 'LOW', 'বার্ষিক বিজ্ঞান মেলা সফলভাবে আয়োজন করেছেন।'],
   ['ABSENCE', 'MEDIUM', 'পরীক্ষার দিনে পূর্বঘোষণা ছাড়া অনুপস্থিত ছিলেন।'],
@@ -90,9 +62,6 @@ export const slice: DemoSlice = {
     SurveyResponse,
     SurveyAnswer,
     StaffIncident,
-    AdmissionIntake,
-    AdmissionApplicant,
-    AdmissionEvaluation,
   ],
   run: async (ctx: DemoSeedContext) => {
     const org = orgIds(ctx);
@@ -115,12 +84,7 @@ export const slice: DemoSlice = {
     const targets: Record<string, unknown>[] = [];
     const responses: Record<string, unknown>[] = [];
     const answers: Record<string, unknown>[] = [];
-    const intakes: Record<string, unknown>[] = [];
-    const applicants: Record<string, unknown>[] = [];
-    const evaluations: Record<string, unknown>[] = [];
 
-    const nextYear = String(Number(ctx.anchor.slice(0, 4)) + 1);
-    const references = new Set<string>();
 
     // Joining dates: no ACR for a year that ended before a teacher joined, no incident before it.
     const joinedOn = new Map<string, string>(
@@ -312,88 +276,6 @@ export const slice: DemoSlice = {
             }
           });
       }
-
-      // ---- 4. admission: one open intake for next year, applicants in every status --------------
-      const klass = cur.classes.find((c) => c.numericGrade === INTAKE_GRADE[t.kind]);
-      if (!klass)
-        throw new Error(
-          `demo-seed people-ops: no grade ${INTAKE_GRADE[t.kind]} class for ${t.kind}`,
-        );
-      const intakeId = uuid();
-      intakes.push({
-        id: intakeId,
-        tenant_id: t.id,
-        class_section_id: klass.sections[0].id,
-        title: `ভর্তি ${bnNum(Number(nextYear))}: ${klass.name}`,
-        seat_count: 40,
-        open_date: addDays(ctx.anchor, -30),
-        close_date: addDays(ctx.anchor, 30),
-        required_document_types: [
-          AdmissionDocumentType.PHOTO,
-          AdmissionDocumentType.BIRTH_CERTIFICATE,
-        ],
-      });
-      const count = Math.max(8, Math.round(ctx.count(APPLICANTS) / org.tenants.length));
-      const age = APPLICANT_AGE[t.kind];
-      const seenChild = new Set<string>();
-      const makeApplicant = (
-        i: number,
-        twinOf?: { phone: string; dob: string; surname: string },
-      ) => {
-        const group = ctx.weighted([
-          ['MUSLIM', 92],
-          ['HINDU', 8],
-        ] as const);
-        const pool = NAME_POOLS[group];
-        const gender = ctx.pick(['MALE', 'FEMALE'] as const);
-        const given = ctx.pick(gender === 'MALE' ? pool.boys : pool.girls);
-        const surname = twinOf ? { en: twinOf.surname } : ctx.pick(pool.surnames);
-        const phone = twinOf?.phone ?? ctx.nextPhone();
-        const dob =
-          twinOf?.dob ??
-          addDays(ctx.anchor, -(age * 365 + ctx.rng.number.int({ min: 0, max: 364 })));
-        const name = `${given.en} ${surname.en}`;
-        if (seenChild.has(`${phone}|${dob}|${name}`)) return null;
-        seenChild.add(`${phone}|${dob}|${name}`);
-        let reference: string;
-        do {
-          reference = `ADM-${ctx.anchor.slice(0, 4)}-${ctx.rng.string.fromCharacters(REFERENCE_ALPHABET, 6)}`;
-        } while (references.has(reference));
-        references.add(reference);
-        // The first four cover every status, so a tiny scale still shows them all.
-        const status =
-          i < STATUS_WEIGHTS.length ? STATUS_WEIGHTS[i][0] : ctx.weighted(STATUS_WEIGHTS);
-        const id = uuid();
-        applicants.push({
-          id,
-          tenant_id: t.id,
-          intake_id: intakeId,
-          reference_number: reference,
-          applicant_name: name,
-          date_of_birth: dob,
-          gender,
-          guardian_name: `${ctx.pick(pool.boys).en} ${surname.en}`,
-          guardian_phone: phone,
-          guardian_email: null,
-          home_address: `${ctx.pick(DHAKA_AREAS).bn}, ঢাকা`,
-          documents: [],
-          status,
-        });
-        if (status !== AdmissionApplicantStatus.PENDING) {
-          evaluations.push({
-            tenant_id: t.id,
-            applicant_id: id,
-            reviewer_user_id: admin,
-            notes: ctx.pick(ADMISSION_NOTES),
-            decision: DECISION[status],
-          });
-        }
-        return { phone, dob, surname: surname.en };
-      };
-      // Twins under one guardian phone (Epic 68 LIFE-10: one application per child).
-      const first = makeApplicant(0);
-      if (first) makeApplicant(1, first);
-      for (let i = 2; i < count; i++) makeApplicant(i);
     }
 
     rows += await insertChunked(repo(AcrFormVersion) as never, forms as never);
@@ -406,9 +288,6 @@ export const slice: DemoSlice = {
     rows += await insertChunked(repo(SurveyTarget) as never, targets as never);
     rows += await insertChunked(repo(SurveyResponse) as never, responses as never);
     rows += await insertChunked(repo(SurveyAnswer) as never, answers as never, 2000);
-    rows += await insertChunked(repo(AdmissionIntake) as never, intakes as never);
-    rows += await insertChunked(repo(AdmissionApplicant) as never, applicants as never);
-    rows += await insertChunked(repo(AdmissionEvaluation) as never, evaluations as never);
     return rows;
   },
 };

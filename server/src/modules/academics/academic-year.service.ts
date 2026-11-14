@@ -54,6 +54,7 @@ export const YEAR_SCOPED_TABLES: Record<string, string> = {
   AcrAssessment: 'acr_assessments',
   Application: 'applications',
   FinalResult: 'final_results',
+  AdmissionIntake: 'admission_intakes',
 };
 
 export interface AcademicYearStats {
