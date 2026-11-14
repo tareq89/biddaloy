@@ -15,6 +15,8 @@ import {
   QueryFailedError,
   Repository,
 } from 'typeorm';
+import { attentionEvents } from '../../attention/attention.constants';
+import { emitRecheck } from '../../attention/engine/attention-events';
 import { SchoolsService } from '../../schools/schools.service';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLot } from './entities/sms-credit-lot.entity';
@@ -502,6 +504,14 @@ export class SmsCreditService {
         idempotency_key: settleKey,
       });
     });
+    if (outcome === 'DEBIT') this.recheckSmsRules(tenantId);
+  }
+
+  /** [#4150] A send or an expiry lowers the balance: ask the attention engine to recheck the SMS
+   * notices now, after commit (it debounces bursts), not at the next daily tick. */
+  private recheckSmsRules(tenantId: string): void {
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'sms.low' });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'sms.expiring' });
   }
 
   /** Peels `units` off a batch reservation (identified by `batchKey`, the
@@ -579,6 +589,7 @@ export class SmsCreditService {
           reason: reason ?? null,
         });
       });
+      if (outcome === 'DEBIT') this.recheckSmsRules(tenantId);
     } catch (err) {
       if (isCheckViolation(err)) {
         throw new BadRequestException(SETTLE_TOO_MANY);
@@ -719,9 +730,9 @@ export class SmsCreditService {
     return { lots, units };
   }
 
-  private expireOne(candidate: SmsCreditLot, now: Date): Promise<number> {
+  private async expireOne(candidate: SmsCreditLot, now: Date): Promise<number> {
     {
-      return this.dataSource.transaction(async (manager) => {
+      const expired = await this.dataSource.transaction(async (manager) => {
         await this.lockBalance(manager, candidate.tenant_id);
         const lot = await manager.findOne(SmsCreditLot, {
           where: { id: candidate.id, tenant_id: candidate.tenant_id },
@@ -750,6 +761,8 @@ export class SmsCreditService {
         );
         return n;
       });
+      if (expired > 0) this.recheckSmsRules(candidate.tenant_id);
+      return expired;
     }
   }
 

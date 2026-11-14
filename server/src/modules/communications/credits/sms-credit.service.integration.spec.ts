@@ -5,6 +5,8 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLedger, SmsCreditLedgerKind } from './entities/sms-credit-ledger.entity';
+import { attentionEvents } from '../../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../../attention/engine/attention-events';
 import { SmsCreditService } from './sms-credit.service';
 
 /**
@@ -267,6 +269,33 @@ describe('SmsCreditService (integration)', () => {
       drift: { available: 0, reserved: 0 },
       manual: false,
     });
+  });
+
+  it('[4150] a DEBIT settle and an expiry ask the attention engine to recheck sms.low and sms.expiring', async () => {
+    const seen: string[] = [];
+    const listen = (p: { tenantId: string; ruleKey: string }) => {
+      if (p.tenantId === tenantA) seen.push(p.ruleKey);
+    };
+    attentionEvents.on(ATTENTION_RECHECK, listen);
+    try {
+      await service.grant(tenantA, 50, { idempotencyKey: `grant-recheck-${tenantA}` });
+      await service.reserve(tenantA, 5, `reserve-recheck-${tenantA}`);
+      await service.settle(tenantA, `reserve-recheck-${tenantA}`, 'RELEASE');
+      expect(seen).toEqual([]); // a release only adds units back
+      await service.reserve(tenantA, 5, `reserve-recheck2-${tenantA}`);
+      await service.settle(tenantA, `reserve-recheck2-${tenantA}`, 'DEBIT');
+      expect(seen).toEqual(['sms.low', 'sms.expiring']);
+
+      seen.length = 0;
+      await dataSource.query(
+        `UPDATE sms_credit_lots SET expires_at = now() - interval '1 day' WHERE tenant_id = $1`,
+        [tenantA],
+      );
+      await service.expireDue(new Date());
+      expect(seen).toEqual(['sms.low', 'sms.expiring']);
+    } finally {
+      attentionEvents.off(ATTENTION_RECHECK, listen);
+    }
   });
 
   it('getBalance returns zeros when no balance row exists yet', async () => {
