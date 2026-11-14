@@ -248,10 +248,9 @@ export class SearchService {
     return rows;
   }
 
-  /** Staff (teachers) branch — joined through `users` for `full_name`,
-   * same as `TeacherService`'s own reads. `teachers` has no `tenant_id`
-   * of its own reused across staff kinds today, so this is exactly that
-   * one row's own `tenant_id` column, not a derived join. */
+  /** Staff (teachers) branch — joined through `users` for `full_name`, same as
+   * `TeacherService`'s own reads. `teachers` carries its own `tenant_id`, which is the
+   * tenant filter here (not a derived join); a soft-deleted user's row is left out. */
   private async searchStaff(
     tenantId: string,
     term: string,
@@ -266,6 +265,7 @@ export class SearchService {
        INNER JOIN users u ON u.id = t.user_id
        WHERE t.tenant_id = $1
          AND t.deleted_at IS NULL
+         AND u.deleted_at IS NULL
          AND (u.full_name ILIKE $2 OR t.employee_id ILIKE $2)
        ORDER BY u.full_name ASC
        LIMIT $3`,

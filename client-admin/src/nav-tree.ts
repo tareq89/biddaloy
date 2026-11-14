@@ -15,8 +15,9 @@ import { ModuleKey, Permission, type STAFF_ROLES } from '@biddaloy/shared';
  * never change: Epic 24.0's `RoleMenu` rows will join on an item's `id`,
  * and a *group's* `id` is what `AppShellNavGroup` already uses as its
  * `localStorage` collapse-state key (`app-shell.tsx`'s
- * `nav-group-collapsed:${group.id}`) — renaming a group id silently resets
- * every user's saved collapse preference for it.
+ * `nav-group-collapsed-v2:${group.id}`) — renaming a group id silently resets
+ * every user's saved collapse preference for it (the v2 rename dropped the
+ * values saved under the old key once; from then on ids are the contract).
  */
 export type StaffNavLabel = { readonly entity: EntityLabel } | { readonly key: string };
 
@@ -572,7 +573,7 @@ export const STAFF_NAV_ITEMS = {
 /**
  * The [15-ux-principles.md] §3 restructure: Dashboard stays a flat item;
  * People/Finance/Communications/Administration keep their pre-30.1.3
- * group `id`s (so saved collapse preferences survive) but shed the items
+ * group `id`s (stable ids; see the `id` contract above) but shed the items
  * the three new domain groups now own; **Academics**, **Attendance** and
  * **Reports** are new groups carved out of Administration/People/Finance;
  * **Exams & Results** started with zero items ([30.1.3]) — `AppShell`
