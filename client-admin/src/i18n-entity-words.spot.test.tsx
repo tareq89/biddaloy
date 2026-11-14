@@ -27,6 +27,7 @@ function Strings() {
   const comms = useTranslation('communications').t;
   const years = useTranslation('academicYears').t;
   const print = useTranslation('printPreview').t;
+  const designer = useTranslation('reportDesigner').t;
   return (
     <ul>
       <li data-testid="fees">{fees('dues.columnSection')}</li>
@@ -35,6 +36,7 @@ function Strings() {
       <li data-testid="comms">{comms('send.guardianListLabel', { name: 'X' })}</li>
       <li data-testid="years">{years('list.columnStudents')}</li>
       <li data-testid="print">{print('picker.section')}</li>
+      <li data-testid="designer">{designer('area.names.STUDENTS')}</li>
     </ul>
   );
 }
@@ -56,6 +58,7 @@ describe('entity words in converted namespaces', () => {
     expect(screen.getByTestId('comms').textContent).toBe('Guardians of X');
     expect(screen.getByTestId('years').textContent).toBe('Students');
     expect(screen.getByTestId('print').textContent).toBe('Section');
+    expect(screen.getByTestId('designer').textContent).toBe('Students');
   });
 
   it('section -> Batch, student -> Trainee reach classes, students and fees copy', async () => {
@@ -69,5 +72,6 @@ describe('entity words in converted namespaces', () => {
     expect(screen.getByTestId('fees').textContent).toBe('Batch');
     expect(screen.getByTestId('years').textContent).toBe('Trainees');
     expect(screen.getByTestId('print').textContent).toBe('Batch');
+    expect(screen.getByTestId('designer').textContent).toBe('Trainees');
   });
 });

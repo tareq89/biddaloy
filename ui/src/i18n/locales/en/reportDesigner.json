@@ -30,7 +30,7 @@
     "whoList": {
       "title": "List of those who …?",
       "gender": "Gender",
-      "class": "Class"
+      "class": "$t(common:entities.class_one)"
     },
     "howMuch": {
       "title": "How much money …, by …?",
@@ -45,8 +45,8 @@
   "area": {
     "label": "About",
     "names": {
-      "STUDENTS": "Students",
-      "STAFF": "Teachers and staff",
+      "STUDENTS": "$t(common:entities.student_other)",
+      "STAFF": "$t(common:entities.teacher_other) and staff",
       "PUBLIC_EXAMS": "Public exam results",
       "FEES": "Fees and bills",
       "PAYMENTS": "Paid",

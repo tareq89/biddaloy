@@ -30,7 +30,7 @@
     "whoList": {
       "title": "কাদের তালিকা, যারা …?",
       "gender": "লিঙ্গ",
-      "class": "শ্রেণি"
+      "class": "$t(common:entities.class_one)"
     },
     "howMuch": {
       "title": "মোট কত টাকা …, … অনুযায়ী?",
@@ -46,7 +46,7 @@
     "label": "বিষয়",
     "names": {
       "STUDENTS": "ছাত্রছাত্রী",
-      "STAFF": "শিক্ষক-কর্মী",
+      "STAFF": "$t(common:entities.teacher_one)-কর্মী",
       "PUBLIC_EXAMS": "পাবলিক পরীক্ষার ফল",
       "FEES": "ফি ও বিল",
       "PAYMENTS": "জমা",
