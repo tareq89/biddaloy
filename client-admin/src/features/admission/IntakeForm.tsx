@@ -62,7 +62,8 @@ export function isIntakeFormValid(value: IntakeFormValue): boolean {
   );
 }
 
-const DOCUMENT_TYPE_LABEL_KEY: Record<AdmissionDocumentType, string> = {
+// Wave 4 (admission UI) adds labels for the new document types; the picker lists only the original three until then.
+const DOCUMENT_TYPE_LABEL_KEY: Record<string, string> = {
   [AdmissionDocumentType.PHOTO]: 'form.documentPhoto',
   [AdmissionDocumentType.BIRTH_CERTIFICATE]: 'form.documentBirthCertificate',
   [AdmissionDocumentType.TRANSCRIPT]: 'form.documentTranscript',

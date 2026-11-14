@@ -139,6 +139,38 @@ const FINAL_RESULT: FieldDef[] = [
   f('report_card.remark', 'text', 'Good progress', 'A long remark about the student progress'),
 ];
 
+const APPLICANT: FieldDef[] = [
+  f('applicant.name', 'text', 'Mohammad Rahim Uddin', 'Mohammad Abdullah Al Mamun Rahim Uddin'),
+  f(
+    'applicant.name_bn',
+    'text',
+    'মোহাম্মদ রহিম উদ্দিন',
+    'মোহাম্মদ আব্দুল্লাহ আল মামুন রহিম উদ্দিন',
+  ),
+  f('applicant.reference_number', 'text', 'ADM-2027-000123'),
+  f('applicant.father_name', 'text', 'Abdul Karim'),
+  f('applicant.class', 'text', 'Class 6'),
+  f('applicant.photo', 'image', 'photo'),
+];
+
+const ADMISSION_ROUND: FieldDef[] = [
+  f(
+    'admission.round_title',
+    'text',
+    'Class 6 Admission 2027',
+    'Class 6 Admission Test and Interview 2027',
+  ),
+  f('admission.stage_name', 'text', 'Written test'),
+];
+
+const ADMISSION_ROW: FieldDef[] = [
+  f('list.row.serial', 'text', '1'),
+  f('list.row.reference_number', 'text', 'ADM-2027-000123'),
+  f('list.row.name', 'text', 'Mohammad Rahim Uddin', 'Mohammad Abdullah Al Mamun Rahim Uddin'),
+  f('list.row.score', 'text', '85'),
+  f('list.row.status', 'text', 'Offered'),
+];
+
 export const FIELD_CATALOG: Record<DocumentKind, FieldDef[]> = {
   [DocumentKind.STUDENT_ID_CARD]: [
     ...SCHOOL,
@@ -252,5 +284,29 @@ export const FIELD_CATALOG: Record<DocumentKind, FieldDef[]> = {
     ...FINAL_RESULT,
     f('result.section_position', 'text', '2'),
     ...CERT_TAIL,
+  ],
+  [DocumentKind.ADMISSION_ADMIT_CARD]: [
+    ...SCHOOL,
+    ...APPLICANT,
+    ...ADMISSION_ROUND,
+    f('admission.test_date', 'text', '01 Mar 2027'),
+    f('admission.test_time', 'text', '10:00'),
+    f('admission.venue', 'text', 'Room 101'),
+    f('admission.seat', 'text', 'A-12'),
+    ...DOC_TAIL,
+  ],
+  [DocumentKind.ADMISSION_ATTENDANCE_SHEET]: [
+    ...SCHOOL,
+    ...ADMISSION_ROUND,
+    f('admission.venue', 'text', 'Room 101'),
+    ...ADMISSION_ROW,
+    ...DOC_TAIL,
+  ],
+  [DocumentKind.ADMISSION_LIST]: [
+    ...SCHOOL,
+    ...ADMISSION_ROUND,
+    f('list.title', 'text', 'Merit list', 'Waiting list 1'),
+    ...ADMISSION_ROW,
+    ...DOC_TAIL,
   ],
 };

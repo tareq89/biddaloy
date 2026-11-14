@@ -62,3 +62,15 @@ describe('FIELD_CATALOG', () => {
     }
   });
 });
+
+describe('admission kinds (Epic 71)', () => {
+  it('give the applicant fields to the admit card only', () => {
+    const has = (k: DocumentKind) => FIELD_CATALOG[k].some((x) => x.key === 'applicant.name');
+    expect(has(DocumentKind.ADMISSION_ADMIT_CARD)).toBe(true);
+    expect(has(DocumentKind.ADMISSION_LIST)).toBe(false);
+  });
+  it('give the list and sheet row fields', () => {
+    for (const k of [DocumentKind.ADMISSION_LIST, DocumentKind.ADMISSION_ATTENDANCE_SHEET])
+      expect(FIELD_CATALOG[k].some((x) => x.key === 'list.row.name')).toBe(true);
+  });
+});
