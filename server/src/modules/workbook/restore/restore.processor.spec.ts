@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryFailedError } from 'typeorm';
 import { RestoreProcessor } from './restore.processor';
 import { ALL_TABS } from '../codec/registry';
+import { User } from '../../users/entities/user.entity';
+import { joinRequestedUsers } from '../tabs/people/users.tab';
 import { WorkbookFormatError } from '../codec/workbook-codec';
 import { WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
 
@@ -385,6 +387,53 @@ describe('RestoreProcessor', () => {
 
       expect(classEntity.academic_year_id).toBe('year-real-id');
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+  });
+
+  describe('rows that refer to a person with only a pending join request [#2344]', () => {
+    it('skips the dependent row with a warning and still finishes DONE', async () => {
+      const usersTab = ALL_TABS.find((t) => t.name === 'users')!;
+      const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
+      const stranger = new User();
+      stranger.id = 'user-stranger';
+      joinRequestedUsers.add(stranger);
+
+      vi.spyOn(usersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(usersTab, 'keyOf').mockReturnValue('teacher@x.example');
+      vi.spyOn(usersTab, 'upsert').mockResolvedValue(stranger as any);
+      vi.spyOn(usersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      vi.spyOn(teachersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(teachersTab, 'keyOf').mockReturnValue('T-7');
+      const teacherUpsert = vi.spyOn(teachersTab, 'upsert').mockResolvedValue({ id: 't-1' } as any);
+      vi.spyOn(teachersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({
+          users: [{ email: 'teacher@x.example' }],
+          teachers: [{ employee_id: 'T-7', user_id: 'pending:users:teacher@x.example' }],
+        }),
+      );
+
+      await run();
+
+      expect(teacherUpsert).not.toHaveBeenCalled();
+      expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
+    it('still fails on a reference that is unresolved for any other reason', async () => {
+      const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
+      vi.spyOn(teachersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(teachersTab, 'keyOf').mockReturnValue('T-7');
+      vi.spyOn(teachersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({
+          teachers: [{ employee_id: 'T-7', user_id: 'pending:users:nobody@x.example' }],
+        }),
+      );
+
+      await run();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
     });
   });
 
