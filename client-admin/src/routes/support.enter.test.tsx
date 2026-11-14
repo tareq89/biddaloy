@@ -77,7 +77,7 @@ describe('/support/enter', () => {
       }),
     );
     renderWithRouter(routeTree, { initialEntries: ['/support/enter?ended=1'], locale: 'en' });
-    await waitFor(() => expect(screen.getByText('Biddaloy support has ended')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('SchoolManager support has ended')).toBeTruthy());
     expect(screen.getByText('You can close this tab.')).toBeTruthy();
     expect(called).toBe(false);
   });

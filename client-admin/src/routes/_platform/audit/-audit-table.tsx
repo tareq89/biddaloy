@@ -19,7 +19,7 @@ export function actionLabel(t: T, action: string): string {
 }
 
 /**
- * Who did it. A row made inside a Login as visit reads "Biddaloy support (as Rahim)": the
+ * Who did it. A row made inside a Login as visit reads "SchoolManager support (as Rahim)": the
  * server marks it with `impersonatedByName`, and `actorName` is the person the owner acted as.
  * #3830 builds the same words from the same two fields. The audit row carries no role, so the
  * role the mockup shows is not here.

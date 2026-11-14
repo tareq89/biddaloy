@@ -4,7 +4,7 @@ import { delay, http, HttpResponse } from 'msw';
 
 import { SupportAccessSection } from './SupportAccessSection';
 
-/** [99.G4.04] Settings › Biddaloy support access. Same "client-admin isn't globbed into a running Storybook yet" gap as the other settings stories. */
+/** [99.G4.04] Settings › SchoolManager support access. Same "client-admin isn't globbed into a running Storybook yet" gap as the other settings stories. */
 const settings = (mode: 'allowed' | 'ask' | 'blocked') => ({
   mode,
   confirmedAt: '2026-11-01T10:00:00.000Z',

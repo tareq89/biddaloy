@@ -136,8 +136,8 @@ Every paid package gets a numbered receipt, in the same series as your seat rece
 | What you see                                              | What to do                                                                 | Who can help     |
 | --------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------- |
 | **We could not load the SMS packages. Try again.**        | Press **Try again**.                                                       | —                |
-| **No SMS packages are on sale right now.**                | Come back later.                                                           | Biddaloy support |
-| **We cannot sell SMS right now. Please try again later.** | Wait and try later.                                                        | Biddaloy support |
+| **No SMS packages are on sale right now.**                | Come back later.                                                           | SchoolManager support |
+| **We cannot sell SMS right now. Please try again later.** | Wait and try later.                                                        | SchoolManager support |
 | **Something went wrong. Try again.**                      | Press **Buy with bKash** again.                                            | —                |
 | **We could not switch. Try again.**                       | Press **Switch and continue** (or **Switch to SchoolManagerP SMS**) again. | —                |
 

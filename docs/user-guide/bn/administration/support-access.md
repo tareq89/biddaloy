@@ -13,7 +13,7 @@ labels: [supportAccess:*, supportWelcome:*, supportBanner:*]
 helpIds: [administration.supportAccess]
 devices: [desktop]
 entry: [sidebar, palette]
-keywords: [সহায়তা প্রবেশ, বিডডালয় সহায়তা, অনুমতি আছে, প্রতিবার জিজ্ঞাসা, বন্ধ, জরুরি, support access, biddaloy support, emergency]
+keywords: [সহায়তা প্রবেশ, বিডডালয় সহায়তা, অনুমতি আছে, প্রতিবার জিজ্ঞাসা, বন্ধ, জরুরি, support access, schoolmanager support, emergency]
 appVersion: 0.1.0 (485d3ac71)
 owner: tareq89
 lastVerified: 2026-11-12

@@ -74,10 +74,10 @@ describe('SupportAccessSessionsList', () => {
 
   it('renders who, why, type and number of changes, and the platform actions', async () => {
     renderList();
-    expect(await screen.findByText('Biddaloy support, Rahim (Teacher)')).toBeTruthy();
+    expect(await screen.findByText('SchoolManager support, Rahim (Teacher)')).toBeTruthy();
     expect(screen.getByText('Bug check')).toBeTruthy();
     expect(screen.getByText('3 changes')).toBeTruthy();
-    expect(screen.getByText('Biddaloy support, Karim (Office staff)')).toBeTruthy();
+    expect(screen.getByText('SchoolManager support, Karim (Office staff)')).toBeTruthy();
     expect(screen.getByText('Emergency')).toBeTruthy();
     expect(screen.getByText('View only')).toBeTruthy();
     expect(screen.getByText('1 change')).toBeTruthy();
@@ -102,7 +102,7 @@ describe('SupportAccessSessionsList', () => {
     renderList({ sessions: [], platformActions: [] });
     expect(
       await screen.findByText(
-        'Nobody from Biddaloy support has logged in during the last 90 days.',
+        'Nobody from SchoolManager support has logged in during the last 90 days.',
       ),
     ).toBeTruthy();
     expect(screen.getByText('No other actions in the last 90 days.')).toBeTruthy();

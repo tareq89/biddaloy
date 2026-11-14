@@ -298,7 +298,7 @@
     "colFont": "Font",
     "colStatus": "Status",
     "statusOk": "OK",
-    "statusFont": "Font not available, using Biddaloy Sans",
+    "statusFont": "Font not available, using the default font",
     "warnAspect": "Your artboard is {{svg}} mm. This template is {{page}} mm.",
     "warnUnknown": "{{key}} is not a field of this document. It was left in the artwork.",
     "warnMixed": "\"{{text}}\" mixes a field with other words. Put each field in its own text box.",

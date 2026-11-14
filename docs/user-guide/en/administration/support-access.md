@@ -1,7 +1,7 @@
 <!-- guide:meta
 feature: administration.supportAccess
-title: Biddaloy support access
-summary: Decide whether Biddaloy support may log in to your school, read the 90-day list, approve or turn down a request, and end a login that is live.
+title: SchoolManager support access
+summary: Decide whether SchoolManager support may log in to your school, read the 90-day list, approve or turn down a request, and end a login that is live.
 roles: [ADMIN]
 sources:
   - client-admin/src/pages/settings/SupportAccessSection.tsx
@@ -13,21 +13,21 @@ labels: [supportAccess:*, supportWelcome:*, supportBanner:*]
 helpIds: [administration.supportAccess]
 devices: [desktop]
 entry: [sidebar, palette]
-keywords: [support access, biddaloy support, allowed, ask each time, blocked, emergency, সহায়তা প্রবেশ]
+keywords: [support access, schoolmanager support, allowed, ask each time, blocked, emergency, সহায়তা প্রবেশ]
 appVersion: 0.1.0 (485d3ac71)
 owner: tareq89
 lastVerified: 2026-11-12
 knownIssues: []
 -->
 
-# Biddaloy support access
+# SchoolManager support access
 
-You decide who from Biddaloy can sign in to your school, and you can see every time they did.
+You decide who from SchoolManager can sign in to your school, and you can see every time they did.
 
-**Go to:** **Administration → [Settings](settings.md)** in the left menu, then the category **Biddaloy support access**. View this page on a computer.
-**Before you start:** be an Admin. Only a school admin can change this; Biddaloy never changes it for you.
+**Go to:** **Administration → [Settings](settings.md)** in the left menu, then the category **SchoolManager support access**. View this page on a computer.
+**Before you start:** be an Admin. Only a school admin can change this; SchoolManager never changes it for you.
 
-If something goes wrong at your school, Biddaloy support can log in to help. You can see who logged in, why, and for how long.
+If something goes wrong at your school, SchoolManager support can log in to help. You can see who logged in, why, and for how long.
 
 [Choose](#task-main) · [Read the list](#task-list) · [Approve a request](#task-approve) · [End a login](#task-end) · [Problems and fixes](#trouble)
 
@@ -49,21 +49,21 @@ If something goes wrong at your school, Biddaloy support can log in to help. You
 
 ## Choose who can log in <a href="#task-main" id="task-main"></a>
 
-1. Open **Administration → Settings** and press **Biddaloy support access**.
+1. Open **Administration → Settings** and press **SchoolManager support access**.
 
-   → "Choose whether Biddaloy support can log in to help your school."
+   → "Choose whether SchoolManager support can log in to help your school."
 
 2. Pick one of the three choices.
 
    | Choice            | In plain words                                                                  |
    | ----------------- | ------------------------------------------------------------------------------- |
-   | **Allowed**       | Biddaloy support can log in when they need to. You see every login in the list. |
-   | **Ask each time** | Biddaloy support must ask, and an admin here approves each time.                |
-   | **Blocked**       | Biddaloy support cannot log in. Anyone logged in now is ended at once.          |
+   | **Allowed**       | SchoolManager support can log in when they need to. You see every login in the list. |
+   | **Ask each time** | SchoolManager support must ask, and an admin here approves each time.                |
+   | **Blocked**       | SchoolManager support cannot log in. Anyone logged in now is ended at once.          |
 
-   Under the choice the page tells you what saving will do, for example "Saving makes Biddaloy support ask for your approval each time."
+   Under the choice the page tells you what saving will do, for example "Saving makes SchoolManager support ask for your approval each time."
 
-3. Press **Save**. If you picked **Blocked**, you are asked "Block Biddaloy support?"; press **Block**.
+3. Press **Save**. If you picked **Blocked**, you are asked "Block SchoolManager support?"; press **Block**.
 
    → **Saved.**
 
@@ -87,22 +87,22 @@ If something goes wrong at your school, Biddaloy support can log in to help. You
 
 ### Emergency access <a href="#task-emergency" id="task-emergency"></a>
 
-Even when you choose **Blocked**, emergency access still exists. Biddaloy support must give a reason, and your admins are told right away. It starts as view only. If Biddaloy support asks to write, a request arrives; when an admin presses **Approve**, the view-only lock on that visit is removed and they can change your school's data. **Not now** keeps the lock. Read the reason before you approve. It shows in the list as **Emergency**.
+Even when you choose **Blocked**, emergency access still exists. SchoolManager support must give a reason, and your admins are told right away. It starts as view only. If SchoolManager support asks to write, a request arrives; when an admin presses **Approve**, the view-only lock on that visit is removed and they can change your school's data. **Not now** keeps the lock. Read the reason before you approve. It shows in the list as **Emergency**.
 
 ### Read the last 90 days <a href="#task-list" id="task-list"></a>
 
-Under **Last 90 days** the table "Biddaloy support logins in the last 90 days" has the columns **Who**, **When**, **Reason**, **Type** (**Normal** or **Emergency**), **Changes** and **Action**. **View only** is written on a visit that could change nothing. A visit that is still going shows **Logged in now**. Below it, **Other actions by Biddaloy support** lists anything else Biddaloy support did in your school in the last 90 days. Each list shows 100 rows at a time. When a list is full, press **Next** under it to see older rows, and **Previous** to come back. If the list is empty it says nobody logged in during that time.
+Under **Last 90 days** the table "SchoolManager support logins in the last 90 days" has the columns **Who**, **When**, **Reason**, **Type** (**Normal** or **Emergency**), **Changes** and **Action**. **View only** is written on a visit that could change nothing. A visit that is still going shows **Logged in now**. Below it, **Other actions by SchoolManager support** lists anything else SchoolManager support did in your school in the last 90 days. Each list shows 100 rows at a time. When a list is full, press **Next** under it to see older rows, and **Previous** to come back. If the list is empty it says nobody logged in during that time.
 
 ### Approve or say Not now to a request <a href="#task-approve" id="task-approve"></a>
 
 With **Ask each time**, a request shows under **Requests**. While the list loads you see a loading line, and if it cannot load you see an error with **Try again**; "No requests waiting." appears only when the list really is empty. Press **Open**.
 
-1. Read "Biddaloy support asks to log in as (name) (role)", the **Reason**, when it was asked and "Valid until (time)".
+1. Read "SchoolManager support asks to log in as (name) (role)", the **Reason**, when it was asked and "Valid until (time)".
 2. Press **Approve**, or **Not now**. The first answer counts, so you cannot change it after.
 
-   → **Approved. Biddaloy support can log in now.** or **Not now. Biddaloy support was told.**
+   → **Approved. SchoolManager support can log in now.** or **Not now. SchoolManager support was told.**
 
-A request that ran out says "This request has run out. Biddaloy support can ask again." Press **Back to settings** to leave.
+A request that ran out says "This request has run out. SchoolManager support can ask again." Press **Back to settings** to leave.
 
 ### End a live login <a href="#task-end" id="task-end"></a>
 
@@ -110,7 +110,7 @@ In the list, on the row marked **Logged in now**, press **End**, then confirm "E
 
 ### The first sign-in page <a href="#task-welcome" id="task-welcome"></a>
 
-The first time an admin signs in, the page **Biddaloy support access** shows **Allow Biddaloy support access**, already ticked. Leave it ticked and Biddaloy support can log in; clear it and they cannot. Decide what you want, then press **Save and continue**. "You can change this later in Settings."
+The first time an admin signs in, the page **SchoolManager support access** shows **Allow SchoolManager support access**, already ticked. Leave it ticked and SchoolManager support can log in; clear it and they cannot. Decide what you want, then press **Save and continue**. "You can change this later in Settings."
 
 ---
 
@@ -137,7 +137,7 @@ The first time an admin signs in, the page **Biddaloy support access** shows **A
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Why can Biddaloy sign in?</strong></summary>
+<summary><strong>Why can SchoolManager sign in?</strong></summary>
 
 When something breaks, a person who can see your school's screen finds the cause faster. You stay in charge: you choose, you see every login, and you can end one.
 
@@ -146,7 +146,7 @@ When something breaks, a person who can see your school's screen finds the cause
 **Related pages**
 
 - [**Changing the school's settings**](settings.md) — the Settings page this part lives in.
-- [**Logging in as a school's person**](../platform-owner/login-as.md) — what the Biddaloy side does.
+- [**Logging in as a school's person**](../platform-owner/login-as.md) — what the SchoolManager side does.
 
 ---
 

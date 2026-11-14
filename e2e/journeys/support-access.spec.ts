@@ -13,7 +13,7 @@ import {
 } from '../platform/support-helpers';
 
 /**
- * [99.6.03] The school admin's side of Biddaloy support access, end to end, on a school of the
+ * [99.6.03] The school admin's side of SchoolManager support access, end to end, on a school of the
  * spec's own (the shared seeded ones are used by other workers):
  *   1. first sign-in lands on `/welcome/support-access`; untick, save, Settings says Blocked;
  *   2. switch to Ask each time; the owner starts Login as (API); the admin opens the request,

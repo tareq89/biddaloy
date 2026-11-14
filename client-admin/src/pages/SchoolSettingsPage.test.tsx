@@ -192,7 +192,7 @@ describe('SchoolSettingsPage', () => {
     });
   });
 
-  it('has a Biddaloy support access tab that opens the support access card', async () => {
+  it('has a SchoolManager support access tab that opens the support access card', async () => {
     server.use(
       http.get('/api/v1/support-access/settings', () =>
         HttpResponse.json({
@@ -216,9 +216,9 @@ describe('SchoolSettingsPage', () => {
     });
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Biddaloy support access' }),
+      await screen.findByRole('heading', { level: 2, name: 'SchoolManager support access' }),
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Biddaloy support access' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'SchoolManager support access' })).toBeTruthy();
     expect(await screen.findByRole('radio', { name: /Ask each time/ })).toBeTruthy();
   });
 

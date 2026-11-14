@@ -58,7 +58,7 @@ describe('/welcome/support-access', () => {
     const user = userEvent.setup();
     const { router, container } = render();
 
-    const box = await screen.findByRole('checkbox', { name: 'Allow Biddaloy support access' });
+    const box = await screen.findByRole('checkbox', { name: 'Allow SchoolManager support access' });
     expect(box.getAttribute('aria-checked')).toBe('true');
     await expect(container).toHaveNoViolations();
     await user.click(screen.getByRole('button', { name: 'Save and continue' }));
@@ -79,7 +79,7 @@ describe('/welcome/support-access', () => {
     const user = userEvent.setup();
     render();
 
-    const box = await screen.findByRole('checkbox', { name: 'Allow Biddaloy support access' });
+    const box = await screen.findByRole('checkbox', { name: 'Allow SchoolManager support access' });
     box.focus();
     await user.keyboard(' ');
     expect(box.getAttribute('aria-checked')).toBe('false');
@@ -109,7 +109,7 @@ describe('/welcome/support-access', () => {
     const { container } = renderWithProviders(<SupportWelcomeForm onSave={onSave} saving />, {
       locale: 'en',
     });
-    const box = await screen.findByRole('checkbox', { name: 'Allow Biddaloy support access' });
+    const box = await screen.findByRole('checkbox', { name: 'Allow SchoolManager support access' });
     expect((box as HTMLButtonElement).disabled).toBe(true);
     fireEvent.submit(container.querySelector('form') as HTMLFormElement);
     expect(onSave).not.toHaveBeenCalled();
