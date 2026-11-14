@@ -58,8 +58,16 @@ const card = {
   logo_url: null,
 };
 
+const logged: Array<{ studentId: string; body: unknown }> = [];
 async function open(status: Status, extra?: () => void, entry = '/results/final/fr-1?tab=print') {
   mockFinal(status);
+  logged.length = 0;
+  server.use(
+    http.post('/api/v1/students/:studentId/document-prints', async ({ params, request }) => {
+      logged.push({ studentId: String(params.studentId), body: await request.json() });
+      return new HttpResponse(null, { status: 201 });
+    }),
+  );
   server.use(http.get('/api/v1/final-results/fr-1/students/st1', () => HttpResponse.json(card)));
   extra?.();
   renderWithRouter(routeTree, {
@@ -96,6 +104,37 @@ describe('Print tab', () => {
     await screen.findByText('Hard working');
     await userEvent.click(screen.getByRole('button', { name: /Print all cards/ }));
     await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    // One print-history row per printed card, logged before the print (#3484).
+    expect(logged).toEqual([
+      {
+        studentId: 'st1',
+        body: { document: 'FINAL_REPORT_CARD', academic_year_id: expect.any(String) },
+      },
+    ]);
+  });
+
+  it('opens the result-certificate preview for the final result (#3484)', async () => {
+    await open('PROCESSED');
+    await screen.findByText('Hard working');
+    expect(screen.getByRole('button', { name: 'Result certificates' })).toBeTruthy();
+  });
+
+  it('does not print when the print-history entry cannot be written', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    let attempts = 0;
+    await open('PROCESSED', () =>
+      server.use(
+        http.post('/api/v1/students/:studentId/document-prints', () => {
+          attempts++;
+          return HttpResponse.json({ message: 'no' }, { status: 500 });
+        }),
+      ),
+    );
+    await screen.findByText('Hard working');
+    await userEvent.click(screen.getByRole('button', { name: /Print all cards/ }));
+    await waitFor(() => expect(attempts).toBe(1));
+    await screen.findByRole('button', { name: /Print all cards/ });
+    expect(print).not.toHaveBeenCalled();
   });
 
   /** 101 students, so the section needs a second page of rows. */

@@ -9,10 +9,11 @@
  * all" is pressed, a few at a time, fresh from the server (never a cached copy); a card that
  * fails shows as a marked row in the print instead of cancelling the rest.
  */
-import type {
-  FinalResultRowView,
-  FinalResultStudentCard,
-  FinalResultSummary,
+import {
+  Permission,
+  type FinalResultRowView,
+  type FinalResultStudentCard,
+  type FinalResultSummary,
 } from '@biddaloy/shared';
 import { apiClient } from '@biddaloy/ui/api';
 import {
@@ -33,18 +34,21 @@ import {
 import type { IssuerSnapshot, ReportCardProps } from '@biddaloy/ui/components';
 import {
   finalResultKeys,
+  logDocumentPrint,
   useClassSections,
   useFinalResultStudentCard,
   useFinalTabulation,
+  useHasPermission,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
-import { useSearch } from '@tanstack/react-router';
+import { useRouter, useSearch } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 
+import { examPreviewHref } from '../../../../components/print/exam-preview-href';
 import { subjectLabel } from '../../exams/-detail/subject-label';
 
 import { fetchAllPages, mapLimited, PAGE_SIZE } from './-fetch-all';
@@ -77,6 +81,8 @@ export function PrintPanel({ summary }: PrintPanelProps) {
   const lang = i18n.language;
   const built = summary.status !== 'DRAFT';
   const search = useSearch({ strict: false });
+  const router = useRouter();
+  const canIssue = useHasPermission(Permission.CERTIFICATE_ISSUE);
   const sections = useClassSections(summary.class.id);
   const [pickedSection, setPickedSection] = React.useState<string | undefined>(undefined);
   const sectionId = pickedSection ?? sections.data?.[0]?.id;
@@ -162,12 +168,33 @@ export function PrintPanel({ summary }: PrintPanelProps) {
     if (!cardsReady && !tabReady) return;
     // One frame so the print area is in the DOM before the browser snapshots it.
     const id = requestAnimationFrame(() => {
-      window.print();
-      setJob(null);
-      setPrinted(null);
+      void (async () => {
+        // Log first, print second (D17/D25, #3484): one print-history row per printed card;
+        // no entry, no print. The tabulation is the run itself, not one student's document.
+        if (cardsReady && printed) {
+          const logged = await mapLimited(
+            printed.filter((p) => p.card !== null),
+            CARD_CONCURRENCY,
+            (p) =>
+              logDocumentPrint(p.row.student.id, {
+                document: 'FINAL_REPORT_CARD',
+                academic_year_id: summary.academic_year.id,
+              }),
+          );
+          if (logged.some((r) => !('value' in r))) {
+            toast.error(t('reportCard.logError'));
+            setJob(null);
+            setPrinted(null);
+            return;
+          }
+        }
+        window.print();
+        setJob(null);
+        setPrinted(null);
+      })();
     });
     return () => cancelAnimationFrame(id);
-  }, [cardsReady, tabReady]);
+  }, [cardsReady, tabReady]); // eslint-disable-line react-hooks/exhaustive-deps -- printed/summary only matter when a job becomes ready
   React.useEffect(() => {
     if (!tabFailed) return;
     toast.error(t('finalResults.print.loadError'));
@@ -326,6 +353,28 @@ export function PrintPanel({ summary }: PrintPanelProps) {
             <PrinterIcon aria-hidden className="size-4" />
             {t('finalResults.print.printAll')}
           </Button>
+          {canIssue && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={rows.every((r) => r.is_fail)}
+              onClick={() => {
+                // Same preview the exam page uses; the resolver reads a final result id (D21).
+                const ids = rows
+                  .filter((r) => !r.is_fail)
+                  .map((r) => r.student.id)
+                  .join(',');
+                router.history.push(
+                  examPreviewHref(summary.id, 'RESULT_CERTIFICATE', {
+                    ids,
+                    from: `/results/final/${summary.id}?tab=print`,
+                  }),
+                );
+              }}
+            >
+              {t('finalResults.print.resultCertificates')}
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
