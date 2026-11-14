@@ -24,6 +24,8 @@ import bnAttendanceImport from '../ui/src/i18n/locales/bn/attendanceImport.json'
 import bnAttention from '../ui/src/i18n/locales/bn/attention.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
+import bnBilling from '../ui/src/i18n/locales/bn/billing.json';
+import bnSmsBundles from '../ui/src/i18n/locales/bn/smsBundles.json';
 import bnBulkImport from '../ui/src/i18n/locales/bn/bulkImport.json';
 import bnCalendar from '../ui/src/i18n/locales/bn/calendar.json';
 import bnCertificates from '../ui/src/i18n/locales/bn/certificates.json';
@@ -97,6 +99,8 @@ import enAttendanceImport from '../ui/src/i18n/locales/en/attendanceImport.json'
 import enAttention from '../ui/src/i18n/locales/en/attention.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
+import enBilling from '../ui/src/i18n/locales/en/billing.json';
+import enSmsBundles from '../ui/src/i18n/locales/en/smsBundles.json';
 import enBulkImport from '../ui/src/i18n/locales/en/bulkImport.json';
 import enCalendar from '../ui/src/i18n/locales/en/calendar.json';
 import enCertificates from '../ui/src/i18n/locales/en/certificates.json';
@@ -195,6 +199,8 @@ const catalogs = {
     attention: bnAttention,
     auth: bnAuth,
     backup: bnBackup,
+    billing: bnBilling,
+    smsBundles: bnSmsBundles,
     bulkImport: bnBulkImport,
     calendar: bnCalendar,
     classes: bnClasses,
@@ -279,6 +285,8 @@ const catalogs = {
     attention: enAttention,
     auth: enAuth,
     backup: enBackup,
+    billing: enBilling,
+    smsBundles: enSmsBundles,
     bulkImport: enBulkImport,
     calendar: enCalendar,
     classes: enClasses,
