@@ -70,8 +70,6 @@ export function useLinkOptions(kind: AudienceKind, roles?: readonly string[]): L
   if (kind === 'portal') {
     return PORTAL_PAGES.map(([value, key]) => ({ value, label: t(`items.${key}`) }));
   }
-  // ponytail: named people (userIds) are judged by the sender's own permissions; their roles
-  // are not known here. Filter by their roles if wrong links to them show up.
   const viewers = roles?.length ? roles : [role];
   return Object.values(STAFF_NAV_ITEMS)
     .filter(
