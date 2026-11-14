@@ -23,6 +23,7 @@ import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { Student } from '../../students/entities/student.entity';
+import { User } from '../../users/entities/user.entity';
 import { AttendanceRecord } from '../entities/attendance-record.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { AttendanceImport } from '../entities/attendance-import.entity';
@@ -538,10 +539,11 @@ export class AttendanceImportService {
   // GET attendance/imports, GET attendance/imports/:id
   // ---------------------------------------------------------------------
 
-  private summary(e: AttendanceImport): AttendanceImportSummaryDto {
+  private summary(e: AttendanceImport, names: Map<string, string>): AttendanceImportSummaryDto {
     return {
       id: e.id,
       uploaded_by_user_id: e.uploaded_by_user_id,
+      uploaded_by_name: (e.uploaded_by_user_id && names.get(e.uploaded_by_user_id)) || null,
       file_name: e.file_name,
       counts: {
         new: e.count_new,
@@ -562,6 +564,18 @@ export class AttendanceImportService {
     };
   }
 
+  /** Names of the uploaders of tenant-scoped imports (users carry no tenant column). */
+  private async uploaderNames(imports: AttendanceImport[]): Promise<Map<string, string>> {
+    const ids = [
+      ...new Set(imports.map((i) => i.uploaded_by_user_id).filter((x): x is string => !!x)),
+    ];
+    if (ids.length === 0) return new Map();
+    const users = await this.dataSource
+      .getRepository(User)
+      .find({ where: { id: In(ids) }, select: { id: true, full_name: true }, withDeleted: true });
+    return new Map(users.map((u) => [u.id, u.full_name]));
+  }
+
   async list(page: number, limit: number, caller: ImportCaller): Promise<AttendanceImportListDto> {
     const [items, total] = await this.importRepo.findAndCount({
       where: this.scope(caller),
@@ -580,7 +594,8 @@ export class AttendanceImportService {
         created_at: true,
       },
     });
-    return { items: items.map((i) => this.summary(i)), total, page, limit };
+    const names = await this.uploaderNames(items);
+    return { items: items.map((i) => this.summary(i, names)), total, page, limit };
   }
 
   async detail(id: string, caller: ImportCaller): Promise<AttendanceImportDetailDto> {
@@ -591,16 +606,38 @@ export class AttendanceImportService {
     const recs = recordIds.length
       ? await this.recordRepo.find({
           where: { tenant_id: caller.tenantId, id: In(recordIds) },
-          select: { id: true, status: true },
+          select: { id: true, status: true, student_id: true },
         })
       : [];
     const current = new Map(recs.map((r) => [r.id, r.status]));
+    const studentIdOf = new Map(recs.map((r) => [r.id, r.student_id]));
+    const students = recs.length
+      ? await this.studentRepo.find({
+          where: { tenant_id: caller.tenantId, id: In([...new Set(studentIdOf.values())]) },
+          select: { id: true, full_name: true },
+          withDeleted: true,
+        })
+      : [];
+    const studentName = new Map(students.map((st) => [st.id, st.full_name]));
+    const sectionIds = [...new Set(e.rows.map((r) => r.sectionId))];
+    const sections = sectionIds.length
+      ? await this.sectionRepo.find({
+          where: { tenant_id: caller.tenantId, id: In(sectionIds) },
+          relations: { class: true },
+          withDeleted: true,
+        })
+      : [];
+    const sectionOf = new Map(sections.map((sec) => [sec.id, sec]));
+    const names = await this.uploaderNames([e]);
     return {
-      ...this.summary(e),
+      ...this.summary(e, names),
       rows: e.rows.map((r) => ({
         date: r.date,
         section_id: r.sectionId,
+        class_name: sectionOf.get(r.sectionId)?.class?.name ?? null,
+        section_name: sectionOf.get(r.sectionId)?.section_name ?? null,
         roll: r.roll,
+        student_name: (r.recordId && studentName.get(studentIdOf.get(r.recordId) ?? '')) || null,
         before: r.before,
         after: r.after,
         outcome: r.outcome,

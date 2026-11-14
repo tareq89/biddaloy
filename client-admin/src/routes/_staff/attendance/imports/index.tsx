@@ -41,8 +41,8 @@ function AttendanceImportsPage() {
   );
   const num = (n: number) => formatNumber(n, regionConfig);
   const me = useCurrentUserId();
-  const uploaderLabel = (id: string | null) =>
-    id === null ? '—' : t(id === me ? 'history.you' : 'history.someone');
+  const uploaderLabel = (id: string | null, name: string | null) =>
+    id === null ? '—' : id === me ? t('history.you') : (name ?? t('history.someone'));
 
   const columns: DataTableColumn<AttendanceImportSummary>[] = [
     {
@@ -60,8 +60,7 @@ function AttendanceImportsPage() {
     {
       id: 'who',
       header: t('history.columnWho'),
-      // The server sends the uploader's id only, never a name (#3659 adds it): "You" or a plain fallback.
-      accessorFn: (row) => uploaderLabel(row.uploaded_by_user_id),
+      accessorFn: (row) => uploaderLabel(row.uploaded_by_user_id, row.uploaded_by_name),
     },
     {
       id: 'new',
