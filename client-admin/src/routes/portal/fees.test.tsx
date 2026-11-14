@@ -893,6 +893,22 @@ describe('/portal/fees', () => {
     });
   });
 
+  describe('[3.x/#3975] tabs', () => {
+    it('opens the proofs tab from ?tab=proofs and the URL follows a tab click', async () => {
+      standardMocks();
+      server.use(http.get('/api/v1/portal/payment-proofs', () => HttpResponse.json([])));
+      const { router } = renderFees('/portal/fees?tab=proofs');
+
+      expect(await screen.findByText('No payment proofs yet')).toBeTruthy();
+      // The fee breakdown is the other tab, not rendered now.
+      expect(screen.queryByText('September 2025')).toBeNull();
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Fees and invoices' }));
+      expect(await screen.findByText('September 2025')).toBeTruthy();
+      await waitFor(() => expect(router.state.location.search).not.toHaveProperty('tab'));
+    });
+  });
+
   describe('states and contracts', () => {
     it('shows no h1 while loading', async () => {
       standardMocks();

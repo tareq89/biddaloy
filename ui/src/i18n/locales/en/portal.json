@@ -575,5 +575,50 @@
     "attendance": "Present {{present}} of {{working}} days ({{percent}})",
     "showDetails": "Details and card",
     "hideDetails": "Hide details"
+  },
+  "proofs": {
+    "tabsLabel": "Fees sections",
+    "tabBills": "Fees and invoices",
+    "tabProofs": "My payment proofs",
+    "loading": "Loading your payment proofs",
+    "error": "Could not load your payment proofs.",
+    "empty": "No payment proofs yet",
+    "method": "Method",
+    "trxId": "Transaction ID",
+    "submittedOn": "Submitted on",
+    "reasonLabel": "Reason",
+    "fileLabel": "Proof file {{n}}",
+    "discardedExplanation": "Bill already paid — submit again next month",
+    "withdraw": "Withdraw",
+    "withdrawTitle": "Withdraw this payment proof?",
+    "withdrawDescription": "The school will not look at it. You can submit a new proof for the same bill.",
+    "withdrawn": "Payment proof withdrawn",
+    "withdrawError": "Could not withdraw the payment proof. Try again.",
+    "status": {
+      "PENDING": "Waiting for confirmation",
+      "CONFIRMED": "Confirmed",
+      "REJECTED": "Rejected",
+      "DISCARDED": "Discarded — already paid",
+      "WITHDRAWN": "Withdrawn",
+      "COMPLETED": "Confirmed",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "EXPIRED": "Expired",
+      "REVERSED": "Reversed"
+    },
+    "rejectReason": {
+      "TRXID_NOT_FOUND": "Transaction ID not found",
+      "AMOUNT_MISMATCH": "Amount does not match",
+      "IMAGE_UNCLEAR": "Image unclear",
+      "DUPLICATE": "Already submitted",
+      "OTHER": "Other reason"
+    },
+    "viewer": {
+      "openFile": "Open file",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "previous": "Previous file",
+      "next": "Next file"
+    }
   }
 }

@@ -10,6 +10,10 @@ import {
   HelpHint,
   StatusBadge,
   StudentPicker,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -54,6 +58,8 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
+import { MyProofsTab } from './-my-proofs-tab';
+
 /**
  * [5.3] — the fee breakdown and invoice history behind [5.2]'s landing.
  * A parent or student picks one child and sees, for that child: what the
@@ -92,9 +98,11 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
  *   single-item list" rule as `portal/index.tsx`.
  * - **Zero discount renders as an em dash**, not "৳0.00", so a real zero
  *   is not read as a missing figure.
- * - **Read-only.** No mutation of any kind lives on this page, so
- *   `no-optimistic-financial-mutation` is satisfied by construction, and
- *   there is no "pay now" anywhere — self-service payment is #291.
+ * - **Two tabs, in the URL (`?tab=proofs`).** "Fees and invoices" is
+ *   read-only. "My payment proofs" ([3.x/#3975], `-my-proofs-tab.tsx`) lists
+ *   the guardian's proofs and offers one write: withdraw a waiting proof,
+ *   which is not optimistic (`no-optimistic-financial-mutation`): the card
+ *   changes only after the server answers.
  *
  * **Heading structure is load-bearing.** `useRouteFocus` focuses the
  * route's `<h1>` inside `<main>` after a navigation, so, per frame:
@@ -125,6 +133,8 @@ const feesSearchSchema = z.object({
    * the caller's own `/students/mine` list falls back to the first
    * student rather than being forwarded. */
   student: z.string().optional().catch(undefined),
+  /** Which tab is open; absent means the fee breakdown. */
+  tab: z.enum(['bills', 'proofs']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/portal/fees')({
@@ -185,6 +195,7 @@ function PortalFees() {
   const { t: tNav } = useTranslation('nav');
   const config = useRegionConfig();
   const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const studentMeta = useStudentMeta();
 
   const studentsQuery = useMyStudents();
@@ -349,32 +360,58 @@ function PortalFees() {
           <HelpHint helpId="portal.fees.action.pickStudent" />
         </div>
       )}
-      <div className="grid gap-6 md:grid-cols-3 md:items-start">
-        <div className="min-w-0 space-y-6 md:col-span-2">
-          <FeesSummary summary={summaryQuery.data} config={config} />
-          <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
-          {finesQuery.data.items.length > 0 && (
-            <FinesCard fines={finesQuery.data.items} config={config} />
-          )}
-          <InvoicesCard
-            invoices={invoicesQuery.data.data}
-            total={invoicesQuery.data.total}
-            config={config}
-          />
-          {showPushOptIn && invoicesQuery.data.data.length > 0 && (
-            <PushOptInCard
-              onEnable={handlePushOptInEnable}
-              onDismiss={handlePushOptInDismiss}
-              enabling={push.loading}
-            />
-          )}
-        </div>
-        {/* A div, not an aside: the app shell already has one aside landmark. */}
-        <div className="space-y-6">
-          {showWallet && <WalletCard wallet={wallet} config={config} />}
-          {showRecurring && <RecurringFeesCard schedules={schedulesQuery.data} config={config} />}
-        </div>
-      </div>
+      <Tabs
+        value={search.tab ?? 'bills'}
+        onValueChange={(tab) =>
+          void navigate({
+            to: '/portal/fees',
+            search: (prev) => ({ ...prev, tab: tab === 'proofs' ? 'proofs' : undefined }),
+          })
+        }
+        className="gap-4"
+      >
+        <TabsList variant="line" aria-label={t('proofs.tabsLabel')}>
+          <TabsTrigger value="bills" className="h-11 flex-none px-3 md:h-10">
+            {t('proofs.tabBills')}
+          </TabsTrigger>
+          <TabsTrigger value="proofs" className="h-11 flex-none px-3 md:h-10">
+            {t('proofs.tabProofs')}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="proofs">
+          <MyProofsTab />
+        </TabsContent>
+        <TabsContent value="bills">
+          <div className="grid gap-6 md:grid-cols-3 md:items-start">
+            <div className="min-w-0 space-y-6 md:col-span-2">
+              <FeesSummary summary={summaryQuery.data} config={config} />
+              <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
+              {finesQuery.data.items.length > 0 && (
+                <FinesCard fines={finesQuery.data.items} config={config} />
+              )}
+              <InvoicesCard
+                invoices={invoicesQuery.data.data}
+                total={invoicesQuery.data.total}
+                config={config}
+              />
+              {showPushOptIn && invoicesQuery.data.data.length > 0 && (
+                <PushOptInCard
+                  onEnable={handlePushOptInEnable}
+                  onDismiss={handlePushOptInDismiss}
+                  enabling={push.loading}
+                />
+              )}
+            </div>
+            {/* A div, not an aside: the app shell already has one aside landmark. */}
+            <div className="space-y-6">
+              {showWallet && <WalletCard wallet={wallet} config={config} />}
+              {showRecurring && (
+                <RecurringFeesCard schedules={schedulesQuery.data} config={config} />
+              )}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </PageContainer>
   );
 }
