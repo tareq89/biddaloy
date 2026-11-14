@@ -44,6 +44,8 @@ import { FinalResult } from './final-result.entity';
 @Index(['tenant_id', 'final_result_id'])
 @Index(['final_result_id', 'student_id'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['final_result_id', 'section_id'])
+// A grading-scale edit finds the finals that use the scale (#3462).
+@Index('IDX_final_result_rows_tenant_scale', ['tenant_id', 'grading_scale_id'])
 export class FinalResultRow {
   @PrimaryGeneratedColumn('uuid')
   id: string;

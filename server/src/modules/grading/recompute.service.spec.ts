@@ -39,7 +39,7 @@ describe('RecomputeService', () => {
     resultRecomputer = {
       countAffected: vi.fn(async () => 0),
       recompute: vi.fn(async () => 0),
-      findPublishedExams: vi.fn(async () => []),
+      findPublishedExams: vi.fn(async () => ({ exams: [], finals: [] })),
     };
 
     service = new RecomputeService(
@@ -66,13 +66,16 @@ describe('RecomputeService', () => {
     });
 
     it('is invalid when PUBLISHED results use the scale (D16)', async () => {
-      resultRecomputer.findPublishedExams.mockResolvedValueOnce([{ id: 'e1', name: 'Final 2026' }]);
+      resultRecomputer.findPublishedExams.mockResolvedValueOnce({
+        exams: [{ id: 'e1', name: 'Final 2026' }],
+        finals: [{ id: 'f1', name: 'Class Nine' }],
+      });
       const result = await service.preview(SCALE_ID, TENANT, VALID_BANDS as any);
       expect(result.valid).toBe(false);
       expect(result.problems).toEqual([
         expect.objectContaining({
           type: 'SCALE_IN_PUBLISHED_RESULTS',
-          message: expect.stringContaining('Final 2026'),
+          message: expect.stringMatching(/Final 2026.*Class Nine/),
         }),
       ]);
       expect(result.affected_result_count).toBe(0);
