@@ -215,11 +215,11 @@
     "openMyRoutine": "Open My routine"
   },
   "copy": {
-    "title": "Copy to another section",
+    "title": "Copy to another $t(common:entities.section_one)",
     "section": "$t(common:entities.section_one)",
     "save": "Copy",
-    "notYours": "You don't teach {{subject}} in that section.",
-    "exists": "That section already has a plan for this term.",
+    "notYours": "You don't teach {{subject}} in that $t(common:entities.section_one).",
+    "exists": "That $t(common:entities.section_one) already has a plan for this term.",
     "openExisting": "Open it"
   },
   "markers": {

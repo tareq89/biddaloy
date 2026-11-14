@@ -55,12 +55,12 @@
       }
     },
     "sections": {
-      "title": "সেকশন",
+      "title": "$t(common:entities.section_one)",
       "hint": "প্রতিটি ক্লাসের সেকশন যোগ করুন, যেমন ক ও খ।",
-      "perClass": "{{className}}-এর সেকশন",
-      "addSection": "সেকশন যোগ করুন",
-      "created_one": "{{count}}টি সেকশন তৈরি হয়েছে",
-      "created_other": "{{count}}টি সেকশন তৈরি হয়েছে",
+      "perClass": "{{className}}-এর $t(common:entities.section_one)",
+      "addSection": "$t(common:entities.section_one) যোগ করুন",
+      "created_one": "{{count}}টি $t(common:entities.section_one) তৈরি হয়েছে",
+      "created_other": "{{count}}টি $t(common:entities.section_other) তৈরি হয়েছে",
       "create": "$t(common:entities.section_one) তৈরি করুন",
       "count": "$t(common:entities.section_one)",
       "retry": "আবার চেষ্টা করুন",

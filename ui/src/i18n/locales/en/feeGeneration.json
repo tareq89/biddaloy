@@ -57,7 +57,7 @@
   },
   "steps": {
     "year": "Academic year",
-    "scope": "$t(common:entities.class_one) and section",
+    "scope": "$t(common:entities.class_one) and $t(common:entities.section_one)",
     "period": "Month and year",
     "review": "Review"
   },
