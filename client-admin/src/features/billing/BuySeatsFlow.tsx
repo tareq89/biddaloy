@@ -1,5 +1,11 @@
 import { ApiError } from '@biddaloy/ui/api';
-import { useCreateSeatOrder, usePayWithBkash } from '@biddaloy/ui/hooks';
+import {
+  openBillingReceipt,
+  useBillingSummary,
+  useCreateSeatOrder,
+  usePayWithBkash,
+} from '@biddaloy/ui/hooks';
+import * as React from 'react';
 
 import { BuySeatsDialog, type BuySeatsDialogProps } from './BuySeatsDialog';
 
@@ -16,27 +22,57 @@ export function payClosedOrder(err: unknown): boolean {
   );
 }
 
+/** 400 `COUPON_NOT_VALID`: the server refused the coupon on submit. */
+export function couponNotValid(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    err.statusCode === 400 &&
+    err.details?.['code'] === 'COUPON_NOT_VALID'
+  );
+}
+
 /** `BuySeatsDialog` wired to `POST /billing/orders`. Used by Settings and by the seat-limit error. */
 export function BuySeatsFlow(
   props: Omit<
     BuySeatsDialogProps,
-    'onSubmit' | 'pending' | 'failed' | 'created' | 'onPay' | 'paying' | 'payFailed' | 'payClosed'
+    | 'onSubmit'
+    | 'pending'
+    | 'failed'
+    | 'created'
+    | 'onPay'
+    | 'paying'
+    | 'payFailed'
+    | 'payClosed'
+    | 'couponRejected'
+    | 'onReceipt'
+    | 'receiptFailed'
   >,
 ) {
   const create = useCreateSeatOrder();
   const pay = usePayWithBkash();
+  const summary = useBillingSummary();
+  const [receiptFailed, setReceiptFailed] = React.useState(false);
+  const rejected = couponNotValid(create.error);
   return (
     <BuySeatsDialog
       {...props}
+      unitPricePaisa={props.unitPricePaisa ?? summary.data?.unit_price_paisa}
       onOpenChange={(open) => {
         if (!open) {
           create.reset();
           pay.reset();
+          setReceiptFailed(false);
         }
         props.onOpenChange(open);
       }}
       pending={create.isPending}
-      failed={create.isError}
+      failed={create.isError && !rejected}
+      couponRejected={rejected}
+      receiptFailed={receiptFailed}
+      onReceipt={(id) => {
+        setReceiptFailed(false);
+        openBillingReceipt(id).catch(() => setReceiptFailed(true));
+      }}
       created={create.data}
       paying={pay.isPending || pay.isSuccess}
       payFailed={pay.isError}

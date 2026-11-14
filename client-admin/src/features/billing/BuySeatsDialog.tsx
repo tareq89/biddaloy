@@ -1,3 +1,4 @@
+import { SeatOrderStatus } from '@biddaloy/shared';
 import {
   Button,
   Dialog,
@@ -14,19 +15,23 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency, formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
-import {
-  MAX_MONTHS,
-  MAX_SEATS,
-  SEAT_UNIT_PRICE_PAISA,
-  orderTotalPaisa,
-  parseWhole,
-} from './billing-math';
+import { MAX_MONTHS, MAX_SEATS, orderTotalPaisa, parseWhole } from './billing-math';
+import { CouponRow, type AppliedCoupon } from './CouponRow';
 
 export interface BuySeatsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Seats typed into the box when the dialog opens. */
   initialSeats: number;
+  /** The school's price per seat per month, paisa. Unknown (still loading): price and total show a dash. */
+  unitPricePaisa?: number | undefined;
+  /** Open the coupon row on first render (`?coupon=1`). */
+  openCoupon?: boolean | undefined;
+  /** The server turned the coupon down on submit (400 COUPON_NOT_VALID). */
+  couponRejected?: boolean | undefined;
+  /** Open the receipt of a created order (free orders have no bKash step). */
+  onReceipt?: (orderId: string) => void;
+  receiptFailed?: boolean | undefined;
   /** Shown when opened from the "seat limit reached" error. */
   limitReached?: boolean;
   pending?: boolean;
@@ -40,7 +45,12 @@ export interface BuySeatsDialogProps {
   /** The server closed the order (not PENDING / gone): the next submit must use a new key. */
   payClosed?: boolean;
   /** `idempotency_key` is the same for every retry until the dialog is reopened. */
-  onSubmit: (input: { seats: number; months: number; idempotency_key: string }) => void;
+  onSubmit: (input: {
+    seats: number;
+    months: number;
+    coupon_code?: string;
+    idempotency_key: string;
+  }) => void;
 }
 
 export function BuySeatsDialog({
@@ -55,6 +65,11 @@ export function BuySeatsDialog({
   paying,
   payFailed,
   payClosed,
+  unitPricePaisa,
+  openCoupon,
+  couponRejected,
+  onReceipt,
+  receiptFailed,
   onSubmit,
 }: BuySeatsDialogProps) {
   const { t } = useTranslation('billing');
@@ -63,6 +78,7 @@ export function BuySeatsDialog({
   const [monthsText, setMonthsText] = React.useState('1');
   const [touched, setTouched] = React.useState(false);
   const [key, setKey] = React.useState(() => crypto.randomUUID());
+  const [applied, setApplied] = React.useState<AppliedCoupon | null>(null);
 
   // A fresh open: new prefill, new key, no stale errors. Keyed on `open` only, so a background
   // refetch changing `initialSeats` never overwrites what the admin is typing.
@@ -79,18 +95,38 @@ export function BuySeatsDialog({
     setSeatsText(String(initialRef.current));
     setMonthsText('1');
     setTouched(false);
+    setApplied(null);
     setKey(crypto.randomUUID());
   }, [open]);
 
+  // A coupon the server refused on submit: back to the plain price and a new key.
+  React.useEffect(() => {
+    if (couponRejected) {
+      setApplied(null);
+      setKey(crypto.randomUUID());
+    }
+  }, [couponRejected]);
+
   const seats = parseWhole(seatsText, MAX_SEATS);
   const months = parseWhole(monthsText, MAX_MONTHS);
-  const total = seats !== null && months !== null ? orderTotalPaisa(seats, months) : null;
+  const listTotal =
+    seats !== null && months !== null && unitPricePaisa !== undefined
+      ? orderTotalPaisa(seats, months, unitPricePaisa)
+      : null;
+  // The server's number once a coupon is applied; the list price before.
+  const total = applied ? applied.preview.totalPaisa : listTotal;
+  const free = applied?.preview.free ?? false;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
     if (seats === null || months === null) return;
-    onSubmit({ seats, months, idempotency_key: key });
+    onSubmit({
+      seats,
+      months,
+      ...(applied ? { coupon_code: applied.code } : {}),
+      idempotency_key: key,
+    });
   }
 
   return (
@@ -108,16 +144,27 @@ export function BuySeatsDialog({
                 })}
               </DialogDescription>
             </DialogHeader>
+            {created.status === SeatOrderStatus.PAID && (
+              <p className="text-sm">{t('coupon.freeDone')}</p>
+            )}
             {payFailed && (
               <p role="alert" className="text-sm text-destructive">
                 {t('buy.payFailed')}
+              </p>
+            )}
+            {receiptFailed && (
+              <p role="alert" className="text-sm text-destructive">
+                {t('orders.receiptFailed')}
               </p>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 {t('buy.close')}
               </Button>
-              {onPay && (
+              {created.status === SeatOrderStatus.PAID && onReceipt && (
+                <Button onClick={() => onReceipt(created.id)}>{t('coupon.receipt')}</Button>
+              )}
+              {created.status !== SeatOrderStatus.PAID && onPay && (
                 <Button loading={paying ?? false} onClick={() => onPay(created.id)}>
                   {t('buy.payBkash')}
                 </Button>
@@ -171,12 +218,36 @@ export function BuySeatsDialog({
                 </p>
               )}
             </div>
+            <CouponRow
+              seats={seats}
+              months={months}
+              rejected={couponRejected}
+              defaultOpen={openCoupon}
+              onApplied={(next) => {
+                setApplied(next);
+                // The body changed (code added or dropped): it must not ride on an old key.
+                setKey(crypto.randomUUID());
+              }}
+            />
             <div className="rounded-md bg-muted p-3" aria-live="polite">
               <p className="text-caption text-text-secondary">
-                {t('buy.price', { price: formatCurrency(SEAT_UNIT_PRICE_PAISA, config) })}
+                {unitPricePaisa === undefined
+                  ? '—'
+                  : t('buy.price', { price: formatCurrency(unitPricePaisa, config) })}
               </p>
+              {applied && (
+                <>
+                  <p className="text-caption tabular-nums">
+                    {t('coupon.list')}: {formatCurrency(applied.preview.listAmountPaisa, config)}
+                  </p>
+                  <p className="text-caption tabular-nums">
+                    {t('coupon.discount')}: −{formatCurrency(applied.preview.discountPaisa, config)}
+                  </p>
+                </>
+              )}
               <p className="text-h2 tabular-nums">
-                {t('buy.total')}: {total === null ? '—' : formatCurrency(total, config)}
+                {applied ? t('coupon.newTotal') : t('buy.total')}:{' '}
+                {total === null ? '—' : formatCurrency(total, config)}
               </p>
               {seats !== null && months !== null && (
                 <p className="text-caption text-text-secondary">
@@ -202,7 +273,7 @@ export function BuySeatsDialog({
                 {t('buy.cancel')}
               </Button>
               <Button type="submit" loading={pending ?? false}>
-                {t('buy.submit')}
+                {free ? t('coupon.submitFree') : t('buy.submit')}
               </Button>
             </DialogFooter>
           </form>
