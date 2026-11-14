@@ -446,7 +446,11 @@ export class NoticesService {
     return this.get(tenantId, actor, id);
   }
 
-  /** D29: a failed push is logged; publish already succeeded. Muted NOTICE category is skipped unless important. */
+  /**
+   * D29: a failed push is logged; publish already succeeded. Muted NOTICE category is skipped unless important.
+   * A push has no active role, so the link follows the rows the notice was addressed to: portal when
+   * every row is a guardian/student row, staff as soon as one row is a STAFF row (#3482).
+   */
   private async pushAll(tenantId: string, n: Notice) {
     try {
       const users: { user_id: string; portal: boolean; preferences: any }[] = await this.ds.query(
