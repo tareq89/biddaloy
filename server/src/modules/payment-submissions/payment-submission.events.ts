@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 /** [3.x] Event names for payment submissions (D9 history and in-process bus). */
 export const PAYMENT_SUBMISSION_EVENTS = {
   SUBMITTED: 'payment-submission.submitted',
@@ -10,3 +12,12 @@ export const PAYMENT_SUBMISSION_EVENTS = {
   EXPIRED: 'payment-submission.expired',
   REVERSED: 'payment-submission.reversed',
 } as const;
+
+/** In-process bus (same shape as `attentionEvents`). Emit AFTER the transaction commits. */
+export const paymentSubmissionEvents = new EventEmitter();
+
+export interface PaymentSubmissionEventPayload {
+  tenantId: string;
+  submissionId: string;
+  actorUserId: string;
+}
