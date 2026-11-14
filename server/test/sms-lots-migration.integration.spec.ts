@@ -3,6 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { SmsLots1792150000000 } from '../src/migrations/1792150000000-SmsLots';
+import { PlansCouponsRefunds1792200000000 } from '../src/migrations/1792200000000-PlansCouponsRefunds';
 
 /**
  * [100.1.02/#3851] up/down/up of the SMS lots migration, the D27 backfill, every CHECK, and RESTRICT.
@@ -13,6 +14,9 @@ describe('SmsLots1792150000000 (integration)', () => {
   let qr: QueryRunner;
   let schoolId: string;
   const migration = new SmsLots1792150000000();
+  // Runs after SmsLots (adds sms_bundle_orders.refunded_by_user_id, REFUNDED lots), so a round-trip
+  // of SmsLots must roll it back first and re-apply it last, or later specs see a half-migrated schema.
+  const dependent = new PlansCouponsRefunds1792200000000();
 
   beforeAll(async () => {
     const module = await createTestModule([School], []);
@@ -88,10 +92,17 @@ describe('SmsLots1792150000000 (integration)', () => {
 
   it('down() drops the six tables, up() re-creates them (up/down/up)', async () => {
     expect(await tableCount()).toBe(6);
+    await dependent.down(qr);
     await migration.down(qr);
     expect(await tableCount()).toBe(0);
     await migration.up(qr);
+    await dependent.up(qr);
     expect(await tableCount()).toBe(6);
+    // The dependent migration's changes are back.
+    const [{ n }] = await ds.query(
+      `SELECT count(*)::int AS n FROM information_schema.columns WHERE table_name = 'sms_bundle_orders' AND column_name = 'refunded_by_user_id'`,
+    );
+    expect(n).toBe(1);
   });
 
   it('adds the 18 audit values and the two ledger kinds and reference types', async () => {

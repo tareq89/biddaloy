@@ -64,6 +64,7 @@ function build() {
 }
 
 let t: ReturnType<typeof build>;
+const payWrites = () => t.redis.set.mock.calls.filter((c) => c[0] === `bkash:pay:${ORDER_ID}`);
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout'] });
   t = build();
@@ -270,9 +271,40 @@ describe('BkashService.handleCallback', () => {
   it('a second callback after the order is PAID executes nothing and pays nothing', async () => {
     t.client.query.mockResolvedValue(completed);
     t.orders.findForPayment.mockResolvedValue({ ...order, status: SeatOrderStatus.PAID });
+    t.dataSource.query.mockResolvedValue([{ '?column?': 1 }]); // TRX1 already recorded
     expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success' });
     expect(t.client.execute).not.toHaveBeenCalled();
     expect(t.orders.markPaid).not.toHaveBeenCalled();
+  });
+
+  it('the latest payment completing after an earlier one paid the order is recorded as an orphan', async () => {
+    t.client.query.mockResolvedValue(completed); // PAY1 is the latest; trx not recorded yet
+    t.orders.findForPayment.mockResolvedValue({ ...order, status: SeatOrderStatus.PAID });
+    t.orders.markPaid.mockResolvedValue({ applied: false });
+    vi.spyOn(t.svc['logger'], 'error').mockImplementation(() => undefined);
+    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'success' });
+    expect(orphanInsert()).toBeDefined();
+  });
+
+  it('a stale callback never puts a dead payment A over a newer payment B', async () => {
+    t.client.query.mockResolvedValue({ ...initiated, transactionStatus: 'Cancelled' });
+    // First read (callback) sees A; under the lock the state already holds B.
+    t.redis.get.mockImplementation(async (k: string) => {
+      if (k.startsWith('bkash:pid:')) return ORDER_ID;
+      const reads = t.redis.get.mock.calls.filter((c) => !String(c[0]).startsWith('bkash:pid:'));
+      return reads.length <= 1
+        ? stored
+        : JSON.stringify({ paymentID: 'PAY2', pay_started_at: new Date().toISOString() });
+    });
+    await callback('cancel');
+    expect(t.redis.set.mock.calls.find((c) => c[0] === `bkash:pay:${ORDER_ID}`)).toBeUndefined();
+  });
+
+  it('a callback skips the dead mark while a payment is being created', async () => {
+    t.client.query.mockResolvedValue({ ...initiated, transactionStatus: 'Cancelled' });
+    t.redis.set.mockResolvedValue(null); // the creating lock is held
+    await callback('cancel');
+    expect(t.redis.set.mock.calls.find((c) => c[0] === `bkash:pay:${ORDER_ID}`)).toBeUndefined();
   });
 
   it('a "success" in the URL is not believed: bKash never says Completed -> nothing is paid', async () => {
@@ -319,11 +351,11 @@ describe('BkashService.handleCallback', () => {
   it('a failed return drops the checkout URL too; a completed success return does not', async () => {
     t.client.query.mockResolvedValue(initiated);
     await callback('failure');
-    expect(t.redis.set).toHaveBeenCalledTimes(1);
+    expect(payWrites()).toHaveLength(1);
     t.redis.set.mockClear();
     t.client.execute.mockResolvedValue(completed);
     await callback('success');
-    expect(t.redis.set).not.toHaveBeenCalled();
+    expect(payWrites()).toHaveLength(0);
   });
 
   it('markPaid applied:false (order settled another way) is logged loudly and kept as an orphan', async () => {

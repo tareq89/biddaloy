@@ -19,10 +19,28 @@ describe('revenueWindow', () => {
   it('defaults to the current month', () => {
     expect(revenueWindow().month).toMatch(/^\d{4}-\d{2}$/);
   });
-  it.each(['2026-13', '2026-00', '2026-1', '26-01', '2026-01-01', '', ' 2026-01', 'abcd-ef'])(
-    'rejects %j',
-    (bad) => {
-      expect(() => revenueWindow(bad)).toThrow(BadRequestException);
-    },
-  );
+  it('rejects month 13', () => {
+    expect(() => revenueWindow('2026-13')).toThrow(BadRequestException);
+  });
+  it('rejects month 00', () => {
+    expect(() => revenueWindow('2026-00')).toThrow(BadRequestException);
+  });
+  it('rejects one-digit month', () => {
+    expect(() => revenueWindow('2026-1')).toThrow(BadRequestException);
+  });
+  it('rejects two-digit year', () => {
+    expect(() => revenueWindow('26-01')).toThrow(BadRequestException);
+  });
+  it('rejects a full date', () => {
+    expect(() => revenueWindow('2026-01-01')).toThrow(BadRequestException);
+  });
+  it('rejects empty', () => {
+    expect(() => revenueWindow('')).toThrow(BadRequestException);
+  });
+  it('rejects leading space', () => {
+    expect(() => revenueWindow(' 2026-01')).toThrow(BadRequestException);
+  });
+  it('rejects letters', () => {
+    expect(() => revenueWindow('abcd-ef')).toThrow(BadRequestException);
+  });
 });

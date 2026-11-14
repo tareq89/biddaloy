@@ -92,8 +92,8 @@ describe('audit entity-type catalog contract', () => {
         !DEPRECATED_READ_ONLY_ENTRIES.has(type) &&
         !PENDING_EPIC_67_ENTRIES.has(type) &&
         !PENDING_EPIC_68_ENTRIES.has(type) &&
-        !PENDING_EPIC_99_ENTRIES.has(type),
-      !PENDING_EPIC_100_ENTRIES.has(type),
+        !PENDING_EPIC_99_ENTRIES.has(type) &&
+        !PENDING_EPIC_100_ENTRIES.has(type),
     );
     expect(deadEntries).toEqual([]);
   });

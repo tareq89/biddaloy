@@ -142,9 +142,11 @@ describe('seat order pricing characterization (integration)', () => {
     const other = await pending(id, 10, 2);
     await orders.markPaid(other.id, cash); // now covers today .. +2 months
     await orders.markPaid(late.id, cash);
+    // Calendar-month addition is not associative: end is one month after the RENEWED start.
+    const lateStart = await addMonths(today, 2);
     expect(await rowOf(late.id)).toMatchObject({
-      s: await addMonths(today, 2),
-      e: await addMonths(today, 3),
+      s: lateStart,
+      e: await addMonths(lateStart, 1),
     });
   });
 

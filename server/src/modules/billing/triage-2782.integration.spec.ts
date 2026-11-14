@@ -316,7 +316,7 @@ describe('#2782 triage (integration)', () => {
     // Last paid day is 2026-12-01 + 7: the d7 notice is due.
     await ds.query(
       `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
-       VALUES ($1, 20, 1, 1000, 5000, DATE '2026-10-08', DATE '2026-12-08', 'PAID', gen_random_uuid()::text, NOW())`,
+       VALUES ($1, 20, 1, 1000, 20000, DATE '2026-10-08', DATE '2026-12-08', 'PAID', gen_random_uuid()::text, NOW())`,
       [sid],
     );
     await addStudent(sid);

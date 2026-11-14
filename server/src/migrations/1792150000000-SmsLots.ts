@@ -223,6 +223,13 @@ export class SmsLots1792150000000 implements MigrationInterface {
 
   /** D27: every funded balance becomes one no-expiry LEGACY lot. Re-runnable. */
   static async backfill(queryRunner: QueryRunner): Promise<void> {
+    // Writers of the old (lot-less) code hold row locks on `sms_credit_balance` while they reserve,
+    // so lock out new ones until this transaction ends: the snapshot below is then consistent.
+    // ponytail: instances still on the old code after the commit can still move the balance until
+    // the rolling restart replaces them; stopping them first is a deploy decision (deploy.yml).
+    if (queryRunner.isTransactionActive) {
+      await queryRunner.query(`LOCK TABLE "sms_credit_balance" IN SHARE ROW EXCLUSIVE MODE`);
+    }
     await queryRunner.query(
       `INSERT INTO "sms_credit_lots" ("tenant_id", "source", "units_total", "remaining", "reserved_units", "status")
        SELECT b."tenant_id", 'LEGACY', b."available" + b."reserved", b."available", b."reserved", 'ACTIVE'

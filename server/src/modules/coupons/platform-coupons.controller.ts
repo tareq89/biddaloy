@@ -28,6 +28,7 @@ import { RequireTwoPerson } from '../platform-identity/approvals/require-two-per
 import { TwoPersonGuard } from '../platform-identity/approvals/two-person.guard';
 import type { CockpitPrincipal } from '../platform-identity/cockpit-principal';
 import { PlatformAdminGuard } from '../platform-identity/platform-admin.guard';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import {
   CouponPageQueryDto,
@@ -62,7 +63,10 @@ function requireKey(key: string | undefined): void {
 @Controller('platform/coupons')
 @UseGuards(AuthGuard('cockpit-jwt'), PlatformAdminGuard)
 export class PlatformCouponsController {
-  constructor(private readonly coupons: CouponsService) {}
+  constructor(
+    private readonly coupons: CouponsService,
+    private readonly twoPerson: TwoPersonGuard,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List coupons, newest first (keyset, limit <= 100).' })
@@ -73,6 +77,7 @@ export class PlatformCouponsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @FailClosedWithoutRedis()
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseGuards(ApprovalGuard)
   @RequireApproval(ApprovalScope.PLATFORM_COUPON)
@@ -92,15 +97,20 @@ export class PlatformCouponsController {
 
   @Post('free')
   @HttpCode(HttpStatus.CREATED)
+  @FailClosedWithoutRedis()
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseGuards(ApprovalGuard, TwoPersonGuard)
   @RequireApproval(ApprovalScope.PLATFORM_COUPON_FREE)
-  @RequireTwoPerson(ApprovalScope.PLATFORM_COUPON_FREE, (req) => ({
-    action: 'Create a free (100 percent) coupon',
-    code: req.body?.code,
-    percent: 100,
-    scope: req.body?.scope ?? 'ALL',
-  }))
+  @RequireTwoPerson(
+    ApprovalScope.PLATFORM_COUPON_FREE,
+    (req) => ({
+      action: 'Create a free (100 percent) coupon',
+      code: req.body?.code,
+      percent: 100,
+      scope: req.body?.scope ?? 'ALL',
+    }),
+    true,
+  )
   @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({
     summary:
@@ -116,6 +126,7 @@ export class PlatformCouponsController {
   }
 
   @Patch(':id')
+  @FailClosedWithoutRedis()
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseGuards(ApprovalGuard)
   @RequireApproval(ApprovalScope.PLATFORM_COUPON)
@@ -123,11 +134,21 @@ export class PlatformCouponsController {
     summary:
       'Change active, ends_at, max_uses (not below the uses so far) or the school list. Code, kind and percent never change.',
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCouponDto,
     @Req() req: CockpitReq,
   ) {
+    // A free coupon was approved by two owners, so editing it needs both again. The 100 percent
+    // test reads the stored row (never the body); strict: one owner alone cannot widen it.
+    if (await this.coupons.isFree(id)) {
+      await this.twoPerson.enforce(
+        req,
+        ApprovalScope.PLATFORM_COUPON_FREE,
+        { action: 'Change a free (100 percent) coupon', couponId: id },
+        true,
+      );
+    }
     return this.coupons.update(id, dto, actorOf(req));
   }
 

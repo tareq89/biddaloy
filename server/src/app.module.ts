@@ -93,6 +93,12 @@ import { PlatformAnnouncement } from './modules/support-access/entities/platform
 import { UserMfa } from './modules/platform-identity/entities/user-mfa.entity';
 import { UserRecoveryCode } from './modules/platform-identity/entities/user-recovery-code.entity';
 import { CockpitAuthModule } from './modules/auth/cockpit/cockpit-auth.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { RevenueModule } from './modules/revenue/revenue.module';
+import { Plan } from './modules/plans/entities/plan.entity';
+import { Coupon } from './modules/coupons/entities/coupon.entity';
+import { CouponSchool } from './modules/coupons/entities/coupon-school.entity';
+import { CouponRedemption } from './modules/coupons/entities/coupon-redemption.entity';
 import { PlatformControlModule } from './modules/platform-control/platform-control.module';
 import { PlatformIdentityModule } from './modules/platform-identity/platform-identity.module';
 import { MfaModule } from './modules/auth/mfa/mfa.module';
@@ -477,6 +483,11 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             SmsStockEntry,
             SmsProviderBalanceReading,
             SmsCreditLedger,
+            // [Epic 100] School.plan and SeatOrder.plan/coupon are relations: targets must be registered.
+            Plan,
+            Coupon,
+            CouponSchool,
+            CouponRedemption,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -601,6 +612,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     // [98.1.99] Cockpit identity: platform owners, MFA. Wave 1 touches app.module only here (D27).
     PlatformIdentityModule,
     PlatformControlModule,
+    CouponsModule,
+    RevenueModule,
     MfaModule,
     CockpitAuthModule,
   ],

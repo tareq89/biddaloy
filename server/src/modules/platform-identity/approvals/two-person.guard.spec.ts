@@ -67,6 +67,25 @@ describe('TwoPersonGuard', () => {
     expect(await run(req())).toBe(true);
   });
 
+  it('strict: one active owner is refused, not let through', async () => {
+    owners.activeOwnerIds.mockResolvedValue(['u1']);
+    await expect(
+      guard.enforce(req(), ApprovalScope.PLATFORM_OWNER_LOCK, {}, true),
+    ).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(approvals.request).not.toHaveBeenCalled();
+  });
+
+  it('strict: switch off is refused too', async () => {
+    settings.get.mockResolvedValue(false);
+    await expect(
+      guard.enforce(req(), ApprovalScope.PLATFORM_OWNER_LOCK, {}, true),
+    ).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+
   it('a requester locked while the request was in flight is refused, not let through', async () => {
     owners.activeOwnerIds.mockResolvedValue(['u2']); // u1 was just locked; one owner is left
     await expect(run(req())).rejects.toMatchObject({ status: 403 });

@@ -38,13 +38,22 @@ describe('PlatformCouponsController', () => {
   let app: INestApplication;
   let authed: boolean;
   let otherOwner: boolean;
-  const svc = { create: vi.fn(), update: vi.fn(), list: vi.fn(), usage: vi.fn() };
+  const svc = {
+    create: vi.fn(),
+    update: vi.fn(),
+    list: vi.fn(),
+    usage: vi.fn(),
+    isFree: vi.fn(),
+  };
+  const enforce = vi.fn();
 
   beforeEach(async () => {
     vi.clearAllMocks();
     authed = true;
     otherOwner = true;
     svc.create.mockResolvedValue({ id: ID });
+    svc.isFree.mockResolvedValue(false);
+    enforce.mockResolvedValue(undefined);
     svc.update.mockResolvedValue({ id: ID });
     svc.list.mockResolvedValue({ items: [], nextCursor: null });
     svc.usage.mockResolvedValue({ uses: 0 });
@@ -63,7 +72,10 @@ describe('PlatformCouponsController', () => {
     };
     const mod = await Test.createTestingModule({
       controllers: [PlatformCouponsController],
-      providers: [{ provide: CouponsService, useValue: svc }],
+      providers: [
+        { provide: CouponsService, useValue: svc },
+        { provide: TwoPersonGuard, useValue: { enforce, canActivate: twoPersonStub.canActivate } },
+      ],
     })
       // A school-app token and an `imp` token are 401 on the real cockpit strategy; the stub stands for them.
       .overrideGuard(AuthGuard('cockpit-jwt'))
@@ -154,6 +166,32 @@ describe('PlatformCouponsController', () => {
 
   it('free without an Idempotency-Key is 400', async () => {
     await post('/platform/coupons/free', FREE_BODY, null).expect(400);
+  });
+
+  it('PATCH on a stored free coupon needs the strict second owner; a plain coupon does not', async () => {
+    await http()
+      .patch(`/platform/coupons/${ID}`)
+      .set('X-Approval-Token', 't')
+      .send({ max_uses: 9 })
+      .expect(200);
+    expect(enforce).not.toHaveBeenCalled();
+    svc.isFree.mockResolvedValue(true);
+    await http()
+      .patch(`/platform/coupons/${ID}`)
+      .set('X-Approval-Token', 't')
+      .send({ max_uses: 9 })
+      .expect(200);
+    expect(enforce.mock.calls[0][3]).toBe(true);
+    enforce.mockRejectedValue(
+      new HttpException({ details: { code: 'SECOND_OWNER_REQUIRED' } }, 403),
+    );
+    svc.update.mockClear();
+    await http()
+      .patch(`/platform/coupons/${ID}`)
+      .set('X-Approval-Token', 't')
+      .send({ max_uses: 9 })
+      .expect(403);
+    expect(svc.update).not.toHaveBeenCalled();
   });
 
   it('PATCH without a step-up token is refused; a non-UUID id is 400', async () => {

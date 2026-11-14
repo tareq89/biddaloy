@@ -21,13 +21,16 @@ import { describe, expect, it } from 'vitest';
 export const ALLOWED: Record<string, string> = {
   'modules/communications/credits/sms-credit.service.ts': 'the one writer',
   'modules/communications/credits/entities/': 'the entity files',
-  'modules/communications/credits/sms-credit-lot-invariants.ts': 'read-only invariant check, writes nothing',
+  'modules/communications/credits/sms-credit-lot-invariants.ts':
+    'read-only invariant check, writes nothing',
   'modules/communications/credits/sms-credit-reconcile.ts': 'reads and delegates to the service',
   'scripts/reconcile-sms-credit.ts': 'reads and delegates to the service',
   'modules/communications/credits/credits.module.ts': 'entity list',
   'app.module.ts': 'entity list',
   'modules/workbook/codec/entity-coverage.ts': 'coverage table',
   'scripts/demo-seed/slices/comms-print.ts': 'fresh-database demo seed, a reviewed exception',
+  'scripts/demo-seed/slices/sms-bundles.ts':
+    'fresh-database demo seed, a reviewed exception: balance becomes one LEGACY lot (see the slice comment)',
   'scripts/demo-seed/slices.ts': 'EXEMPT list names SmsCreditLotDraw; no write',
   'modules/calendar/calendar.module.ts': 'comment mention',
   'modules/calendar/calendar-notify.service.ts': 'comment mention',

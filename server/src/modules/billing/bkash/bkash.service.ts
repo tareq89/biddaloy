@@ -167,7 +167,7 @@ export class BkashService {
       earlier: [
         ...(previous?.earlier ?? []),
         ...(previous?.paymentID && !previous.dead ? [previous.paymentID] : []),
-      ].slice(-5), // ponytail: remembers the last 5 earlier attempts; raise the cap if admins retry more
+      ], // never capped: every unresolved attempt stays until the state's 25 h TTL ends
     };
     await this.redis.set(PID_KEY(created.paymentID), orderId, 'EX', PAYMENT_TTL_SEC);
     await this.redis.set(PAYMENT_KEY(orderId), JSON.stringify(state), 'EX', PAYMENT_TTL_SEC);
@@ -216,14 +216,16 @@ export class BkashService {
     }
     // A replay after PAID (or any non-PENDING order) shows the result and executes nothing.
     if (order.status !== SeatOrderStatus.PENDING) {
-      if (isLatest) return { orderId, outcome };
-      // An earlier payment of an order settled another way: if bKash completed it, that money
-      // needs the orphan row (refund_due alert). The URL's `status` is never reported as success.
-      if (known.transactionStatus === 'Completed') {
+      // A Completed payment that is not the one recorded against the order (an earlier payment, or
+      // the latest after an earlier one paid) is a second charge: it needs the orphan row
+      // (refund_due alert). The recorded payment's own trxID is already in platform_payments, so
+      // a plain replay skips here. The URL's `status` is never reported as success.
+      if (known.transactionStatus === 'Completed' && !(await this.isRecorded(known))) {
         await this.applyCompleted(known).catch((err) =>
           this.logger.warn(`bKash late payment recorded as orphan: ${errMessage(err)}`),
         );
       }
+      if (isLatest) return { orderId, outcome };
       return { orderId, outcome: outcome === 'cancel' ? 'cancel' : 'failure' };
     }
     if (outcome === 'success') {
@@ -233,24 +235,44 @@ export class BkashService {
         return { orderId, outcome };
       }
     }
-    if (state && isLatest) {
-      // Cancelled, failed, or "success" that did not complete: that checkout page is dead, so the
-      // next Pay must create a new payment, not hand it back. The paymentID stays, so the
-      // reconciler can still settle it if bKash completes it after all.
-      const { bkash_url: _dead, ...rest } = state;
-      // Only bKash's own word marks it dead (the URL's `status` is not trusted).
-      const gone = ['Cancelled', 'Failed'].includes(known.transactionStatus ?? '');
-      // ponytail: read-modify-write on the state, a concurrent start can lose this `dead` flag (the
-      // order then stays "maybe live" up to 24 h, the safe side).
-      const kept = gone ? { ...rest, dead: true } : rest;
-      await this.redis
-        .set(PAYMENT_KEY(orderId), JSON.stringify(kept), 'KEEPTTL')
-        .catch((err) =>
-          this.logger.warn(`bKash could not drop a dead checkout URL: ${errMessage(err)}`),
-        );
-    }
+    if (state && isLatest) await this.dropDeadCheckout(orderId, paymentID, known);
     // A "success" that did not complete is not a success.
     return { orderId, outcome: outcome === 'success' ? 'failure' : outcome };
+  }
+
+  /**
+   * Cancelled, failed, or "success" that did not complete: that checkout page is dead, so the next
+   * Pay must create a new payment, not hand it back. The paymentID stays, so the reconciler can
+   * still settle it if bKash completes it after all.
+   * The write holds the same lock `startPayment` holds while it creates a payment, and re-reads the
+   * state under it: a stale callback can never put a dead payment A over a newer payment B. If the
+   * lock is taken, skip: the order then stays "maybe live" up to 24 h, the safe side.
+   */
+  private async dropDeadCheckout(
+    orderId: string,
+    paymentID: string,
+    known: BkashPayment,
+  ): Promise<void> {
+    try {
+      const won = await this.redis.set(CREATING_KEY(orderId), '1', 'EX', CREATING_TTL_SEC, 'NX');
+      if (won !== 'OK') return;
+      try {
+        const fresh = await this.readState(orderId);
+        if (fresh?.paymentID !== paymentID) return; // a newer payment replaced it meanwhile
+        const { bkash_url: _dead, ...rest } = fresh;
+        // Only bKash's own word marks it dead (the URL's `status` is not trusted).
+        const gone = ['Cancelled', 'Failed'].includes(known.transactionStatus ?? '');
+        await this.redis.set(
+          PAYMENT_KEY(orderId),
+          JSON.stringify(gone ? { ...rest, dead: true } : rest),
+          'KEEPTTL',
+        );
+      } finally {
+        await this.redis.del(CREATING_KEY(orderId)).catch(() => undefined);
+      }
+    } catch (err) {
+      this.logger.warn(`bKash could not drop a dead checkout URL: ${errMessage(err)}`);
+    }
   }
 
   /** Already Completed per query: use it. Else execute; if that errs, wait a beat and query once more. */
@@ -304,6 +326,16 @@ export class BkashService {
       );
       await this.recordOrphan(order.id, tx, 'ORDER_NOT_PENDING');
     }
+  }
+
+  /** True when this transaction already has a platform_payments row (a replay, not a new charge). */
+  private async isRecorded(tx: BkashPayment): Promise<boolean> {
+    if (!tx.trxID) return false;
+    const rows: unknown[] = await this.dataSource.query(
+      `SELECT 1 FROM platform_payments WHERE method = $1 AND gateway_ref = $2`,
+      [PlatformPaymentMethod.BKASH, tx.trxID],
+    );
+    return rows.length > 0;
   }
 
   /** Keyed on (BKASH, trxID): a replay, or the payment that did pay the order, inserts nothing. */

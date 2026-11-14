@@ -155,6 +155,16 @@ export class CouponsService {
     });
   }
 
+  /** True when the STORED coupon is a 100 percent one; never read from a request body. */
+  async isFree(id: string): Promise<boolean> {
+    const [row]: { percent: number | null }[] = await this.db.query(
+      `SELECT percent FROM coupons WHERE id = $1`,
+      [id],
+    );
+    if (!row) throw notFound();
+    return row.percent === 100;
+  }
+
   async update(id: string, dto: UpdateCouponDto, actor: Actor): Promise<CouponItem> {
     return this.db.transaction(async (m) => {
       const [cur]: CouponItem[] = await m.query(

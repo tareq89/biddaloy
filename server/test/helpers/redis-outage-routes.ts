@@ -15,6 +15,8 @@ import { UserController } from '../../src/modules/users/users.controller';
 import { PlatformOpsQueuesController } from '../../src/modules/platform-control/ops/ops-queues.controller';
 import { PlatformOpsSystemController } from '../../src/modules/platform-control/ops/ops-system.controller';
 import { PlatformAnnouncementsController } from '../../src/modules/platform-control/announcements/platform-announcements.controller';
+import { PlatformCouponsController } from '../../src/modules/coupons/platform-coupons.controller';
+import { RevenueController } from '../../src/modules/revenue/revenue.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -44,6 +46,8 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   PlatformOpsQueuesController,
   PlatformOpsSystemController,
   PlatformAnnouncementsController,
+  PlatformCouponsController,
+  RevenueController,
   CockpitMfaController,
 ];
 
@@ -95,6 +99,10 @@ export const FAIL_CLOSED = [
   'POST /platform/ops/queues/:name/retry-failed',
   'POST /platform/ops/restore-lock/:schoolId/release',
   'POST /platform/announcements',
+  // [Epic 100] Coupon writes spend a step-up token kept in Redis (and, for /free, the other owner's grant).
+  'POST /platform/coupons',
+  'POST /platform/coupons/free',
+  'PATCH /platform/coupons/:id',
   // The code is the credential; a missing rate limit would allow unlimited guessing.
   'POST /auth/impersonation/exchange',
 ];
@@ -160,4 +168,8 @@ export const FAIL_OPEN = [
   'GET /platform/ops/system',
   'GET /platform/announcements',
   'POST /platform/announcements/preview',
+  // [Epic 100] Coupon list/usage and the revenue report read Postgres only.
+  'GET /platform/coupons',
+  'GET /platform/coupons/:id/usage',
+  'GET /platform/money/revenue',
 ];
