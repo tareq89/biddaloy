@@ -17,6 +17,8 @@ import { shouldRetryQuery } from './retry';
 
 type Schemas = components['schemas'];
 export type ProofSubmission = Schemas['ProofSubmissionResponseDto'];
+export type PaymentOptions = Schemas['PaymentOptionsResponseDto'];
+export type PaymentCart = Schemas['PaymentCartResponseDto'];
 
 export interface SubmitProofInput {
   billIds: string[];
@@ -112,6 +114,28 @@ export const paymentSubmissionKeys = {
 };
 
 // ---- Guardian portal ----
+
+/** What the school accepts (no credentials). */
+export function usePaymentOptions({ enabled = true } = {}) {
+  return useQuery({
+    enabled,
+    queryKey: ['payment-submissions', 'portal-options'] as const,
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<PaymentOptions>('/portal/payment-options', { signal })).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** Open bills per linked child, each with its waiting submission (any source) or null. */
+export function usePaymentCart({ enabled = true } = {}) {
+  return useQuery({
+    enabled,
+    queryKey: ['payment-submissions', 'portal-cart'] as const,
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<PaymentCart>('/portal/payment-cart', { signal })).data,
+    retry: shouldRetryQuery,
+  });
+}
 
 export function useMyPaymentProofs(studentId?: string, { enabled = true } = {}) {
   return useQuery({

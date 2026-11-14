@@ -34,6 +34,8 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import {
   CreateProofSubmissionDto,
+  PaymentCartResponseDto,
+  PaymentOptionsResponseDto,
   ProofSubmissionResponseDto,
   QueryProofSubmissionsDto,
 } from './dto/proof-submission.dto';
@@ -111,5 +113,33 @@ export class ProofSubmissionsController {
       type: f.contentType,
       ...(f.contentType === 'application/pdf' ? { disposition: 'attachment' } : {}),
     });
+  }
+}
+
+/** Guardian pay page: what the school accepts and which bills are already waiting. PARENT only. */
+@ApiTags('portal')
+@ApiTenantAuth()
+@Controller('portal')
+@RequiresModule(ModuleKey.fees)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+export class PortalPaymentController {
+  constructor(private readonly service: ProofSubmissionsService) {}
+
+  @Get('payment-options')
+  @RequirePermissions(Permission.PAYMENT_SUBMIT)
+  @ApiOperation({ summary: 'Payment methods this school accepts (no credentials).' })
+  @ApiOkResponse({ type: PaymentOptionsResponseDto })
+  options(@CurrentTenant() t: Tenant, @CurrentUser() u: User) {
+    return this.service.options(caller(t, u));
+  }
+
+  @Get('payment-cart')
+  @RequirePermissions(Permission.PAYMENT_SUBMIT)
+  @ApiOperation({
+    summary: "Open bills of the caller's linked children, with any waiting payment.",
+  })
+  @ApiOkResponse({ type: PaymentCartResponseDto })
+  cart(@CurrentTenant() t: Tenant, @CurrentUser() u: User) {
+    return this.service.cart(caller(t, u));
   }
 }

@@ -207,4 +207,50 @@ describe('ProofSubmissionsService (integration)', () => {
     await expect(svc.withdraw(s.id, ctx)).rejects.toThrow('Only a waiting proof');
     expect(await svc.billsWithLiveSubmission(ds.manager, SEED_TENANT_ID, [a])).toEqual([]);
   });
+
+  it('list: reject reason and note go to the submitter only; a co-guardian gets null', async () => {
+    await fix.linkOtherTo(fix.fx.studentA);
+    const a = await fix.bill(fix.fx.studentA, 500);
+    const s = await svc.submit(dto([a], 500), [], ctx);
+    await ds.query(
+      `UPDATE payment_submissions SET status='REJECTED', reject_reason='OTHER', reject_note='call the office' WHERE id=$1`,
+      [s.id],
+    );
+    const [mine] = await svc.list(ctx, undefined);
+    expect(mine.rejectReason).toBe('OTHER');
+    expect(mine.rejectNote).toBe('call the office');
+    const [theirs] = await svc.list({ ...ctx, userId: fix.other.id }, undefined);
+    expect(theirs.rejectReason).toBeNull();
+    expect(theirs.rejectNote).toBeNull();
+    expect(theirs.discardReason).toBeNull();
+  });
+
+  it('options: returns the method list and flags, never a bKash credential', async () => {
+    await ds.query(
+      `UPDATE schools SET settings = jsonb_set(settings, '{payments,bkash}', '{"appKey":"SECRET-KEY-3975"}') WHERE id=$1`,
+      [SEED_TENANT_ID],
+    );
+    const o = await svc.options(ctx);
+    expect(Object.keys(o).sort()).toEqual(['onlineEnabled', 'proofEnabled', 'proofMethods']);
+    expect(o.proofEnabled).toBe(true);
+    expect(o.proofMethods).toEqual([{ method: 'BKASH', instructions: 'Send to 017' }]);
+    expect(JSON.stringify(o)).not.toContain('SECRET-KEY-3975');
+  });
+
+  it('cart: own children only, open bills only, waiting submission marked', async () => {
+    const a = await fix.bill(fix.fx.studentA, 500);
+    await fix.bill(fix.fx.studentA, 100, 100, 'PAID'); // settled: not listed
+    const foreign = await fix.bill(fix.fx.studentB, 300); // another family's child
+    const s = await svc.submit(dto([a], 500), [], ctx);
+    const cart = await svc.cart(ctx);
+    expect(cart.students.map((x) => x.studentId)).toEqual([fix.fx.studentA]);
+    const bills = cart.students[0].bills;
+    expect(bills).toHaveLength(1);
+    expect(bills[0].waitingSubmission).toEqual({ id: s.id, source: 'PROOF' });
+    expect(JSON.stringify(cart)).not.toContain(foreign);
+    // The other guardian sees only their own child, with no waiting mark.
+    const theirs = await svc.cart({ ...ctx, userId: fix.other.id });
+    expect(theirs.students.map((x) => x.studentId)).toEqual([fix.fx.studentB]);
+    expect(theirs.students[0].bills[0].waitingSubmission).toBeNull();
+  });
 });
