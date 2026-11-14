@@ -337,6 +337,10 @@
       "intake_window": {
         "name": "Admission opens or closes soon",
         "help": "Reminds you before an intake opens or closes."
+      },
+      "list_deadline": {
+        "name": "Admission list deadline",
+        "help": "Reminds you when a published admission list is about to expire."
       }
     },
     "students": {

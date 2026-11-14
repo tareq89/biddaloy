@@ -217,7 +217,7 @@ export function IntakeForm({
               checked={value.required_document_types.includes(type)}
               onCheckedChange={(checked) => toggleDocumentType(type, checked === true)}
             />
-            {t(DOCUMENT_TYPE_LABEL_KEY[type])}
+            {t(DOCUMENT_TYPE_LABEL_KEY[type] ?? type)}
           </label>
         ))}
       </fieldset>

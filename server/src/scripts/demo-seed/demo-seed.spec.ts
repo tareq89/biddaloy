@@ -206,7 +206,7 @@ describe('runSlices', () => {
 });
 
 describe('SLICES', () => {
-  it('lists the 19 slices in order, attention last; an owed stub names its ticket', () => {
+  it('lists the 20 slices in order, attention last; an owed stub names its ticket', () => {
     expect(SLICES.map((s) => s.name)).toEqual([
       'org',
       'staff',
@@ -218,6 +218,7 @@ describe('SLICES', () => {
       'exams',
       'learning',
       'people-ops',
+      'admission',
       'comms-print',
       'sms-bundles',
       'applications',
