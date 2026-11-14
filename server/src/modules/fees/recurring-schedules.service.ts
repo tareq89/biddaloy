@@ -36,7 +36,7 @@ const PREVIEW_LIMIT = 50;
 /**
  * [16.7.1] CRUD + exclusions + clone-to-next-year for `RecurringSchedule`.
  * Actually generating fees on a schedule's due date is 16.7.2's job (it
- * reads `is_active` schedules via `recurrence.util.isDue` and calls
+ * reads `is_active` schedules via `recurrence.util.firstFireInPeriod` and calls
  * `FeeGenerationsService.create`); this service only stores the
  * definition and resolves who it currently targets.
  */
@@ -292,7 +292,7 @@ export class RecurringSchedulesService {
   }
 
   /**
-   * `isDue()` (recurrence.util.ts) only fires `starts_on <= today <= ends_on`
+   * `firstFireInPeriod()` (recurrence.util.ts) only fires `starts_on <= today <= ends_on`
    * — a schedule saved with `starts_on` after `ends_on` never becomes due,
    * so it silently never bills anyone rather than failing loudly at create
    * time. Reject that combination up front instead of letting it land as a
