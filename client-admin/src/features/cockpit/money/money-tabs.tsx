@@ -26,8 +26,7 @@ export function MoneyTabs({ active }: { active: MoneyTabId }) {
       <TabsList variant="line" aria-label={t('tabsLabel')}>
         {MONEY_TABS.map((tab) => (
           <TabsTrigger key={tab.id} value={tab.id} asChild className="min-h-11 md:min-h-0">
-            {/* ponytail: the other tab routes land in later tickets, so `to` is not in the route union yet. */}
-            <Link to={tab.to as never} aria-current={tab.id === active ? 'page' : undefined}>
+            <Link to={tab.to} aria-current={tab.id === active ? 'page' : undefined}>
               {t(`tabs.${tab.id}`)}
             </Link>
           </TabsTrigger>

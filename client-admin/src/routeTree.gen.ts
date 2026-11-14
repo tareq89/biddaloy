@@ -21,6 +21,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as PlatformMoneyRouteRouteImport } from './routes/_platform/money/route'
 import { Route as PlatformReportsUsageRouteImport } from './routes/_platform/reports-usage'
 import { Route as StaffCurriculumPresetRouteImport } from './routes/_staff/curriculum-preset'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
@@ -56,6 +57,11 @@ import { Route as PlatformAnnouncementsIndexRouteImport } from './routes/_platfo
 import { Route as PlatformAuditIndexRouteImport } from './routes/_platform/audit/index'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
+import { Route as PlatformMoneyIndexRouteImport } from './routes/_platform/money/index'
+import { Route as PlatformMoneyCouponsRouteImport } from './routes/_platform/money/coupons'
+import { Route as PlatformMoneyPackagesRouteImport } from './routes/_platform/money/packages'
+import { Route as PlatformMoneyPlansRouteImport } from './routes/_platform/money/plans'
+import { Route as PlatformMoneyRevenueRouteImport } from './routes/_platform/money/revenue'
 import { Route as PlatformOperationsIndexRouteImport } from './routes/_platform/operations/index'
 import { Route as PlatformOwnerSecurityIndexRouteImport } from './routes/_platform/owner-security/index'
 import { Route as PlatformPlatformOwnersIndexRouteImport } from './routes/_platform/platform-owners/index'
@@ -257,6 +263,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
   path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlatformMoneyRouteRoute = PlatformMoneyRouteRouteImport.update({
+  id: '/money',
+  path: '/money',
+  getParentRoute: () => PlatformRouteRoute,
+} as any)
 const PlatformReportsUsageRoute = PlatformReportsUsageRouteImport.update({
   id: '/reports-usage',
   path: '/reports-usage',
@@ -435,6 +446,31 @@ const PlatformHolidaySetsSetIdRoute =
     path: '/holiday-sets/$setId',
     getParentRoute: () => PlatformRouteRoute,
   } as any)
+const PlatformMoneyIndexRoute = PlatformMoneyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PlatformMoneyRouteRoute,
+} as any)
+const PlatformMoneyCouponsRoute = PlatformMoneyCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => PlatformMoneyRouteRoute,
+} as any)
+const PlatformMoneyPackagesRoute = PlatformMoneyPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => PlatformMoneyRouteRoute,
+} as any)
+const PlatformMoneyPlansRoute = PlatformMoneyPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => PlatformMoneyRouteRoute,
+} as any)
+const PlatformMoneyRevenueRoute = PlatformMoneyRevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => PlatformMoneyRouteRoute,
+} as any)
 const PlatformOperationsIndexRoute = PlatformOperationsIndexRouteImport.update({
   id: '/operations/',
   path: '/operations/',
@@ -1214,6 +1250,7 @@ export interface FileRoutesByFullPath {
   '/select-school': typeof SelectSchoolRoute
   '/sign-in': typeof SignInRouteWithChildren
   '/verify-email': typeof VerifyEmailRoute
+  '/money': typeof PlatformMoneyRouteRouteWithChildren
   '/reports-usage': typeof PlatformReportsUsageRoute
   '/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/dashboard': typeof StaffDashboardRoute
@@ -1246,6 +1283,10 @@ export interface FileRoutesByFullPath {
   '/welcome/support-access': typeof WelcomeSupportAccessRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
+  '/money/coupons': typeof PlatformMoneyCouponsRoute
+  '/money/packages': typeof PlatformMoneyPackagesRoute
+  '/money/plans': typeof PlatformMoneyPlansRoute
+  '/money/revenue': typeof PlatformMoneyRevenueRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
   '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -1308,6 +1349,7 @@ export interface FileRoutesByFullPath {
   '/announcements/': typeof PlatformAnnouncementsIndexRoute
   '/audit/': typeof PlatformAuditIndexRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
+  '/money/': typeof PlatformMoneyIndexRoute
   '/operations/': typeof PlatformOperationsIndexRoute
   '/owner-security/': typeof PlatformOwnerSecurityIndexRoute
   '/platform-owners/': typeof PlatformPlatformOwnersIndexRoute
@@ -1432,6 +1474,10 @@ export interface FileRoutesByTo {
   '/welcome/support-access': typeof WelcomeSupportAccessRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
+  '/money/coupons': typeof PlatformMoneyCouponsRoute
+  '/money/packages': typeof PlatformMoneyPackagesRoute
+  '/money/plans': typeof PlatformMoneyPlansRoute
+  '/money/revenue': typeof PlatformMoneyRevenueRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
   '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -1494,6 +1540,7 @@ export interface FileRoutesByTo {
   '/announcements': typeof PlatformAnnouncementsIndexRoute
   '/audit': typeof PlatformAuditIndexRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
+  '/money': typeof PlatformMoneyIndexRoute
   '/operations': typeof PlatformOperationsIndexRoute
   '/owner-security': typeof PlatformOwnerSecurityIndexRoute
   '/platform-owners': typeof PlatformPlatformOwnersIndexRoute
@@ -1592,6 +1639,7 @@ export interface FileRoutesById {
   '/select-school': typeof SelectSchoolRoute
   '/sign-in': typeof SignInRouteWithChildren
   '/verify-email': typeof VerifyEmailRoute
+  '/_platform/money': typeof PlatformMoneyRouteRouteWithChildren
   '/_platform/reports-usage': typeof PlatformReportsUsageRoute
   '/_staff/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/_staff/dashboard': typeof StaffDashboardRoute
@@ -1624,6 +1672,10 @@ export interface FileRoutesById {
   '/welcome/support-access': typeof WelcomeSupportAccessRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
+  '/_platform/money/coupons': typeof PlatformMoneyCouponsRoute
+  '/_platform/money/packages': typeof PlatformMoneyPackagesRoute
+  '/_platform/money/plans': typeof PlatformMoneyPlansRoute
+  '/_platform/money/revenue': typeof PlatformMoneyRevenueRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
   '/_platform/schools/new': typeof PlatformSchoolsNewRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -1686,6 +1738,7 @@ export interface FileRoutesById {
   '/_platform/announcements/': typeof PlatformAnnouncementsIndexRoute
   '/_platform/audit/': typeof PlatformAuditIndexRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
+  '/_platform/money/': typeof PlatformMoneyIndexRoute
   '/_platform/operations/': typeof PlatformOperationsIndexRoute
   '/_platform/owner-security/': typeof PlatformOwnerSecurityIndexRoute
   '/_platform/platform-owners/': typeof PlatformPlatformOwnersIndexRoute
@@ -1783,6 +1836,7 @@ export interface FileRouteTypes {
     | '/select-school'
     | '/sign-in'
     | '/verify-email'
+    | '/money'
     | '/reports-usage'
     | '/curriculum-preset'
     | '/dashboard'
@@ -1815,6 +1869,10 @@ export interface FileRouteTypes {
     | '/welcome/support-access'
     | '/portal/'
     | '/holiday-sets/$setId'
+    | '/money/coupons'
+    | '/money/packages'
+    | '/money/plans'
+    | '/money/revenue'
     | '/schools/$schoolId'
     | '/schools/new'
     | '/academic-years/$academicYearId'
@@ -1877,6 +1935,7 @@ export interface FileRouteTypes {
     | '/announcements/'
     | '/audit/'
     | '/holiday-sets/'
+    | '/money/'
     | '/operations/'
     | '/owner-security/'
     | '/platform-owners/'
@@ -2001,6 +2060,10 @@ export interface FileRouteTypes {
     | '/welcome/support-access'
     | '/portal'
     | '/holiday-sets/$setId'
+    | '/money/coupons'
+    | '/money/packages'
+    | '/money/plans'
+    | '/money/revenue'
     | '/schools/$schoolId'
     | '/schools/new'
     | '/academic-years/$academicYearId'
@@ -2063,6 +2126,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/audit'
     | '/holiday-sets'
+    | '/money'
     | '/operations'
     | '/owner-security'
     | '/platform-owners'
@@ -2160,6 +2224,7 @@ export interface FileRouteTypes {
     | '/select-school'
     | '/sign-in'
     | '/verify-email'
+    | '/_platform/money'
     | '/_platform/reports-usage'
     | '/_staff/curriculum-preset'
     | '/_staff/dashboard'
@@ -2192,6 +2257,10 @@ export interface FileRouteTypes {
     | '/welcome/support-access'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
+    | '/_platform/money/coupons'
+    | '/_platform/money/packages'
+    | '/_platform/money/plans'
+    | '/_platform/money/revenue'
     | '/_platform/schools/$schoolId'
     | '/_platform/schools/new'
     | '/_staff/academic-years/$academicYearId'
@@ -2254,6 +2323,7 @@ export interface FileRouteTypes {
     | '/_platform/announcements/'
     | '/_platform/audit/'
     | '/_platform/holiday-sets/'
+    | '/_platform/money/'
     | '/_platform/operations/'
     | '/_platform/owner-security/'
     | '/_platform/platform-owners/'
@@ -2448,6 +2518,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_platform/money': {
+      id: '/_platform/money'
+      path: '/money'
+      fullPath: '/money'
+      preLoaderRoute: typeof PlatformMoneyRouteRouteImport
+      parentRoute: typeof PlatformRouteRoute
     }
     '/_platform/reports-usage': {
       id: '/_platform/reports-usage'
@@ -2693,6 +2770,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/holiday-sets/$setId'
       preLoaderRoute: typeof PlatformHolidaySetsSetIdRouteImport
       parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/money/': {
+      id: '/_platform/money/'
+      path: '/'
+      fullPath: '/money/'
+      preLoaderRoute: typeof PlatformMoneyIndexRouteImport
+      parentRoute: typeof PlatformMoneyRouteRoute
+    }
+    '/_platform/money/coupons': {
+      id: '/_platform/money/coupons'
+      path: '/coupons'
+      fullPath: '/money/coupons'
+      preLoaderRoute: typeof PlatformMoneyCouponsRouteImport
+      parentRoute: typeof PlatformMoneyRouteRoute
+    }
+    '/_platform/money/packages': {
+      id: '/_platform/money/packages'
+      path: '/packages'
+      fullPath: '/money/packages'
+      preLoaderRoute: typeof PlatformMoneyPackagesRouteImport
+      parentRoute: typeof PlatformMoneyRouteRoute
+    }
+    '/_platform/money/plans': {
+      id: '/_platform/money/plans'
+      path: '/plans'
+      fullPath: '/money/plans'
+      preLoaderRoute: typeof PlatformMoneyPlansRouteImport
+      parentRoute: typeof PlatformMoneyRouteRoute
+    }
+    '/_platform/money/revenue': {
+      id: '/_platform/money/revenue'
+      path: '/revenue'
+      fullPath: '/money/revenue'
+      preLoaderRoute: typeof PlatformMoneyRevenueRouteImport
+      parentRoute: typeof PlatformMoneyRouteRoute
     }
     '/_platform/operations/': {
       id: '/_platform/operations/'
@@ -3691,7 +3803,27 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PlatformMoneyRouteRouteChildren {
+  PlatformMoneyCouponsRoute: typeof PlatformMoneyCouponsRoute
+  PlatformMoneyPackagesRoute: typeof PlatformMoneyPackagesRoute
+  PlatformMoneyPlansRoute: typeof PlatformMoneyPlansRoute
+  PlatformMoneyRevenueRoute: typeof PlatformMoneyRevenueRoute
+  PlatformMoneyIndexRoute: typeof PlatformMoneyIndexRoute
+}
+
+const PlatformMoneyRouteRouteChildren: PlatformMoneyRouteRouteChildren = {
+  PlatformMoneyCouponsRoute: PlatformMoneyCouponsRoute,
+  PlatformMoneyPackagesRoute: PlatformMoneyPackagesRoute,
+  PlatformMoneyPlansRoute: PlatformMoneyPlansRoute,
+  PlatformMoneyRevenueRoute: PlatformMoneyRevenueRoute,
+  PlatformMoneyIndexRoute: PlatformMoneyIndexRoute,
+}
+
+const PlatformMoneyRouteRouteWithChildren =
+  PlatformMoneyRouteRoute._addFileChildren(PlatformMoneyRouteRouteChildren)
+
 interface PlatformRouteRouteChildren {
+  PlatformMoneyRouteRoute: typeof PlatformMoneyRouteRouteWithChildren
   PlatformReportsUsageRoute: typeof PlatformReportsUsageRoute
   PlatformHolidaySetsSetIdRoute: typeof PlatformHolidaySetsSetIdRoute
   PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
@@ -3708,6 +3840,7 @@ interface PlatformRouteRouteChildren {
 }
 
 const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
+  PlatformMoneyRouteRoute: PlatformMoneyRouteRouteWithChildren,
   PlatformReportsUsageRoute: PlatformReportsUsageRoute,
   PlatformHolidaySetsSetIdRoute: PlatformHolidaySetsSetIdRoute,
   PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
