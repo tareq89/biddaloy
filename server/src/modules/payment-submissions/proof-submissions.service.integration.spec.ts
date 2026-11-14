@@ -252,5 +252,12 @@ describe('ProofSubmissionsService (integration)', () => {
     const theirs = await svc.cart({ ...ctx, userId: fix.other.id });
     expect(theirs.students.map((x) => x.studentId)).toEqual([fix.fx.studentB]);
     expect(theirs.students[0].bills[0].waitingSubmission).toBeNull();
+    // A waiting proof by another linked guardian: source shown, id withheld.
+    await ds.query(`UPDATE payment_submissions SET submitted_by_user_id = $1 WHERE id = $2`, [
+      fix.other.id,
+      s.id,
+    ]);
+    const co = await svc.cart(ctx);
+    expect(co.students[0].bills[0].waitingSubmission).toEqual({ id: null, source: 'PROOF' });
   });
 });

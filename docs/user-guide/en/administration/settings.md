@@ -672,6 +672,7 @@ See: [**Roles & access**](roles.md).
 | Who marks daily attendance                      | Decides who can save the daily register: any assigned teacher, the class teacher, the first-period teacher, or the attendance machine.                                                          | No          |
 | Text the admin if staff attendance is late      | If daily attendance is still not taken late in the day, send the admin a text message. Off by default.                                                                                          | No          |
 | Machine secret key                              | The machine's secret key. It is shown once, so copy it now and keep it safe.                                                                                                                    | No          |
+| Allow payment proofs                            | Guardians pay by hand, then send the transaction number and a photo. You confirm it.                                                                                                            | No          |
 
 <!-- /guide:generated -->
 

@@ -71,6 +71,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/fees_/pay': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/statement': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/applications/': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
@@ -415,6 +416,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { entity: 'invoice' }, dynamic: 'entity' },
   ],
   '/_staff/payments/': [{ label: { key: 'payments' } }],
+  '/_staff/payments/online/': [{ label: { key: 'onlinePayments' } }],
+  '/_staff/payments/online/$id': [
+    { label: { key: 'onlinePayments' }, to: '/payments/online' },
+    { label: { key: 'onlinePaymentReview' }, dynamic: 'entity' },
+  ],
   '/_staff/payments/$id': [
     { label: { key: 'payments' } },
     { label: { key: 'paymentDetail' }, dynamic: 'entity' },

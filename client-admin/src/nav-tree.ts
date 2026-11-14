@@ -385,6 +385,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.PAYMENT_READ,
     label: { key: 'payments' },
   },
+  // [Epic 3 / #3978] Waiting online payments and proofs; same gate as its routes.
+  'finance.onlinePayments': {
+    id: 'finance.onlinePayments',
+    module: ModuleKey.fees,
+    to: '/payments/online',
+    permission: Permission.PAYMENT_RECORD,
+    label: { key: 'onlinePayments' },
+  },
   'finance.invoices': {
     id: 'finance.invoices',
     module: ModuleKey.fees,
@@ -686,6 +694,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['finance.generateFees'],
       STAFF_NAV_ITEMS['finance.recurringSchedules'],
       STAFF_NAV_ITEMS['finance.fines'],
+      STAFF_NAV_ITEMS['finance.onlinePayments'],
       STAFF_NAV_ITEMS['finance.payments'],
       STAFF_NAV_ITEMS['finance.invoices'],
     ],

@@ -54,7 +54,9 @@ import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPerformance from '../ui/src/i18n/locales/bn/performance.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
+import bnOnlinePayments from '../ui/src/i18n/locales/bn/onlinePayments.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
+import bnPortalPay from '../ui/src/i18n/locales/bn/portalPay.json';
 import bnPortalApplications from '../ui/src/i18n/locales/bn/portalApplications.json';
 import bnPrintEditor from '../ui/src/i18n/locales/bn/printEditor.json';
 import bnPrintHistory from '../ui/src/i18n/locales/bn/printHistory.json';
@@ -127,7 +129,9 @@ import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPerformance from '../ui/src/i18n/locales/en/performance.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
+import enOnlinePayments from '../ui/src/i18n/locales/en/onlinePayments.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
+import enPortalPay from '../ui/src/i18n/locales/en/portalPay.json';
 import enPortalApplications from '../ui/src/i18n/locales/en/portalApplications.json';
 import enPrintEditor from '../ui/src/i18n/locales/en/printEditor.json';
 import enPrintHistory from '../ui/src/i18n/locales/en/printHistory.json';
@@ -233,7 +237,9 @@ const catalogs = {
     nav: bnNav,
     payments: bnPayments,
     platform: bnPlatform,
+    onlinePayments: bnOnlinePayments,
     portal: bnPortal,
+    portalPay: bnPortalPay,
     portalApplications: bnPortalApplications,
     printEditor: bnPrintEditor,
     printHistory: bnPrintHistory,
@@ -318,7 +324,9 @@ const catalogs = {
     nav: enNav,
     payments: enPayments,
     platform: enPlatform,
+    onlinePayments: enOnlinePayments,
     portal: enPortal,
+    portalPay: enPortalPay,
     portalApplications: enPortalApplications,
     printEditor: enPrintEditor,
     printHistory: enPrintHistory,

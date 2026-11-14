@@ -38,6 +38,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/calendar': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/exam-schedule': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/fees_/pay':
+    'guardian portal page, an action on Fees & invoices, no nav item (D: Epic 3 #3978)',
   '/portal/statement': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/programs': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
@@ -140,6 +142,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/fees/':
     '[31.0] D40 — a placeholder today; will redirect to /fees/dues (Student dues, own item), pending fees-1',
   '/_staff/payments/$id': 'detail route reached from the payments list',
+  '/_staff/payments/online/$id': 'review page reached from the Online payments list',
   '/_staff/staff/$userId': 'detail route reached from the staff list',
   '/_staff/staff/$userId_/acr/$assessmentId':
     "[28.3.2] ACR form reached from a staff member's ACR history / the register, not its own nav item",

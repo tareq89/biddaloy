@@ -129,6 +129,8 @@
     "scheduleDetail": "স্বয়ংক্রিয় বিলের নিয়ম",
     "seatPlanDetail": "সিট প্ল্যান",
     "payments": "পেমেন্ট",
+    "onlinePayments": "অনলাইন পেমেন্ট",
+    "onlinePaymentReview": "পেমেন্টের প্রমাণ যাচাই",
     "portalSurveys": "জরিপ",
     "surveyDetail": "জরিপ",
     "myClassSection": "শাখা",

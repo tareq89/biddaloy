@@ -497,6 +497,7 @@
   },
   "fields": {
     "schoolName": "নাম",
+    "proofEnabled": "প্রমাণ জমা নেওয়া",
     "logo": "লোগো",
     "organisationValues": "শিফট, ভার্সন ও গ্রুপ",
     "academicYearStartMonth": "শিক্ষাবর্ষ শুরুর মাস",

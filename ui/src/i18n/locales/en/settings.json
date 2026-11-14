@@ -497,6 +497,7 @@
   },
   "fields": {
     "schoolName": "Name",
+    "proofEnabled": "Allow payment proofs",
     "logo": "Logo",
     "organisationValues": "Shift, version & group",
     "academicYearStartMonth": "Academic year start month",

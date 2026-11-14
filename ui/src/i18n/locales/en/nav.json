@@ -129,6 +129,8 @@
     "scheduleDetail": "Automatic billing rule",
     "seatPlanDetail": "Seat plan",
     "payments": "Payments",
+    "onlinePayments": "Online payments",
+    "onlinePaymentReview": "Check payment proof",
     "portalSurveys": "Surveys",
     "surveyDetail": "Survey",
     "myClassSection": "Section",

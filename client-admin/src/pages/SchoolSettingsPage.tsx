@@ -47,10 +47,7 @@ import { MessengerSection } from './settings/MessengerSection';
 import { ModulesTab } from './settings/modules-words/ModulesTab';
 import { WordsTab } from './settings/modules-words/WordsTab';
 import { ModulesWordsSection } from './settings/ModulesWordsSection';
-import {
-  OnlinePaymentsSection,
-  type ProofPaymentsSettings,
-} from './settings/OnlinePaymentsSection';
+import { OnlinePaymentsSection } from './settings/OnlinePaymentsSection';
 import { OrganisationSection } from './settings/OrganisationSection';
 import { PresetLinkCard } from './settings/PresetLinkCard';
 import { PrintersSection } from './settings/PrintersSection';
@@ -255,7 +252,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
               <OnlinePaymentsSection
                 key={`pay-${loaded.schoolId}`}
                 schoolId={loaded.schoolId}
-                payments={(loaded.data as { payments?: ProofPaymentsSettings }).payments}
+                payments={loaded.data.payments}
               />
             </>
           )

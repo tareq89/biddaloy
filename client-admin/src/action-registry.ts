@@ -130,6 +130,27 @@ export const ACTIONS: readonly PaletteAction[] = [
     context: ['student', 'invoice'],
     run: (ctx) => ctx.navigate({ to: '/payments/record' }),
   },
+  // [Epic 3 / #3978] Staff palette; the portal palette is page-only, so the guardian "Pay" entry points are the Overview card and Fees page.
+  {
+    id: 'payments.waiting',
+    module: ModuleKey.fees,
+    label: { en: 'Payments waiting for confirmation', bn: 'নিশ্চিত করা বাকি পেমেন্ট' },
+    synonyms: ['online payments', 'payment proof', 'bkash', 'পেমেন্টের প্রমাণ', 'অনলাইন পেমেন্ট'],
+    permission: Permission.PAYMENT_RECORD,
+    kind: 'navigate',
+    group: 'finance',
+    run: (ctx) => ctx.navigate({ to: '/payments/online?tab=waiting' }),
+  },
+  {
+    id: 'payments.onlineSettings',
+    module: ModuleKey.fees,
+    label: { en: 'Online payment settings', bn: 'অনলাইন পেমেন্টের সেটিংস' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=finance' }),
+  },
+
   // [35.5.1] D14: no availability predicate — the page renders a read-only
   // summary once a preset is applied.
   {

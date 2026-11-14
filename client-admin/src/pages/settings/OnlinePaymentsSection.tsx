@@ -95,9 +95,9 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
               instructions: values.methods[method]?.instructions ?? '',
             })),
             // Methods this card doesn't offer (CASH/CHEQUE/CARD) are carried over, never dropped.
-            ...(payments?.proofMethods ?? []).filter(
-              (m) => !PROOF_METHODS.some((p) => String(p) === String(m.method)),
-            ),
+            ...(payments?.proofMethods ?? [])
+              .filter((m) => !PROOF_METHODS.some((p) => String(p) === String(m.method)))
+              .map((m) => ({ ...m, method: m.method as PaymentMethod })),
           ],
         },
       },
