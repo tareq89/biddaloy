@@ -14,19 +14,10 @@ import { expectNoHorizontalScroll, expectNoInnerHorizontalScroll } from '../page
 
 test.use(loggedIn('admin'));
 
-/**
- * At 320 px the shared `Tabs` list (`ui/src/primitives/tabs.tsx`) scrolls sideways on EVERY page
- * that has tabs, Epic 48's included (the route-level `reflow.spec.ts` fails the same way on
- * `/exams/$examId`, `/students/$studentId` and `/reports/printables`). It is a kit change, not a
- * screen fix, so the 320 px cases are `fixme` until the kit issue (#1986) lands.
- */
-const KIT_TABS_320 = 'Tabs list scrolls at 320px (shared kit, not Epic 48; #1986)';
-
 const WIDTHS = [320, 640] as const;
 
 for (const width of WIDTHS) {
   test.describe(`Epic 48 tab states at ${width}px @sweep`, () => {
-    test.fixme(width === 320, KIT_TABS_320);
     test('exam Print tab', async ({ page, request }) => {
       const session = await adminApiSession(request);
       const examId = await seededFirstTermExamId(request, session);
