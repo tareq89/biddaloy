@@ -1,3 +1,4 @@
+import type { SmsBundleOrderDto } from './cockpit-money';
 import type { PlatformPaymentMethod, SeatOrderStatus } from '../enums/billing';
 
 export interface SeatOrderDto {
@@ -16,12 +17,20 @@ export interface SeatOrderDto {
   receipt_number: string | null;
   paid_at: string | null;
   created_at: string;
+  /** [Epic 100] Optional so existing readers compile unchanged. */
+  plan_id?: string | null;
+  coupon_code?: string | null;
+  list_unit_price_paisa?: number;
+  discount_paisa?: number;
+  refunded_at?: string | null;
 }
 
 export interface BillingSummary {
   free_until: string;
   seats_bought: number;
   seats_used: number;
+  /** Price per seat per month, paisa. */
+  unit_price_paisa?: number;
   /** Latest paid period end, or null if never bought. */
   paid_until: string | null;
   /** End of the 7-day read-only window when the school is over its seats; else null (D9). */
@@ -55,4 +64,6 @@ export interface PlatformSchoolBillingPage {
 
 export interface PlatformSchoolBillingDetail extends PlatformSchoolBilling {
   orders: SeatOrderDto[];
+  /** The school's SMS package orders (Epic 100 D47). */
+  bundle_orders?: SmsBundleOrderDto[];
 }

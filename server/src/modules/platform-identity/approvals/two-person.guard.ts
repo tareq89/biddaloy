@@ -19,6 +19,10 @@ import { REQUIRE_TWO_PERSON_KEY, TwoPersonMetadata } from './require-two-person.
  * `PlatformAdminGuard`. With `X-Platform-Approval: <id>` it claims that grant once for this exact
  * request; without it, it files a request and answers 403 APPROVAL_REQUESTED.
  */
+/** `strict` routes (a free coupon) never fall back to one owner: no second owner means no action. */
+const secondOwnerRequired = () =>
+  new HttpException({ details: { code: 'SECOND_OWNER_REQUIRED' } }, HttpStatus.FORBIDDEN);
+
 @Injectable()
 export class TwoPersonGuard implements CanActivate {
   constructor(
@@ -36,7 +40,7 @@ export class TwoPersonGuard implements CanActivate {
     if (!meta) return true;
 
     const req = context.switchToHttp().getRequest();
-    await this.enforce(req, meta.scope, meta.summaryFn(req));
+    await this.enforce(req, meta.scope, meta.summaryFn(req), meta.strict);
     return true;
   }
 
@@ -48,12 +52,16 @@ export class TwoPersonGuard implements CanActivate {
     req: any,
     scope: TwoPersonMetadata['scope'],
     summary: Record<string, unknown>,
+    strict = false,
   ): Promise<void> {
     const actorId: string | undefined = req.user?.sub;
     if (!actorId) throw new ForbiddenException('This area is for platform owners only');
 
     const enabled = (await this.settings.get(APPROVALS_ENABLED_KEY)) !== false;
-    if (!enabled) return;
+    if (!enabled) {
+      if (strict) throw secondOwnerRequired();
+      return;
+    }
     // Read after any owner lock in flight: a requester locked meanwhile is refused here, instead
     // of slipping through because the active count just fell to one.
     // ponytail: the handler's own write runs after this check; a lock that lands in that gap is
@@ -61,7 +69,10 @@ export class TwoPersonGuard implements CanActivate {
     const active = await this.owners.activeOwnerIds();
     if (!active.includes(actorId))
       throw new ForbiddenException('This area is for platform owners only');
-    if (active.length < 2) return;
+    if (active.length < 2) {
+      if (strict) throw secondOwnerRequired();
+      return;
+    }
 
     const payload = {
       method: req.method as string,

@@ -77,7 +77,7 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(InvoiceKind).sort()).toEqual(['INVOICE', 'CREDIT_NOTE'].sort());
   });
 
-  it('ApprovalScope has the 20 gated-action scope strings', () => {
+  it('ApprovalScope has the 26 gated-action scope strings', () => {
     expect(Object.values(ApprovalScope).sort()).toEqual(
       [
         'fees.duplicate_override',
@@ -100,6 +100,12 @@ describe('16.1.1 fee/payment enums [#638]', () => {
         'platform.announce_all',
         'platform.ops_action',
         'platform.school_control',
+        'platform.refund',
+        'platform.coupon',
+        'platform.coupon_free',
+        'platform.plan',
+        'platform.sms_stock',
+        'platform.vat',
       ].sort(),
     );
   });

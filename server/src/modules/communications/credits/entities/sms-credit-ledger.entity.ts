@@ -20,6 +20,9 @@ export enum SmsCreditLedgerKind {
   DEBIT = 'DEBIT',
   RELEASE = 'RELEASE',
   ADJUST = 'ADJUST',
+  // [100.1.02] a paid bundle adds a lot; EXPIRE writes off a lot's unused units.
+  PURCHASE = 'PURCHASE',
+  EXPIRE = 'EXPIRE',
 }
 
 /** What `reference_id` points at, if anything. */
@@ -27,6 +30,8 @@ export enum SmsCreditLedgerReferenceType {
   BATCH = 'batch',
   LOG = 'log',
   MANUAL = 'manual',
+  BUNDLE_ORDER = 'bundle_order',
+  LOT = 'lot',
 }
 
 /**

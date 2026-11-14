@@ -11,10 +11,12 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { isUUID } from 'class-validator';
 import type Redis from 'ioredis';
+import { ModuleRef } from '@nestjs/core';
 import { DataSource } from 'typeorm';
-import { PlatformPaymentMethod, SeatOrderStatus } from '@biddaloy/shared';
+import { PlatformPaymentMethod, SeatOrderStatus, SmsBundleOrderStatus } from '@biddaloy/shared';
 import { OTP_REDIS } from '../../account-access/otp.service';
 import { resolveAppBaseUrl } from '../../account-access/app-base-url.util';
+import { SmsBundlePaymentService } from '../../sms-bundles/payment/sms-bundle-payment.service';
 import { OrdersService } from '../orders.service';
 import { BkashClient, bdtToPaisa, type BkashPayment } from './bkash.client';
 
@@ -37,6 +39,25 @@ interface PaymentState {
   paymentID?: string;
   bkash_url?: string;
   pay_started_at: string;
+  /** bKash itself reported this payment Cancelled/Failed: it can never complete. */
+  dead?: boolean;
+  /** Earlier payments of this order that are not known dead (a "success" that never completed):
+   * bKash may still complete one, so a callback / the reconciler must still accept it (#2782 F1). */
+  earlier?: string[];
+}
+
+/** What a bKash payment pays for: a seat order or an SMS bundle order. */
+export type PayableKind = 'SEAT' | 'BUNDLE';
+
+export interface Payable {
+  kind: PayableKind;
+  id: string;
+  school_id: string;
+  amount_paisa: string;
+  /** Waiting for payment (seat PENDING / bundle PENDING_PAYMENT). */
+  pending: boolean;
+  /** Bundle order the sweep cancelled: a completed latest payment still needs recording. */
+  cancelled?: boolean;
 }
 
 export type CallbackOutcome = 'success' | 'cancel' | 'failure';
@@ -59,7 +80,48 @@ export class BkashService {
     private readonly config: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
     @Inject(OTP_REDIS) private readonly redis: Redis,
+    // Lazy: the bundle services live in SmsBundlesModule, which imports this module.
+    private readonly moduleRef?: ModuleRef,
   ) {}
+
+  private bundlePay(): SmsBundlePaymentService {
+    return this.moduleRef!.get(SmsBundlePaymentService, { strict: false });
+  }
+
+  /**
+   * The order a bKash payment pays for. With `kind` only that table is read; without it (a
+   * callback / the reconciler know only the id) a seat order is tried first, then a bundle order.
+   */
+  async payableOf(orderId: string, kind?: PayableKind): Promise<Payable | undefined> {
+    if (kind !== 'BUNDLE') {
+      const seat = await this.orders.findForPayment(orderId);
+      if (seat) {
+        return {
+          kind: 'SEAT',
+          id: seat.id,
+          school_id: seat.school_id,
+          amount_paisa: seat.amount_paisa,
+          pending: seat.status === SeatOrderStatus.PENDING,
+        };
+      }
+      if (kind === 'SEAT') return undefined;
+    }
+    const [row]: { id: string; school_id: string; amount_paisa: string; status: string }[] =
+      await this.dataSource.query(
+        `SELECT id, school_id, price_paisa::text AS amount_paisa, status FROM sms_bundle_orders WHERE id = $1`,
+        [orderId],
+      );
+    return (
+      row && {
+        kind: 'BUNDLE',
+        id: row.id,
+        school_id: row.school_id,
+        amount_paisa: row.amount_paisa,
+        pending: row.status === SmsBundleOrderStatus.PENDING_PAYMENT,
+        cancelled: row.status === SmsBundleOrderStatus.CANCELLED,
+      }
+    );
+  }
 
   private billingUrl(query: string): string {
     return `${resolveAppBaseUrl(this.config)}/settings?section=billing&${query}`;
@@ -87,20 +149,23 @@ export class BkashService {
   async paymentMayBeLive(orderId: string): Promise<boolean> {
     if ((await this.redis.exists(CREATING_KEY(orderId))) > 0) return true;
     const state = await this.readState(orderId);
-    return (
-      !!state?.paymentID && Date.now() - Date.parse(state.pay_started_at) <= RECONCILE_WINDOW_MS
-    );
+    const maybeLive = (!!state?.paymentID && !state.dead) || !!state?.earlier?.length;
+    return maybeLive && Date.now() - Date.parse(state!.pay_started_at) <= RECONCILE_WINDOW_MS;
   }
 
   /** Creates the bKash payment for one of the school's PENDING orders; returns the URL to send the admin to. */
-  async startPayment(schoolId: string, orderId: string): Promise<{ bkash_url: string }> {
+  async startPayment(
+    schoolId: string,
+    orderId: string,
+    kind: PayableKind = 'SEAT',
+  ): Promise<{ bkash_url: string }> {
     if (!this.client.isConfigured()) {
       throw new ServiceUnavailableException('Online payment is not available right now.');
     }
-    const order = await this.orders.findForPayment(orderId);
+    const order = await this.payableOf(orderId, kind);
     // Another school's order is a 404, never a hint that it exists.
     if (!order || order.school_id !== schoolId) throw new NotFoundException('Order not found');
-    if (order.status !== SeatOrderStatus.PENDING) {
+    if (!order.pending) {
       throw new ConflictException({
         message: 'This order is not waiting for payment.',
         details: { code: PAY_CONFLICT.ORDER_NOT_PENDING },
@@ -109,6 +174,8 @@ export class BkashService {
     // A payment is already live for this order: hand back its page, never make a second one.
     const live = await this.readState(orderId);
     if (live?.bkash_url) return { bkash_url: live.bkash_url };
+    // D8: no new package payment while sales are paused (a payment already taken is never refused).
+    if (kind === 'BUNDLE') await this.bundlePay().assertSalesOpen();
     // A Redis error here fails the start (no payment without somewhere to remember it).
     const won = await this.redis.set(CREATING_KEY(orderId), '1', 'EX', CREATING_TTL_SEC, 'NX');
     if (won !== 'OK') {
@@ -133,7 +200,7 @@ export class BkashService {
    */
   private async createPayment(
     schoolId: string,
-    order: { id: string; amount_paisa: string },
+    order: Payable,
     previous: PaymentState | undefined,
   ): Promise<{ bkash_url: string }> {
     const orderId = order.id;
@@ -152,7 +219,8 @@ export class BkashService {
     if (created.statusCode !== '0000' || !created.paymentID || !created.bkashURL) {
       // No paymentID was ever stored for this order: closing it is safe.
       // (A stored paymentID means a payment may exist, and then the order must stay PENDING.)
-      if (!previous?.paymentID) await this.orders.markFailed(orderId);
+      // (A bundle order has no FAILED state: it stays PENDING_PAYMENT and the 24 h sweep cancels it.)
+      if (!previous?.paymentID && order.kind === 'SEAT') await this.orders.markFailed(orderId);
       this.logger.error(`bKash create refused for order ${orderId}: code ${created.statusCode}`);
       throw new ServiceUnavailableException('Online payment is not available right now.');
     }
@@ -160,6 +228,10 @@ export class BkashService {
       pay_started_at: new Date().toISOString(),
       paymentID: created.paymentID,
       bkash_url: created.bkashURL,
+      earlier: [
+        ...(previous?.earlier ?? []),
+        ...(previous?.paymentID && !previous.dead ? [previous.paymentID] : []),
+      ], // never capped: every unresolved attempt stays until the state's 25 h TTL ends
     };
     await this.redis.set(PID_KEY(created.paymentID), orderId, 'EX', PAYMENT_TTL_SEC);
     await this.redis.set(PAYMENT_KEY(orderId), JSON.stringify(state), 'EX', PAYMENT_TTL_SEC);
@@ -196,17 +268,30 @@ export class BkashService {
     if (known.statusCode !== '0000' || !orderId || !isUUID(orderId) || orderId !== ourOrderId) {
       throw new BadRequestException('Payment not found');
     }
-    const order = await this.orders.findForPayment(orderId);
+    const order = await this.payableOf(orderId);
     const state = await this.readState(orderId).catch((err) => {
       this.logger.error(`bKash callback could not read payment state: ${errMessage(err)}`);
       return undefined;
     });
-    if (!order || state?.paymentID !== paymentID) {
+    const isLatest = state?.paymentID === paymentID;
+    if (!order || !state || !(isLatest || state.earlier?.includes(paymentID))) {
       this.logger.error(`bKash callback paymentID does not match order ${orderId}`);
       throw new BadRequestException('Payment not found');
     }
     // A replay after PAID (or any non-PENDING order) shows the result and executes nothing.
-    if (order.status !== SeatOrderStatus.PENDING) return { orderId, outcome };
+    if (!order.pending) {
+      // A Completed payment that is not the one recorded against the order (an earlier payment, or
+      // the latest after an earlier one paid) is a second charge: it needs the orphan row
+      // (refund_due alert). The recorded payment's own trxID is already in platform_payments, so
+      // a plain replay skips here. The URL's `status` is never reported as success.
+      if (known.transactionStatus === 'Completed' && !(await this.isRecorded(known))) {
+        await this.applyCompleted(known).catch((err) =>
+          this.logger.warn(`bKash late payment recorded as orphan: ${errMessage(err)}`),
+        );
+      }
+      if (isLatest) return { orderId, outcome };
+      return { orderId, outcome: outcome === 'cancel' ? 'cancel' : 'failure' };
+    }
     if (outcome === 'success') {
       const tx = await this.settle(paymentID, known);
       if (tx?.transactionStatus === 'Completed') {
@@ -214,18 +299,44 @@ export class BkashService {
         return { orderId, outcome };
       }
     }
-    if (state) {
-      // Cancelled, failed, or "success" that did not complete: that checkout page is dead, so the
-      // next Pay must create a new payment, not hand it back. The paymentID stays, so the
-      // reconciler can still settle it if bKash completes it after all.
-      const { bkash_url: _dead, ...kept } = state;
-      await this.redis
-        .set(PAYMENT_KEY(orderId), JSON.stringify(kept), 'KEEPTTL')
-        .catch((err) =>
-          this.logger.warn(`bKash could not drop a dead checkout URL: ${errMessage(err)}`),
+    if (state && isLatest) await this.dropDeadCheckout(orderId, paymentID, known);
+    // A "success" that did not complete is not a success.
+    return { orderId, outcome: outcome === 'success' ? 'failure' : outcome };
+  }
+
+  /**
+   * Cancelled, failed, or "success" that did not complete: that checkout page is dead, so the next
+   * Pay must create a new payment, not hand it back. The paymentID stays, so the reconciler can
+   * still settle it if bKash completes it after all.
+   * The write holds the same lock `startPayment` holds while it creates a payment, and re-reads the
+   * state under it: a stale callback can never put a dead payment A over a newer payment B. If the
+   * lock is taken, skip: the order then stays "maybe live" up to 24 h, the safe side.
+   */
+  private async dropDeadCheckout(
+    orderId: string,
+    paymentID: string,
+    known: BkashPayment,
+  ): Promise<void> {
+    try {
+      const won = await this.redis.set(CREATING_KEY(orderId), '1', 'EX', CREATING_TTL_SEC, 'NX');
+      if (won !== 'OK') return;
+      try {
+        const fresh = await this.readState(orderId);
+        if (fresh?.paymentID !== paymentID) return; // a newer payment replaced it meanwhile
+        const { bkash_url: _dead, ...rest } = fresh;
+        // Only bKash's own word marks it dead (the URL's `status` is not trusted).
+        const gone = ['Cancelled', 'Failed'].includes(known.transactionStatus ?? '');
+        await this.redis.set(
+          PAYMENT_KEY(orderId),
+          JSON.stringify(gone ? { ...rest, dead: true } : rest),
+          'KEEPTTL',
         );
+      } finally {
+        await this.redis.del(CREATING_KEY(orderId)).catch(() => undefined);
+      }
+    } catch (err) {
+      this.logger.warn(`bKash could not drop a dead checkout URL: ${errMessage(err)}`);
     }
-    return { orderId, outcome };
   }
 
   /** Already Completed per query: use it. Else execute; if that errs, wait a beat and query once more. */
@@ -255,35 +366,49 @@ export class BkashService {
    * `platform.bkash.refund_due` alert shows the platform SUPER_ADMIN until it is refunded.
    */
   private async applyCompleted(tx: BkashPayment): Promise<void> {
-    const order = await this.orders.findForPayment(tx.merchantInvoiceNumber as string);
+    const order = await this.payableOf(tx.merchantInvoiceNumber as string);
     const paid = bdtToPaisa(tx.amount);
     if (!order || !tx.trxID || tx.currency !== 'BDT' || paid !== BigInt(order.amount_paisa)) {
       this.logger.error(
         `bKash completed payment does not match order (order ${tx.merchantInvoiceNumber ?? '-'}, trx ${tx.trxID ?? '-'}): refund needed`,
       );
-      if (order) await this.recordOrphan(order.id, tx, 'MISMATCH');
+      if (order) await this.recordOrphan(order, tx, 'MISMATCH');
       throw new BadRequestException('Payment not found');
     }
     // Idempotent: a replay finds the order PAID, records no second payment.
-    const { applied } = await this.orders.markPaid(order.id, {
+    const payment = {
       method: PlatformPaymentMethod.BKASH,
       gateway_ref: tx.trxID,
       amount_paisa: order.amount_paisa,
       raw: rawOf(tx),
-    });
+    };
+    const { applied } =
+      order.kind === 'BUNDLE'
+        ? await this.bundlePay().markPaid(order.id, payment)
+        : await this.orders.markPaid(order.id, payment);
     if (!applied) {
       // Callback and reconciler raced (same trxID: the orphan insert is a no-op), or a payment
       // completed for an order already settled another way (a double payment to refund).
       this.logger.error(
         `bKash payment completed but order ${order.id} was not PENDING (trx ${tx.trxID}): check for a double payment`,
       );
-      await this.recordOrphan(order.id, tx, 'ORDER_NOT_PENDING');
+      await this.recordOrphan(order, tx, 'ORDER_NOT_PENDING');
     }
+  }
+
+  /** True when this transaction already has a platform_payments row (a replay, not a new charge). */
+  private async isRecorded(tx: BkashPayment): Promise<boolean> {
+    if (!tx.trxID) return false;
+    const rows: unknown[] = await this.dataSource.query(
+      `SELECT 1 FROM platform_payments WHERE method = $1 AND gateway_ref = $2`,
+      [PlatformPaymentMethod.BKASH, tx.trxID],
+    );
+    return rows.length > 0;
   }
 
   /** Keyed on (BKASH, trxID): a replay, or the payment that did pay the order, inserts nothing. */
   private async recordOrphan(
-    orderId: string,
+    order: Payable,
     tx: BkashPayment,
     reason: 'MISMATCH' | 'ORDER_NOT_PENDING',
   ): Promise<void> {
@@ -291,20 +416,23 @@ export class BkashService {
     if (!ref) return;
     const paisa = bdtToPaisa(tx.amount);
     try {
-      await this.dataSource.query(
-        `INSERT INTO platform_payments (seat_order_id, method, gateway_ref, amount_paisa, raw)
-         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (method, gateway_ref) DO NOTHING`,
-        [
-          orderId,
-          PlatformPaymentMethod.BKASH,
-          ref,
-          paisa !== undefined && paisa <= MAX_AMOUNT_PAISA ? paisa.toString() : '0',
-          JSON.stringify({ ...rawOf(tx), orphan: true, orphan_reason: reason }),
-        ],
-      );
+      // Two fixed statements (Rule 4): CHK_platform_payments_one_order wants exactly one column.
+      const insert =
+        order.kind === 'BUNDLE'
+          ? `INSERT INTO platform_payments (bundle_order_id, method, gateway_ref, amount_paisa, raw)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (method, gateway_ref) DO NOTHING`
+          : `INSERT INTO platform_payments (seat_order_id, method, gateway_ref, amount_paisa, raw)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (method, gateway_ref) DO NOTHING`;
+      await this.dataSource.query(insert, [
+        order.id,
+        PlatformPaymentMethod.BKASH,
+        ref,
+        paisa !== undefined && paisa <= MAX_AMOUNT_PAISA ? paisa.toString() : '0',
+        JSON.stringify({ ...rawOf(tx), orphan: true, orphan_reason: reason }),
+      ]);
     } catch (err) {
       this.logger.error(
-        `bKash orphan payment NOT recorded (order ${orderId}, trx ${ref}): ${errMessage(err)}`,
+        `bKash orphan payment NOT recorded (order ${order.id}, trx ${ref}): ${errMessage(err)}`,
       );
     }
   }
@@ -312,19 +440,33 @@ export class BkashService {
   /** Every 10 min: PENDING orders whose payment started in the last 24 h and never settled. */
   async reconcilePending(): Promise<number> {
     const rows: { id: string }[] = await this.dataSource.query(
-      `SELECT id FROM seat_orders WHERE status = $1 AND created_at > now() - interval '72 hours'`,
-      [SeatOrderStatus.PENDING],
+      `SELECT id FROM seat_orders WHERE status = $1 AND created_at > now() - interval '72 hours'
+       UNION ALL
+       SELECT id FROM sms_bundle_orders WHERE status = $2 AND created_at > now() - interval '72 hours'`,
+      [SeatOrderStatus.PENDING, SmsBundleOrderStatus.PENDING_PAYMENT],
     );
     let paid = 0;
     for (const { id } of rows) {
       try {
         const state = await this.readState(id);
-        if (!state?.paymentID) continue;
+        if (!state) continue;
         if (Date.now() - Date.parse(state.pay_started_at) > RECONCILE_WINDOW_MS) continue;
-        const tx = await this.client.query(state.paymentID);
-        if (tx.transactionStatus === 'Completed' && tx.merchantInvoiceNumber === id) {
-          await this.applyCompleted(tx);
-          paid++;
+        const ids = [
+          ...(state.dead || !state.paymentID ? [] : [state.paymentID]),
+          ...(state.earlier ?? []),
+        ];
+        // Every id is asked, so a second Completed one is recorded (as an orphan) too; one
+        // failing id must not skip the others.
+        for (const pid of ids) {
+          try {
+            const tx = await this.client.query(pid);
+            if (tx.transactionStatus === 'Completed' && tx.merchantInvoiceNumber === id) {
+              await this.applyCompleted(tx);
+              paid++;
+            }
+          } catch (err) {
+            this.logger.warn(`bKash reconcile skipped payment of order ${id}: ${errMessage(err)}`);
+          }
         }
       } catch (err) {
         this.logger.warn(`bKash reconcile skipped order ${id}: ${errMessage(err)}`);

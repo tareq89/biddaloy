@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { CalendarNotifyService } from './calendar-notify.service';
 import { CalendarModule } from './calendar.module';
@@ -22,7 +23,6 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
-import { SmsCreditBalance } from '../communications/credits/entities/sms-credit-balance.entity';
 import {
   SmsCreditLedger,
   SmsCreditLedgerKind,
@@ -96,13 +96,7 @@ describe('CalendarNotifyService (integration)', () => {
   }
 
   async function grantSmsCredit(units: number): Promise<void> {
-    const repo = dataSource.getRepository(SmsCreditBalance);
-    const existing = await repo.findOne({ where: { tenant_id: TENANT_ID } });
-    if (existing) {
-      await repo.update({ tenant_id: TENANT_ID }, { available: units });
-    } else {
-      await repo.save({ tenant_id: TENANT_ID, available: units, reserved: 0 });
-    }
+    await fundMeteredTenant(dataSource, TENANT_ID, units);
   }
 
   async function makeEvent(overrides: Partial<CalendarEvent> = {}): Promise<CalendarEvent> {

@@ -16,7 +16,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
 import {
   QuerySmsCreditsDto,
-  SmsCreditsResponseDto,
+  SmsCreditsBalanceResponseDto,
 } from '../../communications/credits/dto/sms-credits.dto';
 import { SmsCreditsService } from './sms-credits.service';
 import { GrantSmsCreditsDto } from './dto/grant-sms-credits.dto';
@@ -44,11 +44,11 @@ export class SchoolSmsCreditsController {
       'console. Same shape as the tenant-facing GET /communications/sms-credits, but scoped to ' +
       "the :id in the path rather than the caller's own tenant.",
   })
-  @ApiOkResponse({ type: SmsCreditsResponseDto })
+  @ApiOkResponse({ type: SmsCreditsBalanceResponseDto })
   async getSmsCredits(
     @Param('id', ParseUUIDPipe) schoolId: string,
     @Query() query: QuerySmsCreditsDto,
-  ): Promise<SmsCreditsResponseDto> {
+  ): Promise<SmsCreditsBalanceResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const summary = await this.smsCreditService.getCreditsSummary(schoolId, page, limit);

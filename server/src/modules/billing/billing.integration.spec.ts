@@ -14,6 +14,7 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { ordersTestDeps } from './orders-test-deps';
 import { ReceiptService } from './receipt.service';
 import { BkashService } from './bkash/bkash.service';
 import { PlatformBkashRefundDueRule } from '../attention/rules/platform/platform-bkash-refund-due.rule';
@@ -31,6 +32,7 @@ describe('EntitlementService + OrdersService (integration)', () => {
     const module = await createTestModule(ALL_ENTITIES, [
       EntitlementService,
       OrdersService,
+      ...ordersTestDeps(),
       StudentService,
       GuardianService,
       AuditService,

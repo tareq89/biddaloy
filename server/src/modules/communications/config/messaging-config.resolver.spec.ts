@@ -358,6 +358,48 @@ describe('MessagingConfigResolver', () => {
     });
   });
 
+  // Epic 100 D9: the saved own block is kept while the source is SchoolManagerP, but never read.
+  describe('sms source', () => {
+    const env = {
+      ONECODESOFT_API_KEY: 'env-k',
+      ONECODESOFT_API_URL: 'https://p.example/api',
+      ONECODESOFT_SENDER_ID: 'PLATFORM-ID',
+    };
+    const sms = { provider: 'onecodesoft' as const };
+    const own = { apiKey: 'own-k', apiUrl: 'https://o.example/api', senderId: 'OWN-ID' };
+    const resolveWith = (block: Record<string, unknown>) =>
+      resolverFor({ t1: settingsWith('sms', block) }, env, [new OnecodesoftProvider()]).resolve(
+        CommunicationMedium.SMS,
+        't1',
+      );
+
+    it('source SCHOOLMANAGERP ignores a full own block and resolves the platform account', async () => {
+      const r = await resolveWith({
+        ...sms,
+        onecodesoft: own,
+        source: 'SCHOOLMANAGERP',
+        metering: 'PLATFORM',
+      });
+      expect(r.source).toBe('platform');
+      expect(r.config).toEqual({
+        apiKey: 'env-k',
+        apiUrl: 'https://p.example/api',
+        senderId: 'PLATFORM-ID',
+      });
+    });
+
+    it('source OWN wins over a stale metering PLATFORM (agrees with isMetered)', async () => {
+      const r = await resolveWith({ ...sms, onecodesoft: own, source: 'OWN', metering: 'PLATFORM' });
+      expect(r.source).toBe('tenant');
+    });
+
+    it('the same school back on OWN resolves its own account again', async () => {
+      const r = await resolveWith({ ...sms, onecodesoft: own, source: 'OWN', metering: 'OFF' });
+      expect(r.source).toBe('tenant');
+      expect(r.config).toMatchObject({ apiKey: 'own-k', senderId: 'OWN-ID' });
+    });
+  });
+
   describe('field rules', () => {
     it('platform email resolves with SMTP_PORT unset (the provider defaults 587)', async () => {
       const r = await resolverFor(

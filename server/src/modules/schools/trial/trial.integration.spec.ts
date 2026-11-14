@@ -10,6 +10,7 @@ import { SessionCutoffService } from '../../auth/session-cutoff.service';
 import { AdminNoticeService } from './admin-notice.service';
 import { EntitlementService } from '../../billing/entitlement.service';
 import { OrdersService } from '../../billing/orders.service';
+import { ordersTestDeps } from '../../billing/orders-test-deps';
 import { ReceiptService } from '../../billing/receipt.service';
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
@@ -26,6 +27,7 @@ describe('TrialService (integration): account start and seat grants', () => {
       TrialService,
       EntitlementService,
       OrdersService,
+      ...ordersTestDeps(),
       AuditService,
       { provide: TenantStatusService, useValue: tenantStatus },
       { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },

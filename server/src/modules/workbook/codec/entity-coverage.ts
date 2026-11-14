@@ -32,6 +32,12 @@ import { CommunicationLog } from '../../communications/entities/communication-lo
 import { ReminderBatch } from '../../communications/entities/reminder-batch.entity';
 import { SmsCreditLedger } from '../../communications/credits/entities/sms-credit-ledger.entity';
 import { SmsCreditBalance } from '../../communications/credits/entities/sms-credit-balance.entity';
+import { SmsCreditLot } from '../../communications/credits/entities/sms-credit-lot.entity';
+import { SmsCreditLotDraw } from '../../communications/credits/entities/sms-credit-lot-draw.entity';
+import { SmsBundleCatalog } from '../../sms-bundles/entities/sms-bundle-catalog.entity';
+import { SmsBundleOrder } from '../../sms-bundles/entities/sms-bundle-order.entity';
+import { SmsStockEntry } from '../../sms-bundles/entities/sms-stock-entry.entity';
+import { SmsProviderBalanceReading } from '../../sms-bundles/entities/sms-provider-balance-reading.entity';
 import { DiscountRule } from '../../fees/entities/discount-rule.entity';
 import { FeeGeneration } from '../../fees/entities/fee-generation.entity';
 import { RecurringSchedule } from '../../fees/entities/recurring-schedule.entity';
@@ -82,6 +88,19 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     'Platform-owned billing money (Epic 49): the school pays the platform, so it never enters the school workbook.',
   ],
   [PlatformPayment, 'Platform-owned billing payment record (Epic 49), not school data.'],
+  [
+    SmsBundleCatalog,
+    'Platform-owned SMS package catalog (Epic 100): no tenant, never enters the school workbook.',
+  ],
+  [
+    SmsBundleOrder,
+    'Platform-owned money (Epic 100): the school pays the platform for SMS, so it never enters the school workbook.',
+  ],
+  [SmsStockEntry, 'Platform-owned SMS stock cost record (Epic 100), not school data.'],
+  [
+    SmsProviderBalanceReading,
+    'Platform-owned SMS provider balance reading (Epic 100), not school data.',
+  ],
   [
     PlatformAdmin,
     'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
@@ -160,6 +179,8 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [UserTenant, 'Tenant-scoped role membership, no tab yet — tracked in #856.'],
   [SmsCreditLedger, 'Tenant-scoped SMS credit ledger, no tab yet — tracked in #856.'],
   [SmsCreditBalance, 'Tenant-scoped SMS credit balance, no tab yet — tracked in #856.'],
+  [SmsCreditLot, 'Tenant-scoped SMS credit lot, no tab yet — tracked in #856.'],
+  [SmsCreditLotDraw, 'Tenant-scoped SMS credit lot draw, no tab yet — tracked in #856.'],
   [DiscountRule, 'Tenant-scoped fee discount rule, no tab yet — tracked in #856.'],
   [FeeGeneration, 'Tenant-scoped fee generation run record, no tab yet — tracked in #856.'],
   [RecurringSchedule, 'Tenant-scoped recurring fee schedule, no tab yet — tracked in #856.'],

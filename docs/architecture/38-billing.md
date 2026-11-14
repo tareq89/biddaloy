@@ -200,8 +200,12 @@ flowchart LR
 - **Download**: `ParseUUIDPipe`, `SETTINGS_MANAGE`, `@AllowWhenSuspendedForBilling` (a school that
   is read-only or paused must still reach its receipt). Another school's order, an unpaid order
   and a grant all answer the same 404.
-- **VAT**: set `BILLING_VAT_REGISTRATION` and the receipt shows the number and a VAT line; unset,
-  neither shows.
+- **VAT**: the owner sets rate, label and registration in the cockpit (`GET/PUT /platform/money/vat`,
+  platform setting `billing.vat`, write needs a step-up token). Prices include VAT. The receipt shows
+  the registration whenever it is set, and a VAT amount line only when a rate is set. Everything is
+  frozen into `receipt_snapshot` at payment (`receipt-snapshot.ts`), so a later change never edits a
+  printed receipt. `BILLING_VAT_REGISTRATION` is only a one-time seed read by the migration; no
+  runtime code reads it.
 - **Email**: the `receipt` admin notice (en/bn). A failed send is logged and never fails the payment.
 - **Orders paid before receipts shipped**: if #1820/#1821 deploy before #1822, the receipt
   migration (`1791900000400`) numbers those `PAID` bKash/offline orders in `paid_at` order per
@@ -249,3 +253,11 @@ flowchart LR
 - **Receipt email as a queue job**: it runs right after commit in the same process, not in BullMQ. Move it to a queue if the notice provider gets slow.
 - **CI**: no real bKash call (no credentials); the client and service are covered by unit specs
   with a mocked bKash, and the API e2e covers the public callback's refusal paths.
+
+## Epic 100 Wave 0 — what we learned
+
+| What we found | What we did | Rule for next time |
+|---|---|---|
+| Three real bKash bugs in code we build on (#2782 F1, F2, F10): an orphaned `paymentID` after a second Pay, a callback that said success without a completed execute, a cancelled attempt that blocked offline payment for 24 h. | Fixed with tests (`triage-2782.integration.spec.ts`). The F10 Cancelled/Failed status strings are unverified against live bKash. | Reproduce review findings before building on the code. |
+| F8 and F9 (read-only grace blocks POST-shaped fee and print previews) are outside billing. | Filed #4112; tests pin today's refusal. | Flip those tests when #4112 lands. |
+| Any negative `SmsCreditService.adjust()` is rejected today, even when the balance covers it (`CHK_sms_credit_balance_nonnegative` fires first). | Pinned in the SMS credit characterization spec. | If Wave 1 changes it, change that test on purpose. |

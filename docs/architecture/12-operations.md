@@ -576,6 +576,8 @@ container; the app itself never reads them. For a run from your own machine:
 | `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`                              | Login for the ADMIN smoke account.                                                      |
 | `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD`                          | Login for the TEACHER smoke account.                                                    |
 | `ENV_NAME=staging` + `SMOKE_COCKPIT_EMAIL` / `_PASSWORD` / `_TOTP_SECRET` | Staging only: the owner sign-in (login, code, `GET /platform/owners`, sign out).        |
+| `SMOKE_MONEY=1`                                                           | Run the money fences (bKash callback refusal, order routes need a token).               |
+| `SMOKE_MONEY_STRICT=1`                                                    | With `SMOKE_MONEY`, a 404 on a not-yet-deployed money route fails instead of skipping.  |
 | `SMOKE_PAID_STUDENT_FEE_ID`                                               | Optional. An already-paid student fee id; adds the `#2592` checkout 409 row.            |
 | `SMOKE_OPEN_STUDENT_FEE_ID`                                               | Optional. An outstanding student fee id; adds the `#2636` over-balance 400 row.         |
 | `SMOKE_PARENT_EMAIL` / `SMOKE_PARENT_PASSWORD`                            | Optional. A PARENT smoke account; adds the `#2639` step-up 403 row.                     |
