@@ -6,7 +6,7 @@ import { School } from '../../schools/entities/school.entity';
 import { ALL_TABS, EXPECTED_TABS } from '../codec/registry';
 import { META_SHEET } from '../codec/meta';
 import { README_SHEET } from '../codec/workbook-codec';
-import { TemplateService } from './template.service';
+import { hasInlineDropdown, TemplateService } from './template.service';
 import { STARTER_TABS } from './template.constants';
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -117,7 +117,10 @@ describe('TemplateService', () => {
           .map((col, index) => ({ tab: tab.name, colNo: index + 1, col }))
           .filter(
             ({ col }) =>
-              (col.type === 'enum' && col.enumValues && col.enumValues.length > 0) ||
+              (col.type === 'enum' &&
+                col.enumValues &&
+                col.enumValues.length > 0 &&
+                hasInlineDropdown(col)) ||
               col.type === 'bool',
           ),
       );

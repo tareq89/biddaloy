@@ -111,7 +111,7 @@ describe('enrollmentsTab shape', () => {
     expect(peopleTabs).toContain(enrollmentsTab);
     expect(peopleTabs.indexOf(studentsTab)).toBeLessThan(peopleTabs.indexOf(enrollmentsTab));
     // [27.6]/[39.1.3] No longer last: the admission and student-child tabs follow it.
-    expect(peopleTabs.indexOf(enrollmentsTab)).toBe(peopleTabs.length - 7);
+    expect(peopleTabs.indexOf(enrollmentsTab)).toBe(peopleTabs.length - 12);
   });
 
   it('satisfies the registry contract', () => {

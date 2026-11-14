@@ -80,6 +80,13 @@ export const EXPECTED_TABS = [
   'admission_intakes',
   'admission_applicants',
   'admission_evaluations',
+  // [71.1.05] Epic 71's pipeline tables, FK order: stages and lists after intakes,
+  // results and members after their parent and the applicants, fee proofs after both.
+  'admission_stages',
+  'admission_stage_results',
+  'admission_lists',
+  'admission_list_members',
+  'admission_fee_proofs',
   // [39.1.3] Epic 39.0's per-student child tabs, appended by `peopleTabs` after
   // the admission tabs; they depend on `students`, `enrollments`, `users`.
   'student_lifecycle_events',

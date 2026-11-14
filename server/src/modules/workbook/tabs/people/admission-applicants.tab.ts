@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { AdmissionApplicant } from '../../../admission/entities/admission-applicant.entity';
-import { AdmissionApplicantStatus } from '@biddaloy/shared';
+import { AdmissionApplicantStatus, AdmissionFeeState, AdmissionSource } from '@biddaloy/shared';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import { ownKeysIn } from '../../codec/storage-key-scope';
 import type {
@@ -33,6 +34,13 @@ export interface AdmissionApplicantRow {
   home_address: string | null;
   documents: unknown[];
   status: AdmissionApplicantStatus;
+  roll_number: string | null;
+  source: string;
+  quota_tags: string[];
+  extra_fields: Record<string, unknown>;
+  fee_state: string;
+  merit_rank: number | null;
+  sibling_student_id: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -89,10 +97,35 @@ const columns: readonly ColumnSpec[] = [
     enumValues: Object.values(AdmissionApplicantStatus),
     label: { en: 'Status', bn: 'অবস্থা' },
   },
+  { key: 'roll_number', type: 'string', label: { en: 'Roll number', bn: 'রোল নম্বর' } },
+  {
+    key: 'source',
+    type: 'enum',
+    required: true,
+    enumValues: Object.values(AdmissionSource),
+    label: { en: 'Source', bn: 'উৎস' },
+  },
+  { key: 'quota_tags', type: 'json', label: { en: 'Quota tags', bn: 'কোটা ট্যাগ' } },
+  { key: 'extra_fields', type: 'json', label: { en: 'Extra fields', bn: 'অতিরিক্ত তথ্য' } },
+  {
+    key: 'fee_state',
+    type: 'enum',
+    required: true,
+    enumValues: Object.values(AdmissionFeeState),
+    label: { en: 'Fee state', bn: 'ফির অবস্থা' },
+  },
+  { key: 'merit_rank', type: 'int', label: { en: 'Merit rank', bn: 'মেধাক্রম' } },
+  {
+    key: 'sibling_student',
+    type: 'ref',
+    ref: 'students',
+    label: { en: 'Sibling student', bn: 'ভাইবোন শিক্ষার্থী' },
+  },
 ];
 
 const excluded: readonly string[] = [
   'intake_id', // exported instead as the `intake` ref column
+  'sibling_student_id', // exported instead as the `sibling_student` ref column
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
@@ -102,13 +135,14 @@ const MAX_LENGTHS: Record<string, number> = {
   guardian_name: 200,
   guardian_phone: 20,
   guardian_email: 200,
+  roll_number: 30,
 };
 
 export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplicantRow> = {
   name: 'admission_applicants',
   entity: AdmissionApplicant,
   excluded,
-  dependsOn: ['admission_intakes'],
+  dependsOn: ['admission_intakes', 'students'],
   columns,
   naturalKey: ['reference_number'],
   deleteByAbsence: true,
@@ -134,6 +168,15 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
       home_address: entity.home_address,
       documents: entity.documents ?? [],
       status: entity.status,
+      roll_number: entity.roll_number,
+      source: entity.source,
+      quota_tags: entity.quota_tags ?? [],
+      extra_fields: entity.extra_fields ?? {},
+      fee_state: entity.fee_state,
+      merit_rank: entity.merit_rank,
+      sibling_student: entity.sibling_student_id
+        ? optionalKeyOf(ctx, 'students', entity.sibling_student_id)
+        : null,
     };
   },
 
@@ -178,7 +221,7 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
         tab: 'admission_applicants',
         row: rowNo,
         column: 'intake',
-        message: `Column "intake": no admission intake with the key "${intakeKey}" was found.`,
+        message: 'Column "intake": no such admission intake was found.',
         severity: 'error',
         value: intakeKey,
       });
@@ -214,6 +257,29 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
       else ({ items: documents, warnings } = owned);
     }
 
+    const bad = (column: string, message: string) =>
+      errors.push({
+        tab: 'admission_applicants',
+        row: rowNo,
+        column,
+        message,
+        severity: 'error',
+        value: cells[column] ?? '',
+      });
+    const tags = values.quota_tags ?? [];
+    if (!Array.isArray(tags) || tags.some((x) => typeof x !== 'string'))
+      bad('quota_tags', 'Column "quota_tags": must be a JSON array of text, for example [].');
+    const extra = values.extra_fields ?? {};
+    if (typeof extra !== 'object' || extra === null || Array.isArray(extra))
+      bad('extra_fields', 'Column "extra_fields": must be a JSON object, for example {}.');
+    const rank = values.merit_rank as number | null;
+    if (rank !== null && (rank < 0 || rank > 2147483647))
+      bad('merit_rank', 'Column "merit_rank": is out of range.');
+    const siblingKey = (values.sibling_student as string | null) ?? '';
+    const siblingId = siblingKey ? (ctx.ref('students', siblingKey) ?? null) : null;
+    if (siblingKey && !siblingId)
+      bad('sibling_student', 'Column "sibling_student": no such student was found.');
+
     if (errors.length > 0) return { errors };
     for (const warning of warnings) ctx.warn(warning);
 
@@ -232,6 +298,13 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
         home_address: (values.home_address as string | null) ?? null,
         documents,
         status: values.status as AdmissionApplicantStatus,
+        roll_number: (values.roll_number as string | null) ?? null,
+        source: values.source as string,
+        quota_tags: tags as string[],
+        extra_fields: extra as Record<string, unknown>,
+        fee_state: values.fee_state as string,
+        merit_rank: rank,
+        sibling_student_id: siblingId,
       },
     };
   },
@@ -254,6 +327,15 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
       changed.push('documents');
     }
     if (row.status !== existing.status) changed.push('status');
+    if (row.roll_number !== existing.roll_number) changed.push('roll_number');
+    if (row.source !== existing.source) changed.push('source');
+    if (JSON.stringify(row.quota_tags) !== JSON.stringify(existing.quota_tags))
+      changed.push('quota_tags');
+    if (JSON.stringify(row.extra_fields) !== JSON.stringify(existing.extra_fields))
+      changed.push('extra_fields');
+    if (row.fee_state !== existing.fee_state) changed.push('fee_state');
+    if (row.merit_rank !== existing.merit_rank) changed.push('merit_rank');
+    if (row.sibling_student_id !== existing.sibling_student_id) changed.push('sibling_student');
     return changed;
   },
 
@@ -276,6 +358,13 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
     applicant.home_address = row.home_address;
     applicant.documents = row.documents as AdmissionApplicant['documents'];
     applicant.status = row.status;
+    applicant.roll_number = row.roll_number;
+    applicant.source = row.source as AdmissionApplicant['source'];
+    applicant.quota_tags = row.quota_tags;
+    applicant.extra_fields = row.extra_fields;
+    applicant.fee_state = row.fee_state as AdmissionApplicant['fee_state'];
+    applicant.merit_rank = row.merit_rank;
+    applicant.sibling_student_id = row.sibling_student_id;
 
     return m.save(AdmissionApplicant, applicant);
   },

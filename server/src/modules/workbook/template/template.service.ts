@@ -56,7 +56,14 @@ function decorateSheet(
       starter && index === 0 ? `${LABELS.starterNote[lang]}\n${colNote}` : colNote,
     );
 
-    if (col.type === 'enum' && col.enumValues && col.enumValues.length > 0) {
+    // Excel's inline dropdown caps at 255 chars; a longer value set (the print document kinds)
+    // gets no dropdown. Restore still rejects values outside the enum.
+    if (
+      col.type === 'enum' &&
+      col.enumValues &&
+      col.enumValues.length > 0 &&
+      hasInlineDropdown(col)
+    ) {
       sheet.addListValidation(colNo, col.enumValues, !col.required);
     } else if (col.type === 'bool') {
       sheet.addListValidation(colNo, LABELS.boolValues[lang], !col.required);
@@ -171,3 +178,7 @@ export class TemplateService {
     return school;
   }
 }
+
+/** True when the enum's values fit Excel's 255-char inline list formula (quotes included). */
+export const hasInlineDropdown = (col: { enumValues?: readonly string[] }): boolean =>
+  (col.enumValues ?? []).join(',').length + 2 <= 255;

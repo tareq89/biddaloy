@@ -57,7 +57,8 @@ export function ownStorageKey(
         tab,
         row: rowNo,
         column,
-        message: `Column "${column}": "${raw}" is not a valid storage key for this school.`,
+        // Rule 23: fixed text; the submitted key goes in `value` only.
+        message: `Column "${column}": is not a valid storage key for this school.`,
         severity: 'error',
         value: raw,
       },

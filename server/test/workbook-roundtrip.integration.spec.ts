@@ -147,6 +147,11 @@ import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-c
 import { AdmissionIntake } from '../src/modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from '../src/modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from '../src/modules/admission/entities/admission-evaluation.entity';
+import { AdmissionStage } from '../src/modules/admission/entities/admission-stage.entity';
+import { AdmissionStageResult } from '../src/modules/admission/entities/admission-stage-result.entity';
+import { AdmissionList } from '../src/modules/admission/entities/admission-list.entity';
+import { AdmissionListMember } from '../src/modules/admission/entities/admission-list-member.entity';
+import { AdmissionFeeProof } from '../src/modules/admission/entities/admission-fee-proof.entity';
 import {
   PeriodSlotKind,
   SlotRecurrence,
@@ -3011,6 +3016,205 @@ describe('workbook round trip (integration)', () => {
         const tab = second.tabs.find((x) => x.name === name);
         expect([name, tab?.creates, tab?.deletes]).toEqual([name, 0, 0]);
       }
+    }, 180_000);
+
+    // [71.1.05] One admission round with every new table populated: backup, restore
+    // into an empty school, and every row of the seven admission tabs comes back.
+    it('round-trips an admission round with stages, scores, lists and a fee proof', async () => {
+      const t = randomUUID();
+      const { admin, klass, year, student } = await seedT(t);
+      const intake = await dataSource.getRepository(AdmissionIntake).save(
+        dataSource.getRepository(AdmissionIntake).create({
+          tenant_id: t,
+          class_section_id: null,
+          class_id: klass.id,
+          academic_year_id: year.id,
+          template_key: 'WRITTEN_VIVA',
+          roll_prefix: 'R71',
+          roll_counter: 3,
+          fee_amount_paisa: 25000,
+          fee_pay_methods: ['BKASH', 'BANK'],
+          form_fields: ['applicant_name', 'guardian_phone'],
+          publish_channels: ['SITE'],
+          tie_break: ['SCORE', 'DOB'],
+          show_names_publicly: true,
+          widget_always_show: false,
+          auto_activate_lists: true,
+          title: 'Rt71 round',
+          seat_count: 2,
+          open_date: '2026-01-01',
+          close_date: '2026-03-01',
+          required_document_types: [],
+        }),
+      );
+      const applicants = dataSource.getRepository(AdmissionApplicant);
+      const mk = (n: number, extra: Partial<AdmissionApplicant> = {}) =>
+        applicants.save(
+          applicants.create({
+            tenant_id: t,
+            intake_id: intake.id,
+            reference_number: `RT71-${n}`,
+            applicant_name: `Rt71 Applicant ${n}`,
+            date_of_birth: '2015-01-01',
+            gender: 'MALE',
+            guardian_name: 'Rt71 Guardian',
+            guardian_phone: `0170000000${n}`,
+            ...extra,
+          }),
+        );
+      const a1 = await mk(1, {
+        source: 'CLERK',
+        quota_tags: ['FREEDOM_FIGHTER'],
+        extra_fields: { previous_school: 'Rt71 School' },
+        fee_state: 'AWAITING',
+        merit_rank: 1,
+        sibling_student_id: student.id,
+      });
+      const a2 = await mk(2, { merit_rank: 2 });
+      const stages = dataSource.getRepository(AdmissionStage);
+      const written = await stages.save(
+        stages.create({
+          tenant_id: t,
+          intake_id: intake.id,
+          position: 1,
+          kind: 'WRITTEN',
+          title: 'Written test',
+          config: { pass_mark: 40, full_mark: 100 },
+        }),
+      );
+      const viva = await stages.save(
+        stages.create({
+          tenant_id: t,
+          intake_id: intake.id,
+          position: 2,
+          kind: 'VIVA',
+          title: null,
+          config: {},
+        }),
+      );
+      const results = dataSource.getRepository(AdmissionStageResult);
+      for (const [stage, applicant, score, passed] of [
+        [written, a1, '78.50', true],
+        [written, a2, '31.00', false],
+        [viva, a1, null, null],
+      ] as const) {
+        await results.save(
+          results.create({
+            tenant_id: t,
+            stage_id: stage.id,
+            applicant_id: applicant.id,
+            score,
+            passed,
+            remarks: score ? null : 'Not marked yet',
+          }),
+        );
+      }
+      const lists = dataSource.getRepository(AdmissionList);
+      const merit = await lists.save(
+        lists.create({
+          tenant_id: t,
+          intake_id: intake.id,
+          kind: 'MERIT',
+          sequence: 1,
+          order_by: 'MERIT',
+          active: true,
+          published_at: new Date('2026-03-02T04:00:00.000Z'),
+        }),
+      );
+      const waiting = await lists.save(
+        lists.create({
+          tenant_id: t,
+          intake_id: intake.id,
+          kind: 'WAITING',
+          sequence: 1,
+          order_by: 'MANUAL',
+          active: false,
+          published_at: null,
+        }),
+      );
+      const members = dataSource.getRepository(AdmissionListMember);
+      for (const [list, applicant, position] of [
+        [merit, a1, 1],
+        [waiting, a2, 1],
+      ] as const) {
+        await members.save(
+          members.create({ tenant_id: t, list_id: list.id, applicant_id: applicant.id, position }),
+        );
+      }
+      await dataSource.getRepository(AdmissionFeeProof).save(
+        dataSource.getRepository(AdmissionFeeProof).create({
+          tenant_id: t,
+          applicant_id: a1.id,
+          attachment_key: `tenants/${t}/admission-documents/${randomUUID()}.jpg`,
+          method: 'BKASH',
+          reference: 'TX-71',
+          state: 'CONFIRMED',
+          verified_by_user_id: admin.id,
+          reason: null,
+        }),
+      );
+
+      const snapshot = async (tenant: string) => {
+        const strip = (rows: object[]) =>
+          rows.map(
+            ({ id: _i, tenant_id: _t, created_at: _c, updated_at: _u, ...rest }: any) => rest,
+          );
+        const ordered = async (e: any, order: object) =>
+          strip(await dataSource.getRepository(e).find({ where: { tenant_id: tenant }, order }));
+        return {
+          intakes: strip(
+            await dataSource.getRepository(AdmissionIntake).find({ where: { tenant_id: tenant } }),
+          ).map(({ class_id: _c, academic_year_id: _y, ...r }: any) => r),
+          applicants: (await ordered(AdmissionApplicant, { reference_number: 'ASC' })).map(
+            ({ intake_id: _i, sibling_student_id: sib, ...r }: any) => ({ ...r, sib: !!sib }),
+          ),
+          stages: (await ordered(AdmissionStage, { position: 'ASC' })).map(
+            ({ intake_id: _i, ...r }: any) => r,
+          ),
+          lists: (await ordered(AdmissionList, { kind: 'ASC' })).map(
+            ({ intake_id: _i, ...r }: any) => r,
+          ),
+          proofs: (await ordered(AdmissionFeeProof, { reference: 'ASC' })).map(
+            ({ applicant_id: _a, verified_by_user_id: _v, attachment_key: k, ...r }: any) => ({
+              ...r,
+              k: k.replace(tenant, 'T'),
+            }),
+          ),
+          results: await dataSource
+            .getRepository(AdmissionStageResult)
+            .countBy({ tenant_id: tenant }),
+          members: await dataSource
+            .getRepository(AdmissionListMember)
+            .countBy({ tenant_id: tenant }),
+        };
+      };
+      const before = await snapshot(t);
+
+      // Same school: the file validates clean and a second restore changes nothing.
+      const buffer = await withoutTags(await exportA(t));
+      const same = await validationService.validate(buffer, t, dataSource.manager);
+      expect(same.errors.filter((e) => e.severity === 'error')).toEqual([]);
+
+      // Empty school (old rows let go first: ids are global): every row comes back.
+      for (const e of [
+        AdmissionFeeProof,
+        AdmissionListMember,
+        AdmissionStageResult,
+        AdmissionList,
+        AdmissionStage,
+        AdmissionEvaluation,
+        AdmissionApplicant,
+        AdmissionIntake,
+      ]) {
+        await dataSource.getRepository(e).delete({ tenant_id: t });
+      }
+      const fresh = await newEmptySchool(admin);
+      const job = await restoreInto(fresh, buffer, admin.id);
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      const after = await snapshot(fresh);
+      expect(after.results).toBe(3);
+      expect(after.members).toBe(2);
+      expect(after).toEqual(before);
     }, 180_000);
   });
 
