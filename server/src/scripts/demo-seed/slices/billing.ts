@@ -55,19 +55,21 @@ export const slice: DemoSlice = {
     // `start` is when the paid order began.
     const [welcome, branchOnly] = await ctx.ds.getRepository(Coupon).save(
       [
-        { code: 'DEMOWELCOME', scope: CouponScope.ALL, uses_count: 1, percent: 10 },
+        { code: 'DEMOWELCOME', scope: CouponScope.ALL, uses_count: 1, percent: 10, from: start },
         {
+          // Starts before its seeded redemption (the extra orders are paid on `from`).
+          from,
           code: COUPON_CODE,
           scope: CouponScope.SCHOOLS,
           uses_count: 1,
           percent: 50,
           max_months: SMALL_ORDER_MONTHS,
         },
-      ].map((c) => ({
+      ].map(({ from: startsOn, ...c }) => ({
         ...c,
         discount_kind: CouponDiscountKind.PERCENT,
         max_uses: 100,
-        starts_at: new Date(`${start}T00:00:00+06:00`),
+        starts_at: new Date(`${startsOn}T00:00:00+06:00`),
         ends_at: new Date(`${couponEnd}T00:00:00+06:00`),
         created_by_user_id: adminUserId,
       })),

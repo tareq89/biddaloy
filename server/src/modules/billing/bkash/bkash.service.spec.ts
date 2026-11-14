@@ -286,6 +286,15 @@ describe('BkashService.handleCallback', () => {
     expect(orphanInsert()).toBeDefined();
   });
 
+  it('replaying the callback after the orphan exists still reads failure, never success', async () => {
+    t.client.query.mockResolvedValue(completed);
+    t.orders.findForPayment.mockResolvedValue({ ...order, status: SeatOrderStatus.CANCELLED });
+    t.dataSource.query.mockResolvedValue([{ orphan: true }]); // the orphan row from the first callback
+    expect(await callback()).toEqual({ orderId: ORDER_ID, outcome: 'failure', kind: 'SEAT' });
+    expect(t.orders.markPaid).not.toHaveBeenCalled();
+    expect(orphanInsert()).toBeUndefined();
+  });
+
   it('a stale callback never puts a dead payment A over a newer payment B', async () => {
     t.client.query.mockResolvedValue({ ...initiated, transactionStatus: 'Cancelled' });
     // First read (callback) sees A; under the lock the state already holds B.
@@ -537,7 +546,9 @@ describe('BkashService bundle orders (#3858)', () => {
       const q = String(sql);
       if (q.includes('FROM sms_bundle_orders WHERE id'))
         return [{ ...bundleRow, status: 'ACTIVE' }];
-      return q.includes('SELECT 1 FROM platform_payments') ? [{ one: 1 }] : [];
+      return q.includes('FROM platform_payments') && q.includes('gateway_ref')
+        ? [{ orphan: false }]
+        : [];
     });
     t.client.query.mockResolvedValue(completed);
     const err = vi.spyOn(t.svc['logger'], 'error').mockImplementation(() => undefined);
@@ -549,7 +560,7 @@ describe('BkashService bundle orders (#3858)', () => {
 
   it('a bundle order returns to the SMS page, a seat order to billing', () => {
     expect(t.svc.returnUrl(ORDER_ID, 'success', 'BUNDLE')).toBe(
-      `http://localhost:5174/settings?section=communication&smsBuy=1&order=${ORDER_ID}&payment=success`,
+      `http://localhost:5174/settings?section=communication&smsBuy=1&smsOrder=${ORDER_ID}&payment=success`,
     );
     expect(t.svc.returnUrl(ORDER_ID, 'cancel')).toBe(
       `http://localhost:5174/settings?section=billing&order=${ORDER_ID}&payment=cancel`,

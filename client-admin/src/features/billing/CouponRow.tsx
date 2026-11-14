@@ -20,26 +20,46 @@ export interface CouponRowProps {
   /** Open on first render (`?coupon=1`). */
   defaultOpen?: boolean | undefined;
   onApplied: (applied: AppliedCoupon | null) => void;
+  /** True while a preview request is in flight: the dialog must not submit a half-applied coupon. */
+  onPendingChange?: ((pending: boolean) => void) | undefined;
 }
 
 /**
  * [100.4.03] "Have a coupon?" — collapsed by default. The discount depends on seats and months, so
  * changing either clears the result. One sentence for every failure (D23): never says why.
  */
-export function CouponRow({ seats, months, rejected, defaultOpen, onApplied }: CouponRowProps) {
+export function CouponRow({
+  seats,
+  months,
+  rejected,
+  defaultOpen,
+  onApplied,
+  onPendingChange,
+}: CouponRowProps) {
   const { t } = useTranslation('billing');
   const [open, setOpen] = React.useState(defaultOpen ?? false);
   const [code, setCode] = React.useState('');
   const [error, setError] = React.useState<'invalid' | 'tryLater' | null>(null);
   const [applied, setApplied] = React.useState<AppliedCoupon | null>(null);
   const preview = useOrderPreview();
+  const [ack, setAck] = React.useState(false);
   const onAppliedRef = React.useRef(onApplied);
   onAppliedRef.current = onApplied;
+  // Bumped on every edit; a preview answer only counts if it is still the latest request.
+  const requestId = React.useRef(0);
+
+  const pendingRef = React.useRef(onPendingChange);
+  pendingRef.current = onPendingChange;
+  React.useEffect(() => {
+    pendingRef.current?.(preview.isPending);
+  }, [preview.isPending]);
 
   // Seats or months changed: the old discount no longer fits.
   React.useEffect(() => {
+    requestId.current += 1;
     setApplied(null);
     setError(null);
+    setAck(true);
     preview.reset();
     onAppliedRef.current(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the numbers change
@@ -49,11 +69,14 @@ export function CouponRow({ seats, months, rejected, defaultOpen, onApplied }: C
     if (rejected) {
       setOpen(true);
       setApplied(null);
+      setAck(false);
     }
   }, [rejected]);
 
   function apply() {
     const upper = code.trim().toUpperCase();
+    const id = ++requestId.current;
+    setAck(true);
     setApplied(null);
     onApplied(null);
     if (seats === null || months === null) return;
@@ -67,22 +90,27 @@ export function CouponRow({ seats, months, rejected, defaultOpen, onApplied }: C
       { seats, months, coupon_code: upper },
       {
         onSuccess: (result) => {
+          if (id !== requestId.current) return;
           const next = { code: upper, preview: result };
           setApplied(next);
           onApplied(next);
         },
-        onError: (err) =>
+        onError: (err) => {
+          if (id !== requestId.current) return;
           setError(
             err instanceof ApiError &&
-              (err.statusCode === 429 || err.details?.['code'] === 'COUPON_TRY_LATER')
+              (err.statusCode === 429 ||
+                err.details?.['code'] === 'COUPON_TRY_LATER' ||
+                err.details?.['code'] === 'COUPON_CHECK_UNAVAILABLE')
               ? 'tryLater'
               : 'invalid',
-          ),
+          );
+        },
       },
     );
   }
 
-  const sentence = error ?? (rejected && !applied ? 'invalid' : null);
+  const sentence = error ?? (rejected && !ack && !applied ? 'invalid' : null);
 
   return (
     <div className="grid gap-2">
@@ -106,6 +134,8 @@ export function CouponRow({ seats, months, rejected, defaultOpen, onApplied }: C
               autoCapitalize="characters"
               autoComplete="off"
               onChange={(e) => {
+                requestId.current += 1;
+                setAck(true);
                 setCode(e.target.value.toUpperCase());
                 setApplied(null);
                 setError(null);

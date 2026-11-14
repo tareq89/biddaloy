@@ -95,8 +95,8 @@ describe('Billing1791900000350 (integration)', () => {
   });
 
   it('rejects seats < 1, months outside 1-24 and amounts over MONEY_MAX (in paisa)', async () => {
-    await expect(insertOrder({ seats: 0 })).rejects.toThrow();
-    await expect(insertOrder({ months: 0 })).rejects.toThrow();
+    await expect(insertOrder({ seats: 0, amount: 0 })).rejects.toThrow(/CHK_seat_orders_seats/);
+    await expect(insertOrder({ months: 0, amount: 0 })).rejects.toThrow(/CHK_seat_orders_months/);
     await expect(insertOrder({ months: 25 })).rejects.toThrow();
     await expect(insertOrder({ amount: 10_000_000_000 })).rejects.toThrow();
     // 416_667 seats x 24 months x 1000 = 10_000_008_000; less 8_001 discount = MONEY_MAX.

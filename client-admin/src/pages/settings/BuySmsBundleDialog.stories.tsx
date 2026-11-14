@@ -24,7 +24,7 @@ const created: SmsBundleOrder = {
   validityDays: 180,
   pricePaisa: '180000',
   costPaisaPerSms: null,
-  status: 'PENDING',
+  status: 'PENDING_PAYMENT',
   createdAt: '2026-11-14T00:00:00Z',
   paidAt: null,
   cancelledAt: null,

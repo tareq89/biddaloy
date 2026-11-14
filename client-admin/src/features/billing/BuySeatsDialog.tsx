@@ -79,6 +79,8 @@ export function BuySeatsDialog({
   const [touched, setTouched] = React.useState(false);
   const [key, setKey] = React.useState(() => crypto.randomUUID());
   const [applied, setApplied] = React.useState<AppliedCoupon | null>(null);
+  const appliedCodeRef = React.useRef<string | null>(null);
+  const [previewing, setPreviewing] = React.useState(false);
 
   // A fresh open: new prefill, new key, no stale errors. Keyed on `open` only, so a background
   // refetch changing `initialSeats` never overwrites what the admin is typing.
@@ -96,6 +98,7 @@ export function BuySeatsDialog({
     setMonthsText('1');
     setTouched(false);
     setApplied(null);
+    appliedCodeRef.current = null;
     setKey(crypto.randomUUID());
   }, [open]);
 
@@ -103,6 +106,7 @@ export function BuySeatsDialog({
   React.useEffect(() => {
     if (couponRejected) {
       setApplied(null);
+      appliedCodeRef.current = null;
       setKey(crypto.randomUUID());
     }
   }, [couponRejected]);
@@ -120,7 +124,7 @@ export function BuySeatsDialog({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
-    if (seats === null || months === null) return;
+    if (seats === null || months === null || previewing) return;
     onSubmit({
       seats,
       months,
@@ -223,10 +227,16 @@ export function BuySeatsDialog({
               months={months}
               rejected={couponRejected}
               defaultOpen={openCoupon}
+              onPendingChange={setPreviewing}
               onApplied={(next) => {
                 setApplied(next);
-                // The body changed (code added or dropped): it must not ride on an old key.
-                setKey(crypto.randomUUID());
+                // The body changes only when the submitted code does; a retry of the same body
+                // must keep its key, or a lost response would create a second order.
+                const code = next?.code ?? null;
+                if (code !== appliedCodeRef.current) {
+                  appliedCodeRef.current = code;
+                  setKey(crypto.randomUUID());
+                }
               }}
             />
             <div className="rounded-md bg-muted p-3" aria-live="polite">
@@ -272,7 +282,7 @@ export function BuySeatsDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 {t('buy.cancel')}
               </Button>
-              <Button type="submit" loading={pending ?? false}>
+              <Button type="submit" loading={pending ?? false} disabled={previewing}>
                 {free ? t('coupon.submitFree') : t('buy.submit')}
               </Button>
             </DialogFooter>

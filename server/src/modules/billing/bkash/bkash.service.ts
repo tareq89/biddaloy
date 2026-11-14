@@ -131,7 +131,7 @@ export class BkashService {
   returnUrl(orderId: string, payment: CallbackOutcome, kind: PayableKind = 'SEAT'): string {
     if (kind === 'BUNDLE') {
       // An SMS package order comes back to the SMS page (smsBuy=1 is the contract with the buy UI).
-      return `${resolveAppBaseUrl(this.config)}/settings?section=communication&smsBuy=1&order=${orderId}&payment=${payment}`;
+      return `${resolveAppBaseUrl(this.config)}/settings?section=communication&smsBuy=1&smsOrder=${orderId}&payment=${payment}`;
     }
     return this.billingUrl(`order=${orderId}&payment=${payment}`);
   }
@@ -289,7 +289,7 @@ export class BkashService {
       // the school, then paid anyway): that money needs the orphan row (refund_due alert). A
       // replay after PAID is a no-op in applyCompleted. [#3858]
       const completed = known.transactionStatus === 'Completed';
-      const recorded = completed && (await this.paymentRecorded(known.trxID));
+      const recorded = completed ? await this.paymentRecorded(known.trxID) : null;
       if (completed && !recorded) {
         await this.applyCompleted(known).catch((err) =>
           this.logger.warn(`bKash late payment recorded as orphan: ${errMessage(err)}`),
@@ -297,7 +297,7 @@ export class BkashService {
       }
       // Only a replay of the payment that paid the order (or a payment bKash did not complete) may
       // show the URL's status. Money kept as an orphan never reads as success.
-      if (isLatest && (!completed || recorded)) return { orderId, outcome, kind };
+      if (isLatest && (!completed || recorded === 'applied')) return { orderId, outcome, kind };
       return { orderId, outcome: outcome === 'cancel' ? 'cancel' : 'failure', kind };
     }
     if (outcome === 'success') {
@@ -312,14 +312,19 @@ export class BkashService {
     return { orderId, outcome: outcome === 'success' ? 'failure' : outcome, kind };
   }
 
-  /** True when this bKash trxID already has a platform_payments row (a replay of a settled payment). */
-  private async paymentRecorded(trxID: string | undefined): Promise<boolean> {
-    if (!trxID) return false;
+  /**
+   * Whether this bKash trxID already has a platform_payments row: `applied` to an order (a replay
+   * of a settled payment), `orphan` (money kept with no order), or null.
+   */
+  private async paymentRecorded(trxID: string | undefined): Promise<'applied' | 'orphan' | null> {
+    if (!trxID) return null;
     const rows = await this.dataSource.query(
-      `SELECT 1 FROM platform_payments WHERE method = $1 AND gateway_ref = $2 LIMIT 1`,
+      `SELECT (raw->>'orphan') = 'true' AS orphan FROM platform_payments
+        WHERE method = $1 AND gateway_ref = $2 LIMIT 1`,
       [PlatformPaymentMethod.BKASH, trxID],
     );
-    return rows.length > 0;
+    if (rows.length === 0) return null;
+    return rows[0].orphan ? 'orphan' : 'applied';
   }
 
   /**

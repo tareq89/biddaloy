@@ -68,7 +68,7 @@ export function SmsCreditSection({
     return () => window.clearTimeout(id);
   }, [smsOrder]);
   const settled = creditsQuery.data?.orders.some(
-    (o) => o.id === smsOrder && o.status !== 'PENDING',
+    (o) => o.id === smsOrder && o.status !== 'PENDING_PAYMENT',
   );
   const { refetch } = creditsQuery;
   const polling =

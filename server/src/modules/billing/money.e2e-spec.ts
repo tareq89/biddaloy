@@ -12,6 +12,8 @@ import { StepUpService } from '../auth/step-up.service';
 import { PlatformHomeService } from '../platform-identity/platform-home.service';
 import { BkashClient, paisaToBdt } from './bkash/bkash.client';
 import { PAYMENT_KEY } from './bkash/bkash.service';
+import { CouponRedemptionService } from '../coupons/coupon-redemption.service';
+import { OrdersService } from './orders.service';
 import { mintCockpitToken, removeCockpitOwners } from '@test/helpers/cockpit-token.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
@@ -33,10 +35,22 @@ describe('cockpit money E2E (#3875)', () => {
   let redis: Redis;
   let ownerToken: string;
   const completed = new Map<string, Record<string, unknown>>();
+  let gatewayConfigured = false;
   const bkash = {
     query: vi.fn(async (id: string) => completed.get(id)),
     execute: vi.fn(),
-    isConfigured: () => false,
+    create: vi.fn(),
+    isConfigured: () => gatewayConfigured,
+  };
+  /** A latch: each caller waits at `hold()` until `parties` callers have arrived. */
+  const latch = (parties = 2) => {
+    let arrived = 0;
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    return async () => {
+      if (++arrived >= parties) open();
+      await gate;
+    };
   };
 
   const school = (n: string) => ({
@@ -165,10 +179,25 @@ describe('cockpit money E2E (#3875)', () => {
   it('the last use of a coupon goes to one of two racing schools; the other gets the one fixed refusal', async () => {
     const c = code('LAST');
     const couponId = await newCoupon(c, 10, 1);
-    const [a, b] = await Promise.all([
-      createOrder(A, { coupon_code: c }),
-      createOrder(B, { coupon_code: c }),
-    ]);
+    // Both orders stop at the redemption step until both have arrived: a real overlap, not luck.
+    const redemption = app.get(CouponRedemptionService);
+    const original = redemption.redeemInTx.bind(redemption);
+    const hold = latch();
+    const spy = vi.spyOn(redemption, 'redeemInTx').mockImplementation(async (...args) => {
+      await hold();
+      return original(...args);
+    });
+    let a: supertest.Response;
+    let b: supertest.Response;
+    try {
+      [a, b] = await Promise.all([
+        createOrder(A, { coupon_code: c }),
+        createOrder(B, { coupon_code: c }),
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(spy).toHaveBeenCalledTimes(2);
     expect([a.status, b.status].sort()).toEqual([201, 400]);
     const loser = a.status === 400 ? a : b;
     expect(JSON.stringify(loser.body)).not.toContain(c);
@@ -237,7 +266,22 @@ describe('cockpit money E2E (#3875)', () => {
 
     const cb = () =>
       http().get(`${API}/billing/bkash/callback?paymentID=${paymentID}&status=success`);
-    const [first, second] = await Promise.all([cb(), cb()]);
+    // Both callbacks stop at the payment write until both have arrived.
+    const orders = app.get(OrdersService);
+    const originalPay = orders.markPaid.bind(orders);
+    const hold = latch();
+    const spy = vi.spyOn(orders, 'markPaid').mockImplementation(async (...args) => {
+      await hold();
+      return originalPay(...args);
+    });
+    let first: supertest.Response;
+    let second: supertest.Response;
+    try {
+      [first, second] = await Promise.all([cb(), cb()]);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(spy).toHaveBeenCalledTimes(2);
     for (const r of [first, second]) {
       expect(r.status).toBe(302);
       expect(r.headers.location).toContain('payment=success');
@@ -313,19 +357,36 @@ describe('cockpit money E2E (#3875)', () => {
 
   it('a school token reaches no money route of another school', async () => {
     const mine = await createOrder(A, {}).expect(201);
-    const refused = (r: { status: number }) =>
-      // 503 is the unconfigured gateway answering before it looks at the order: nothing started.
-      expect([400, 401, 403, 404, 503]).toContain(r.status);
+    const refused = (r: { status: number }) => expect([400, 401, 403, 404]).toContain(r.status);
     const asB = (r: supertest.Test) =>
       r.set('Authorization', `Bearer ${B.token}`).set('X-Tenant-ID', B.id);
     // B's own header, A's order.
     await asB(http().get(`${API}/billing/orders/${mine.body.id}/receipt`)).expect(refused);
-    await asB(http().post(`${API}/billing/orders/${mine.body.id}/pay/bkash`)).expect(refused);
+    // The gateway is on, so the 404 below is the ownership check, not "gateway unavailable".
+    gatewayConfigured = true;
+    bkash.create.mockClear();
+    try {
+      await asB(http().post(`${API}/billing/orders/${mine.body.id}/pay/bkash`)).expect(404);
+      expect(bkash.create).not.toHaveBeenCalled();
+      expect(bkash.execute).not.toHaveBeenCalled();
+    } finally {
+      gatewayConfigured = false;
+    }
     // B's token with A's header: not a member.
     await http()
       .get(`${API}/billing/orders`)
       .set('Authorization', `Bearer ${B.token}`)
       .set('X-Tenant-ID', A.id)
+      .expect(refused);
+    // No tenant header, and a header that is not a school id.
+    await http()
+      .get(`${API}/billing/orders`)
+      .set('Authorization', `Bearer ${B.token}`)
+      .expect(refused);
+    await http()
+      .get(`${API}/billing/orders`)
+      .set('Authorization', `Bearer ${B.token}`)
+      .set('X-Tenant-ID', 'not-a-uuid')
       .expect(refused);
     const list = await asB(http().get(`${API}/billing/orders`)).expect(200);
     expect(JSON.stringify(list.body)).not.toContain(mine.body.id);

@@ -35,7 +35,7 @@ describe('sms-bundles queries', () => {
     const { result } = renderHookWithProviders(() => useSmsBundleOrders(3, 500), opts);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(new URLSearchParams(seen).get('limit')).toBe('100');
-    expect(new URLSearchParams(seen).get('offset')).toBe('1000');
+    expect(new URLSearchParams(seen).get('offset')).toBe('200'); // page 3 starts after 2 full pages of 100
   });
 
   it('maps a server error onto isError', async () => {
@@ -82,6 +82,27 @@ describe('useCreateSmsBundleOrder', () => {
     act(() => result.current.mutate({ package_id: PKG }));
     await waitFor(() => expect(keys).toHaveLength(3));
     expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it('keeps a separate key per package in one mount', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/sms-bundles/orders', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json(apiErrorBody(500, 'Boom', '/api/v1/sms-bundles/orders'), {
+          status: 500,
+        });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useCreateSmsBundleOrder(), opts);
+    for (const id of [PKG, 'other-package', PKG]) {
+      act(() => result.current.mutate({ package_id: id }));
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      act(() => result.current.reset());
+    }
+    expect(keys).toHaveLength(3);
+    expect(keys[1]).not.toBe(keys[0]);
+    expect(keys[2]).toBe(keys[0]);
   });
 
   it('a reopened dialog (new mount) gets a new key', async () => {

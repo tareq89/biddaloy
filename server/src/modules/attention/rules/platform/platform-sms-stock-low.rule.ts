@@ -1,6 +1,6 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta } from '@biddaloy/shared';
+import { AlertSeverity, alertRuleMeta } from '@biddaloy/shared';
 import { ProviderBalanceReader } from '../../../sms-bundles/stock/provider-balance.reader';
 import { SmsAllocationService } from '../../../sms-bundles/stock/sms-allocation.service';
 import { AttentionRule } from '../attention-rule.decorator';
@@ -18,13 +18,21 @@ export class PlatformSmsStockLowRule implements AttentionRuleShape {
     en: {
       title: 'SMS stock is running low',
       why: 'The provider has {stock} SMS and schools hold {promised} unused. Top up before they run out.',
-      steps: ['Open Money › SMS.', 'Buy more SMS from the provider and enter the new balance.'],
+      steps: [
+        'Open Money › SMS.',
+        'Check the stock figure is current. If it is over a week old, refresh it first.',
+        'If stock is really low, buy more SMS from the provider and enter the new balance.',
+      ],
       action: 'Open SMS stock',
     },
     bn: {
       title: 'এসএমএস মজুত কমে আসছে',
       why: 'প্রোভাইডারের কাছে {stock}টি এসএমএস আছে, আর স্কুলগুলোর কাছে {promised}টি অব্যবহৃত। শেষ হওয়ার আগে কিনে নিন।',
-      steps: ['টাকা › এসএমএস খুলুন।', 'প্রোভাইডার থেকে আরও এসএমএস কিনে নতুন ব্যালেন্স লিখুন।'],
+      steps: [
+        'টাকা › এসএমএস খুলুন।',
+        'মজুতের সংখ্যাটি হালনাগাদ কি না দেখুন। এক সপ্তাহের পুরনো হলে আগে নতুন করে লিখুন।',
+        'মজুত সত্যিই কম হলে প্রোভাইডার থেকে আরও এসএমএস কিনে নতুন ব্যালেন্স লিখুন।',
+      ],
       action: 'এসএমএস মজুত খুলুন',
     },
   };
@@ -49,6 +57,8 @@ export class PlatformSmsStockLowRule implements AttentionRuleShape {
     return [
       {
         dedupeKey: 'platform:sms-stock',
+        // Amber notice; the catalogue row stays REMINDER for the digest.
+        severity: AlertSeverity.WARNING,
         params: { stock: balance.sms ?? 0, promised },
         actionUrl: '/platform/money/sms',
         recipients,

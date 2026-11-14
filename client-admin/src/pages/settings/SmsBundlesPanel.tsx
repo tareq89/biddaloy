@@ -105,7 +105,7 @@ export function SmsBundlesPanel({
     if (payment === 'error' && !returnOrder) return 'error';
     if (
       returnOrder &&
-      (returnOrder.status !== 'PENDING' || payment === 'cancel' || payment === 'failure')
+      (returnOrder.status !== 'PENDING_PAYMENT' || payment === 'cancel' || payment === 'failure')
     )
       return 'failed';
     return pollTimedOut ? 'slow' : 'pending';

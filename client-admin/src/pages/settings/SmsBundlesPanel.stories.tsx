@@ -82,7 +82,7 @@ export const ReturnConfirming: Story = {
           name: 'Medium',
           sms_count: 2000,
           price_paisa: 180000,
-          status: 'PENDING',
+          status: 'PENDING_PAYMENT',
           paid_at: null,
           receipt_available: false,
         },

@@ -28,6 +28,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency, formatNumber } from '@biddaloy/ui/utils';
+import * as React from 'react';
 
 import { payClosedOrder } from '../../features/billing/BuySeatsFlow';
 
@@ -105,7 +106,7 @@ export function BuySmsBundleDialog({
             {packages.length > 1 && (
               <div className="grid gap-1.5">
                 <Label htmlFor="buy-sms-package">{t('buy.package')}</Label>
-                <Select value={selected.id} onValueChange={onSelect}>
+                <Select value={selected.id} onValueChange={onSelect} disabled={pending}>
                   <SelectTrigger id="buy-sms-package">
                     <SelectValue />
                   </SelectTrigger>
@@ -155,13 +156,18 @@ export function BuySmsBundleFlow(
 ) {
   const create = useCreateSmsBundleOrder();
   const pay = usePaySmsBundleWithBkash();
+  // The create step's error is wiped by reset(); keep a visible sentence for a closed order.
+  const [closed, setClosed] = React.useState(false);
 
   function payOrder(orderId: string) {
     pay.mutate(orderId, {
       onSuccess: (r) => window.location.assign(r.bkash_url),
       // A closed order: back to the form, where the next Buy makes a new one.
       onError: (err) => {
-        if (payClosedOrder(err)) create.reset();
+        if (payClosedOrder(err)) {
+          create.reset();
+          setClosed(true);
+        }
       },
     });
   }
@@ -173,17 +179,19 @@ export function BuySmsBundleFlow(
         if (!open) {
           create.reset();
           pay.reset();
+          setClosed(false);
         }
         props.onOpenChange(open);
       }}
       pending={create.isPending}
-      failure={failureOf(create.error)}
+      failure={failureOf(create.error) ?? (closed ? 'other' : undefined)}
       created={create.data}
       paying={pay.isPending || pay.isSuccess}
       payFailed={pay.isError}
       onPay={payOrder}
       onSubmit={() => {
         pay.reset();
+        setClosed(false);
         create.mutate(
           { package_id: props.selected.id },
           { onSuccess: (order) => payOrder(order.id) },

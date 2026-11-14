@@ -2,11 +2,11 @@ import '@biddaloy/ui/test';
 
 import { SeatOrderStatus } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
 
 import { summaryFree } from './billing-fixtures';
 import { BuySeatsDialog } from './BuySeatsDialog';
@@ -142,6 +142,40 @@ describe('BuySeatsDialog coupon', () => {
     const onSubmit = setup();
     await userEvent.click(await screen.findByRole('button', { name: 'Create order' }));
     expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('coupon_code');
+  });
+
+  it('cannot submit while the coupon preview is pending', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    server.use(
+      http.post('/api/v1/billing/orders/preview', async () => {
+        await gate;
+        return HttpResponse.json({
+          listAmountPaisa: 1,
+          discountPaisa: 0,
+          totalPaisa: 1,
+          free: false,
+        });
+      }),
+    );
+    const onSubmit = setup();
+    await applyCode('HALF');
+    const submit = await screen.findByRole('button', { name: 'Create order' });
+    await vi.waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(true));
+    await userEvent.click(submit);
+    expect(onSubmit).not.toHaveBeenCalled();
+    release();
+    await vi.waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it('keeps the idempotency key when only an unapplied code is typed', async () => {
+    const onSubmit = setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'Create order' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Have a coupon?' }));
+    await userEvent.type(screen.getByLabelText('Coupon code'), 'ZZ');
+    await userEvent.click(screen.getByRole('button', { name: 'Create order' }));
+    const [a, b] = onSubmit.mock.calls.map((x) => x[0].idempotency_key);
+    expect(b).toBe(a);
   });
 
   it('a free result renames the button to "Get seats free"', async () => {

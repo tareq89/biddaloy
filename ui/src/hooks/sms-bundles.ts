@@ -56,13 +56,15 @@ export function useSmsBundleCatalog() {
 
 /** `GET /sms-bundles/orders` — newest first. The server pages by `offset`; `page` is 1-based. */
 export function useSmsBundleOrders(page = 1, limit = 20) {
+  // One effective limit for both params, so each page starts where the last one ended.
+  const pageSize = Math.min(limit, 100);
   return useQuery(
     queryOptions({
       queryKey: smsBundleKeys.list({ page, limit }),
       queryFn: async ({ signal }) =>
         (
           await apiClient.get<SmsBundleOrder[]>('/sms-bundles/orders', {
-            params: { limit: Math.min(limit, 100), offset: (page - 1) * limit },
+            params: { limit: pageSize, offset: (page - 1) * pageSize },
             signal,
           })
         ).data,
@@ -81,25 +83,29 @@ function useInvalidateBundles() {
 }
 
 /**
- * `POST /sms-bundles/orders` — a PENDING order. The `Idempotency-Key` is made once per mount (one
- * dialog open) and reused for every retry; it rotates after a success so reopening starts fresh.
+ * `POST /sms-bundles/orders` — a PENDING order. The `Idempotency-Key` is made once per package (per mount) and reused for every retry; it rotates after a success so reopening starts fresh.
  */
 export function useCreateSmsBundleOrder() {
   const invalidate = useInvalidateBundles();
-  const key = React.useRef<string | undefined>(undefined);
+  // One key per package: a retry of the same package reuses it, another package never rides it.
+  const keys = React.useRef(new Map<string, string>());
   return useMutation({
     mutationFn: async (input: { package_id: string }) => {
-      key.current ??= crypto.randomUUID();
+      let key = keys.current.get(input.package_id);
+      if (key === undefined) {
+        key = crypto.randomUUID();
+        keys.current.set(input.package_id, key);
+      }
       const res = await apiClient.post<SmsBundleOrder>(
         '/sms-bundles/orders',
-        { ...input, idempotency_key: key.current },
-        { headers: { 'Idempotency-Key': key.current } },
+        { ...input, idempotency_key: key },
+        { headers: { 'Idempotency-Key': key } },
       );
       return res.data;
     },
     retry: false,
     onSuccess: () => {
-      key.current = undefined;
+      keys.current.clear();
       invalidate();
     },
   });

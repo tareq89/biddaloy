@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, AlertSeverity, UserRole } from '@biddaloy/shared';
 import type { RuleContext } from '../rule.types';
 import { PlatformSmsOversoldRule } from './platform-sms-oversold.rule';
 import { PlatformSmsStockLowRule } from './platform-sms-stock-low.rule';
@@ -40,25 +40,46 @@ const make = (
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 describe('platform SMS rules', () => {
-  for (const key of ['low', 'oversold'] as const) {
-    it(`${key}: catalogue meta, matching bn/en placeholders, at most 3 steps`, () => {
-      const rule = make({ sms: 1 }, 0)[key];
-      expect(rule.meta).toEqual(
-        alertRuleMeta(key === 'low' ? 'platform.sms.stock_low' : 'platform.sms.oversold'),
-      );
-      const { en, bn } = rule.messages;
-      expect(placeholders(en.title + en.why)).toEqual(placeholders(bn.title + bn.why));
-      expect(en.steps.length).toBeLessThanOrEqual(3);
-    });
-    it(`${key}: another school or no platform school gets nothing, with no query`, async () => {
-      const a = make({ sms: 0 }, 99);
-      expect(await a[key].evaluate(ctx('school-a'))).toEqual([]);
-      const b = make({ sms: 0 }, 99, null);
-      expect(await b[key].evaluate(ctx())).toEqual([]);
-      expect(a.d.query).not.toHaveBeenCalled();
-      expect(b.d.query).not.toHaveBeenCalled();
-    });
-  }
+  it('stock_low: catalogue meta, matching bn/en placeholders, at most 3 steps', () => {
+    const rule = make({ sms: 1 }, 0).low;
+    expect(rule.meta).toEqual(alertRuleMeta('platform.sms.stock_low'));
+    const { en, bn } = rule.messages;
+    expect(placeholders(en.title + en.why)).toEqual(placeholders(bn.title + bn.why));
+    expect(en.steps.length).toBeLessThanOrEqual(3);
+    expect(bn.steps.length).toBe(en.steps.length);
+  });
+  it('oversold: catalogue meta, matching bn/en placeholders, at most 3 steps', () => {
+    const rule = make({ sms: 1 }, 0).oversold;
+    expect(rule.meta).toEqual(alertRuleMeta('platform.sms.oversold'));
+    const { en, bn } = rule.messages;
+    expect(placeholders(en.title + en.why)).toEqual(placeholders(bn.title + bn.why));
+    expect(en.steps.length).toBeLessThanOrEqual(3);
+  });
+  it('stock_low: another school or no platform school gets nothing, with no query', async () => {
+    const a = make({ sms: 0 }, 99);
+    expect(await a.low.evaluate(ctx('school-a'))).toEqual([]);
+    const b = make({ sms: 0 }, 99, null);
+    expect(await b.low.evaluate(ctx())).toEqual([]);
+    expect(a.d.query).not.toHaveBeenCalled();
+    expect(b.d.query).not.toHaveBeenCalled();
+  });
+  it('oversold: another school or no platform school gets nothing, with no query', async () => {
+    const a = make({ sms: 0 }, 99);
+    expect(await a.oversold.evaluate(ctx('school-a'))).toEqual([]);
+    const b = make({ sms: 0 }, 99, null);
+    expect(await b.oversold.evaluate(ctx())).toEqual([]);
+    expect(a.d.query).not.toHaveBeenCalled();
+    expect(b.d.query).not.toHaveBeenCalled();
+  });
+  it('stock_low: emits the amber WARNING severity, not the catalogue REMINDER', async () => {
+    const [f] = await make({ sms: 1000 }, 950).low.evaluate(ctx());
+    expect(f.severity).toBe(AlertSeverity.WARNING);
+  });
+  it('stock_low: a stale figure tells the owner to refresh before buying', async () => {
+    const { en, bn } = make({ sms: 5000, stale: true }, 10).low.messages;
+    expect(en.steps.join(' ')).toMatch(/refresh/i);
+    expect(bn.steps).toHaveLength(en.steps.length);
+  });
 
   it('stock_low: fires below promised + 10%, not at it', async () => {
     const [f] = await make({ sms: 1000 }, 950).low.evaluate(ctx());
