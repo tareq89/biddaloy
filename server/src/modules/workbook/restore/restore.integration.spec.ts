@@ -715,7 +715,8 @@ describe('RestoreProcessor (integration)', () => {
 
   // D13 on the real money/marks tabs: export a seeded tenant, edit the
   // workbook like an admin would in Excel, and restore it back.
-  describe('money and marks are insert-only (D13, real tabs)', () => {
+  // [#2504] Each test seeds a tenant, exports a full workbook and restores it: ~4.6 s of real work.
+  describe('money and marks are insert-only (D13, real tabs)', { timeout: 30_000 }, () => {
     let exporter: ExportProcessor;
     const em = () => dataSource.manager;
 
