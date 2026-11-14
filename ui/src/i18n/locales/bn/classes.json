@@ -73,7 +73,7 @@
     "close": "বন্ধ করুন",
     "blockedStudents": "এই শ্রেণিতে এখনও $t(common:entities.student_one) আছে। আগে তাদের অন্য শ্রেণিতে সরান।",
     "blockedEnrollments": "এই শ্রেণিতে ভর্তির ইতিহাস আছে, তাই এটি মুছে ফেলা যাবে না।",
-    "blockedSections": "এই শ্রেণিতে এখনও $t(common:entities.section_one) আছে। আগে শাখাগুলো মুছুন।",
+    "blockedSections": "এই শ্রেণিতে এখনও $t(common:entities.section_one) আছে। আগে $t(common:entities.section_other) মুছুন।",
     "blockedKinds": "এই $t(common:entities.class_one) এখনও {{kinds}} এ ব্যবহৃত হচ্ছে। আগে সেগুলো সরান বা স্থানান্তর করুন।",
     "kinds": {
       "exams": "পরীক্ষা",

@@ -76,20 +76,21 @@ describe('PrintTemplatesService (integration)', () => {
   });
 
   it('creates from a suggestion, edits the draft, publishes twice and keeps v1 unchanged', async () => {
+    const countAssets = async () =>
+      (
+        await ds.query(`SELECT count(*)::int AS n FROM print_assets WHERE tenant_id = $1`, [
+          tenantA,
+        ])
+      )[0].n as number;
+    const assetsBefore = await countAssets();
     const created = await service.create(tenantA, SEED_ADMIN_USER_ID, {
       name: 'Student card',
       suggestion_key: suggestion.key,
     });
     // Two artwork sides were stored and recorded as assets; the first template of a kind is the default.
     expect(put).toHaveBeenCalledTimes(2);
-    const assets = await ds.query(
-      `SELECT asset_kind, content_type FROM print_assets WHERE tenant_id = $1`,
-      [tenantA],
-    );
-    expect(assets).toEqual([
-      { asset_kind: 'ARTWORK', content_type: 'image/svg+xml' },
-      { asset_kind: 'ARTWORK', content_type: 'image/svg+xml' },
-    ]);
+    // Earlier tests also store assets for tenantA, so count only the rows this test adds.
+    expect((await countAssets()) - assetsBefore).toBe(2);
     expect(created.is_default).toBe(true);
     expect(created.current_version_id).toBeNull();
 

@@ -72,8 +72,8 @@
   },
   "rowError": {
     "ROLL_NOT_IN_SECTION": "এই রোলটি {{section}}-এ নেই — রোল দেখে নিন।",
-    "SECTION_NOT_FOUND": "এই $t(common:entities.section_one) পাওয়া যায়নি — শাখার নাম দেখে নিন।",
-    "NOT_ALLOWED_SECTION": "এই শাখার হাজিরা নেওয়ার অনুমতি আপনার নেই।",
+    "SECTION_NOT_FOUND": "এই $t(common:entities.section_one) পাওয়া যায়নি — $t(common:entities.section_one)-এর নাম দেখে নিন।",
+    "NOT_ALLOWED_SECTION": "এই $t(common:entities.section_one)-এর হাজিরা নেওয়ার অনুমতি আপনার নেই।",
     "DATE_OUTSIDE_YEAR": "তারিখটি শিক্ষাবর্ষের বাইরে — তারিখ দেখে নিন।",
     "NON_WORKING_DAY": "এই তারিখে স্কুল বন্ধ — কাজের দিন বেছে নিন।",
     "FUTURE_DATE": "এই তারিখ এখনো আসেনি — শুধু আজ আর আগের তারিখ পূরণ করা যায়।",

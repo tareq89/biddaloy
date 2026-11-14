@@ -180,11 +180,25 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     };
   }
 
+  // [Epic 77, D10] moduleRefusal: an off module's route answers 403 with a fixed sentence.
+  // Sentence pinned: MODULE_OFF_MESSAGE in server/src/common/filters/known-errors.ts.
+  if (!env.SMOKE_MODULE_OFF_PATH) {
+    out('moduleRefusal: skipped: SMOKE_MODULE_OFF_PATH not set');
+  } else {
+    await check('GET', env.SMOKE_MODULE_OFF_PATH, 'moduleRefusal', {
+      headers: sessions.admin,
+      expect: 403,
+      ok: (b) => b.message === 'This part is not turned on for your institution',
+    });
+  }
+
   const reads = [
     ['/api/v1/students?limit=1', 'teacher'],
     ['/api/v1/fees/dues?limit=1', 'admin'],
   ];
   for (const [path, who] of reads) {
+    // The module under test is off on purpose: its baseline read would 403 by design.
+    if (env.SMOKE_MODULE_OFF_PATH && path.startsWith(env.SMOKE_MODULE_OFF_PATH)) continue;
     if ((await check('GET', path, who, { headers: sessions[who] })) === null) return done();
   }
 
@@ -323,18 +337,6 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     await fence('alerts on app host', 'GET', app, '/api/v1/platform/alerts', refused);
     await fence('cockpit login on app host', 'POST', app, '/api/v1/auth/cockpit/login', refused);
     await fence('cockpit shell', 'GET', cockpit, '/', (s) => s === 200);
-  }
-
-  // [Epic 77, D10] moduleRefusal: an off module's route answers 403 with a fixed sentence.
-  // Sentence pinned: MODULE_OFF_MESSAGE in server/src/common/filters/known-errors.ts.
-  if (!env.SMOKE_MODULE_OFF_PATH) {
-    out('moduleRefusal: skipped: SMOKE_MODULE_OFF_PATH not set');
-  } else {
-    await check('GET', env.SMOKE_MODULE_OFF_PATH, 'moduleRefusal', {
-      headers: sessions.admin,
-      expect: 403,
-      ok: (b) => b.message === 'This part is not turned on for your institution',
-    });
   }
 
   // [Epic 99, D19/D32] Login as fence: a bogus code never mints a token; the start route is closed.

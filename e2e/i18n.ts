@@ -349,7 +349,7 @@ export type Locale = keyof typeof catalogs;
 export const DEFAULT_LOCALE: Locale = 'bn';
 
 export function makeT(locale: Locale = DEFAULT_LOCALE) {
-  return function t(key: string, params?: Record<string, string | number>): string {
+  return function translate(key: string, params?: Record<string, string | number>): string {
     const [namespace, ...path] = key.split('.');
     let node: unknown = catalogs[locale][namespace as keyof (typeof catalogs)['bn']];
     for (const segment of path) {
@@ -359,10 +359,12 @@ export function makeT(locale: Locale = DEFAULT_LOCALE) {
     if (typeof node !== 'string') {
       throw new Error(`i18n key not found for locale "${locale}": ${key}`);
     }
-    // Resolve i18next nesting `$t(ns:path)` the way the app does, so e.g. an entity word inside a label matches the UI.
-    const resolved = node.replace(/\$t\(([\w]+):([\w.]+)\)/g, (_m, ns: string, path: string) => t(`${ns}.${path}`));
-    if (!params) return resolved;
-    return resolved.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
+    // Expand i18next nesting, `$t(ns:path.to.key)`, like the app's i18n layer does.
+    node = node.replace(/\$t\(([\w-]+):([\w.]+)\)/g, (_m, ns: string, p: string) =>
+      translate(`${ns}.${p}`, params),
+    );
+    if (!params) return node as string;
+    return (node as string).replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
       if (!(name in params)) return match;
       const v = params[name];
       // Mirrors the app's numeral formatter: numbers follow the locale's digits, strings stay.

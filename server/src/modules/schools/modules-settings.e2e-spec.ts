@@ -17,6 +17,8 @@ import {
 
 const API = '/api/v1';
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000000c7701';
+// Real school the caller has NO membership in.
+const STRANGER_TENANT_ID = '00000000-0000-4000-8000-0000000c7702';
 const DENIED_ROLES = [UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.PARENT];
 
 /** [77.1.02] `settings.modules` / `settings.labels` through `PATCH/GET /schools/:id/settings`. */
@@ -24,6 +26,7 @@ describe('Modules and labels settings (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  let seedAttention: unknown;
 
   const TENANT_ID = SEED_TENANT_ID;
   const settingsUrl = (id: string) => `${API}/schools/${id}/settings`;
@@ -49,7 +52,7 @@ describe('Modules and labels settings (e2e)', () => {
   const clearStored = () =>
     dataSource.query(
       `UPDATE schools SET settings = settings - 'modules' - 'labels' WHERE id = ANY($1)`,
-      [[TENANT_ID, OTHER_TENANT_ID]],
+      [[TENANT_ID, OTHER_TENANT_ID, STRANGER_TENANT_ID]],
     );
   const auditRows = (action: string) =>
     dataSource.query(
@@ -68,6 +71,18 @@ describe('Modules and labels settings (e2e)', () => {
     await app.init();
     dataSource = app.get(DataSource);
 
+    // The mixed-patch test writes `attention` on the seed school: remember it to put it back.
+    seedAttention = (
+      await dataSource.query(`SELECT settings->'attention' AS a FROM schools WHERE id = $1`, [
+        TENANT_ID,
+      ])
+    )[0]?.a;
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Stranger Modules School', 'stranger-modules-school', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [STRANGER_TENANT_ID],
+    );
     await dataSource.query(
       `INSERT INTO schools (id, name, slug, created_at, updated_at)
        VALUES ($1, 'Other Modules School', 'other-modules-school', NOW(), NOW())
@@ -97,6 +112,13 @@ describe('Modules and labels settings (e2e)', () => {
 
   afterAll(async () => {
     await clearStored();
+    await dataSource.query(
+      seedAttention == null
+        ? `UPDATE schools SET settings = settings - 'attention' WHERE id = $1`
+        : `UPDATE schools SET settings = jsonb_set(settings, '{attention}', $2::jsonb) WHERE id = $1`,
+      seedAttention == null ? [TENANT_ID] : [TENANT_ID, JSON.stringify(seedAttention)],
+    );
+    await dataSource.query(`DELETE FROM schools WHERE id = $1`, [STRANGER_TENANT_ID]);
     await dataSource.query(
       `DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = ANY($3)`,
       [SEED_ADMIN_USER_ID, TENANT_ID, DENIED_ROLES],
@@ -212,5 +234,15 @@ describe('Modules and labels settings (e2e)', () => {
     const other = (await get(OTHER_TENANT_ID).expect(200)).body;
     expect(other.modules).toEqual({});
     expect(other.labels).toEqual({});
+  });
+
+  it('refuses a non-member: matching path and header on a school the caller does not belong to', async () => {
+    await patch({ modules: { homework: { on: false } } }, { tenant: STRANGER_TENANT_ID }).expect(
+      403,
+    );
+    const [row] = await dataSource.query(`SELECT settings FROM schools WHERE id = $1`, [
+      STRANGER_TENANT_ID,
+    ]);
+    expect(row.settings?.modules).toBeUndefined();
   });
 });

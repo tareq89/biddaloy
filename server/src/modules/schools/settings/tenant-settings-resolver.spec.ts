@@ -594,3 +594,12 @@ describe('resolveTenantSettings supportAccess [99.1.04]', () => {
     expect(out.supportAccess?.mode).toBe('allowed');
   });
 });
+
+describe('mergeModulesLabels', () => {
+  it('a null patch removes a school entry but keeps a platform lock', () => {
+    const stored = { fees: { on: false, lock: 'off' }, library: { on: false } };
+    expect(mergeModulesLabels(stored, { fees: null, library: null })).toEqual({
+      fees: { lock: 'off' },
+    });
+  });
+});

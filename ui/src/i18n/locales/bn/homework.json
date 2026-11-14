@@ -126,7 +126,7 @@
     "sectionWhat": "১. কী কাজ",
     "sectionWhatHint": "$t(common:entities.class_one) আর বিষয় বেছে নিয়ে কাজটি লিখুন।",
     "sectionWho": "২. কাকে, কবে",
-    "sectionWhoHint": "পুরো শাখাকে বা একজন শিক্ষার্থীকে দিন।",
+    "sectionWhoHint": "পুরো $t(common:entities.section_one)কে বা একজন $t(common:entities.student_one)কে দিন।",
     "gradingModeHelp": {
       "TICK": "প্রত্যেক শিক্ষার্থীর পাশে শুধু সম্পন্ন বা অসম্পন্ন চিহ্ন দেবেন।",
       "PARTIAL": "প্রত্যেক শিক্ষার্থীর জন্য অসম্পন্ন, আংশিক বা সম্পন্ন বেছে নেবেন।",

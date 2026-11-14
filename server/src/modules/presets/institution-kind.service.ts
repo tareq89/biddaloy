@@ -57,33 +57,36 @@ export class InstitutionKindService {
         labels: Object.fromEntries(changes.labels.map((l) => [l.key, l.to])),
       }),
     };
-    // Writes + MODULES_UPDATED / WORDS_UPDATED audits happen in updateSettings' own transaction.
+    // Settings, their block audits and the kind audit share one transaction (both or neither).
     await this.schools.updateSettings(
       tenantId,
       patch as unknown as TenantSettingsDto,
       userId,
       context,
+      false,
+      (manager) =>
+        this.audit.record(
+          {
+            action: AuditAction.INSTITUTION_KIND_APPLIED,
+            entity_type: 'School',
+            entity_id: tenantId,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: {
+              modules: Object.fromEntries(changes.modules.map((m) => [m.key, { on: m.from }])),
+              labels: Object.fromEntries(changes.labels.map((l) => [l.key, l.from])),
+            },
+            new_values: {
+              kind: kind.id,
+              modules: Object.fromEntries(changes.modules.map((m) => [m.key, { on: m.to }])),
+              labels: Object.fromEntries(changes.labels.map((l) => [l.key, l.to])),
+            },
+          },
+          manager,
+        ),
     );
-    // ponytail: outside that transaction (updateSettings takes no manager); a crash between
-    // the two leaves the block audits but no kind row. Add a manager param if that matters.
-    await this.audit.record({
-      action: AuditAction.INSTITUTION_KIND_APPLIED,
-      entity_type: 'School',
-      entity_id: tenantId,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      ip_address: context.ip,
-      user_agent: context.userAgent,
-      old_values: {
-        modules: Object.fromEntries(changes.modules.map((m) => [m.key, { on: m.from }])),
-        labels: Object.fromEntries(changes.labels.map((l) => [l.key, l.from])),
-      },
-      new_values: {
-        kind: kind.id,
-        modules: Object.fromEntries(changes.modules.map((m) => [m.key, { on: m.to }])),
-        labels: Object.fromEntries(changes.labels.map((l) => [l.key, l.to])),
-      },
-    });
     return changes;
   }
 

@@ -13,7 +13,7 @@
     "statusDraft": "Draft",
     "statusCommitted": "Finalised",
     "subtitle": "Move students up to the next class based on their results.",
-    "columnSourceTarget": "$t(common:entities.class_one) → next class",
+    "columnSourceTarget": "$t(common:entities.class_one) → next $t(common:entities.class_one)",
     "cardSubtitle": "Next academic year {{year}}",
     "view": "View",
     "emptyValue": "—",

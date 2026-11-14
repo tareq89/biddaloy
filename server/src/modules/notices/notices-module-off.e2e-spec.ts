@@ -59,19 +59,23 @@ describe('[77.2.06] notices and website controllers honour the module switch', (
     await app.close();
   });
 
-  for (const { key, url } of [
-    { key: ModuleKey.notices, url: '/api/v1/notices' },
-    { key: ModuleKey.website, url: '/api/v1/website' },
-  ]) {
-    it(`${key}: off -> 403 fixed text for ADMIN, on -> 200`, async () => {
-      await setModules(app, SEED_TENANT_ID, { [key]: { on: false } });
-      const off = await admin(url).expect(403);
-      expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+  it('notices: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.notices]: { on: false } });
+    const off = await admin('/api/v1/notices').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
 
-      await setModules(app, SEED_TENANT_ID, { [key]: null });
-      await admin(url).expect(200);
-    });
-  }
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.notices]: null });
+    await admin('/api/v1/notices').expect(200);
+  });
+
+  it('website: off -> 403 fixed text for ADMIN, on -> 200', async () => {
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.website]: { on: false } });
+    const off = await admin('/api/v1/website').expect(403);
+    expect(off.body.message).toBe(MODULE_OFF_MESSAGE);
+
+    await setModules(app, SEED_TENANT_ID, { [ModuleKey.website]: null });
+    await admin('/api/v1/website').expect(200);
+  });
 
   it('public notice link: notices off -> the one dead-link 404, on -> 200', async () => {
     const [n] = await ds.query(
