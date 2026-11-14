@@ -71,6 +71,8 @@ const TURNSTILE_TEST = [
   'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
 ];
 const MEM_SMALL = ['APP_MEM=768m', 'PG_MEM=1g', 'REDIS_MEM=128m', 'S3_MEM=256m'];
+// [Epic 100] The money smoke is on by default: two public switches, no secrets.
+const SMOKE_MONEY = ['SMOKE_MONEY=1', 'SMOKE_MONEY_STRICT=1'];
 // Test inbox values (Epic 87): the compose profile and a placeholder public URL, no secrets.
 const sinkLines = (stack) => [
   'COMPOSE_PROFILES=sink',
@@ -85,6 +87,7 @@ const EXAMPLE_VALUES_ALLOWED = {
     'PG_MEM=2g',
     'REDIS_MEM=256m',
     'S3_MEM=512m',
+    ...SMOKE_MONEY,
   ],
   staging: [
     'ENV_NAME=staging',
@@ -93,6 +96,7 @@ const EXAMPLE_VALUES_ALLOWED = {
     ...TURNSTILE_TEST,
     ...sinkLines('staging'),
     'SMOKE_INBOX_API_URL=http://staging-mailpit:8025',
+    ...SMOKE_MONEY,
   ],
   demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST, ...sinkLines('demo')],
   edge: ['EDGE_MODE=tunnel'],
