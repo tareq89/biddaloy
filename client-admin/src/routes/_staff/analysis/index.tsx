@@ -53,6 +53,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import './-analysis-print.css';
+import { usePrintPageRule } from '../../../use-print-page-rule';
 
 import { DefaultedTab } from './-defaulted-tab';
 import { MeritTab } from './-merit-tab';
@@ -81,6 +82,7 @@ export const Route = createFileRoute('/_staff/analysis/')({
 });
 
 function AnalysisPage() {
+  usePrintPageRule('margin: 10mm;');
   const { t } = useTranslation('exams');
   const { t: tg } = useTranslation('grading');
   const { t: tNav } = useTranslation('nav');

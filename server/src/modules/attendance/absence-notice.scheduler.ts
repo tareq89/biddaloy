@@ -76,7 +76,7 @@ export class AbsenceNoticeScheduler extends WorkerHost implements OnModuleInit {
   }
 
   async process(): Promise<void> {
-    const tenants = await this.schoolsService.findAll();
+    const tenants = await this.schoolsService.findAllActive();
     for (const tenant of tenants) {
       // A slow or broken tenant must never block the rest of the sweep —
       // same isolation the communications processor gives a failing

@@ -99,6 +99,12 @@ describe('GuardianSmsFallbackService gates', () => {
     expect(query).toHaveBeenCalled();
   });
 
+  it('selects only ACTIVE, non-platform schools (#2430)', async () => {
+    const { service, query } = build();
+    await service.run(new Date());
+    expect(query.mock.calls[0][0]).toMatch(/status = 'ACTIVE' AND is_platform = false/);
+  });
+
   it('one failing school never stops the others', async () => {
     const query = vi
       .fn()

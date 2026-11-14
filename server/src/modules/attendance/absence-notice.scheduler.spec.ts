@@ -38,7 +38,7 @@ describe('AbsenceNoticeScheduler', () => {
       findOne: vi.fn(async () => ({ user_id: 'admin-1', role: UserRole.ADMIN })),
     };
     schoolsService = {
-      findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
+      findAllActive: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
       getResolvedSettings: vi.fn(async () => tenantSettings()),
     };
     schoolCalendarService = { isNonWorkingDay: vi.fn(async () => false) };
@@ -180,7 +180,7 @@ describe('AbsenceNoticeScheduler', () => {
 
   // [77.2.10] D9: attendance off for A -> A skipped (its settings are never even read), B still swept.
   it('skips a school with attendance off and still sweeps the next', async () => {
-    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
     moduleState.forTenant.mockImplementation(async (id: string) => ({
       platform: {},
       school: id === 'A' ? { attendance: { on: false } } : {},
@@ -191,7 +191,7 @@ describe('AbsenceNoticeScheduler', () => {
 
   // Fail closed: unreadable state skips that school and the sweep goes on.
   it('skips a school whose module state cannot be read and still sweeps the next', async () => {
-    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
     moduleState.forTenant.mockImplementation(async (id: string) => {
       if (id === 'A') throw new Error('db down');
       return { platform: {}, school: {} };

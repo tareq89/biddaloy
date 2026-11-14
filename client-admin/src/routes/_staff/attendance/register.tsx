@@ -84,6 +84,7 @@ import {
 import { saveErrorKey, writeReasonKey } from './-write-reason';
 
 import './-register-print.css';
+import { usePrintPageRule } from '../../../use-print-page-rule';
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -142,6 +143,7 @@ function RegisterPage() {
 }
 
 function RegisterPageContent() {
+  usePrintPageRule('size: landscape; margin: 10mm;');
   const { t } = useTranslation('attendance');
   const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useRegionConfig();
