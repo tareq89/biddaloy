@@ -94,6 +94,7 @@ function PlatformLayout() {
   const UsersIcon = PLATFORM_NAV_ICONS['/users'];
   const AuditIcon = PLATFORM_NAV_ICONS['/audit'];
   const AnnouncementsIcon = PLATFORM_NAV_ICONS['/announcements'];
+  const MoneyIcon = PLATFORM_NAV_ICONS['/money'];
   const DashboardIcon = STAFF_NAV_ICONS.dashboard;
 
   const matches = useMatches();
@@ -144,6 +145,12 @@ function PlatformLayout() {
             to: '/announcements',
             label: t('items.platformAnnouncements'),
             icon: <AnnouncementsIcon aria-hidden="true" />,
+          },
+          // [100.5.gI-02] Money is cockpit-host only, like the other owner pages.
+          {
+            to: '/money',
+            label: t('items.money'),
+            icon: <MoneyIcon aria-hidden="true" />,
           },
           {
             to: '/platform-owners',

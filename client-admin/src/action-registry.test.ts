@@ -712,7 +712,7 @@ describe('DEMO_SWITCH_ROLE_ACTION', () => {
 });
 
 describe('PLATFORM_ACTIONS [98.4.07]', () => {
-  it('lists the ten cockpit actions, none of them in the school palette', () => {
+  it('lists the sixteen cockpit actions, none of them in the school palette', () => {
     expect(PLATFORM_ACTIONS.map((a) => a.id)).toEqual([
       'platform-owners.open',
       'platform-owners.lock',
@@ -724,6 +724,12 @@ describe('PLATFORM_ACTIONS [98.4.07]', () => {
       'announcements.new',
       'ops.queues',
       'security.new-recovery-codes',
+      'money.sms-report',
+      'sms-bundle.new',
+      'sms-stock.record',
+      'plans.open',
+      'coupons.new',
+      'orders.refund',
     ]);
     const schoolIds = new Set(ACTIONS.map((a) => a.id));
     for (const a of PLATFORM_ACTIONS) expect(schoolIds.has(a.id), a.id).toBe(false);
@@ -739,7 +745,7 @@ describe('PLATFORM_ACTIONS [98.4.07]', () => {
       a.run({ navigate: (opts) => calls.push(opts.to) });
       expect(calls).toEqual([a.to]);
       expect(a.to).toMatch(
-        /^\/(platform-owners|owner-security|schools|users|announcements|operations)(\?tab=(owners|approvals))?$/,
+        /^\/(platform-owners|owner-security|schools|users|announcements|operations|money|subscriptions)(\/(packages|plans|coupons))?(\?(tab=(owners|approvals)|new=1|record=1))?$/,
       );
     },
   );
