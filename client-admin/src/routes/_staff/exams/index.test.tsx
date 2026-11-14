@@ -217,4 +217,29 @@ describe('/exams', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty('create'));
   });
+
+  it('closes the create dialog when Back drops ?create=1 (#1982)', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/exams'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Exams' });
+    await act(() => router.navigate({ to: '/exams', search: { create: '1' } }));
+    await screen.findByRole('dialog');
+    await act(() => router.history.back());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });

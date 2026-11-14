@@ -108,11 +108,15 @@ function ExamsListPage() {
   const [createOpen, setCreateOpen] = React.useState(search.create === '1');
   const [editing, setEditing] = React.useState<Exam | null>(null);
 
-  // The page can already be mounted when the palette navigates to `?create=1`,
-  // so the flag must open the dialog on every change, not only on first render.
-  React.useEffect(() => {
-    if (search.create === '1') setCreateOpen(true);
-  }, [search.create]);
+  // The page can already be mounted when the palette navigates to `?create=1`, so `open`
+  // follows the flag both ways (Back closes it). A dialog opened with the page's own button
+  // never set the flag, so it is untouched until the flag changes.
+  const flagged = search.create === '1';
+  const [prevFlagged, setPrevFlagged] = React.useState(flagged);
+  if (flagged !== prevFlagged) {
+    setPrevFlagged(flagged);
+    setCreateOpen(flagged);
+  }
 
   // Closing also drops the one-shot params, so a later navigation to the same
   // `?create=1` URL is a real change and re-opens the dialog.
