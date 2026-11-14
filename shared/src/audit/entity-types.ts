@@ -114,6 +114,7 @@ export const AUDIT_ENTITY_TYPES = [
   'StudentWallet',
   'StudyPlan',
   'StudyPlanTemplate',
+  'Subject',
   'SyllabusTopic',
   'TeacherClassSection',
   'Trial',

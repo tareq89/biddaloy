@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { AuditAction } from '@biddaloy/shared';
 import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Subject } from './entities/subject.entity';
@@ -26,6 +27,8 @@ import {
 } from './dto/subjects.dto';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { AuditService } from '../audit/audit.service';
+import { RequestContext } from '../../common/request-context.util';
 import { assertInVocabulary } from '../schools/settings/organisation-vocabulary.util';
 
 export interface PaginatedSubjects {
@@ -48,6 +51,7 @@ export class SubjectService {
     @InjectRepository(AcademicYear)
     private readonly academicYearRepo: Repository<AcademicYear>,
     private readonly settingsReader: SchoolSettingsReader,
+    private readonly auditService: AuditService,
   ) {}
 
   /** [35.1.2] '' -> null; non-null must be in `organisation.groups`; a row
@@ -131,7 +135,12 @@ export class SubjectService {
     return this.findOne(id, tenantId);
   }
 
-  async remove(id: string, tenantId: string): Promise<void> {
+  async remove(
+    id: string,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<void> {
     await this.findOne(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
       // Lock the subject row first — without this, a concurrent
@@ -183,7 +192,27 @@ export class SubjectService {
           details: { code: 'SUBJECT_IN_USE', survey_targets_count, survey_responses_count },
         });
       }
-      await manager.delete(TeacherClassSection, { subject_id: id, tenant_id: tenantId });
+      // [#4045] A closed year is read-only (Rule 28): its offerings would be soft-deleted by the
+      // cascade below. Refuse instead; the offering stays and so does the subject.
+      const closedOfferings = await manager
+        .createQueryBuilder(ClassSubject, 'cs')
+        .innerJoin(
+          AcademicYear,
+          'y',
+          'y.id = cs.academic_year_id AND y.tenant_id = cs.tenant_id AND y.closed_at IS NOT NULL AND y.deleted_at IS NULL',
+        )
+        .where('cs.subject_id = :id AND cs.tenant_id = :tenantId', { id, tenantId })
+        .getCount();
+      if (closedOfferings > 0) {
+        throw new ConflictException({
+          message: 'This subject is offered in a closed academic year. It cannot be removed.',
+          details: { code: 'SUBJECT_IN_USE', closed_year_offerings_count: closedOfferings },
+        });
+      }
+      const removedAssignments = await manager.delete(TeacherClassSection, {
+        subject_id: id,
+        tenant_id: tenantId,
+      });
       const offerings = await manager.find(ClassSubject, {
         where: { subject_id: id, tenant_id: tenantId },
         select: { id: true },
@@ -196,6 +225,24 @@ export class SubjectService {
       }
       await manager.softDelete(ClassSubject, { subject_id: id, tenant_id: tenantId });
       await manager.softDelete(Subject, { id, tenant_id: tenantId });
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'Subject',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: {
+            name_en: locked.name_en,
+            code: locked.code,
+            teacher_assignments_removed: removedAssignments.affected ?? 0,
+          },
+          new_values: null,
+        },
+        manager,
+      );
     });
   }
 

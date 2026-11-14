@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SubjectService } from './subjects.service';
+import { AuditService } from '../audit/audit.service';
 import { Subject } from './entities/subject.entity';
 import { ClassSubject } from './entities/class-subject.entity';
 import { Class } from './entities/class.entity';
@@ -45,6 +46,7 @@ async function build(existingRow?: Partial<ClassSubject>) {
   const ref = await Test.createTestingModule({
     providers: [
       SubjectService,
+      { provide: AuditService, useValue: { record: vi.fn(async () => undefined) } },
       { provide: getRepositoryToken(Subject), useValue: subjectRepo },
       { provide: getRepositoryToken(ClassSubject), useValue: csRepo },
       {
@@ -134,6 +136,8 @@ describe('SubjectService.create duplicate code [#3000]', () => {
     const ref = await Test.createTestingModule({
       providers: [
         SubjectService,
+        { provide: AuditService, useValue: { record: vi.fn(async () => undefined) } },
+      { provide: AuditService, useValue: { record: vi.fn(async () => undefined) } },
         { provide: getRepositoryToken(Subject), useValue: { findOne: async () => ({ id: 's1' }) } },
         { provide: getRepositoryToken(ClassSubject), useValue: {} },
         { provide: getRepositoryToken(Class), useValue: {} },

@@ -3,6 +3,8 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { SubjectService } from './subjects.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { shareLockLive } from '../../common/utils/share-lock-live';
 import { Subject } from './entities/subject.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
@@ -41,6 +43,7 @@ describe('SubjectService (integration)', () => {
       ALL_ENTITIES,
       [
         SubjectService,
+        AuditService,
         {
           provide: SchoolSettingsReader,
           useValue: {
@@ -249,6 +252,38 @@ describe('SubjectService (integration)', () => {
       expect(await removed).toMatchObject({
         response: { details: { code: 'SUBJECT_IN_USE', exam_components_count: 1 } },
       });
+    });
+
+    it('writes a Subject audit row with the removed teacher assignments count [#2756]', async () => {
+      const subject = await service.create({ name_en: 'Biology', code: 'BIO' }, TENANT_ID);
+      await service.remove(subject.id, TENANT_ID, null);
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'Subject', entity_id: subject.id, tenant_id: TENANT_ID } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].action).toBe('DELETE');
+      expect(rows[0].old_values).toMatchObject({ code: 'BIO', teacher_assignments_removed: 0 });
+    });
+
+    it('refuses to delete a subject offered in a closed year and keeps the offering [#4045]', async () => {
+      const subject = await service.create({ name_en: 'Geography', code: 'GEO' }, TENANT_ID);
+      await service.attachToClass(
+        classId,
+        { subject_id: subject.id, academic_year_id: academicYearId },
+        TENANT_ID,
+      );
+      await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+        academicYearId,
+      ]);
+      await expect(service.remove(subject.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', closed_year_offerings_count: 1 } },
+      });
+      const [offering] = await dataSource.query(
+        'SELECT deleted_at FROM class_subjects WHERE subject_id = $1',
+        [subject.id],
+      );
+      expect(offering.deleted_at).toBeNull();
+      await expect(service.findOne(subject.id, TENANT_ID)).resolves.toBeDefined();
     });
 
     it('a writer that runs after the delete finds no live subject to lock', async () => {
