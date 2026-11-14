@@ -10,6 +10,7 @@ import { enrollmentsTab } from './enrollments.tab';
 import { admissionIntakesTab } from './admission-intakes.tab';
 import { admissionApplicantsTab } from './admission-applicants.tab';
 import { admissionEvaluationsTab } from './admission-evaluations.tab';
+import { admissionPipelineTabs } from './admission-pipeline.tabs';
 import { studentLifecycleEventsTab } from './student-lifecycle-events.tab';
 import { studentNotesTab } from './student-notes.tab';
 import { studentPublicExamsTab } from './student-public-exams.tab';
@@ -73,6 +74,8 @@ export const peopleTabs: TabSpec<any, any>[] = [
   admissionIntakesTab,
   admissionApplicantsTab,
   admissionEvaluationsTab,
+  // [71.1.05] stages, stage results, lists, list members, fee proofs (in apply order).
+  ...admissionPipelineTabs,
   // [39.1.3] After `students`, `enrollments` and (via the academics lane) `academic_years`.
   studentLifecycleEventsTab,
   studentNotesTab,
@@ -116,6 +119,7 @@ export type { StudentRow } from './students.tab';
 export type { EnrollmentRow } from './enrollments.tab';
 export type { AdmissionIntakeRow } from './admission-intakes.tab';
 export type { AdmissionApplicantRow } from './admission-applicants.tab';
+export { admissionPipelineTabs };
 export type { AdmissionEvaluationRow } from './admission-evaluations.tab';
 export type { StudentLifecycleEventRow } from './student-lifecycle-events.tab';
 export type { StudentNoteRow } from './student-notes.tab';

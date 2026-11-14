@@ -122,7 +122,7 @@ describe('studentsTab shape', () => {
   it('is registered through the people barrel, after guardians', () => {
     expect(peopleTabs).toContain(studentsTab);
     expect(peopleTabs.indexOf(guardiansTab)).toBeLessThan(peopleTabs.indexOf(studentsTab));
-    expect(peopleTabs.map((t) => t.name).slice(-9)).toEqual([
+    expect(peopleTabs.map((t) => t.name).slice(-14)).toEqual([
       'guardians',
       'students',
       'enrollments',
@@ -130,6 +130,12 @@ describe('studentsTab shape', () => {
       'admission_intakes',
       'admission_applicants',
       'admission_evaluations',
+      // [71.1.05] pipeline tabs.
+      'admission_stages',
+      'admission_stage_results',
+      'admission_lists',
+      'admission_list_members',
+      'admission_fee_proofs',
       // [39.1.3] student child tabs appended after the admission tabs.
       'student_lifecycle_events',
       'student_notes',
