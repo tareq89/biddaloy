@@ -14,7 +14,7 @@ describe('cockpit money enums and limits [#3850]', () => {
       'REFUNDED',
     ]);
     expect(Object.values(m.SmsLotSource)).toEqual(['BUNDLE', 'MANUAL', 'LEGACY']);
-    expect(Object.values(m.SmsLotStatus)).toEqual(['ACTIVE', 'USED_UP', 'EXPIRED']);
+    expect(Object.values(m.SmsLotStatus)).toEqual(['ACTIVE', 'USED_UP', 'EXPIRED', 'REFUNDED']);
     expect(Object.values(m.CouponDiscountKind)).toEqual(['PERCENT', 'FIXED']);
     expect(Object.values(m.CouponScope)).toEqual(['ALL', 'SCHOOLS']);
     expect(Object.values(m.SmsSource)).toEqual(['OWN', 'SCHOOLMANAGERP']);

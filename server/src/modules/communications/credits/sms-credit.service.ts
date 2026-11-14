@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import {
   CommunicationMedium,
   countSmsSegments,
@@ -19,6 +19,7 @@ import { SchoolsService } from '../../schools/schools.service';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLot } from './entities/sms-credit-lot.entity';
 import { SmsCreditLotDraw } from './entities/sms-credit-lot-draw.entity';
+import { readSmsSource } from '../sms-source/sms-source.util';
 import { planDraw, planReturn, sortByExpiry, usableSum } from './sms-credit-lot-plan';
 import {
   SmsCreditLedger,
@@ -109,11 +110,12 @@ export class SmsCreditService {
     private readonly schoolsService: SchoolsService,
   ) {}
 
-  /** `communications.sms.metering === 'PLATFORM'`. Absent/`OFF` (or no
-   * `communications.sms` section at all) reads as unmetered. */
+  /** True when the school's SMS source is SchoolManagerP (`readSmsSource`: explicit `source`, else
+   * derived from `metering`). Absent/`OFF` (or no `communications.sms` section) reads as unmetered. */
   async isMetered(tenantId: string): Promise<boolean> {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
-    return settings.communications?.sms?.metering === 'PLATFORM';
+    // One read of the source, shared with the provider resolver (Epic 100 D9).
+    return readSmsSource(settings as unknown as Record<string, unknown>) === 'SCHOOLMANAGERP';
   }
 
   async getBalance(tenantId: string): Promise<CreditBalance> {
@@ -693,6 +695,94 @@ export class SmsCreditService {
         return n;
       });
     }
+  }
+
+  /** [100.3.06] Refund of a package order: closes the bundle's lot only while nothing was ever
+   * taken from it, inside the caller's transaction. Same lock order as `reserve` (balance row,
+   * then lot), so a reserve that won the lock first makes this a 409 `BUNDLE_ALREADY_USED`.
+   * The lot becomes REFUNDED (its units move to `expired_units`, which keeps the lot CHECK) and
+   * the balance drops by them; the ledger row is an ADJUST with negative units, so the ledger
+   * sum still equals the balance. Returns `closed:false` when the lot was already refunded. */
+  async closeUntouchedLot(
+    manager: EntityManager,
+    tenantId: string,
+    bundleOrderId: string,
+  ): Promise<{ closed: boolean; units: number }> {
+    await this.lockBalance(manager, tenantId);
+    const lot = await manager.findOne(SmsCreditLot, {
+      where: { tenant_id: tenantId, bundle_order_id: bundleOrderId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!lot) {
+      throw new ConflictException({
+        message: 'This package order has no credit to take back',
+        details: { code: 'ORDER_NOT_REFUNDABLE' },
+      });
+    }
+    if (lot.status === SmsLotStatus.REFUNDED) return { closed: false, units: 0 };
+    const draws = await manager.count(SmsCreditLotDraw, {
+      where: { tenant_id: tenantId, lot_id: lot.id },
+    });
+    const untouched =
+      lot.status === SmsLotStatus.ACTIVE &&
+      lot.remaining === lot.units_total &&
+      lot.reserved_units === 0 &&
+      lot.debited_units === 0 &&
+      lot.expired_units === 0 &&
+      draws === 0;
+    if (!untouched) {
+      throw new ConflictException({
+        message: 'Some of this package was already used',
+        details: { code: 'BUNDLE_ALREADY_USED' },
+      });
+    }
+    await manager.insert(SmsCreditLedger, {
+      tenant_id: tenantId,
+      kind: SmsCreditLedgerKind.ADJUST,
+      units: -lot.units_total,
+      reference_type: SmsCreditLedgerReferenceType.LOT,
+      reference_id: lot.id,
+      idempotency_key: `refund:${bundleOrderId}`,
+      reason: 'Package refunded',
+    });
+    await manager.query(
+      `UPDATE "sms_credit_lots"
+          SET status = 'REFUNDED', expired_units = expired_units + remaining, remaining = 0
+        WHERE id = $1 AND tenant_id = $2`,
+      [lot.id, tenantId],
+    );
+    await manager.query(
+      `UPDATE "sms_credit_balance" SET available = available - $2, updated_at = now() WHERE tenant_id = $1`,
+      [tenantId, lot.units_total],
+    );
+    return { closed: true, units: lot.units_total };
+  }
+
+  /** [100.3.06] Read-only: per package order, units used (reserved + debited), the lot expiry and
+   * whether every unit is still there (the refund test). Orders with no lot are absent. */
+  async bundleLotUsage(
+    bundleOrderIds: string[],
+  ): Promise<Map<string, { used: number; untouched: boolean; expiresAt: Date | null }>> {
+    if (bundleOrderIds.length === 0) return new Map();
+    const rows: {
+      bundle_order_id: string;
+      used: number;
+      untouched: boolean;
+      expires_at: Date | null;
+    }[] = await this.dataSource.query(
+      `SELECT l.bundle_order_id, (l.reserved_units + l.debited_units)::int AS used, l.expires_at,
+              (l.status = 'ACTIVE' AND l.remaining = l.units_total AND l.reserved_units = 0
+               AND l.debited_units = 0 AND l.expired_units = 0
+               AND NOT EXISTS (SELECT 1 FROM "sms_credit_lot_draws" d WHERE d.lot_id = l.id)) AS untouched
+         FROM "sms_credit_lots" l WHERE l.bundle_order_id = ANY($1::uuid[])`,
+      [bundleOrderIds],
+    );
+    return new Map(
+      rows.map((r) => [
+        r.bundle_order_id,
+        { used: r.used, untouched: r.untouched, expiresAt: r.expires_at },
+      ]),
+    );
   }
 
   /** [100.1.03] Repair: the balance row becomes the sum of the lots. Not a movement, so no

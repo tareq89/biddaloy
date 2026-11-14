@@ -13,6 +13,7 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { ordersTestDeps } from './orders-test-deps';
 import { ReceiptService } from './receipt.service';
 import { todayInSchoolTz } from '../../common/time';
 
@@ -31,6 +32,7 @@ describe('seat order pricing characterization (integration)', () => {
     const module = await createTestModule(ALL_ENTITIES, [
       EntitlementService,
       OrdersService,
+      ...ordersTestDeps(),
       StudentService,
       GuardianService,
       AuditService,

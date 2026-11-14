@@ -3,11 +3,16 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { AuditModule } from '../audit/audit.module';
+import { CouponsModule } from '../coupons/coupons.module';
+import { PlansModule } from '../plans/plans.module';
+import { MoneyNoticesModule } from './money-notices.module';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { School } from '../schools/entities/school.entity';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
+import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { BkashCallbackController } from './bkash/bkash.controller';
 import { BkashClient } from './bkash/bkash.client';
@@ -19,7 +24,10 @@ import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
 import { ReceiptService } from './receipt.service';
 import { PlatformBillingController } from './platform-billing.controller';
+import { RefundService } from './refund.service';
 import { PlatformBillingService } from './platform-billing.service';
+import { PlatformVatController } from './platform-vat.controller';
+import { VatService } from './vat.service';
 import { SeatNoticesService } from './seat-notices.service';
 
 /** Billing (Epic 49): seat orders, the entitlement that sets `schools.seat_limit`, the daily recompute. */
@@ -27,19 +35,31 @@ import { SeatNoticesService } from './seat-notices.service';
   imports: [
     AccountAccessModule, // OTP_REDIS: the bKash token cache
     AuditModule,
+    CouponsModule, // CouponRedemptionService for OrdersService
+    PlansModule, // PlansService
+    MoneyNoticesModule, // MoneyNoticesService
+    PlatformIdentityModule, // PlatformSettingsService for VatService
     SchoolsModule,
     CommunicationsModule,
+    CreditsModule, // SmsCreditService for RefundService
     TypeOrmModule.forFeature([School, UserTenant, CommunicationLog]),
     BullModule.registerQueue({ name: BILLING_QUEUE }, { name: BKASH_RECONCILE_QUEUE }),
   ],
-  controllers: [BillingController, BkashCallbackController, PlatformBillingController],
+  controllers: [
+    BillingController,
+    BkashCallbackController,
+    PlatformBillingController,
+    PlatformVatController,
+  ],
   // AdminNoticeService is provided here as well as in TrialModule: TrialModule imports this module,
   // so importing it back would be a cycle. The service is stateless.
   providers: [
     EntitlementService,
     OrdersService,
     ReceiptService,
+    VatService,
     PlatformBillingService,
+    RefundService,
     BillingScheduler,
     SeatNoticesService,
     AdminNoticeService,
@@ -47,6 +67,13 @@ import { SeatNoticesService } from './seat-notices.service';
     BkashService,
     BkashReconciler,
   ],
-  exports: [EntitlementService, OrdersService],
+  exports: [
+    EntitlementService,
+    OrdersService,
+    BkashService,
+    ReceiptService,
+    AdminNoticeService,
+    VatService,
+  ],
 })
 export class BillingModule {}

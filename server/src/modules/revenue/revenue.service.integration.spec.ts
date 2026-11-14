@@ -119,6 +119,9 @@ describe('RevenueService (integration)', () => {
       periodEnd: '2026-05-31',
     });
     await pkg(d, 5000, 'ACTIVE', '2026-03-20T05:00:00Z');
+    // C: a package order that never completed is not income, even with a stray paid_at.
+    await pkg(c, 9999, 'CANCELLED', '2026-03-21T05:00:00Z');
+    await pkg(c, 9999, 'PENDING_PAYMENT', '2026-03-22T05:00:00Z');
     // April: A renews and buys a package.
     await seat({
       school: a,

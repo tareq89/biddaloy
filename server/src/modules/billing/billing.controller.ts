@@ -19,6 +19,7 @@ import {
   Permission,
   type BillingSummary,
   type JwtPayload,
+  type OrderPreviewResponse,
   type SeatOrderDto,
 } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -38,6 +39,8 @@ import { OrdersService } from './orders.service';
 import { ReceiptService } from './receipt.service';
 import { readOnlyUntilFor } from './seat-grace';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderPreviewDto } from './dto/order-preview.dto';
+import { PlansService } from '../plans/plans.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 
 @ApiTags('billing')
@@ -49,6 +52,7 @@ export class BillingController {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly entitlement: EntitlementService,
     private readonly orders: OrdersService,
+    private readonly plans: PlansService,
     private readonly bkash: BkashService,
     private readonly receipts: ReceiptService,
   ) {}
@@ -60,7 +64,7 @@ export class BillingController {
   @ApiOkResponse({ description: 'BillingSummary' })
   async summary(@CurrentTenant() tenant: { id: string }): Promise<BillingSummary> {
     const m = this.dataSource.manager;
-    const [seats_bought, usage, [until], orders, readOnlyUntil] = await Promise.all([
+    const [seats_bought, usage, [until], orders, readOnlyUntil, price] = await Promise.all([
       this.entitlement.paidSeats(m, tenant.id),
       getSeatUsage(m, tenant.id),
       // The school's own orders set paid-until; a GRANT (unit price 0) only when it has no own order.
@@ -72,11 +76,13 @@ export class BillingController {
       ) as Promise<{ paid_until: string | null }[]>,
       this.orders.list(tenant.id, 20),
       readOnlyUntilFor(m, tenant.id),
+      this.plans.priceFor(tenant.id, m),
     ]);
     return {
       free_until: billingFreeUntil().toISOString(),
       seats_bought,
       seats_used: usage.used,
+      unit_price_paisa: price.unitPricePaisa,
       paid_until: until?.paid_until ?? null,
       read_only_until: readOnlyUntil?.toISOString() ?? null,
       orders,
@@ -125,7 +131,21 @@ export class BillingController {
     return this.bkash.startPayment(tenant.id, id);
   }
 
-  /** Creates a PENDING order only; pay it with `orders/:id/pay/bkash`. Price is server-computed, integer paisa. */
+  /** What an order would cost, coupon included. Writes nothing and never uses up a coupon. */
+  @Post('orders/preview')
+  @HttpCode(200)
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @AllowWhenSuspendedForBilling()
+  @ApiOperation({ summary: 'Price a seat purchase, with an optional coupon. No write.' })
+  @ApiOkResponse({ description: 'OrderPreviewResponse' })
+  preview(
+    @CurrentTenant() tenant: { id: string },
+    @Body() dto: OrderPreviewDto,
+  ): Promise<OrderPreviewResponse> {
+    return this.orders.preview(tenant.id, dto);
+  }
+
+  /** Creates a PENDING order only (PAID at once when a coupon makes it free); pay it with `orders/:id/pay/bkash`. Price is server-computed, integer paisa. */
   @DenyWhenImpersonating()
   @Post('orders')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
@@ -143,6 +163,7 @@ export class BillingController {
       months: dto.months,
       idempotency_key: dto.idempotency_key,
       userId: user.sub,
+      coupon_code: dto.coupon_code,
     });
   }
 }

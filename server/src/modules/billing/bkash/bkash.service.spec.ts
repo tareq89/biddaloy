@@ -455,3 +455,86 @@ describe('#2782 findings (unit)', () => {
     expect(JSON.parse(pay[1]).dead).toBeUndefined();
   });
 });
+
+describe('BkashService bundle orders (#3858)', () => {
+  const bundleRow = {
+    id: ORDER_ID,
+    school_id: SCHOOL,
+    amount_paisa: '300000',
+    status: 'PENDING_PAYMENT',
+  };
+  /** The id is no seat order; the sms_bundle_orders lookup finds it. */
+  function asBundle(markPaid = vi.fn().mockResolvedValue({ applied: true })) {
+    t.orders.findForPayment.mockResolvedValue(undefined);
+    t.dataSource.query.mockImplementation(async (sql: string) =>
+      String(sql).includes('FROM sms_bundle_orders WHERE id') ? [bundleRow] : [],
+    );
+    const assertSalesOpen = vi.fn().mockResolvedValue(undefined);
+    (t.svc as unknown as { moduleRef: unknown }).moduleRef = {
+      get: () => ({ markPaid, assertSalesOpen }),
+    };
+    return { markPaid, assertSalesOpen };
+  }
+
+  it('payableOf: a seat row, a bundle row, and nothing', async () => {
+    expect(await t.svc.payableOf(ORDER_ID)).toMatchObject({ kind: 'SEAT', pending: true });
+    asBundle();
+    expect(await t.svc.payableOf(ORDER_ID)).toMatchObject({
+      kind: 'BUNDLE',
+      amount_paisa: '300000',
+      pending: true,
+    });
+    t.dataSource.query.mockResolvedValue([]);
+    expect(await t.svc.payableOf(ORDER_ID)).toBeUndefined();
+  });
+
+  it('a completed bundle payment goes to the bundle markPaid, never the seat one', async () => {
+    const { markPaid } = asBundle();
+    t.client.query.mockResolvedValue(initiated);
+    t.client.execute.mockResolvedValue(completed);
+    await callback();
+    expect(markPaid).toHaveBeenCalledWith(
+      ORDER_ID,
+      expect.objectContaining({ gateway_ref: 'TRX1', amount_paisa: '300000' }),
+    );
+    expect(t.orders.markPaid).not.toHaveBeenCalled();
+  });
+
+  it('a mismatched bundle payment is kept as an orphan on bundle_order_id', async () => {
+    asBundle();
+    t.client.query.mockResolvedValue(initiated);
+    t.client.execute.mockResolvedValue({ ...completed, amount: '1.00' });
+    await expect(callback()).rejects.toBeInstanceOf(BadRequestException);
+    const ins = orphanInsert()!;
+    expect(ins.sql).toContain('bundle_order_id');
+    expect(ins.sql).not.toContain('seat_order_id');
+    expect(ins.params[0]).toBe(ORDER_ID);
+  });
+
+  it('a completed latest payment of a CANCELLED bundle order is recorded, credits nothing', async () => {
+    const { markPaid } = asBundle(vi.fn().mockResolvedValue({ applied: false }));
+    bundleRow.status = 'CANCELLED';
+    try {
+      t.client.query.mockResolvedValue(completed);
+      await callback();
+      // markPaid refuses a non-PENDING order, so the money is kept as an orphan row to refund.
+      expect(markPaid).toHaveBeenCalledTimes(1);
+      expect(orphanInsert()).toBeDefined();
+    } finally {
+      bundleRow.status = 'PENDING_PAYMENT';
+    }
+  });
+
+  it('startPayment for a bundle refuses while sales are paused, and not for another school', async () => {
+    const { assertSalesOpen } = asBundle();
+    t.redis.get.mockResolvedValue(null);
+    assertSalesOpen.mockRejectedValue(new ConflictException('paused'));
+    await expect(t.svc.startPayment(SCHOOL, ORDER_ID, 'BUNDLE')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(t.client.create).not.toHaveBeenCalled();
+    await expect(
+      t.svc.startPayment('99999999-9999-4999-8999-999999999999', ORDER_ID, 'BUNDLE'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});

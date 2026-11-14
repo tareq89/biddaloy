@@ -386,6 +386,16 @@ describe('SmsCreditService', () => {
       expect(await service.isMetered(TENANT_ID)).toBe(false);
     });
 
+    it.each([
+      [{ source: 'SCHOOLMANAGERP', metering: 'OFF' }, true],
+      [{ source: 'OWN', metering: 'PLATFORM' }, false],
+      [{ metering: 'PLATFORM' }, true],
+    ])('reads the source like the resolver: %j is metered=%s', async (sms, expected) => {
+      schoolsService.getResolvedSettings.mockResolvedValue({ communications: { sms } });
+
+      expect(await service.isMetered(TENANT_ID)).toBe(expected);
+    });
+
     it('false when no communications.sms section is set at all', async () => {
       schoolsService.getResolvedSettings.mockResolvedValue({});
 
@@ -478,6 +488,78 @@ describe('SmsCreditService', () => {
         insufficient: true,
         available: 1,
       });
+    });
+  });
+
+  describe('closeUntouchedLot [100.3.06]', () => {
+    const lot = (over: Record<string, unknown> = {}) => ({
+      id: 'lot-9',
+      status: 'ACTIVE',
+      units_total: 50,
+      remaining: 50,
+      reserved_units: 0,
+      debited_units: 0,
+      expired_units: 0,
+      ...over,
+    });
+    const mgr = (found: unknown, draws = 0) => ({
+      findOne: vi.fn(async (entity: any) => (entity?.name === 'SmsCreditLot' ? found : null)),
+      count: vi.fn(async () => draws),
+      insert: vi.fn(),
+      query: vi.fn(),
+    });
+
+    it('writes one negative ADJUST, closes the lot and lowers the balance', async () => {
+      const m = mgr(lot());
+      await expect(service.closeUntouchedLot(m as any, TENANT_ID, 'o1')).resolves.toEqual({
+        closed: true,
+        units: 50,
+      });
+      expect(m.insert).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          kind: SmsCreditLedgerKind.ADJUST,
+          units: -50,
+          idempotency_key: 'refund:o1',
+        }),
+      );
+      expect(m.query).toHaveBeenCalledTimes(2);
+    });
+
+    const expectUsed = async (l: unknown, draws = 0) => {
+      const m = mgr(l, draws);
+      await expect(service.closeUntouchedLot(m as any, TENANT_ID, 'o1')).rejects.toMatchObject({
+        response: { details: { code: 'BUNDLE_ALREADY_USED' } },
+      });
+      expect(m.insert).not.toHaveBeenCalled();
+      expect(m.query).not.toHaveBeenCalled();
+    };
+
+    it('refuses a reserved unit with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot({ remaining: 49, reserved_units: 1 }));
+    });
+
+    it('refuses a debited unit with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot({ remaining: 49, debited_units: 1 }));
+    });
+
+    it('refuses an open draw row with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot(), 1);
+    });
+
+    it('refuses a used-up lot with BUNDLE_ALREADY_USED and writes nothing', async () => {
+      await expectUsed(lot({ status: 'USED_UP', remaining: 0 }));
+    });
+
+    it('an already refunded lot is closed:false; no lot is ORDER_NOT_REFUNDABLE', async () => {
+      const done = mgr(lot({ status: 'REFUNDED', remaining: 0 }));
+      await expect(service.closeUntouchedLot(done as any, TENANT_ID, 'o1')).resolves.toEqual({
+        closed: false,
+        units: 0,
+      });
+      await expect(
+        service.closeUntouchedLot(mgr(null) as any, TENANT_ID, 'o1'),
+      ).rejects.toMatchObject({ response: { details: { code: 'ORDER_NOT_REFUNDABLE' } } });
     });
   });
 });
