@@ -17,7 +17,7 @@ export class PlatformSmsStockLowRule implements AttentionRuleShape {
   readonly messages = {
     en: {
       title: 'SMS stock is running low',
-      why: 'The provider has {stock} SMS and schools hold {promised} unused. Top up before they run out.',
+      why: 'The last stock figure is {stock} SMS (it may be old; refresh it first) and schools hold {promised} unused. If the refreshed figure is still low, top up before they run out.',
       steps: [
         'Open Money › SMS.',
         'Check the stock figure is current. If it is over a week old, refresh it first.',
@@ -27,7 +27,7 @@ export class PlatformSmsStockLowRule implements AttentionRuleShape {
     },
     bn: {
       title: 'এসএমএস মজুত কমে আসছে',
-      why: 'প্রোভাইডারের কাছে {stock}টি এসএমএস আছে, আর স্কুলগুলোর কাছে {promised}টি অব্যবহৃত। শেষ হওয়ার আগে কিনে নিন।',
+      why: 'সর্বশেষ মজুতের সংখ্যা {stock}টি এসএমএস (পুরনো হতে পারে, আগে নতুন করে লিখুন), আর স্কুলগুলোর কাছে {promised}টি অব্যবহৃত। নতুন সংখ্যাতেও কম থাকলে শেষ হওয়ার আগে কিনে নিন।',
       steps: [
         'টাকা › এসএমএস খুলুন।',
         'মজুতের সংখ্যাটি হালনাগাদ কি না দেখুন। এক সপ্তাহের পুরনো হলে আগে নতুন করে লিখুন।',

@@ -189,15 +189,17 @@ describe('cockpit money E2E (#3875)', () => {
     });
     let a: supertest.Response;
     let b: supertest.Response;
+    let calls = 0;
     try {
       [a, b] = await Promise.all([
         createOrder(A, { coupon_code: c }),
         createOrder(B, { coupon_code: c }),
       ]);
+      calls = spy.mock.calls.length; // read before mockRestore, which clears the call history
     } finally {
       spy.mockRestore();
     }
-    expect(spy).toHaveBeenCalledTimes(2);
+    expect(calls).toBe(2);
     expect([a.status, b.status].sort()).toEqual([201, 400]);
     const loser = a.status === 400 ? a : b;
     expect(JSON.stringify(loser.body)).not.toContain(c);
@@ -276,12 +278,14 @@ describe('cockpit money E2E (#3875)', () => {
     });
     let first: supertest.Response;
     let second: supertest.Response;
+    let calls = 0;
     try {
       [first, second] = await Promise.all([cb(), cb()]);
+      calls = spy.mock.calls.length; // read before mockRestore, which clears the call history
     } finally {
       spy.mockRestore();
     }
-    expect(spy).toHaveBeenCalledTimes(2);
+    expect(calls).toBe(2);
     for (const r of [first, second]) {
       expect(r.status).toBe(302);
       expect(r.headers.location).toContain('payment=success');
