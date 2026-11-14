@@ -6,7 +6,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 import { IMPERSONATION_RATE_LIMIT } from '../../../support-access/sessions/impersonation-session.service';
 import { PlatformTenantResolver } from './platform-tenant';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PlatformLoginAsBurstRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('platform.login_as_burst');
   readonly messages = {

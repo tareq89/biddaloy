@@ -19,7 +19,7 @@
     "dues": "Dues",
     "homework": "Homework",
     "results": "Results",
-    "roster": "Students",
+    "roster": "$t(common:entities.student_other)",
     "arrival": "Arrival notices",
     "notes": "Remarks and conduct",
     "groups": "Groups"
@@ -62,7 +62,7 @@
   "flagDays_one": "{{n}} day",
   "flagDays_other": "{{n}} days",
   "duesTotal": "Total due",
-  "duesStudents": "Students",
+  "duesStudents": "$t(common:entities.student_other)",
   "studentCount_one": "{{n}}",
   "studentCount_other": "{{n}}",
   "arrival": {
@@ -85,8 +85,8 @@
     "dialog": {
       "title": "Add yourself",
       "description": "Turn on arrival notices for a guardian of this section.",
-      "student": "Student",
-      "guardian": "Guardian",
+      "student": "$t(common:entities.student_one)",
+      "guardian": "$t(common:entities.guardian_one)",
       "how": "How often",
       "save": "Add",
       "cancel": "Cancel",
@@ -112,7 +112,7 @@
     "forLabel": "For which result",
     "forFinal": "Final result",
     "roll": "Roll",
-    "remarkLabel": "Class teacher's remark",
+    "remarkLabel": "$t(common:entities.class_one) teacher's remark",
     "remarkPlaceholder": "Write a line or two about the student",
     "charCount": "{{count}}/{{max}}",
     "conductLabel": "Conduct",

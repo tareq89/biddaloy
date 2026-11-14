@@ -24,7 +24,7 @@
   "viewApplication": "দেখুন — {{serial}}",
   "onLeaveTitle": "আজ ছুটিতে",
   "onLeaveStaff": "কর্মী",
-  "onLeaveStudents": "শিক্ষার্থী",
+  "onLeaveStudents": "$t(common:entities.student_one)",
   "onLeaveEmpty": "আজ কেউ ছুটিতে নেই।",
   "until": "{{date}} পর্যন্ত",
   "typeTitle": "ধরন ও অবস্থা",

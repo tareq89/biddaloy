@@ -15,7 +15,8 @@ import type { Response } from 'express';
 import { Readable } from 'stream';
 import { IsNull, Repository } from 'typeorm';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, Permission, toCsvContent } from '@biddaloy/shared';
+import { JwtPayload, Permission, toCsvContent, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -120,6 +121,7 @@ function passFailToCsv(subjects: SubjectPassFailRow[], overall: OverallPassFailR
  */
 @ApiTags('exams')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams/:examId/analysis')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AnalysisController {

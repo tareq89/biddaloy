@@ -7,7 +7,7 @@ import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } fr
 
 const NEXT_YEAR_LEAD_DAYS = 45; // ponytail: constant, make it a setting when a school asks
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class YearNextMissingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('year.next_missing');
   readonly messages = {

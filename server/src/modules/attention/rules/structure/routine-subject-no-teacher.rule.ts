@@ -1,11 +1,11 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
-import { alertRuleMeta, UserRole } from '@biddaloy/shared';
+import { alertRuleMeta, UserRole, ModuleKey } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from './role-recipients';
 
-@AttentionRule()
+@AttentionRule({ module: ModuleKey.routines })
 export class RoutineSubjectNoTeacherRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('routine.subject_no_teacher');
   readonly messages = {

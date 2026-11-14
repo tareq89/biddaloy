@@ -1,12 +1,16 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
-import { alertRuleMeta, isAlertRuleKey, type AlertCadence } from '@biddaloy/shared';
-import { ATTENTION_RULE_METADATA } from './attention-rule.decorator';
-import type { AttentionRule } from './rule.types';
+import { alertRuleMeta, isAlertRuleKey, ModuleKey, type AlertCadence } from '@biddaloy/shared';
+import {
+  ATTENTION_RULE_METADATA,
+  ATTENTION_RULE_MODULE_METADATA,
+} from './attention-rule.decorator';
+import type { AttentionRule, AttentionRuleModule } from './rule.types';
 
 @Injectable()
 export class RuleRegistryService implements OnModuleInit {
   private rules = new Map<string, AttentionRule>();
+  private modules = new Map<string, AttentionRuleModule>();
 
   constructor(private readonly discovery: DiscoveryService) {}
 
@@ -28,8 +32,18 @@ export class RuleRegistryService implements OnModuleInit {
       if (!rule.messages?.bn?.title || !rule.messages?.en?.title) {
         throw new Error(`Attention rule ${name} (${key}): empty bn/en title`);
       }
+      const module = Reflect.getMetadata(ATTENTION_RULE_MODULE_METADATA, type) as unknown;
+      if (module !== 'core' && !(Object.values(ModuleKey) as unknown[]).includes(module)) {
+        throw new Error(`Attention rule ${name} (${key}): missing or unknown module`);
+      }
+      this.modules.set(key, module as AttentionRuleModule);
       this.rules.set(key, rule);
     }
+  }
+
+  /** The module a rule belongs to; undefined for a key with no registered rule (manual, notice). */
+  moduleOf(key: string): AttentionRuleModule | undefined {
+    return this.modules.get(key);
   }
 
   all(): AttentionRule[] {

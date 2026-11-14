@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -15,7 +16,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -45,6 +46,7 @@ import {
 @ApiTags('programs')
 @ApiTenantAuth()
 @Controller('programs')
+@RequiresModule(ModuleKey.programs)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ProgramsController {
   constructor(private readonly programsService: ProgramsService) {}

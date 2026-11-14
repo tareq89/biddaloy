@@ -11,6 +11,7 @@ import {
   HOMEWORK_DEFAULTER_SWEEP_QUEUE,
 } from './homework-defaulter.scheduler';
 import { HomeworkNoticeService } from './homework-notice.service';
+import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { SchoolsService } from '../schools/schools.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -63,6 +64,11 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
         },
       },
       { provide: HomeworkNoticeService, useValue: { notifyDefaulters: notify } },
+      // [77.2.10] every module on
+      {
+        provide: ModuleStateReader,
+        useValue: { forTenant: async () => ({ platform: {}, school: {} }) },
+      },
     ]);
     scheduler = module.get(HomeworkDefaulterScheduler);
     dataSource = module.get<DataSource>(getDataSourceToken());

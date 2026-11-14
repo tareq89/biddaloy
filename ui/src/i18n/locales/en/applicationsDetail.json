@@ -2,7 +2,7 @@
   "facts": {
     "number": "Number",
     "applicant": "Applicant",
-    "student": "Student",
+    "student": "$t(common:entities.student_one)",
     "staff": "Staff member",
     "submitted": "Submitted",
     "step": "Step",

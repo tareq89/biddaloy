@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   CallHandler,
   Controller,
@@ -20,7 +21,7 @@ import { catchError, throwError } from 'rxjs';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -50,6 +51,7 @@ class OversizeAsRejected implements NestInterceptor {
 @ApiTags('website')
 @ApiTenantAuth()
 @Controller('website/media')
+@RequiresModule(ModuleKey.website)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.WEBSITE_MANAGE)
 export class SiteMediaController {

@@ -1,4 +1,5 @@
-import { expect, guest, loggedIn, test } from './test';
+import { expect, guest, loggedIn } from './test';
+import { test } from './settings-lock';
 import { shells } from '../config';
 
 /**

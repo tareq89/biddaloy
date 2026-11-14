@@ -4,7 +4,7 @@ import { alertRuleMeta, UserRole } from '@biddaloy/shared';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class SupportAccessRequestRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('support.access_request');
   readonly messages = {

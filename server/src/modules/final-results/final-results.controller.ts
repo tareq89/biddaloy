@@ -19,7 +19,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { ApprovalScope, JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission, UserRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { requestContext } from '../../common/request-context.util';
@@ -54,6 +55,7 @@ const READ_ROLES = [
 /** [70.2.1] Cross-exam final results. Same guards and shape as `ResultsController`. */
 @ApiTags('final-results')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('final-results')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
 export class FinalResultsController {

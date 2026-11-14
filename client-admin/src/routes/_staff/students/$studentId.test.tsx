@@ -45,6 +45,31 @@ describe('/students/$studentId', () => {
     );
   });
 
+  it('hides the tabs of an off module (D41) and lands a deep link to one on the first tab', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/schools/me/profile', () =>
+        HttpResponse.json({
+          name: 'Ananta School',
+          modules: { platform: {}, school: { fines: { on: false } } },
+          labels: {},
+        }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=fines'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('tab', { name: 'Fees' })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Fines' })).toBeNull());
+    expect(screen.getByRole('tab', { name: 'Overview', selected: true })).toBeTruthy();
+  });
+
   it('opening the page fires only the student request — the other seven tabs stay unfetched until activated', async () => {
     const student = studentFactory({ id: 'student-1' });
     let enrollmentCalls = 0;

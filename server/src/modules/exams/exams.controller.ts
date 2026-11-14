@@ -23,10 +23,12 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { ExamsService } from './exams.service';
 import { CreateExamDto, CreateExamResponseDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
-import { Permission, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 @ApiTags('exams')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ExamsController {

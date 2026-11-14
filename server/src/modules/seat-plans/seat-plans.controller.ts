@@ -13,7 +13,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -32,6 +33,7 @@ import { PublishSeatPlanDto } from './dto/publish-seat-plan.dto';
  */
 @ApiTags('seat-plans')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.seatPlans)
 @Controller('seat-plans')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.SEAT_PLAN_MANAGE)

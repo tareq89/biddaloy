@@ -8748,6 +8748,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/institution-kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The institution kinds with their module switches and words. */
+        get: operations["InstitutionKindController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/institution-kinds/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What applying a kind would change. Writes nothing. */
+        post: operations["InstitutionKindController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/institution-kinds/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a kind: overwrites the school module switches and words it defines. Keeps platform locks, role-offs and data. */
+        post: operations["InstitutionKindController_apply_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The platform module map (absent key = on). */
+        get: operations["PlatformModulesController_get_v1"];
+        /** Replace the platform module map. Needs a step-up token. */
+        put: operations["PlatformModulesController_replace_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own module choices and platform locks. */
+        get: operations["PlatformModulesController_getForSchool_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/modules/{key}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Lock a module on or off for one school, or give control back with null. Needs a step-up token. */
+        put: operations["PlatformModulesController_setLock_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/print-templates": {
         parameters: {
             query?: never;
@@ -19660,6 +19763,77 @@ export interface components {
             deleted: {
                 [key: string]: number;
             };
+        };
+        InstitutionKindDto: {
+            /** @example coaching */
+            id: string;
+            name: {
+                en: string;
+                bn: string;
+            };
+            /** @description false = defaults not yet checked with a real school of this kind. */
+            verified: boolean;
+            modules: {
+                [key: string]: boolean;
+            };
+            labels: {
+                [key: string]: unknown;
+            };
+        };
+        KindModuleChangeDto: {
+            /** @example fines */
+            key: string;
+            /** @description The school switch before (on when nothing is stored). */
+            from: boolean;
+            to: boolean;
+        };
+        KindLabelChangeDto: {
+            /** @example class */
+            key: string;
+            from: {
+                [key: string]: unknown;
+            } | null;
+            to: {
+                [key: string]: unknown;
+            };
+        };
+        InstitutionKindChangesDto: {
+            modules: components["schemas"]["KindModuleChangeDto"][];
+            labels: components["schemas"]["KindLabelChangeDto"][];
+        };
+        PlatformModulesResponseDto: {
+            modules: {
+                [key: string]: boolean;
+            };
+        };
+        SchoolModuleStateDto: {
+            /** @description The school's own choice. */
+            on?: boolean;
+            /**
+             * @description Platform lock, if any.
+             * @enum {string}
+             */
+            lock?: "on" | "off";
+        };
+        SchoolModulesResponseDto: {
+            modules: {
+                [key: string]: components["schemas"]["SchoolModuleStateDto"];
+            };
+        };
+        PlatformModulesDto: {
+            /** @description Module key to false (off for every school). An absent key is on. */
+            modules: {
+                [key: string]: boolean;
+            };
+        };
+        ModuleLockDto: {
+            /** @enum {string|null} */
+            lock: "on" | "off" | null;
+        };
+        ModuleLockResponseDto: {
+            key: string;
+            /** @enum {string|null} */
+            lock: "on" | "off" | null;
         };
         PrintTemplate: {
             id: string;
@@ -43380,6 +43554,216 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResetPresetResponseDto"];
+                };
+            };
+        };
+    };
+    InstitutionKindController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionKindDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InstitutionKindController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionKindChangesDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InstitutionKindController_apply_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionKindChangesDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformModulesController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModulesResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformModulesController_replace_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformModulesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModulesResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformModulesController_getForSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolModulesResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformModulesController_setLock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.school_control" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleLockDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleLockResponseDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

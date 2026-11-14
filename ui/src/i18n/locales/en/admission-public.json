@@ -30,7 +30,7 @@
       "guardianPhoneHelp": "You will use this number later to check your status."
     },
     "documents": {
-      "PHOTO": "Student's photo",
+      "PHOTO": "$t(common:entities.student_one)'s photo",
       "BIRTH_CERTIFICATE": "Birth certificate",
       "TRANSCRIPT": "Last school's report card",
       "choose": "Choose file",
@@ -49,7 +49,7 @@
       "noDocuments": "No papers needed"
     },
     "sections": {
-      "student": "Student's details",
+      "student": "$t(common:entities.student_one)'s details",
       "guardian": "Parent/guardian's details",
       "documents": "Papers",
       "documentsHelp": "Upload a photo (JPG, PNG) or a PDF, one file for each."
@@ -92,7 +92,7 @@
     },
     "subtitle": "Enter the reference number you got after submitting, and the parent/guardian's mobile number.",
     "unknown": "We could not read this application's status. Please contact the school.",
-    "studentLabel": "Student",
+    "studentLabel": "$t(common:entities.student_one)",
     "roundLabel": "Admission round",
     "newApplication": "Start a new application",
     "badges": {

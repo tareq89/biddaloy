@@ -14,7 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -34,6 +34,7 @@ import {
   HomeworkSubmissionRosterRowDto,
   UpdateHomeworkSubmissionDto,
 } from './dto/homework-submission.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * `@Roles(...)` is the coarse gate. Object-level scoping is
@@ -44,6 +45,7 @@ import {
 @ApiTags('homework')
 @ApiTenantAuth()
 @Controller()
+@RequiresModule(ModuleKey.homework)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class HomeworkSubmissionController {
   constructor(private readonly submissionService: HomeworkSubmissionService) {}

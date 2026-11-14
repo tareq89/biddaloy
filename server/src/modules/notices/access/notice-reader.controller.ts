@@ -1,3 +1,4 @@
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import {
   Controller,
   Get,
@@ -10,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
@@ -27,6 +28,7 @@ import {
 @ApiTags('notices')
 @ApiTenantAuth()
 @Controller('notices/mine')
+@RequiresModule(ModuleKey.notices)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.NOTICE_READ)
 export class NoticeReaderController {

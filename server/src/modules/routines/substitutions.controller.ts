@@ -21,12 +21,14 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SubstitutionsService } from './substitutions.service';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
-import { Permission } from '@biddaloy/shared';
+import { Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [21.5.1] Substitutions CRUD + log. D12: never touches `routine_slots`. */
 @ApiTags('routines')
 @ApiTenantAuth()
 @Controller('routines/substitutions')
+@RequiresModule(ModuleKey.routines)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SubstitutionsController {
   constructor(

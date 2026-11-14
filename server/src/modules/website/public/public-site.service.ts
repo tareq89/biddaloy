@@ -2,11 +2,20 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Readable } from 'node:stream';
-import { SchoolStatus, SiteIslandKind, SiteMediaSlot, SitePage } from '@biddaloy/shared';
+import {
+  ModuleKey,
+  SchoolStatus,
+  SiteIslandKind,
+  SiteMediaSlot,
+  SitePage,
+  SiteSectionKey,
+  resolveModuleState,
+} from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
 import { DEFAULT_REGION_SETTINGS } from '../../schools/settings/tenant-settings-defaults';
 import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
 import { School } from '../../schools/entities/school.entity';
+import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { StorageService } from '../../storage/storage.service';
 import { SchoolSite } from '../entities/school-site.entity';
 import { SiteMedia } from '../entities/site-media.entity';
@@ -54,7 +63,26 @@ export class PublicSiteService {
     @InjectRepository(SiteMedia) private readonly media: Repository<SiteMedia>,
     private readonly feeds: FeedRegistry,
     private readonly previews: PreviewTokenService,
+    private readonly moduleState: ModuleStateReader,
   ) {}
+
+  /**
+   * [77.2.06] A public visitor is never told about modules (D37): website off is the one site 404,
+   * notices off hides the notices section. Role is undefined, so only the on/off switch counts.
+   */
+  private async moduleOn(tenantId: string, key: ModuleKey): Promise<boolean> {
+    return resolveModuleState(await this.moduleState.forTenant(tenantId), key).on;
+  }
+
+  private async withoutNoticesIfOff(page: PublicPage, tenantId: string): Promise<PublicPage> {
+    if (await this.moduleOn(tenantId, ModuleKey.notices)) return page;
+    return {
+      ...page,
+      sections: page.sections.map((s) =>
+        s.key === SiteSectionKey.NOTICES ? { ...s, feed: [], empty: true } : s,
+      ),
+    };
+  }
 
   /** 5 s in-process: a suspend shows up at most this late (same window as the host lookup). */
   private readonly schoolCache = new TtlCache<School | null>();
@@ -80,11 +108,13 @@ export class PublicSiteService {
     ) {
       const school = await this.school(site.tenant_id);
       if (!school || school.status !== SchoolStatus.ACTIVE) throw siteNotFound();
+      if (!(await this.moduleOn(site.tenant_id, ModuleKey.website))) throw siteNotFound();
       return { preview: true, site, published: site.draft, school };
     }
     if (!site.enabled || !site.published) throw siteNotFound();
     const school = await this.school(site.tenant_id);
     if (!school || school.status !== SchoolStatus.ACTIVE) throw siteNotFound();
+    if (!(await this.moduleOn(site.tenant_id, ModuleKey.website))) throw siteNotFound();
     if ('redirectTo' in found) return { redirectTo: found.redirectTo };
     return { site, published: site.published, school };
   }
@@ -163,7 +193,12 @@ export class PublicSiteService {
         (page === SitePage.GALLERY && !(await this.galleryOn(l.published, l.site.tenant_id)))
       )
         throw siteNotFound();
-      return { data: await withFeeds(draft, l.site.tenant_id, this.feeds) };
+      return {
+        data: await this.withoutNoticesIfOff(
+          await withFeeds(draft, l.site.tenant_id, this.feeds),
+          l.site.tenant_id,
+        ),
+      };
     }
     const built = await this.cache.getOrLoad(
       l.site.tenant_id,
@@ -177,7 +212,12 @@ export class PublicSiteService {
     if (!built) throw siteNotFound();
     // The page shell is cached by site version; the live rows are not (a notice ticked public shows
     // within 60 s without a publish), so they are added per request from the 60 s feed cache.
-    return { data: await withFeeds(built, l.site.tenant_id, this.feeds) };
+    return {
+      data: await this.withoutNoticesIfOff(
+        await withFeeds(built, l.site.tenant_id, this.feeds),
+        l.site.tenant_id,
+      ),
+    };
   }
 
   /** The gallery page exists for visitors only when linked and an album has a photo (D50). */
@@ -213,6 +253,8 @@ export class PublicSiteService {
     }
     if (!islands.includes(kind) || !this.feeds.has(kind)) throw siteNotFound();
     const tenantId = l.site.tenant_id;
+    if (kind === SiteIslandKind.NOTICES && !(await this.moduleOn(tenantId, ModuleKey.notices)))
+      throw siteNotFound();
     if (kind !== SiteIslandKind.ROUTINE) return { data: await this.feeds.cached(kind, tenantId) };
     // The section id is visitor input and becomes a Redis key: one UUID string (a repeated param
     // arrives as an array), and a section of THIS school, before anything is cached. So the key

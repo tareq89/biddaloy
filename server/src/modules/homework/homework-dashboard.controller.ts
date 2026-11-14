@@ -1,7 +1,7 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { DashboardWidgetKey, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -21,6 +21,7 @@ import {
   SyllabusProgressWidgetDto,
   SyllabusVsPlanDto,
 } from './dto/homework-dashboard.dto';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /** [8.10.7.2.05] "Syllabus progress" widget. Done % plus the study plan's expected-by-today (null without a plan). */
 @ApiTags('dashboard')
@@ -36,6 +37,7 @@ export class HomeworkDashboardController {
     private readonly planDashboard: StudyPlanDashboardService,
   ) {}
 
+  @RequiresModule(ModuleKey.syllabus)
   @DashboardWidgetRoute(DashboardWidgetKey.SYLLABUS_PROGRESS)
   @ApiOkResponse({ type: SyllabusProgressWidgetDto })
   getSyllabusProgress(@CurrentTenant() tenant: { id: string }): Promise<SyllabusProgressWidgetDto> {
@@ -45,6 +47,7 @@ export class HomeworkDashboardController {
   }
 
   /** [8.10.7.7.04] ADMIN card: taught vs the study plan, per class. */
+  @RequiresModule(ModuleKey.syllabus)
   @DashboardWidgetRoute(DashboardWidgetKey.SYLLABUS_VS_PLAN)
   @ApiOkResponse({ type: SyllabusVsPlanDto })
   getSyllabusVsPlan(@CurrentTenant() tenant: { id: string }): Promise<SyllabusVsPlanDto> {
@@ -54,6 +57,7 @@ export class HomeworkDashboardController {
   }
 
   /** [8.10.7.3.04] Teacher card "homework to check". Cached per user. */
+  @RequiresModule(ModuleKey.homework)
   @DashboardWidgetRoute(DashboardWidgetKey.HOMEWORK_TO_CHECK)
   @ApiOkResponse({ type: HomeworkToCheckDto })
   getHomeworkToCheck(
@@ -74,6 +78,7 @@ export class HomeworkDashboardController {
   }
 
   /** [8.10.7.3.19] ADMIN card: submitted vs assigned, last 7 days. */
+  @RequiresModule(ModuleKey.homework)
   @DashboardWidgetRoute(DashboardWidgetKey.HOMEWORK_SUBMISSION_RATE)
   @ApiOkResponse({ type: HomeworkSubmissionRateDto })
   getSubmissionRate(@CurrentTenant() tenant: { id: string }): Promise<HomeworkSubmissionRateDto> {
@@ -86,6 +91,7 @@ export class HomeworkDashboardController {
   }
 
   /** [8.10.7.3.19] Teacher card "my syllabus progress". Cached per user. */
+  @RequiresModule(ModuleKey.syllabus)
   @DashboardWidgetRoute(DashboardWidgetKey.MY_SYLLABUS_PROGRESS)
   @ApiOkResponse({ type: MySyllabusProgressDto })
   getMySyllabusProgress(
@@ -101,6 +107,7 @@ export class HomeworkDashboardController {
   }
 
   /** [8.10.7.7.05] Teacher card "lessons to mark". Cached per user (own routine only). */
+  @RequiresModule(ModuleKey.studyPlans)
   @DashboardWidgetRoute(DashboardWidgetKey.MY_LESSONS_TO_MARK)
   @ApiOkResponse({ type: LessonsToMarkDto })
   getMyLessonsToMark(

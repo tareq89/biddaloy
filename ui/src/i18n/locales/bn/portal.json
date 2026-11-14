@@ -21,7 +21,7 @@
   },
   "fees": {
     "loading": "ফি-র বিবরণ লোড হচ্ছে",
-    "pickerLabel": "একজন শিক্ষার্থী বাছুন",
+    "pickerLabel": "একজন $t(common:entities.student_one) বাছুন",
     "outstanding": "বকেয়া",
     "charged": "ধার্য",
     "discount": "ছাড়",
@@ -135,7 +135,7 @@
   },
   "attendance": {
     "loading": "উপস্থিতি লোড হচ্ছে",
-    "pickerLabel": "একজন শিক্ষার্থী বাছুন",
+    "pickerLabel": "একজন $t(common:entities.student_one) বাছুন",
     "summary": {
       "present": "উপস্থিত",
       "absent": "অনুপস্থিত",
@@ -160,8 +160,8 @@
   "syllabus": {
     "title": "সিলেবাস",
     "loading": "সিলেবাস লোড হচ্ছে…",
-    "pickerLabel": "একজন শিক্ষার্থী বেছে নিন",
-    "noClass": "এই শিক্ষার্থী এখনও কোনো শ্রেণিতে যুক্ত নয়, তাই দেখানোর মতো কোনো সিলেবাস নেই।",
+    "pickerLabel": "একজন $t(common:entities.student_one) বেছে নিন",
+    "noClass": "এই $t(common:entities.student_one) এখনও কোনো শ্রেণিতে যুক্ত নয়, তাই দেখানোর মতো কোনো সিলেবাস নেই।",
     "empty": "এই শ্রেণির জন্য এখনও কোনো সিলেবাস বিষয় যোগ করা হয়নি।",
     "unknownSubject": "অন্যান্য বিষয়",
     "error": {
@@ -175,7 +175,7 @@
       "examTitle": "{{exam}}",
       "examMeta": "{{date}} থেকে · সিলেবাসের কতটা পড়ানো হলো",
       "examMetaNoDate": "সিলেবাসের কতটা পড়ানো হলো",
-      "teacher": "শিক্ষক: {{names}}",
+      "teacher": "$t(common:entities.teacher_one): {{names}}",
       "examRemaining": "বাকি {{count}}টি পাঠ {{date}}-এর মধ্যে শেষ হওয়ার কথা।",
       "planFinish": "পুরো পরিকল্পনা {{date}}-এর মধ্যে শেষ হওয়ার কথা",
       "notStarted": "এখনো শুরু হয়নি",
@@ -242,7 +242,7 @@
   "routine": {
     "title": "রুটিন",
     "loading": "রুটিন লোড হচ্ছে",
-    "pickerLabel": "একজন শিক্ষার্থী নির্বাচন করুন",
+    "pickerLabel": "একজন $t(common:entities.student_one) নির্বাচন করুন",
     "noRoutineExplanation": "স্কুল এখনও কোনো রুটিন প্রকাশ করেনি।",
     "error": {
       "message": "এই শিক্ষার্থীর রুটিন লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
@@ -252,7 +252,7 @@
     "periodCount_one": "{{count}}টি পিরিয়ড",
     "periodCount_other": "{{count}}টি পিরিয়ড",
     "until": "{{time}} পর্যন্ত",
-    "substitute": "বদলি শিক্ষক",
+    "substitute": "বদলি $t(common:entities.teacher_one)",
     "periodFallback": "পিরিয়ড",
     "lesson": "পাঠ {{no}}: {{title}}",
     "lessonPart": "{{of}}-এর {{part}} অংশ"
@@ -275,7 +275,7 @@
   "calendar": {
     "title": "ক্যালেন্ডার",
     "loading": "স্কুলের ক্যালেন্ডার লোড হচ্ছে",
-    "pickerLabel": "একজন শিক্ষার্থী বেছে নিন",
+    "pickerLabel": "একজন $t(common:entities.student_one) বেছে নিন",
     "moreEvents_one": "+{{count}} আরও",
     "moreEvents_other": "+{{count}} আরও",
     "error": {
@@ -304,7 +304,7 @@
     "label": "আপনার পোর্টাল লোড হচ্ছে"
   },
   "empty": {
-    "title": "আপনার সঙ্গে এখনও কোনো শিক্ষার্থী যুক্ত নেই",
+    "title": "আপনার সঙ্গে এখনও কোনো $t(common:entities.student_one) যুক্ত নেই",
     "explanation": "এই স্কুলের কোনো শিক্ষার্থীর সঙ্গে আপনার অ্যাকাউন্ট যুক্ত নেই। স্কুল অফিসে আপনার সন্তানদের যুক্ত করতে বলুন, তারপর আবার দেখুন।",
     "action": "আবার দেখুন"
   },
@@ -534,7 +534,7 @@
   },
   "arrivalNotice": {
     "title": "পৌঁছানোর খবর",
-    "explanation": "আপনার সন্তান স্কুলে পৌঁছালে খবর পান। শিক্ষক আপনার অনুরোধ নিশ্চিত করবেন।",
+    "explanation": "আপনার সন্তান স্কুলে পৌঁছালে খবর পান। $t(common:entities.teacher_one) আপনার অনুরোধ নিশ্চিত করবেন।",
     "want": "চাই",
     "switchLabel": "{{name}}-এর পৌঁছানোর খবর",
     "status": {
@@ -555,7 +555,7 @@
     "smsNotAllowed": "আপনার স্কুল এটা শুধু অ্যাপে পাঠায়",
     "noPush": "আপনার অ্যাকাউন্টের কোনো ফোনে এখনো অ্যাপ নেই — SMS বাছুন বা অ্যাপ ইনস্টল করুন।",
     "noPushLink": "অ্যাপে বার্তা চালু করুন",
-    "declinedHint": "শিক্ষক এখন চালু করেননি। চাইলে আবার জানান।",
+    "declinedHint": "$t(common:entities.teacher_one) এখন চালু করেননি। চাইলে আবার জানান।",
     "disabled": "এই স্কুলে পৌঁছানোর খবর বন্ধ আছে।"
   },
   "finalResult": {

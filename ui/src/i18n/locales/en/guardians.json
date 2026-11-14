@@ -8,8 +8,8 @@
     "incompleteChip": "Incomplete"
   },
   "list": {
-    "title": "Guardians",
-    "caption": "Guardians",
+    "title": "$t(common:entities.guardian_other)",
+    "caption": "$t(common:entities.guardian_other)",
     "searchLabel": "Search",
     "columnName": "Name",
     "columnRelationship": "Relationship",
@@ -28,7 +28,7 @@
     "allRelationships": "All relationships",
     "primaryOnlyFilter": "Primary contacts only",
     "moreStudents": "+{{n}} more",
-    "emptyExplanation": "Guardians appear here when you add them with a student."
+    "emptyExplanation": "$t(common:entities.guardian_other) appear here when you add them with a student."
   },
   "preferredCommunicationOptions": {
     "SMS": "SMS",
@@ -42,7 +42,7 @@
     "loadError": "Couldn't load this guardian.",
     "tabs": {
       "information": "Information",
-      "linkedStudents": "Linked Students",
+      "linkedStudents": "Linked $t(common:entities.student_other)",
       "communication": "Communication History",
       "payments": "Payment History"
     },
@@ -64,7 +64,7 @@
     },
     "linkedStudents": {
       "columnName": "Name",
-      "columnClass": "Class",
+      "columnClass": "$t(common:entities.class_one)",
       "editAction": "Edit linked students",
       "saveAction": "Save",
       "saving": "Saving…",
@@ -91,7 +91,7 @@
       "columnAmount": "Amount",
       "columnMethod": "Method",
       "columnReference": "Reference",
-      "columnStudent": "Student",
+      "columnStudent": "$t(common:entities.student_one)",
       "emptyMessage": "No payments recorded yet.",
       "errorMessage": "Couldn't load payment history.",
       "view": "View payment",
@@ -119,7 +119,7 @@
     "save": "Save changes",
     "saving": "Saving…",
     "errorMessage": "Couldn't update the guardian. Try again.",
-    "sectionTitle": "Guardian details",
+    "sectionTitle": "$t(common:entities.guardian_one) details",
     "contactOwnedByLogin": "This guardian signs in with this phone and email. The parent changes them from their own account, or an admin edits their user."
   },
   "studentPicker": {

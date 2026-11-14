@@ -16,6 +16,7 @@ import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SchoolSettingsPage } from './SchoolSettingsPage';
+import { COACHING_CHANGES, KIND_FIXTURES } from './settings/modules-words/kind-fixtures';
 import { providersHandler } from './settings/provider-config-form.fixtures';
 import { SETTINGS_CATEGORY_IDS } from './settings/settings-categories';
 
@@ -31,6 +32,7 @@ function PageWithRouter({ url = '/settings' }: { url?: string }) {
       validateSearch: (s: Record<string, unknown>) => ({
         section: SETTINGS_CATEGORY_IDS.find((id) => id === s.section),
         backup: typeof s.backup === 'string' ? s.backup : undefined,
+        kind: typeof s.kind === 'string' ? s.kind : undefined,
       }),
       // As the real route does: `?backup=` is handed down as `backupJobId`.
       component: function Page() {
@@ -129,6 +131,65 @@ describe('SchoolSettingsPage', () => {
     expect(
       screen.queryByRole('heading', { level: 2, name: 'Language, numbers and dates' }),
     ).toBeNull();
+  });
+
+  describe('Modules & words (77.4.02)', () => {
+    function mockKinds() {
+      server.use(
+        http.get('/api/v1/institution-kinds', () => HttpResponse.json(KIND_FIXTURES)),
+        http.post('/api/v1/institution-kinds/:id/preview', () =>
+          HttpResponse.json(COACHING_CHANGES),
+        ),
+      );
+    }
+
+    it('an ADMIN has the category, sees the eight cards and a card opens its preview', async () => {
+      mockKinds();
+      const { user } = renderWithProviders(
+        <PageWithRouter url="/settings?section=modulesWords" />,
+        {
+          locale: 'en',
+          role: 'ADMIN',
+          tenantId: 'tenant-1',
+          accessToken: fakeJwtWithMemberships(adminOwnSchool),
+        },
+      );
+
+      expect(
+        await screen.findByRole('heading', { level: 2, name: 'Institution kind' }),
+      ).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'Modules & words' })).toBeTruthy();
+      await user.click(await screen.findByRole('button', { name: /Coaching centre/ }));
+
+      expect(
+        await screen.findByRole('heading', { name: 'Institution kind: Coaching centre' }),
+      ).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Apply' })).toBeTruthy();
+    });
+
+    it('a tenant SUPER_ADMIN does not see the category or its cards', async () => {
+      mockKinds();
+      server.use(
+        http.get('/api/v1/platform/schools', () =>
+          HttpResponse.json(apiErrorBody(403), { status: 403 }),
+        ),
+      );
+      renderWithProviders(<PageWithRouter url="/settings?section=modulesWords" />, {
+        locale: 'en',
+        role: 'SUPER_ADMIN',
+        tenantId: 'tenant-1',
+        accessToken: fakeJwtWithMemberships([
+          { tenantId: 'tenant-1', role: 'SUPER_ADMIN', name: 'Greenview School' },
+        ]),
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Settings for Greenview School')).toBeTruthy();
+      });
+      expect(screen.queryByRole('link', { name: 'Modules & words' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Institution kind' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+    });
   });
 
   it('has a Biddaloy support access tab that opens the support access card', async () => {

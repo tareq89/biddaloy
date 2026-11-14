@@ -12,7 +12,7 @@ type Recipient = RuleFinding['recipients'][number];
  * for that section's class / assistant class teachers and the admins (D6, D15).
  * Clears at 0, or when the run commits (no longer DRAFT).
  */
-@AttentionRule()
+@AttentionRule({ module: 'core' })
 export class PromotionGroupsPendingRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('promotion.groups_pending');
   readonly messages = {

@@ -36,10 +36,12 @@ import {
   SetPromotionGroupsDto,
 } from './dto/promotions.dto';
 import { PromotionGroupsService } from './promotion-groups.service';
-import { Permission, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 @ApiTags('promotions')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class PromotionsController {

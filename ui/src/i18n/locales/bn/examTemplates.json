@@ -1,7 +1,7 @@
 {
   "form": {
     "title": "পরীক্ষার কাঠামো যোগ করুন",
-    "description": "কাঠামোতে প্রতিটি শ্রেণি ও বিষয়ের অংশ (লিখিত, এমসিকিউ, মৌখিক…) আর নম্বর থাকে। তৈরির পরে সেগুলো যোগ করুন।",
+    "description": "কাঠামোতে প্রতিটি $t(common:entities.class_one) ও বিষয়ের অংশ (লিখিত, এমসিকিউ, মৌখিক…) আর নম্বর থাকে। তৈরির পরে সেগুলো যোগ করুন।",
     "nameLabel": "নাম",
     "namePlaceholder": "যেমন: অর্ধ-বার্ষিক",
     "kindLabel": "ধরন",
@@ -21,11 +21,11 @@
     "columnName": "নাম",
     "columnKind": "ধরন",
     "columnRows": "মোট বিষয়",
-    "columnGrades": "শ্রেণি",
+    "columnGrades": "$t(common:entities.class_one)",
     "deleteRow": "মুছুন — {{name}}",
     "errorMessage": "পরীক্ষার কাঠামোর তালিকা লোড করা যায়নি।",
     "announceResults": "মোট {{total}}টি কাঠামো",
-    "subtitle": "প্রতিটি শ্রেণি ও বিষয়ের অংশ আর নম্বর একবার ঠিক করুন; পরীক্ষা তৈরির সময় কাঠামো বেছে নিন।",
+    "subtitle": "প্রতিটি $t(common:entities.class_one) ও বিষয়ের অংশ আর নম্বর একবার ঠিক করুন; পরীক্ষা তৈরির সময় কাঠামো বেছে নিন।",
     "edit": "সম্পাদনা",
     "emptyTitle": "এখনো কোনো পরীক্ষার কাঠামো নেই",
     "emptyText": "তৈরি শিক্ষাক্রম ব্যবহার করুন অথবা নতুন একটি যোগ করুন।"
@@ -49,31 +49,31 @@
     "editName": "নাম ও ধরন বদলান",
     "facts": {
       "kind": "ধরন",
-      "grades": "শ্রেণি",
+      "grades": "$t(common:entities.class_one)",
       "subjects": "মোট বিষয়",
       "parts": "মোট অংশ",
       "count": "{{n}}টি"
     },
-    "noGradesTitle": "এখনো কোনো শ্রেণি নেই",
-    "noGradesText": "শ্রেণি যোগ করে বিষয় ও অংশ দিন।"
+    "noGradesTitle": "এখনো কোনো $t(common:entities.class_one) নেই",
+    "noGradesText": "$t(common:entities.class_one) যোগ করে বিষয় ও অংশ দিন।"
   },
   "grid": {
-    "gradeHeading": "শ্রেণি {{grade}}",
+    "gradeHeading": "$t(common:entities.class_one) {{grade}}",
     "gradeLabel": "শ্রেণির নম্বর",
-    "addGrade": "শ্রেণি যোগ করুন",
-    "subjectPicker": "শ্রেণি {{grade}}-এ যোগ করার বিষয়",
+    "addGrade": "$t(common:entities.class_one) যোগ করুন",
+    "subjectPicker": "$t(common:entities.class_one) {{grade}}-এ যোগ করার বিষয়",
     "subjectPlaceholder": "বাছুন",
     "addSubject": "বিষয় যোগ করুন",
-    "removeSubject": "শ্রেণি {{grade}} থেকে {{subject}} সরান",
+    "removeSubject": "$t(common:entities.class_one) {{grade}} থেকে {{subject}} সরান",
     "removeSubjectShort": "বিষয় সরান",
     "columnName": "অংশের নাম",
     "columnKind": "ধরন",
     "columnFull": "পূর্ণমান",
     "columnPass": "পাস নম্বর",
     "columnActions": "কাজ",
-    "cellLabel": "{{column}} — {{subject}}, শ্রেণি {{grade}}, সারি {{row}}",
+    "cellLabel": "{{column}} — {{subject}}, $t(common:entities.class_one) {{grade}}, সারি {{row}}",
     "addComponent": "অংশ যোগ করুন",
-    "removeRow": "অংশ সরান — {{subject}}, শ্রেণি {{grade}}, সারি {{row}}",
+    "removeRow": "অংশ সরান — {{subject}}, $t(common:entities.class_one) {{grade}}, সারি {{row}}",
     "removeRowShort": "অংশ সরান",
     "error": {
       "nameRequired": "অংশের নাম লিখুন।",
@@ -87,13 +87,13 @@
       "fixErrors": "সংরক্ষণের আগে চিহ্নিত ঘরগুলো ঠিক করুন।"
     },
     "gradeHelp": "১ থেকে ৯৯, যেমন ৯",
-    "addGradeTitle": "শ্রেণি যোগ করুন",
-    "gradesLabel": "শ্রেণি",
-    "intro": "শ্রেণি {{grade}}-এর {{n}}টি বিষয় · প্রতিটি বিষয়ের অংশের পূর্ণমান আর পাস নম্বর দিন। শেষে উপরের “সংরক্ষণ করুন” চাপুন।",
+    "addGradeTitle": "$t(common:entities.class_one) যোগ করুন",
+    "gradesLabel": "$t(common:entities.class_one)",
+    "intro": "$t(common:entities.class_one) {{grade}}-এর {{n}}টি বিষয় · প্রতিটি বিষয়ের অংশের পূর্ণমান আর পাস নম্বর দিন। শেষে উপরের “সংরক্ষণ করুন” চাপুন।",
     "subjectCaption": "কোড {{code}} · {{n}}টি অংশ · মোট পূর্ণমান {{marks}}",
-    "addSubjectTitle": "শ্রেণি {{grade}}-এ বিষয় যোগ করুন",
+    "addSubjectTitle": "$t(common:entities.class_one) {{grade}}-এ বিষয় যোগ করুন",
     "subjectLabel": "বিষয়",
-    "gradeHasErrors": "শ্রেণি {{grade}}-এ ভুল আছে"
+    "gradeHasErrors": "$t(common:entities.class_one) {{grade}}-এ ভুল আছে"
   },
   "fields": {
     "templateName": "নাম (কাঠামো)",

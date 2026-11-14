@@ -35,8 +35,10 @@ export interface RouteStatusStateProps {
    * `EmptyState`'s required `explanation`: "You're offline" alone is a dead
    * end. */
   explanation: string;
-  onRetry: () => void;
-  retryLabel: string;
+  /** With `retryLabel`, renders the retry button. Omit both for a state with
+   * nothing to retry (an off module: the cause is a setting, not a glitch). */
+  onRetry?: () => void;
+  retryLabel?: string;
   /** Optional second affordance, mirroring `ErrorState.onHome` — the
    * caller supplies the navigation, this component stays router-agnostic. */
   onHome?: () => void;
@@ -44,6 +46,8 @@ export interface RouteStatusStateProps {
   /** Rendered `aria-hidden` by the caller: the heading already says what
    * this is, and an announced glyph would say it twice. */
   icon: React.ReactNode;
+  /** Extra actions after the buttons, e.g. a link. */
+  children?: React.ReactNode;
 }
 
 export function RouteStatusState({
@@ -54,6 +58,7 @@ export function RouteStatusState({
   onHome,
   homeLabel,
   icon,
+  children,
 }: RouteStatusStateProps) {
   const { t } = useTranslation('common');
   return (
@@ -66,16 +71,19 @@ export function RouteStatusState({
         {icon}
       </div>
       <h1 className="text-h3">{title}</h1>
-      <p className="max-w-prose text-text-secondary">{explanation}</p>
+      {explanation !== '' && <p className="max-w-prose text-text-secondary">{explanation}</p>}
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-        <Button type="button" variant="outline" onClick={onRetry}>
-          {retryLabel}
-        </Button>
+        {onRetry && retryLabel && (
+          <Button type="button" variant="outline" onClick={onRetry}>
+            {retryLabel}
+          </Button>
+        )}
         {onHome && (
           <Button type="button" variant="ghost" onClick={onHome}>
             {homeLabel ?? t('routeError.home')}
           </Button>
         )}
+        {children}
       </div>
     </div>
   );

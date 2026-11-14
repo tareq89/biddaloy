@@ -1,3 +1,4 @@
+import { RequiresModule } from '../../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -13,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 import { FailClosedWithoutRedis } from '../../../common/rate-limit/app-throttler.guard';
@@ -40,6 +41,7 @@ type Tenant = { id: string; role: string };
 @ApiTags('notice-sms')
 @ApiTenantAuth()
 @Controller('notices/:id/sms')
+@RequiresModule(ModuleKey.notices)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.NOTICE_SMS_APPROVE)
 export class NoticeSmsController {

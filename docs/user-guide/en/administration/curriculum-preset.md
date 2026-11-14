@@ -61,6 +61,7 @@ A **ready-made curriculum** is a package set up in advance: academic year, class
 - [How to know it was added](#confirm)
 - [Other situations](#other)
   - [See what is inside before you apply](#task-preview)
+  - [The institution kind is separate](#task-kind)
   - [If the school already has data](#task-blocked)
   - [If the wrong curriculum was added](#task-reset)
   - [If you change something that came from the curriculum](#task-edit)
@@ -123,6 +124,21 @@ This page does not keep anything separately on a phone or computer, so there is 
 ### See what is inside before you apply <a href="#task-preview" id="task-preview"></a>
 
 Press **Preview** on the card. A panel opens at the side: **Stages**, **Classes**, **Groups**, **Subjects by class**, **Grading scale** (for example "80–100% — A+"), **Exam templates** and **Certificates**. If there is no grading scale, it says "No grading scale. Your school sets it." Looking at the preview creates nothing.
+
+### The institution kind is separate <a href="#task-kind" id="task-kind"></a>
+
+A **curriculum** creates classes, subjects, grading and exams. An **institution kind** turns some modules Off and sets some words, for example **Course** and **Batch** for a coaching centre. One does not need the other, and neither changes the other.
+
+The kind cards are in **Administration → Settings → Modules & words**. In the setup wizard the same cards sit under the curriculum step. When you pick a curriculum there, the kind that matches it is already chosen:
+
+| Curriculum card                | Kind chosen for you |
+| ------------------------------ | ------------------- |
+| **Bangladesh NCTB curriculum** | Secondary school    |
+| **Alia Madrasa**               | Alia madrasa        |
+| **Qawmi Madrasa**              | Qawmi madrasa       |
+| Cambridge International        | English medium      |
+
+In the wizard the kind is applied once, when you press the step's button to go on. It is applied only if you pressed a kind card yourself, or the curriculum is already applied. A kind that was only chosen for you, with no curriculum applied, is not applied. Press **Leave as it is** to skip the kind. See [**Modules and words**](modules-and-words.md).
 
 ### If the school already has data <a href="#task-blocked" id="task-blocked"></a>
 
@@ -222,6 +238,7 @@ Only the platform administrator, who is not a staff member of any school, can un
 - [**Academic years**](../academics/academic-years.md) and [**Classes**](../academics/classes.md) — what is created from here.
 - [**Grading scales**](../exams-results/grading-scales.md) and [**Exam structures**](../exams-results/exam-templates.md) — check them after applying.
 - [**Activity log**](audit-logs.md) — who did what, and when.
+- [**Modules and words**](modules-and-words.md) — the institution kind cards, which are separate from the curriculum.
 - [**Changing the school's settings**](settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---

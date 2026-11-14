@@ -32,12 +32,21 @@ import { ProcessExamDto } from './dto/results.dto';
 import { WebsiteResultsService } from './website-results.service';
 import { WebsiteNamesDto, WebsiteResultsStateDto } from './dto/website-results.dto';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
-import { ApprovalScope, Permission, UserRole, JwtPayload, isGuardianRole } from '@biddaloy/shared';
+import {
+  ApprovalScope,
+  Permission,
+  UserRole,
+  JwtPayload,
+  isGuardianRole,
+  ModuleKey,
+} from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 
 @ApiTags('results')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams/:examId/results')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
 export class ResultsController {
@@ -201,6 +210,7 @@ export class ResultsController {
  */
 @ApiTags('results')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('exams/:examId')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class WebsiteResultsController {
@@ -283,6 +293,7 @@ export class WebsiteResultsController {
  */
 @ApiTags('results')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('students/:studentId/results')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentResultsController {

@@ -63,10 +63,10 @@
       "recommendations": "Recommendations"
     },
     "scores": {
-      "4": "Excellent",
-      "3": "Good",
+      "1": "Poor",
       "2": "Satisfactory",
-      "1": "Poor"
+      "3": "Good",
+      "4": "Excellent"
     },
     "criteria": {
       "PUNCTUALITY": "Punctuality",
@@ -202,7 +202,7 @@
   "surveys": {
     "placeholderTitle": "Surveys",
     "placeholderBody": "Survey results will appear here.",
-    "title": "Teacher surveys",
+    "title": "$t(common:entities.teacher_one) surveys",
     "new": "New survey",
     "loading": "Loading surveys…",
     "empty": "No surveys yet.",
@@ -218,15 +218,15 @@
       "CLOSED": "Closed"
     },
     "respondents": {
-      "STUDENTS": "Students",
-      "GUARDIANS": "Guardians",
-      "BOTH": "Students and guardians"
+      "STUDENTS": "$t(common:entities.student_other)",
+      "GUARDIANS": "$t(common:entities.guardian_other)",
+      "BOTH": "$t(common:entities.student_other) and guardians"
     },
     "form": {
       "title": "New teacher survey",
       "titleLabel": "Survey title",
-      "targetsLabel": "Teachers and subjects",
-      "teacherLabel": "Teacher",
+      "targetsLabel": "$t(common:entities.teacher_other) and subjects",
+      "teacherLabel": "$t(common:entities.teacher_one)",
       "subjectLabel": "Subject",
       "addTarget": "Add another teacher",
       "removeTarget": "Remove teacher",
@@ -264,7 +264,7 @@
       "sectionSchedule": "Dates and results",
       "targetsHelp": "Each teacher is rated for one subject. The teacher must be assigned to that subject.",
       "questionsHelp": "Three common questions are filled in — change them or add your own.",
-      "teacherN": "Teacher {{n}}",
+      "teacherN": "$t(common:entities.teacher_one) {{n}}",
       "subjectN": "Subject {{n}}",
       "removeTargetN": "Remove teacher {{n}}",
       "removeQuestionN": "Remove question {{n}}",

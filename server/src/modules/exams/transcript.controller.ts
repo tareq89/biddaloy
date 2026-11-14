@@ -17,7 +17,8 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
-import { Permission, JwtPayload, isGuardianRole } from '@biddaloy/shared';
+import { Permission, JwtPayload, isGuardianRole, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { TranscriptService } from './transcript.service';
 import { DocumentPrintDto, TranscriptQueryDto } from './dto/transcript.dto';
@@ -29,6 +30,7 @@ import { DocumentPrintDto, TranscriptQueryDto } from './dto/transcript.dto';
  */
 @ApiTags('results')
 @ApiTenantAuth()
+@RequiresModule(ModuleKey.exams)
 @Controller('students/:studentId')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class TranscriptController {

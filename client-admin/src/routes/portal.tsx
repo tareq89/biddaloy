@@ -30,6 +30,7 @@ import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
 import { SupportBannerHost } from '../features/support-access/support-banner-host';
 import { AppHelpProvider } from '../help/help-provider';
+import { useModuleGate, type Gated } from '../module-gate';
 import { MORE_ICON, PORTAL_NAV_ICONS } from '../nav-icons';
 import { isPathUnder } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
@@ -91,21 +92,26 @@ export interface PortalNavItemDef {
   to: string;
   labelKey: string;
   permission?: Permission;
+  /** [77.3 / D16] The module this page belongs to; `'core'` is never hidden. */
+  module: Gated;
 }
 
 export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   {
     to: '/portal',
+    module: 'core',
     labelKey: 'items.portalOverview',
     permission: Permission.FEE_READ,
   },
   {
     to: '/portal/fees',
+    module: 'fees',
     labelKey: 'items.portalFees',
     permission: Permission.INVOICE_READ,
   },
   {
     to: '/portal/statement',
+    module: 'fees',
     labelKey: 'items.portalStatement',
     // [8.15.38] `GET /portal/students/:id/statement` gates on `FEE_READ`, which PARENT and STUDENT
     // both hold. Not a bottom-bar cell: it lives under "More".
@@ -113,6 +119,7 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/attendance',
+    module: 'attendance',
     labelKey: 'items.portalAttendance',
     // [9.9] No `permission`: attendance's family-facing reads
     // (`AttendanceSummaryController`) are gated with `@Roles(...,
@@ -123,11 +130,13 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/routine',
+    module: 'routines',
     labelKey: 'items.portalRoutine',
     permission: Permission.ROUTINE_READ,
   },
   {
     to: '/portal/calendar',
+    module: 'core',
     labelKey: 'items.portalCalendar',
     // [17.5.2] Same reasoning as `/portal/attendance` above: family
     // visibility is role-gated server-side (`@Roles(..., PARENT,
@@ -135,6 +144,7 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/results',
+    module: 'exams',
     labelKey: 'items.portalResults',
     // [19.9.1] `StudentResultsController` gates on `RESULT_READ`, which
     // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
@@ -143,6 +153,7 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/programs',
+    module: 'programs',
     labelKey: 'items.portalPrograms',
     // [34.5.2] `StudentProgramsController` (D24) gates
     // `GET /students/:id/programs` on `PROGRAM_READ`, which
@@ -152,6 +163,7 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/exam-schedule',
+    module: 'exams',
     labelKey: 'items.portalExamSchedule',
     // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
     // same as `/portal/results` above.
@@ -159,30 +171,35 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/syllabus',
+    module: 'syllabus',
     labelKey: 'items.portalSyllabus',
     // [22.4.5] PARENT and STUDENT both hold `SYLLABUS_READ`.
     permission: Permission.SYLLABUS_READ,
   },
   {
     to: '/portal/homework',
+    module: 'homework',
     labelKey: 'items.portalHomework',
     // [8.10.7.5.10] PARENT and STUDENT hold HOMEWORK_READ (shared/src/enums/permissions.ts:512,530).
     permission: Permission.HOMEWORK_READ,
   },
   {
     to: '/portal/notices',
+    module: 'notices',
     labelKey: 'items.portalNotices',
     // [53.4.01] PARENT and STUDENT both hold NOTICE_READ (shared/src/enums/permissions.ts).
     permission: Permission.NOTICE_READ,
   },
   {
     to: '/portal/surveys',
+    module: 'evaluations',
     labelKey: 'items.portalSurveys',
     // No `permission`: `SurveyRespondController` is `@Roles(PARENT, STUDENT)`,
     // the same role-gated case as `/portal/attendance` above.
   },
   {
     to: '/portal/applications',
+    module: 'applications',
     labelKey: 'items.portalApplications',
     // [52.6.1] PARENT and STUDENT both hold `APPLICATION_SUBMIT` (D22). Not a bottom-bar
     // cell: it lives under "More".
@@ -190,6 +207,7 @@ export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
   },
   {
     to: '/portal/account',
+    module: 'core',
     labelKey: 'items.portalAccount',
     // [8.14.4] No `permission`: every signed-in role in this shell owns
     // its own account — this is the exact "everyone in the shell sees
@@ -233,7 +251,8 @@ function PortalLayout() {
     }
   }, [breadcrumbTitle]);
 
-  const navItems = PORTAL_NAV_ITEMS.map((item) => {
+  const moduleOn = useModuleGate();
+  const navItems = PORTAL_NAV_ITEMS.filter((item) => moduleOn(item.module)).map((item) => {
     const Icon = PORTAL_NAV_ICONS[item.to]!;
     return { ...item, label: t(item.labelKey), icon: <Icon aria-hidden="true" /> };
   });

@@ -60,7 +60,7 @@
     },
     "summary": "Summary",
     "type": "Type",
-    "for": "Student",
+    "for": "$t(common:entities.student_one)",
     "to": "To",
     "files": "Files",
     "none": "None",

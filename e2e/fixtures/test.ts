@@ -135,7 +135,7 @@ async function cockpitLogin(locale: string): Promise<StorageState> {
   }
 }
 
-interface AuthOptions {
+export interface AuthOptions {
   /** Signed in as the platform owner on the cockpit host (instead of a school role). */
   e2eCockpit: boolean;
   e2eRole: SeedRole | null;

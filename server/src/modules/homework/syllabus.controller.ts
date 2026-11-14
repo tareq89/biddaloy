@@ -28,7 +28,8 @@ import {
   ReorderSyllabusTopicsDto,
   toSyllabusTopicResponseDto,
 } from './dto/syllabus.dto';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
 /**
  * [22.3.4] `GET /syllabus-topics` (`SYLLABUS_READ`) and the write routes
@@ -39,6 +40,7 @@ import { JwtPayload, Permission } from '@biddaloy/shared';
 @ApiTags('syllabus-topics')
 @ApiTenantAuth()
 @Controller('syllabus-topics')
+@RequiresModule(ModuleKey.syllabus)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SyllabusController {
   constructor(private readonly service: SyllabusService) {}

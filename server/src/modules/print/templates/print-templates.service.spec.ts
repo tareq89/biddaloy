@@ -56,6 +56,7 @@ function setup(template: Partial<PrintTemplate> | null = {}) {
     dataSource as never,
     { put: vi.fn() } as never,
     audit as never,
+    { getSchoolLabels: vi.fn(async () => ({})) } as never,
   );
   return { service, tpl, templateRepo, versionRepo, assetRepo, dataSource, audit, saved };
 }

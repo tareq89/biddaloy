@@ -1,3 +1,4 @@
+import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import {
   Body,
   Controller,
@@ -20,7 +21,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -58,6 +59,7 @@ const actorOf = (t: Tenant, u: JwtPayload): NoticeActor => ({ userId: u.sub, rol
 @ApiTags('notices')
 @ApiTenantAuth()
 @Controller('notices')
+@RequiresModule(ModuleKey.notices)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @RequirePermissions(Permission.NOTICE_POST)
 export class NoticesController {

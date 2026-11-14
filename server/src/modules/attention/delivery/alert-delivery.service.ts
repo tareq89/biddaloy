@@ -40,6 +40,8 @@ export function quietHoursEnd(now: Date, tz: string, q: Quiet): Date {
 
 const PUSHABLE_RULE_KEYS = ALERT_RULE_KEYS.filter((k) => alertRuleMeta(k).pushable);
 const CATCH_UP_LIMIT = 500;
+// ponytail: 20 pages (10k rows) per sweep; the rest waits for the next sweep.
+const CATCH_UP_MAX_PAGES = 20;
 
 /** Web push for newly OPEN recipients (D8, D23, D26). Never sends SMS. */
 @Injectable()
@@ -89,8 +91,13 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
    * cannot double-push. The sweep event carries no tenant, so this covers all ACTIVE tenants.
    */
   async catchUp(now = new Date()): Promise<void> {
-    const rows: { id: string; tenant_id: string }[] = await this.dataSource.query(
-      `SELECT r.id, r.tenant_id
+    // Rows of a module-off school are skipped by `deliver` and stay pending (they push after the
+    // module is back). Keyset paging moves past them, so they cannot fill the limit forever.
+    let cursor: { at: Date; id: string } | null = null;
+    for (let page = 0; page < CATCH_UP_MAX_PAGES; page++) {
+      const rows: { id: string; tenant_id: string; created_at: Date }[] =
+        await this.dataSource.query(
+          `SELECT r.id, r.tenant_id, r.created_at
          FROM alert_recipients r
          JOIN alerts a ON a.id = r.alert_id AND a.tenant_id = r.tenant_id
          -- Like the sweep: a suspended school does nothing in the background.
@@ -99,18 +106,23 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
           AND a.rule_key = ANY($3::text[])
           AND r.created_at BETWEEN $1::timestamptz - interval '1 day'
                                AND $1::timestamptz - interval '2 minutes'
-        ORDER BY r.created_at
+          AND ($4::timestamptz IS NULL OR (r.created_at, r.id) > ($4::timestamptz, $5::uuid))
+        ORDER BY r.created_at, r.id
         LIMIT $2`,
-      [now, CATCH_UP_LIMIT, PUSHABLE_RULE_KEYS],
-    );
-    const byTenant = new Map<string, string[]>();
-    for (const r of rows) byTenant.set(r.tenant_id, [...(byTenant.get(r.tenant_id) ?? []), r.id]);
-    for (const [tenantId, ids] of byTenant) {
-      try {
-        await this.deliver(tenantId, ids, now);
-      } catch (e) {
-        this.logger.error(`attention push catch-up failed for ${tenantId}: ${String(e)}`);
+          [now, CATCH_UP_LIMIT, PUSHABLE_RULE_KEYS, cursor?.at ?? null, cursor?.id ?? null],
+        );
+      const byTenant = new Map<string, string[]>();
+      for (const r of rows) byTenant.set(r.tenant_id, [...(byTenant.get(r.tenant_id) ?? []), r.id]);
+      for (const [tenantId, ids] of byTenant) {
+        try {
+          await this.deliver(tenantId, ids, now);
+        } catch (e) {
+          this.logger.error(`attention push catch-up failed for ${tenantId}: ${String(e)}`);
+        }
       }
+      if (rows.length < CATCH_UP_LIMIT) return;
+      const last = rows[rows.length - 1];
+      cursor = { at: last.created_at, id: last.id };
     }
   }
 
@@ -149,8 +161,16 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
     const quiet = settings.attention!.quietHours!;
     const quietNow = !deferred && isInQuietHours(localTimeHHmm(now, tz), quiet);
 
+    // [77.2.10] D9: an alert queued before its module was switched off is not pushed (the row
+    // stays, it shows again when the module is back). Same hidden-rule list the bar uses.
+    const hiddenByRole = new Map<string, string[]>();
     for (const row of rows) {
       if (!isAlertRuleKey(row.rule_key) || !alertRuleMeta(row.rule_key).pushable) continue;
+      const roleKey = row.role ?? '';
+      if (!hiddenByRole.has(roleKey)) {
+        hiddenByRole.set(roleKey, await this.query.hiddenRuleKeys(tenantId, row.role ?? undefined));
+      }
+      if (hiddenByRole.get(roleKey)!.includes(row.rule_key)) continue;
       const muted: string[] = row.preferences?.notifications?.mutedCategories ?? [];
       if (muted.includes(row.category) && row.severity !== AlertSeverity.CRITICAL) continue;
 
