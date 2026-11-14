@@ -31,21 +31,29 @@ export class RoutineService {
     if (!academicYear) {
       throw new NotFoundException('Academic year not found');
     }
-    await assertYearOpen(this.repo.manager, tenantId, dto.academic_year_id); // [69.3.05] D4
-
-    const existing = await this.repo.findOne({
-      where: { tenant_id: tenantId, academic_year_id: dto.academic_year_id, deleted_at: IsNull() },
+    // [69.3.05] D4: the guard and the insert share one transaction (#4046), so a year closed
+    // meanwhile waits for this insert instead of being passed.
+    return this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id);
+      const repo = manager.getRepository(Routine);
+      const existing = await repo.findOne({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: dto.academic_year_id,
+          deleted_at: IsNull(),
+        },
+      });
+      if (existing) {
+        throw new ConflictException('A routine already exists for this academic year.');
+      }
+      const entity = repo.create({
+        ...dto,
+        tenant_id: tenantId,
+        state: RoutineState.DRAFT,
+        published_at: null,
+      });
+      return repo.save(entity);
     });
-    if (existing) {
-      throw new ConflictException('A routine already exists for this academic year.');
-    }
-    const entity = this.repo.create({
-      ...dto,
-      tenant_id: tenantId,
-      state: RoutineState.DRAFT,
-      published_at: null,
-    });
-    return this.repo.save(entity);
   }
 
   async findAll(tenantId: string): Promise<Routine[]> {

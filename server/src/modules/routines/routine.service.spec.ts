@@ -14,7 +14,12 @@ function buildService(
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: 'routine-1', ...v })),
     find: vi.fn(async () => []),
-    manager: { query: vi.fn(async () => [{ closed_at: closedAt }]) }, // assertYearOpen [69.3.05]
+    manager: {} as any,
+  };
+  const query = vi.fn(async () => [{ closed_at: closedAt }]); // assertYearOpen [69.3.05]
+  repo.manager = {
+    query,
+    transaction: async (cb: any) => cb({ query, getRepository: () => repo }),
   };
   const academicYearRepo: any = { findOne: vi.fn(async () => academicYear) };
   const service = new RoutineService(repo, academicYearRepo);
@@ -34,6 +39,30 @@ describe('RoutineService [21.6.1]', () => {
         where: expect.objectContaining({ id: 'year-1', tenant_id: TENANT_ID }),
       }),
     );
+  });
+
+  it('[#4046] the year guard and the insert run in one transaction', async () => {
+    const ctx = buildService();
+    const order: string[] = [];
+    const inner = {
+      query: vi.fn(async () => {
+        order.push('guard');
+        return [{ closed_at: null }];
+      }),
+      getRepository: () => ({
+        ...ctx.repo,
+        save: vi.fn(async (v: any) => {
+          order.push('save');
+          return { id: 'routine-1', ...v };
+        }),
+      }),
+    };
+    const outer = vi.fn(async (cb: any) => cb(inner));
+    ctx.repo.manager = { query: vi.fn(), transaction: outer };
+    await ctx.service.create({ academic_year_id: 'year-1', name: 'Term 1' } as any, TENANT_ID);
+    expect(outer).toHaveBeenCalledTimes(1);
+    expect(ctx.repo.manager.query).not.toHaveBeenCalled();
+    expect(order).toEqual(['guard', 'save']);
   });
 
   it('[69.3.05] 409s when the academic year is closed', async () => {

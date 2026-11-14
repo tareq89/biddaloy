@@ -300,8 +300,7 @@ export class CalendarEventsService {
     const academicYear = expectedAcademicYearId
       ? await this.assertInsideYear(tenantId, expectedAcademicYearId, dto.start_date, dto.end_date)
       : await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
-    // [69.3.05] D4. ponytail: update/remove/publish are not transactional here, so the check is
-    // not atomic with the write; wrap them in a transaction if a close/write race ever matters.
+    // [69.3.05] D4. Early answer; the write below re-checks inside its transaction (#4046).
     await assertYearOpen(manager ?? this.eventRepo.manager, tenantId, academicYear.id);
     const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
@@ -314,50 +313,62 @@ export class CalendarEventsService {
     // A past closure is always live at once and never announced (no SMS
     // about a day that is over).
     const publish = isPastClosure ? true : (dto.publish ?? true);
-    const eventRepo = manager?.getRepository(CalendarEvent) ?? this.eventRepo;
-    const eventClassRepo = manager?.getRepository(CalendarEventClass) ?? this.eventClassRepo;
-    const event = eventRepo.create({
-      tenant_id: tenantId,
-      academic_year_id: academicYear.id,
-      type: dto.type,
-      name: dto.name,
-      description: dto.description ?? null,
-      start_date: dto.start_date,
-      end_date: dto.end_date,
-      start_time: dto.start_time ?? null,
-      end_time: dto.end_time ?? null,
-      counts_as_working_day: countsAsWorkingDay,
-      audience: dto.audience,
-      published_at: publish ? new Date() : null,
-      created_by_user_id: userId,
-      updated_by_user_id: userId,
-    });
-    const saved = await eventRepo.save(event);
-
-    if (classIds.length > 0) {
-      await eventClassRepo.save(
-        classIds.map((classId) => ({ event_id: saved.id, class_id: classId, tenant_id: tenantId })),
-      );
-    }
-
-    await this.auditService.record(
-      {
-        action: AuditAction.CREATE,
-        entity_type: 'CalendarEvent',
-        entity_id: saved.id,
+    const persist = async (m: EntityManager) => {
+      // Same transaction as the insert: `FOR SHARE` makes a concurrent year close wait (#4046).
+      await assertYearOpen(m, tenantId, academicYear.id);
+      const eventRepo = m.getRepository(CalendarEvent);
+      const eventClassRepo = m.getRepository(CalendarEventClass);
+      const event = eventRepo.create({
         tenant_id: tenantId,
-        performed_by_user_id: userId,
-        old_values: null,
-        new_values: {
-          ...saved,
-          class_ids: classIds,
-          ...(isPastClosure ? { reason } : {}),
+        academic_year_id: academicYear.id,
+        type: dto.type,
+        name: dto.name,
+        description: dto.description ?? null,
+        start_date: dto.start_date,
+        end_date: dto.end_date,
+        start_time: dto.start_time ?? null,
+        end_time: dto.end_time ?? null,
+        counts_as_working_day: countsAsWorkingDay,
+        audience: dto.audience,
+        published_at: publish ? new Date() : null,
+        created_by_user_id: userId,
+        updated_by_user_id: userId,
+      });
+      const saved = await eventRepo.save(event);
+
+      if (classIds.length > 0) {
+        await eventClassRepo.save(
+          classIds.map((classId) => ({
+            event_id: saved.id,
+            class_id: classId,
+            tenant_id: tenantId,
+          })),
+        );
+      }
+
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'CalendarEvent',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: null,
+          new_values: {
+            ...saved,
+            class_ids: classIds,
+            ...(isPastClosure ? { reason } : {}),
+          },
         },
-      },
-      // Same transaction as the insert: a rolled-back bulk add leaves no
-      // audit row for an event that never existed.
-      manager,
-    );
+        // Same transaction as the insert: a rolled-back bulk add leaves no
+        // audit row for an event that never existed.
+        m,
+      );
+      return saved;
+    };
+    const saved = manager
+      ? await persist(manager)
+      : await this.eventRepo.manager.transaction(persist);
 
     const [withClassIds] = await this.withClassIds([saved], tenantId);
     // D9: a draft (`publish: false`) is never notified — `publish()` sends
@@ -400,11 +411,13 @@ export class CalendarEventsService {
       ? await this.assertInsideYear(tenantId, expectedAcademicYearId, nextStart, nextEnd)
       : await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
 
-    // [69.3.05] D4: both the year the event sits in and the one it moves to.
+    // [69.3.05] D4: both the year the event sits in and the one it moves to. Early answer; the
+    // write below re-checks both inside its transaction (#4046).
     await assertYearOpen(this.eventRepo.manager, tenantId, event.academic_year_id);
     if (academicYear.id !== event.academic_year_id) {
       await assertYearOpen(this.eventRepo.manager, tenantId, academicYear.id);
     }
+    const sourceYearId = event.academic_year_id;
 
     const nextType = dto.type ?? event.type;
     const wasMakeup = event.type === CalendarEventType.MAKEUP_DAY;
@@ -470,29 +483,38 @@ export class CalendarEventsService {
       academic_year_id: academicYear.id,
       updated_by_user_id: userId,
     });
-    const saved = await this.eventRepo.save(event);
+    const saved = await this.eventRepo.manager.transaction(async (m) => {
+      await assertYearOpen(m, tenantId, sourceYearId);
+      if (academicYear.id !== sourceYearId) await assertYearOpen(m, tenantId, academicYear.id);
+      const savedEvent = await m.getRepository(CalendarEvent).save(event);
 
-    if (classIds !== undefined) {
-      await this.eventClassRepo.delete({ event_id: saved.id });
-      if (classIds.length > 0) {
-        await this.eventClassRepo.save(
-          classIds.map((classId) => ({
-            event_id: saved.id,
-            class_id: classId,
-            tenant_id: tenantId,
-          })),
-        );
+      if (classIds !== undefined) {
+        const links = m.getRepository(CalendarEventClass);
+        await links.delete({ event_id: savedEvent.id });
+        if (classIds.length > 0) {
+          await links.save(
+            classIds.map((classId) => ({
+              event_id: savedEvent.id,
+              class_id: classId,
+              tenant_id: tenantId,
+            })),
+          );
+        }
       }
-    }
 
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'CalendarEvent',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: oldValues,
-      new_values: { ...saved },
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'CalendarEvent',
+          entity_id: savedEvent.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: oldValues,
+          new_values: { ...savedEvent },
+        },
+        m,
+      );
+      return savedEvent;
     });
 
     const [withClassIds] = await this.withClassIds([saved], tenantId);
@@ -513,16 +535,21 @@ export class CalendarEventsService {
       await this.assertMakeupDaysUnmarked(event);
     }
 
-    await this.eventRepo.softDelete({ id, tenant_id: tenantId });
-
-    await this.auditService.record({
-      action: AuditAction.DELETE,
-      entity_type: 'CalendarEvent',
-      entity_id: event.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: { ...event },
-      new_values: null,
+    await this.eventRepo.manager.transaction(async (m) => {
+      await assertYearOpen(m, tenantId, event.academic_year_id); // #4046: re-check, atomic with the delete
+      await m.getRepository(CalendarEvent).softDelete({ id, tenant_id: tenantId });
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'CalendarEvent',
+          entity_id: event.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: { ...event },
+          new_values: null,
+        },
+        m,
+      );
     });
   }
 
@@ -544,15 +571,21 @@ export class CalendarEventsService {
       }
       event.published_at = new Date();
       event.updated_by_user_id = userId;
-      await this.eventRepo.save(event);
-      await this.auditService.record({
-        action: AuditAction.UPDATE,
-        entity_type: 'CalendarEvent',
-        entity_id: event.id,
-        tenant_id: tenantId,
-        performed_by_user_id: userId,
-        old_values: { published_at: null },
-        new_values: { published_at: event.published_at },
+      await this.eventRepo.manager.transaction(async (m) => {
+        await assertYearOpen(m, tenantId, event.academic_year_id); // #4046: re-check, atomic with the save
+        await m.getRepository(CalendarEvent).save(event);
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'CalendarEvent',
+            entity_id: event.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            old_values: { published_at: null },
+            new_values: { published_at: event.published_at },
+          },
+          m,
+        );
       });
     }
     const [withClassIds] = await this.withClassIds([event], tenantId);
