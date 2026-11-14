@@ -113,6 +113,8 @@ export class CheckoutService {
     userId: string,
     request: RequestLike,
     meta?: CheckoutMeta,
+    /** `receivedByUserId: null` = nobody at the counter took it (a settled guardian payment, D39). */
+    opts?: { receivedByUserId?: string | null },
   ): Promise<CheckoutResultDto> {
     const existing = await this.findByIdempotencyKey(tenantId, dto.idempotency_key);
     if (existing) {
@@ -352,7 +354,8 @@ export class CheckoutService {
           payment_status: PaymentStatus.SUCCESS,
           transaction_reference: dto.transaction_reference ?? null,
           remarks: dto.remarks ?? null,
-          received_by_user_id: userId,
+          received_by_user_id:
+            opts?.receivedByUserId !== undefined ? opts.receivedByUserId : userId,
           payment_date: now,
           tenant_id: tenantId,
           idempotency_key: dto.idempotency_key,

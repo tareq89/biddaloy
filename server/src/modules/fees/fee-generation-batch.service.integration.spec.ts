@@ -267,6 +267,8 @@ describe('FeeGenerationBatchService (integration)', () => {
   });
 
   beforeEach(async () => {
+    await dataSource.query('DELETE FROM payment_submission_bills');
+    await dataSource.query('DELETE FROM payment_submissions');
     await dataSource.query('DELETE FROM audit_logs');
     await dataSource.query('DELETE FROM wallet_transactions');
     await dataSource.query('DELETE FROM student_wallets');
@@ -439,6 +441,54 @@ describe('FeeGenerationBatchService (integration)', () => {
       }
       expect(await generationRepo.count({ where: { id: batch.id } })).toBe(1);
       expect(await studentFeeRepo.count({ where: { fee_generation_id: batch.id } })).toBe(1);
+    });
+  });
+
+  describe('bills a waiting payment submission covers [3.x]', () => {
+    /** A PROOF submission (status given) for one bill. */
+    async function submit(billId: string, studentId: string, status = 'PENDING') {
+      const [sub] = await dataSource.query(
+        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on)
+         VALUES ($1, 'PROOF', $2, $3, 'BKASH', 1000, '2026-07-01') RETURNING id`,
+        [TENANT_ID, status, ACTOR_USER_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1, $2, $3, $4, 1000)`,
+        [TENANT_ID, sub.id, billId, studentId],
+      );
+      return sub.id as string;
+    }
+    const waiting = { response: { details: { code: 'PAYMENT_SUBMISSION_WAITING', count: 1 } } };
+
+    it('deleteBatch, removeStudent and removeUncollected each refuse with 409 and remove nothing', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id);
+      await submit(bill.id, student.id);
+
+      await expect(
+        service.deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+      ).rejects.toMatchObject(waiting);
+      await expect(
+        service.removeStudent(batch.id, student.id, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+      ).rejects.toMatchObject(waiting);
+      await expect(
+        service.removeUncollected(batch.id, TENANT_ID, ACTOR_USER_ID),
+      ).rejects.toMatchObject(waiting);
+
+      expect(await studentFeeRepo.count({ where: { fee_generation_id: batch.id } })).toBe(1);
+    });
+
+    it('lets the removal through once the submission is discarded', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id);
+      await submit(bill.id, student.id, 'DISCARDED');
+
+      await service.deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+
+      expect(await studentFeeRepo.count({ where: { fee_generation_id: batch.id } })).toBe(0);
     });
   });
 

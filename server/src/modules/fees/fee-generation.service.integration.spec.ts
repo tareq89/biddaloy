@@ -266,6 +266,8 @@ describe('FeeGenerationService (integration)', () => {
 
   beforeEach(async () => {
     await redis.flushdb();
+    await dataSource.query('DELETE FROM payment_submission_bills');
+    await dataSource.query('DELETE FROM payment_submissions');
     await dataSource.query('DELETE FROM wallet_transactions');
     await dataSource.query('DELETE FROM student_wallets');
     await dataSource.query('DELETE FROM payment_allocations');
@@ -590,6 +592,43 @@ describe('FeeGenerationService (integration)', () => {
       const bills = await studentFeeRepo.find();
       expect(bills).toHaveLength(1);
       expect(bills[0].id).not.toBe(oldBillId);
+    });
+
+    it('REMOVE_OLDER refuses (409) while a pending payment submission covers the old bill', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+      const dto = {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        period_start: '2026-06-01',
+        period_type: PeriodType.MONTH,
+        student_ids: [student.id],
+        fee_structure_ids: [structure.id],
+      };
+      await service.generate(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+      const oldBill = (await studentFeeRepo.find())[0];
+      const [sub] = await dataSource.query(
+        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on)
+         VALUES ($1, 'PROOF', 'PENDING', $2, 'BKASH', 1000, '2026-06-01') RETURNING id`,
+        [TENANT_ID, ACTOR_USER_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1, $2, $3, $4, 1000)`,
+        [TENANT_ID, sub.id, oldBill.id, student.id],
+      );
+
+      await expect(
+        service.generate(
+          { ...dto, duplicate_strategy: DuplicateStrategy.REMOVE_OLDER },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toMatchObject({
+        response: { details: { code: 'PAYMENT_SUBMISSION_WAITING', count: 1 } },
+      });
+      // Nothing was removed.
+      expect(await studentFeeRepo.count()).toBe(1);
     });
 
     it('REMOVE_OLDER rolls back with a conflict when a concurrent request removed the bill first', async () => {

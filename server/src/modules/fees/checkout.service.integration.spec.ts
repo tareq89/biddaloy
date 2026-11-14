@@ -1653,4 +1653,56 @@ describe('CheckoutService (integration)', () => {
       expect(secondRow.tenant_id).toBe(OTHER_TENANT_ID);
     });
   });
+
+  describe('received_by [3.x]', () => {
+    const dtoFor = (billId: string, key: string) =>
+      ({
+        idempotency_key: key,
+        lines: [{ student_fee_id: billId, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        change_handling: 'RETURN',
+      }) as any;
+
+    it('a counter checkout is received by the caller', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const r = await service.checkout(
+        dtoFor(bill.id, '44444444-4444-4444-8444-444444444441'),
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(r.payment.received_by_user_id).toBe(ACTOR_USER_ID);
+    });
+
+    it('opts.receivedByUserId null leaves it empty while the actor is still audited', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const r = await service.checkout(
+        dtoFor(bill.id, '44444444-4444-4444-8444-444444444442'),
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        undefined,
+        { receivedByUserId: null },
+      );
+      expect(r.payment.received_by_user_id).toBeNull();
+      const audit = await auditLogRepo.findOneByOrFail({ entity_id: r.payment.id });
+      expect(audit.performed_by_user_id).toBe(ACTOR_USER_ID);
+    });
+
+    it('opts.receivedByUserId can name another user', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const r = await service.checkout(
+        dtoFor(bill.id, '44444444-4444-4444-8444-444444444443'),
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        undefined,
+        { receivedByUserId: ACTOR_USER_ID },
+      );
+      expect(r.payment.received_by_user_id).toBe(ACTOR_USER_ID);
+    });
+  });
 });
