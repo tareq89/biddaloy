@@ -355,6 +355,129 @@ describe('SchoolsService (integration)', () => {
    * only a real unique index can prove a rename collision surfaces as a
    * `ConflictException` rather than an unhandled 500.
    */
+  describe('[3.1.03] settings.payments (D13/D47)', () => {
+    const CREDS = {
+      appKey: 'KEY-plain-1',
+      appSecret: 'SECRET-plain-2',
+      username: 'USER-plain-3',
+      password: 'PASS-plain-4',
+    };
+    const patch = (payments: Record<string, unknown>) =>
+      plainToInstance(TenantSettingsDto, { version: 1, payments });
+    const stored = async (id: string) =>
+      (await schoolRepo.findOneByOrFail({ id })).settings?.payments as any;
+    // Stands in for the test-connection route (#3984), the only real writer of `lastTestOkAt`.
+    const markTested = async (id: string) => {
+      const school = await schoolRepo.findOneByOrFail({ id });
+      const settings = school.settings as any;
+      settings.payments.bkash.lastTestOkAt = '2026-01-01T00:00:00.000Z';
+      school.settings = settings;
+      await schoolRepo.save(school);
+    };
+    const REFUSAL = 'Test the bKash connection before turning online payments on.';
+
+    it('encrypts the four secrets, masks the response, and keeps plaintext and ciphertext out of audit rows', async () => {
+      const school = await createSchool();
+      const res = await service.updateSettings(
+        school.id,
+        patch({ bkash: { environment: 'SANDBOX', ...CREDS } }),
+        SEED_ADMIN_USER_ID,
+      );
+      for (const v of Object.values(CREDS)) expect(JSON.stringify(res)).not.toContain(v);
+      expect((res.payments as any).bkash.appKey).toMatchObject({ configured: true });
+      const raw = (await stored(school.id)).bkash;
+      for (const [k, v] of Object.entries(CREDS)) {
+        expect(raw[k]).not.toBe(v);
+        expect(raw[k]).toEqual(expect.any(String));
+      }
+      const rows = await dataSource.query('SELECT old_values, new_values FROM audit_logs');
+      const dump = JSON.stringify(rows);
+      for (const v of Object.values(CREDS)) expect(dump).not.toContain(v);
+      for (const k of Object.keys(CREDS)) expect(dump).not.toContain(raw[k]);
+    });
+
+    it('defaults both toggles off', async () => {
+      const school = await createSchool();
+      const res = await service.updateSettings(
+        school.id,
+        patch({ proofEnabled: false }),
+        SEED_ADMIN_USER_ID,
+      );
+      expect(res.payments).toMatchObject({
+        onlineEnabled: false,
+        proofEnabled: false,
+        proofMethods: [],
+      });
+    });
+
+    it('refuses online without a passing test, with one fixed sentence that echoes nothing', async () => {
+      const school = await createSchool();
+      await service.updateSettings(school.id, patch({ bkash: CREDS }), SEED_ADMIN_USER_ID);
+      const err = await service
+        .updateSettings(school.id, patch({ onlineEnabled: true }), SEED_ADMIN_USER_ID)
+        .catch((e) => e);
+      expect(err.getStatus()).toBe(400);
+      expect(err.message).toBe(REFUSAL);
+      expect((await stored(school.id)).onlineEnabled).toBeUndefined();
+    });
+
+    it('allows online after a test, and ignores lastTestOkAt sent in a PATCH', async () => {
+      const school = await createSchool();
+      await service.updateSettings(
+        school.id,
+        patch({ bkash: { ...CREDS, lastTestOkAt: '2026-02-02T00:00:00.000Z' } }),
+        SEED_ADMIN_USER_ID,
+      );
+      expect((await stored(school.id)).bkash.lastTestOkAt).toBeUndefined();
+      await expect(
+        service.updateSettings(school.id, patch({ onlineEnabled: true }), SEED_ADMIN_USER_ID),
+      ).rejects.toThrow(REFUSAL);
+      await markTested(school.id);
+      await service.updateSettings(school.id, patch({ onlineEnabled: true }), SEED_ADMIN_USER_ID);
+      expect((await stored(school.id)).onlineEnabled).toBe(true);
+    });
+
+    it('a credential or environment change clears lastTestOkAt and switches online off', async () => {
+      for (const change of [{ appKey: 'NEW-KEY' }, { environment: 'PRODUCTION' }]) {
+        const school = await createSchool();
+        await service.updateSettings(school.id, patch({ bkash: CREDS }), SEED_ADMIN_USER_ID);
+        await markTested(school.id);
+        await service.updateSettings(school.id, patch({ onlineEnabled: true }), SEED_ADMIN_USER_ID);
+        await service.updateSettings(school.id, patch({ bkash: change }), SEED_ADMIN_USER_ID);
+        const p = await stored(school.id);
+        expect(p.bkash.lastTestOkAt).toBeUndefined();
+        expect(p.onlineEnabled).toBe(false);
+      }
+    });
+
+    it('nulling a credential while online forces online off; turning online off is always allowed', async () => {
+      const school = await createSchool();
+      await service.updateSettings(school.id, patch({ bkash: CREDS }), SEED_ADMIN_USER_ID);
+      await markTested(school.id);
+      await service.updateSettings(school.id, patch({ onlineEnabled: true }), SEED_ADMIN_USER_ID);
+      await service.updateSettings(
+        school.id,
+        patch({ bkash: { password: null } }),
+        SEED_ADMIN_USER_ID,
+      );
+      const p = await stored(school.id);
+      expect(p.bkash.password).toBeUndefined();
+      expect(p.onlineEnabled).toBe(false);
+      await service.updateSettings(school.id, patch({ onlineEnabled: false }), SEED_ADMIN_USER_ID);
+    });
+
+    it('enabling online in the same request as new credentials is refused', async () => {
+      const school = await createSchool();
+      await expect(
+        service.updateSettings(
+          school.id,
+          patch({ onlineEnabled: true, bkash: CREDS }),
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toThrow(REFUSAL);
+    });
+  });
+
   describe('organisation vocabulary guard/rename', () => {
     async function createSchoolWithClass(shift: string) {
       const school = await createSchool();

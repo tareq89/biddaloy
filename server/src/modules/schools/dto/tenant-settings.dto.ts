@@ -11,6 +11,7 @@ import {
   IsObject,
   ArrayNotEmpty,
   IsISO31661Alpha2,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   Matches,
@@ -27,6 +28,7 @@ import { Transform, Type } from 'class-transformer';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { NestedSettings } from '../settings/nested-settings.decorator';
+import { Secret } from '../settings/secret-field.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { MessagingMediumSettings } from '../settings/messaging-settings.validator';
@@ -42,6 +44,8 @@ import {
   DailyAttendanceSource,
   DiscountKind,
   FeeType,
+  PaymentGatewayEnvironment,
+  PaymentMethod,
   SERIAL_PREFIX_PATTERN,
   TermLabel,
 } from '@biddaloy/shared';
@@ -668,6 +672,104 @@ export class FeesSettingsDto {
   requireSecondApprover?: boolean;
 }
 
+/** [Epic 3 D13] One proof instruction per method; a method may appear once. */
+@ValidatorConstraint({ name: 'proofMethodsUnique', async: false })
+class ProofMethodsUniqueConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (!Array.isArray(value)) return false;
+    const methods = value.map((v) => (v as { method?: unknown } | null)?.method);
+    return new Set(methods).size === methods.length;
+  }
+
+  defaultMessage(): string {
+    return 'proofMethods must list each payment method at most once';
+  }
+}
+
+export class ProofMethodDto {
+  @ApiProperty({ enum: PaymentMethod })
+  @IsIn(Object.values(PaymentMethod))
+  method: PaymentMethod;
+
+  @ApiProperty({ maxLength: 500 })
+  @IsString()
+  @MaxLength(500)
+  instructions: string;
+}
+
+/**
+ * [3.1.03 D13/D14/D47] bKash tokenized-checkout credentials. The four `@Secret()` fields are
+ * encrypted at rest, masked on read and redacted from the audit. There is no base URL: the
+ * environment picks a fixed host (D14). `lastTestOkAt` is server-written only: validated here so
+ * a PATCH carrying it is ignored (stripped in `SchoolsService.updateSettings`), never a 400.
+ */
+export class BkashSettingsDto {
+  @ApiPropertyOptional({ enum: PaymentGatewayEnvironment })
+  @IsOptional()
+  @IsIn(Object.values(PaymentGatewayEnvironment))
+  environment?: PaymentGatewayEnvironment;
+
+  @Secret()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  appKey?: string;
+
+  @Secret()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  appSecret?: string;
+
+  @Secret()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  username?: string;
+
+  @Secret()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  password?: string;
+
+  /** Written only by the test-connection route (#3984). Ignored on PATCH. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsISO8601()
+  lastTestOkAt?: string;
+}
+
+/** [3.1.03] `settings.payments`. Both toggles default off. */
+export class PaymentsSettingsDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  onlineEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  proofEnabled?: boolean;
+
+  @ApiPropertyOptional({ type: [ProofMethodDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(7)
+  @Validate(ProofMethodsUniqueConstraint)
+  @ValidateNested({ each: true })
+  @Type(() => ProofMethodDto)
+  proofMethods?: ProofMethodDto[];
+
+  @OptionalSetting()
+  @NestedSettings(() => BkashSettingsDto)
+  bkash?: BkashSettingsDto;
+}
+
 /** [28.2.1] `settings.evaluations` — incident notification options. Absent = off. */
 export class EvaluationsSettingsDto {
   /** SMS to ACR_WRITE holders on a new incident (fixed text, never the incident). Default off. */
@@ -1006,6 +1108,10 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => FeesSettingsDto)
   fees?: FeesSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => PaymentsSettingsDto)
+  payments?: PaymentsSettingsDto;
 
   @OptionalSetting()
   @NestedSettings(() => EvaluationsSettingsDto)

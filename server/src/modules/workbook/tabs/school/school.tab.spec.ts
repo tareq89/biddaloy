@@ -532,3 +532,22 @@ describe('supportAccess is never imported or exported', () => {
     expect(row.settings).toEqual({ region: { timezone: 'Asia/Dhaka' } });
   });
 });
+
+// [3.1.03 D13/D47] A file cannot switch online payments on or fake a passing connection test.
+describe('payments online state is never imported', () => {
+  it('drops onlineEnabled, bkash.environment and lastTestOkAt, keeps the rest', () => {
+    const merged = mergeImportedSettings(
+      { payments: { onlineEnabled: false, bkash: { environment: 'SANDBOX' } } },
+      {
+        payments: {
+          onlineEnabled: true,
+          proofEnabled: true,
+          bkash: { environment: 'PRODUCTION', lastTestOkAt: '2026-01-01T00:00:00.000Z' },
+        },
+      },
+    );
+    expect(merged).toEqual({
+      payments: { onlineEnabled: false, proofEnabled: true, bkash: { environment: 'SANDBOX' } },
+    });
+  });
+});

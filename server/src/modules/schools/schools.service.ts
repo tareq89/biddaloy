@@ -91,6 +91,12 @@ export interface SchoolStats {
 const STATS_CACHE_TTL_SECONDS = 60;
 const STATS_FAILED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** [3.1.03] The four encrypted bKash credentials. */
+const BKASH_SECRET_KEYS = ['appKey', 'appSecret', 'username', 'password'] as const;
+/** A change to any of these (environment included: the test hit that host) voids `lastTestOkAt`. */
+const BKASH_CHANGE_KEYS = [...BKASH_SECRET_KEYS, 'environment'] as const;
+type PaymentsPatch = { onlineEnabled?: boolean; bkash?: Record<string, unknown> };
+
 @Injectable()
 export class SchoolsService {
   private readonly logger = new Logger(SchoolsService.name);
@@ -424,6 +430,34 @@ export class SchoolsService {
    * landed between this transaction committing and that re-read running,
    * rather than the caller's own.
    */
+  /**
+   * [3.1.03 D13/D47] Online payments may be on only after a successful test of the credentials
+   * now stored. Changing a credential or the environment voids that test, and online cannot stay
+   * on without a passing test and all four credentials. One fixed sentence, echoing no input
+   * (Rule 23). Mutates `merged.payments` (a fresh object from the merge) and the plain patch (so
+   * the audit shows a forced switch-off).
+   */
+  private applyPaymentsRules(
+    merged: Record<string, unknown>,
+    sent: PaymentsPatch | undefined,
+  ): void {
+    if (!sent) return;
+    const payments = (merged.payments ?? {}) as Record<string, unknown>;
+    const bkash = (payments.bkash ?? {}) as Record<string, unknown>;
+    const credentialsSent =
+      sent.bkash !== undefined && BKASH_CHANGE_KEYS.some((k) => Object.hasOwn(sent.bkash!, k));
+    if (credentialsSent) delete bkash.lastTestOkAt;
+    const ready =
+      !!bkash.lastTestOkAt && BKASH_SECRET_KEYS.every((k) => typeof bkash[k] === 'string');
+    if (sent.onlineEnabled === true && !ready) {
+      throw new BadRequestException('Test the bKash connection before turning online payments on.');
+    }
+    if (credentialsSent && payments.onlineEnabled === true && !ready) {
+      payments.onlineEnabled = false;
+      sent.onlineEnabled = false;
+    }
+  }
+
   async updateSettings(
     schoolId: string,
     dto: TenantSettingsDto,
@@ -478,6 +512,15 @@ export class SchoolsService {
         delete (encryptedPatch.communications as { sms?: Record<string, unknown> }).sms?.metering;
       }
 
+      // [3.1.03 D13/D47] `lastTestOkAt` is the test-connection route's to write: never from a
+      // PATCH. Dropped from both copies before the audit snapshot is taken.
+      const sentBkash = (plainPatch.payments as { bkash?: Record<string, unknown> } | undefined)
+        ?.bkash;
+      if (sentBkash) {
+        delete sentBkash.lastTestOkAt;
+        delete (encryptedPatch.payments as { bkash?: Record<string, unknown> }).bkash?.lastTestOkAt;
+      }
+
       const oldSnapshot = pickPatchShape(
         (school.settings ?? {}) as Record<string, unknown>,
         plainPatch,
@@ -504,6 +547,7 @@ export class SchoolsService {
       }
 
       const mergedSettings = mergeTenantSettings(school.settings, encryptedPatch);
+      this.applyPaymentsRules(mergedSettings, plainPatch.payments as PaymentsPatch | undefined);
       // [77.1.02] `modules` / `labels`: deep merge per key, `null` removes a key. Each block
       // that actually changed gets its own audit row (D45) instead of riding SETTINGS_CHANGE.
       const blockAudits: Array<{ action: AuditAction; before: unknown; after: unknown }> = [];
