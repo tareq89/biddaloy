@@ -33,7 +33,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/_platform/subscriptions/')({
   validateSearch: searchSchema,
-  loader: () => loadRouteNamespaces('platform'),
+  loader: () => loadRouteNamespaces('platform', 'moneyBilling', 'moneyPlans'),
   component: SubscriptionsPage,
 });
 
