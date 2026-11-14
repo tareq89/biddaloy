@@ -842,3 +842,20 @@ flowchart LR
 update ran on another connection and waited for a lock its own transaction held. Production code
 was correct; the fix was in the spec (#4130).
 
+
+## Learning: school SMS screen (Epic 100, Wave 4)
+
+```mermaid
+flowchart TD
+  P[Settings > SMS credit] --> L[Remaining SMS and when each part ends]
+  P --> K[Package cards from the catalog route]
+  K --> B[Buy dialog: create order, then pay with bKash]
+  P --> O{Source is own provider?}
+  O -- yes --> W[Switch card: only sets source to SchoolManagerP, saved provider settings kept]
+```
+
+- Package names, prices and validity come from the server; none is hard-coded in the client.
+- A school on its own provider still sees the packages. Buy first shows the switch card; switching back is one click.
+- The note "SchoolManagerP SMS is unmasked for now" is always visible next to the packages.
+- The buy flow is remounted per package so a different package never reuses an Idempotency-Key.
+- Alerts `sms.low` (red) and `sms.expiring` (amber) link to `/settings?section=communication&smsBuy=1`.
