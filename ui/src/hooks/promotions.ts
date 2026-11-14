@@ -15,6 +15,7 @@ import { ApprovalScope, type PlacementAlgorithm, type PromotionOutcome } from '@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import type { components } from '../api/schema';
 
 import { type ApprovedMutationResult, useApprovedMutation } from './approval';
 import { useIdempotencyKey } from './idempotency-key';
@@ -256,31 +257,15 @@ export function useCommitPromotionRun(
   );
 }
 
-/** [69.5.01] One row of `GET /promotions/:id/groups` (`PromotionGroupEntryView`). Hand-typed:
- * `schema.d.ts` declares that route's 200 body as `never`. `source` null = no result to filter on. */
-export interface PromotionGroupEntry {
-  entry_id: string;
-  student_id: string;
-  student_name: string | null;
-  source_section_id: string | null;
-  source_section_name: string | null;
-  group_name: string | null;
-  result: {
-    gpa: number | null;
-    subjects: { subject_code: string; marks: number; grade: string }[];
-    source: 'FINAL_RESULT' | 'EXAM' | null;
-  };
-}
-
-export interface PromotionGroupEntriesPage {
-  data: PromotionGroupEntry[];
-  total: number;
-  page: number;
-  limit: number;
-}
+/** [69.5.01] One row and one page of `GET /promotions/:id/groups`, typed from the server's
+ * response DTOs (#4056). `source` null = no result to filter on. */
+export type PromotionGroupEntry = components['schemas']['PromotionGroupEntryDto'];
+export type PromotionGroupEntriesPage = components['schemas']['PromotionGroupEntriesPageDto'];
 
 /** Server-side filters; `marks_min` needs `subject_code` (the server rejects it alone). */
 export interface PromotionGroupFilters {
+  /** Only entries of this source section. */
+  section_id?: string;
   gpa_min?: number;
   gpa_max?: number;
   subject_code?: string;

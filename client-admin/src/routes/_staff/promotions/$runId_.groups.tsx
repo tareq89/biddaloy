@@ -74,6 +74,7 @@ function PromotionGroupsPage() {
   const [applyError, setApplyError] = React.useState<string | null>(null);
   const [gathering, setGathering] = React.useState(false);
   const [subjects, setSubjects] = React.useState<readonly string[]>([]);
+  const [sections, setSections] = React.useState<readonly { id: string; name: string }[]>([]);
 
   const filters = toGroupFilters(values);
   const hasFilter = Object.keys(filters).length > 0;
@@ -94,6 +95,20 @@ function PromotionGroupsPage() {
     setSubjects((prev) => {
       const next = [...new Set([...prev, ...seen])].sort();
       return next.length === prev.length ? prev : next;
+    });
+    // Same for sections (#4056): the picker lists every source section seen, even when a
+    // section filter leaves only one in the answer.
+    setSections((prev) => {
+      const known = new Map(prev.map((s) => [s.id, s.name]));
+      for (const r of rows) {
+        if (r.source_section_id && !known.has(r.source_section_id)) {
+          known.set(r.source_section_id, r.source_section_name ?? r.source_section_id);
+        }
+      }
+      if (known.size === prev.length) return prev;
+      return [...known]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     });
   }, [rows]);
 
@@ -233,6 +248,7 @@ function PromotionGroupsPage() {
         ) : (
           <GroupsFilterBar
             subjects={subjects}
+            sections={sections}
             values={values}
             onChange={changeFilters}
             resultCount={total}

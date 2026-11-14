@@ -137,11 +137,17 @@ export class PromotionGroupsService {
     // Teacher with no homeroom: an empty list, not an error (Rule 2).
     if (allowed !== null && allowed.length === 0) return { data: [], total: 0, page, limit };
 
+    // `section_id` narrows the caller's reach, never widens it: a teacher naming a section
+    // outside their homeroom finds no entries, which is the 404 below.
+    const sectionScope =
+      allowed !== null
+        ? In(query.section_id ? allowed.filter((id) => id === query.section_id) : allowed)
+        : query.section_id;
     const entries = await this.entryRepo.find({
       where: {
         run_id: run.id,
         tenant_id: actor.tenantId,
-        ...(allowed !== null ? { source_section_id: In(allowed) } : {}),
+        ...(sectionScope !== undefined ? { source_section_id: sectionScope } : {}),
       },
       order: { merit_rank: { direction: 'ASC', nulls: 'LAST' } },
     });

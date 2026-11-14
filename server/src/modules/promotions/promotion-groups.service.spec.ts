@@ -65,6 +65,11 @@ describe('ListPromotionGroupsQueryDto', () => {
     expect(await errorsFor({ limit: '101' })).toContain('limit');
   });
 
+  it('section_id must be a UUID [#4056]', async () => {
+    expect(await errorsFor({ section_id: 'nope' })).toContain('section_id');
+    expect(await errorsFor({ section_id: '7b0f2d5e-4c1a-4e53-9a4d-1d6f6f0c2b11' })).toEqual([]);
+  });
+
   it('needs a subject_code with marks_min', async () => {
     expect(await errorsFor({ marks_min: '60' })).toContain('subject_code');
     expect(await errorsFor({ marks_min: '60', subject_code: 'MATH' })).toEqual([]);
@@ -83,6 +88,7 @@ describe('PromotionGroupsService', () => {
         id: 'r1',
         status: opts.status ?? PromotionRunStatus.DRAFT,
       }),
+      manager: { query: vi.fn().mockResolvedValue([]) },
     };
     const entryRepo = {
       find: vi
@@ -146,6 +152,20 @@ describe('PromotionGroupsService', () => {
       'Promotion entries not found',
     );
     expect(promotions.patchEntries).not.toHaveBeenCalled();
+  });
+
+  it('list: an admin can filter by one source section [#4056]', async () => {
+    const { service, entryRepo } = build();
+    await service.list('r1', { section_id: 'sec-9' }, admin);
+    expect(entryRepo.find.mock.calls[0][0].where.source_section_id).toBe('sec-9');
+  });
+
+  it('list: a teacher naming a section outside their homeroom reaches nothing (404) [#4056]', async () => {
+    const { service, entryRepo } = build({ homeroom: ['sec-1'], entries: [] });
+    await expect(service.list('r1', { section_id: 'sec-2' }, actor)).rejects.toThrow(
+      'Promotion run not found',
+    );
+    expect(entryRepo.find.mock.calls[0][0].where.source_section_id.value).toEqual([]);
   });
 
   it('list: gpa_min above gpa_max is 400', async () => {

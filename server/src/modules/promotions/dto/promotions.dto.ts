@@ -91,6 +91,11 @@ export class ListPromotionRunsQueryDto {
 
 /** [69.4.01] Filters and paging for `GET promotions/:id/groups`; all filtering is server-side. */
 export class ListPromotionGroupsQueryDto {
+  /** Only entries of this source section (a teacher outside it gets the same 404 as ever). */
+  @IsOptional()
+  @IsUUID()
+  section_id?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })

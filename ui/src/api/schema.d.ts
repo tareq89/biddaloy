@@ -21066,6 +21066,32 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        PromotionGroupSubjectDto: {
+            subject_code: string;
+            marks: number;
+            grade: string;
+        };
+        PromotionGroupResultDto: {
+            gpa: number | null;
+            subjects: components["schemas"]["PromotionGroupSubjectDto"][];
+            /** @enum {string|null} */
+            source: "FINAL_RESULT" | "EXAM" | null;
+        };
+        PromotionGroupEntryDto: {
+            entry_id: string;
+            student_id: string;
+            student_name: string | null;
+            source_section_id: string | null;
+            source_section_name: string | null;
+            group_name: string | null;
+            result: components["schemas"]["PromotionGroupResultDto"];
+        };
+        PromotionGroupEntriesPageDto: {
+            data: components["schemas"]["PromotionGroupEntryDto"][];
+            total: number;
+            page: number;
+            limit: number;
+        };
         SetPromotionGroupsDto: {
             entry_ids: string[];
             group_name: string | null;
@@ -47919,6 +47945,7 @@ export interface operations {
     PromotionsController_listGroups_v1: {
         parameters: {
             query?: {
+                section_id?: string;
                 gpa_min?: number;
                 gpa_max?: number;
                 subject_code?: string;
@@ -47943,7 +47970,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PromotionGroupEntriesPageDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
