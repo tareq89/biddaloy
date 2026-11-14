@@ -40,7 +40,7 @@ function fakeRepo(school: { id: string; settings: unknown } | null) {
   return {
     findOne: vi.fn(async () => school),
     find: vi.fn(async () => []),
-    manager: { transaction: vi.fn(async (cb: any) => cb(manager)) },
+    manager: { transaction: vi.fn(async (cb: any) => cb(manager)), query: vi.fn(async () => []) },
     schoolRepo,
   };
 }
@@ -3099,6 +3099,23 @@ describe('SchoolsService', () => {
       );
       return { service, repo };
     }
+
+    it('Rule 8: a manual suspend cuts off every member session; reactivate does not', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+      await service.updateStatus(
+        's1',
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        'u1',
+      );
+      expect(repo.manager.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = repo.manager.query.mock.calls[0];
+      expect(sql).toContain('tokens_valid_after');
+      expect(params[0]).toBe('s1');
+
+      const other = buildService({ id: 's2', status: 'SUSPENDED', status_reason: 'x' });
+      await other.service.updateStatus('s2', { status: 'ACTIVE', reason: 'Paid' }, 'u1');
+      expect(other.repo.manager.query).not.toHaveBeenCalled();
+    });
 
     // Epic 49: no daily trial job any more, so an old trial_ends_at no longer blocks reactivation.
     it('reactivates a school whose old trial already ended', async () => {
