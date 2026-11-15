@@ -128,6 +128,12 @@ export function useMyPaymentProofs(studentId?: string, { enabled = true } = {}) 
   });
 }
 
+async function fileFingerprint(f: File): Promise<[string, number, string]> {
+  const digest = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+  const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return [f.name, f.size, hex];
+}
+
 /** Multipart. Rule 25: one `Idempotency-Key` per attempt, never auto-retried. */
 export function useSubmitPaymentProof() {
   const queryClient = useQueryClient();
@@ -141,8 +147,8 @@ export function useSubmitPaymentProof() {
       form.append('paidOn', fields.paidOn);
       if (fields.reference) form.append('reference', fields.reference);
       for (const file of files) form.append('files', file);
-      // File bytes are not hashed: name + size tell one attempt from another.
-      const body = { ...fields, files: files.map((f) => [f.name, f.size]) };
+      // Name + size + SHA-256 of the bytes: a different file never reuses an earlier key.
+      const body = { ...fields, files: await Promise.all(files.map(fileFingerprint)) };
       return (
         await apiClient.post<ProofSubmission>('/portal/payment-proofs', form, {
           headers: { 'Idempotency-Key': keyFor(body) },

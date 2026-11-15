@@ -101,6 +101,36 @@ describe('mutations: Idempotency-Key and no retry', () => {
     expect(result.current.failureCount).toBe(0);
   });
 
+  it('after a network failure, a same-name same-size file with other bytes gets a new key', async () => {
+    const keys: (string | null)[] = [];
+    let first = true;
+    server.use(
+      http.post('/api/v1/portal/payment-proofs', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        if (first) {
+          first = false;
+          return HttpResponse.error(); // no response at all
+        }
+        return HttpResponse.json({ id: 'p1' });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSubmitPaymentProof(), opts);
+    const input = (bytes: string) => ({
+      billIds: ['b1'],
+      method: 'BKASH' as never,
+      amount: 500,
+      paidOn: '2026-11-14',
+      reference: 'TRX1',
+      files: [new File([bytes], 'proof.png', { type: 'image/png' })],
+    });
+    result.current.mutate(input('aaaa'));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    result.current.mutate(input('bbbb')); // same name, same size, different bytes
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+
   it('a failed submit is not retried', async () => {
     let calls = 0;
     server.use(
