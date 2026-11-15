@@ -141,7 +141,7 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
         tab: 'staff_documents',
         row: rowNo,
         column: 'staff',
-        message: `Column "staff": no user with the key "${staffKey}" was found.`,
+        message: `Column "staff": no user was found.`,
         severity: 'error',
         value: staffKey,
       });

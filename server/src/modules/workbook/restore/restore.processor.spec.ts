@@ -573,4 +573,26 @@ describe('RestoreProcessor', () => {
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('a crashed or stalled worker [#2356]', () => {
+    const fail = (err = new Error('job stalled more than allowable limit')) =>
+      processor.onFailed({ data: { jobId: jobRow.id, inviteUsers: false } } as any, err);
+
+    it('closes a restore row still RUNNING and releases its lock', async () => {
+      jobRow.status = WorkbookJobStatus.RUNNING;
+      await fail();
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+      expect(jobRow.error).toBe('RESTORE_INTERRUPTED');
+      expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
+    });
+
+    it('only releases the lock for a job that already ended through terminate', async () => {
+      jobRow.status = WorkbookJobStatus.FAILED;
+      jobRow.error = 'SNAPSHOT_FAILED';
+      await fail();
+      expect(jobRow.error).toBe('SNAPSHOT_FAILED');
+      expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+  });
 });

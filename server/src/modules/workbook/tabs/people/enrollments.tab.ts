@@ -174,7 +174,7 @@ export const enrollmentsTab: TabSpec<Enrollment, EnrollmentRow> = {
         tab: 'enrollments',
         row: rowNo,
         column: 'student',
-        message: `Column "student": no student with the key "${studentKey}" was found.`,
+        message: `Column "student": no student was found.`,
         severity: 'error',
         value: studentKey,
       });
@@ -187,7 +187,7 @@ export const enrollmentsTab: TabSpec<Enrollment, EnrollmentRow> = {
         tab: 'enrollments',
         row: rowNo,
         column: 'class',
-        message: `Column "class": no class named "${classKey}" was found.`,
+        message: `Column "class": no class was found.`,
         severity: 'error',
         value: classKey,
       });
@@ -200,7 +200,7 @@ export const enrollmentsTab: TabSpec<Enrollment, EnrollmentRow> = {
         tab: 'enrollments',
         row: rowNo,
         column: 'academic_year',
-        message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+        message: `Column "academic_year": no academic year was found.`,
         severity: 'error',
         value: academicYearKey,
       });
@@ -217,7 +217,7 @@ export const enrollmentsTab: TabSpec<Enrollment, EnrollmentRow> = {
           tab: 'enrollments',
           row: rowNo,
           column: 'section',
-          message: `Column "section": no section with the key "${sectionKey}" was found.`,
+          message: `Column "section": no section was found.`,
           severity: 'error',
           value: sectionKey,
         });

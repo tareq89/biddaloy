@@ -15,6 +15,8 @@ import {
   QueryFailedError,
   Repository,
 } from 'typeorm';
+import { attentionEvents } from '../../attention/attention.constants';
+import { emitRecheck } from '../../attention/engine/attention-events';
 import { SchoolsService } from '../../schools/schools.service';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLot } from './entities/sms-credit-lot.entity';
@@ -325,6 +327,65 @@ export class SmsCreditService {
     }
   }
 
+  /**
+   * [#2149] Releases batch reservations orphaned by a crash between `reserve` and the log insert:
+   * RESERVE rows older than `minAgeMinutes` whose units are not fully covered by DEBIT/RELEASE rows
+   * and that have no QUEUED log (batch id in `metadata.batch_id`, or the log id itself for
+   * `reserveForLog`). Each release goes through `settlePart` (locks the reserve row, once per key),
+   * and the RELEASE ledger row carries the reason, so it is audited.
+   */
+  async releaseOrphanedReservations(
+    now: Date,
+    opts?: { minAgeMinutes?: number; limit?: number },
+  ): Promise<{ reservations: number; units: number }> {
+    const cutoff = new Date(now.getTime() - (opts?.minAgeMinutes ?? 30) * 60_000);
+    const rows: { tenant_id: string; idempotency_key: string; rest: number }[] =
+      await this.dataSource.query(
+        `SELECT r.tenant_id, r.idempotency_key, (r.units - COALESCE(s.used, 0))::int AS rest
+           FROM sms_credit_ledger r
+           LEFT JOIN LATERAL (
+             SELECT SUM(x.units) AS used FROM sms_credit_ledger x
+              WHERE x.tenant_id = r.tenant_id AND x.reference_type = 'batch'
+                AND x.reference_id = r.reference_id AND x.kind IN ('DEBIT', 'RELEASE')
+           ) s ON true
+          WHERE r.kind = 'RESERVE' AND r.reference_type = 'batch' AND r.reference_id IS NOT NULL
+            AND r.created_at < $1 AND r.units > COALESCE(s.used, 0)
+            AND NOT EXISTS (
+              SELECT 1 FROM sms_credit_ledger w
+               WHERE w.tenant_id = r.tenant_id AND w.idempotency_key = r.idempotency_key || ':settle')
+            AND NOT EXISTS (
+              SELECT 1 FROM communication_logs l
+               WHERE l.tenant_id = r.tenant_id AND l.status = 'QUEUED'
+                 AND (l.metadata->>'batch_id' = r.reference_id::text OR l.id::text = r.reference_id::text))
+          ORDER BY r.created_at
+          LIMIT $2`,
+        [cutoff, opts?.limit ?? 200],
+      );
+    let reservations = 0;
+    let units = 0;
+    for (const row of rows) {
+      try {
+        await this.settlePart(
+          row.tenant_id,
+          row.idempotency_key,
+          `${row.idempotency_key}:orphan`,
+          row.rest,
+          'RELEASE',
+          'Reservation never reached a log row; released after a crash',
+        );
+        reservations++;
+        units += row.rest;
+      } catch (err) {
+        this.logger.error({
+          msg: 'orphaned sms reservation release failed',
+          tenant_id: row.tenant_id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { reservations, units };
+  }
+
   /** Atomically moves `units` from `available` to `reserved`. Duplicate
    * `idempotencyKey` returns `{ ok: true }` without touching the balance —
    * it's already reserved. */
@@ -446,6 +507,14 @@ export class SmsCreditService {
         idempotency_key: settleKey,
       });
     });
+    if (outcome === 'DEBIT') this.recheckSmsRules(tenantId);
+  }
+
+  /** [#4150] A send or an expiry lowers the balance: ask the attention engine to recheck the SMS
+   * notices now, after commit (it debounces bursts), not at the next daily tick. */
+  private recheckSmsRules(tenantId: string): void {
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'sms.low' });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'sms.expiring' });
   }
 
   /** Peels `units` off a batch reservation (identified by `batchKey`, the
@@ -523,6 +592,7 @@ export class SmsCreditService {
           reason: reason ?? null,
         });
       });
+      if (outcome === 'DEBIT') this.recheckSmsRules(tenantId);
     } catch (err) {
       if (isCheckViolation(err)) {
         throw new BadRequestException(SETTLE_TOO_MANY);
@@ -663,9 +733,9 @@ export class SmsCreditService {
     return { lots, units };
   }
 
-  private expireOne(candidate: SmsCreditLot, now: Date): Promise<number> {
+  private async expireOne(candidate: SmsCreditLot, now: Date): Promise<number> {
     {
-      return this.dataSource.transaction(async (manager) => {
+      const expired = await this.dataSource.transaction(async (manager) => {
         await this.lockBalance(manager, candidate.tenant_id);
         const lot = await manager.findOne(SmsCreditLot, {
           where: { id: candidate.id, tenant_id: candidate.tenant_id },
@@ -694,6 +764,8 @@ export class SmsCreditService {
         );
         return n;
       });
+      if (expired > 0) this.recheckSmsRules(candidate.tenant_id);
+      return expired;
     }
   }
 
@@ -815,6 +887,106 @@ export class SmsCreditService {
         after,
       });
       return { before, after };
+    });
+  }
+
+  /**
+   * [#4138] After the rolling restart: instances still on the lot-less code can have moved the
+   * balance row (grant, reserve, debit, release) after the SmsLots backfill, so the lots are stale
+   * and the balance is the truth. Brings the school's LEGACY lot (and its `legacy:` draw) to the
+   * balance: the part of the change that left a debit or a grant is booked as `debited_units` /
+   * `units_total`, so the lot stays internally consistent. No ledger row (not a movement).
+   * Idempotent: a second run finds no drift. Returns `manual` instead of guessing when the drift
+   * cannot be laid on the LEGACY lot (negative counters, fewer open draws than the reserved drop).
+   */
+  async reconcileLotsToBalance(
+    tenantId: string,
+  ): Promise<{ drift: { available: number; reserved: number }; manual: boolean }> {
+    return this.dataSource.transaction(async (manager) => {
+      await this.lockBalance(manager, tenantId);
+      const bal = await this.readBalance(manager, tenantId);
+      let lots = await this.loadLots(manager, tenantId, {});
+      const drift = {
+        available: bal.available - lots.reduce((n, l) => n + l.remaining, 0),
+        reserved: bal.reserved - lots.reduce((n, l) => n + l.reserved_units, 0),
+      };
+      if (drift.available === 0 && drift.reserved === 0) return { drift, manual: false };
+      let lot = lots.find((l) => l.source === SmsLotSource.LEGACY);
+      let fresh = false;
+      if (!lot) {
+        // No LEGACY lot (the tenant had no balance at the backfill): only a pure gain can start one.
+        if (drift.available < 0 || drift.reserved < 0) return { drift, manual: true };
+        await manager.insert(SmsCreditLot, {
+          tenant_id: tenantId,
+          source: SmsLotSource.LEGACY,
+          units_total: drift.available + drift.reserved,
+          remaining: drift.available,
+          reserved_units: drift.reserved,
+          status: SmsLotStatus.ACTIVE,
+        });
+        lots = await this.loadLots(manager, tenantId, {});
+        lot = lots.find((l) => l.source === SmsLotSource.LEGACY)!;
+        fresh = true;
+      }
+      const draws = await manager.find(SmsCreditLotDraw, {
+        where: { tenant_id: tenantId },
+        order: { id: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      // Only the LEGACY lot's own draws can absorb the correction: the counter update above
+      // moved that lot alone, so another lot's draws must stay in step with their lots.
+      const legacyDraws = draws.filter((d) => d.lot_id === lot!.id);
+      const open = legacyDraws.reduce((n, d) => n + d.open_units, 0);
+      if (
+        lot.remaining + drift.available < 0 ||
+        lot.reserved_units + drift.reserved < 0 ||
+        (drift.reserved < 0 && open < -drift.reserved)
+      ) {
+        return { drift, manual: true };
+      }
+      const net = drift.available + drift.reserved;
+      if (!fresh) {
+        // One statement: the CHECK needs remaining + reserved + debited + expired = units_total.
+        await manager.query(
+          `UPDATE "sms_credit_lots"
+              SET units_total = units_total + $3, remaining = remaining + $4,
+                  reserved_units = reserved_units + $5, debited_units = debited_units + $6,
+                  status = CASE WHEN remaining + $4 = 0 AND reserved_units + $5 = 0 THEN 'USED_UP' ELSE 'ACTIVE' END,
+                  updated_at = now()
+            WHERE id = $1 AND tenant_id = $2`,
+          [lot.id, tenantId, net > 0 ? net : 0, drift.available, drift.reserved, net < 0 ? -net : 0],
+        );
+      }
+      if (drift.reserved > 0) {
+        const own = draws.find((d) => d.lot_id === lot!.id && d.reserve_key === `legacy:${tenantId}`);
+        if (own) {
+          await manager.query(
+            `UPDATE "sms_credit_lot_draws" SET units = units + $2, open_units = open_units + $2 WHERE id = $1`,
+            [own.id, drift.reserved],
+          );
+        } else {
+          await manager.insert(SmsCreditLotDraw, {
+            tenant_id: tenantId,
+            lot_id: lot.id,
+            reserve_key: `legacy:${tenantId}`,
+            units: drift.reserved,
+            open_units: drift.reserved,
+          });
+        }
+      } else if (drift.reserved < 0) {
+        let left = -drift.reserved;
+        for (const d of legacyDraws.filter((x) => x.open_units > 0)) {
+          const take = Math.min(left, d.open_units);
+          await manager.query(
+            `UPDATE "sms_credit_lot_draws" SET open_units = open_units - $2 WHERE id = $1`,
+            [d.id, take],
+          );
+          left -= take;
+          if (left === 0) break;
+        }
+      }
+      this.logger.log({ msg: 'sms credit lots reconciled to balance', tenant_id: tenantId, drift });
+      return { drift, manual: false };
     });
   }
 

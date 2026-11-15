@@ -171,7 +171,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
           tab: 'class_subjects',
           row: rowNo,
           column: 'class',
-          message: `Column "class": no class named "${classKey}" was found.`,
+          message: `Column "class": no class was found.`,
           severity: 'error',
           value: classKey,
         });
@@ -187,7 +187,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
           tab: 'class_subjects',
           row: rowNo,
           column: 'academic_year',
-          message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+          message: `Column "academic_year": no academic year was found.`,
           severity: 'error',
           value: academicYearKey,
         });
@@ -203,7 +203,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
           tab: 'class_subjects',
           row: rowNo,
           column: 'subject',
-          message: `Column "subject": no subject with code "${subjectKey}" was found.`,
+          message: `Column "subject": no subject with code was found.`,
           severity: 'error',
           value: subjectKey,
         });

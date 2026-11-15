@@ -105,12 +105,22 @@ async function buildService(
   const studentRepo: any = { find: vi.fn(async () => students) };
   // D17: getGrid's roster comes from Enrollment (exam's year/class,
   // section_id = sectionId), not studentRepo.find directly.
+  const enrolled = async () =>
+    (enrollments ?? students.map((s: any) => ({ student_id: s.id, section_id: SECTION_ID }))).map(
+      (e: any) => ({ enrolled_at: new Date('2020-01-01'), ...e }),
+    );
   const enrollmentRepo: any = {
-    find: vi.fn(async () =>
-      (enrollments ?? students.map((s: any) => ({ student_id: s.id, section_id: SECTION_ID }))).map(
-        (e: any) => ({ enrolled_at: new Date('2020-01-01'), ...e }),
-      ),
-    ),
+    find: vi.fn(enrolled),
+    // `gridEnrollments` (exam-cohort.ts) builds a query for the grid roster.
+    createQueryBuilder: vi.fn(() => {
+      const qb: any = {
+        leftJoinAndSelect: () => qb,
+        where: () => qb,
+        andWhere: () => qb,
+        getMany: enrolled,
+      };
+      return qb;
+    }),
   };
   const attendanceComponentService = {
     computeForSection: vi.fn(async () => ({ reason: null, valuesByStudent: new Map() })),

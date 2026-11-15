@@ -48,6 +48,8 @@ export interface FullPageShellProps {
   /** Omit (with `secondary`) when the content owns its own buttons — no footer renders. */
   primary?: FullPageShellAction;
   secondary?: Pick<FullPageShellAction, 'label' | 'onClick' | 'disabled'>;
+  /** Id of the element inside the page that describes it, for screen readers. */
+  describedBy?: string;
   children: React.ReactNode;
 }
 
@@ -93,6 +95,7 @@ export function FullPageShell({
   size = 'form',
   primary,
   secondary,
+  describedBy,
   children,
 }: FullPageShellProps) {
   const { t } = useTranslation('common');
@@ -127,7 +130,7 @@ export function FullPageShell({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Content
           data-slot="full-page-shell"
-          aria-describedby={undefined}
+          aria-describedby={describedBy}
           onEscapeKeyDown={(e) => {
             e.preventDefault();
             requestClose();

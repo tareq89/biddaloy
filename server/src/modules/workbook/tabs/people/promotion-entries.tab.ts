@@ -5,6 +5,7 @@ import { PromotionEntry } from '../../../promotions/entities/promotion-entry.ent
 import { Student } from '../../../students/entities/student.entity';
 import { COMMITTABLE_PROMOTION_OUTCOMES } from '../../../promotions/dto/promotions.dto';
 import { fromCell } from '../../codec/cell-format';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
@@ -209,7 +210,8 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
       )._student_registration_number = studentRegNoById.get(entry.student_id) ?? '';
     }
 
-    return entries;
+    // #2755 (D12): a blank overridden_by clears a current member, keeps one who has left.
+    return stampActorKeys(tenantId, entries, 'overridden_by_user_id', 'overridden_by_key', m);
   },
 
   toRow(entity: PromotionEntry, ctx: ExportContext): Record<string, unknown> {
@@ -286,7 +288,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
           tab: 'promotion_entries',
           row: rowNo,
           column,
-          message: `Column "${column}": no ${ref.replace('_', ' ')} "${key}" was found.`,
+          message: `Column "${column}": no ${ref.replace('_', ' ')} was found.`,
           severity: 'error',
           value: key,
         });
@@ -303,7 +305,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
           tab: 'promotion_entries',
           row: rowNo,
           column,
-          message: `Column "${column}": no ${noun} "${key}" was found.`,
+          message: `Column "${column}": no ${noun} was found.`,
           severity: 'error',
           value: key,
         });
@@ -432,8 +434,12 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
       changed.push('override_note');
     // null = the export could not name the user (departed / SUPER_ADMIN): keep existing.
     if (
-      row.overridden_by_user_id !== null &&
-      row.overridden_by_user_id !== existing.overridden_by_user_id
+      nullableActor(
+        row.overridden_by_user_id,
+        existing,
+        'overridden_by_user_id',
+        'overridden_by_key',
+      ) !== (existing.overridden_by_user_id ?? null)
     ) {
       changed.push('overridden_by');
     }
@@ -476,8 +482,12 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
     entry.final_outcome = row.final_outcome;
     entry.is_override = row.is_override;
     entry.override_note = row.override_note;
-    entry.overridden_by_user_id =
-      row.overridden_by_user_id ?? existing?.overridden_by_user_id ?? null;
+    entry.overridden_by_user_id = nullableActor(
+      row.overridden_by_user_id,
+      existing,
+      'overridden_by_user_id',
+      'overridden_by_key',
+    );
     entry.group_name = row.group_name;
     entry.target_class_id = row.target_class_id;
     entry.target_section_id = row.target_section_id;

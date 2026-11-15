@@ -170,6 +170,13 @@ describe('round-trip', () => {
     expect((result as { errors: RowError[] }).errors[0].column).toBe('exams');
   });
 
+  it('the RowError value is the missing exam key, not the whole list', () => {
+    const cells = toCells(makeRun());
+    cells.exams = 'Second Exam;Ghost Exam';
+    const result = promotionRunsTab.fromRow(cells, 3, importCtx());
+    expect((result as { errors: RowError[] }).errors[0].value).toBe('Ghost Exam');
+  });
+
   it('an unresolvable source_class key yields a RowError naming that column', () => {
     const cells = toCells(makeRun());
     cells.source_class = 'Nonexistent|1999||';

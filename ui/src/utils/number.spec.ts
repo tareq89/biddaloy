@@ -5,6 +5,10 @@ import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
 import { formatNumber, formatScore, parseNumber } from './number';
 
 describe('formatNumber', () => {
+  it('grouping: false leaves serial-like numbers undivided', () => {
+    expect(formatNumber(1234567, REGION_BD_EN, { grouping: false })).toBe('1234567');
+  });
+
   it('groups with thousand separators by default', () => {
     expect(formatNumber(1234567, REGION_BD_EN)).toBe('1,234,567');
   });

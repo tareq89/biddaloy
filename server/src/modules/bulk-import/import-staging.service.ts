@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, PayloadTooLargeException } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, Logger, PayloadTooLargeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 
@@ -10,6 +10,8 @@ export const DEFAULT_STAGING_TTL_SEC = 1800; // 30 minutes
 interface StagedEnvelope<T> {
   userId: string;
   createdAt: string;
+  /** Which import produced this stage; a commit route refuses another kind. */
+  kind?: string;
   payload: T;
 }
 
@@ -52,10 +54,12 @@ export class ImportStagingService {
     userId: string,
     payload: T,
     ttlSec: number = DEFAULT_STAGING_TTL_SEC,
+    kind?: string,
   ): Promise<{ stagingId: string; expiresAt: string }> {
     const envelope: StagedEnvelope<T> = {
       userId,
       createdAt: new Date().toISOString(),
+      kind,
       payload,
     };
     const serialised = JSON.stringify(envelope);
@@ -82,7 +86,7 @@ export class ImportStagingService {
     };
   }
 
-  private parse<T>(raw: string | null, userId: string): T | null {
+  private parse<T>(raw: string | null, userId: string, kind?: string): T | null {
     if (raw === null) return null;
     let envelope: StagedEnvelope<T>;
     try {
@@ -100,10 +104,18 @@ export class ImportStagingService {
     // stage still returns null instead of throwing.
     if (typeof envelope !== 'object' || envelope === null) return null;
     if (envelope.userId !== userId) return null;
+    if (kind !== undefined && envelope.kind !== kind) {
+      throw new BadRequestException('This staged import belongs to a different import type.');
+    }
     return envelope.payload;
   }
 
-  async peek<T>(tenantId: string, userId: string, stagingId: string): Promise<T | null> {
+  async peek<T>(
+    tenantId: string,
+    userId: string,
+    stagingId: string,
+    kind?: string,
+  ): Promise<T | null> {
     let raw: string | null;
     try {
       raw = await this.redis.get(this.key(tenantId, userId, stagingId));
@@ -113,10 +125,20 @@ export class ImportStagingService {
       );
       throw error;
     }
-    return this.parse<T>(raw, userId);
+    return this.parse<T>(raw, userId, kind);
   }
 
-  async consume<T>(tenantId: string, userId: string, stagingId: string): Promise<T | null> {
+  async consume<T>(
+    tenantId: string,
+    userId: string,
+    stagingId: string,
+    kind?: string,
+  ): Promise<T | null> {
+    // Kind is immutable per key, so check it with a plain GET first: a wrong-kind caller is
+    // rejected without deleting the valid stage. The GETDEL below stays the atomic claim.
+    if (kind !== undefined && (await this.peek<T>(tenantId, userId, stagingId, kind)) === null) {
+      return null;
+    }
     let raw: string | null;
     try {
       // GETDEL (atomic get-then-delete, Redis >= 6.2) rather than GET+DEL —
@@ -130,6 +152,6 @@ export class ImportStagingService {
       );
       throw error;
     }
-    return this.parse<T>(raw, userId);
+    return this.parse<T>(raw, userId, kind);
   }
 }

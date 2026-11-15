@@ -380,7 +380,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         tab: 'students',
         row: rowNo,
         column: 'section',
-        message: `Column "section": no section with the key "${sectionKey}" was found.`,
+        message: `Column "section": no section was found.`,
         severity: 'error',
         value: sectionKey,
       });
@@ -397,7 +397,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         tab: 'students',
         row: rowNo,
         column: 'class',
-        message: `Column "class": no class named "${classKey}" was found.`,
+        message: `Column "class": no class was found.`,
         severity: 'error',
         value: classKey,
       });
@@ -410,7 +410,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         tab: 'students',
         row: rowNo,
         column: 'academic_year',
-        message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+        message: `Column "academic_year": no academic year was found.`,
         severity: 'error',
         value: academicYearKey,
       });
@@ -425,7 +425,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
           tab: 'students',
           row: rowNo,
           column: 'user',
-          message: `Column "user": no user with the key "${userKey}" was found.`,
+          message: `Column "user": no user was found.`,
           severity: 'error',
           value: userKey,
         });
@@ -443,7 +443,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
           tab: 'students',
           row: rowNo,
           column: 'guardian_phones',
-          message: `Column "guardian_phones": no guardian with the key "${key}" was found.`,
+          message: `Column "guardian_phones": no guardian was found.`,
           severity: 'error',
           value: key,
         });
@@ -764,6 +764,36 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     });
   },
 };
+
+/**
+ * [#688] Soft-deleted ACTIVE students a restore revives take a seat the per-row `takeSeat` never
+ * sees (revival has already cleared `deleted_at`, so they look like ordinary live rows). Checked
+ * under the School lock BEFORE `reviveRows`, so the lock holds until the restore commits.
+ * Revived students that were not ACTIVE are handled by `takeSeat` when the row re-activates them.
+ */
+export async function assertRevivedSeats(
+  m: EntityManager,
+  tenantId: string,
+  revivable: ReadonlySet<string>,
+  rows: readonly unknown[],
+): Promise<void> {
+  const wanted = rows
+    .map((r) => r as { id?: unknown; enrollment_status?: unknown })
+    .filter(
+      (r): r is { id: string; enrollment_status: unknown } =>
+        typeof r.id === 'string' &&
+        revivable.has(r.id) &&
+        r.enrollment_status === EnrollmentStatus.ACTIVE,
+    )
+    .map((r) => r.id);
+  if (wanted.length === 0) return;
+  const [{ n }]: { n: number }[] = await m.query(
+    `SELECT count(*)::int AS n FROM students
+      WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NOT NULL AND enrollment_status = $3`,
+    [tenantId, wanted, EnrollmentStatus.ACTIVE],
+  );
+  await assertSeatsAvailable(m, tenantId, n);
+}
 
 /**
  * Running seat total per restore transaction: lock + count once on the first new seat, then count

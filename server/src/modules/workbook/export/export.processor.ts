@@ -14,7 +14,7 @@ import { ALL_TABS, assertRegistryValid, EXPECTED_TABS } from '../codec/registry'
 import { writeWorkbook } from '../codec/workbook-codec';
 import { assertXlsxWithinLimits, XlsxTooLargeError } from '../../../common/utils/xlsx-guard.util';
 import { SCHEMA_VERSION, WorkbookMeta } from '../codec/meta';
-import type { ExportContext, TabSpec } from '../codec/tab-spec';
+import { UnresolvedRefError, type ExportContext, type TabSpec } from '../codec/tab-spec';
 import {
   WorkbookJob,
   WorkbookJobKind,
@@ -148,16 +148,11 @@ export class ExportProcessor extends WorkerHost {
       // later tab's `toRow` calls `ctx.keyOf('<earlier tab>', id)`, that
       // tab's map already exists.
       const keyMaps = new Map<string, Map<string, string>>();
+      const skippedRows: Record<string, number> = {}; // tab -> rows left out (unresolved ref)
       const ctx: ExportContext = {
         keyOf: (tab: string, id: string): string => {
           const key = keyMaps.get(tab)?.get(id);
-          if (key === undefined) {
-            throw new Error(
-              `ExportContext.keyOf: no natural key found for "${tab}" id "${id}" — either ` +
-                `that tab hasn't been exported yet (registry order bug) or the id doesn't ` +
-                `belong to this tenant.`,
-            );
-          }
+          if (key === undefined) throw new UnresolvedRefError(tab, id);
           return key;
         },
         // Null (not a throw) when the id isn't in the tab, e.g. a departed
@@ -170,9 +165,18 @@ export class ExportProcessor extends WorkerHost {
         tabs: ALL_TABS,
         meta,
         rowsFor: (tab) =>
-          this.rowsFor(tab, row, manager, ctx, rowCounts, keyMaps, (name) => {
-            currentTab = name;
-          }),
+          this.rowsFor(
+            tab,
+            row,
+            manager,
+            ctx,
+            rowCounts,
+            keyMaps,
+            (name) => {
+              currentTab = name;
+            },
+            skippedRows,
+          ),
       });
 
       stage = 'STORE';
@@ -198,7 +202,7 @@ export class ExportProcessor extends WorkerHost {
         row_counts: rowCounts,
         expires_at: expiresAt,
         finished_at: finishedAt,
-        error: await this.restoreLimitWarning(buffer),
+        error: this.joinWarnings(await this.restoreLimitWarning(buffer), skippedRows),
         failed_tab: null,
       });
 
@@ -338,6 +342,16 @@ export class ExportProcessor extends WorkerHost {
   }
 
   /** Warning code when restore would refuse this file; null otherwise. Reuses the unzip guard. */
+  /** [#2129] Warning text for rows left out because they point at a person or student the
+   * export does not hold; joined with the size warning. Null when there is nothing to say. */
+  private joinWarnings(sizeWarning: string | null, skipped: Record<string, number>): string | null {
+    const parts = Object.entries(skipped).map(([tab, n]) => `${tab}: ${n}`);
+    if (parts.length === 0) return sizeWarning;
+    this.logger.warn(`ExportProcessor: rows left out for an unresolved reference (${parts.join(', ')})`);
+    const left = `Some rows were left out because they point at a removed person or student (${parts.join(', ')}).`;
+    return sizeWarning ? `${sizeWarning} ${left}` : left;
+  }
+
   private async restoreLimitWarning(buffer: Buffer): Promise<string | null> {
     if (buffer.byteLength > BACKUP_MAX_UPLOAD_BYTES) return BACKUP_LIMIT_WARNING;
     try {
@@ -366,6 +380,7 @@ export class ExportProcessor extends WorkerHost {
     rowCounts: WorkbookRowCounts,
     keyMaps: Map<string, Map<string, string>>,
     onTabStart: (name: string) => void,
+    skipped: Record<string, number>,
   ): AsyncGenerator<Record<string, unknown>> {
     onTabStart(tab.name);
     const entities = await tab.load(row.tenant_id, manager);
@@ -389,7 +404,20 @@ export class ExportProcessor extends WorkerHost {
     let done = 0;
     const total = entities.length;
     for (const entity of entities) {
-      yield tab.toRow(entity, ctx);
+      let out: Record<string, unknown>;
+      try {
+        out = tab.toRow(entity, ctx);
+      } catch (err) {
+        // [#2129] One row pointing at an entity the export leaves out is left out too, with a
+        // warning, instead of failing the school's whole backup.
+        if (!(err instanceof UnresolvedRefError)) throw err;
+        skipped[tab.name] = (skipped[tab.name] ?? 0) + 1;
+        // Later tabs that point at this row must skip too, or the file would hold a dangling key.
+        keyMap.delete((entity as { id: string }).id);
+        done += 1;
+        continue;
+      }
+      yield out;
       rowCounts[tab.name] += 1;
       done += 1;
       if (done % PROGRESS_FLUSH_INTERVAL === 0) {

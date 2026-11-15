@@ -175,6 +175,13 @@ export function marksGridSubmittedForEdit(): ConflictException {
   });
 }
 
+export function marksSheetChanged(): ConflictException {
+  return new ConflictException({
+    message: 'Marks changed after this upload was checked. Upload the sheet again.',
+    details: { code: 'MARKS_SHEET_CHANGED' },
+  });
+}
+
 export function marksSheetExpired(): GoneException {
   return new GoneException({
     message: 'This upload has expired. Upload the sheet again.',

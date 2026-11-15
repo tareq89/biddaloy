@@ -146,7 +146,7 @@ export const classesTab: TabSpec<Class, ClassRow> = {
           tab: 'classes',
           row: rowNo,
           column: 'academic_year',
-          message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+          message: `Column "academic_year": no academic year was found.`,
           severity: 'error',
           value: academicYearKey,
         });

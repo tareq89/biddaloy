@@ -333,6 +333,92 @@ describe('RestoreProcessor (integration)', () => {
     expect(school.name).toBe('Restore Test School A');
   });
 
+  it('[688] a row an earlier restore soft-deleted comes back when the file names it again: no duplicate', async () => {
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    const revivedId = randomUUID();
+    await yearRepo.save(
+      yearRepo.create({
+        id: revivedId,
+        tenant_id: TENANT_A,
+        name: 'Revived Year',
+        start_date: new Date(2019, 0, 1),
+        end_date: new Date(2019, 11, 31),
+        is_current: false,
+      }),
+    );
+    await yearRepo.softDelete({ id: revivedId, tenant_id: TENANT_A });
+
+    const buffer = await buildWorkbook({
+      school: { id: TENANT_A, name: 'Restore Test School A' },
+      years: [
+        {
+          id: revivedId,
+          name: 'Revived Year',
+          start: '2019-01-01',
+          end: '2019-12-31',
+          is_current: false,
+        },
+      ],
+    });
+    const job = await setupRestoreJob(TENANT_A, buffer);
+    await processor.process(fakeJob(job.id));
+
+    const finished = await dataSource
+      .getRepository(WorkbookJob)
+      .findOneOrFail({ where: { id: job.id } });
+    expect(finished.status).toBe(WorkbookJobStatus.DONE);
+    const rows = await yearRepo.find({ where: { tenant_id: TENANT_A, name: 'Revived Year' } });
+    expect(rows.map((r) => r.id)).toEqual([revivedId]); // the same row, alive, once
+  });
+
+  it('[688] revives a soft-deleted year that still says is_current while another live year is current', async () => {
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    const deletedCurrentId = randomUUID();
+    const liveCurrentId = randomUUID();
+    const base = {
+      tenant_id: TENANT_A,
+      start_date: new Date(2018, 0, 1),
+      end_date: new Date(2018, 11, 31),
+    };
+    await yearRepo.save(
+      yearRepo.create({ ...base, id: deletedCurrentId, name: 'Old Current', is_current: true }),
+    );
+    await yearRepo.softDelete({ id: deletedCurrentId, tenant_id: TENANT_A });
+    await yearRepo.save(
+      yearRepo.create({ ...base, id: liveCurrentId, name: 'Live Current', is_current: true }),
+    );
+
+    const buffer = await buildWorkbook({
+      school: { id: TENANT_A, name: 'Restore Test School A' },
+      years: [
+        {
+          id: deletedCurrentId,
+          name: 'Old Current',
+          start: '2018-01-01',
+          end: '2018-12-31',
+          is_current: false,
+        },
+        {
+          id: liveCurrentId,
+          name: 'Live Current',
+          start: '2018-01-01',
+          end: '2018-12-31',
+          is_current: true,
+        },
+      ],
+    });
+    const job = await setupRestoreJob(TENANT_A, buffer);
+    await processor.process(fakeJob(job.id));
+
+    const finished = await dataSource
+      .getRepository(WorkbookJob)
+      .findOneOrFail({ where: { id: job.id } });
+    expect(finished.status).toBe(WorkbookJobStatus.DONE);
+    const a = await yearRepo.findOneOrFail({ where: { id: deletedCurrentId } });
+    const b = await yearRepo.findOneOrFail({ where: { id: liveCurrentId } });
+    expect([a.is_current, b.is_current]).toEqual([false, true]);
+  });
+
   it('never lets a workbook whose ids belong to tenant B change anything in tenant B', async () => {
     const otherTenantYearId = randomUUID();
     await dataSource.getRepository(AcademicYear).save(
@@ -677,7 +763,8 @@ describe('RestoreProcessor (integration)', () => {
 
   // D13 on the real money/marks tabs: export a seeded tenant, edit the
   // workbook like an admin would in Excel, and restore it back.
-  describe('money and marks are insert-only (D13, real tabs)', () => {
+  // [#2504] Each test seeds a tenant, exports a full workbook and restores it: ~4.6 s of real work.
+  describe('money and marks are insert-only (D13, real tabs)', { timeout: 30_000 }, () => {
     let exporter: ExportProcessor;
     const em = () => dataSource.manager;
 
