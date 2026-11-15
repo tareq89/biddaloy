@@ -815,6 +815,35 @@ describe('PaymentSubmissionSettlement (integration)', () => {
     });
   });
 
+  describe('settle concurrency bound', () => {
+    it('12 concurrent settles on distinct submissions all finish, at most 3 in flight', async () => {
+      const subs = [];
+      for (let i = 0; i < 12; i += 1) {
+        const st = await mkStudent();
+        subs.push(await mkSubmission([await mkBill(st.id, 100)]));
+      }
+      let live = 0;
+      let peak = 0;
+      const realRun = (svc as any).run.bind(svc);
+      const spy = vi.spyOn(svc as any, 'run').mockImplementation(async (...a: unknown[]) => {
+        live += 1;
+        peak = Math.max(peak, live);
+        try {
+          return await realRun(...a);
+        } finally {
+          live -= 1;
+        }
+      });
+      try {
+        const res = await Promise.all(subs.map((s) => strict(s.id)));
+        expect(res.every((r) => r.outcome === 'SETTLED')).toBe(true);
+        expect(peak).toBeLessThanOrEqual(3);
+      } finally {
+        spy.mockRestore();
+      }
+    }, 60_000);
+  });
+
   describe('assertNoWaitingSubmissionBills', () => {
     it('refuses a bill a PENDING submission of the same school covers', async () => {
       const s1 = await mkStudent();
