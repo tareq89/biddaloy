@@ -139,7 +139,7 @@ flowchart LR
 - **Why.** A 15-minute access token outlived the action that should have ended it (D12, 75.2).
 - **Example.** Admin suspends a teacher; the teacher's next request with the old token → `401`.
 - **Test.** `session-cutoff.service.integration.spec.ts`, `jwt.strategy.spec.ts`.
-- **Decided (#2462).** (1) An admin who edits their *own* email or phone is signed out everywhere, this device included. We keep it: a stolen session must not be able to move the contact and stay in. (2) "Log out everywhere" also revokes the user's calendar-feed tokens (`calendar_feed_tokens.revoked_at`); the user makes a new feed link on the calendar page. (3) The "this email or phone is already in use" `409` on user edit stays: only an admin sees it, and a generic error would hide a real collision from them.
+- **Decided (#2462).** (1) An admin who edits their _own_ email or phone is signed out everywhere, this device included. We keep it: a stolen session must not be able to move the contact and stay in. (2) "Log out everywhere" also revokes the user's calendar-feed tokens (`calendar_feed_tokens.revoked_at`); the user makes a new feed link on the calendar page. (3) The "this email or phone is already in use" `409` on user edit stays: only an admin sees it, and a generic error would hide a real collision from them.
 
 ### Rule 9: One bcrypt cost, one password check
 
@@ -1381,8 +1381,11 @@ redact.
 Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
 `GET /api/v1/calendar/feed/[REDACTED]`.
 
-Known gap: nginx's **error** log (502/504, client aborts) still writes the
-full request line, token included. Only the access log is masked.
+nginx's **error** log writes the full request line on request-scoped lines (502/504, client
+aborts, and `crit`/`alert` ones such as fd exhaustion), so `error_log ... emerg` in
+`default.conf.template` keeps those lines out. Only config and startup failures remain, and
+they carry no request. A failed upstream still shows as a 502/504 line in the masked access log.
+`access-log.infra.test.sh` stops the upstream and checks no secret reaches the log.
 
 ## Repository and GitHub settings
 

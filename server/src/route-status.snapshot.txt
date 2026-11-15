@@ -531,7 +531,7 @@ GET    /api/v1/platform/coupons                                                 
 POST   /api/v1/platform/coupons                                                  401 403 401 401 401 401 401 401 401 401 401 401 401 -
 PATCH  /api/v1/platform/coupons/:id                                              401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/coupons/:id/usage                                        401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
-POST   /api/v1/platform/coupons/free                                             401 403 401 401 401 401 401 401 401 401 401 401 401 -
+POST   /api/v1/platform/coupons/free                                             401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/holiday-sets                                             401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
 GET    /api/v1/platform/holiday-sets/:id                                         401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
 PUT    /api/v1/platform/holiday-sets/:id/entries                                 401 PASS 403 403 403 403 403 403 403 403 403 403 403 -

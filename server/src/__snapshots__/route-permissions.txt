@@ -781,7 +781,7 @@ POST /platform/billing/schools/:id/plan | PlatformPlansController | allowlist: A
 POST /platform/billing/sms-bundle-orders/:id/offline-payment | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard
 POST /platform/billing/sms-bundle-orders/:id/refund | PlatformBillingController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAdminGuard | approval: platform.refund
 POST /platform/coupons | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.coupon
-POST /platform/coupons/free | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard, TwoPersonGuard | approval: platform.coupon_free
+POST /platform/coupons/free | PlatformCouponsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard | approval: platform.coupon_free
 POST /platform/holiday-sets/:id/publish | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/holiday-sets/:id/unpublish | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/holiday-sets/fetch | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard

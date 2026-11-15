@@ -96,6 +96,9 @@ export class OtpLoginService {
     const byEmail = this.sentByEmail(identifier);
     const to = byEmail ? user.email : user.phone;
     if (!to) return {};
+    // [#2463] A contact nobody confirmed (an admin typed it) never gets a sign-in code while the
+    // person has a confirmed one: whoever controls that address would otherwise sign in as them.
+    if (this.otherContactIsVerifiedButThisIsNot(user, byEmail)) return {};
 
     // Gate first, like RecoveryService: a no-school user costs one query and never reaches the lookup.
     if (!(await this.authService.hasLiveMembership(user.id))) return {};
@@ -156,7 +159,11 @@ export class OtpLoginService {
     }
 
     const success =
-      result === 'ok' && !!user && this.canSignInByCode(user) && (await this.allowed(user.id));
+      result === 'ok' &&
+      !!user &&
+      this.canSignInByCode(user) &&
+      !this.otherContactIsVerifiedButThisIsNot(user, byEmail) &&
+      (await this.allowed(user.id));
 
     if (!success) {
       await this.auditService.record({
@@ -254,16 +261,25 @@ export class OtpLoginService {
    * Would code sign-in work for this user at all: ACTIVE, every school allows
    * it, there is an address a code can go to (an email, or a phone SMS is
    * allowed to), and a live school membership (`request` sends nothing
-   * without one). Same rules as `request`.
+   * without one), all under the #2463 verified-contact rule. Same rules as `request`.
    */
   async canReceiveCode(user: User): Promise<boolean> {
     const smsOk = !!user.phone && isSmsAllowed(user.phone, this.smsPrefixes());
+    const emailOk = !!user.email && !this.otherContactIsVerifiedButThisIsNot(user, true);
+    const phoneOk = smsOk && !this.otherContactIsVerifiedButThisIsNot(user, false);
     return (
       this.canSignInByCode(user) &&
-      (!!user.email || smsOk) &&
+      (emailOk || phoneOk) &&
       (await this.allowed(user.id)) &&
       (await this.authService.hasLiveMembership(user.id))
     );
+  }
+
+  /** True when the contact a code would use is unverified and the user's other contact is verified. */
+  private otherContactIsVerifiedButThisIsNot(user: User, byEmail: boolean): boolean {
+    return byEmail
+      ? !user.email_verified_at && !!user.phone && !!user.phone_verified_at
+      : !user.phone_verified_at && !!user.email && !!user.email_verified_at;
   }
 
   /** Only ACTIVE accounts sign in by code. */

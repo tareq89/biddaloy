@@ -28,6 +28,7 @@ import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { AllowWhenReadOnly } from '../auth/decorators/allow-when-read-only.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -253,6 +254,8 @@ export class FeeController implements OnModuleInit {
 
   // --- Fee Generation endpoints [16.3.1] ---
 
+  // Writes nothing, so a read-only (over-seat) school may still run it (#4112).
+  @AllowWhenReadOnly()
   @Post('fees/generate/preview')
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -496,13 +499,11 @@ export class FeeController implements OnModuleInit {
     const who = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
     // [83.0] D5 — teaching-only on purpose; no `includeCoordinated`.
     const scope = await this.teacherScope.assertCanSeeGuardian({ ...who, guardianId });
-    const payments = await this.paymentService.findByGuardian(guardianId, tenant.id);
     // A sibling in another section is dropped for a TEACHER; `null` = unrestricted.
     // [83.0] D5 — teaching-only on purpose; no `includeCoordinated`.
     const scoped = await this.teacherScope.scopedStudentIds({ ...who, scope });
-    if (!scoped) return payments;
-    const visible = new Set(scoped);
-    return payments.filter((p) => visible.has(p.student_id));
+    // [#2455] The service keeps only the visible students' allocations of a multi-student payment.
+    return this.paymentService.findByGuardian(guardianId, tenant.id, scoped ?? undefined);
   }
 
   @Get('payments/invoices/student/:studentId')

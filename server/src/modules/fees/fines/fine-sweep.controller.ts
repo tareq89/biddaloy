@@ -5,6 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { AllowWhenReadOnly } from '../../auth/decorators/allow-when-read-only.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -33,6 +34,8 @@ import {
 export class FineSweepController {
   constructor(@Inject(FineSweepService) private readonly fineSweepService: FineSweepService) {}
 
+  // Writes nothing, so a read-only (over-seat) school may still run it (#4112).
+  @AllowWhenReadOnly()
   @Post('generate/preview')
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })

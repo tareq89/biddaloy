@@ -204,11 +204,12 @@ describe('Free coupons need the second owner (e2e)', () => {
     expect(rows).toHaveLength(1);
     couponId = rows[0].id;
 
-    // Same key and same grant again (a lost response, a double click). The guards run before the
-    // idempotency interceptor, so the spent grant is refused first: no replay, and no second coupon.
+    // Same key and same grant again (a lost response, a double click). The interceptor runs
+    // before the single-use approvals are claimed, so the stored 201 is replayed (Rule 25, #4141):
+    // same coupon, and still no second one.
     const retry = await send(requestId);
-    expect(retry.status).toBe(403);
-    expect(retry.body.details?.code).toBe('APPROVAL_INVALID');
+    expect(retry.status).toBe(201);
+    expect(retry.body.id).toBe(created.body.id);
     expect(await couponRows(CODE)).toHaveLength(1);
   }, 90000);
 

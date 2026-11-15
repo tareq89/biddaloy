@@ -196,12 +196,14 @@ flowchart LR
   `@AllowWhenReadOnly()`, so the read-only check skips them; a suspension still blocks them).
   They change the signed-in user's own state, not the school's data:
 
-  | Route                                                                | Why it stays open                  |
-  | -------------------------------------------------------------------- | ---------------------------------- |
-  | `POST /attention/items/seen`, `.../:recipientId/hide`, `.../snooze`  | the user's own alert list          |
-  | `POST /auth/step-up`, `POST /auth/step-up/otp/request`               | proving who you are writes no data |
-  | `POST /me/push/subscriptions`, `DELETE /me/push/subscriptions[/:id]` | the user's own devices             |
-  | `PATCH /users/me/preferences/notifications`, `/dashboard`, `/digest` | the user's own settings            |
+  | Route                                                                | Why it stays open                   |
+  | -------------------------------------------------------------------- | ----------------------------------- |
+  | `POST /attention/items/seen`, `.../:recipientId/hide`, `.../snooze`  | the user's own alert list           |
+  | `POST /auth/step-up`, `POST /auth/step-up/otp/request`               | proving who you are writes no data  |
+  | `POST /me/push/subscriptions`, `DELETE /me/push/subscriptions[/:id]` | the user's own devices              |
+  | `PATCH /users/me/preferences/notifications`, `/dashboard`, `/digest` | the user's own settings             |
+  | `POST /fees/generate/preview`, `/fees/fines/generate/preview`        | dry run, writes nothing (#4112)     |
+  | `POST /print-jobs/preview`                                           | resolves print data, writes nothing |
 
   The list is pinned by `allow-when-suspended-for-billing.decorator.spec.ts` (`@AllowWhenReadOnly
 allowlist`) and by `USER_LEVEL_WRITES` in `read-only-route-walk.e2e-spec.ts`.

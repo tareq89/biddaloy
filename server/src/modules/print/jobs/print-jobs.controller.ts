@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { AllowWhenReadOnly } from '../../auth/decorators/allow-when-read-only.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -51,6 +52,8 @@ export class PrintJobsController {
     return { tenantId: tenant.id, userId: user.sub, role: tenant.role };
   }
 
+  // Writes nothing, so a read-only (over-seat) school may still preview (#4112).
+  @AllowWhenReadOnly()
   @Post('preview')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resolve print data for a template + subjects without creating a job.' })

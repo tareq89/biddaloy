@@ -410,8 +410,17 @@ export class BkashService {
         ? await this.bundlePay().markPaid(order.id, payment)
         : await this.orders.markPaid(order.id, payment);
     if (!applied) {
-      // Callback and reconciler raced (same trxID: the orphan insert is a no-op), or a payment
-      // completed for an order already settled another way (a double payment to refund).
+      // [#4151] Callback and reconciler raced: the winner already recorded THIS trxID, so
+      // nothing is wrong. Only a different trxID (or an order settled another way) is a double payment.
+      const [same] = await this.dataSource.query(
+        `SELECT 1 FROM platform_payments WHERE method = $1 AND gateway_ref = $2 AND raw->>'orphan' IS NULL`,
+        [PlatformPaymentMethod.BKASH, tx.trxID],
+      );
+      if (same) {
+        this.logger.log(`bKash payment ${tx.trxID} for order ${order.id} was already applied`);
+        return;
+      }
+      // A payment completed for an order already settled another way (a double payment to refund).
       this.logger.error(
         `bKash payment completed but order ${order.id} was not PENDING (trx ${tx.trxID}): check for a double payment`,
       );

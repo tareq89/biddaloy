@@ -54,10 +54,19 @@ done
 # Unknown Host on the catch-all server (plain HTTP gets 444).
 docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -H 'Host: other.test' \
   "http://$EDGE_IP/api/v1/public/verify/SECRET8?token=SECRET9" || true
+# Upstream down: nginx's error log would write the full request line (secret included).
+docker stop accesslog-upstream >/dev/null
+for path in '/api/v1/calendar/feed/SECRET13.ics' '/reset-password?token=SECRET14'; do
+  code=$(docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -w '%{http_code}' \
+    --resolve "example.test:80:$EDGE_IP" "http://example.test$path") || code=000
+  [[ "$code" == 502 || "$code" == 504 ]] && pass "upstream down $path -> $code" || fail "upstream down $path" "$code"
+done
 sleep 1
 
 logs=$(docker logs accesslog-edge 2>&1)
 count=$(grep -c SECRET <<<"$logs" || true)
+[[ "$logs" == *'"GET /api/v1/calendar/feed/[REDACTED]" 50'* && "$logs" == *'"GET /reset-password" 50'* ]] \
+  && pass "both upstream-down requests logged" || fail "upstream-down access lines missing" "$logs"
 [ "$count" = 0 ] && pass "no SECRET in the log" || fail "log leaks a secret" "$(grep SECRET <<<"$logs")"
 [[ "$logs" == *'/reset-password"'* || "$logs" == *'/reset-password '* ]] \
   && pass "path kept, query dropped" || fail "reset-password path missing" "$logs"

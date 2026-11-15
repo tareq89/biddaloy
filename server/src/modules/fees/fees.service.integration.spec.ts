@@ -7,6 +7,7 @@ import { GuardianService } from '../students/students.service';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
@@ -1575,6 +1576,117 @@ describe('PaymentService (integration)', () => {
       await expect(service.findByGuardian(guardian.id, TENANT_ID)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // [#2455] One checkout for two siblings is ONE payment keyed on the first student.
+  describe('multi-student checkout payment', () => {
+    async function seed() {
+      const mk = (n: number) =>
+        studentRepo.save(
+          studentRepo.create({
+            full_name: `Sibling ${n}`,
+            registration_number: `REG-2026-09${n}`,
+            roll_number: 90 + n,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+            preferred_communication: 'SMS',
+          }),
+        );
+      const [a, b] = [await mk(1), await mk(2)];
+      const fee = (sid: string) =>
+        studentFeeRepo.save(
+          studentFeeRepo.create({
+            student_id: sid,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            fee_structure_id: paymentFeeStructureId,
+            period_start: new Date(Date.UTC(2026, 0, 1)),
+            total_amount: 1000,
+            paid_amount: 0,
+            discount_amount: 0,
+            status: 'PENDING' as any,
+          }),
+        );
+      const [feeA, feeB] = [await fee(a.id), await fee(b.id)];
+      const payment = await paymentRepo.save(
+        paymentRepo.create({
+          student_id: a.id,
+          tenant_id: TENANT_ID,
+          total_amount: 700,
+          payment_date: new Date('2026-01-05') as any,
+          payment_method: 'CASH' as any,
+        }),
+      );
+      const alloc = dataSource.getRepository(PaymentAllocation);
+      for (const [f, amt] of [
+        [feeA, 300],
+        [feeB, 400],
+      ] as const) {
+        await alloc.save(
+          alloc.create({
+            payment_id: payment.id,
+            student_fee_id: f.id,
+            allocated_amount: amt,
+            allocation_type: 'CURRENT' as any,
+          }),
+        );
+      }
+      // An invoice for the whole checkout: its snapshot names every paying student.
+      const invoice = await dataSource.getRepository(Invoice).save({
+        invoice_number: 'INV-2455-1',
+        tenant_id: TENANT_ID,
+        student_id: a.id,
+        payment_id: payment.id,
+        total_amount: 700,
+        status: 'ISSUED' as any,
+        issued_date: new Date('2026-01-05'),
+        due_date: new Date('2026-01-05'),
+        snapshot: {
+          students: [
+            { id: a.id, full_name: a.full_name },
+            { id: b.id, full_name: b.full_name },
+          ],
+        } as any,
+      });
+      await paymentRepo.update({ id: payment.id }, { invoice_id: invoice.id });
+      return { a, b, payment };
+    }
+
+    it("findByStudent shows each sibling only their own share, including the one who is not 'student_id'", async () => {
+      const { a, b, payment } = await seed();
+      const forA = await service.findByStudent(a.id, TENANT_ID);
+      const forB = await service.findByStudent(b.id, TENANT_ID);
+      expect(forA.map((p) => [p.id, Number(p.total_amount), p.allocations.length])).toEqual([
+        [payment.id, 300, 1],
+      ]);
+      expect(forB.map((p) => [p.id, Number(p.total_amount), p.allocations.length])).toEqual([
+        [payment.id, 400, 1],
+      ]);
+    });
+
+    it('findByGuardian can be limited to the students a teacher may see', async () => {
+      const { a, b } = await seed();
+      const guardian = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'Sibling Guardian',
+          relationship: 'FATHER',
+          preferred_communication: 'SMS',
+          tenant_id: TENANT_ID,
+          students: [a, b],
+        }),
+      );
+      const onlyB = await service.findByGuardian(guardian.id, TENANT_ID, [b.id]);
+      expect(onlyB.map((p) => Number(p.total_amount))).toEqual([400]);
+      // [#2455] a shared payment never carries another student's record
+      expect(onlyB[0].student.id).toBe(b.id);
+      expect(onlyB[0].student_id).toBe(b.id);
+      expect(onlyB[0].invoice?.invoice_number).toBe('INV-2455-1');
+      const json = JSON.stringify(onlyB);
+      expect(json).not.toContain(a.id);
+      expect(json).not.toContain('Sibling 1');
+      const all = await service.findByGuardian(guardian.id, TENANT_ID);
+      expect(all.map((p) => Number(p.total_amount))).toEqual([700]);
     });
   });
 

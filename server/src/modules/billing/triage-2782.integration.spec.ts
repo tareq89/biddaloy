@@ -5,6 +5,7 @@
  * F8 and F9 are REAL but live outside billing (pinned as today's behaviour, see their notes).
  */
 import { randomUUID } from 'crypto';
+import { Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
@@ -22,6 +23,7 @@ import { ContextGuard } from '../auth/guards/context.guard';
 import { SchoolsService } from '../schools/schools.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { FeeController } from '../fees/fees.controller';
+import { FineSweepController } from '../fees/fines/fine-sweep.controller';
 import { PrintJobsController } from '../print/jobs/print-jobs.controller';
 import { VatService } from './vat.service';
 import { BillingModule } from './billing.module';
@@ -216,6 +218,43 @@ describe('#2782 triage (integration)', () => {
     expect(await orphans(o.id)).toEqual([{ reason: 'ORDER_NOT_PENDING' }]);
   }, 20000);
 
+  it('#4151: the same payment settled twice (callback + reconciler race) is benign: no double-payment ERROR, no orphan', async () => {
+    afterCutoff();
+    const sid = await newSchool();
+    const o = await pending(sid);
+    const { svc, client } = bkashWorld();
+    client.create.mockResolvedValueOnce(created('PAYR1'));
+    await svc.startPayment(sid, o.id);
+    client.query.mockResolvedValue(tx(o.id, 'PAYR1', 'Completed'));
+    client.execute.mockResolvedValue(tx(o.id, 'PAYR1', 'Completed'));
+    const errors = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await Promise.all([
+        svc.handleCallback('PAYR1', 'success'),
+        svc.handleCallback('PAYR1', 'success'),
+      ]);
+      expect(errors.mock.calls.filter((c) => String(c[0]).includes('double payment'))).toEqual([]);
+    } finally {
+      errors.mockRestore();
+    }
+    expect(await statusOf(o.id)).toBe(SeatOrderStatus.PAID);
+    expect(await orphans(o.id)).toEqual([]);
+  }, 20000);
+
+  it('#4151: a DIFFERENT trxID completing on a settled order still logs the double-payment ERROR', async () => {
+    const { svc, client, o } = await twoAttempts('PAYS');
+    client.query.mockImplementation(async (pid: string) => tx(o.id, pid, 'Completed'));
+    const errors = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    try {
+      await svc.reconcilePending();
+      expect(errors.mock.calls.filter((c) => String(c[0]).includes('double payment'))).toHaveLength(
+        1,
+      );
+    } finally {
+      errors.mockRestore();
+    }
+  }, 20000);
+
   it('F1 review: a mismatching earlier payment does not stop the real one being settled', async () => {
     const { svc, client, o } = await twoAttempts('PAYI');
     client.query.mockImplementation(async (pid: string) =>
@@ -362,8 +401,7 @@ describe('#2782 triage (integration)', () => {
     expect(n[0].n).toBe(1);
   });
 
-  describe('F8 / F9 REAL, outside billing (new issue): read-only mode refuses POST-shaped previews', () => {
-    // Pinned as today's behaviour. When the fix lands (a read-shaped-POST allowance), flip these.
+  describe('F8 / F9 REAL (fixed, #4112): read-shaped POST previews stay open in read-only mode', () => {
     const UNTIL = new Date('2027-01-07T18:00:00.000Z');
     const guard = new ContextGuard(new Reflector(), {
       isActive: async () => true,
@@ -391,14 +429,20 @@ describe('#2782 triage (integration)', () => {
         getClass: () => class {},
       } as never);
 
-    it('F8: the fee-generation dry run ("writes nothing") gets 403 TENANT_READ_ONLY', async () => {
-      await expect(post(FeeController.prototype.previewGenerateFees)).rejects.toMatchObject({
-        status: 403,
-      });
+    it('F8: the fee-generation dry run ("writes nothing") passes the read-only check', async () => {
+      await expect(post(FeeController.prototype.previewGenerateFees)).resolves.toBe(true);
     });
 
-    it('F9: the print preview gets 403 TENANT_READ_ONLY', async () => {
-      await expect(post(PrintJobsController.prototype.preview)).rejects.toMatchObject({
+    it('F8b: the attendance-fine dry run passes the read-only check', async () => {
+      await expect(post(FineSweepController.prototype.preview)).resolves.toBe(true);
+    });
+
+    it('F9: the print preview passes the read-only check', async () => {
+      await expect(post(PrintJobsController.prototype.preview)).resolves.toBe(true);
+    });
+
+    it('a real write (fee generation) is still 403 TENANT_READ_ONLY', async () => {
+      await expect(post(FeeController.prototype.generateFees)).rejects.toMatchObject({
         status: 403,
       });
     });
