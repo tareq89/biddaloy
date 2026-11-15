@@ -9201,57 +9201,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/admission/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Open admission intakes (and their required document types) for a school, by slug. */
-        get: operations["PublicAdmissionController_listOpenIntakes_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/admission/{slug}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Check an admission application status by reference number plus the guardian phone given on the form, no login required. Returns only status/applicant name/intake title — an unknown reference, a wrong phone, or a wrong-tenant reference number all 404 identically. POST (not GET) so the phone number never lands in a URL/access log. */
-        post: operations["PublicAdmissionController_getStatus_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/admission/{slug}/applicants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit an admission application. Multipart form: applicant fields plus one file field per required document type (photo/birth_certificate/transcript). Updating an existing PENDING application for the same child (intake, guardian_phone, date of birth, name) requires its reference_number as proof of ownership — a phone number and intake_id are both public, so matching on those two alone isn't enough. */
-        post: operations["PublicAdmissionController_submit_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admission/reports/lifecycle": {
         parameters: {
             query?: never;
@@ -9261,6 +9210,40 @@ export interface paths {
         };
         /** Admitted / withdrawn / transferred out / graduated / readmitted counts and rows for an academic year. */
         get: operations["AdmissionReportsController_lifecycle_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/reports/funnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Applied to admitted funnel, ONLINE/CLERK split and quota counts for an academic year. */
+        get: operations["AdmissionReportsController_funnel_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/reports/export/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download applicants, stage scores or lists as .xlsx. */
+        get: operations["AdmissionReportsController_exportKind_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21396,21 +21379,6 @@ export interface components {
             /** Format: uuid */
             class_section_id?: string;
         };
-        CheckApplicantStatusDto: {
-            reference_number: string;
-            guardian_phone: string;
-        };
-        ApplicantStatusDto: {
-            /** @enum {string} */
-            status: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
-            applicant_name: string;
-            intake_title: string;
-        };
-        SubmitApplicantResponseDto: {
-            reference_number: string;
-            status: string;
-            warnings?: string[];
-        };
         LifecycleReportCountsDto: {
             admitted: number;
             withdrawn: number;
@@ -21436,6 +21404,31 @@ export interface components {
             rows: components["schemas"]["LifecycleReportRowDto"][];
             /** @description True when more than 500 rows matched and the list was cut. */
             truncated: boolean;
+        };
+        FunnelStepDto: {
+            /** @enum {string} */
+            step: "APPLIED" | "STAGE" | "OFFERED" | "ADMITTED";
+            /** @description Stage position; null otherwise. */
+            position: number | null;
+            /** @description Stage kind(s), e.g. WRITTEN. */
+            kind: string | null;
+            count: number;
+        };
+        SourceSplitRowDto: {
+            /** @enum {string} */
+            source: "ONLINE" | "CLERK";
+            applied: number;
+            admitted: number;
+        };
+        QuotaCountRowDto: {
+            quota: string;
+            applied: number;
+            admitted: number;
+        };
+        FunnelReportDto: {
+            funnel: components["schemas"]["FunnelStepDto"][];
+            sources: components["schemas"]["SourceSplitRowDto"][];
+            quotas: components["schemas"]["QuotaCountRowDto"][];
         };
         AdmissionLatestApplicantDto: {
             id: string;
@@ -21477,6 +21470,11 @@ export interface components {
             fee_reference?: string;
             /** @description Let a late walk-in past the close date. */
             allow_after_close?: boolean;
+        };
+        SubmitApplicantResponseDto: {
+            reference_number: string;
+            status: string;
+            warnings?: string[];
         };
         FeeProofRowDto: {
             /** Format: uuid */
@@ -46858,102 +46856,6 @@ export interface operations {
             };
         };
     };
-    PublicAdmissionController_listOpenIntakes_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicAdmissionController_getStatus_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CheckApplicantStatusDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApplicantStatusDto"];
-                };
-            };
-        };
-    };
-    PublicAdmissionController_submit_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: uuid */
-                    intake_id?: string;
-                    applicant_name?: string;
-                    /** Format: date */
-                    date_of_birth?: string;
-                    gender?: string;
-                    guardian_name?: string;
-                    guardian_phone?: string;
-                    /** @description Cloudflare Turnstile token. */
-                    captcha_token?: string;
-                    guardian_email?: string | null;
-                    home_address?: string | null;
-                    /** @description Proof of ownership when updating an existing PENDING application for the same child. Omit on a first submission. */
-                    reference_number?: string | null;
-                    /** Format: binary */
-                    photo?: string;
-                    /** Format: binary */
-                    birth_certificate?: string;
-                    /** Format: binary */
-                    transcript?: string;
-                    /** Format: binary */
-                    ssc_marksheet?: string;
-                    /** Format: binary */
-                    transfer_certificate?: string;
-                    /** Format: binary */
-                    quota_certificate?: string;
-                };
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubmitApplicantResponseDto"];
-                };
-            };
-        };
-    };
     AdmissionReportsController_lifecycle_v1: {
         parameters: {
             query: {
@@ -46978,6 +46880,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LifecycleReportDto"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionReportsController_funnel_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+                class_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FunnelReportDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionReportsController_exportKind_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+                class_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                kind: "applicants" | "scores" | "lists";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
