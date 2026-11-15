@@ -232,7 +232,8 @@ describe('SubjectService (integration)', () => {
       await dataSource.transaction(async (manager) => {
         expect(await shareLockLive(manager, Subject, [subject.id], TENANT_ID)).toBe(1);
         removed = service.remove(subject.id, TENANT_ID).catch((err: unknown) => err);
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // pg_stat_activity cuts long queries: match the start of the entity's column list.
+        await waitForLockWaiters(dataSource, '%"Subject_id"%', 1);
         const exam = await manager.save(Exam, {
           tenant_id: TENANT_ID,
           academic_year_id: academicYearId,

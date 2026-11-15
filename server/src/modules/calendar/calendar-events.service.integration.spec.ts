@@ -217,6 +217,27 @@ describe('CalendarEventsService (integration)', () => {
     expect(created.class_ids).toEqual([classId]);
   });
 
+  it('returns class_ids when the event is created inside a caller transaction', async () => {
+    const created = await dataSource.transaction((manager) =>
+      service.create(
+        {
+          type: CalendarEventType.EVENT,
+          name: 'Class-scoped event in a transaction',
+          start_date: '2030-05-02',
+          end_date: '2030-05-02',
+          audience: CalendarAudience.ALL,
+          class_ids: [classId],
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+        undefined,
+        manager,
+      ),
+    );
+
+    expect(created.class_ids).toEqual([classId]);
+  });
+
   it('rejects update/delete on a past event, but today is still editable', async () => {
     const eventRepo = dataSource.getRepository(
       (await import('./entities/calendar-event.entity')).CalendarEvent,

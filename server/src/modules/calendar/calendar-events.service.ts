@@ -218,10 +218,13 @@ export class CalendarEventsService {
   private async withClassIds(
     events: CalendarEvent[],
     tenantId: string,
+    /** The caller's transaction, when the events were written in one that has not committed. */
+    manager?: EntityManager,
   ): Promise<CalendarEventWithClassIds[]> {
     if (events.length === 0) return [];
     const today = await this.getToday(tenantId);
-    const links = await this.eventClassRepo
+    const links = await (manager ?? this.eventClassRepo.manager)
+      .getRepository(CalendarEventClass)
       .createQueryBuilder('cec')
       .where('cec.event_id IN (:...ids)', { ids: events.map((e) => e.id) })
       .andWhere('cec.tenant_id = :tenantId', { tenantId })
@@ -375,7 +378,7 @@ export class CalendarEventsService {
       ? await persist(manager)
       : await this.eventRepo.manager.transaction(persist);
 
-    const [withClassIds] = await this.withClassIds([saved], tenantId);
+    const [withClassIds] = await this.withClassIds([saved], tenantId, manager);
     // D9: a draft (`publish: false`) is never notified — `publish()` sends
     // the notify instead, once the event actually goes live.
     if (publish && !isPastClosure) {
