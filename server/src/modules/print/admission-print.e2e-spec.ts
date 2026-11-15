@@ -174,6 +174,11 @@ describe('Admission admit card print E2E (71.5.01)', () => {
     await app.close();
   });
 
+  it('diagnostic: the ADMIN preview answers 200 (body shown on failure)', async () => {
+    const r = await preview(UserRole.ADMIN);
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+  });
+
   it.each([UserRole.ADMIN, UserRole.OFFICE_STAFF])(
     '%s previews the card: roll, guardian phone, stage date, time and venue',
     async (role) => {
