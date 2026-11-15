@@ -211,6 +211,10 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
       `SELECT count(*) AS n FROM admission_applicants WHERE source = 'CLERK'`,
     );
     expect(Number(clerk)).toBeGreaterThan(0);
+    const [{ n: quota }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_applicants WHERE quota_tags <> '[]'::jsonb`,
+    );
+    expect(Number(quota)).toBeGreaterThan(0);
     const states = await q<{ state: string }>(`SELECT DISTINCT state FROM admission_fee_proofs`);
     expect(states.map((r) => r.state).sort()).toEqual(['AWAITING', 'CONFIRMED', 'SENT_BACK']);
     // No list is longer than its round's seats.
