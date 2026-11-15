@@ -133,6 +133,8 @@ Nothing on this page is kept on the device while you are offline, so there is no
 2. To see only one state, choose it in **Status**, for example **Waiting for confirmation**, **Confirmed**, **Failed**, **Cancelled**, **Expired** or **Reversed**. To see all, choose **All statuses**.
 3. Press **Open payment** beside a row to open that payment. If the payment has not been made yet, **Open details** shows instead.
 
+The list shows 100 payments at a time. With more, it says **Showing the first 100 online payments.** Press **Next page** to see the next 100, and **First page** to go back.
+
 There is nothing for you to confirm here. When bKash answers, the bills show paid. If a row stays **Waiting for confirmation**, bKash has not answered yet; reload the page and look again.
 
 ### See unmatched receipts <a href="#task-unmatched" id="task-unmatched"></a>
@@ -142,6 +144,8 @@ Sometimes the bill is paid another way while the guardian is paying with bKash. 
 1. Press the **Unmatched receipts** tab.
 
    → Each row shows **Students**, **Paid**, **Put on bills**, **Put in wallet** and **Status**. If there are none, it says **No unmatched receipts**.
+
+The list shows 100 at a time. Use **Next page** and **First page** the same way as on the **Online** tab.
 
 2. To see the money, press **Open payment**. To see the student's wallet, press **Open wallet**; with more than one student, **Open wallet of …** with the name.
 
@@ -157,18 +161,18 @@ If you confirmed by mistake, open the proof (it is now **Confirmed**) and press 
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                               | What to do                                                                                                                                                                                                | Who can help |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Nothing is waiting for confirmation**                                    | No guardian has sent a proof yet. When one does, it shows here.                                                                                                                                           | —            |
-| **Could not load the payment proofs. Try again.**                          | Check your connection and reload the page.                                                                                                                                                                | Admin        |
-| **Could not load this payment proof.**                                     | Press **Try again**.                                                                                                                                                                                      | Admin        |
-| **Could not load the proof files.**                                        | Reload the page. Do not confirm without the photo; call the guardian and check the transaction ID.                                                                                                        | Admin        |
-| **This proof is not waiting any more. Reload to see where it stands.**     | Someone else confirmed or rejected it first, or the guardian pressed **Withdraw**. Reload the page.                                                                                                       | —            |
-| **Could not confirm. Reload to check the proof status before you try again.**                     | Reload the page and check the proof status. If it is still waiting, press **Confirm** again; the money is never counted twice.                                                                                                                         | Admin        |
-| **Could not reject. Reload to check the proof status before you try again.**                      | Reload the page and check the proof status. If it is still waiting, press **Reject** again.                                                                                                                                                                                   | Admin        |
-| **This bill was paid already. The proof is discarded and no money moved.** | The bill was already paid, so nothing was added. Tell the guardian.                                                                                                                                       | Accountant   |
-| A guardian says bKash took the money but the bill is still due             | On the **Online** tab, see whether that payment is **Waiting for confirmation**. The bill is paid as soon as bKash answers. If it takes long, check whether the money reached the school's bKash account. | Accountant   |
-| No **Call** button                                                         | The guardian has no phone number on file. Fix the guardian's details on the student's page.                                                                                                               | Admin        |
+| What you see                                                                  | What to do                                                                                                                                                                                                | Who can help |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Nothing is waiting for confirmation**                                       | No guardian has sent a proof yet. When one does, it shows here.                                                                                                                                           | —            |
+| **Could not load the payment proofs. Try again.**                             | Check your connection and reload the page.                                                                                                                                                                | Admin        |
+| **Could not load this payment proof.**                                        | Press **Try again**.                                                                                                                                                                                      | Admin        |
+| **Could not load the proof files.**                                           | Reload the page. Do not confirm without the photo; call the guardian and check the transaction ID.                                                                                                        | Admin        |
+| **This proof is not waiting any more. Reload to see where it stands.**        | Someone else confirmed or rejected it first, or the guardian pressed **Withdraw**. Reload the page.                                                                                                       | —            |
+| **Could not confirm. Reload to check the proof status before you try again.** | Reload the page and check the proof status. If it is still waiting, press **Confirm** again; the money is never counted twice.                                                                            | Admin        |
+| **Could not reject. Reload to check the proof status before you try again.**  | Reload the page and check the proof status. If it is still waiting, press **Reject** again.                                                                                                               | Admin        |
+| **This bill was paid already. The proof is discarded and no money moved.**    | The bill was already paid, so nothing was added. Tell the guardian.                                                                                                                                       | Accountant   |
+| A guardian says bKash took the money but the bill is still due                | On the **Online** tab, see whether that payment is **Waiting for confirmation**. The bill is paid as soon as bKash answers. If it takes long, check whether the money reached the school's bKash account. | Accountant   |
+| No **Call** button                                                            | The guardian has no phone number on file. Fix the guardian's details on the student's page.                                                                                                               | Admin        |
 
 ---
 

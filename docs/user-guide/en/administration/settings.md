@@ -315,24 +315,26 @@ This is the second part of the **Finance** category: **Online payments**. "Let g
 
 **Payment proofs**
 
-| Field | What it does |
-| ----- | ------------ |
-| **Allow payment proofs** | When on, a guardian who has already paid can send a payment proof, and the accountant confirms it. "Guardians pay by hand, then send the transaction number and a photo. You confirm it." |
-| **Proof methods and instructions** | Tick the ways a guardian can pay: **bKash**, **Nagad**, **Rocket** or **Bank transfer**. Cash, cheque and card are not listed, because there is no transaction number to prove. |
-| **What to tell the guardian** | Appears under a ticked method. Write how to pay, for example your bKash number. At most 500 characters; the counter shows how many are used. The guardian sees this text on the **Pay fees** page as **School instructions: …**. |
-| **How guardians see it** | A preview of the method and your text, so you can check it before you save. |
+| Field                              | What it does                                                                                                                                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Allow payment proofs**           | When on, a guardian who has already paid can send a payment proof, and the accountant confirms it. "Guardians pay by hand, then send the transaction number and a photo. You confirm it."                                        |
+| **Proof methods and instructions** | Tick the ways a guardian can pay: **bKash**, **Nagad**, **Rocket** or **Bank transfer**. Cash, cheque and card are not listed, because there is no transaction number to prove.                                                  |
+| **What to tell the guardian**      | Appears under a ticked method. Write how to pay, for example your bKash number. At most 500 characters; the counter shows how many are used. The guardian sees this text on the **Pay fees** page as **School instructions: …**. |
+| **How guardians see it**           | A preview of the method and your text, so you can check it before you save.                                                                                                                                                      |
 
 **bKash connection** — "Your school's own bKash merchant account details."
 
-| Field | What to enter |
-| ----- | ------------- |
-| **Mode** | **Practice (no real money)** while you set up. Switch to **Live** when your bKash merchant account is ready. Changing it needs a new test. |
+| Field                                                   | What to enter                                                                                                                                                                                                         |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mode**                                                | **Practice (no real money)** while you set up. Switch to **Live** when your bKash merchant account is ready. Changing it needs a new test.                                                                            |
 | **Username**, **Password**, **App key**, **App secret** | In the bKash merchant panel, open the API details and copy the four values. After you save, they are never shown again; each shows only **Added — ends …**. Use **Change** to replace one or **Remove** to delete it. |
 
 1. Fill in the four details and press **Save**.
 2. Press **Test connection**. It stays off while there are changes you have not saved: "Save the new details first, then test them."
 
    → **Last passing test: …** with the time. If it fails: **Couldn't connect — check the details and try again.** If a detail is missing: **Add all four details and save them first.**
+
+   A test only counts for the details that were saved when it started. If someone saves different details while it runs, you see **Couldn't connect** style failure and must test again.
 
 3. Turn on **Pay with bKash online**. It stays off, and says "Test the connection first. It must pass before you can turn this on.", until a test has passed.
 4. Press **Save**.
