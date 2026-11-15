@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsUUID,
@@ -85,9 +86,18 @@ export class CutoffCommitDto extends CutoffPreviewDto {
   remove?: string[];
 }
 
+/** [71.4.00a] Who is on a cut-off side: enough to draw the row without a second fetch. */
+export class CutoffRowDto {
+  @ApiProperty({ format: 'uuid' }) applicant_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ type: String, nullable: true }) roll: string | null;
+}
+
 export class CutoffPreviewResponseDto {
   @ApiProperty({ type: [String] }) passing: string[];
   @ApiProperty({ type: [String] }) failing: string[];
+  @ApiProperty({ type: [CutoffRowDto] }) passing_rows: CutoffRowDto[];
+  @ApiProperty({ type: [CutoffRowDto] }) failing_rows: CutoffRowDto[];
   @ApiProperty() passing_count: number;
   @ApiProperty() failing_count: number;
   @ApiProperty({ type: Number, nullable: true, description: 'Lowest passing score.' })
@@ -99,4 +109,42 @@ export class CutoffPreviewResponseDto {
 export class CutoffCommitResponseDto {
   @ApiProperty() passed: number;
   @ApiProperty() failed: number;
+  @ApiProperty({ type: [CutoffRowDto] }) passing_rows: CutoffRowDto[];
+  @ApiProperty({ type: [CutoffRowDto] }) failing_rows: CutoffRowDto[];
+  @ApiProperty({ type: String, format: 'date-time' }) cutoff_committed_at: string;
+}
+
+/** [71.4.00a] `GET /admission/stages/:id/results`. */
+export class ListStageResultsDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 50;
+}
+
+export class StageResultListRowDto {
+  @ApiProperty({ format: 'uuid' }) applicant_id: string;
+  @ApiProperty({ type: String, nullable: true }) roll: string | null;
+  @ApiProperty() name: string;
+  @ApiProperty() attended: boolean;
+  @ApiProperty({ type: Number, nullable: true }) score: number | null;
+  @ApiProperty({ type: Boolean, nullable: true }) passed: boolean | null;
+}
+
+export class StageResultListResponseDto {
+  @ApiProperty({ type: [StageResultListRowDto] }) data: StageResultListRowDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() totalPages: number;
 }

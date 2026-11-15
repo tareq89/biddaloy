@@ -159,8 +159,22 @@ describe('Admission stage results (e2e)', () => {
     expect(preview.body.failing.sort()).toEqual([b, c].sort());
     const first = await admin(http().post(url(stage, 'cutoff/commit')).send(cut)).expect(200);
     const second = await admin(http().post(url(stage, 'cutoff/commit')).send(cut)).expect(200);
-    expect(first.body).toEqual({ passed: 1, failed: 2 });
-    expect(second.body).toEqual(first.body);
+    expect(first.body).toMatchObject({ passed: 1, failed: 2 });
+    expect(first.body.passing_rows.map((r: { applicant_id: string }) => r.applicant_id)).toEqual([
+      a,
+    ]);
+    expect(first.body.passing_rows[0]).toMatchObject({ name: expect.any(String), roll: null });
+    expect(first.body.failing_rows).toHaveLength(2);
+    expect(preview.body.passing_rows).toHaveLength(1);
+    expect(second.body).toMatchObject({ passed: 1, failed: 2 });
+    const stages = await admin(http().get(`/api/v1/admission-intakes/${intake}/stages`)).expect(
+      200,
+    );
+    expect(stages.body[0]).toMatchObject({
+      max_score: 100,
+      mode: 'SCORE',
+      cutoff_committed_at: second.body.cutoff_committed_at,
+    });
     await admin(
       http()
         .post(url(stage, 'cutoff/commit'))
@@ -178,6 +192,39 @@ describe('Admission stage results (e2e)', () => {
     await admin(
       http().post(url(stage, 'cutoff/preview')).send({ mode: 'RANDOM', value: 1 }),
     ).expect(400);
+  });
+
+  it('GET results lists saved rows by roll, caps limit at 100, flags absent', async () => {
+    const [a, b, c] = people;
+    await ds.query(`UPDATE admission_applicants SET roll_number = 'E-0002' WHERE id = $1`, [a]);
+    await ds.query(`UPDATE admission_applicants SET roll_number = 'E-0001' WHERE id = $1`, [b]);
+    await admin(
+      http()
+        .put(url(stage, 'results'))
+        .send({ results: [score(a, 90), score(b, 70), { applicant_id: c, attended: false }] }),
+    ).expect(200);
+    const res = await admin(http().get(url(stage, 'results'))).expect(200);
+    expect(res.body).toMatchObject({ total: 3, page: 1, limit: 50, totalPages: 1 });
+    expect(res.body.data.map((r: { applicant_id: string }) => r.applicant_id)).toEqual([b, a, c]);
+    expect(res.body.data[0]).toEqual({
+      applicant_id: b,
+      roll: 'E-0001',
+      name: expect.any(String),
+      attended: true,
+      score: 70,
+      passed: null,
+    });
+    expect(res.body.data[2]).toMatchObject({ attended: false, score: null, roll: null });
+    const paged = await admin(http().get(`${url(stage, 'results')}?limit=1&page=2`)).expect(200);
+    expect(paged.body.data).toHaveLength(1);
+    expect(paged.body.total).toBe(3);
+    await admin(http().get(`${url(stage, 'results')}?limit=101`)).expect(400);
+    await as(http().get(url(stage, 'results')), UserRole.TEACHER).expect(403);
+    await admin(http().get(url('nope', 'results'))).expect(400);
+    await admin(http().get(url(NO_SUCH, 'results'))).expect(404);
+    await admin(http().get(url(stage, 'results')), OTHER_TENANT_ID).expect(404);
+    for (const t of [null, 'not-a-uuid'])
+      expect([400, 401, 403]).toContain((await admin(http().get(url(stage, 'results')), t)).status);
   });
 
   it('a missing or invalid X-Tenant-ID is refused', async () => {

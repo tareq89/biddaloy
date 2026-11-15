@@ -23,7 +23,14 @@ import type {
   CutoffPreviewResponseDto,
   PutStageResultsDto,
   PutStageResultsResponseDto,
+  StageResultListResponseDto,
+  StageResultListRowDto,
 } from './dto/stage-result.dto';
+
+const rowOf = (candidates: Candidate[], id: string) => {
+  const c = candidates.find((x) => x.applicant_id === id)!;
+  return { applicant_id: c.applicant_id, name: c.name, roll: c.roll };
+};
 
 /** No `attended` column exists (no migration in #4180): an absent applicant is a row with this remark. */
 export const ABSENT_REMARK = 'ABSENT';
@@ -36,6 +43,8 @@ export interface ResultActor {
 }
 
 export interface Candidate extends MeritRow {
+  name: string;
+  roll: string | null;
   /** A row exists for this applicant in this stage. */
   recorded: boolean;
 }
@@ -97,6 +106,7 @@ export class AdmissionStageResultService {
     const rows = (await manager.query(
       `SELECT a.id AS applicant_id, a.date_of_birth::text AS date_of_birth,
               to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at,
+              a.applicant_name AS name, a.roll_number AS roll,
               r.id IS NOT NULL AS recorded, r.score::text AS score
          FROM admission_applicants a
          LEFT JOIN admission_stage_results r
@@ -112,6 +122,8 @@ export class AdmissionStageResultService {
       applicant_id: string;
       date_of_birth: string;
       created_at: string;
+      name: string;
+      roll: string | null;
       recorded: boolean;
       score: string | null;
     }[];
@@ -119,6 +131,8 @@ export class AdmissionStageResultService {
       applicant_id: r.applicant_id,
       date_of_birth: r.date_of_birth,
       created_at: r.created_at,
+      name: r.name,
+      roll: r.roll,
       recorded: r.recorded,
       score_hundredths: toHundredths(r.score) ?? -1,
     }));
@@ -208,6 +222,49 @@ export class AdmissionStageResultService {
     });
   }
 
+  /** [71.4.00a] Saved rows of a stage, by roll then name. Tenant filters on both tables; paged in SQL. */
+  async list(
+    stageId: string,
+    page: number,
+    limit: number,
+    tenantId: string,
+  ): Promise<StageResultListResponseDto> {
+    const stage = await this.dataSource
+      .getRepository(AdmissionStage)
+      .findOne({ where: { id: stageId, tenant_id: tenantId, deleted_at: IsNull() } });
+    if (!stage) throw new NotFoundException('Admission stage not found');
+    const rows = (await this.dataSource.query(
+      `SELECT a.id AS applicant_id, a.roll_number AS roll, a.applicant_name AS name,
+              r.remarks IS DISTINCT FROM $5 AS attended, r.score::float8 AS score, r.passed,
+              count(*) OVER ()::int AS total
+         FROM admission_stage_results r
+         JOIN admission_applicants a
+           ON a.id = r.applicant_id AND a.tenant_id = r.tenant_id AND a.deleted_at IS NULL
+        WHERE r.tenant_id = $1 AND r.stage_id = $2 AND r.deleted_at IS NULL
+        ORDER BY a.roll_number ASC NULLS LAST, a.applicant_name ASC, a.id ASC
+        LIMIT $3 OFFSET $4`,
+      [tenantId, stage.id, limit, (page - 1) * limit, ABSENT_REMARK],
+    )) as (StageResultListRowDto & { total: number })[];
+    let total = rows[0]?.total ?? 0;
+    if (rows.length === 0 && page > 1) {
+      const [c] = (await this.dataSource.query(
+        `SELECT count(*)::int AS n FROM admission_stage_results r
+           JOIN admission_applicants a
+             ON a.id = r.applicant_id AND a.tenant_id = r.tenant_id AND a.deleted_at IS NULL
+          WHERE r.tenant_id = $1 AND r.stage_id = $2 AND r.deleted_at IS NULL`,
+        [tenantId, stage.id],
+      )) as { n: number }[];
+      total = c.n;
+    }
+    return {
+      data: rows.map(({ total: _t, ...row }) => row),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   private rank(stage: AdmissionStage, candidates: Candidate[]) {
     return meritOrder(
       candidates.filter((c) => c.recorded && c.score_hundredths >= 0),
@@ -236,9 +293,15 @@ export class AdmissionStageResultService {
     const boundary = passing.length ? passing[passing.length - 1].score_hundredths : null;
     const onBoundary =
       boundary === null ? [] : ranked.filter((r) => r.score_hundredths === boundary);
+    const passingRows = passing.map((r) => rowOf(candidates, r.applicant_id));
+    const failingRows = candidates
+      .filter((c) => !passIds.has(c.applicant_id))
+      .map((c) => ({ applicant_id: c.applicant_id, name: c.name, roll: c.roll }));
     return {
       passing: passing.map((r) => r.applicant_id),
-      failing: candidates.map((c) => c.applicant_id).filter((id) => !passIds.has(id)),
+      failing: failingRows.map((r) => r.applicant_id),
+      passing_rows: passingRows,
+      failing_rows: failingRows,
       passing_count: passing.length,
       failing_count: candidates.length - passing.length,
       boundary_score: boundary === null ? null : boundary / 100,
@@ -297,6 +360,9 @@ export class AdmissionStageResultService {
             AND applicant_id = ANY($4::uuid[])`,
         [tenantId, stage.id, [...passed], [...inStage]],
       );
+      const committedAt = new Date().toISOString();
+      stage.config = { ...stage.config, cutoff_committed_at: committedAt };
+      await manager.getRepository(AdmissionStage).save(stage);
       await this.audit(manager, tenantId, actor, {
         op: 'STAGE_CUTOFF_COMMIT',
         stage_id: stage.id,
@@ -306,7 +372,18 @@ export class AdmissionStageResultService {
         added: add.length,
         removed: remove.length,
       });
-      return { passed: passed.size, failed: inStage.size - passed.size };
+      const rows = candidates.map((c) => ({
+        applicant_id: c.applicant_id,
+        name: c.name,
+        roll: c.roll,
+      }));
+      return {
+        passed: passed.size,
+        failed: inStage.size - passed.size,
+        passing_rows: rows.filter((r) => passed.has(r.applicant_id)),
+        failing_rows: rows.filter((r) => !passed.has(r.applicant_id)),
+        cutoff_committed_at: committedAt,
+      };
     });
   }
 }
