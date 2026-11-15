@@ -19,6 +19,7 @@ describe('runtimeConfig', () => {
       envBadge: '',
       envBadgeDate: '',
       siteEnvTag: '',
+      demoMode: false,
     });
   });
 

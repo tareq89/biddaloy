@@ -52,7 +52,20 @@ describe('SmsSourceCard', () => {
   });
 });
 
+const ownSaved = (saved: boolean) =>
+  http.get('/api/v1/communications/sms-source', () =>
+    HttpResponse.json({ source: 'SCHOOLMANAGERP', ownProviderSaved: saved }),
+  );
+
 describe('SmsSwitchBackCard [4145]', () => {
+  it('disables the switch until the own company details are saved', async () => {
+    server.use(ownSaved(false));
+    render(<SmsSwitchBackCard />);
+    expect(await screen.findByText(/Save your own SMS company details first/)).toBeTruthy();
+    const button = screen.getByRole('button', { name: 'Switch to our own SMS company' });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('asks first, then switches back to the own SMS company only', async () => {
     let body: unknown;
     server.use(
@@ -61,6 +74,7 @@ describe('SmsSwitchBackCard [4145]', () => {
         return HttpResponse.json({ source: 'OWN', ownProviderSaved: true });
       }),
     );
+    server.use(ownSaved(true));
     render(<SmsSwitchBackCard />);
     await userEvent.click(
       await screen.findByRole('button', { name: 'Switch to our own SMS company' }),
@@ -76,6 +90,7 @@ describe('SmsSwitchBackCard [4145]', () => {
         HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 }),
       ),
     );
+    server.use(ownSaved(true));
     render(<SmsSwitchBackCard />);
     await userEvent.click(
       await screen.findByRole('button', { name: 'Switch to our own SMS company' }),

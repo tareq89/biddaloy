@@ -91,10 +91,10 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
 
   const send = useSendManualAlert();
   const preview = useManualAlertPreview(useDebouncedValue(audience, 400));
-  const kind = audienceKind(audience);
   // Named people are judged by their own roles, not the sender's (#2192). A person whose role is
   // unknown here adds nothing; with no known roles at all the sender's own permissions apply.
   const [personRoles, setPersonRoles] = React.useState<Record<string, string>>({});
+  const kind = audienceKind(audience, personRoles);
   const viewerRoles = [
     ...(audience.roles ?? []),
     ...(audience.userIds ?? []).flatMap((id) => (personRoles[id] ? [personRoles[id]] : [])),
