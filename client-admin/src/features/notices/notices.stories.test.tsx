@@ -30,8 +30,12 @@ describe('notice stories', () => {
     expect(Object.keys(modules).length).toBeGreaterThanOrEqual(7);
   });
 
-  it.each(stories)('%s renders with no missing i18n key', async (_name, Story) => {
-    server.use(...(Story.parameters?.msw?.handlers ?? []));
-    expect(await missingKeysOf(<Story />)).toEqual([]);
-  });
+  // ExamPickerLoading's fetch never settles by design, so isFetching never reaches 0.
+  it.each(stories.filter(([n]) => !n.endsWith('› ExamPickerLoading')))(
+    '%s renders with no missing i18n key',
+    async (_name, Story) => {
+      server.use(...(Story.parameters?.msw?.handlers ?? []));
+      expect(await missingKeysOf(<Story />)).toEqual([]);
+    },
+  );
 });

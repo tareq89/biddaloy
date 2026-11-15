@@ -239,8 +239,9 @@ describe('/exams', () => {
     await screen.findByRole('heading', { name: 'Exams' });
     await act(() => router.navigate({ to: '/exams', search: { create: '1' } }));
     await screen.findByRole('dialog');
-    await act(async () => {
+    await act(() => {
       router.history.back();
+      return Promise.resolve();
     });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });

@@ -166,11 +166,10 @@ export function PrintPanel({ summary }: PrintPanelProps) {
   const cardsReady = job === 'cards' && printed !== null;
   const tabReady = job === 'tabulation' && tab.isSuccess;
   const tabFailed = job === 'tabulation' && tab.isError;
-  // Bumped on cleanup: a continuation that outlives the panel must not call window.print().
-  const printRun = React.useRef(0);
   React.useEffect(() => {
     if (!cardsReady && !tabReady) return;
-    const run = ++printRun.current;
+    // Set on cleanup: a continuation that outlives the panel must not call window.print().
+    let cancelled = false;
     // One frame so the print area is in the DOM before the browser snapshots it.
     const id = requestAnimationFrame(() => {
       void (async () => {
@@ -186,7 +185,7 @@ export function PrintPanel({ summary }: PrintPanelProps) {
                 academic_year_id: summary.academic_year.id,
               }),
           );
-          if (printRun.current !== run) return;
+          if (cancelled) return;
           if (logged.some((r) => !('value' in r))) {
             toast.error(t('reportCard.logError'));
             setJob(null);
@@ -200,7 +199,7 @@ export function PrintPanel({ summary }: PrintPanelProps) {
       })();
     });
     return () => {
-      printRun.current++;
+      cancelled = true;
       cancelAnimationFrame(id);
     };
   }, [cardsReady, tabReady]); // eslint-disable-line react-hooks/exhaustive-deps -- printed/summary only matter when a job becomes ready
