@@ -74,7 +74,10 @@ function PortalCalendarView({
   );
   return (
     <PageContainer>
-      <PageHeader title={t('calendar.title')} subtitle={`Fatima Rahman · ${formatMonth('2026-09', config)}`} />
+      <PageHeader
+        title={t('calendar.title')}
+        subtitle={`Fatima Rahman · ${formatMonth('2026-09', config)}`}
+      />
       {showPicker && (
         <StudentPicker
           label={t('calendar.pickerLabel')}

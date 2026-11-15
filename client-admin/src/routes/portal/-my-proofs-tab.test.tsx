@@ -129,6 +129,28 @@ describe('MyProofsTab', () => {
     expect([...revoked].sort()).toEqual([...created].sort());
   });
 
+  it('shows an alert and a Retry when an attachment cannot load, then the file', async () => {
+    URL.createObjectURL = () => 'blob:test/1';
+    URL.revokeObjectURL = () => undefined;
+    mock([proof({ files: [{ id: 'f1', contentType: 'image/png', sizeBytes: 3 }] })]);
+    let healthy = false;
+    server.use(
+      http.get('/api/v1/portal/payment-proofs/:id/files/:fileId', () => {
+        if (!healthy) return HttpResponse.json({ message: 'boom' }, { status: 500 });
+        return HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+          headers: { 'Content-Type': 'image/png' },
+        });
+      }),
+    );
+    renderPortalCard(<MyProofsTab />);
+    const user = userEvent.setup();
+    const alert = await screen.findByRole('alert', {}, { timeout: 15000 });
+    expect(alert.textContent).toContain('Could not load the attachments.');
+    healthy = true;
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull(), { timeout: 15000 });
+  }, 30000);
+
   it('withdraw asks first, then posts once', async () => {
     const withdrawn = mock([proof({ id: 'mine-pending' })]);
     renderPortalCard(<MyProofsTab />);

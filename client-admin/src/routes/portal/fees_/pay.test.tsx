@@ -171,6 +171,53 @@ describe('/portal/fees/pay', () => {
     ).toBeTruthy();
   });
 
+  it('refetches the cart after a bill-busy 409 and keeps what was typed', async () => {
+    render();
+    let posts = 0;
+    server.use(
+      http.post('/api/v1/portal/payment-proofs', () => {
+        posts += 1;
+        return HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'busy',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            path: '/api/v1/portal/payment-proofs',
+            requestId: 'req-2',
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Transaction ID (TrxID)'), '8N7A6D5EFG');
+    await user.type(screen.getByLabelText('When did you pay'), '2026-03-01');
+    let cartReads = 0;
+    server.use(
+      http.get('/api/v1/portal/payment-cart', () => {
+        cartReads += 1;
+        return HttpResponse.json({
+          students: [
+            {
+              ...CART.students[0]!,
+              bills: [bill('b1', 'April fee', '1200.00', true), CART.students[0]!.bills[1]],
+            },
+            CART.students[1],
+          ],
+        });
+      }),
+    );
+    await user.click(await submitButton());
+    await waitFor(() => expect(cartReads).toBeGreaterThan(0));
+    expect(posts).toBe(1);
+    expect(screen.getByLabelText<HTMLInputElement>('Transaction ID (TrxID)').value).toBe(
+      '8N7A6D5EFG',
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>('Amount').value).toBe('৳300.00'),
+    );
+  });
+
   it('points to the school office when proof is off', async () => {
     render({ onlineEnabled: false, proofEnabled: false, proofMethods: [] });
     expect(await screen.findByText(/Pay at the school office/)).toBeTruthy();

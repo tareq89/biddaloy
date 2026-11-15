@@ -599,4 +599,34 @@ describe('/communications/send', () => {
     ).toBe('false');
     expect(posted).toBe(false);
   });
+
+  it('a slow prefill does not overwrite the guardian picked by hand', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      studentSearchHandler(),
+      http.get('/api/v1/guardians/guardian-1', async () => {
+        await gate;
+        return HttpResponse.json({ ...GUARDIAN, students: [{ id: 'student-1' }] });
+      }),
+      http.get('/api/v1/students/student-1', () => HttpResponse.json(STUDENT)),
+    );
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/communications/send?to=guardian:guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await pickGuardian(user, 'Karim Uddin (Father)');
+    release();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(
+      screen.getByRole('radio', { name: 'Karim Uddin (Father)' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(
+      screen.getByRole('radio', { name: 'Rahima Begum (Mother)' }).getAttribute('aria-checked'),
+    ).toBe('false');
+  });
 });
