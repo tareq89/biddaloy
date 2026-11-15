@@ -122,6 +122,8 @@ import {
     AdmissionPublicationService,
   ],
   exports: [
+    AdmissionApplicantService,
+    AdmissionFormSchemaService,
     AdmissionFeeService,
     AdmissionRollService,
     AdmissionStageResultService,

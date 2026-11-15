@@ -52,6 +52,11 @@ import { CUSTOM_DOMAIN_QUEUE, CustomDomainProcessor } from './custom-domain.proc
 import { CloudflareSaasClient } from './cloudflare-saas.client';
 import { UmamiClient } from './umami.client';
 import { UmamiService } from './umami.service';
+import { AdmissionModule } from '../admission/admission.module';
+import { PublicAdmissionSiteController } from './public/public-admission-site.controller';
+import { PublicAdmissionSiteService } from './public/public-admission-site.service';
+import { AdmissionIntake } from '../admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from '../admission/entities/admission-applicant.entity';
 
 /**
  * [40.1.04] The school website: ADMIN editing (`/website`) and the anonymous by-host reads the
@@ -70,12 +75,15 @@ import { UmamiService } from './umami.service';
       SiteEnquiry,
       StaffWebProfile,
       UserTenant,
+      AdmissionIntake,
+      AdmissionApplicant,
     ]),
     BullModule.registerQueue({ name: CUSTOM_DOMAIN_QUEUE }),
     StorageModule,
     SchoolsModule,
     ExamsModule,
     CommunicationsModule,
+    AdmissionModule,
   ],
   controllers: [
     SiteConfigController,
@@ -86,6 +94,7 @@ import { UmamiService } from './umami.service';
     SitePostsController,
     SiteEnquiriesController,
     PublicEnquiryController,
+    PublicAdmissionSiteController,
     StaffWebProfilesController,
     GalleryController,
   ],
@@ -100,6 +109,7 @@ import { UmamiService } from './umami.service';
     PreviewTokenService,
     SiteMediaService,
     PublicSiteService,
+    PublicAdmissionSiteService,
     SiteHostService,
     SiteCacheService,
     NoticesFeed,
