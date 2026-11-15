@@ -1,0 +1,53 @@
+---
+import Skeleton from '../../components/Skeleton.astro';
+import bn from '../../i18n/bn.json';
+import en from '../../i18n/en.json';
+import { t } from '../../i18n/t';
+import type { Lang } from '../../lib/types';
+import { themes } from '../../themes';
+
+const { site } = Astro.locals;
+const lang = Astro.params.lang as Lang;
+if (!site || Astro.locals.preview) return new Response(null, { status: 404 });
+const { Layout } = themes[site.theme] ?? themes.basic;
+const m = (k: string) => t(lang, `admission.lookup.${k}`);
+const flat = (o: Record<string, unknown>, p = ''): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(o).flatMap(([k, v]) =>
+      typeof v === 'string' ? [[p + k, v]] : Object.entries(flat(v as Record<string, unknown>, `${p}${k}.`)),
+    ),
+  );
+const dict = flat({ ...bn.admission.lookup, ...(lang === 'en' ? en.admission.lookup : {}) });
+---
+<Layout manifest={{ ...site, noindex: true }} lang={lang} rest="admission-status/" title={m('statusTitle')}>
+  <section class="sec" id="admission-status"><div class="wrap">
+    <div class="sec-head"><h1>{m('statusTitle')}</h1></div>
+    <div class="island" data-adm-lookup data-mode="status" data-t={JSON.stringify(dict)}>
+      <form class="adm-lookup" novalidate>
+        <label class="field"><span>{m('reference')}</span><input name="reference" type="text" required autocomplete="off" /></label>
+        <label class="field"><span>{m('phone')}</span><input name="phone" type="tel" inputmode="tel" required autocomplete="tel" /></label>
+        <button class="btn" type="submit">{m('showStatus')}</button>
+      </form>
+      <p data-status role="status" aria-live="polite"></p>
+      <Skeleton label={m('showing')} />
+      <div class="ready" data-out></div>
+
+    </div>
+  </div></section>
+</Layout>
+<script>
+  import '../../islands/admission-result';
+</script>
+<style is:global>
+  .adm-lookup{display:grid;gap:14px;max-width:480px}
+  .adm-lookup .field{display:grid;gap:6px}
+  .adm-lookup input{min-height:44px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s);width:100%;background:var(--surface);color:var(--ink)}
+  .adm-lookup .btn{width:100%}
+  .adm-out{display:grid;gap:10px;margin-top:16px}
+  .adm-roll{columns:3 100px;padding-left:20px}
+  .adm-card{border:2px solid var(--ink);padding:16px;max-width:560px}
+  .adm-photo{float:right;width:96px;height:120px;border:1px dashed var(--ink-3);display:grid;place-items:center;color:var(--ink-3)}
+  @media print{
+    .adm-lookup,[data-status],.adm-more,.top,.foot,.sk,nav,.announce,.adm-out>:not(.adm-card),.sec-head,.adm-out>button{display:none!important}
+  }
+</style>
