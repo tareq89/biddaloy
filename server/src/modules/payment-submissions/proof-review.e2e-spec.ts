@@ -115,11 +115,25 @@ describe('Proof review (E2E)', () => {
     }
   });
 
-  it('PARENT and TEACHER are 403 on list and confirm', async () => {
+  it('PARENT and TEACHER are 403 on every review route, even for a real proof', async () => {
+    const proof = await newProof(); // real id and file: only the permission check can say 403
+    const fileUrl = `${URL}/${proof.id}/files/${proof.files[0].id}`;
     for (const token of [fix.parent.token, teacher]) {
       await call('get', URL, token).expect(403);
-      await call('post', `${URL}/${UUID}/confirm`, token).expect(403);
+      await call('get', `${URL}/${proof.id}`, token).expect(403);
+      await call('get', fileUrl, token).expect(403);
+      await call('post', `${URL}/${proof.id}/confirm`, token).expect(403);
+      await call('post', `${URL}/${proof.id}/reject`, token)
+        .send({ reason: 'IMAGE_UNCLEAR' })
+        .expect(403);
+      await call('post', `${URL}/${proof.id}/reopen`, token)
+        .send({ note: 'guardian called' })
+        .expect(403);
     }
+    const [{ status }] = await ds.query(`SELECT status FROM payment_submissions WHERE id = $1`, [
+      proof.id,
+    ]);
+    expect(status).toBe('PENDING'); // nothing was decided
   });
 
   it("another tenant's or unknown id is 404 with a fixed sentence", async () => {

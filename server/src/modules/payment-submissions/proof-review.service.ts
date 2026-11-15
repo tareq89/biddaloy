@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { isUUID } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { AuditAction, PaymentSubmissionStatus } from '@biddaloy/shared';
 import { toPaisa } from '../../common/constants/money';
@@ -55,7 +56,7 @@ export class ProofReviewService {
     let after: { at: string; id: string } | null = null;
     if (q.cursor) {
       const [at, id] = Buffer.from(q.cursor, 'base64url').toString().split('|');
-      if (!at || !id || !/^[0-9 :.+-]{10,40}$/.test(at) || !/^[0-9a-f-]{36}$/i.test(id)) {
+      if (!at || !id || !/^[0-9 :.+-]{10,40}$/.test(at) || !isUUID(id)) {
         throw new BadRequestException(MSG.badCursor);
       }
       after = { at, id };
@@ -301,6 +302,14 @@ export class ProofReviewService {
       const row = await this.lock(m, id, ctx);
       if (row.status !== PaymentSubmissionStatus.REJECTED)
         throw new ConflictException(MSG.notRejected);
+      // Lock the bills (sf.id order, like checkout) so two reopens of proofs on one bill
+      // serialise: the second then sees the first as PENDING in the busy check.
+      await m.query(
+        `SELECT sf.id FROM student_fees sf
+           JOIN payment_submission_bills b ON b.student_fee_id = sf.id
+          WHERE b.submission_id = $1 AND b.tenant_id = $2 ORDER BY sf.id FOR UPDATE OF sf`,
+        [id, ctx.tenantId],
+      );
       // The bills were free while rejected: another proof may be waiting on them now.
       const [busy] = await m.query(
         `SELECT 1 FROM payment_submission_bills mine

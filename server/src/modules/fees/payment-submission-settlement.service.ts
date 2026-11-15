@@ -139,7 +139,7 @@ export class PaymentSubmissionSettlement {
         };
       }
       if (sub.status === PaymentSubmissionStatus.DISCARDED) {
-        return { outcome: 'DISCARDED', paymentIds: [], unmatched: false, alreadySettled: false };
+        return { outcome: 'DISCARDED', paymentIds: [], unmatched: false, alreadySettled: true };
       }
       if (!SETTLEABLE[sub.source].includes(sub.status)) {
         throw new ConflictException('This payment cannot be settled in its current state');

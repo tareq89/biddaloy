@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -7,7 +7,10 @@ import { SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { createProofFixture, JPEG } from '@test/helpers/proof-submissions.fixture';
 import { AppModule } from '../../app.module';
+import { AuditService } from '../audit/audit.service';
+import { CheckoutService } from '../fees/checkout.service';
 import { PaymentReversalService } from '../fees/payment-reversal.service';
+import { PaymentSubmissionSettlement } from '../fees/payment-submission-settlement.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateProofSubmissionDto } from './dto/proof-submission.dto';
 import { PAYMENT_SUBMISSION_EVENTS, paymentSubmissionEvents } from './payment-submission.events';
@@ -29,6 +32,9 @@ describe('ProofReviewService (integration)', () => {
   let submit: ProofSubmissionsService;
   let review: ProofReviewService;
   let reversal: PaymentReversalService;
+  let checkout: CheckoutService;
+  let settlement: PaymentSubmissionSettlement;
+  let auditSvc: AuditService;
   let fix: Awaited<ReturnType<typeof createProofFixture>>;
   let guardian: ProofCaller;
   const staff: ReviewCaller = { tenantId: SEED_TENANT_ID, userId: SEED_ADMIN_USER_ID };
@@ -82,6 +88,38 @@ describe('ProofReviewService (integration)', () => {
       paymentSubmissionEvents.once(PAYMENT_SUBMISSION_EVENTS.REVERSED, () => resolve()),
     );
 
+  /** Holds the first call of `obj[method]` until `release()`: that caller keeps its row locks. */
+  function holdFirstCall<T extends object>(obj: T, method: keyof T & string) {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let markEntered!: () => void;
+    const entered = new Promise<void>((r) => (markEntered = r));
+    const real = (obj[method] as (...a: unknown[]) => Promise<unknown>).bind(obj);
+    let held = false;
+    const spy = vi.spyOn(obj as any, method).mockImplementation(async (...args: unknown[]) => {
+      if (!held) {
+        held = true;
+        markEntered();
+        await gate;
+      }
+      return real(...args);
+    });
+    return { spy, entered, release };
+  }
+
+  /** Waits (condition, not duration) until some session of this db is blocked on a row lock. */
+  async function untilLockWaiter() {
+    for (let i = 0; i < 60; i += 1) {
+      const [{ n }] = await ds.query(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+      );
+      if (n > 0) return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error('the second call never waited on a row lock');
+  }
+
   beforeAll(async () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(StorageService)
@@ -94,6 +132,9 @@ describe('ProofReviewService (integration)', () => {
     submit = app.get(ProofSubmissionsService);
     review = app.get(ProofReviewService);
     reversal = app.get(PaymentReversalService);
+    checkout = app.get(CheckoutService);
+    settlement = app.get(PaymentSubmissionSettlement);
+    auditSvc = app.get(AuditService);
     fix = await createProofFixture(app, ds);
     guardian = { tenantId: SEED_TENANT_ID, userId: fix.parent.id, role: UserRole.PARENT };
   }, 120000);
@@ -133,13 +174,88 @@ describe('ProofReviewService (integration)', () => {
 
   it('concurrent confirm makes one payment (D27)', async () => {
     const { id } = await newProof();
-    const [a, b] = await Promise.all([review.confirm(id, staff), review.confirm(id, staff)]);
-    expect(a.paymentIds).toEqual(b.paymentIds);
+    const hold = holdFirstCall(checkout, 'checkout');
+    try {
+      const first = review.confirm(id, staff);
+      await hold.entered; // first confirm is inside checkout, holding the submission row lock
+      const second = review.confirm(id, staff);
+      await untilLockWaiter();
+      hold.release();
+      const [a, b] = await Promise.all([first, second]);
+      expect(a.paymentIds).toEqual(b.paymentIds);
+    } finally {
+      hold.release();
+      hold.spy.mockRestore();
+    }
     const [{ n: payments }] = await ds.query(
       `SELECT COUNT(DISTINCT payment_id)::int n FROM payment_submission_bills WHERE submission_id = $1`,
       [id],
     );
     expect(payments).toBe(1);
+    expect(await ds.query(`SELECT 1 FROM payments WHERE tenant_id = $1`, [SEED_TENANT_ID])).toHaveLength(1);
+    expect(await audits(id)).toBe(2); // submit + one confirm
+  });
+
+  it('concurrent confirm of a proof whose bill was paid writes one DISCARDED event and two audits', async () => {
+    const { id, bill } = await newProof();
+    await ds.query(
+      `UPDATE student_fees SET paid_amount = total_amount, status = 'PAID' WHERE id = $1`,
+      [bill],
+    );
+    const hold = holdFirstCall(settlement as any, 'discard');
+    try {
+      const first = review.confirm(id, staff);
+      await hold.entered; // first confirm decided to discard, still holding the row lock
+      const second = review.confirm(id, staff);
+      await untilLockWaiter();
+      hold.release();
+      const [a, b] = await Promise.all([first, second]);
+      expect([a.outcome, b.outcome]).toEqual(['DISCARDED', 'DISCARDED']);
+    } finally {
+      hold.release();
+      hold.spy.mockRestore();
+    }
+    const discarded = (await events(id)).filter((e: any) => e.to_status === 'DISCARDED');
+    expect(discarded).toHaveLength(1);
+    expect(await audits(id)).toBe(2); // submit + one discard
+  });
+
+  it('a malformed review cursor id is a 400 with the fixed sentence', async () => {
+    const cursor = Buffer.from('2026-01-01 00:00:00+00|' + '-'.repeat(36)).toString('base64url');
+    await expect(review.list(staff, { cursor })).rejects.toMatchObject({
+      status: 400,
+      response: { message: 'The page cursor is not valid' },
+    });
+  });
+
+  it('two reopens of rejected proofs on one bill serialise: one waits, the other is a 409', async () => {
+    const first = await newProof();
+    await review.reject(first.id, { reason: PaymentProofRejectReason.IMAGE_UNCLEAR }, staff);
+    const res = await submit.submit(dto([first.bill], 300), [file()], guardian);
+    await review.reject(res.id, { reason: PaymentProofRejectReason.IMAGE_UNCLEAR }, staff);
+    const hold = holdFirstCall(auditSvc, 'record');
+    let settled: PromiseSettledResult<unknown>[];
+    try {
+      const a = review.reopen(first.id, { note: 'again' }, staff);
+      await hold.entered; // first reopen updated its row and holds the bill lock
+      const b = review.reopen(res.id, { note: 'again' }, staff);
+      await untilLockWaiter();
+      hold.release();
+      settled = await Promise.allSettled([a, b]);
+    } finally {
+      hold.release();
+      hold.spy.mockRestore();
+    }
+    expect(settled[0].status).toBe('fulfilled');
+    expect(settled[1]).toMatchObject({
+      status: 'rejected',
+      reason: { response: { message: 'Another payment proof is already waiting for one of these bills' } },
+    });
+    const rows = await ds.query(
+      `SELECT status FROM payment_submissions WHERE tenant_id = $1 ORDER BY status`,
+      [SEED_TENANT_ID],
+    );
+    expect(rows.map((r: any) => r.status)).toEqual(['PENDING', 'REJECTED']);
   });
 
   it('reject needs a reason value; OTHER without a note is refused by the database rule', async () => {

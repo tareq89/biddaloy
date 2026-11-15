@@ -697,6 +697,17 @@ describe('PaymentSubmissionSettlement (integration)', () => {
       expect(await payCount()).toBe(0);
     });
 
+    it('settling an already DISCARDED submission replays as alreadySettled and writes nothing', async () => {
+      const s1 = await mkStudent();
+      const sub = await mkSubmission([await mkBill(s1.id)], {
+        status: PaymentSubmissionStatus.DISCARDED,
+      });
+      const res = await strict(sub.id);
+      expect(res).toMatchObject({ outcome: 'DISCARDED', paymentIds: [], alreadySettled: true });
+      expect(await payCount()).toBe(0);
+      expect(await eventRepo.count({ where: { submission_id: sub.id } })).toBe(0);
+    });
+
     it('answers 404 for another school and writes nothing', async () => {
       const s1 = await mkStudent();
       const sub = await mkSubmission([await mkBill(s1.id)]);
