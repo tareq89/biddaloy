@@ -1,7 +1,6 @@
 import {
   DayPanel,
   EmptyState,
-  ErrorState,
   HelpHint,
   MonthGrid,
   type MonthGridEvent,
@@ -26,6 +25,8 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
+
+import { PortalQueryError } from './-portal-query-error';
 
 /**
  * [17.5.2] Read-only family calendar — one guardian, their linked
@@ -171,7 +172,8 @@ function PortalCalendar() {
 
   if (studentsQuery.isError) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={studentsQuery.error}
         message={t('calendar.error.message')}
         retryLabel={t('calendar.error.retry')}
         onRetry={() => void studentsQuery.refetch()}
@@ -198,7 +200,8 @@ function PortalCalendar() {
 
   if (eventsQuery.isError || settingsQuery.isError) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={eventsQuery.error ?? settingsQuery.error}
         message={t('calendar.error.message')}
         retryLabel={t('calendar.error.retry')}
         onRetry={() => {
