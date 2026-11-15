@@ -91,6 +91,28 @@ export function admissionStageHasResults(): ConflictException {
   });
 }
 
+// [#4180] Fixed texts for admission stage results. No ids, no echoed input.
+export function admissionStageKindLocked(): ConflictException {
+  return new ConflictException({
+    message: 'This stage has results, so its kind cannot be changed',
+    details: { code: 'ADMISSION_STAGE_KIND_LOCKED' },
+  });
+}
+
+export function admissionResultsIncomplete(): ConflictException {
+  return new ConflictException({
+    message: 'Some applicants in this stage have no result yet',
+    details: { code: 'ADMISSION_RESULTS_INCOMPLETE' },
+  });
+}
+
+export function admissionStageNotScored(): ConflictException {
+  return new ConflictException({
+    message: 'This stage has no total marks, so it has no cut-off',
+    details: { code: 'ADMISSION_STAGE_NOT_SCORED' },
+  });
+}
+
 function mapHomeworkActiveUnique(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;
   const { code, constraint } = exception.driverError as { code?: string; constraint?: string };
