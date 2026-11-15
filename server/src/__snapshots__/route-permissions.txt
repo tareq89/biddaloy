@@ -528,6 +528,7 @@ PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
 PATCH /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
 PATCH /admission-intakes/:id/close | IntakeController | perm: ADMISSION_REVIEW
 PATCH /admission-intakes/:id/stages/:stageId | IntakeController | perm: ADMISSION_REVIEW
+PATCH /admission/stages/:id/schedule | AdmissionRollController | perm: ADMISSION_REVIEW
 PATCH /attendance/arrival-subscriptions/:id | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_MANAGE
 PATCH /attendance/arrival-subscriptions/:id/lock | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_LOCK
 PATCH /attendance/records/:recordId | AttendanceController | perm: ATTENDANCE_MARK
@@ -622,6 +623,7 @@ POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMI
 POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/confirm | AdmissionFeeController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/send-back | AdmissionFeeController | perm: ADMISSION_REVIEW
+POST /admission/intakes/:id/rolls | AdmissionRollController | perm: ADMISSION_REVIEW
 POST /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/attachments | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT

@@ -9337,6 +9337,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admission/intakes/{id}/rolls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give a roll to every fee-confirmed applicant without one. Idempotent: a repeat numbers only new applicants. */
+        post: operations["AdmissionRollController_assign_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/stages/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set the date, start time and venue of a stage. */
+        patch: operations["AdmissionRollController_schedule_v1"];
+        trace?: never;
+    };
     "/api/v1/seat-plans/generate": {
         parameters: {
             query?: never;
@@ -21060,6 +21094,34 @@ export interface components {
         SendBackFeeProofDto: {
             /** @description Why the proof was refused. Sent to the guardian. */
             reason: string;
+        };
+        /** @enum {string} */
+        AdmissionRollOrder: "APPLIED_AT" | "NAME";
+        AssignRollsDto: {
+            order: components["schemas"]["AdmissionRollOrder"];
+        };
+        AssignRollsResponseDto: {
+            /** @description Applicants who got a roll in this call. */
+            assigned: number;
+            first_roll: string | null;
+            last_roll: string | null;
+        };
+        StageScheduleDto: {
+            /** @example 2026-12-01 */
+            date: string;
+            /**
+             * @description 24-hour HH:MM
+             * @example 10:30
+             */
+            start_time: string;
+            /** @example Main hall */
+            venue: string;
+        };
+        StageScheduleResponseDto: {
+            id: string;
+            date: string;
+            start_time: string;
+            venue: string;
         };
         GenerateSeatPlanDto: {
             name: string;
@@ -46365,6 +46427,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeeDecisionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionRollController_assign_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRollsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignRollsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionRollController_schedule_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageScheduleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageScheduleResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
