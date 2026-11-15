@@ -148,7 +148,7 @@ describe('ImportSvgDialog', () => {
   it('marks a field whose font is not available', async () => {
     await upload(SVG);
     expect(
-      (await screen.findAllByText('Font not available, using Biddaloy Sans')).length,
+      (await screen.findAllByText('Font not available, using the default font')).length,
     ).toBeGreaterThan(0);
   });
 
