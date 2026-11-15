@@ -332,7 +332,7 @@ function PortalFees() {
     finesQuery.isPending
   ) {
     return (
-      <FeesTabs tab="bills" onTab={goTab}>
+      <FeesTabs tab="bills" onTab={goTab} showProofs={canSeeProofs}>
         <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />
       </FeesTabs>
     );
@@ -350,7 +350,7 @@ function PortalFees() {
     // imply the rest is complete. No `<h1>`, and never the server's own
     // message — a raw id must not reach a parent.
     return (
-      <FeesTabs tab="bills" onTab={goTab}>
+      <FeesTabs tab="bills" onTab={goTab} showProofs={canSeeProofs}>
         <ErrorState
           message={t('fees.error.message')}
           retryLabel={t('fees.error.retry')}
