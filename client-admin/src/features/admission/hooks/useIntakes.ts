@@ -55,6 +55,7 @@ const intakeKeys = {
 
 /** List rows also carry the names (server `intake.service.ts`), so the list never shows an id. */
 export type IntakeListRow = AdmissionIntake & {
+  template_key?: string | null;
   class_name: string | null;
   section_name: string | null;
 };

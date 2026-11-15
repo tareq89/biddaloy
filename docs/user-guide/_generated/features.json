@@ -95,7 +95,8 @@
       "/admission/$slug",
       "/admission/$slug/status",
       "/admissions/intakes",
-      "/admissions/intakes/$intakeId"
+      "/admissions/intakes/$intakeId",
+      "/admissions/intakes/new"
     ]
   },
   {
@@ -104,7 +105,11 @@
     "path": "people/admission-applicants",
     "route": "/admissions/applicants",
     "roles": ["ADMIN", "OFFICE_STAFF"],
-    "routes": ["/admissions/applicants", "/admissions/applicants/$applicantId"]
+    "routes": [
+      "/admissions/applicants",
+      "/admissions/applicants/$applicantId",
+      "/admissions/applicants/new"
+    ]
   },
   {
     "id": "people.admissionReports",

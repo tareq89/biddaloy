@@ -18,7 +18,19 @@
     "emptyText": "Add a round so guardians can apply online.",
     "copyPublicLink": "Copy public link",
     "linkCopied": "Public admission link copied.",
-    "linkCopyFailed": "Could not copy the link."
+    "linkCopyFailed": "Could not copy the link.",
+    "columnClass": "$t(common:entities.class_one)",
+    "columnTemplate": "Kind",
+    "openDesk": "Open desk",
+    "publishSiteFirst": "Publish the school website to open the form",
+    "template": {
+      "APPLY_ONLY": "Apply only",
+      "WRITTEN": "Written test",
+      "WRITTEN_VIVA": "Written and viva",
+      "LOTTERY": "Lottery",
+      "FIRST_COME": "First come first served",
+      "GPA_MERIT": "GPA merit"
+    }
   },
   "createDialog": {
     "title": "Add admission round",
@@ -53,7 +65,8 @@
     "applicantCount_one": "{{formatted}} application received",
     "applicantCount_other": "{{formatted}} applications received",
     "saved": "Saved",
-    "loadError": "Failed to load this round"
+    "loadError": "Failed to load this round",
+    "goToDesk": "Go to desk"
   },
   "fields": {
     "title": "Title",

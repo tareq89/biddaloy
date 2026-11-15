@@ -19,7 +19,7 @@ sources:
 labels:
   [
     admission-staff-intakes:list.*,
-    admission-staff-intakes:createDialog.*,
+    admission-desk:wizard.*,
     admission-staff-intakes:form.*,
     admission-staff-intakes:detail.*,
     admission-public:form.*,
@@ -81,41 +81,33 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
 1. In the left menu press **People → Admission rounds**. You can also type **Admission rounds** in the search box (Ctrl+K).
 
-   → The heading **Admission rounds** appears, and under it "Which class, how many seats, and when guardians can apply online." The list columns are **Title**, **Class / Section**, **Seats**, **Application window**, **Status**. With no rounds, it says **No admission rounds yet**.
+   → The heading **Admission rounds** appears. The list columns are **Title**, **Class**, **Seats**, **Kind**, **Application window**, **Status**. With no rounds, it says **No admission rounds yet**. Pressing a row's **Open desk** takes you to that round's desk.
 
 ![the admission rounds list, with the Add admission round button and the columns](img/admission-intakes-01.png)
 
 2. At the top press **Add admission round**.
 
-   → The **Add admission round** dialog opens. Fields marked with a star (\*) must be filled in.
+   → A page with four steps opens. Every box is already filled in, so you can press **Next** without typing anything.
 
-3. In **Title** enter a name guardians will recognise, for example `Class 6 Admission 2027`.
+3. Step 1, **Class and kind**: choose the **Class** and **Academic year**, then pick one of the six kinds (**Apply only**, **Written test**, **Written and viva**, **Lottery**, **First come first served**, **GPA merit**).
 
-   → This name is what guardians see on the form and on the status page.
+   → The round is named from the class and year, for example "Class 6 admission 2027". If no class is chosen, it says **Choose a class.** and **Next** stays off.
 
-4. In **Class / Section** choose the section you will admit into.
+4. Step 2, **Seats and dates**: enter the number of **Seats** (1 to 100,000), the **Applications open** date and the **Last date to apply**. If you want, add a **Roll number prefix** (optional).
 
-   → When you admit an applicant, the student joins this section directly. One round has one section; to admit into two sections, open two rounds.
+   → Guardians can apply online between these two dates, and the last date is included. If the last date is before the start, it says **The last date cannot be before the start.**
 
-5. Enter the **Seat count** (1 or more).
+5. Step 3, **Fee and form**: leave **Fee (taka, leave empty for no fee)** empty if there is no fee. Otherwise write the amount in taka, with at most 2 digits after the point, and tick at least one of **Ways to send the fee** (**bKash**, **Nagad**, **Rocket**, **Bank**). Under **Which boxes the form has**, the boxes that suit the chosen kind are already ticked; tick or untick others as you need.
 
-   → When the number of applicants who are **Admitted** reaches this number, the round disappears from the guardian's form and nobody else can be admitted.
+   → You check that each fee is ok; until then the application joins no list.
 
-6. Choose the **Open date** and the **Close date**.
+6. Step 4, **Publish**: under **How results are told**, switch on what you want: **List on the school website**, **SMS**, **See result with roll and phone**, **Call list (for the office)**. Under **On the website**, switch **Always show on the website** on to show the round all the time; off shows it only while it is open. **Choose where it shows on the website** opens the website editor.
 
-   → "Guardians can apply online between these two dates." The close date itself counts. If the close date is before the open date, it says **Close date must not be before open date.**
+7. Press **Create round**.
 
-7. Under **Required documents** tick what you need: **Photo**, **Birth certificate**, **Transcript**. Leave all empty if you need nothing.
+   → The desk for this round opens. If creating fails, the page says **Could not create the round. Try again.** and what you entered stays.
 
-   → Every ticked document must be uploaded by the guardian with the form.
-
-![the Add admission round dialog, the six fields and the Create button](img/admission-intakes-02.png)
-
-8. Press **Create**. The button stays disabled until every required field is filled in correctly.
-
-   → The dialog closes and the new round appears in the list. If today falls between the open and close dates, **Status** is **Open**; otherwise **Closed**.
-
-> **Remember:** an **Open** round can take applications, but you must still tell guardians the school's admission link. The link looks like `…/admission/<school-link-name>`. To copy it, press **Copy public link** at the top of the rounds list; the message **Public admission link copied.** appears.
+> **Remember:** guardians can apply online only when the school website is published. The form link is your school website's address with `/admission` added at the end. While the website is not published, the rounds list shows **Publish the school website to open the form** where the copy button would be. Once it is published, press **Copy public link** and the message **Public admission link copied.** appears. The older edit page still changes dates and seats, and its **Go to desk** button opens the desk.
 
 ---
 
@@ -123,14 +115,14 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
 A round is saved only while you are online; it cannot be kept on the device and sent later.
 
-| State                           | How you know                                                     | What next                         |
-| ------------------------------- | ---------------------------------------------------------------- | --------------------------------- |
-| **Changed only on the screen**  | The dialog is open and filled in, but **Create** was not pressed | Press **Create**                  |
-| **Reached the school's system** | The dialog closed and the list has a row for the new round       | Tell guardians the admission link |
+| State                           | How you know                                                 | What next                         |
+| ------------------------------- | ------------------------------------------------------------ | --------------------------------- |
+| **Changed only on the screen**  | The wizard is still open, **Create round** was not pressed   | Press **Create round**            |
+| **Reached the school's system** | The desk for the round opened, and the list has a row for it | Tell guardians the admission link |
 
-**To check:** reload the page. If the round is in the list, it is in the system. To see what a guardian sees, open the admission link on your own phone: the **Open** round should be there.
+**To check:** reload the rounds list. If the round is there, it is in the system.
 
-**If no message came:** if the dialog says **Failed to create admission round**, what you typed stays in the dialog; check your internet and press **Create** again.
+**If no message came:** if the page says **Could not create the round. Try again.**, what you entered stays on the page; check your internet and press **Create round** again.
 
 ---
 
