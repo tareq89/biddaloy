@@ -19,7 +19,7 @@ import {
  * [8.10.7.4.14] `GET /students/:studentId/homework` (family-only).
  *
  * Ownership matches `family-read-api.e2e-spec.ts`: an unlinked child is refused with
- * the 401 `FamilyAccessService.assertLinked` throws (same as `GET /attendance/students/:id/summary`).
+ * the 404 `FamilyAccessService.assertLinked` throws (same as `GET /attendance/students/:id/summary`).
  * Staff roles never reach the handler: `@Roles(PARENT, STUDENT)` answers 403.
  */
 const API = '/api/v1';
@@ -209,17 +209,17 @@ describe('[8.10.7.4.14] GET /students/:studentId/homework', () => {
       expect(res.body.items.map((i: { assignment_id: string }) => i.assignment_id)).toEqual([hwA]);
     });
 
-    it('STUDENT cannot read another student: 401, same as assertLinked everywhere else', async () => {
-      await get(tokens.student, childA).expect(401);
+    it('STUDENT cannot read another student: 404, same as assertLinked everywhere else', async () => {
+      await get(tokens.student, childA).expect(404);
     });
 
-    it('PARENT of child A cannot read child B (other family): 401, no body about B', async () => {
-      const res = await get(tokens.parent, childB).expect(401);
+    it('PARENT of child A cannot read child B (other family): 404, no body about B', async () => {
+      const res = await get(tokens.parent, childB).expect(404);
       expect(JSON.stringify(res.body)).not.toContain('Section homework');
     });
 
     it('the other family cannot read child A either', async () => {
-      await get(tokens.stranger, childA).expect(401);
+      await get(tokens.stranger, childA).expect(404);
       await get(tokens.stranger, childB).expect(200);
     });
 
@@ -233,15 +233,15 @@ describe('[8.10.7.4.14] GET /students/:studentId/homework', () => {
     });
 
     it('soft-deleted (withdrawn from the register) linked child: refused like every family route', async () => {
-      await get(tokens.parent, childDeleted).expect(401);
+      await get(tokens.parent, childDeleted).expect(404);
     });
 
     it('non-UUID id: 400', async () => {
       await get(tokens.parent, 'not-a-uuid').expect(400);
     });
 
-    it('unknown child id: 401 (nothing is linked, nothing leaks)', async () => {
-      await get(tokens.parent, ID(9)).expect(401);
+    it('unknown child id: 404 (nothing is linked, nothing leaks)', async () => {
+      await get(tokens.parent, ID(9)).expect(404);
     });
   });
 
@@ -293,11 +293,11 @@ describe('[8.10.7.4.14] GET /students/:studentId/homework', () => {
 
     it('cross-tenant: parent with a real tenant-B membership, asking tenant B for a tenant A child, gets nothing', async () => {
       const res = await get(tokens.parent, childA, TENANT_B);
-      expect(res.status).toBe(401); // not linked inside tenant B
+      expect(res.status).toBe(404); // not linked inside tenant B
     });
 
     it('cross-tenant: a tenant-B student id asked under tenant A is refused', async () => {
-      await get(tokens.parent, childInOtherTenant).expect(401);
+      await get(tokens.parent, childInOtherTenant).expect(404);
     });
   });
 

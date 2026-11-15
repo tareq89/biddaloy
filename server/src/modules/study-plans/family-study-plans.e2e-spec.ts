@@ -283,12 +283,12 @@ describe('Family study plans E2E (66.2/#2013)', () => {
   describe('linkage matrix (both routes)', () => {
     const expectations: [Who | 'ADMIN', number][] = [
       ['PARENT', 200],
-      ['PARENT_OTHER', 401],
+      ['PARENT_OTHER', 404],
       ['STUDENT', 200],
-      ['STUDENT_OTHER', 401],
+      ['STUDENT_OTHER', 404],
       ['ADMIN', 200],
       ['EXECUTIVE', 200],
-      // Unlinked family callers get 401 (what FamilyAccessService throws today, not 403).
+      // Unlinked family callers get 404 (FamilyAccessService, #2466; a 401 looped the client's refresh).
       // assertLinked passes non-guardian roles straight through (staff).
       ['T', 200],
       ['COMMITTEE', 403],
@@ -312,7 +312,7 @@ describe('Family study plans E2E (66.2/#2013)', () => {
 
     it('a 403 body carries no plan data', async () => {
       await createPlan();
-      const res = await as(`/students/${studentId}/study-plans`, 'PARENT_OTHER').expect(401);
+      const res = await as(`/students/${studentId}/study-plans`, 'PARENT_OTHER').expect(404);
       expect(JSON.stringify(res.body)).not.toContain('FSP Lesson');
     });
   });

@@ -234,7 +234,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       .set('Authorization', `Bearer ${strangerToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(404);
   });
 
   it('keeps tenants isolated even for a caller with real membership in both', async () => {
@@ -246,14 +246,14 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(404);
 
     await supertest(app.getHttpServer())
       .get(`${API}/students/${childInBId}/wallet`)
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', TENANT_B)
       .set('X-Role', UserRole.PARENT)
-      .expect(401); // genuinely not linked to childInB in tenant B either
+      .expect(404); // genuinely not linked to childInB in tenant B either
   });
 
   it('rejects a role the caller has no membership for', async () => {

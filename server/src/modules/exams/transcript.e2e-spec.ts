@@ -258,17 +258,17 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
       }).expect(204);
     });
 
-    it('a PARENT of another child is refused (401)', async () => {
+    it('a PARENT of another child is refused (404)', async () => {
       await seed();
-      await get('OTHER_PARENT').expect(401);
-      await post('OTHER_PARENT', reportCard()).expect(401);
+      await get('OTHER_PARENT').expect(404);
+      await post('OTHER_PARENT', reportCard()).expect(404);
       expect(await printRows(studentId)).toHaveLength(0);
     });
 
-    it('a STUDENT cannot read or log for a classmate (401)', async () => {
+    it('a STUDENT cannot read or log for a classmate (404)', async () => {
       await seed();
-      await get('STUDENT', classmateId).expect(401);
-      await post('STUDENT', reportCard(), classmateId).expect(401);
+      await get('STUDENT', classmateId).expect(404);
+      await post('STUDENT', reportCard(), classmateId).expect(404);
       expect(await printRows(classmateId)).toHaveLength(0);
     });
   });
@@ -383,11 +383,11 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
       expect((await get('PARENT').expect(200)).body.final.final_result_id).toBe(finalId);
     });
 
-    it('a PARENT of another child and a STUDENT asking for a classmate are refused (401)', async () => {
+    it('a PARENT of another child and a STUDENT asking for a classmate are refused (404)', async () => {
       await seed();
       await seedFinal('PUBLISHED');
-      await finalCard('OTHER_PARENT').expect(401);
-      await finalCard('STUDENT', classmateId).expect(401);
+      await finalCard('OTHER_PARENT').expect(404);
+      await finalCard('STUDENT', classmateId).expect(404);
     });
 
     it('[AUTH-06] TEACHER gets 404 outside their sections', async () => {

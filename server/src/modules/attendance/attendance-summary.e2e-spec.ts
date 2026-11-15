@@ -29,7 +29,7 @@ const STRANGER_EMAIL = 'summary-stranger@e2e.example';
  * E2E tests for [9.4]'s five read endpoints — allowed/denied per role, and
  * the object-level scoping `@Roles(...)` alone can't express: a PARENT
  * reaching only their own linked child (via `FamilyAccessService`, same
- * 401-on-purpose contract as `family-read-api.e2e-spec.ts`), and a TEACHER
+ * 404-on-purpose contract (#2466) as `family-read-api.e2e-spec.ts`), and a TEACHER
  * reaching only a mapped section (via `AttendanceAccessService`, same
  * pattern as `attendance.e2e-spec.ts`).
  */
@@ -177,14 +177,14 @@ describe('Attendance Summary E2E', () => {
         .expect(200);
     });
 
-    it("returns 401 for a PARENT not linked to this child (another family's child)", async () => {
+    it("returns 404 for a PARENT not linked to this child (another family's child)", async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/attendance/students/${studentId}/summary`)
         .query({ from: '2026-09-01', to: '2026-09-05' })
         .set('Authorization', `Bearer ${strangerToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.PARENT)
-        .expect(401);
+        .expect(404);
     });
 
     it('returns 200 for ADMIN regardless of family linkage', async () => {
@@ -272,8 +272,8 @@ describe('Attendance Summary E2E', () => {
       expectMarkedAt(res.body);
     });
 
-    it("PARENT of another family's child still gets 401 (isolation unchanged)", async () => {
-      await getDays(strangerToken, UserRole.PARENT).expect(401);
+    it("PARENT of another family's child still gets 404 (isolation unchanged)", async () => {
+      await getDays(strangerToken, UserRole.PARENT).expect(404);
     });
 
     it('STUDENT reading self gets marked_at', async () => {
