@@ -152,7 +152,10 @@ test.describe('teacher', () => {
 test.describe('parent portal', () => {
   test.use(loggedIn('parent'));
 
-  test('Routines off: the portal link is gone and the URL shows the refusal page', async ({ page, request }) => {
+  test('Routines off: the portal link is gone and the URL shows the refusal page', async ({
+    page,
+    request,
+  }) => {
     const session = await adminApiSession(request);
     const shell = new AppShellPage(page);
     try {
@@ -164,7 +167,7 @@ test.describe('parent portal', () => {
       await shell.expectNavItem('nav.items.portalRoutine', false);
       // D32 (#4127): a bookmark gets the refusal, not the load error.
       await page.goto('/portal/routine');
-      await expect(page.getByText('This part is not turned on for your institution')).toBeVisible();
+      await expect(page.getByText(t('common.moduleOff.title'))).toBeVisible();
     } finally {
       await setModules(request, session, { routines: null });
     }

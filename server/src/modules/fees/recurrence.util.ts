@@ -70,7 +70,7 @@ export function isDue(rule: RecurringScheduleRule, date: string): boolean {
   if (rule.kind === 'MONTHLY') {
     // A malformed row (no day_of_month) would give NaN and never be due, silently. Throw instead,
     // as a malformed WEEKLY rule does, so the scheduler logs it to Sentry (#2384).
-    if (rule.day_of_month !== 'LAST' && !Number.isInteger(rule.day_of_month)) {
+    if (rule.day_of_month !== 'LAST' && (!Number.isInteger(rule.day_of_month) || rule.day_of_month < 1)) {
       throw new Error('MONTHLY recurrence rule has no valid day_of_month');
     }
     const { year, month, day } = parseDateOnly(date);

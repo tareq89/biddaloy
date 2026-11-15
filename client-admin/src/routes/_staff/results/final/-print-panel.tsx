@@ -49,6 +49,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 
 import { examPreviewHref } from '../../../../components/print/exam-preview-href';
+import { previewIdsNav } from '../../../../components/print/preview-ids';
 import { subjectLabel } from '../../exams/-detail/subject-label';
 
 import { fetchAllPages, mapLimited, PAGE_SIZE } from './-fetch-all';
@@ -82,7 +83,8 @@ export function PrintPanel({ summary }: PrintPanelProps) {
   const built = summary.status !== 'DRAFT';
   const search = useSearch({ strict: false });
   const router = useRouter();
-  const canIssue = useHasPermission(Permission.CERTIFICATE_ISSUE);
+  // Result certificates open the document-print preview, which requires DOCUMENT_PRINT.
+  const canPreviewResultCertificate = useHasPermission(Permission.DOCUMENT_PRINT);
   const sections = useClassSections(summary.class.id);
   const [pickedSection, setPickedSection] = React.useState<string | undefined>(undefined);
   const sectionId = pickedSection ?? sections.data?.[0]?.id;
@@ -164,8 +166,11 @@ export function PrintPanel({ summary }: PrintPanelProps) {
   const cardsReady = job === 'cards' && printed !== null;
   const tabReady = job === 'tabulation' && tab.isSuccess;
   const tabFailed = job === 'tabulation' && tab.isError;
+  // Bumped on cleanup: a continuation that outlives the panel must not call window.print().
+  const printRun = React.useRef(0);
   React.useEffect(() => {
     if (!cardsReady && !tabReady) return;
+    const run = ++printRun.current;
     // One frame so the print area is in the DOM before the browser snapshots it.
     const id = requestAnimationFrame(() => {
       void (async () => {
@@ -181,6 +186,7 @@ export function PrintPanel({ summary }: PrintPanelProps) {
                 academic_year_id: summary.academic_year.id,
               }),
           );
+          if (printRun.current !== run) return;
           if (logged.some((r) => !('value' in r))) {
             toast.error(t('reportCard.logError'));
             setJob(null);
@@ -193,7 +199,10 @@ export function PrintPanel({ summary }: PrintPanelProps) {
         setPrinted(null);
       })();
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      printRun.current++;
+      cancelAnimationFrame(id);
+    };
   }, [cardsReady, tabReady]); // eslint-disable-line react-hooks/exhaustive-deps -- printed/summary only matter when a job becomes ready
   React.useEffect(() => {
     if (!tabFailed) return;
@@ -353,22 +362,20 @@ export function PrintPanel({ summary }: PrintPanelProps) {
             <PrinterIcon aria-hidden className="size-4" />
             {t('finalResults.print.printAll')}
           </Button>
-          {canIssue && (
+          {canPreviewResultCertificate && (
             <Button
               type="button"
               variant="outline"
               disabled={rows.every((r) => r.is_fail)}
               onClick={() => {
                 // Same preview the exam page uses; the resolver reads a final result id (D21).
-                const ids = rows
-                  .filter((r) => !r.is_fail)
-                  .map((r) => r.student.id)
-                  .join(',');
+                const nav = previewIdsNav(rows.filter((r) => !r.is_fail).map((r) => r.student.id));
                 router.history.push(
                   examPreviewHref(summary.id, 'RESULT_CERTIFICATE', {
-                    ids,
+                    ...(nav.search.ids !== undefined ? { ids: nav.search.ids } : {}),
                     from: `/results/final/${summary.id}?tab=print`,
                   }),
+                  nav.state,
                 );
               }}
             >

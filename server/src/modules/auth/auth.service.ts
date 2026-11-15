@@ -314,11 +314,18 @@ export class AuthService {
     await this.sessionCutoff.cutOff(userId);
     // A calendar subscription is a long-lived credential too: "everywhere" ends it (#2462). Raw SQL keeps
     // AuthModule free of a CalendarModule import; the user re-creates the feed link from the calendar page.
-    await this.userRepository.manager.query(
-      `UPDATE calendar_feed_tokens SET revoked_at = now()
-        WHERE user_id = $1 AND revoked_at IS NULL`,
-      [userId],
-    );
+    try {
+      await this.userRepository.manager.query(
+        `UPDATE calendar_feed_tokens SET revoked_at = now()
+          WHERE user_id = $1 AND revoked_at IS NULL`,
+        [userId],
+      );
+    } catch (err) {
+      this.logger.error(
+        'Failed to revoke calendar feed tokens on logout-all',
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
     // [JOBS-12] No device may keep getting this user's pushes. A push-table
     // error must never block logout (same stance as the denylist below).
     try {

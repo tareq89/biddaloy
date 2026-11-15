@@ -18,6 +18,7 @@ import { Room } from '../routines/entities/room.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { SEAT_PLAN_PUBLISH_LOCK_NAMESPACE } from '../exams/seat-plan-lock';
 import { GenerateSeatPlanDto } from './dto/generate-seat-plan.dto';
 import { UpdateAllocationDto, UpdateInvigilatorDto } from './dto/update-allocation.dto';
 
@@ -26,7 +27,7 @@ import { UpdateAllocationDto, UpdateInvigilatorDto } from './dto/update-allocati
 // invoice-numbering.util.ts and roll-number.util.ts. Serializes concurrent
 // publish() calls for the same tenant so two drafts can't both pass the
 // room-conflict check for an overlapping schedule/room before either commits.
-const PUBLISH_LOCK_NAMESPACE = 25_014;
+const PUBLISH_LOCK_NAMESPACE = SEAT_PLAN_PUBLISH_LOCK_NAMESPACE;
 import {
   allocateSeats,
   checkCapacity,
@@ -741,9 +742,13 @@ export class SeatPlansService {
         where: { tenant_id: tenantId, seat_plan_id: planId },
       });
       const scheduleIds = planSchedules.map((s) => s.exam_schedule_id);
+      // A schedule whose exam was deleted while this plan was a draft must not be published.
       const schedules = await manager.find(ExamSchedule, {
-        where: { tenant_id: tenantId, id: In(scheduleIds) },
+        where: { tenant_id: tenantId, id: In(scheduleIds), deleted_at: IsNull() },
       });
+      if (schedules.length !== new Set(scheduleIds).size) {
+        throw new ConflictException('A sitting in this plan was deleted; remove it before publishing');
+      }
 
       const allocations = await manager.find(SeatAllocation, {
         where: { tenant_id: tenantId, seat_plan_id: planId },

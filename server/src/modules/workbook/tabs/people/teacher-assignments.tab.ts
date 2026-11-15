@@ -310,12 +310,10 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
     if (x.assignment_type !== TeacherAssignmentType.CLASS_TEACHER) return null;
     // Named by the sheet's own keys, never a uuid: the validator shows this text to the user.
     if (x instanceof TeacherClassSection) {
-      const cls = x.section?.class ? classesTab.keyOf(x.section.class) : '';
-      const year = x.section?.class?.academic_year?.name ?? '';
-      const sec = x.section ? sectionsTab.keyOf(x.section) : '';
-      return `CLASS_TEACHER of section ${cls} / ${sec} / ${year}`;
+      return `CLASS_TEACHER of section ${x.section ? sectionsTab.keyOf(x.section) : ''}`;
     }
-    return `CLASS_TEACHER of section ${x.class_key} / ${x.section_key} / ${x.academic_year_key}`;
+    // The section's own key (class|year|name) is authoritative; the row's class/year columns are advisory.
+    return `CLASS_TEACHER of section ${x.section_key}`;
   },
 
   diffFields(row: TeacherAssignmentRow, existing: TeacherClassSection): string[] {

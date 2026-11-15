@@ -237,7 +237,7 @@ export function gridEnrollments(
   repo: Repository<Enrollment>,
   exam: Pick<Exam, 'id' | 'academic_year_id' | 'class_id'>,
   tenantId: string,
-  sectionId: string,
+  sectionId: string | string[],
 ) {
   return repo
     .createQueryBuilder('e')
@@ -245,7 +245,9 @@ export function gridEnrollments(
     .where('e.tenant_id = :tenantId', { tenantId })
     .andWhere('e.academic_year_id = :yearId', { yearId: exam.academic_year_id })
     .andWhere('e.class_id = :classId', { classId: exam.class_id })
-    .andWhere('e.section_id = :sectionId', { sectionId })
+    .andWhere('e.section_id IN (:...sectionIds)', {
+      sectionIds: [sectionId].flat(),
+    })
     .andWhere(
       `(e.enrollment_status = :active OR EXISTS (
          SELECT 1 FROM marks m WHERE m.exam_id = :examId AND m.tenant_id = :tenantId
