@@ -1,0 +1,117 @@
+// [#4283] Epic 3329 guard: which UX states each client-admin route handles, by text match.
+// A (route, state) gap must be in scripts/ux-states-baseline.json; a fixed baseline line is stale.
+// Offline, slow-network and session-expired are global (3329.1.06/1.07), so not checked per route.
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const SRC = join(root, 'client-admin/src');
+const BASELINE = join(root, 'scripts/ux-states-baseline.json');
+
+const HAS_QUERY = /\buse(?:Infinite)?Query\b|\buse[A-Z]\w*Query\b/;
+const HAS_MUTATION = /\buseMutation\b|\buse[A-Z]\w*Mutation\b/;
+const STATES = {
+  loading: { when: HAS_QUERY, has: /Skeleton|RoutePending|pendingComponent/ },
+  error: { when: HAS_QUERY, has: /ErrorState/ },
+  empty: { when: HAS_QUERY, has: /EmptyState/ },
+  denied: { when: HAS_QUERY, has: /AccessDeniedState/ },
+  noResult: {
+    when: (t) => HAS_QUERY.test(t) && /\bsearch\b|\bq\s*[:=]|\bfilters?\b/.test(t),
+    has: /states\.noResult|EmptyState[^>]*(?:filter|query|search)/is,
+  },
+  validation: { when: /<form|\buseForm\b/, has: /FormMessage/ },
+  success: { when: HAS_MUTATION, has: /toast|SuccessTick/ },
+};
+
+// W2 lane (3329.2.01-2.10) per route group; first match wins. ponytail: path-prefix map, edit when W2 lanes move.
+const LANES = [
+  ['2.04', /^_staff\/(fees|fee-structures|invoices|payments)\b/],
+  ['2.01', /^_staff\/(students|guardians|admissions|applications)\b/],
+  ['2.02', /^_staff\/(staff|roles|classes|academics|academic-years|curriculum|promotions)\b/],
+  ['2.03', /^_staff\/(attendance|calendar|routines|my-class|my-coordination)\b/],
+  ['2.05', /^_staff\/(exams|marks|results|analysis|grading-scales|programs)\b/],
+  ['2.06', /^_staff\/(reports|print|print-templates|audit-logs)\b/],
+  ['2.08', /^portal\b/],
+  ['2.09', /^_platform\b/],
+  ['2.10', /^(?!_staff)/],
+  ['2.07', /^_staff\b/],
+];
+const laneOf = (route) => LANES.find(([, re]) => re.test(route))[0];
+const groupOf = (route) => {
+  const p = route.split('/');
+  if (p[0] === '_staff' || p[0] === '_platform') return p.slice(0, 2).join('/').replace(/\.tsx$/, '');
+  return p[0] === 'portal' ? 'portal' : 'public';
+};
+
+const isRoute = (f) => f.endsWith('.tsx') && !/(^|\/)-/.test(f) && !/\.(test|stories)\.tsx$/.test(f);
+const walk = (d) =>
+  readdirSync(d).flatMap((n) => {
+    const p = join(d, n);
+    return statSync(p).isDirectory() ? walk(p) : [p];
+  });
+
+function resolveImport(from, spec) {
+  const base = spec.startsWith('@/') ? join(SRC, spec.slice(2)) : spec.startsWith('.') ? resolve(dirname(from), spec) : null;
+  if (!base) return null;
+  return [`${base}.tsx`, join(base, 'index.tsx')].find(existsSync) ?? null;
+}
+
+// Returns [{route, state}] gaps for every route file under routesDir.
+export function audit(routesDir) {
+  const gaps = [];
+  for (const file of walk(routesDir)) {
+    const route = relative(routesDir, file);
+    if (!isRoute(route)) continue;
+    const own = readFileSync(file, 'utf8');
+    const views = [...own.matchAll(/from\s+['"]([^'"]+)['"]/g)]
+      .map((m) => resolveImport(file, m[1]))
+      .filter(Boolean)
+      .map((f) => readFileSync(f, 'utf8'));
+    const text = [own, ...views].join('\n');
+    for (const [state, { when, has }] of Object.entries(STATES)) {
+      const needed = typeof when === 'function' ? when(text) : when.test(text);
+      if (needed && !has.test(text)) gaps.push({ route, state });
+    }
+  }
+  return gaps;
+}
+
+const key = (g) => `${g.route}|${g.state}`;
+
+// Pure compare: new gaps and stale baseline lines.
+export function compare(gaps, baseline) {
+  const now = new Set(gaps.map(key));
+  return {
+    added: [...now].filter((k) => !(k in baseline)),
+    stale: Object.keys(baseline).filter((k) => !now.has(k)),
+  };
+}
+
+function main() {
+  const gaps = audit(join(SRC, 'routes'));
+  if (process.argv.includes('--write-baseline')) {
+    const out = {};
+    for (const g of gaps.sort((a, b) => key(a).localeCompare(key(b)))) out[key(g)] = laneOf(g.route);
+    writeFileSync(BASELINE, `${JSON.stringify(out, null, 2)}\n`);
+  }
+  const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : {};
+  const perGroup = {};
+  for (const g of gaps) {
+    const row = (perGroup[`${laneOf(g.route)}  ${groupOf(g.route)}`] ??= {});
+    row[g.state] = (row[g.state] ?? 0) + 1;
+  }
+  console.table(
+    Object.fromEntries(
+      Object.entries(perGroup)
+        .sort()
+        .map(([k, v]) => [k, { total: Object.values(v).reduce((a, b) => a + b, 0), ...v }]),
+    ),
+  );
+  const { added, stale } = compare(gaps, baseline);
+  if (added.length) console.error(`New UX-state gaps (fix them, do not baseline):\n  ${added.join('\n  ')}`);
+  if (stale.length) console.error(`Stale baseline lines (fixed; remove with --write-baseline):\n  ${stale.join('\n  ')}`);
+  process.exit(added.length || stale.length ? 1 : 0);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) main();

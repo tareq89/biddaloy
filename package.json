@@ -34,6 +34,7 @@
     "lint": "yarn workspace @biddaloy/server lint",
     "lint:landing": "yarn workspace @biddaloy/landing lint",
     "typecheck": "tsc -b",
+    "ux-states:audit": "node scripts/ux-states-audit.mjs",
     "typecheck:clean": "tsc -b --clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

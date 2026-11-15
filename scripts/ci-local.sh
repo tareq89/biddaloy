@@ -136,6 +136,9 @@ CI_PATHS_FRONTEND=(
   'scripts/flake-report.mjs'
   'scripts/flake-report.spec.mjs'
   'scripts/check-arch-docs.spec.mjs'
+  'scripts/ux-states-audit.mjs'
+  'scripts/ux-states-audit.spec.mjs'
+  'scripts/ux-states-baseline.json'
   'docs/architecture/**'
   'CLAUDE.md'
   'server/CLAUDE.md'
@@ -372,6 +375,7 @@ if should_run "verify"; then
   yarn workspace @biddaloy/client-admin eslint .
   yarn test:unit
   yarn workspace @biddaloy/client-admin check:route-chunks
+  yarn ux-states:audit
   yarn workspace @biddaloy/ui check:exports
   yarn workspace @biddaloy/ui check:contrast
   yarn workspace @biddaloy/ui check:raw-palette
