@@ -7,7 +7,7 @@ import { createRootRoute } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { feeToPaisa, initialWizardState, MAX_SEATS, RoundWizard } from './RoundWizard';
 
@@ -91,6 +91,45 @@ describe('RoundWizard', () => {
     await userEvent.type(await screen.findByLabelText(/^Fee/), '250.555');
     expect(await screen.findByText(/at most 2 digits/)).toBeTruthy();
     expect((next() as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('RoundWizard [#4315]', () => {
+  it('lists every class, not just the first page of 100', async () => {
+    server.use(
+      http.get('/api/v1/classes', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 1);
+        const row = page === 1 ? { id: 'c1', name: 'First' } : { id: 'c2', name: 'Last' };
+        return HttpResponse.json({ data: [row], total: 2, page, limit: 100, totalPages: 2 });
+      }),
+    );
+    render();
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Class' }));
+    expect(await screen.findByRole('option', { name: 'Last' })).toBeTruthy();
+  });
+
+  it('opens on the school-zone today, not the browser day', async () => {
+    // 19:00 UTC on the 10th is already the 11th in Dhaka (UTC+6)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2027-03-10T19:00:00Z') });
+    try {
+      let body: { open_date?: string } = {};
+      server.use(
+        classes([{ id: 'c1', name: 'One' }]),
+        http.post('/api/v1/admission-intakes', async ({ request }) => {
+          body = (await request.json()) as typeof body;
+          return HttpResponse.json({ id: 'r1' }, { status: 201 });
+        }),
+      );
+      render();
+      await screen.findByText('One');
+      await userEvent.click(next());
+      await userEvent.click(next());
+      await userEvent.click(next());
+      await userEvent.click(screen.getByRole('button', { name: 'Create round' }));
+      await vi.waitFor(() => expect(body.open_date).toBe('2027-03-11'));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
