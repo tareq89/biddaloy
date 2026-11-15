@@ -1254,3 +1254,59 @@ Deferred, and where each item is tracked (nothing here is silently dropped):
 | Apply never turns a module On (D24), so "undo a kind" is done by hand on the Modules tab                                 | by design, Wave 4 note above                   |
 | Unchecked kinds: College, Qawmi madrasa, Technical (`verified: false`)                                                   | `docs/architecture/20-presets.md`              |
 | Route-status snapshot once showed extra rows, cause unknown                                                              | Wave 6 note above; watch CI on the stacked PRs |
+
+## Database tenant wall (RLS)
+
+Epic 59.0 adds a second tenant wall inside Postgres (D12): the app connects as a plain role
+(`biddaloy_app`, not a superuser, not the table owner), `FORCE ROW LEVEL SECURITY` is on, and a
+policy says `tenant_id = app.tenant_id`. If `app.tenant_id` is unset or `''`, every row passes
+(D22), so jobs and platform paths are untouched.
+
+**Spike #3942 verdict: D13 holds.** The mechanism works on pooled connections with no leak.
+Proof: `server/src/database/tenant-context.spike.integration.spec.ts` (6 cases, all green; pool
+of 2 connections, so the same physical connection is reused). So 59.2.04 builds the real hook; it
+does not shrink to a doc.
+
+```mermaid
+sequenceDiagram
+  participant R as Request
+  participant G as ContextGuard
+  participant A as AsyncLocalStorage
+  participant H as Query-runner hook
+  participant P as Postgres (pooled connection)
+  R->>G: X-Tenant-ID + token
+  G->>A: run({ tenantId }) around the handler
+  H->>A: before each query, read tenantId
+  H->>P: SELECT set_config('app.tenant_id', tenantId, false) (only if the connection's value differs)
+  P-->>H: rows of that school only
+  H->>P: on release: set_config('app.tenant_id', '', false)
+```
+
+| Case | What was proven | Result |
+| --- | --- | --- |
+| a | In tenant A's context, `SELECT * FROM spike_rows` (no WHERE) returns only A's rows | pass |
+| b | No context: all rows come back (D22) | pass |
+| c | After a tenant A request releases its connection, the next context-free query on the **same** `pg_backend_pid()` sees all rows, and the raw setting is `''` | pass |
+| d | `dataSource.transaction` inside the context is walled, and `WITH CHECK` blocks writing another school's row | pass |
+| e | A job (plain async function, no ALS store) is not walled and never inherits A, even while a request is in flight | pass |
+| f | As the superuser/owner the wall does not apply, which is why D14's boot check (refuse production when connected as superuser or owner) is required | pass (expected) |
+
+No case failed.
+
+**Where the hook goes.** Wrap `DataSource.createQueryRunner` once at `DataSource` init (the spec
+does exactly this): the returned runner's `query` first syncs the setting, and its `release`
+resets it to `''`. Every path (`ds.query`, `ds.transaction`, repositories, `EntityManager`) creates
+runners through it, so one patch covers all of them. The pg driver option alone cannot see the
+ALS store, so it is not enough.
+
+**Rules the spike confirmed**
+- Use `set_config(..., false)` (session level) plus the reset on release. A `SET LOCAL` would not
+  survive between the statements of a non-transaction request.
+- The reset must run before the connection goes back to the pool; a failed reset must fail loudly.
+- The policy reads `NULLIF(current_setting('app.tenant_id', true), '')`, never a bare cast
+  (`''::uuid` throws).
+
+**Caveat.** The spec ran on a plain local Postgres 16 with a throwaway role (the shared Docker
+stack was hung when this was written). The spec only needs `DATABASE_URL`; re-run it with
+`yarn test-env run -- yarn workspace @biddaloy/server test:file src/database/tenant-context.spike.integration.spec.ts`
+when the stack is healthy.
