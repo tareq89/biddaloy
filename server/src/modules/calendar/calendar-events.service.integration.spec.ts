@@ -15,6 +15,7 @@ import { AttendanceSession } from '../attendance/entities/attendance-session.ent
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AttendanceRecord } from '../attendance/entities/attendance-record.entity';
 import { Student } from '../students/entities/student.entity';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { User } from '../users/entities/user.entity';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import {
@@ -1007,5 +1008,85 @@ describe('CalendarEventsService (integration)', () => {
         closed.id,
       ]);
     }
+  });
+  // The write re-reads the event under a row lock: one moved to another year (or deleted) while
+  // the write waited was checked against the wrong year, so the write is refused.
+  describe('write re-reads the event under a lock [#4046]', () => {
+    async function twoYears(from: string, to: string) {
+      const yearRepo = dataSource.getRepository(AcademicYear);
+      const a = await yearRepo.save({
+        name: `Lock Year A ${from}`,
+        start_date: `${from}-01-01`,
+        end_date: `${from}-12-31`,
+        tenant_id: TENANT_ID,
+      });
+      const b = await yearRepo.save({
+        name: `Lock Year B ${to}`,
+        start_date: `${to}-01-01`,
+        end_date: `${to}-12-31`,
+        tenant_id: TENANT_ID,
+      });
+      return { a: a.id, b: b.id };
+    }
+    const draftIn = (year: string) =>
+      service.create(
+        {
+          type: CalendarEventType.EVENT,
+          name: 'Lock draft',
+          start_date: `${year}-03-01`,
+          end_date: `${year}-03-01`,
+          audience: CalendarAudience.ALL,
+          publish: false,
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+    async function movedWhileWriting(
+      eventId: string,
+      toYearId: string,
+      write: () => Promise<unknown>,
+    ) {
+      let result: Promise<unknown> | undefined;
+      await dataSource.transaction(async (m) => {
+        await m.query(`SELECT id FROM calendar_events WHERE id = $1 FOR UPDATE`, [eventId]);
+        result = write().catch((err: unknown) => err);
+        // pg_stat_activity cuts long queries, so match the start of the entity's column list.
+        await waitForLockWaiters(dataSource, '%"CalendarEvent_id"%', 1);
+        await m.query(`UPDATE calendar_events SET academic_year_id = $2 WHERE id = $1`, [
+          eventId,
+          toYearId,
+        ]);
+      });
+      return result;
+    }
+
+    it('remove answers 409 when the event moved to another year meanwhile', async () => {
+      const years = await twoYears('2081', '2082');
+      const draft = await draftIn('2081');
+      const err = await movedWhileWriting(draft.id, years.b, () =>
+        service.remove(draft.id, TENANT_ID, SEED_ADMIN_USER_ID),
+      );
+      expect(err).toMatchObject({ status: 409 });
+      const [row] = await dataSource.query(
+        `SELECT deleted_at FROM calendar_events WHERE id = $1`,
+        [draft.id],
+      );
+      expect(row.deleted_at).toBeNull();
+    });
+
+    it('publish answers 409 when the event moved to another year meanwhile', async () => {
+      const years = await twoYears('2083', '2084');
+      const draft = await draftIn('2083');
+      const err = await movedWhileWriting(draft.id, years.b, () =>
+        service.publish(draft.id, TENANT_ID, SEED_ADMIN_USER_ID),
+      );
+      expect(err).toMatchObject({ status: 409 });
+      const [row] = await dataSource.query(
+        `SELECT published_at FROM calendar_events WHERE id = $1`,
+        [draft.id],
+      );
+      expect(row.published_at).toBeNull();
+    });
   });
 });

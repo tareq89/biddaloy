@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, IsNull, Repository } from 'typeorm';
@@ -484,6 +489,7 @@ export class CalendarEventsService {
       updated_by_user_id: userId,
     });
     const saved = await this.eventRepo.manager.transaction(async (m) => {
+      await this.lockEventUnchangedYear(m, id, tenantId, sourceYearId);
       await assertYearOpen(m, tenantId, sourceYearId);
       if (academicYear.id !== sourceYearId) await assertYearOpen(m, tenantId, academicYear.id);
       const savedEvent = await m.getRepository(CalendarEvent).save(event);
@@ -536,6 +542,7 @@ export class CalendarEventsService {
     }
 
     await this.eventRepo.manager.transaction(async (m) => {
+      await this.lockEventUnchangedYear(m, id, tenantId, event.academic_year_id);
       await assertYearOpen(m, tenantId, event.academic_year_id); // #4046: re-check, atomic with the delete
       await m.getRepository(CalendarEvent).softDelete({ id, tenant_id: tenantId });
       await this.auditService.record(
@@ -572,6 +579,7 @@ export class CalendarEventsService {
       event.published_at = new Date();
       event.updated_by_user_id = userId;
       await this.eventRepo.manager.transaction(async (m) => {
+        await this.lockEventUnchangedYear(m, id, tenantId, event.academic_year_id);
         await assertYearOpen(m, tenantId, event.academic_year_id); // #4046: re-check, atomic with the save
         await m.getRepository(CalendarEvent).save(event);
         await this.auditService.record(
@@ -595,6 +603,28 @@ export class CalendarEventsService {
   // -------------------------------------------------------------------
   // Internal helpers
   // -------------------------------------------------------------------
+
+  /**
+   * Row-locks the event inside the write's transaction. The caller read it earlier without a lock,
+   * and every check it ran (year open, past, attendance) used that copy. If the event was deleted
+   * or moved to another year meanwhile, those checks answered for the wrong row: refuse, the
+   * caller retries from fresh data.
+   */
+  private async lockEventUnchangedYear(
+    m: EntityManager,
+    id: string,
+    tenantId: string,
+    seenYearId: string,
+  ): Promise<void> {
+    const locked = await m.findOne(CalendarEvent, {
+      where: { id, tenant_id: tenantId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!locked) throw new NotFoundException('Calendar event not found');
+    if (locked.academic_year_id !== seenYearId) {
+      throw new ConflictException('This event was changed by someone else. Reload and try again.');
+    }
+  }
 
   private async findEntityOrThrow(id: string, tenantId: string): Promise<CalendarEvent> {
     const event = await this.eventRepo.findOne({
