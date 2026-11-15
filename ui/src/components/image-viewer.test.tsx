@@ -60,4 +60,21 @@ describe('ImageViewer', () => {
     await waitFor(() => expect(dialog.isConnected).toBe(false));
     expect(document.activeElement).toBe(thumb);
   });
+
+  it('keeps the open file when a refetch reorders files, and closes when it is gone', async () => {
+    const user = userEvent.setup();
+    const [a, b] = files;
+    const { rerender } = await setup();
+    await user.click(screen.getByRole('button', { name: 'Receipt A' }));
+    await screen.findByRole('dialog');
+
+    rerender(<ImageViewer files={[b, a]} labels={labels} />);
+    expect(screen.getByRole('img', { name: 'Receipt A' })).toBeTruthy();
+
+    rerender(<ImageViewer files={[]} labels={labels} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    rerender(<ImageViewer files={[a]} labels={labels} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

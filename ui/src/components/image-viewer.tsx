@@ -30,13 +30,17 @@ const isImage = (f: ImageViewerFile) => f.contentType.startsWith('image/');
 
 export function ImageViewer({ files, labels, className }: ImageViewerProps) {
   const images = files.filter(isImage);
-  const [index, setIndex] = React.useState<number | null>(null);
+  // Keyed by url, not position: a refetch that reorders or drops files keeps (or closes) the
+  // one that is open instead of silently showing another.
+  const [openUrl, setOpenUrl] = React.useState<string | null>(null);
   const [zoomed, setZoomed] = React.useState(false);
   const opener = React.useRef<HTMLElement | null>(null);
-  const current = index === null ? null : images[index];
+  const index = openUrl === null ? -1 : images.findIndex((f) => f.url === openUrl);
+  const current = index >= 0 ? images[index] : null;
+  if (openUrl !== null && index < 0) setOpenUrl(null);
 
   const go = (i: number) => {
-    setIndex(i);
+    setOpenUrl(images[i].url);
     setZoomed(false);
   };
 
@@ -68,7 +72,7 @@ export function ImageViewer({ files, labels, className }: ImageViewerProps) {
           </a>
         ),
       )}
-      <Dialog open={current != null} onOpenChange={(o) => !o && setIndex(null)}>
+      <Dialog open={current != null} onOpenChange={(o) => !o && setOpenUrl(null)}>
         <DialogContent
           size="lg"
           fullScreenOnPhone
@@ -77,7 +81,7 @@ export function ImageViewer({ files, labels, className }: ImageViewerProps) {
             opener.current?.focus();
           }}
           onKeyDown={(e) => {
-            if (index === null) return;
+            if (index < 0) return;
             const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
             if (delta && images[index + delta]) go(index + delta);
           }}
@@ -95,7 +99,7 @@ export function ImageViewer({ files, labels, className }: ImageViewerProps) {
             </div>
           )}
           <div className="flex items-center justify-between gap-2">
-            <Button variant="outline" disabled={index === 0} onClick={() => go(index! - 1)}>
+            <Button variant="outline" disabled={index === 0} onClick={() => go(index - 1)}>
               {labels.previous}
             </Button>
             <Button variant="outline" onClick={() => setZoomed((z) => !z)}>
@@ -104,7 +108,7 @@ export function ImageViewer({ files, labels, className }: ImageViewerProps) {
             <Button
               variant="outline"
               disabled={index === images.length - 1}
-              onClick={() => go(index! + 1)}
+              onClick={() => go(index + 1)}
             >
               {labels.next}
             </Button>
