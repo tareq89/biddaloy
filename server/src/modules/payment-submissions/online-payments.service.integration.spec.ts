@@ -135,6 +135,33 @@ describe('OnlinePaymentsService (integration)', () => {
     expect(s.status).toBe('COMPLETED');
     expect(s.provider_trx_id).toBe(`TRX${StubBkash.paymentID}`);
     expect(await paymentCount(started.id)).toBe(2);
+    // [#3997 D22] The result names each child's receipt (the invoice number) and when it was paid.
+    const done = await svc.result(started.id, ctx);
+    const invoices = await ds.query(
+      `SELECT i.id, i.invoice_number FROM payment_submission_bills b
+         JOIN payments p ON p.id = b.payment_id JOIN invoices i ON i.id = p.invoice_id
+        WHERE b.submission_id = $1`,
+      [started.id],
+    );
+    expect(done.receipts).toHaveLength(2);
+    expect(done.receipts.map((r) => r.receiptNo).sort()).toEqual(
+      invoices.map((r: { invoice_number: string }) => r.invoice_number).sort(),
+    );
+    expect(done.paidAt).toBeInstanceOf(Date);
+  });
+
+  it('a guardian not linked to any child on the payment gets a 404, so no receipt leaks', async () => {
+    const a = await fix.bill(fix.fx.studentA, 300);
+    const started = await svc.start({ billIds: [a] }, ctx);
+    const stranger = { ...ctx, userId: '00000000-0000-4000-8000-000000000001' };
+    await expect(svc.result(started.id, stranger)).rejects.toThrow();
+  });
+
+  it('a payment that is still PENDING has no receipts and no paid date', async () => {
+    const a = await fix.bill(fix.fx.studentA, 300);
+    const started = await svc.start({ billIds: [a] }, ctx);
+    const r = await svc.result(started.id, ctx);
+    expect(r).toMatchObject({ status: 'PENDING', receipts: [], paidAt: null });
   });
 
   it('amount mismatch at bKash: no payment is made', async () => {
@@ -237,13 +264,11 @@ describe('OnlinePaymentsService (integration)', () => {
       `SELECT payment_id FROM payment_submission_bills WHERE submission_id=$1`,
       [id],
     );
-    const touched = await app
-      .get(PaymentReversalListener)
-      .onReversed({
-        tenantId: SEED_TENANT_ID,
-        paymentId: payment_id,
-        actorUserId: fix.parent.id,
-      } as never);
+    const touched = await app.get(PaymentReversalListener).onReversed({
+      tenantId: SEED_TENANT_ID,
+      paymentId: payment_id,
+      actorUserId: fix.parent.id,
+    } as never);
     expect(touched).toEqual([id]);
     expect((await sub(id)).status).toBe('REVERSED');
   });

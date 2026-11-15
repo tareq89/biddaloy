@@ -25,7 +25,12 @@ const CART = {
   ],
 };
 
-function render(options: Record<string, unknown> | null = null, submitStatus = 201) {
+function render(
+  options: Record<string, unknown> | null = null,
+  submitStatus = 201,
+  search = '',
+  bkashUrl = 'https://pay.example/bk',
+) {
   const seen = {
     headers: [] as (string | null)[],
     forms: [] as FormData[],
@@ -49,7 +54,7 @@ function render(options: Record<string, unknown> | null = null, submitStatus = 2
           { status: 503 },
         );
       }
-      return HttpResponse.json({ id: 'o1', bkashUrl: 'https://pay.example/bk' }, { status: 201 });
+      return HttpResponse.json({ id: 'o1', bkashUrl }, { status: 201 });
     }),
     http.get('/api/v1/portal/payment-cart', () => HttpResponse.json(CART)),
     http.post('/api/v1/portal/payment-proofs', async ({ request }) => {
@@ -71,7 +76,7 @@ function render(options: Record<string, unknown> | null = null, submitStatus = 2
     }),
   );
   renderWithRouter(routeTree, {
-    initialEntries: ['/portal/fees/pay'],
+    initialEntries: [`/portal/fees/pay${search}`],
     tenantId: 'tenant-1',
     role: 'PARENT',
     locale: 'en',
@@ -195,6 +200,22 @@ describe('/portal/fees/pay', () => {
       expect(seen.starts[0]?.body).toEqual({ billIds: ['b1', 'b2'] });
       expect(seen.starts[0]?.key).toBeTruthy();
       vi.unstubAllGlobals();
+    });
+
+    it('never sends the guardian to a page that is not https', async () => {
+      const assign = vi.fn();
+      vi.stubGlobal('location', { ...window.location, assign });
+      render(both, 201, '', 'http://pay.example/bk');
+      const user = userEvent.setup();
+      await user.click(await payButton());
+      expect(await screen.findByText(/Could not start the bKash payment/)).toBeTruthy();
+      expect(assign).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it('?how=proof opens the proof form even when bKash is on', async () => {
+      render(both, 201, '?how=proof');
+      expect(await screen.findByLabelText('Transaction ID (TrxID)')).toBeTruthy();
     });
 
     it('503 offers proof instead', async () => {

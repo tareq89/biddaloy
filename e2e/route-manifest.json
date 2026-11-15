@@ -815,6 +815,11 @@
       "archetype": "form"
     },
     {
+      "path": "/portal/fees/pay/result",
+      "role": "parent",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/portal/statement",
       "role": "parent",
       "archetype": "list"

@@ -28,6 +28,11 @@ export class OnlinePaymentBillDto {
   @ApiProperty() amount: string;
 }
 
+export class OnlinePaymentReceiptDto {
+  @ApiProperty({ format: 'uuid' }) invoiceId: string;
+  @ApiProperty({ description: 'The invoice number printed on the receipt.' }) receiptNo: string;
+}
+
 export class OnlinePaymentResultDto {
   @ApiProperty() id: string;
   @ApiProperty({ enum: PaymentSubmissionStatus }) status: PaymentSubmissionStatus;
@@ -36,6 +41,13 @@ export class OnlinePaymentResultDto {
   @ApiProperty({ description: 'Paid at bKash but no bill could take it; it went to the wallet.' })
   unmatched: boolean;
   @ApiProperty() createdAt: Date;
+  @ApiProperty({
+    type: [OnlinePaymentReceiptDto],
+    description: 'Receipts of the caller own children; empty until the payment is booked.',
+  })
+  receipts: OnlinePaymentReceiptDto[];
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  paidAt: Date | null;
   @ApiProperty({ type: [OnlinePaymentBillDto] }) bills: OnlinePaymentBillDto[];
 }
 

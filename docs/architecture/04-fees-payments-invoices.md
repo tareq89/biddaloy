@@ -667,6 +667,34 @@ Wave 6 added the gateway client with per-school credentials, the start, callback
 - **Surprise:** `schema.d.ts` is regenerated only at integration, so a lane that adds a route cannot type its hooks until then. Cost: hooks were typed from the DTO names before the schema had them. Fix: regenerate once at integration (`yarn api:types`) and commit it with the hooks.
 - **Surprise:** the demo cannot reach an unmatched online payment without a counter payment first. Cost: ordering again. Fix: the `payment-submissions` slice makes the ONLINE row, takes half the bill at the counter, then settles it; the other half goes to the wallet. Five ONLINE rows (3 COMPLETED, one of them unmatched, 1 CANCELLED, 1 EXPIRED) need 12 open bills in all, so the slice spec runs at scale 0.5. `onlineEnabled` stays off and no gateway is ever called.
 
+### The result page and the end-to-end test (#3990, #3997)
+
+After bKash, the guardian lands on `/portal/fees/pay/result?id=<submission id>`. The The page asks `GET /portal/online-payments/:id` until the payment leaves PENDING.
+
+```mermaid
+flowchart LR
+  B["bKash"] -->|"browser returns"| C["/api/v1/online-payments/callback"]
+  C -->|"302"| R["/portal/fees/pay/result?id=..."]
+  R -->|"GET /portal/online-payments/:id"| S["result: status, amount, receipts, paidAt"]
+  S -->|COMPLETED| P["Paid ৳500. Receipt INV-0042 + View receipt"]
+  S -->|"FAILED / CANCELLED / EXPIRED"| F["Try again, or Submit payment proof (?how=proof)"]
+  S -->|PENDING| W["Waiting for confirmation (polls every 3 s)"]
+```
+
+- **Receipt (D22):** `receipts` lists `{ invoiceId, receiptNo }` for the caller's own children only (the invoice number is the receipt number); `paidAt` is the latest payment date, or `null` until booked. "View receipt" opens the existing family-scoped invoice print. There is no guardian share link: minting one needs `INVOICE_SEND` (staff) and a public link shows the whole invoice, siblings included.
+- **Example:** the guardian pays ৳700.50 for two children. The result says "Paid ৳700.50. Receipt INV-0041, INV-0042" with one "View receipt" button per child.
+- **Fake bKash in e2e:** `e2e/fixtures/bkash-stub.ts` listens on `127.0.0.1:38417`. The The server reaches it only when `NODE_ENV=test`, `OUTBOUND_TEST_ALLOW_LOOPBACK=true` and `BKASH_TEST_BASE_URL` are all set (`playwright.config.ts` sets them). Locally, run `yarn playwright test e2e/online-payments.spec.ts` against the running stack. Production boot refuses the loopback flag, so the seam cannot exist there. The test never opens bKash's page: it calls our callback URL itself.
+
+### Learnings (Epic #291, Wave 7, 2026-11-15)
+
+Wave 7 added the result page, the staff tabs, the settings section and the end-to-end journey.
+
+- 2026-11-15 **Surprise:** the result route existed but was missing from `routeTree.gen.ts`, the e2e route manifest, and the palette, breadcrumb and nav allow-lists. Cost: the palette-coverage test failed only at the close ticket. Fix: register the route in all four lists the moment the file is added. Rule candidate: a route-adding ticket lists every registry its route must join.
+- 2026-11-15 **Surprise:** turning online payment on is school-wide, so an e2e that does it on the seeded school hides the proof form for every spec running beside it. Cost: a flake that looks like a proof bug. Fix: the journey provisions its own school. Rule candidate: an e2e that flips a school-wide switch gets its own school.
+- 2026-11-15 **Surprise:** the switch refuses to turn on until the saved credentials passed "Test connection" (`Test the bKash connection before turning online payments on`). Cost: the first run of the journey got a 400. Fix: the journey saves the credentials, tests them against the fake, then turns it on. Rule candidate: set up a gated switch in the order a person would.
+- 2026-11-15 **Surprise:** the the result DTO had no receipt number or paid date, although D22 promised the receipt on this page. Cost: the page could only say "Payment done". Fix: `receipts` and `paidAt`, family-scoped. Rule candidate: when a decision names what a screen shows, check the DTO has it.
+- 2026-11-15 **Surprise:** the bKash URL went straight into `window.location.assign`. Cost: none yet, but a gateway answer is outside input. Fix: only `https://` is followed. Rule candidate: never navigate to a URL that came from an outside answer without checking its scheme.
+
 ## Student statement
 
 A statement answers one question for one student: **what was charged, what was paid, and what is still owed after each line?** It is a coded report (Epic 8.15 D10), not a defined one, because it is a ledger. The code is `server/src/modules/fees/statement/student-statement.service.ts`; the numbers are the same ones the student's fees tab and the dues list show.

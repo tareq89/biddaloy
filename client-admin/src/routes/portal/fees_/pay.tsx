@@ -35,10 +35,15 @@ import {
 } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+/** `?how=proof` opens the proof form (the result page links here after a failed online payment). */
+const searchSchema = z.object({ how: z.literal('proof').optional().catch(undefined) });
+
 export const Route = createFileRoute('/portal/fees_/pay')({
+  validateSearch: searchSchema,
   loader: () => loadRouteNamespaces('portalPay', 'common'),
   component: PortalPayRoute,
 });
@@ -77,7 +82,7 @@ export function PortalPayPage() {
   const [errors, setErrors] = React.useState<Partial<Record<ErrorKey | 'bills', true>>>({});
   const [submitError, setSubmitError] = React.useState<'storageDown' | 'busy' | 'generic'>();
   const [done, setDone] = React.useState(false);
-  const [how, setHow] = React.useState<'bkash' | 'proof' | undefined>(undefined);
+  const [how, setHow] = React.useState<'bkash' | 'proof' | undefined>(Route.useSearch().how);
   const [bkashError, setBkashError] = React.useState<'down' | 'generic'>();
 
   const students = cartQuery.data?.students ?? [];
@@ -106,7 +111,11 @@ export function PortalPayPage() {
     start.mutate(
       selected.map((b) => b.id),
       {
-        onSuccess: (res) => window.location.assign(res.bkashUrl),
+        onSuccess: (res) => {
+          // Only ever send the guardian to a secure page; anything else is treated as a failure.
+          if (!res.bkashUrl.startsWith('https://')) return setBkashError('generic');
+          window.location.assign(res.bkashUrl);
+        },
         onError: (error) => {
           // D19: Redis/bKash down answers 503 with a fixed sentence; offer proof instead.
           setBkashError(error instanceof ApiError && error.statusCode === 503 ? 'down' : 'generic');

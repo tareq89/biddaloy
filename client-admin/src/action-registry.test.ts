@@ -517,6 +517,28 @@ describe('action-registry.ts', () => {
     });
   });
 
+  describe('[3.x/#3997] online payment actions', () => {
+    const byId = (id: string) => ACTIONS.find((a) => a.id === id);
+
+    it.each([
+      ['payments.waiting', Permission.PAYMENT_RECORD, '/payments/online?tab=waiting'],
+      ['payments.onlineSettings', Permission.SETTINGS_MANAGE, '/settings?section=finance'],
+    ])('%s needs the right permission and lands on %s', (id, permission, to) => {
+      const action = byId(id);
+      expect(action?.permission).toBe(permission);
+      const calls: string[] = [];
+      action?.run({ navigate: (opts) => calls.push(opts.to) });
+      expect(calls).toEqual([to]);
+    });
+
+    it('Online payment settings is named in both languages', () => {
+      expect(byId('payments.onlineSettings')?.label).toEqual({
+        en: 'Online payment settings',
+        bn: 'অনলাইন পেমেন্টের সেটিংস',
+      });
+    });
+  });
+
   describe('[48.3.15] route ids reach run()', () => {
     const target = (id: string, params?: { studentId?: string; examId?: string }) => {
       let to = '';

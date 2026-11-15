@@ -195,6 +195,7 @@ import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/
 import { Route as StaffSupportAccessRequestsRequestIdRouteImport } from './routes/_staff/support-access/requests.$requestId'
 import { Route as StaffWebsiteBlogIndexRouteImport } from './routes/_staff/website/blog/index'
 import { Route as StaffWebsiteBlogPostIdRouteImport } from './routes/_staff/website/blog/$postId'
+import { Route as PortalFeesPayResultRouteImport } from './routes/portal/fees_/pay_/result'
 import { Route as StaffCommunicationsNoticesNoticeIdIndexRouteImport } from './routes/_staff/communications/notices/$noticeId/index'
 import { Route as StaffCommunicationsNoticesNoticeIdEditRouteImport } from './routes/_staff/communications/notices/$noticeId/edit'
 import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId'
@@ -1185,6 +1186,11 @@ const StaffWebsiteBlogPostIdRoute = StaffWebsiteBlogPostIdRouteImport.update({
   path: '/blog/$postId',
   getParentRoute: () => StaffWebsiteRoute,
 } as any)
+const PortalFeesPayResultRoute = PortalFeesPayResultRouteImport.update({
+  id: '/fees_/pay_/result',
+  path: '/fees/pay/result',
+  getParentRoute: () => PortalRoute,
+} as any)
 const StaffCommunicationsNoticesNoticeIdIndexRoute =
   StaffCommunicationsNoticesNoticeIdIndexRouteImport.update({
     id: '/communications/notices/$noticeId/',
@@ -1390,6 +1396,7 @@ export interface FileRoutesByFullPath {
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
   '/support-access/requests/$requestId': typeof StaffSupportAccessRequestsRequestIdRoute
   '/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
+  '/portal/fees/pay/result': typeof PortalFeesPayResultRoute
   '/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
   '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
@@ -1579,6 +1586,7 @@ export interface FileRoutesByTo {
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
   '/support-access/requests/$requestId': typeof StaffSupportAccessRequestsRequestIdRoute
   '/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
+  '/portal/fees/pay/result': typeof PortalFeesPayResultRoute
   '/academics/homework': typeof StaffAcademicsHomeworkIndexRoute
   '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants': typeof StaffAdmissionsApplicantsIndexRoute
@@ -1774,6 +1782,7 @@ export interface FileRoutesById {
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
   '/_staff/support-access/requests/$requestId': typeof StaffSupportAccessRequestsRequestIdRoute
   '/_staff/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
+  '/portal/fees_/pay_/result': typeof PortalFeesPayResultRoute
   '/_staff/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
   '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/_staff/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
@@ -1968,6 +1977,7 @@ export interface FileRouteTypes {
     | '/students/$studentId/edit'
     | '/support-access/requests/$requestId'
     | '/website/blog/$postId'
+    | '/portal/fees/pay/result'
     | '/academics/homework/'
     | '/academics/syllabus/'
     | '/admissions/applicants/'
@@ -2157,6 +2167,7 @@ export interface FileRouteTypes {
     | '/students/$studentId/edit'
     | '/support-access/requests/$requestId'
     | '/website/blog/$postId'
+    | '/portal/fees/pay/result'
     | '/academics/homework'
     | '/academics/syllabus'
     | '/admissions/applicants'
@@ -2351,6 +2362,7 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId_/edit'
     | '/_staff/support-access/requests/$requestId'
     | '/_staff/website/blog/$postId'
+    | '/portal/fees_/pay_/result'
     | '/_staff/academics/homework/'
     | '/_staff/academics/syllabus/'
     | '/_staff/admissions/applicants/'
@@ -3704,6 +3716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffWebsiteBlogPostIdRouteImport
       parentRoute: typeof StaffWebsiteRoute
     }
+    '/portal/fees_/pay_/result': {
+      id: '/portal/fees_/pay_/result'
+      path: '/fees/pay/result'
+      fullPath: '/portal/fees/pay/result'
+      preLoaderRoute: typeof PortalFeesPayResultRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/_staff/communications/notices/$noticeId/': {
       id: '/_staff/communications/notices/$noticeId/'
       path: '/communications/notices/$noticeId'
@@ -4117,6 +4136,7 @@ interface PortalRouteChildren {
   PortalNoticesNoticeIdRoute: typeof PortalNoticesNoticeIdRoute
   PortalApplicationsIndexRoute: typeof PortalApplicationsIndexRoute
   PortalNoticesIndexRoute: typeof PortalNoticesIndexRoute
+  PortalFeesPayResultRoute: typeof PortalFeesPayResultRoute
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
@@ -4140,6 +4160,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalNoticesNoticeIdRoute: PortalNoticesNoticeIdRoute,
   PortalApplicationsIndexRoute: PortalApplicationsIndexRoute,
   PortalNoticesIndexRoute: PortalNoticesIndexRoute,
+  PortalFeesPayResultRoute: PortalFeesPayResultRoute,
 }
 
 const PortalRouteWithChildren =

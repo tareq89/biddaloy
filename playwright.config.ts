@@ -225,6 +225,8 @@ export default defineConfig({
           env: {
             NODE_ENV: 'test',
             OUTBOUND_TEST_ALLOW_LOOPBACK: 'true',
+            // [#3997] The fake bKash of e2e/fixtures/bkash-stub.ts (same seam, same port).
+            BKASH_TEST_BASE_URL: 'http://127.0.0.1:38417/v1.2.0-beta',
             SITE_ROOT_DOMAIN: 'sites.e2e.test',
           },
         },
