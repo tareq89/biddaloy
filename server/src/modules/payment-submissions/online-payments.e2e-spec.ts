@@ -129,7 +129,7 @@ describe('Online payments (E2E)', () => {
           password: 'p',
         },
       }).expect(200);
-      await call('post', TEST_URL, admin).expect(201);
+      await call('post', TEST_URL, admin).expect(200);
       await patch({ onlineEnabled: true }).expect(200);
 
       const theirs = await fix.bill(fix.fx.studentB, 200);
