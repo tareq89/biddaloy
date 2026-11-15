@@ -295,6 +295,26 @@ describe('route transition scoping ([8.14.5])', () => {
   });
 });
 
+describe('expressive motion tokens ([3329.1.02])', () => {
+  const rootBodies = () => [...globalsCss().matchAll(/:root\s*{([^}]*)}/g)].map((m) => m[1] ?? '');
+
+  it('declares expand and confirm in a plain :root', () => {
+    const bodies = rootBodies();
+    expect(bodies.some((b) => b.includes('--motion-duration-expand: 350ms;'))).toBe(true);
+    expect(bodies.some((b) => b.includes('--motion-duration-confirm: 470ms;'))).toBe(true);
+  });
+
+  it('zeroes every --motion-duration-* under prefers-reduced-motion', () => {
+    const css = globalsCss();
+    const names = [...new Set([...css.matchAll(/(--motion-duration-[a-z-]+):/g)].map((m) => m[1]))];
+    const block = css
+      .split('@media (prefers-reduced-motion: reduce)')
+      .find((chunk) => chunk.includes('--motion-duration-expand: 0ms;'));
+    expect(block).toBeDefined();
+    for (const n of names) expect(block).toContain(`${n}: 0ms;`);
+  });
+});
+
 describe('chart tokens (8.10.7)', () => {
   const names = ['cat-1', 'cat-2', 'cat-3', 'seq-1', 'seq-2', 'seq-3'];
   const split = () => {

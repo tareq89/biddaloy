@@ -535,6 +535,11 @@ body[data-scroll-locked] {
    * component, so it stays subject to the same "no hard-coded timing"
    * rule as everything else here. */
   --motion-duration-route-progress: 1s;
+  /* [3329.1.02] Expressive durations: `expand` = a panel/section opening or
+   * a number rolling to its value; `confirm` = the success tick. Longer than
+   * `slow` on purpose — they are feedback, not transitions. */
+  --motion-duration-expand: 350ms;
+  --motion-duration-confirm: 470ms;
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* enter and move */
   --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1); /* exit */
 }
@@ -951,5 +956,22 @@ body[data-scroll-locked] {
   ::view-transition-new(*) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+/**
+ * [3329.1.02] Zero every duration token too, so JS that reads a token
+ * (RollingNumber) sees 0, not just the CSS properties the blanket rule above
+ * collapses. Its own block: check-contrast matches the blanket rule by its
+ * contents.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-fast: 0ms;
+    --motion-duration-base: 0ms;
+    --motion-duration-slow: 0ms;
+    --motion-duration-route-progress: 0ms;
+    --motion-duration-expand: 0ms;
+    --motion-duration-confirm: 0ms;
   }
 }
