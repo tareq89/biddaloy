@@ -87,6 +87,7 @@ GET /admission/applicants/:id/documents/:type | ApplicantReviewController | perm
 GET /admission/applicants/:id/guardian-match | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/fee-proofs | AdmissionFeeController | perm: ADMISSION_REVIEW
 GET /admission/fee-proofs/:id/attachment | AdmissionFeeController | perm: ADMISSION_REVIEW
+GET /admission/intakes/:id/lists | AdmissionListController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 GET /applications/:id | ApplicationsController | perm: APPLICATION_SUBMIT
@@ -519,6 +520,7 @@ PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
 PATCH /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
 PATCH /admission-intakes/:id/close | IntakeController | perm: ADMISSION_REVIEW
 PATCH /admission-intakes/:id/stages/:stageId | IntakeController | perm: ADMISSION_REVIEW
+PATCH /admission/lists/:id/members | AdmissionListController | perm: ADMISSION_REVIEW
 PATCH /admission/stages/:id/schedule | AdmissionRollController | perm: ADMISSION_REVIEW
 PATCH /attendance/arrival-subscriptions/:id | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_MANAGE
 PATCH /attendance/arrival-subscriptions/:id/lock | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_LOCK
@@ -614,7 +616,11 @@ POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMI
 POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/confirm | AdmissionFeeController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/send-back | AdmissionFeeController | perm: ADMISSION_REVIEW
+POST /admission/intakes/:id/lists/merit | AdmissionListController | perm: ADMISSION_REVIEW
+POST /admission/intakes/:id/lists/waiting | AdmissionListController | perm: ADMISSION_REVIEW
 POST /admission/intakes/:id/rolls | AdmissionRollController | perm: ADMISSION_REVIEW
+POST /admission/lists/:id/activate | AdmissionListController | perm: ADMISSION_REVIEW
+POST /admission/lists/:id/expire-pending | AdmissionListController | perm: ADMISSION_REVIEW
 POST /admission/stages/:id/cutoff/commit | AdmissionStageResultController | perm: ADMISSION_REVIEW
 POST /admission/stages/:id/cutoff/preview | AdmissionStageResultController | perm: ADMISSION_REVIEW
 POST /admission/stages/:id/lottery/draw | AdmissionLotteryController | perm: ADMISSION_REVIEW

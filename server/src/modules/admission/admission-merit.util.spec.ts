@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { meritOrder, toHundredths, type MeritRow } from './admission-merit.util';
+import {
+  DEFAULT_TIE_BREAK,
+  meritOrder,
+  resolveTieBreak,
+  toHundredths,
+  type MeritRow,
+} from './admission-merit.util';
 
 const row = (
   id: string,
@@ -61,5 +67,17 @@ describe('toHundredths', () => {
     expect(toHundredths('1.234')).toBeNull();
     expect(toHundredths('abc')).toBeNull();
     expect(toHundredths(null)).toBeNull();
+  });
+});
+
+describe('resolveTieBreak', () => {
+  it('returns a valid configured order', () => {
+    expect(resolveTieBreak({ tie_break: ['APPLIED_AT', 'DOB'] })).toEqual(['APPLIED_AT', 'DOB']);
+  });
+  it('falls back to the default on a bad, empty or missing config', () => {
+    expect(resolveTieBreak({ tie_break: ['NOPE'] })).toBe(DEFAULT_TIE_BREAK);
+    expect(resolveTieBreak({ tie_break: [] })).toBe(DEFAULT_TIE_BREAK);
+    expect(resolveTieBreak({})).toBe(DEFAULT_TIE_BREAK);
+    expect(resolveTieBreak(null)).toBe(DEFAULT_TIE_BREAK);
   });
 });

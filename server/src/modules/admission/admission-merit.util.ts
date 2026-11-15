@@ -33,6 +33,20 @@ export function toHundredths(value: string | number | null | undefined): number 
   return cents;
 }
 
+/** The stage's configured tie-break when valid, else the D23 default. */
+export function resolveTieBreak(
+  config: Record<string, unknown> | null | undefined,
+): readonly TieBreakKey[] {
+  const configured = config?.tie_break;
+  if (
+    Array.isArray(configured) &&
+    configured.length > 0 &&
+    configured.every((k) => TIE_BREAK_KEYS.includes(k as TieBreakKey))
+  )
+    return configured as TieBreakKey[];
+  return DEFAULT_TIE_BREAK;
+}
+
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** Higher score first; every tie-break key in order; `applicant_id` last so a full tie is stable. */

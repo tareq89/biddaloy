@@ -3119,6 +3119,10 @@ describe('workbook round trip (integration)', () => {
           order_by: 'MERIT',
           active: true,
           published_at: new Date('2026-03-02T04:00:00.000Z'),
+          capacity: 30,
+          act_by_date: '2026-03-12',
+          activated_at: new Date('2026-03-02T04:00:00.000Z'),
+          filter: { gender: 'FEMALE' },
         }),
       );
       const waiting = await lists.save(
@@ -3130,6 +3134,8 @@ describe('workbook round trip (integration)', () => {
           order_by: 'MANUAL',
           active: false,
           published_at: null,
+          capacity: 5,
+          act_by_date: '2026-03-20',
         }),
       );
       const members = dataSource.getRepository(AdmissionListMember);

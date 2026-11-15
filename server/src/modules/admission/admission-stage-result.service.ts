@@ -6,9 +6,8 @@ import { AdmissionStage } from './entities/admission-stage.entity';
 import { AdmissionStageResult } from './entities/admission-stage-result.entity';
 import { AdmissionStageService } from './admission-stage.service';
 import {
-  DEFAULT_TIE_BREAK,
-  TIE_BREAK_KEYS,
   meritOrder,
+  resolveTieBreak,
   toHundredths,
   type MeritRow,
   type TieBreakKey,
@@ -76,14 +75,7 @@ export class AdmissionStageResultService {
   }
 
   private tieBreak(stage: AdmissionStage): readonly TieBreakKey[] {
-    const configured = stage.config?.tie_break;
-    if (
-      Array.isArray(configured) &&
-      configured.length > 0 &&
-      configured.every((k) => TIE_BREAK_KEYS.includes(k as TieBreakKey))
-    )
-      return configured as TieBreakKey[];
-    return DEFAULT_TIE_BREAK;
+    return resolveTieBreak(stage.config);
   }
 
   /**

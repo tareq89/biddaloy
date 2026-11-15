@@ -73,6 +73,41 @@ describe('admission pipeline tabs', () => {
     expect(admissionListMembersTab.keyOf({ list_key: list, applicant_key: 'A' })).toBe(`${list}|A`);
   });
 
+  it('lists: scheduling columns are read, a negative capacity or non-object filter is a row error', () => {
+    const refs = { 'admission_intakes/I': ID };
+    const base = {
+      id: ID,
+      intake: 'I',
+      kind: 'WAITING',
+      sequence: '1',
+      order_by: 'MANUAL',
+      active: 'false',
+      published_at: '',
+      act_by_date: '2026-03-20',
+      activated_at: '',
+    };
+    const ok = admissionListsTab.fromRow(
+      { ...base, capacity: '5', filter: '{"gender":"FEMALE"}' },
+      2,
+      ctx(refs),
+    );
+    expect(ok).toMatchObject({
+      row: { capacity: 5, act_by_date: '2026-03-20', filter: { gender: 'FEMALE' } },
+    });
+    const negative = admissionListsTab.fromRow(
+      { ...base, capacity: '-1', filter: '{}' },
+      2,
+      ctx(refs),
+    );
+    expect('errors' in negative && negative.errors[0].column).toBe('capacity');
+    const badFilter = admissionListsTab.fromRow(
+      { ...base, capacity: '5', filter: '[1]' },
+      2,
+      ctx(refs),
+    );
+    expect('errors' in badFilter && badFilter.errors[0].column).toBe('filter');
+  });
+
   it('fee proofs: a key outside the school folder is rejected without echoing it', () => {
     const refs = { 'admission_applicants/A': ID };
     const r = admissionFeeProofsTab.fromRow(

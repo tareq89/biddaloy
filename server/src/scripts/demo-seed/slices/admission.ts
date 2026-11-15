@@ -101,7 +101,9 @@ export const slice: DemoSlice = {
       const cur = t.years[t.years.length - 1];
       const klass = cur.classes.find((c) => c.numericGrade === INTAKE_GRADE[t.kind]);
       if (!klass)
-        throw new Error(`demo-seed admission: no grade ${INTAKE_GRADE[t.kind]} class for ${t.kind}`);
+        throw new Error(
+          `demo-seed admission: no grade ${INTAKE_GRADE[t.kind]} class for ${t.kind}`,
+        );
       const age = APPLICANT_AGE[t.kind];
       const seenChild = new Set<string>();
 
@@ -259,6 +261,10 @@ export const slice: DemoSlice = {
             order_by: template.stages[template.stages.length - 1].order,
             active: true,
             published_at: stamp(addDays(ctx.anchor, -2), 10),
+            capacity: Math.min(ranked.length, 40),
+            act_by_date: addDays(ctx.anchor, 3),
+            activated_at: stamp(addDays(ctx.anchor, -2), 10),
+            filter: {},
           });
           ranked.forEach((a, i) =>
             members.push({
