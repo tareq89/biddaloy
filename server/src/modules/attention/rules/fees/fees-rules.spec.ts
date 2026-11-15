@@ -5,6 +5,7 @@ import { FeesOverdueRisingRule } from './fees-overdue-rising.rule';
 import { FeesRemindersPendingRule } from './fees-reminders-pending.rule';
 import { FeesStructureMissingNewYearRule } from './fees-structure-missing-new-year.rule';
 import { FeesUnassignedStudentsRule } from './fees-unassigned-students.rule';
+import { PaymentProofsWaitingRule } from './payment-proofs-waiting.rule';
 
 const ACCOUNTANT = { userId: 'u1', role: UserRole.ACCOUNTANT };
 
@@ -35,6 +36,7 @@ describe('fees rules: shared contract', () => {
   const rules = [
     ['fees.overdue_rising', new FeesOverdueRisingRule(ds([]) as never)],
     ['fees.reminders_pending', new FeesRemindersPendingRule(ds([]) as never)],
+    ['fees.payment_proofs_waiting', new PaymentProofsWaitingRule(ds([]) as never)],
     ['fees.unassigned_students', new FeesUnassignedStudentsRule(ds([]) as never)],
     ['fees.structure_missing_new_year', new FeesStructureMissingNewYearRule(ds([]) as never)],
   ] as const;
@@ -127,5 +129,38 @@ describe('FeesStructureMissingNewYearRule', () => {
       ctx({ localDate: '2026-11-02' }),
     );
     expect(d.query.mock.calls[0][1]).toEqual(['t1', '2027-01-01']);
+  });
+});
+
+describe('PaymentProofsWaitingRule', () => {
+  const day = 24 * 3600_000;
+  const row = (count: number, ageMs: number) => [
+    { count, oldest: new Date(ctx().now.getTime() - ageMs) },
+  ];
+
+  it('zero waiting is silent', async () => {
+    const rule = new PaymentProofsWaitingRule(ds([{ count: 0, oldest: null }]) as never);
+    expect(await rule.evaluate(ctx())).toEqual([]);
+  });
+
+  it('one fresh proof keeps the catalogue default (amber) and links to the waiting tab', async () => {
+    const rule = new PaymentProofsWaitingRule(ds(row(1, day / 2)) as never);
+    const [f] = await rule.evaluate(ctx());
+    expect(f.severity).toBeUndefined();
+    expect(f.params).toEqual({ count: 1 });
+    expect(f.actionUrl).toBe('/payments/online?tab=waiting');
+  });
+
+  it('oldest proof 3 days old is red (D30)', async () => {
+    const rule = new PaymentProofsWaitingRule(ds(row(2, 3 * day)) as never);
+    const [f] = await rule.evaluate(ctx());
+    expect(f.severity).toBe('CRITICAL');
+  });
+
+  it('counts only this tenant: the query is bound to ctx.tenantId', async () => {
+    const d = ds(row(1, day));
+    await new PaymentProofsWaitingRule(d as never).evaluate(ctx({ tenantId: 'tenant-x' }));
+    const call = d.query.mock.calls.find((c) => String(c[0]).includes('payment_submissions'))!;
+    expect(call[1]).toEqual(['tenant-x']);
   });
 });

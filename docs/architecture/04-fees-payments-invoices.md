@@ -553,6 +553,60 @@ flowchart LR
 - **Surprise:** a new `PaymentsSettingsDto` and its nested DTOs change the OpenAPI file, so `ui/src/api/schema.d.ts` goes stale even though no route changed. Cost: `check-api-types` fails at the wave close. Fix: run `yarn api:types` at wave close (done in #3964). Rule candidate: any DTO change in a wave means the close ticket regenerates the types.
 - **Example:** a settings read now returns `payments: { onlineEnabled: false, proofEnabled: true, proofMethods: [{ method: "BKASH", instructions: "Send to 017XXXXXXXX" }] }`, with bKash secrets masked.
 
+### Learnings (Epic #291, Wave 2, 2026-11-14)
+
+Wave 2 made proofs real: a guardian files a proof, staff confirm it, and a normal Payment plus Invoice appears. The invoice, POS slip and public receipt now show a "How it was paid" block. The workbook backs up and restores the submission tabs.
+
+```mermaid
+sequenceDiagram
+  participant G as Guardian
+  participant P as proof routes
+  participant S as PaymentSubmissionSettlement
+  participant C as CheckoutService
+  G->>P: POST /portal/payment-proofs (TrxID or files)
+  P-->>G: submission PENDING
+  Note over S: staff confirm
+  S->>S: lock submission row only
+  S->>S: bill still open at the same balance?
+  alt balance changed or bill gone
+    S-->>G: DISCARDED, no payment
+  else unchanged
+    S->>C: checkout per student, key = hash(submission, student)
+    C-->>S: Payment + Invoice, received_by = NULL
+    S->>S: CONFIRMED + event row
+  end
+```
+
+- **Surprise:** the natural idempotency key `<submissionId>:<studentId>` is 73 characters, but `payments.idempotency_key` is `varchar(64)`. Cost: a key that would fail on insert. Fix: `settlementIdempotencyKey()` hashes the pair into a UUID-shaped string; the same pair always gives the same key. Rule candidate: derive idempotency keys by hashing, never by joining ids.
+- **Surprise:** "settle everything in one transaction" is impossible, because `CheckoutService` opens its own transaction and writes the invoice outside it. Cost: a crash can leave student 1 paid and student 2 not. Fix: settle locks only the submission row (never the bills, or it deadlocks with checkout), skips students who already have a payment under their key, and finishes the rest on retry. Once any payment exists, it never discards. Rule candidate: a multi-step money flow must be re-runnable, not atomic.
+- **Surprise:** a removed bill must not strand a guardian's money. Cost: `StudentFee` is soft-deleted from four places. Fix: one helper, `assertNoWaitingSubmissionBills`, called after the bill locks in each path; it answers `409 PAYMENT_SUBMISSION_WAITING` with a count only (Rule 23). A bill removed after submit discards the proof as `BILL_REMOVED`.
+- **Surprise:** there is no `AuditAction` for submissions and `shared/` was outside the lane. Cost: "who decided this" lives only in event rows. Fix: event rows are the record for now; follow-up #4212 adds the audit action. Rule candidate: add the audit action in the same wave that adds the state machine.
+- **Surprise:** the ticket's "created by" has no column on `Payment`. Fix: the actor is the audit `performed_by_user_id` and the event row `actor_user_id`; `received_by_user_id` stays NULL for a proof, so a guardian-paid receipt never names a cashier.
+- **Example:** a PROOF for two siblings (৳1000 + ৳700, bKash TrxID `8N7A5X`) settles into two Payments and two invoices. If a counter payment cleared the ৳700 bill first, the whole proof is `DISCARDED` with `discard_reason: BILL_ALREADY_PAID`, and nothing is paid.
+
+### Learnings (Epic #291, Wave 3, 2026-11-15)
+
+Wave 3 gave staff the review side: a queue and detail screen, confirm, reject and reopen, an attention alert, a push to the guardian, a "waiting" mark on the cashier's cart, and a demo school with proofs in every state.
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING: guardian submits
+  PENDING --> WITHDRAWN: guardian withdraws
+  PENDING --> CONFIRMED: staff confirm, bills still open
+  PENDING --> DISCARDED: staff confirm, bill paid at the counter first
+  PENDING --> REJECTED: staff reject with a reason
+  REJECTED --> PENDING: staff reopen, bills still free
+  CONFIRMED --> REVERSED: payment reversed from its receipt
+```
+
+- **Surprise:** a confirmed proof cannot be rejected, because its money is already a Payment. Cost: a second, hidden way to undo a payment. Fix: reject answers `409` with `details.code = PROOF_CONFIRMED_USE_REVERSAL` and the reversal listener (#3970) moves the proof to REVERSED when staff reverse the payment from the receipt. Rule candidate: one way to undo money, one place it is recorded.
+- **Surprise:** confirm can end as DISCARDED. Cost: the screen cannot assume "confirm means paid". Fix: `confirm` returns `{ outcome: 'SETTLED' | 'DISCARDED', paymentIds, detail }`; the UI reads `outcome`. Confirming a proof that is already CONFIRMED or DISCARDED replays the same answer (D27), so a double click is safe.
+- **Surprise:** reopen can collide. While a proof is REJECTED its bills are free, so the guardian may send a new proof for them. Cost: two waiting proofs on one bill. Fix: `reopen` checks for another PENDING proof on any of the bills and answers `409` ("Another payment proof is already waiting"). Rule candidate: a state that frees a lock must re-check the lock when it comes back.
+- **Surprise:** the duplicate-TrxID warning is computed, not stored on the proof. Cost: it looks stale if you read it from the row. Fix: the opening event keeps `reason_code` (`DUPLICATE_PAYMENT` or `DUPLICATE_PENDING`) for history, and `detail` recomputes `duplicateFlag` while the proof is PENDING. The flag never blocks a submit (D25).
+- **Surprise:** the review routes have no response DTO, so `schema.d.ts` holds the paths but not the shapes. Cost: UI hooks need hand-written types. Fix: `ui/src/hooks/payment-submissions.ts` declares them next to the hooks; replace them when the server adds DTOs. Rule candidate: a route with no `@ApiOkResponse` type is a contract gap, list it at wave close.
+- **Surprise:** the demo cannot reach DISCARDED by editing rows; it has to pay the bill first. Cost: the demo slice is order-sensitive. Fix: the `payment-submissions` slice files the proof, takes the counter payment through `CheckoutService`, then confirms through `ProofReviewService`. Login guardians are only about 5% of families, so a tiny CI run (`--scale 0.05`) may have too few open bills. The slice then files as many of its seven proofs as there are bills (at least one).
+- **Example:** guardian `guardian@bmsc.example` sends a bKash proof for ৳1,200 with TrxID `DM4K9XQ2LA`. Another family reuses `DM4K9XQ2LA`, so the accountant sees `DUPLICATE_PENDING` on the second one. The accountant confirms the first (one Payment, one invoice), rejects the second as `IMAGE_UNCLEAR`, and the guardian gets a push for each decision (push is off in the demo).
+
 ## Student statement
 
 A statement answers one question for one student: **what was charged, what was paid, and what is still owed after each line?** It is a coded report (Epic 8.15 D10), not a defined one, because it is a ledger. The code is `server/src/modules/fees/statement/student-statement.service.ts`; the numbers are the same ones the student's fees tab and the dues list show.

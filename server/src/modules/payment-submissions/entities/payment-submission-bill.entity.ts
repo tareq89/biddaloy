@@ -26,6 +26,7 @@ import { PaymentSubmission } from './payment-submission.entity';
 )
 @Index(['tenant_id'])
 @Index(['student_fee_id'])
+@Index('IDX_payment_submission_bills_tenant_payment', ['tenant_id', 'payment_id'])
 @Index(['submission_id', 'student_fee_id'], { unique: true })
 export class PaymentSubmissionBill {
   @PrimaryGeneratedColumn('uuid')
