@@ -25,7 +25,7 @@ const { Layout } = themes[site.theme] ?? themes.basic;
 const siteKey = process.env.TURNSTILE_SITE_KEY ?? import.meta.env?.TURNSTILE_SITE_KEY ?? '';
 const m = (k: string) => t(lang, `results.${k}`);
 const msgs = Object.fromEntries(
-  ['captcha', 'invalid', 'notfound', 'rate', 'error', 'empty', 'unavailable'].map((k) => [`data-m-${k}`, m(k)]),
+  ['captcha', 'invalid', 'notfound', 'rate', 'error', 'offline', 'empty', 'unavailable'].map((k) => [`data-m-${k}`, m(k)]),
 );
 const labels = Object.fromEntries(
   ['roll', 'name', 'gpa', 'grade', 'result', 'pass', 'fail', 'subjects'].map((k) => [`data-l-${k}`, m(k)]),
@@ -36,7 +36,7 @@ const labels = Object.fromEntries(
     <div class="sec-head"><h1>{t(lang, 'nav.results')}</h1></div>
     {exams.length === 0 ? <p class="empty">{m('none')}</p> : !siteKey ? <p class="empty">{m('unavailable')}</p> : (
       <div class="island" data-results data-lang={lang} data-sitekey={siteKey} data-exams={JSON.stringify(exams)}
-        data-pick={m('pick')} data-prev={m('prev')} data-next={m('next')} data-m-count={m('count')} {...msgs} {...labels}>
+        data-pick={m('pick')} data-prev={m('prev')} data-next={m('next')} data-m-count={m('count')} data-retry={m('retry')} {...msgs} {...labels}>
         <form class="results-form" novalidate>
           <label class="field"><span>{m('exam')}</span>
             <select name="exam" required>
