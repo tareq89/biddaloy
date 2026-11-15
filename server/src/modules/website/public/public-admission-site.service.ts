@@ -116,14 +116,14 @@ export class PublicAdmissionSiteService {
       [tenantId, a.id],
     )) as { title: string | null; kind: string; passed: boolean; score: string | null }[];
     const lists = (await this.dataSource.query(
-      `SELECT l.kind, l.sequence, m.position
+      `SELECT l.kind, l.sequence, m.position, to_char(l.act_by_date, 'YYYY-MM-DD') AS act_by_date
          FROM admission_list_members m
          JOIN admission_lists l ON l.id = m.list_id AND l.deleted_at IS NULL
         WHERE m.tenant_id = $1 AND m.applicant_id = $2 AND m.deleted_at IS NULL
           AND l.published_at IS NOT NULL
         ORDER BY l.sequence`,
       [tenantId, a.id],
-    )) as { kind: string; sequence: number; position: number }[];
+    )) as { kind: string; sequence: number; position: number; act_by_date: string | null }[];
     return {
       applicant_name: a.applicant_name,
       roll_number: a.roll_number,
@@ -172,7 +172,7 @@ export class PublicAdmissionSiteService {
     const rows = (await this.dataSource.query(
       `SELECT * FROM (
          SELECT i.id AS intake_id, i.title AS intake_title, i.show_names_publicly AS names,
-                l.id AS list_id, l.kind, l.sequence, m.position, a.roll_number, a.applicant_name,
+                l.id AS list_id, l.kind, l.sequence, to_char(l.act_by_date, 'YYYY-MM-DD') AS act_by_date, m.position, a.roll_number, a.applicant_name,
                 row_number() OVER (PARTITION BY l.id ORDER BY m.position) AS rn
            FROM admission_lists l
            JOIN admission_intakes i ON i.id = l.intake_id AND i.deleted_at IS NULL
@@ -188,6 +188,7 @@ export class PublicAdmissionSiteService {
       list_id: string;
       kind: string;
       sequence: number;
+      act_by_date: string | null;
       position: number;
       roll_number: string | null;
       applicant_name: string;
@@ -198,6 +199,7 @@ export class PublicAdmissionSiteService {
         id: string;
         kind: string;
         sequence: number;
+        act_by_date: string | null;
         intake_id: string;
         intake_title: string;
         members: { position: number; roll_number: string | null; applicant_name?: string }[];
@@ -208,6 +210,7 @@ export class PublicAdmissionSiteService {
         id: r.list_id,
         kind: r.kind,
         sequence: r.sequence,
+        act_by_date: r.act_by_date,
         intake_id: r.intake_id,
         intake_title: r.intake_title,
         members: [],

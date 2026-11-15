@@ -168,3 +168,63 @@ export async function submitApplication(
 
 /** Paisa -> whole taka text for the fee line. */
 export const taka = (paisa: number) => String(paisa / 100);
+
+// ---- Lookups (#4192): status, result, admit card, lists. No captcha; the server throttles. ----
+
+export interface StatusData { status: string; applicant_name: string; intake_title: string }
+export interface ResultData {
+  applicant_name: string;
+  roll_number: string | null;
+  intake_title: string;
+  status: string;
+  stages: { title: string; outcome: 'PASSED' | 'NOT_PASSED' }[];
+  /** `act_by_date` is optional: the by-host API does not send it yet. */
+  lists: { kind: string; sequence: number; position: number; act_by_date?: string | null }[];
+}
+export interface AdmitCardData {
+  applicant_name: string;
+  roll_number: string | null;
+  guardian_name: string;
+  date_of_birth: string | null;
+  intake_title: string;
+  schedule: { title: string; date: string; start_time: string | null; venue: string | null }[];
+}
+export interface PublishedList {
+  id: string;
+  kind: string;
+  sequence: number;
+  intake_title: string;
+  act_by_date?: string | null;
+  members: { position: number; roll_number: string | null; applicant_name?: string }[];
+}
+/** A wrong roll and a wrong phone are both `miss`: one sentence, never a hint which was wrong. */
+export type Lookup<T> = { kind: 'ok'; data: T } | { kind: 'miss' | 'rate' | 'down' | 'error' };
+
+async function call<T>(path: string, body: unknown | undefined, fetchImpl: typeof fetch): Promise<Lookup<T>> {
+  try {
+    const res = await fetchImpl(`/_api/admission/${path}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: { accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) return { kind: 'ok', data: (await res.json()) as T };
+    if (res.status === 400 || res.status === 404) return { kind: 'miss' };
+    if (res.status === 429) return { kind: 'rate' };
+    return { kind: res.status === 503 ? 'down' : 'error' };
+  } catch {
+    return { kind: 'error' };
+  }
+}
+
+/** Bangla digits count; the server compares case-insensitively and trims. */
+export const normalizeDigits = (s: string) => s.trim().replace(/[০-৯]/g, (c) => String(c.charCodeAt(0) - 0x09e6));
+
+export const fetchStatus = (reference: string, phone: string, f: typeof fetch = fetch) =>
+  call<StatusData>('status', { reference_number: normalizeDigits(reference), guardian_phone: normalizeDigits(phone) }, f);
+const rp = (roll: string, phone: string) => ({ roll_number: normalizeDigits(roll), guardian_phone: normalizeDigits(phone) });
+export const fetchResult = (roll: string, phone: string, f: typeof fetch = fetch) =>
+  call<ResultData>('result', rp(roll, phone), f);
+export const fetchAdmitCard = (roll: string, phone: string, f: typeof fetch = fetch) =>
+  call<AdmitCardData>('admit-card', rp(roll, phone), f);
+export const fetchLists = (f: typeof fetch = fetch) => call<PublishedList[]>('lists', undefined, f);
