@@ -27,9 +27,9 @@ describe('DemoInboxWarning', () => {
     const { container } = renderWithProviders(<DemoInboxWarning />, { locale: 'en' });
     expect(await screen.findByText(/Do not enter a real phone number/)).toBeTruthy();
     expect(container.querySelector('[data-tone="danger"]')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Open test inbox' }).getAttribute('href')).toBe(
-      'https://inbox-demo.example.com',
-    );
+    expect(
+      (await screen.findByRole('link', { name: 'Open test inbox' })).getAttribute('href'),
+    ).toBe('https://inbox-demo.example.com');
     expect(container.textContent?.toLowerCase()).not.toMatch(/sink|mailpit/);
   });
 
