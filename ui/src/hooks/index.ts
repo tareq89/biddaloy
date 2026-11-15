@@ -1282,10 +1282,18 @@ export { useIdempotencyKey } from './idempotency-key';
 export {
   useAdmissionApplicants,
   useAdmissionLists,
+  useAssignRolls,
+  useCommitCutoff,
   useConfirmFeeProof,
+  useCutoffPreview,
   useFeeProofs,
+  usePutStageResults,
   useSendBackFeeProof,
+  useSetStageSchedule,
+  useStageResults,
+  type CutoffPreview,
   type FeeProofList,
+  type StageResultRow,
 } from './admission-pipeline';
 export {
   admissionReportKeys,
