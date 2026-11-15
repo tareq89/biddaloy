@@ -100,4 +100,14 @@ describe('Payments settings (e2e)', () => {
     );
     expect(p).toBeNull();
   });
+
+  it('a well-formed X-Tenant-ID of an unknown school is refused and stores nothing', async () => {
+    const res = await patch(BODY, '00000000-0000-4000-8000-000000000000');
+    expect([401, 403]).toContain(res.status);
+    const [{ p }] = await dataSource.query(
+      `SELECT settings->'payments' AS p FROM schools WHERE id = $1`,
+      [SEED_TENANT_ID],
+    );
+    expect(p).toBeNull();
+  });
 });
