@@ -63,6 +63,8 @@ POST   /api/v1/admission/intakes/:id/rolls                                      
 POST   /api/v1/admission/lists/:id/activate                                      401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/lists/:id/expire-pending                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 PATCH  /api/v1/admission/lists/:id/members                                       401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission/reports/export/:kind                                    401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission/reports/funnel                                          401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/reports/lifecycle                                       401 401 PASS PASS PASS 403 403 403 403 PASS 403 403 403 admission
 POST   /api/v1/admission/stages/:id/cutoff/commit                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/stages/:id/cutoff/preview                               401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
