@@ -3,6 +3,7 @@ import { request, test as base } from '@playwright/test';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-contract';
 import { cockpitSignIn } from '../api';
 import { shells } from '../config';
+import { shared } from './school-lock';
 
 export { expect } from '@playwright/test';
 
@@ -144,7 +145,24 @@ export interface AuthOptions {
   e2eLocale: string;
 }
 
-export const test = base.extend<AuthOptions>({
+export const test = base.extend<
+  AuthOptions & { schoolSettingsShared: void; schoolSettingsMode: 'shared' | 'exclusive' }
+>({
+  // Every spec reads module visibility / the school's words, so each test holds the school-settings
+  // lock shared; the journeys that change them hold it exclusively (settings-lock.ts).
+  schoolSettingsMode: ['shared', { option: true }],
+  schoolSettingsShared: [
+    async ({ schoolSettingsMode }, use) => {
+      if (schoolSettingsMode === 'exclusive') return use();
+      await shared.acquireShared();
+      try {
+        await use();
+      } finally {
+        shared.releaseShared();
+      }
+    },
+    { auto: true, timeout: 5 * 60_000 + 30_000 },
+  ],
   e2eCockpit: [false, { option: true }],
   e2eRole: [null, { option: true }],
   e2eTenant: ['persisted', { option: true }],
