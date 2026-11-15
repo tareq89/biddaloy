@@ -19,17 +19,26 @@ export interface PaymentOrigin {
   paid_at: string | null;
 }
 
+/** Glossary names (docs/ux-research/3.0-online-payments-glossary.md); an unknown code prints as is. */
+const METHOD_NAMES: Record<string, string> = {
+  BKASH: 'bKash / বিকাশ',
+  NAGAD: 'Nagad / নগদ',
+  ROCKET: 'Rocket / রকেট',
+  CASH: 'Cash / নগদ টাকা',
+  CHEQUE: 'Cheque / চেক',
+  BANK_TRANSFER: 'Bank transfer / ব্যাংক ট্রান্সফার',
+  CARD: 'Card / কার্ড',
+};
+
 /** One `[label, value]` row per fact; values are raw text, escaped by the caller. */
 function originRows(o: PaymentOrigin, showVerifierName: boolean): [string, string][] {
-  const rows: [string, string][] = [
-    [o.source === 'ONLINE' ? 'Gateway / গেটওয়ে' : 'Method / মাধ্যম', o.method],
-  ];
-  if (o.trx_id) rows.push(['TrxID', o.trx_id]);
+  const rows: [string, string][] = [['Method / মাধ্যম', METHOD_NAMES[o.method] ?? o.method]];
+  if (o.trx_id) rows.push(['Transaction ID / লেনদেন নম্বর', o.trx_id]);
   if (o.source === 'PROOF') {
     if (o.submitted_at) rows.push(['Submitted on / জমার তারিখ', formatDate(o.submitted_at)]);
     if (o.verified_at) {
       rows.push([
-        'Verified / যাচাই',
+        'Confirmed / নিশ্চিত',
         showVerifierName && o.verified_by_name
           ? `by ${o.verified_by_name} on ${formatDate(o.verified_at)}`
           : `by the school on ${formatDate(o.verified_at)}`,

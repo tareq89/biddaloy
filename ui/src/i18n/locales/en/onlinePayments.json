@@ -90,8 +90,7 @@
     "confirmError": "Could not confirm. Nothing was changed. Try again.",
     "confirmed": "Confirmed.",
     "discarded": "This bill was paid already. The proof is discarded and no money moved.",
-    "notWaiting": "This proof is not waiting any more. Reload to see where it stands.",
-    "noPhone": "No phone number on file"
+    "notWaiting": "This proof is not waiting any more. Reload to see where it stands."
   },
   "reject": {
     "title": "Reject this payment proof",

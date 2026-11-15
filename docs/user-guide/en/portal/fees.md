@@ -295,7 +295,7 @@ Each card only appears when there is something to show.
 
 **Parent:** you see fees, invoices, fines and credit balance only for the children the school office has linked to you, and only at this school. If someone puts another student's ID in the address, the server still returns nothing.
 
-**Student:** you see only your own account. Paying and sending a payment proof are for a parent; a student does not have them. The **My payment proofs** tab also shows on a student's page, but it is meant for parents: the school's server gives a student no proofs, so it can show **Could not load your payment proofs.** Do not rely on it.
+**Student:** you see only your own account. Paying and sending a payment proof are for a parent; a student does not have them. The **My payment proofs** tab does not show on a student's page.
 
 The school's internal details (for example who took a payment) do not appear on this page.
 

@@ -266,11 +266,11 @@ describe('/portal/fees', () => {
     );
   }
 
-  function renderFees(path = '/portal/fees', locale = 'en') {
+  function renderFees(path = '/portal/fees', locale = 'en', role = 'PARENT') {
     return renderWithRouter(routeTree, {
       initialEntries: [path],
       tenantId: 'tenant-1',
-      role: 'PARENT',
+      role,
       locale,
     });
   }
@@ -906,6 +906,16 @@ describe('/portal/fees', () => {
       await userEvent.click(screen.getByRole('tab', { name: 'Fees and invoices' }));
       expect(await screen.findByText('September 2025')).toBeTruthy();
       await waitFor(() => expect(router.state.location.search).not.toHaveProperty('tab'));
+    });
+  });
+
+  describe('proofs tab role gate', () => {
+    it('hides the tab from a STUDENT and ignores ?tab=proofs', async () => {
+      standardMocks();
+      renderFees('/portal/fees?tab=proofs', 'en', 'STUDENT');
+
+      expect(await screen.findByText('September 2025')).toBeTruthy();
+      expect(screen.queryByRole('tab', { name: 'My payment proofs' })).toBeNull();
     });
   });
 

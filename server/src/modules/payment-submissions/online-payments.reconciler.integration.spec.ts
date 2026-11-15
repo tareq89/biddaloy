@@ -50,7 +50,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
       ageMin?: number;
       paymentId?: string | null;
       amount?: number;
-      status?: 'PENDING' | 'EXPIRED';
+      status?: 'PENDING' | 'EXPIRED' | 'CANCELLED';
     } = {},
   ) => {
     const amount = opts.amount ?? 500;
@@ -194,7 +194,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     ).toHaveLength(1);
   });
 
-  it.each(['PENDING', 'EXPIRED'] as const)(
+  it.each(['PENDING', 'EXPIRED', 'CANCELLED'] as const)(
     '%s row: wrong currency or wrong paymentID is not settled',
     async (status) => {
       const id = await online({ status, ageMin: status === 'PENDING' ? 5 : 60 });
@@ -240,6 +240,57 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     for (const id of [failed, old, unstarted]) expect((await row(id)).status).toBe('EXPIRED');
     expect(query).toHaveBeenCalledTimes(1); // only the young one with a paymentID
     expect(await payments()).toBe(0);
+  });
+
+  it('late payment: CANCELLED row with a paymentID, under 72 h, is settled once; a rerun adds no second payment', async () => {
+    const id = await online({ status: 'CANCELLED', ageMin: 60 });
+    query.mockResolvedValue(await completed(id));
+    await rec.process();
+    await rec.process();
+    expect((await row(id)).status).toBe('COMPLETED');
+    expect(await payments()).toBe(1);
+  });
+
+  it('CANCELLED rows stay put when bKash did not complete, or the payment is old or never started', async () => {
+    const failed = await online({ status: 'CANCELLED', ageMin: 60 });
+    const old = await online({ status: 'CANCELLED', ageMin: 73 * 60 });
+    const unstarted = await online({ status: 'CANCELLED', ageMin: 60, paymentId: null });
+    query.mockImplementation(async (pid: string) =>
+      pid === (await pidOf(failed)) ? { transactionStatus: 'Failed' } : completed(old),
+    );
+    await rec.process();
+    for (const id of [failed, old, unstarted]) expect((await row(id)).status).toBe('CANCELLED');
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(await payments()).toBe(0);
+  });
+
+  it('late CANCELLED payment with a wrong amount or another invoice is not settled', async () => {
+    const id = await online({ status: 'CANCELLED', ageMin: 60 });
+    query.mockResolvedValue(await completed(id, '499.99'));
+    await rec.process();
+    query.mockResolvedValue(await completed(id, '500.00', { merchantInvoiceNumber: randomUUID() }));
+    await rec.process();
+    expect((await row(id)).status).toBe('CANCELLED');
+    expect(await payments()).toBe(0);
+  });
+
+  it('a CANCELLED row of another tenant is never asked while this tenant is reconciled', async () => {
+    await ds.query(
+      `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, amount,
+         provider, environment, provider_payment_id) VALUES ($1,'ONLINE','CANCELLED',$2,10,'BKASH','SANDBOX','PID-A')`,
+      [otherTenant, fix.parent.id],
+    );
+    const id = await online({ status: 'CANCELLED', ageMin: 60 });
+    query.mockResolvedValue(await completed(id));
+    await rec.process();
+    expect((await row(id)).status).toBe('COMPLETED');
+    expect(
+      query.mock.calls.every((c) => c[1].tenantId === SEED_TENANT_ID || c[0] === 'PID-A'),
+    ).toBe(true);
+    const [a] = await ds.query(`SELECT status FROM payment_submissions WHERE tenant_id=$1`, [
+      otherTenant,
+    ]);
+    expect(a.status).toBe('CANCELLED');
   });
 
   it('late EXPIRED payment with a wrong amount is not settled', async () => {
