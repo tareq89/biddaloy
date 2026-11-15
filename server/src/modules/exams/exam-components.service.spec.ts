@@ -37,6 +37,16 @@ function createComponentRepoStub(existing: ExamComponent[] = [], examRepo?: any,
     transaction: vi.fn(async (cb: any) =>
       cb({
         getRepository: (e: any) => (e === Exam ? examRepo : e === Mark ? markRepo : repo),
+        // shareLockLive's subject lock (#2715): one live subject found.
+        createQueryBuilder: () => {
+          const qb: any = {
+            setLock: () => qb,
+            where: () => qb,
+            select: () => qb,
+            getMany: async () => [{ id: 'subj-1' }],
+          };
+          return qb;
+        },
       }),
     ),
   };

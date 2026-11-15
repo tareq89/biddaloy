@@ -937,7 +937,10 @@ export class FeeGenerationService {
       where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
       ...(opts.lockStudents ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
-    if (students.length !== new Set(studentIds).size && !opts.skipMissingStudents) {
+    // An unattended run bills the students that are left, but when every one of them vanished it
+    // fails (the caller rolls back): an empty batch must not be written and the period advanced.
+    const allowMissing = opts.skipMissingStudents && students.length > 0;
+    if (students.length !== new Set(studentIds).size && !allowMissing) {
       throw new NotFoundException('One or more student IDs not found');
     }
 

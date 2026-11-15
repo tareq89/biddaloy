@@ -90,7 +90,7 @@ Searching does not submit anything, so there is no three-state list here. When t
 
    → Results appear under **Students**, **Guardians**, **Staff**, [**Invoices**](../finance/invoices.md) and **Receipts**.
 
-3. Tap the one you want. → Their page opens.
+3. Tap the one you want. → Their page opens. For a receipt, the student who paid opens.
 
 Only people who can see student information get the **People** tab. If you cannot, the window shows only **Page** and **Action**.
 

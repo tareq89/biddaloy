@@ -21087,11 +21087,16 @@ export interface components {
             group_name: string | null;
             result: components["schemas"]["PromotionGroupResultDto"];
         };
+        PromotionGroupSectionDto: {
+            id: string;
+            name: string;
+        };
         PromotionGroupEntriesPageDto: {
             data: components["schemas"]["PromotionGroupEntryDto"][];
             total: number;
             page: number;
             limit: number;
+            sections: components["schemas"]["PromotionGroupSectionDto"][];
         };
         SetPromotionGroupsDto: {
             entry_ids: string[];

@@ -315,6 +315,14 @@ export class RestoreProcessor extends WorkerHost {
               // that refers to them, so one shared person does not fail the whole restore.
               const skippedKey = tab.keyOf(rawRow as never);
               skippedRefs.add(`${tab.name}:${skippedKey}`);
+              // The skipped row's existing record is still named in the file, so removal by
+              // absence must not take it (it would be soft-deleted for a row we only skipped).
+              const skippedId: unknown = (rawRow as { id?: unknown }).id;
+              const skippedExisting =
+                (typeof skippedId === 'string' ? existingById.get(skippedId) : undefined) ??
+                existingByKey.get(skippedKey);
+              const skippedExistingId = (skippedExisting as { id?: unknown } | undefined)?.id;
+              if (typeof skippedExistingId === 'string') matchedIds.add(skippedExistingId);
               this.logger.warn(
                 `RestoreProcessor: restore ${row.id} skipped a "${tab.name}" row (${skippedKey}): ${err.message}`,
               );
