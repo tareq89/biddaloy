@@ -33,8 +33,8 @@ export class AdmissionListsFeed implements Feed {
         WHERE l.tenant_id = $1 AND l.deleted_at IS NULL AND i.deleted_at IS NULL
           AND l.published_at IS NOT NULL
         ORDER BY l.published_at DESC, l.id
-        LIMIT ${MAX_LISTS}`,
-      [tenantId],
+        LIMIT $2`,
+      [tenantId, MAX_LISTS],
     );
     if (lists.length === 0) return [];
     // row_number per list, so one big list never starves another (cap is per list).

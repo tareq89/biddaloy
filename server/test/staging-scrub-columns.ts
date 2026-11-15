@@ -49,7 +49,7 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
       'home_address',
       'date_of_birth',
     ],
-    null: ['documents'],
+    null: ['documents', 'extra_fields', 'quota_tags'],
     'kept-public': ['reference_number', 'gender', 'status'],
   },
   applications: {
@@ -224,7 +224,22 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   grading_bands: { 'kept-public': ['comment'] },
   academic_terms: { 'kept-public': ['name'] },
   designations: { 'kept-public': ['title_bn', 'title_en'] },
-  admission_intakes: { 'kept-public': ['required_document_types', 'title'] },
+  // [71] school-level config (pay methods, form layout, channels, tie-break rules): no person data.
+  admission_intakes: {
+    'kept-public': [
+      'required_document_types',
+      'title',
+      'fee_pay_methods',
+      'form_fields',
+      'publish_channels',
+      'tie_break',
+    ],
+  },
+  // [71] list filter and stage title/config are school-level rules; results/proofs carry free text.
+  admission_lists: { 'kept-public': ['filter'] },
+  admission_stages: { 'kept-public': ['title', 'config'] },
+  admission_stage_results: { null: ['remarks'] },
+  admission_fee_proofs: { null: ['reference', 'reason'] },
   rooms: { 'kept-public': ['room_no'] },
   surveys: { 'kept-public': ['title'] },
   survey_questions: { 'kept-public': ['text'] },

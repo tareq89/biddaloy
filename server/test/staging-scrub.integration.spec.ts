@@ -533,5 +533,5 @@ describe('scrub.sql', () => {
       await qr?.rollbackTransaction();
       await qr?.release();
     }
-  });
+  }, 60_000); // one big transaction over every checked table; 5s default is too tight
 });

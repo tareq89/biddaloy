@@ -90,7 +90,9 @@ UPDATE admission_applicants SET
     * CASE WHEN ('x' || substr(md5(id::text), 7, 1))::bit(4)::int < 8 THEN 1 ELSE -1 END),
   guardian_email = CASE WHEN guardian_email IS NULL THEN NULL ELSE 'a-' || id::text || '@staging.invalid' END,
   home_address = CASE WHEN home_address IS NULL THEN NULL ELSE 'Address ' || left(id::text, 4) END,
-  documents = '[]'::jsonb;
+  documents = '[]'::jsonb,
+  extra_fields = '{}'::jsonb,
+  quota_tags = '[]'::jsonb;
 
 UPDATE applications SET
   applicant_name = CASE WHEN applicant_name IS NULL THEN NULL ELSE 'Person ' || left(id::text, 4) END,
@@ -239,6 +241,8 @@ UPDATE alerts SET manual_body = NULL,
 
 UPDATE acr_assessments SET step1_data = NULL, step3_data = NULL;
 UPDATE admission_evaluations SET notes = '[scrubbed]';
+UPDATE admission_stage_results SET remarks = NULL;
+UPDATE admission_fee_proofs SET reference = NULL, reason = NULL;
 UPDATE attendance_records SET remarks = NULL;
 UPDATE leave_records SET reason = NULL;
 UPDATE lesson_deliveries SET note = NULL;

@@ -123,6 +123,12 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   // [27.1] admission_evaluations references admission_applicants;
   // admission_applicants references admission_intakes; admission_intakes
   // references class_sections. All must clear before class_sections below.
+  // [71] pipeline tables; every FK to applicants/intakes/stages/lists is CASCADE, children first.
+  'admission_stage_results',
+  'admission_stages',
+  'admission_list_members',
+  'admission_lists',
+  'admission_fee_proofs',
   'admission_evaluations',
   'admission_applicants',
   'admission_intakes',
