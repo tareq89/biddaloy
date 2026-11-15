@@ -407,6 +407,27 @@ describe('PaymentSubmissionSettlement (integration)', () => {
       expect(await payCount()).toBe(before);
     });
 
+    it('discards when the balance grows after the pre-check but before the checkout lock', async () => {
+      const s1 = await mkStudent();
+      const b1 = await mkBill(s1.id, 1000);
+      const sub = await mkSubmission([b1]);
+      const before = await payCount();
+      const real = checkout.checkout.bind(checkout);
+      const spy = vi.spyOn(checkout, 'checkout').mockImplementation(async (...args) => {
+        await feeRepo.update(b1.id, { total_amount: 1500 }); // bill raised in between
+        return real(...args);
+      });
+      try {
+        const res = await strict(sub.id);
+
+        expect(res.outcome).toBe('DISCARDED');
+        expect((await reload(sub.id)).discard_reason).toBe('BALANCE_CHANGED');
+        expect(await payCount()).toBe(before);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
     it('reopens a REJECTED proof and settles it', async () => {
       const s1 = await mkStudent();
       const b1 = await mkBill(s1.id, 1000);

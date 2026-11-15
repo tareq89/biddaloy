@@ -60,7 +60,11 @@ function errorCode(err: unknown): string | undefined {
 /** A checkout lost a race for the bill balance (a counter payment landed in between). */
 function isBalanceRace(err: unknown): boolean {
   const code = errorCode(err);
-  return code === 'CHECKOUT_FEE_SETTLED' || code === 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE';
+  return (
+    code === 'CHECKOUT_FEE_SETTLED' ||
+    code === 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE' ||
+    code === 'CHECKOUT_BALANCE_CHANGED'
+  );
 }
 
 const SETTLEABLE: Record<PaymentSubmissionSource, PaymentSubmissionStatus[]> = {
@@ -227,6 +231,7 @@ export class PaymentSubmissionSettlement {
           lines,
           sub.method as PaymentMethod,
           sub.reference_normalised,
+          true,
         );
         paymentByStudent.set(s, res);
       } catch (err) {
@@ -359,6 +364,8 @@ export class PaymentSubmissionSettlement {
     lines: { student_fee_id: string; amount: number }[],
     method: PaymentMethod,
     reference: string | null,
+    // Strict: the bill must still owe exactly what the guardian paid, checked under the bill lock.
+    exactBalance = false,
   ): Promise<Payment> {
     const { sub, tenantId, actorUserId } = ctx;
     const dto = {
@@ -374,7 +381,7 @@ export class PaymentSubmissionSettlement {
       actorUserId,
       { headers: {}, currentTenant: { id: tenantId }, user: { sub: actorUserId } },
       undefined,
-      { receivedByUserId: null },
+      { receivedByUserId: null, exactBalance },
     );
     return res.payment;
   }

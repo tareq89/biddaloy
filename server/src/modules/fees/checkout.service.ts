@@ -114,7 +114,8 @@ export class CheckoutService {
     request: RequestLike,
     meta?: CheckoutMeta,
     /** `receivedByUserId: null` = nobody at the counter took it (a settled guardian payment, D39). */
-    opts?: { receivedByUserId?: string | null },
+    /** `exactBalance` = each line must equal its bill's balance under the lock (a settlement). */
+    opts?: { receivedByUserId?: string | null; exactBalance?: boolean },
   ): Promise<CheckoutResultDto> {
     const existing = await this.findByIdempotencyKey(tenantId, dto.idempotency_key);
     if (existing) {
@@ -224,6 +225,12 @@ export class CheckoutService {
             throw new BadRequestException({
               message: 'The amount is more than the outstanding balance',
               details: { code: 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE' },
+            });
+          }
+          if (opts?.exactBalance && requestedPaisa !== balancePaisa) {
+            throw new ConflictException({
+              message: 'The balance changed',
+              details: { code: 'CHECKOUT_BALANCE_CHANGED' },
             });
           }
         }
