@@ -1,6 +1,71 @@
 {
   "desk": {
-    "title": "ভর্তি ডেস্ক"
+    "title": "ভর্তি ডেস্ক",
+    "loading": "রাউন্ড লোড হচ্ছে…",
+    "loadError": "রাউন্ড লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "statusOpen": "চলমান",
+    "statusClosed": "বন্ধ",
+    "facts": {
+      "applicants": "আবেদনকারী",
+      "feePending": "ফি যাচাই বাকি",
+      "seats": "আসন",
+      "seatsLeft": "খালি আসন"
+    },
+    "stepper": {
+      "label": "ধাপ",
+      "progress": "ধাপ {{current}}/{{total}}",
+      "pick": "ধাপ বাছাই করুন"
+    },
+    "steps": {
+      "applicants": "আবেদন",
+      "merit": "মেরিট তালিকা",
+      "waiting": "অপেক্ষা-তালিকা",
+      "admit": "ভর্তি",
+      "kind": {
+        "WRITTEN": "লিখিত পরীক্ষা",
+        "VIVA": "মৌখিক পরীক্ষা",
+        "GPA": "জিপিএ",
+        "LOTTERY": "লটারি",
+        "FIRST_COME": "আগে এলে আগে"
+      }
+    },
+    "next": {
+      "empty": {
+        "title": "আবেদন এখনও আসেনি",
+        "description": "অভিভাবকদের আবেদনের লিংক জানান, অথবা নিজে আবেদন তুলুন।",
+        "action": "আবেদনকারী দেখুন"
+      },
+      "feePending": {
+        "title": "{{num}}টা ফি যাচাই বাকি",
+        "description": "ফি যাচাই না হলে আবেদন কোনো তালিকায় যায় না।",
+        "action": "ফি যাচাই করুন"
+      },
+      "enterMarks": {
+        "title": "নম্বর তুলুন",
+        "description": "{{stage}}-এর নম্বর তুলুন, তারপর মেরিট তালিকা বানান।",
+        "action": "নম্বর তুলুন"
+      },
+      "drawLottery": {
+        "title": "লটারি করুন",
+        "description": "লটারি একবারই হয়।",
+        "action": "লটারি করুন"
+      },
+      "makeMerit": {
+        "title": "মেরিট তালিকা বানান",
+        "description": "ফি ঠিক আছে এমন আবেদন থেকে তালিকা হবে।",
+        "action": "তালিকা বানান"
+      },
+      "startWaiting": {
+        "title": "অপেক্ষা-তালিকা {{n}} চালু করুন (সময় শেষ)",
+        "description": "ভর্তির শেষ তারিখ পার হয়েছে, আসন এখনও খালি।",
+        "action": "অপেক্ষা-তালিকা {{n}} চালু করুন"
+      },
+      "publish": {
+        "title": "ফল প্রকাশ করুন",
+        "description": "তালিকা ঠিক থাকলে অনলাইনে ও এসএমএসে সবাইকে জানান।",
+        "action": "প্রকাশ করুন"
+      }
+    }
   },
   "clerk": {
     "title": "নতুন আবেদন"
@@ -64,8 +129,8 @@
     "fieldSearch": "ঘর খুঁজুন",
     "recommended": "প্রস্তাবিত",
     "noFieldMatch": "কোনো ঘর মিলছে না।",
-    "fieldCount_one": "{{count}}টি ঘর বাছা হয়েছে",
-    "fieldCount_other": "{{count}}টি ঘর বাছা হয়েছে",
+    "fieldCount_one": "{{num}}টি ঘর বাছা হয়েছে",
+    "fieldCount_other": "{{num}}টি ঘর বাছা হয়েছে",
     "groups": {
       "child": "শিশু",
       "parents": "বাবা-মা",

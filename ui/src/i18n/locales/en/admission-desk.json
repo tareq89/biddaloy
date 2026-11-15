@@ -1,6 +1,71 @@
 {
   "desk": {
-    "title": "Admission desk"
+    "title": "Admission desk",
+    "loading": "Loading the round…",
+    "loadError": "Could not load the round. Try again.",
+    "statusOpen": "Open",
+    "statusClosed": "Closed",
+    "facts": {
+      "applicants": "Applicants",
+      "feePending": "Fee check pending",
+      "seats": "Seats",
+      "seatsLeft": "Seats left"
+    },
+    "stepper": {
+      "label": "Steps",
+      "progress": "Step {{current}} of {{total}}",
+      "pick": "Choose a step"
+    },
+    "steps": {
+      "applicants": "Applications",
+      "merit": "Merit list",
+      "waiting": "Waiting list",
+      "admit": "Admission",
+      "kind": {
+        "WRITTEN": "Written test",
+        "VIVA": "Viva",
+        "GPA": "GPA",
+        "LOTTERY": "Lottery",
+        "FIRST_COME": "First come first served"
+      }
+    },
+    "next": {
+      "empty": {
+        "title": "No application yet",
+        "description": "Tell guardians the apply link, or enter an application yourself.",
+        "action": "See applicants"
+      },
+      "feePending": {
+        "title": "{{num}} fee checks pending",
+        "description": "An application joins no list until its fee is checked.",
+        "action": "Check fees"
+      },
+      "enterMarks": {
+        "title": "Enter marks",
+        "description": "Enter the marks of {{stage}}, then make the merit list.",
+        "action": "Enter marks"
+      },
+      "drawLottery": {
+        "title": "Draw the lottery",
+        "description": "The lottery is drawn only once.",
+        "action": "Draw lottery"
+      },
+      "makeMerit": {
+        "title": "Make the merit list",
+        "description": "The list is made from applications whose fee is ok.",
+        "action": "Make the list"
+      },
+      "startWaiting": {
+        "title": "Start waiting list {{n}} (time is over)",
+        "description": "The last date to take admission has passed and seats are still free.",
+        "action": "Start waiting list {{n}}"
+      },
+      "publish": {
+        "title": "Publish the result",
+        "description": "If the lists are right, tell everyone online and by SMS.",
+        "action": "Publish"
+      }
+    }
   },
   "clerk": {
     "title": "New application"
@@ -64,8 +129,8 @@
     "fieldSearch": "Search boxes",
     "recommended": "Recommended",
     "noFieldMatch": "No box matches.",
-    "fieldCount_one": "{{count}} box ticked",
-    "fieldCount_other": "{{count}} boxes ticked",
+    "fieldCount_one": "{{num}} box ticked",
+    "fieldCount_other": "{{num}} boxes ticked",
     "groups": {
       "child": "The child",
       "parents": "Parents",
