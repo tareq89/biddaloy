@@ -140,7 +140,7 @@ describe('HomeworkDefaulterScheduler', () => {
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive.mockResolvedValue([
       { id: 'tenant-broken', name: 'Broken' },
       { id: TENANT, name: 'Green Valley School' },
     ]);
@@ -150,6 +150,8 @@ describe('HomeworkDefaulterScheduler', () => {
     });
 
     await expect(scheduler.process()).resolves.not.toThrow();
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('tenant-broken');
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith(TENANT);
     expect(homeworkNoticeService.notifyDefaulters).toHaveBeenCalledTimes(1);
   });
 

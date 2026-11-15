@@ -117,14 +117,15 @@ export class DiffService {
           const id: unknown = (entity as { id?: unknown }).id;
           if (typeof id === 'string' && !matchedIds.has(id)) {
             counts.deletes++;
-            if (isActive(entity)) newSeats--;
             if (samples.deletes.length < SAMPLE_SIZE) samples.deletes.push(tabSpec.keyOf(entity));
           }
         }
       }
 
       // [#1654] Net seats the file needs vs `seat_limit`, so an over-limit restore fails here, not
-      // mid-commit. Per-row `takeSeat()` stays as the race-safe backstop.
+      // mid-commit. Per-row `takeSeat()` stays as the race-safe backstop. It takes every new seat before
+      // `deleteByAbsence` removals run and never releases one, so the preview credits nothing: counting
+      // what apply counts keeps an approved preview from failing mid-restore.
       // ponytail: ignores soft-deleted students a restore revives (counted conservatively at commit).
       if (tabSpec.name === 'students' && newSeats > 0) {
         const { used, limit } = await getSeatUsage(manager, tenantId);

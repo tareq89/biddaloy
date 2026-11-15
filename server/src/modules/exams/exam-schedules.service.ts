@@ -5,6 +5,7 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { SEAT_PLAN_PUBLISH_LOCK_NAMESPACE } from './seat-plan-lock';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository, IsNull, QueryFailedError, Not } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
@@ -310,7 +311,10 @@ export class ExamSchedulesService {
     // Same tenant lock `SeatPlansService.publish`/`unpublish` take (namespace 25014), so this
     // check and a publish cannot interleave: a move either lands before the publish checks
     // conflicts, or sees the plan as published and is refused.
-    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), 25014)', [tenantId]);
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+      tenantId,
+      SEAT_PLAN_PUBLISH_LOCK_NAMESPACE,
+    ]);
     // Raw SQL keeps ExamsModule free of seat-plan imports.
     const rows = await manager.query(
       `SELECT 1 FROM seat_plan_schedules sps

@@ -10,7 +10,11 @@ import { School } from '../schools/entities/school.entity';
 import { TenantSettingsCache } from '../schools/settings/tenant-settings-cache.service';
 import { PresetRegistryService } from './preset-registry.service';
 import { countRows, FRESH_TENANT_ENTITIES } from './preset-blockers';
-import { uploadCertificateArtwork, writeCertificates } from './apply/writers/certificates.writer';
+import {
+  assertCertificateNamesFree,
+  uploadCertificateArtwork,
+  writeCertificates,
+} from './apply/writers/certificates.writer';
 import type { ApplyContext, ApplyWriter } from './apply/apply-context';
 import { writeSettings } from './apply/writers/settings.writer';
 import { writeYear } from './apply/writers/year.writer';
@@ -98,7 +102,10 @@ export class PresetApplyService {
     };
 
     // Fast-fail before uploading anything, so a refused apply leaves no stray artwork in storage.
-    await this.dataSource.transaction((manager) => this.assertFresh(manager, tenantId));
+    await this.dataSource.transaction(async (manager) => {
+      await this.assertFresh(manager, tenantId);
+      await assertCertificateNamesFree(manager, tenantId, pack);
+    });
     // Storage round-trips stay outside the transaction (no I/O under the school row lock).
     const artwork = await uploadCertificateArtwork(pack, tenantId, this.storage);
 
