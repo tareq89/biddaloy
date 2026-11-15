@@ -15463,6 +15463,15 @@ export interface components {
             reference_last4: string | null;
             payment_date: string;
         };
+        PublicReceiptHowPaidDto: {
+            /** @enum {string} */
+            source: "PROOF" | "ONLINE";
+            method: string;
+            trx_id_last4: string | null;
+            /** @description ISO timestamp; the client shows only the date ("verified by the school on ..."). */
+            verified_on: string | null;
+            paid_at: string | null;
+        };
         PublicReceiptDto: {
             invoice_number: string;
             kind: string;
@@ -15471,6 +15480,7 @@ export interface components {
             students: components["schemas"]["PublicReceiptStudentDto"][];
             totals: components["schemas"]["PublicReceiptTotalsDto"];
             payment: components["schemas"]["PublicReceiptPaymentDto"];
+            how_paid: components["schemas"]["PublicReceiptHowPaidDto"] | null;
         };
         PushPublicKeyResponseDto: {
             enabled: boolean;
@@ -15739,11 +15749,11 @@ export interface components {
         BkashSettingsDto: {
             /** @enum {string} */
             environment?: "SANDBOX" | "PRODUCTION";
+            appKey?: string | null;
+            appSecret?: string | null;
+            username?: string | null;
+            password?: string | null;
             lastTestOkAt?: string;
-            appKey?: string;
-            appSecret?: string;
-            username?: string;
-            password?: string;
         };
         PaymentsSettingsDto: {
             onlineEnabled?: boolean;

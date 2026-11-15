@@ -710,32 +710,36 @@ export class BkashSettingsDto {
   environment?: PaymentGatewayEnvironment;
 
   @Secret()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)
-  appKey?: string;
+  appKey?: string | null;
 
   @Secret()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)
-  appSecret?: string;
+  appSecret?: string | null;
 
   @Secret()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)
-  username?: string;
+  username?: string | null;
 
   @Secret()
+  @ApiPropertyOptional({ nullable: true, type: String })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(256)
-  password?: string;
+  password?: string | null;
 
   /** Written only by the test-connection route (#3984). Ignored on PATCH. */
   @ApiPropertyOptional()
