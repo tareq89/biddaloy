@@ -47,6 +47,10 @@ GET    /api/v1/admission/applicants/:id/documents/:type                         
 POST   /api/v1/admission/applicants/:id/evaluate                                 401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/applicants/:id/guardian-match                           401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/applicants/:id/reject                                   401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission/fee-proofs                                              401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission/fee-proofs/:id/attachment                               401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+POST   /api/v1/admission/fee-proofs/:id/confirm                                  401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+POST   /api/v1/admission/fee-proofs/:id/send-back                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/reports/lifecycle                                       401 401 PASS PASS PASS 403 403 403 403 PASS 403 403 403 admission
 GET    /api/v1/applications                                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 applications
 POST   /api/v1/applications                                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 applications

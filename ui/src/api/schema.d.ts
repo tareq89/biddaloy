@@ -9269,6 +9269,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admission/fee-proofs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List fee proofs (default AWAITING) with a seen_before warning count. */
+        get: operations["AdmissionFeeController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/fee-proofs/{id}/attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream the proof file. Tenant-scoped; 404 across tenants. */
+        get: operations["AdmissionFeeController_attachment_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/fee-proofs/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm the proof: applicant moves from FEE_PENDING to PENDING. A repeat is 409. */
+        post: operations["AdmissionFeeController_confirm_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/fee-proofs/{id}/send-back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the proof back with a reason; applicant stays FEE_PENDING and the guardian is told. */
+        post: operations["AdmissionFeeController_sendBack_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/seat-plans/generate": {
         parameters: {
             query?: never;
@@ -20884,6 +20952,7 @@ export interface components {
         SubmitApplicantResponseDto: {
             reference_number: string;
             status: string;
+            warnings?: string[];
         };
         LifecycleReportCountsDto: {
             admitted: number;
@@ -20951,6 +21020,46 @@ export interface components {
             fee_reference?: string;
             /** @description Let a late walk-in past the close date. */
             allow_after_close?: boolean;
+        };
+        /** @enum {string} */
+        AdmissionFeeState: "NONE" | "AWAITING" | "CONFIRMED" | "SENT_BACK";
+        FeeProofRowDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicant_id: string;
+            /** Format: uuid */
+            intake_id: string;
+            applicant_name: string;
+            applicant_reference_number: string;
+            applicant_status: components["schemas"]["AdmissionApplicantStatus"];
+            method: string;
+            reference: string | null;
+            state: components["schemas"]["AdmissionFeeState"];
+            reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Other proofs in this school carrying the same reference. */
+            seen_before: number;
+        };
+        FeeProofListResponseDto: {
+            data: components["schemas"]["FeeProofRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        FeeDecisionResponseDto: {
+            /** Format: uuid */
+            proof_id: string;
+            /** Format: uuid */
+            applicant_id: string;
+            fee_state: components["schemas"]["AdmissionFeeState"];
+            status: components["schemas"]["AdmissionApplicantStatus"];
+        };
+        SendBackFeeProofDto: {
+            /** @description Why the proof was refused. Sent to the guardian. */
+            reason: string;
         };
         GenerateSeatPlanDto: {
             name: string;
@@ -46123,6 +46232,143 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionFeeController_list_v1: {
+        parameters: {
+            query?: {
+                intakeId?: string;
+                state?: components["schemas"]["AdmissionFeeState"];
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeProofListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionFeeController_attachment_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionFeeController_confirm_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeDecisionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionFeeController_sendBack_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendBackFeeProofDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeDecisionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
