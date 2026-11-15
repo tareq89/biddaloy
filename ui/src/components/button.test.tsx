@@ -168,4 +168,23 @@ describe('Button', () => {
     await localeReady;
     expect(screen.getByText('লোড হচ্ছে…')).toBeTruthy();
   });
+
+  it('[3329.1.03] sinks to 95% on press via scale and transitions it; disabled and loading do not sink', () => {
+    render(
+      <>
+        <Button>Save</Button>
+        <Button disabled>Off</Button>
+        <Button loading>Busy</Button>
+      </>,
+    );
+    const [normal, ...inert] = screen.getAllByRole('button');
+    expect(normal?.className).toContain('active:not-disabled:not-aria-[haspopup]:scale-95');
+    expect(normal?.className).toMatch(/transition-\[[^\]]*\bscale\]/);
+    // Same class on all three; the `not-disabled` variant is what keeps the
+    // inert ones from sinking, and both really are `disabled`.
+    for (const b of inert) {
+      expect((b as HTMLButtonElement).disabled).toBe(true);
+      expect(b.className).toContain('active:not-disabled:');
+    }
+  });
 });
