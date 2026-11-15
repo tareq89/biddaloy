@@ -16,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  focusFirstError,
 } from './form-field';
 import { HelpProvider, type HelpIndex } from './help-hint';
 import { Input } from './input';
@@ -215,5 +216,52 @@ describe('FormField', () => {
     expect(() => render(<OutsideFormItem />)).toThrow(
       'useFormField must be used within <FormItem>',
     );
+  });
+});
+
+describe('focusFirstError', () => {
+  const FocusForm = ({ initial, onSubmit }: { initial: string; onSubmit: () => void }) => {
+    const form = useForm<z.infer<typeof schema>>({
+      resolver: zodResolver(schema),
+      defaultValues: { studentName: initial },
+    });
+    return (
+      <Form {...form}>
+        <form onSubmit={(e) => void form.handleSubmit(onSubmit, () => focusFirstError(form))(e)}>
+          <FormField
+            control={form.control}
+            name="studentName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Student name</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <button type="submit">Save</button>
+        </form>
+      </Form>
+    );
+  };
+
+  it('focuses the first invalid field after a failed submit, and the error never echoes a value', async () => {
+    const user = userEvent.setup();
+    render(<FocusForm initial="" onSubmit={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Name is required');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')));
+  });
+
+  it('focuses nothing for a valid form', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<FocusForm initial="Rahim" onSubmit={onSubmit} />);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(document.activeElement).not.toBe(screen.getByRole('textbox'));
   });
 });
