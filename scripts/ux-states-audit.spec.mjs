@@ -1,9 +1,9 @@
-// [#4283] ux-states-audit: gaps, baseline and stale lines.
+// [#4283] ux-states-audit: strict gaps and stale exceptions.
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { audit, compare, EXCEPTIONS, withoutExceptions } from './ux-states-audit.mjs';
+import { audit, EXCEPTIONS, withoutExceptions } from './ux-states-audit.mjs';
 
 const FULL = `const data = useQuery(); const m = useMutation();
 <Skeleton/><ErrorState/><EmptyState/><AccessDeniedState/>
@@ -27,13 +27,7 @@ describe('ux-states-audit', () => {
 
   it('a new route with a query and no states fails', () => {
     const gaps = audit(fixture({ 'b.tsx': 'useQuery()' }));
-    expect(compare(gaps, {}).added).toContain('b.tsx|error');
-  });
-
-  it('a gap in the baseline passes; a fixed baseline line is stale', () => {
-    const gaps = [{ route: 'a.tsx', state: 'error' }];
-    expect(compare(gaps, { 'a.tsx|error': '2.01' })).toEqual({ added: [], stale: [] });
-    expect(compare([], { 'a.tsx|error': '2.01' })).toEqual({ added: [], stale: ['a.tsx|error'] });
+    expect(withoutExceptions(gaps).map((g) => `${g.route}|${g.state}`)).toContain('b.tsx|error');
   });
 
   it('helper, test and stories files are skipped', () => {

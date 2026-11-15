@@ -138,7 +138,6 @@ CI_PATHS_FRONTEND=(
   'scripts/check-arch-docs.spec.mjs'
   'scripts/ux-states-audit.mjs'
   'scripts/ux-states-audit.spec.mjs'
-  'scripts/ux-states-baseline.json'
   'docs/architecture/**'
   'CLAUDE.md'
   'server/CLAUDE.md'
