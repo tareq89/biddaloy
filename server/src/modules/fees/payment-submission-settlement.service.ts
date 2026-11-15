@@ -10,6 +10,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In } from 'typeorm';
 import {
   PaymentMethod,
+  PaymentStatus,
   PaymentSubmissionSource,
   PaymentSubmissionStatus,
   WalletTransactionKind,
@@ -164,7 +165,19 @@ export class PaymentSubmissionSettlement {
       const paymentByStudent = new Map<string, Payment>();
       for (const s of studentIds) {
         const p = existing.find((e) => e.idempotency_key === settlementIdempotencyKey(sub.id, s));
-        if (p) paymentByStudent.set(s, p);
+        if (!p) continue;
+        // Same rule as checkout's replay: a reversed payment is never handed back as live.
+        if (p.reversed_by_payment_id || p.payment_status !== PaymentStatus.SUCCESS) {
+          throw new ConflictException({
+            message: 'This payment was reversed and needs manual handling',
+            details: { code: 'SETTLEMENT_PAYMENT_REVERSED' },
+          });
+        }
+        // It skipped checkout, so its invoice link and after-commit work may be missing.
+        paymentByStudent.set(
+          s,
+          await this.checkoutService.finishRecovered(p.id, tenantId, actorUserId),
+        );
       }
 
       const ctx: Ctx = {

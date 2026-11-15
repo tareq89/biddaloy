@@ -13,6 +13,7 @@ import {
   PaymentGatewayEnvironment,
   PaymentGatewayProvider,
   PaymentMethod,
+  PaymentStatus,
   PaymentSubmissionSource,
   PaymentSubmissionStatus,
   WalletTransactionKind,
@@ -72,6 +73,7 @@ const days = (n: number) => {
 describe('PaymentSubmissionSettlement (integration)', () => {
   let svc: PaymentSubmissionSettlement;
   let checkout: CheckoutService;
+  let invoices: InvoicesService;
   let ds: DataSource;
   let redis: Redis;
   let studentRepo: Repository<Student>;
@@ -217,6 +219,7 @@ describe('PaymentSubmissionSettlement (integration)', () => {
     );
     svc = module.get(PaymentSubmissionSettlement);
     checkout = module.get(CheckoutService);
+    invoices = module.get(InvoicesService);
     ds = module.get(DataSource);
     studentRepo = module.get(getRepositoryToken(Student));
     feeRepo = module.get(getRepositoryToken(StudentFee));
@@ -470,6 +473,67 @@ describe('PaymentSubmissionSettlement (integration)', () => {
       expect(res.outcome).toBe('SETTLED');
       expect(res.paymentIds).toHaveLength(2);
       expect(await payCount()).toBe(2);
+      expect((await reload(sub.id)).status).toBe(PaymentSubmissionStatus.CONFIRMED);
+    });
+
+    /** What a crashed first run left: student's checkout committed under the settlement key. */
+    const priorSettlementPayment = (sub: PaymentSubmission, studentId: string, bill: StudentFee) =>
+      checkout.checkout(
+        {
+          idempotency_key: settlementIdempotencyKey(sub.id, studentId),
+          lines: [
+            { student_fee_id: bill.id, amount: Number(bill.total_amount), one_off_discount: 0 },
+          ],
+          payment_method: PaymentMethod.BKASH,
+          transaction_reference: sub.reference_normalised,
+          change_handling: 'RETURN',
+        } as any,
+        TENANT_ID,
+        ACTOR,
+        { headers: {}, currentTenant: { id: TENANT_ID }, user: { sub: ACTOR } },
+        undefined,
+        { receivedByUserId: null },
+      );
+
+    it('refuses with 409 when the earlier run payment was reversed, and pays nothing new', async () => {
+      const s1 = await mkStudent();
+      const s2 = await mkStudent();
+      const b1 = await mkBill(s1.id, 1000);
+      const sub = await mkSubmission([b1, await mkBill(s2.id, 700)]);
+      const { payment } = await priorSettlementPayment(sub, s1.id, b1);
+      await paymentRepo.update(payment.id, { payment_status: PaymentStatus.REFUNDED });
+      const before = await payCount();
+
+      await expect(strict(sub.id)).rejects.toMatchObject({
+        response: { details: { code: 'SETTLEMENT_PAYMENT_REVERSED' } },
+      });
+
+      expect((await reload(sub.id)).status).toBe(PaymentSubmissionStatus.PENDING);
+      expect(await payCount()).toBe(before);
+    });
+
+    it('links the invoice of a recovered payment whose invoice step never ran', async () => {
+      const s1 = await mkStudent();
+      const s2 = await mkStudent();
+      const b1 = await mkBill(s1.id, 1000);
+      const sub = await mkSubmission([b1, await mkBill(s2.id, 700)]);
+      // The crash came after the payment commit but before its invoice was made.
+      const spy = vi
+        .spyOn(invoices, 'create')
+        .mockRejectedValueOnce(new Error('simulated invoice outage'));
+      await expect(priorSettlementPayment(sub, s1.id, b1)).rejects.toThrow(
+        'simulated invoice outage',
+      );
+      spy.mockRestore();
+      const payment = await paymentRepo.findOneByOrFail({
+        idempotency_key: settlementIdempotencyKey(sub.id, s1.id),
+      });
+      expect(payment.invoice_id).toBeNull();
+
+      const res = await strict(sub.id);
+
+      expect(res.outcome).toBe('SETTLED');
+      expect((await paymentRepo.findOneByOrFail({ id: payment.id })).invoice_id).not.toBeNull();
       expect((await reload(sub.id)).status).toBe(PaymentSubmissionStatus.CONFIRMED);
     });
 

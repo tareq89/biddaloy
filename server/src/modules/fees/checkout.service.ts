@@ -555,6 +555,16 @@ export class CheckoutService {
     };
   }
 
+  /**
+   * A payment found by its idempotency key without going through `checkout` (a crashed
+   * settlement): link its invoice and redo the after-commit work. Safe to repeat.
+   */
+  async finishRecovered(paymentId: string, tenantId: string, userId: string): Promise<Payment> {
+    const payment = await this.ensureInvoiceLinked(paymentId);
+    await this.afterCommit(payment, tenantId, userId);
+    return payment;
+  }
+
   /** Receipt notice job + fee-alert rechecks, after the payment is committed. Safe to repeat. */
   private async afterCommit(
     payment: Payment,
