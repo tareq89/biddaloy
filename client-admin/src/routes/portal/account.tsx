@@ -5,7 +5,6 @@ import {
   Card,
   ChangePasswordForm,
   ContactChangeDialog,
-  ErrorState,
   GuardianContactForm,
   HelpHint,
   ProfileForm,
@@ -63,6 +62,8 @@ import { NotificationPrefsCard } from '../../features/attention/notification-pre
 import { useSignOutToLogin } from '../../features/demo/use-sign-out-to-login';
 import { SignInMethodsCard } from '../../features/sign-in-methods/sign-in-methods-card';
 import { loadRouteNamespaces } from '../../route-loaders';
+
+import { PortalQueryError } from './-portal-query-error';
 
 /**
  * [8.14.4] `/portal/account` — the first screen anywhere to consume the
@@ -181,7 +182,8 @@ function PortalAccount() {
 
   if (errored) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={currentUserQuery.error ?? guardianQuery.error}
         message={t('account.error.message')}
         retryLabel={t('account.error.retry')}
         onRetry={() => {

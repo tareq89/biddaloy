@@ -3,7 +3,6 @@ import {
   AttendanceMonthGrid,
   Card,
   EmptyState,
-  ErrorState,
   HelpHint,
   RoutePending,
   Skeleton,
@@ -34,6 +33,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
+import { PortalQueryError } from './-portal-query-error';
 import { ArrivalNoticeCard } from './-arrival-notice-card';
 
 /**
@@ -136,7 +136,8 @@ function PortalAttendance() {
 
   if (studentsQuery.isError) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={studentsQuery.error}
         message={t('attendance.error.message')}
         retryLabel={t('attendance.error.retry')}
         onRetry={() => void studentsQuery.refetch()}
@@ -163,7 +164,8 @@ function PortalAttendance() {
 
   if (daysQuery.isError || summaryQuery.isError) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={daysQuery.error ?? summaryQuery.error}
         message={t('attendance.error.message')}
         retryLabel={t('attendance.error.retry')}
         onRetry={() => {
