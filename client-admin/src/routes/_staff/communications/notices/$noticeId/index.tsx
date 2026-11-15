@@ -9,8 +9,8 @@ import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 
-import { MyNoticePage } from '../../../../../features/notices/read/my-notice-detail';
 import { NoticeDetail } from '../../../../../features/notices/manage/notice-detail';
+import { MyNoticePage } from '../../../../../features/notices/read/my-notice-detail';
 import { loadRouteNamespaces } from '../../../../../route-loaders';
 
 export const Route = createFileRoute('/_staff/communications/notices/$noticeId/')({
