@@ -24,6 +24,10 @@ const ALLOWLIST = new Map<string, string>([
   ['students/CreateStudentDto.phone', 'no such column on the student entity'],
   ['admission/SubmitApplicantDto.gender', 'bounded by @IsIn([MALE, FEMALE, OTHER])'],
   [
+    'admission/StaffCreateApplicantDto.gender',
+    'inherited from SubmitApplicantDto: @IsIn([MALE, FEMALE, OTHER])',
+  ],
+  [
     'calendar/FetchHolidaySetDto.country',
     'name collision: not stored in the matching varchar column',
   ],

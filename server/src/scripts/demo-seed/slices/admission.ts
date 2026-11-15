@@ -25,7 +25,7 @@ import { orgIds } from './org';
 
 /**
  * [Epic 71 W1 close] Admission: one open round per template (six), each with the template's
- * stages, applicants in the first four statuses (pending, shortlisted, admitted, rejected), stage results, a merit list and fee proofs.
+ * stages, applicants in the first four statuses (pending, shortlisted, admitted, rejected), stage results, a merit list, waiting list 1 and fee proofs (one awaiting, one sent back).
  * The first round (APPLY_ONLY) is the old people-ops intake, moved here with its three tables.
  * Bulk-inserted (D38); applicants skip the public controller, so no captcha is involved.
  */
@@ -178,13 +178,19 @@ export const slice: DemoSlice = {
           const status =
             i < STATUS_WEIGHTS.length ? STATUS_WEIGHTS[i][0] : ctx.weighted(STATUS_WEIGHTS);
           const id = uuid();
+          // The first two of the fee round are fixed, so the demo always shows one proof awaiting
+          // and one sent back with its reason.
           const feeState = !withFee
             ? AdmissionFeeState.NONE
-            : ctx.weighted([
-                [AdmissionFeeState.CONFIRMED, 60],
-                [AdmissionFeeState.AWAITING, 30],
-                [AdmissionFeeState.SENT_BACK, 10],
-              ] as const);
+            : i === 0
+              ? AdmissionFeeState.AWAITING
+              : i === 1
+                ? AdmissionFeeState.SENT_BACK
+                : ctx.weighted([
+                    [AdmissionFeeState.CONFIRMED, 60],
+                    [AdmissionFeeState.AWAITING, 30],
+                    [AdmissionFeeState.SENT_BACK, 10],
+                  ] as const);
           applicants.push({
             id,
             tenant_id: t.id,
@@ -248,32 +254,45 @@ export const slice: DemoSlice = {
         if (first) makeApplicant(1, first);
         for (let i = 2; i < count; i++) makeApplicant(i);
 
-        // A published merit list of those who passed every stage (pipeline rounds only).
+        // A published merit list of the first half of those who passed every stage, and waiting
+        // list 1 (not yet activated, offers lapse in 10 days) with the rest (pipeline rounds only).
         const ranked = roundApplicants.filter((a) => a.passed);
-        if (!legacy && ranked.length > 0) {
+        const meritCount = ranked.length > 1 ? Math.ceil(ranked.length / 2) : ranked.length;
+        const buildList = (
+          kind: AdmissionListKind,
+          who: { id: string }[],
+          extra: Record<string, unknown>,
+        ) => {
           const listId = uuid();
           lists.push({
             id: listId,
             tenant_id: t.id,
             intake_id: intakeId,
-            kind: AdmissionListKind.MERIT,
+            kind,
             sequence: 1,
             order_by: template.stages[template.stages.length - 1].order,
+            capacity: Math.min(who.length, 40),
+            filter: {},
+            ...extra,
+          });
+          who.forEach((a, i) =>
+            members.push({ tenant_id: t.id, list_id: listId, applicant_id: a.id, position: i + 1 }),
+          );
+        };
+        if (!legacy && ranked.length > 0) {
+          buildList(AdmissionListKind.MERIT, ranked.slice(0, meritCount), {
             active: true,
             published_at: stamp(addDays(ctx.anchor, -2), 10),
-            capacity: Math.min(ranked.length, 40),
             act_by_date: addDays(ctx.anchor, 3),
             activated_at: stamp(addDays(ctx.anchor, -2), 10),
-            filter: {},
           });
-          ranked.forEach((a, i) =>
-            members.push({
-              tenant_id: t.id,
-              list_id: listId,
-              applicant_id: a.id,
-              position: i + 1,
-            }),
-          );
+          if (ranked.length > meritCount)
+            buildList(AdmissionListKind.WAITING, ranked.slice(meritCount), {
+              active: false,
+              published_at: stamp(addDays(ctx.anchor, -1), 10),
+              act_by_date: addDays(ctx.anchor, 10),
+              activated_at: null,
+            });
         }
       }
     }
