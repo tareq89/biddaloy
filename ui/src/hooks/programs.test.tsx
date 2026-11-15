@@ -255,4 +255,23 @@ describe('useEnrolStudents', () => {
     expect(sizes).toEqual([500, 500, 100]);
     expect(result.current.data).toEqual({ created: 1097, skipped: 3 });
   });
+
+  it('still refreshes the caches when a later chunk fails after an earlier one enrolled', async () => {
+    let calls = 0;
+    server.use(
+      http.post('/api/v1/programs/program-1/enrollments', () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ created: 500, skipped: 0 })
+          : HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useEnrolStudents('program-1'), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ student_ids: Array.from({ length: 600 }, (_, i) => `s-${i}`) });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalled();
+  });
 });

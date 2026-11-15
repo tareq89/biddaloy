@@ -501,6 +501,36 @@ describe('AttendanceImportService (integration)', () => {
       expect((await service.list(1, 20, teacher)).items[0].uploaded_by_name).toBe('Import Teacher');
     });
 
+    it('detail names an unchanged row (no write) and survives a rejected row with no section id', async () => {
+      await service.commit(
+        (await validateOk([row(0, TODAY(), 1, 'P')])).staging_id!,
+        undefined,
+        admin,
+      );
+      // Section 0 is now unchanged; section 1 is new, so only section 1 is written.
+      const second = await service.commit(
+        (await validateOk([row(0, TODAY(), 1, 'P'), row(1, TODAY(), 1, 'P')])).staging_id!,
+        undefined,
+        admin,
+      );
+      // A SECTION_NOT_FOUND row is stored with sectionId '' (not a uuid).
+      await dataSource.query(
+        `UPDATE attendance_imports
+            SET rows = rows || '[{"date":"","sectionId":"","roll":0,"before":null,"after":null,"outcome":"ERROR","recordId":null,"code":"SECTION_NOT_FOUND"}]'::jsonb
+          WHERE id = $1`,
+        [second.import_id],
+      );
+
+      const detail = await service.detail(second.import_id, admin);
+      expect(detail.rows[0]).toMatchObject({ outcome: 'UNCHANGED', student_name: 'Student S1-1' });
+      expect(detail.rows[1]).toMatchObject({ student_name: 'Student S2-1' });
+      expect(detail.rows[2]).toMatchObject({
+        section_id: '',
+        class_name: null,
+        section_name: null,
+      });
+    });
+
     it('detail of another tenant import is a 404', async () => {
       const mine = await service.commit(
         (await validateOk([row(0, TODAY(), 1, 'P')])).staging_id!,

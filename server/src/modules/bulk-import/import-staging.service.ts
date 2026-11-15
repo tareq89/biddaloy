@@ -134,6 +134,11 @@ export class ImportStagingService {
     stagingId: string,
     kind?: string,
   ): Promise<T | null> {
+    // Kind is immutable per key, so check it with a plain GET first: a wrong-kind caller is
+    // rejected without deleting the valid stage. The GETDEL below stays the atomic claim.
+    if (kind !== undefined && (await this.peek<T>(tenantId, userId, stagingId, kind)) === null) {
+      return null;
+    }
     let raw: string | null;
     try {
       // GETDEL (atomic get-then-delete, Redis >= 6.2) rather than GET+DEL —

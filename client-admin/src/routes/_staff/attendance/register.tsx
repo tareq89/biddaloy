@@ -73,6 +73,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { usePrintPageRule } from '../../../use-print-page-rule';
 
 import {
   abbrev,
@@ -84,7 +85,6 @@ import {
 import { saveErrorKey, writeReasonKey } from './-write-reason';
 
 import './-register-print.css';
-import { usePrintPageRule } from '../../../use-print-page-rule';
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
