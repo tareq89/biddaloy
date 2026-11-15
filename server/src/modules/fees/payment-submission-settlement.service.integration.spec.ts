@@ -73,6 +73,7 @@ const days = (n: number) => {
 describe('PaymentSubmissionSettlement (integration)', () => {
   let svc: PaymentSubmissionSettlement;
   let checkout: CheckoutService;
+  let wallet: WalletService;
   let invoices: InvoicesService;
   let ds: DataSource;
   let redis: Redis;
@@ -174,6 +175,38 @@ describe('PaymentSubmissionSettlement (integration)', () => {
   const reload = (id: string) => subRepo.findOneByOrFail({ id });
   const payCount = () => paymentRepo.count({ where: { tenant_id: TENANT_ID } });
 
+  /** Holds the first call of `obj[method]` until `release()`: that settle keeps the row lock. */
+  function holdFirstCall<T extends object>(obj: T, method: keyof T & string) {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let markEntered!: () => void;
+    const entered = new Promise<void>((r) => (markEntered = r));
+    const real = (obj[method] as (...a: unknown[]) => Promise<unknown>).bind(obj);
+    let held = false;
+    const spy = vi.spyOn(obj as any, method).mockImplementation(async (...args: unknown[]) => {
+      if (!held) {
+        held = true;
+        markEntered();
+        await gate;
+      }
+      return real(...args);
+    });
+    return { spy, entered, release };
+  }
+
+  /** Waits (condition, not duration) until some session of this db is blocked on a row lock. */
+  async function untilLockWaiter() {
+    for (let i = 0; i < 100; i += 1) {
+      const [{ n }] = await ds.query(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+      );
+      if (n > 0) return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error('the second settle never waited on the submission lock');
+  }
+
   /** A counter payment of `amount` against a bill, through the real checkout. */
   async function counterPay(bill: StudentFee, amount: number) {
     await checkout.checkout(
@@ -219,6 +252,7 @@ describe('PaymentSubmissionSettlement (integration)', () => {
     );
     svc = module.get(PaymentSubmissionSettlement);
     checkout = module.get(CheckoutService);
+    wallet = module.get(WalletService);
     invoices = module.get(InvoicesService);
     ds = module.get(DataSource);
     studentRepo = module.get(getRepositoryToken(Student));
@@ -459,12 +493,22 @@ describe('PaymentSubmissionSettlement (integration)', () => {
       const s1 = await mkStudent();
       const s2 = await mkStudent();
       const sub = await mkSubmission([await mkBill(s1.id), await mkBill(s2.id)]);
+      const hold = holdFirstCall(checkout, 'checkout');
+      try {
+        const first = strict(sub.id);
+        await hold.entered; // first settle is inside checkout, holding the submission row lock
+        const second = strict(sub.id);
+        await untilLockWaiter();
+        hold.release();
+        const [a, b] = await Promise.all([first, second]);
 
-      const [a, b] = await Promise.all([strict(sub.id), strict(sub.id)]);
-
-      expect(await payCount()).toBe(2);
-      expect([a.alreadySettled, b.alreadySettled].sort()).toEqual([false, true]);
-      expect([...a.paymentIds].sort()).toEqual([...b.paymentIds].sort());
+        expect(await payCount()).toBe(2);
+        expect([a.alreadySettled, b.alreadySettled]).toEqual([false, true]);
+        expect([...a.paymentIds].sort()).toEqual([...b.paymentIds].sort());
+      } finally {
+        hold.release();
+        hold.spy.mockRestore();
+      }
     });
 
     it('finishes after a crash that left the first student paid', async () => {
@@ -726,11 +770,22 @@ describe('PaymentSubmissionSettlement (integration)', () => {
         status: PaymentSubmissionStatus.EXPIRED,
       });
       await counterPay(b1, 1000);
+      // The bill is fully paid, so checkout never runs on this path: hold the wallet credit.
+      const hold = holdFirstCall(wallet, 'credit');
+      try {
+        const first = lenient(sub.id);
+        await hold.entered;
+        const second = lenient(sub.id);
+        await untilLockWaiter();
+        hold.release();
+        await Promise.all([first, second]);
 
-      await Promise.all([lenient(sub.id), lenient(sub.id)]);
-
-      expect(await walletTxRepo.count()).toBe(1);
-      expect((await reload(sub.id)).status).toBe(PaymentSubmissionStatus.COMPLETED);
+        expect(await walletTxRepo.count()).toBe(1);
+        expect((await reload(sub.id)).status).toBe(PaymentSubmissionStatus.COMPLETED);
+      } finally {
+        hold.release();
+        hold.spy.mockRestore();
+      }
     });
   });
 });
