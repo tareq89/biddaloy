@@ -20,11 +20,14 @@ import { expect } from 'vitest';
  *
  * @param ui the element to render (a composed story)
  * @param ready optional wait for the story's fetched content to be visible
+ * @param waitForFetches false for a story whose fetch is pending on purpose (a Loading story),
+ *   where `isFetching()` never reaches 0
  * @returns the `namespace:key` of every lookup still missing after the render settled
  */
 export async function missingKeysOf(
   ui: React.ReactElement,
   ready?: () => unknown,
+  waitForFetches = true,
 ): Promise<string[]> {
   const hits: { lng: string; ns: string; key: string }[] = [];
   const onMissing = (lngs: readonly string[], ns: string, key: string) =>
@@ -40,7 +43,7 @@ export async function missingKeysOf(
     await waitFor(() =>
       expect(container.childElementCount + document.body.childElementCount).toBeGreaterThan(1),
     );
-    await waitFor(() => expect(queryClient.isFetching()).toBe(0)); // lookups settled
+    if (waitForFetches) await waitFor(() => expect(queryClient.isFetching()).toBe(0)); // lookups settled
     if (ready) await ready();
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0)); // let the commit finish
