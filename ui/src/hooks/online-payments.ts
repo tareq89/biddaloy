@@ -18,8 +18,16 @@ export type StartOnlinePaymentResponse = Schemas['StartOnlinePaymentResponseDto'
 export type OnlinePaymentResult = Schemas['OnlinePaymentResultDto'];
 export type BkashTestResponse = Schemas['BkashTestResponseDto'];
 
-/** Result polling stops once the payment left PENDING. */
+/** Result polling: fast while PENDING, slow while the reconciler may still change the status. */
 export const ONLINE_RESULT_POLL_MS = 3000;
+export const ONLINE_RESULT_SLOW_POLL_MS = 30000;
+
+export function resultPollMs(
+  data: Pick<OnlinePaymentResult, 'status' | 'reconcilable'> | undefined,
+) {
+  if (data?.status === 'PENDING') return ONLINE_RESULT_POLL_MS;
+  return data?.reconcilable ? ONLINE_RESULT_SLOW_POLL_MS : false;
+}
 
 /** Guardian: start a bKash payment for the picked bills; send them to `bkashUrl`. */
 export function useStartOnlinePayment() {
@@ -42,7 +50,7 @@ export function useStartOnlinePayment() {
   });
 }
 
-/** Guardian: how the payment ended. Polls while PENDING (the callback may arrive late). */
+/** Guardian: how the payment ended. Polls every 3 s while PENDING, every 30 s while `reconcilable` (a late payment may flip it). */
 export function useOnlinePaymentResult(id: string | undefined, { enabled = true } = {}) {
   return useQuery({
     enabled: enabled && !!id,
@@ -50,8 +58,7 @@ export function useOnlinePaymentResult(id: string | undefined, { enabled = true 
     queryFn: async ({ signal }) =>
       (await apiClient.get<OnlinePaymentResult>(`/portal/online-payments/${id}`, { signal })).data,
     retry: shouldRetryQuery,
-    refetchInterval: (query) =>
-      query.state.data?.status === 'PENDING' ? ONLINE_RESULT_POLL_MS : false,
+    refetchInterval: (query) => resultPollMs(query.state.data),
   });
 }
 

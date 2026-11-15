@@ -1,6 +1,6 @@
 /**
  * [3.x/#3990] Where bKash sends the guardian back (`?id=`). Polls the payment until it leaves
- * PENDING, then says in plain words what happened. The receipt is the existing invoice print
+ * PENDING (and slowly while the reconciler may still change it), then says in plain words what happened. The receipt is the existing invoice print
  * (D22, family-scoped); no new PDF and no public link, which only staff can mint.
  */
 import { Button, toast } from '@biddaloy/ui/components';

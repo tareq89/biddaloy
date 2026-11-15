@@ -8,6 +8,9 @@ import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { cleanupTestState } from '../test/render-with-providers';
 
 import {
+  ONLINE_RESULT_POLL_MS,
+  ONLINE_RESULT_SLOW_POLL_MS,
+  resultPollMs,
   useOnlinePaymentResult,
   useOnlinePaymentSubmissions,
   useStartOnlinePayment,
@@ -98,5 +101,18 @@ describe('staff list and test connection', () => {
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(calls).toBe(1);
+  });
+});
+
+describe('resultPollMs', () => {
+  it.each([
+    [undefined, false],
+    [{ status: 'PENDING', reconcilable: true }, ONLINE_RESULT_POLL_MS],
+    [{ status: 'PENDING', reconcilable: false }, ONLINE_RESULT_POLL_MS],
+    [{ status: 'EXPIRED', reconcilable: true }, ONLINE_RESULT_SLOW_POLL_MS],
+    [{ status: 'EXPIRED', reconcilable: false }, false],
+    [{ status: 'COMPLETED', reconcilable: false }, false],
+  ] as const)('%j -> %s', (data, want) => {
+    expect(resultPollMs(data as never)).toBe(want);
   });
 });

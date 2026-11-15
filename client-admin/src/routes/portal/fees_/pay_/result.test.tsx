@@ -15,7 +15,12 @@ function render(
   status: string,
   unmatched = false,
   locale: 'en' | 'bn' = 'en',
-  { receipts = [] as (typeof RECEIPT)[], search = `?id=${ID}`, fail = false } = {},
+  {
+    receipts = [] as (typeof RECEIPT)[],
+    search = `?id=${ID}`,
+    fail = false,
+    reconcilable = false,
+  } = {},
 ) {
   server.use(
     http.get(`/api/v1/portal/online-payments/${ID}`, () =>
@@ -30,6 +35,7 @@ function render(
             amount: '2500.00',
             unmatched,
             createdAt: '2026-11-13T04:42:00.000Z',
+            reconcilable,
             receipts,
             paidAt: receipts.length > 0 ? '2026-11-13T04:45:00.000Z' : null,
             bills: [],
@@ -102,6 +108,12 @@ describe('/portal/fees/pay/result', () => {
       '/portal/fees/pay?how=proof',
     );
     expect(document.body.textContent).not.toMatch(NEVER_SAY);
+  });
+
+  it('EXPIRED but reconcilable still shows the not-done branch', async () => {
+    render('EXPIRED', false, 'en', { reconcilable: true });
+    expect(await screen.findByText('Payment not done')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Try again' })).toBeTruthy();
   });
 
   it('shows Bangla copy', async () => {

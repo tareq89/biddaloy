@@ -41,6 +41,8 @@ export class OnlinePaymentResultDto {
   @ApiProperty({ description: 'Paid at bKash but no bill could take it; it went to the wallet.' })
   unmatched: boolean;
   @ApiProperty() createdAt: Date;
+  @ApiProperty({ description: 'The reconciler may still change this status; keep polling.' })
+  reconcilable: boolean;
   @ApiProperty({
     type: [OnlinePaymentReceiptDto],
     description: 'Receipts of the caller own children; empty until the payment is booked.',

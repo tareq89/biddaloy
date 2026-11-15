@@ -231,6 +231,20 @@ describe('OnlinePaymentsService (integration)', () => {
     expect(await paymentCount(id)).toBe(1);
   });
 
+  it('result.reconcilable: EXPIRED with a paymentID yes; no paymentID or older than 72 h no', async () => {
+    const a = await fix.bill(fix.fx.studentA, 500);
+    const { id } = await svc.start({ billIds: [a] }, ctx);
+    await ds.query(`UPDATE payment_submissions SET status='EXPIRED' WHERE id=$1`, [id]);
+    expect((await svc.result(id, ctx)).reconcilable).toBe(true);
+    await ds.query(`UPDATE payment_submissions SET provider_payment_id=NULL WHERE id=$1`, [id]);
+    expect((await svc.result(id, ctx)).reconcilable).toBe(false);
+    await ds.query(
+      `UPDATE payment_submissions SET provider_payment_id='p1', created_at=NOW() - interval '73 hours' WHERE id=$1`,
+      [id],
+    );
+    expect((await svc.result(id, ctx)).reconcilable).toBe(false);
+  });
+
   it('two callbacks at once book one payment', async () => {
     const a = await fix.bill(fix.fx.studentA, 500);
     const { id } = await svc.start({ billIds: [a] }, ctx);

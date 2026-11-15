@@ -17,7 +17,22 @@ import {
 
 export const ONLINE_PAYMENTS_RECONCILE_QUEUE = 'online-payments-reconcile';
 const JOB_ID = 'online-payments-reconcile';
-const MAX_AGE_MS = 72 * 60 * 60 * 1000;
+export const RECONCILE_MAX_AGE_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * True while the reconciler may still change this row: under 72 h old and PENDING, or
+ * EXPIRED/CANCELLED with a paymentID. Mirrors the reconciler WHERE.
+ * ponytail: the environment, suspended-school and online-off filters are not in this predicate.
+ */
+export function isReconcilable(
+  s: { status: string; provider_payment_id: string | null; created_at: Date | string },
+  now: number,
+): boolean {
+  if (new Date(s.created_at).getTime() <= now - RECONCILE_MAX_AGE_MS) return false;
+  if (s.status === 'PENDING') return true;
+  return (s.status === 'EXPIRED' || s.status === 'CANCELLED') && s.provider_payment_id != null;
+}
+
 const UNSTARTED_MS = 30 * 60 * 1000;
 const BATCH = 100;
 
@@ -81,7 +96,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
             AND (status = 'PENDING'
                  OR (status IN ('EXPIRED', 'CANCELLED') AND provider_payment_id IS NOT NULL AND created_at > $1))
           GROUP BY tenant_id`,
-        [new Date(Date.now() - MAX_AGE_MS)],
+        [new Date(Date.now() - RECONCILE_MAX_AGE_MS)],
       );
     const active = new Set((await this.schools.findAllActive()).map((x) => x.id));
     for (const { tenant_id, live, stale } of tenants) {
@@ -129,7 +144,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
       tenantId,
     };
     const now = Date.now();
-    const cutoff = new Date(now - MAX_AGE_MS);
+    const cutoff = new Date(now - RECONCILE_MAX_AGE_MS);
     // Keyset pages: rows left PENDING after a query must not hide older eligible ones.
     let cursor: { at: string; id: string } | null = null;
     for (;;) {

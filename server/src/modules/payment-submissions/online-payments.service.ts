@@ -39,6 +39,7 @@ import {
   PaymentSubmissionEventPayload,
   paymentSubmissionEvents,
 } from './payment-submission.events';
+import { isReconcilable } from './online-payments.reconciler';
 import { ProofCaller, ProofSubmissionsService } from './proof-submissions.service';
 
 /** Rule 23: one fixed sentence per failure, never the submitted value or a credential. */
@@ -372,7 +373,7 @@ export class OnlinePaymentsService {
       await this.familyAccess.getLinkedStudentIds(ctx.role, ctx.userId, ctx.tenantId),
     );
     const [s] = await this.ds.query(
-      `SELECT id, status, unmatched, created_at FROM payment_submissions
+      `SELECT id, status, unmatched, created_at, provider_payment_id FROM payment_submissions
         WHERE id = $1 AND tenant_id = $2 AND source = 'ONLINE'`,
       [id, ctx.tenantId],
     );
@@ -410,6 +411,7 @@ export class OnlinePaymentsService {
       amount: (visible / 100).toFixed(2),
       unmatched: s.unmatched,
       createdAt: s.created_at,
+      reconcilable: isReconcilable(s, Date.now()),
       receipts: paid.map((r) => ({ invoiceId: r.invoice_id, receiptNo: r.invoice_number })),
       paidAt: paid.length > 0 ? paid[paid.length - 1].payment_date : null,
       bills: mine.map((b) => ({
