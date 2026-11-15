@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
 import { FeeModule } from '../fees/fees.module';
+import { PaymentGatewaysModule } from '../payment-gateways/payment-gateways.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { StorageModule } from '../storage/storage.module';
 import { StudentModule } from '../students/students.module';
@@ -9,6 +10,9 @@ import { PaymentSubmission } from './entities/payment-submission.entity';
 import { PaymentSubmissionBill } from './entities/payment-submission-bill.entity';
 import { PaymentSubmissionFile } from './entities/payment-submission-file.entity';
 import { PaymentSubmissionEvent } from './entities/payment-submission-event.entity';
+import { BkashTestController, OnlinePaymentsController } from './online-payments.controller';
+import { OnlinePaymentsPublicController } from './online-payments-public.controller';
+import { OnlinePaymentsService } from './online-payments.service';
 import { ProofReviewController } from './proof-review.controller';
 import { ProofReviewService } from './proof-review.service';
 import {
@@ -30,12 +34,26 @@ const ENTITIES = [
     TypeOrmModule.forFeature(ENTITIES),
     AuditModule,
     FeeModule,
+    PaymentGatewaysModule,
     SchoolsModule,
     StorageModule,
     StudentModule,
   ],
   controllers: [ProofSubmissionsController, PortalPaymentController, ProofReviewController],
   providers: [ProofSubmissionsService, ProofReviewService],
+  controllers: [
+    ProofSubmissionsController,
+    PortalPaymentController,
+    ProofReviewController,
+    OnlinePaymentsController,
+    BkashTestController,
+    OnlinePaymentsPublicController,
+  ],
+  providers: [
+    ProofSubmissionsService,
+    ProofReviewService,
+    OnlinePaymentsService,
+  ],
   exports: [TypeOrmModule, ProofSubmissionsService],
 })
 export class PaymentSubmissionsModule {}
