@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, ILike, EntityManager, Not, In } from 'typeorm';
+import { Repository, IsNull, ILike, EntityManager, Not, In, Raw } from 'typeorm';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import {
   AdmissionApplicantStatus,
@@ -18,6 +18,7 @@ import { isMissingObjectError } from '../schools/profile/logo.service';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
+import { AdmissionStage } from './entities/admission-stage.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { Guardian } from '../students/entities/guardian.entity';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
@@ -481,13 +482,76 @@ export class ApplicantReviewService {
     }
   }
 
-  /** [27.10] Tenant-scoped applicant list for the staff screen, optionally
-   * filtered by intake and/or status. */
+  /** Latest fee proof (method, reference) per applicant, tenant-scoped; plus `has_sibling`. */
+  private async withFeeInfo<T extends AdmissionApplicant>(rows: T[], tenantId: string) {
+    const latest = new Map<string, { method: string; reference: string | null }>();
+    if (rows.length > 0) {
+      const proofs = (await this.applicants.manager.query(
+        `SELECT DISTINCT ON (applicant_id) applicant_id, method, reference
+           FROM admission_fee_proofs
+          WHERE tenant_id = $1 AND applicant_id = ANY($2::uuid[]) AND deleted_at IS NULL
+          ORDER BY applicant_id, created_at DESC, id ASC`,
+        [tenantId, rows.map((r) => r.id)],
+      )) as { applicant_id: string; method: string; reference: string | null }[];
+      for (const p of proofs) latest.set(p.applicant_id, p);
+    }
+    return rows.map((r) => ({
+      ...r,
+      fee_method: latest.get(r.id)?.method ?? null,
+      fee_reference: latest.get(r.id)?.reference ?? null,
+      has_sibling: r.sibling_student_id !== null && r.sibling_student_id !== undefined,
+    }));
+  }
+
+  /**
+   * [71.4.00b] `stage_id` filter: same rule as the stage's own roster
+   * (`AdmissionStageResultService.eligible`): not FEE_PENDING, and passed the nearest earlier real
+   * stage. Resolved here as a tenant-scoped `id IN (...)` with bound params.
+   */
+  private async stageRoster(stageId: string, tenantId: string) {
+    const manager = this.applicants.manager;
+    const stage = await manager
+      .getRepository(AdmissionStage)
+      .findOne({ where: { id: stageId, tenant_id: tenantId, deleted_at: IsNull() } });
+    if (!stage) throw new NotFoundException('Admission stage not found');
+    const [prev] = (await manager.query(
+      `SELECT id FROM admission_stages
+        WHERE tenant_id = $1 AND intake_id = $2 AND deleted_at IS NULL
+          AND position < $3 AND kind <> 'NONE'
+        ORDER BY position DESC LIMIT 1`,
+      [tenantId, stage.intake_id, stage.position],
+    )) as { id: string }[];
+    const params = {
+      rosterTenant: tenantId,
+      rosterPrev: prev?.id ?? null,
+      rosterFeePending: AdmissionApplicantStatus.FEE_PENDING,
+    };
+    return {
+      intakeId: stage.intake_id,
+      match: Raw(
+        (alias) => `${alias} IN (
+          SELECT r.id FROM admission_applicants r
+           WHERE r.tenant_id = :rosterTenant AND r.deleted_at IS NULL AND r.status <> :rosterFeePending
+             AND (:rosterPrev::uuid IS NULL OR EXISTS (
+                   SELECT 1 FROM admission_stage_results p
+                    WHERE p.tenant_id = :rosterTenant AND p.stage_id = :rosterPrev
+                      AND p.applicant_id = r.id AND p.passed = true AND p.deleted_at IS NULL)))`,
+        params,
+      ),
+    };
+  }
+
+  /** [27.10, 71.4.00b] Tenant-scoped applicant list for the staff screen. Every filter is applied
+   * in SQL before paging; `sort=roll` orders by roll (unnumbered last), then name. */
   async list(
     tenantId: string,
     filters: ListApplicantsDto,
   ): Promise<{
-    data: AdmissionApplicant[];
+    data: (AdmissionApplicant & {
+      fee_method: string | null;
+      fee_reference: string | null;
+      has_sibling: boolean;
+    })[];
     total: number;
     page: number;
     limit: number;
@@ -495,11 +559,27 @@ export class ApplicantReviewService {
   }> {
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 50;
+    const roster = filters.stage_id ? await this.stageRoster(filters.stage_id, tenantId) : null;
+    if (roster && filters.intakeId && filters.intakeId !== roster.intakeId)
+      return { data: [], total: 0, page, limit, totalPages: 0 };
     const base = {
       tenant_id: tenantId,
       deleted_at: IsNull(),
-      ...(filters.intakeId ? { intake_id: filters.intakeId } : {}),
+      ...(roster
+        ? { intake_id: roster.intakeId, id: roster.match }
+        : filters.intakeId
+          ? { intake_id: filters.intakeId }
+          : {}),
       ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.fee_state ? { fee_state: filters.fee_state } : {}),
+      ...(filters.source ? { source: filters.source } : {}),
+      ...(filters.quota_tag
+        ? {
+            quota_tags: Raw((alias) => `${alias} @> :quotaTag::jsonb`, {
+              quotaTag: JSON.stringify([filters.quota_tag]),
+            }),
+          }
+        : {}),
     };
     // Rule 4: the term is a bound parameter (ILike value), LIKE wildcards escaped.
     const search = normalizeSearchTerm(filters.search);
@@ -512,12 +592,21 @@ export class ApplicantReviewService {
       : base;
     const [data, total] = await this.applicants.findAndCount({
       where,
-      // `id` breaks created_at ties so a page boundary never repeats or skips a row.
-      order: { created_at: 'DESC', id: 'ASC' },
+      // `id` breaks ties so a page boundary never repeats or skips a row.
+      order:
+        filters.sort === 'roll'
+          ? { roll_number: { direction: 'ASC', nulls: 'LAST' }, applicant_name: 'ASC', id: 'ASC' }
+          : { created_at: 'DESC', id: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data: await this.withFeeInfo(data, tenantId),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /** [27.10] One applicant plus its evaluation history, newest first, for
@@ -525,8 +614,15 @@ export class ApplicantReviewService {
   async findWithHistory(
     id: string,
     tenantId: string,
-  ): Promise<{ applicant: AdmissionApplicant; evaluations: AdmissionEvaluation[] }> {
-    const applicant = await this.findOne(id, tenantId);
+  ): Promise<{
+    applicant: AdmissionApplicant & {
+      fee_method: string | null;
+      fee_reference: string | null;
+      has_sibling: boolean;
+    };
+    evaluations: AdmissionEvaluation[];
+  }> {
+    const [applicant] = await this.withFeeInfo([await this.findOne(id, tenantId)], tenantId);
     const evaluations = await this.evaluations.find({
       where: { applicant_id: id, tenant_id: tenantId },
       order: { created_at: 'DESC' },
