@@ -27,7 +27,8 @@ interface Row {
   amount: string;
   provider_payment_id: string | null;
   submitted_by_user_id: string;
-  created_at: string; // ::text, keeps microseconds for the keyset cursor
+  created_at: Date;
+  cursor_at?: string; // created_at::text, keeps microseconds for the keyset cursor
 }
 
 /**
@@ -133,7 +134,8 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
     let cursor: { at: string; id: string } | null = null;
     for (;;) {
       const rows: Row[] = await this.dataSource.query(
-        `SELECT id, status, amount, provider_payment_id, submitted_by_user_id, created_at::text AS created_at
+        `SELECT id, status, amount, provider_payment_id, submitted_by_user_id, created_at,
+                created_at::text AS cursor_at
            FROM payment_submissions
           WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND created_at > $2
             AND (environment = $3 OR provider_payment_id IS NULL)
@@ -151,7 +153,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
       }
       if (rows.length < BATCH) return;
       const last = rows[rows.length - 1];
-      cursor = { at: String(last.created_at), id: last.id };
+      cursor = { at: last.cursor_at as string, id: last.id };
     }
   }
 
