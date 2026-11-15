@@ -15,6 +15,8 @@ export interface AdmitApplicantInput {
   guardian_choice?: 'LINK_EXISTING' | 'CREATE_NEW';
   /** The guardian staff were shown; required with `LINK_EXISTING`. */
   guardian_id?: string;
+  /** [71.4.09] The section to place the student in; must belong to the round's class. */
+  class_section_id?: string;
 }
 
 const MATCH_CODES = new Set(['GUARDIAN_MATCH_NEEDS_CHOICE', 'GUARDIAN_MATCH_CHANGED']);

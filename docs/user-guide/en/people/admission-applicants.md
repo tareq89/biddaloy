@@ -116,7 +116,9 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
    - "If a guardian with this phone number already exists, they'll be linked instead of creating a duplicate." → No guardian has this number yet. Go to step 7.
    - A box that says **Existing guardian: …** → A guardian with this number already exists. First [choose one](#task-guardian), then step 7.
 
-7. In the dialog press **Admit**.
+7. If the dialog shows a **Section** box, choose the section for the child. It lists only the sections of the round's class. Leave **Let the school choose** to let the school pick one.
+
+8. In the dialog press **Admit**.
 
    → The dialog shows **{name} has been admitted.** Press **Close**. The page status becomes **Admitted** and the action buttons go away.
 
