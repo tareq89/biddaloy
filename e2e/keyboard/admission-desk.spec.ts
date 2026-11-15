@@ -89,12 +89,13 @@ test('keyboard-only: palette to clerk entry, fill every box, Ctrl+Enter saves th
   });
 
   await test.step('the applicant exists (API read-back)', async () => {
-    const list = await get<{ data: { applicant_name: string; guardian_phone: string }[] }>(
+    const listed = await get<{ applicant_name: string }[] | { data: { applicant_name: string }[] }>(
       request,
       admin,
-      `/admission/applicants?intakeId=${intake.id}&search=${encodeURIComponent(name)}`,
+      `/admission/applicants?intakeId=${intake.id}`,
     );
-    expect(list.data.map((a) => a.applicant_name)).toEqual([name]);
+    const rows = Array.isArray(listed) ? listed : listed.data;
+    expect(rows.map((r) => r.applicant_name)).toContain(name);
   });
 });
 

@@ -367,7 +367,11 @@ test('admission desk: round wizard -> clerk entry -> fees -> marks -> cut-off ->
     }
 
     await page.goto(`/admissions/rounds/${round.id}?step=${lotteryId}`);
-    await page.getByRole('button', { name: t('admission-stages.lottery.drawButton') }).click();
+    // The desk's "what to do now" card has a button with the same name; use the panel's own card.
+    const drawCard = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: t('admission-stages.lottery.drawCard') }) });
+    await drawCard.getByRole('button', { name: t('admission-stages.lottery.drawButton') }).click();
     const draw = page.waitForResponse(
       (r) => r.url().endsWith('/lottery/draw') && r.request().method() === 'POST',
     );
@@ -379,8 +383,6 @@ test('admission desk: round wizard -> clerk entry -> fees -> marks -> cut-off ->
     await expect(page.getByText(t('admission-stages.lottery.done'))).toBeVisible();
     for (const name of drawn) await expect(page.getByRole('cell', { name })).toBeVisible();
     // Once drawn, neither a second draw nor an upload is offered.
-    await expect(
-      page.getByRole('button', { name: t('admission-stages.lottery.drawButton') }),
-    ).toHaveCount(0);
+    await expect(drawCard).toHaveCount(0);
   });
 });
