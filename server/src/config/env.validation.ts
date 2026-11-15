@@ -539,7 +539,7 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
 
   for (const key of ['JWT_SECRET', 'JWT_SECRET_PREVIOUS']) {
     const secret = str(key);
-    if (secret && (/^\d+$/.test(secret) || /^(.+?)\1+$/.test(secret) || new Set(secret).size < 8)) {
+    if (secret && (/^\d+$/.test(secret) || /^(.+?)\1+$/s.test(secret) || new Set(secret).size < 8)) {
       // All digits, one substring repeated ('abcde123'.repeat(4)), or under 8
       // distinct symbols ('a'.repeat(40)). Random hex of the minimum 32
       // characters trips none of these far less than once in a million draws;

@@ -93,7 +93,7 @@ describe('/support-access/requests/$requestId', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Biddaloy support asks to log in as Rahim (Teacher).',
+        name: 'SchoolManager support asks to log in as Rahim (Teacher).',
       }),
     ).toBeTruthy();
     expect(screen.getByText('Fee report looks wrong')).toBeTruthy();
@@ -112,7 +112,7 @@ describe('/support-access/requests/$requestId', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
 
-    expect(await screen.findByText('Approved. Biddaloy support can log in now.')).toBeTruthy();
+    expect(await screen.findByText('Approved. SchoolManager support can log in now.')).toBeTruthy();
     expect(posted).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
@@ -125,7 +125,7 @@ describe('/support-access/requests/$requestId', () => {
     const { router } = render();
 
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
-    await screen.findByText('Approved. Biddaloy support can log in now.');
+    await screen.findByText('Approved. SchoolManager support can log in now.');
     await router.navigate({
       to: '/support-access/requests/$requestId',
       params: { requestId: other },
@@ -133,7 +133,7 @@ describe('/support-access/requests/$requestId', () => {
 
     expect(await screen.findByRole('heading', { name: /Karim/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy();
-    expect(screen.queryByText('Approved. Biddaloy support can log in now.')).toBeNull();
+    expect(screen.queryByText('Approved. SchoolManager support can log in now.')).toBeNull();
   });
 
   it('writes the role in the language of the page', async () => {
@@ -157,14 +157,14 @@ describe('/support-access/requests/$requestId', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Not now' }));
 
-    expect(await screen.findByText('Not now. Biddaloy support was told.')).toBeTruthy();
+    expect(await screen.findByText('Not now. SchoolManager support was told.')).toBeTruthy();
     expect(posted).toHaveBeenCalledTimes(1);
   });
 
   it.each([
     ['APPROVED', 'This request was already approved.'],
     ['DENIED', 'This request was already answered with Not now.'],
-    ['EXPIRED', 'This request has run out. Biddaloy support can ask again.'],
+    ['EXPIRED', 'This request has run out. SchoolManager support can ask again.'],
   ])('a %s request shows its result and no buttons', async (status, text) => {
     mockList([request({ status })]);
     render();
@@ -220,7 +220,7 @@ describe('/support-access/requests/$requestId', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Biddaloy support asks to make changes (view only now).',
+        name: 'SchoolManager support asks to make changes (view only now).',
       }),
     ).toBeTruthy();
   });

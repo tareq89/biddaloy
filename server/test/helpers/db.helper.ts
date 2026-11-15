@@ -65,7 +65,8 @@ export async function publicColumns(ds: DataSource): Promise<string[]> {
  * Migration round-trip: runs `down()` on each of `migrations` in order (newest
  * first, as `migration:revert` would), then `body`, then `up()` on every one
  * that went down, oldest first. Only what actually went down is brought back,
- * and a restore failure never hides an error thrown before it.
+ * and a restore failure never hides an error thrown before it and never stops the
+ * remaining migrations from being restored.
  */
 export async function withMigrationsReverted(
   ds: DataSource,
@@ -91,10 +92,14 @@ export async function withMigrationsReverted(
     await body();
     failed = false;
   } finally {
+    // Bring back every migration that went down, even if an earlier up() throws.
+    const restoreErrors: unknown[] = [];
     for (const m of down) {
-      await run((qr) => m.up(qr)).catch((err) => {
-        if (!failed) throw err;
-      });
+      await run((qr) => m.up(qr)).catch((err) => restoreErrors.push(err));
+    }
+    if (restoreErrors.length > 0) {
+      if (failed) console.warn('withMigrationsReverted: restore failed', restoreErrors);
+      else throw new AggregateError(restoreErrors, 'withMigrationsReverted: restore failed');
     }
   }
 }

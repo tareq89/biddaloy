@@ -191,7 +191,7 @@
       "gpa": "GPA",
       "gpaMin": "GPA from",
       "gpaMax": "GPA up to",
-      "section": "Section",
+      "section": "$t(common:entities.section_one)",
       "sectionAll": "All sections",
       "subject": "Subject",
       "subjectAll": "Choose a subject",

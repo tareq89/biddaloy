@@ -225,7 +225,7 @@ describe('LoginAsDialog', () => {
     vi.spyOn(window, 'open').mockReturnValue(fakeTab() as unknown as Window);
     view();
     expect(
-      await screen.findByText('This school does not allow Biddaloy support access.'),
+      await screen.findByText('This school does not allow SchoolManager support access.'),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Login as' })).toHaveProperty('disabled', true);
     expect(screen.queryByRole('textbox', { name: 'Reason' })).toBeNull();

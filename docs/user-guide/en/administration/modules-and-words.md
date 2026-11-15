@@ -146,9 +146,9 @@ Under a module's name a short note tells you who decides:
 | Note                                                  | Meaning                                                                                                                                               |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Your institution**                                  | You decide. Use the switch                                                                                                                            |
-| **Platform turned it off**                            | Biddaloy turned it Off for your school. You cannot turn it On                                                                                         |
-| **This cannot be turned off.** **Platform locked it** | Biddaloy keeps it On for your school. You cannot turn it Off                                                                                          |
-| **Platform locked it**                                | Biddaloy keeps it Off for your school. You cannot turn it On                                                                                          |
+| **Platform turned it off**                            | SchoolManager turned it Off for your school. You cannot turn it On                                                                                         |
+| **This cannot be turned off.** **Platform locked it** | SchoolManager keeps it On for your school. You cannot turn it Off                                                                                          |
+| **Platform locked it**                                | SchoolManager keeps it Off for your school. You cannot turn it On                                                                                          |
 | **Off because (module) is Off**                       | It needs another module. [**Fines**](../finance/fines.md) need **Fees**, **Seat plans** need **Exams and results**, **Study plans** need **Routines** |
 
 When the platform decides, the switch and the **Who can't see it** button are greyed.
@@ -235,7 +235,7 @@ In the **Set up your school** wizard, the curriculum step shows the same **Insti
 | **Could not load the institution kinds. Try again.** | Press the retry button and check the internet                                                                 | Admin            |
 | **Could not show this preview. Try again.**          | Close the preview and open the card again                                                                     | Admin            |
 | **Could not load the modules. Try again.**           | Check the internet, then open the tab again                                                                   | Admin            |
-| A switch is grey                                     | Read the note under the name. **Platform turned it off** or **Platform locked it** means Biddaloy decides     | Biddaloy support |
+| A switch is grey                                     | Read the note under the name. **Platform turned it off** or **Platform locked it** means SchoolManager decides     | SchoolManager support |
 | **Modules & words** is not in the Settings list      | Only the Admin sees it                                                                                        | Admin            |
 | A menu item or page went missing                     | Its module may be Off, or hidden from your role. Ask your Admin to check **Modules** and **Who can't see it** | Admin            |
 | **This part is not turned on for your institution**  | Admin: press **Turn on**. Others: **Ask your admin**                                                          | Admin            |

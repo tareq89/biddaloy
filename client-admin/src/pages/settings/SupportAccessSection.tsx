@@ -1,5 +1,5 @@
 /**
- * [99.G4.04] "Biddaloy support access" settings section: the three-way switch (Allowed, Ask each
+ * [99.G4.04] "SchoolManager support access" settings section: the three-way switch (Allowed, Ask each
  * time, Blocked), who came in during the last 90 days, End for a live login, and the requests
  * waiting for approval (each opens `/support-access/requests/$requestId`). Only the server decides
  * who may change it (`SETTINGS_MANAGE`, and a support login is refused there, D4).

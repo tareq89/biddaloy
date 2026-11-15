@@ -7,7 +7,7 @@
   },
   "acr": {
     "title": "বার্ষিক গোপনীয় প্রতিবেদন",
-    "documentTitle": "{{name}} — এসিআর {{year}} · Biddaloy",
+    "documentTitle": "{{name}} — এসিআর {{year}} · SchoolManager",
     "start": "এসিআর শুরু করুন",
     "startTitle": "এসিআর শুরু করুন",
     "staffLabel": "কর্মী",
@@ -275,7 +275,7 @@
       "errorSummary": "জরিপ সংরক্ষণ হয়নি: {{count}}টি ঘর ঠিক করুন।"
     },
     "detail": {
-      "documentTitle": "{{title}} — জরিপ · Biddaloy",
+      "documentTitle": "{{title}} — জরিপ · SchoolManager",
       "loadError": "এই জরিপ লোড করা যায়নি।",
       "publish": "চালু করুন",
       "publishing": "চালু হচ্ছে…",

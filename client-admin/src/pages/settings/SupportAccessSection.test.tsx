@@ -149,7 +149,7 @@ describe('SupportAccessSection', () => {
 
     const open = await screen.findByRole('link', { name: 'Open' });
     expect(open.getAttribute('href')).toBe('/support-access/requests/r1');
-    expect(screen.getByText('Biddaloy support asks to log in as Rahim (Teacher).')).toBeTruthy();
+    expect(screen.getByText('SchoolManager support asks to log in as Rahim (Teacher).')).toBeTruthy();
   });
 
   it('End on a live row asks first, then calls the end route', async () => {

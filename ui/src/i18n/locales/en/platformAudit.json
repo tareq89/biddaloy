@@ -30,7 +30,7 @@
     "emptyExplanation": "Change the filters and look again.",
     "announceResults": "Showing {{count}} rows"
   },
-  "support": "Biddaloy support (as {{name}})",
+  "support": "SchoolManager support (as {{name}})",
   "visits": {
     "caption": "Every Login as visit, one row each",
     "owner": "Who",
