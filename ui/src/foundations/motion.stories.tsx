@@ -57,6 +57,20 @@ const DURATIONS = [
     tileClassName:
       'transition-transform duration-(--motion-duration-slow) ease-(--motion-ease-standard) hover:translate-x-6',
   },
+  {
+    label: 'durationExpand',
+    varName: '--motion-duration-expand',
+    use: 'Section expand, number roll',
+    tileClassName:
+      'transition-transform duration-(--motion-duration-expand) ease-(--motion-ease-standard) hover:translate-x-6',
+  },
+  {
+    label: 'durationConfirm',
+    varName: '--motion-duration-confirm',
+    use: 'Success tick',
+    tileClassName:
+      'transition-transform duration-(--motion-duration-confirm) ease-(--motion-ease-standard) hover:translate-x-6',
+  },
 ] as const;
 
 function DurationTile({
