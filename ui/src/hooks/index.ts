@@ -1269,7 +1269,13 @@ export {
   type RemoveBatchStudentInput,
   type RemoveUncollectedResult,
 } from './fee-generations';
-export { useCreateAdmissionRound, type CreateAdmissionRoundInput } from './admission-rounds';
+export {
+  useAdmissionRound,
+  useAdmissionStages,
+  useCreateAdmissionRound,
+  type CreateAdmissionRoundInput,
+} from './admission-rounds';
+export { useAdmissionApplicants, useAdmissionLists, useFeeProofs } from './admission-pipeline';
 export {
   admissionReportKeys,
   useAdmissionLifecycleReport,
