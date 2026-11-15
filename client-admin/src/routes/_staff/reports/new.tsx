@@ -10,7 +10,8 @@
  *  designer ── Save ──► draft created ──► /reports/:id/edit (replace)
  * ```
  */
-import { ErrorState, RoutePending } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import { AccessDeniedState, ErrorState, RoutePending } from '@biddaloy/ui/components';
 import {
   reportCatalogueQueryOptions,
   reportMetaQueryOptions,
@@ -50,6 +51,9 @@ function NewReportPage() {
   const [start, setStart] = React.useState<{ plan: StarterPlan | null } | undefined>(undefined);
 
   if (meta.isError) {
+    if (meta.error instanceof ApiError && meta.error.statusCode === 403) {
+      return <AccessDeniedState />;
+    }
     return (
       <ErrorState
         message={t('loadError')}
