@@ -34,7 +34,7 @@ entry: [public]
 keywords: [create school, register, sign up, wizard, welcome, OTP, code, স্কুল খুলুন, নিবন্ধন, উইজার্ড]
 appVersion: 0.1.0 (beb2d2e77)
 owner: tareq89
-lastVerified: 2026-10-24
+lastVerified: 2026-11-16
 knownIssues: []
 -->
 
@@ -87,7 +87,7 @@ If you are already signed in, this page will not open. You go straight to the ap
 
    → The boxes are filled in.
 
-3. Tick the box **I agree to the terms and privacy policy**.
+3. Tick the box **I agree to the terms and privacy policy**. The words **terms** and **privacy policy** are links: press one to read it in a new tab, then come back here to tick the box. (If the app has no address set for them, they show as plain words.)
 4. If the page has a robot check (a box to show you are not a robot), finish it.
 5. Press **Continue**.
 
