@@ -287,8 +287,6 @@ describe('scrub.sql', () => {
       },
       // CHK_notice_recipients_target: a STAFF row needs a user
       notice_recipients: { user_id: lit(randomUUID()) + '::uuid' },
-      // CHK_user_recovery_codes_hash_len: a 64-char hash
-      user_recovery_codes: { code_hash: lit('a'.repeat(64)) },
     };
     const tables = [
       ...new Set(
