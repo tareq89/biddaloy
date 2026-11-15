@@ -66,8 +66,14 @@ test('keyboard-only: palette to clerk entry, fill every box, Ctrl+Enter saves th
   });
 
   await test.step('fill the boxes by keyboard', async () => {
-    await page.locator('#clerk-name').focus();
-    await page.keyboard.type(name);
+    // The boxes appear after the round pick and the form re-renders; the first keys can be lost,
+    // so retype (select all first) until the box holds the whole name.
+    await expect(async () => {
+      await page.locator('#clerk-name').focus();
+      await page.keyboard.press('ControlOrMeta+a');
+      await page.keyboard.type(name);
+      await expect(page.locator('#clerk-name')).toHaveValue(name, { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     // Date input segments follow the browser locale (en-US: month, day, year).
     await page.locator('#clerk-dob').focus();
     await page.keyboard.type('06012018');
