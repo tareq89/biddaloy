@@ -78,6 +78,7 @@ const FIXED: Fixed[] = [
   { id: 'start.language', roles: EVERYONE, routes: [] },
   { id: 'start.account', roles: EVERYONE, routes: ['/security', '/verify-email'] },
   { id: 'start.findAnything', roles: STAFF, routes: [] },
+  { id: 'start.ifSomethingGoesWrong', roles: EVERYONE, routes: [] },
   { id: 'admin.howItWorks', roles: [UserRole.ADMIN], routes: [] },
   { id: 'admin.setupOrder', roles: [UserRole.ADMIN], routes: [] },
   { id: 'admin.scenarios', roles: [UserRole.ADMIN], routes: [] },
