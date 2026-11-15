@@ -21,7 +21,7 @@ import {
 import { applyDecorators } from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
-import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { BD_PHONE_REGEX, CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
 import { ROLL_NUMBER_MAX } from '../roll-number.util';
@@ -30,9 +30,8 @@ import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 /** [32.2.5] Allowed blood groups on a student (D43). */
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-// Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh
-// mobile numbers (operator prefixes 13-19).
-export const BD_PHONE_REGEX = /^(?:\+?880|0)1[3-9]\d{8}$/;
+// Single definition lives in @biddaloy/shared; re-exported for existing importers.
+export { BD_PHONE_REGEX };
 
 /** [39.2.1] The five student-profile fields. Writing any needs STUDENT_RECORDS_WRITE
  * (enforced in the controller); `null` on update clears the column. */
