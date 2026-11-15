@@ -208,9 +208,9 @@ export const slice: DemoSlice = {
             documents: [],
             status,
             // The fifth applicant of every pipeline round was typed in at the desk (D18 reports
-            // split ONLINE / CLERK); every fourth one carries a quota tag.
+            // split ONLINE / CLERK); every fourth one carries the freedom-fighter quota key.
             source: !legacy && i === 4 ? 'CLERK' : 'ONLINE',
-            quota_tags: i % 4 === 3 ? ['FF'] : [],
+            quota_tags: i % 4 === 3 ? ['quota_freedom_fighter'] : [],
             fee_state: feeState,
           });
           if (status !== AdmissionApplicantStatus.PENDING) {
