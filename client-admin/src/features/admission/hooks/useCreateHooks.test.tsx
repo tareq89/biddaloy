@@ -14,6 +14,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+type Mutator = { mutateAsync: (input: never) => Promise<unknown> };
 const keys: (string | null)[] = [];
 let fail = true;
 
@@ -22,12 +23,12 @@ let fail = true;
 describe.each([
   [
     'useCreateAdmissionRound',
-    () => useCreateAdmissionRound(),
+    () => useCreateAdmissionRound() as unknown as Mutator,
     { name: 'Class 6 admission' } as never,
   ],
   [
     'useCreateApplicantStaff',
-    () => useCreateApplicantStaff(),
+    () => useCreateApplicantStaff() as unknown as Mutator,
     {
       intake_id: 'i1',
       applicant_name: 'Rahim',
