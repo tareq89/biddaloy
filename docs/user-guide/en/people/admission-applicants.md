@@ -340,7 +340,10 @@ If the school has no SMS balance, the message does not go, but the decision is s
 **Related pages**
 
 - [**Admission rounds**](admission-intakes.md) — seats, dates and the guardian's online form.
+- [**Entering an application**](admission-clerk-entry.md) — add an application for a guardian who comes to the office.
+- [**Checking an application fee**](admission-fee-verify.md) — mark a fee ok or send it back.
 - [**Admission reports**](admission-reports.md) — how many were admitted in a year and how many left.
+- [**Merit and waiting lists**](admission-lists.md) — make lists and admit from them.
 
 ---
 

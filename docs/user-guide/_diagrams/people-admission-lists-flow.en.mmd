@@ -1,0 +1,10 @@
+%% title: Merit list and waiting lists
+%% desc: The merit list is made from applications whose fee is ok. People who do not take admission by its last date lose their offer, and if seats are still free the next waiting list is opened, and so on.
+flowchart LR
+  M["Merit list<br/>offers go out"] -->|"last date passes"| E1["Mark time over<br/>unadmitted offers end"]
+  E1 -->|"seats still free"| W1["Waiting list 1<br/>open this list"]
+  W1 -->|"last date passes"| E2["Mark time over"]
+  E2 -->|"seats still free"| W2["Waiting list 2"]
+  E1 -->|"no seat free"| Done["Admission finished"]:::done
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef stop fill:#fff5f5,stroke:#c92a2a,color:#5c1111

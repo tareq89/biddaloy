@@ -105,11 +105,7 @@
     "path": "people/admission-applicants",
     "route": "/admissions/applicants",
     "roles": ["ADMIN", "OFFICE_STAFF"],
-    "routes": [
-      "/admissions/applicants",
-      "/admissions/applicants/$applicantId",
-      "/admissions/applicants/new"
-    ]
+    "routes": ["/admissions/applicants", "/admissions/applicants/$applicantId"]
   },
   {
     "id": "people.admissionReports",
@@ -990,6 +986,62 @@
     "route": "/support/enter",
     "roles": ["ADMIN"],
     "routes": ["/support-access/requests/$requestId", "/support/enter", "/welcome/support-access"]
+  },
+  {
+    "id": "people.admissionClerkEntry",
+    "kind": "people",
+    "path": "people/admission-clerk-entry",
+    "route": "/admissions/applicants/new",
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": ["/admissions/applicants/new"]
+  },
+  {
+    "id": "people.admissionFeeVerify",
+    "kind": "people",
+    "path": "people/admission-fee-verify",
+    "route": null,
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": []
+  },
+  {
+    "id": "people.admissionStages",
+    "kind": "people",
+    "path": "people/admission-stages",
+    "route": "/admissions/rounds/$roundId",
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": ["/admissions/rounds/$roundId"]
+  },
+  {
+    "id": "people.admissionLottery",
+    "kind": "people",
+    "path": "people/admission-lottery",
+    "route": null,
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": []
+  },
+  {
+    "id": "people.admissionLists",
+    "kind": "people",
+    "path": "people/admission-lists",
+    "route": null,
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": []
+  },
+  {
+    "id": "people.admissionPublish",
+    "kind": "people",
+    "path": "people/admission-publish",
+    "route": null,
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": []
+  },
+  {
+    "id": "administration.admissionWidgets",
+    "kind": "administration",
+    "path": "administration/admission-widgets",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
   },
   {
     "id": "administration.modulesWords",

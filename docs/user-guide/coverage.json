@@ -110,5 +110,12 @@
   "platformOwner.schoolControl": "done",
   "platformOwner.announcements": "done",
   "administration.supportAccess": "done",
-  "administration.modulesWords": "done"
+  "administration.modulesWords": "done",
+  "people.admissionClerkEntry": "done",
+  "people.admissionFeeVerify": "done",
+  "people.admissionStages": "done",
+  "people.admissionLottery": "done",
+  "people.admissionLists": "done",
+  "people.admissionPublish": "done",
+  "administration.admissionWidgets": "done"
 }

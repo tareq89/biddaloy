@@ -1,0 +1,9 @@
+%% title: What Publish does
+%% desc: Publishing a list shows it on the school website, adds the call list for the office if the round asks for it, and sends SMS if the round uses SMS and there are enough credits. Names appear on the site only if List with names is on.
+flowchart LR
+  P["Publish a list"] --> S["School website<br/>roll numbers only"]
+  P --> C["Call list<br/>if the round has it"]
+  P --> M["SMS<br/>if on, enough credits"]
+  N["List with names"] -.->|"turned on"| S
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef stop fill:#fff5f5,stroke:#c92a2a,color:#5c1111

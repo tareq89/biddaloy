@@ -7,7 +7,6 @@
   "/schools/new": "internal: SUPER_ADMIN platform (D15), covered by #2558",
   "/reports-usage": "internal: SUPER_ADMIN platform (D15), covered by #2558",
   "/subscriptions": "internal: SUPER_ADMIN platform (D15), covered by #2558",
-  "/admissions/rounds/$roundId": "internal: admission desk, its guide page lands with the desk screen tickets (Epic 71 W4)",
   "/money": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
   "/money/packages": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
   "/money/plans": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
