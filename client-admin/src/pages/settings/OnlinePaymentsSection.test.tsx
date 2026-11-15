@@ -119,4 +119,119 @@ describe('OnlinePaymentsSection', () => {
     );
     release();
   });
+
+  describe('bKash connection', () => {
+    const MASK = { configured: true, hint: '1234' };
+    const BKASH = {
+      environment: 'SANDBOX',
+      appKey: MASK,
+      appSecret: MASK,
+      username: MASK,
+      password: MASK,
+    };
+    const toggle = () => screen.findByLabelText('Pay with bKash online');
+    const stubTest = (ok = true) =>
+      server.use(
+        http.post('/api/v1/settings/payments/bkash/test', () =>
+          ok
+            ? HttpResponse.json({ ok: true, lastTestOkAt: '2026-11-15T09:30:00.000Z' })
+            : HttpResponse.json({ message: 'x' }, { status: 502 }),
+        ),
+      );
+
+    it('toggle is disabled before a passing test, enabled after, and off again once a credential changes', async () => {
+      stubTest();
+      const { user } = renderWithProviders(
+        <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={{ ...PAYMENTS, bkash: BKASH }} />,
+        opts,
+      );
+      expect((await toggle()).hasAttribute('disabled')).toBe(true);
+      await user.click(screen.getByRole('button', { name: 'Test connection' }));
+      expect(await screen.findByText(/Last passing test/)).toBeTruthy();
+      expect((await toggle()).hasAttribute('disabled')).toBe(false);
+
+      await user.click(screen.getAllByRole('button', { name: 'Change' })[0]!);
+      await user.type(screen.getByLabelText('Username'), 'new-user');
+      expect((await toggle()).hasAttribute('disabled')).toBe(true);
+      expect(screen.getByRole('button', { name: 'Test connection' }).hasAttribute('disabled')).toBe(
+        true,
+      );
+    });
+
+    it('a failed test shows one fixed sentence and keeps the toggle off', async () => {
+      stubTest(false);
+      const { user } = renderWithProviders(
+        <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={{ ...PAYMENTS, bkash: BKASH }} />,
+        opts,
+      );
+      await user.click(await screen.findByRole('button', { name: 'Test connection' }));
+      expect((await screen.findByRole('alert')).textContent).toContain("Couldn't connect");
+      expect((await toggle()).hasAttribute('disabled')).toBe(true);
+    });
+
+    it('a still-valid saved test enables the toggle; turning it on sends only onlineEnabled', async () => {
+      const patchBody = capturePatch();
+      const { user } = renderWithProviders(
+        <OnlinePaymentsSection
+          schoolId={SCHOOL_ID}
+          payments={{ ...PAYMENTS, bkash: { ...BKASH, lastTestOkAt: '2026-11-15T09:30:00.000Z' } }}
+        />,
+        opts,
+      );
+      await user.click(await toggle());
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].payments).toEqual({
+        onlineEnabled: true,
+        proofEnabled: false,
+        proofMethods: PAYMENTS.proofMethods,
+      });
+    });
+
+    it('saves the default environment with the first secret when none is saved', async () => {
+      const patchBody = capturePatch();
+      const { user } = renderWithProviders(
+        <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={PAYMENTS} />,
+        opts,
+      );
+      await user.click((await screen.findAllByRole('button', { name: 'Add' }))[0]!);
+      await user.type(screen.getByLabelText('Username'), 'u');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].payments.bkash).toEqual({
+        environment: 'SANDBOX',
+        username: 'u',
+      });
+    });
+
+    it('removing a saved secret sends null for it only', async () => {
+      const patchBody = capturePatch();
+      const { user } = renderWithProviders(
+        <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={{ ...PAYMENTS, bkash: BKASH }} />,
+        opts,
+      );
+      await user.click((await screen.findAllByRole('button', { name: 'Remove' }))[0]!);
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].payments.bkash).toEqual({ username: null });
+    });
+
+    it('sends only the changed credential and never shows a secret', async () => {
+      const patchBody = capturePatch();
+      const { user, container } = renderWithProviders(
+        <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={{ ...PAYMENTS, bkash: BKASH }} />,
+        opts,
+      );
+      expect((await screen.findAllByText('Added — ends 1234')).length).toBe(4);
+      await user.click(screen.getAllByRole('button', { name: 'Change' })[3]!);
+      await user.type(screen.getByLabelText('App secret'), 'fresh-secret-value');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].payments.bkash).toEqual({
+        appSecret: 'fresh-secret-value',
+      });
+      // After the save the typed value is gone from the page.
+      await waitFor(() => expect(container.innerHTML).not.toContain('fresh-secret-value'));
+    });
+  });
 });
