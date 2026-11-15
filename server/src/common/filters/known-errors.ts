@@ -121,6 +121,23 @@ export function lotteryAlreadyDrawn(): ConflictException {
   });
 }
 
+// [#4182] Fixed texts for admission lists. No ids, no echoed input.
+const ADMISSION_LIST_CONFLICTS = {
+  MERIT_LIST_EXISTS: 'This round already has a merit list',
+  MERIT_LIST_MISSING: 'Create the merit list first',
+  LIST_ALREADY_ACTIVATED: 'This list has already been activated',
+  PREVIOUS_LIST_NOT_ACTIVATED: 'The previous list has not been activated yet',
+  PREVIOUS_DEADLINE_NOT_PASSED: 'The previous list is still within its act-by date',
+  NO_SEATS_LEFT: 'This round has no vacant seats',
+  DEADLINE_NOT_PASSED: 'The act-by date of this list has not passed',
+  LIST_NOT_ACTIVATED: 'This list has not been activated yet',
+  LIST_LOCKED: 'An activated list cannot be edited',
+} as const;
+export type AdmissionListConflictCode = keyof typeof ADMISSION_LIST_CONFLICTS;
+export function admissionListConflict(code: AdmissionListConflictCode): ConflictException {
+  return new ConflictException({ message: ADMISSION_LIST_CONFLICTS[code], details: { code } });
+}
+
 function mapHomeworkActiveUnique(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;
   const { code, constraint } = exception.driverError as { code?: string; constraint?: string };

@@ -325,10 +325,29 @@ export const admissionListsTab = makeTab({
     },
     { key: 'active', type: 'bool', required: true, label: label('Active', 'সক্রিয়') },
     { key: 'published_at', type: 'datetime', label: label('Published at', 'প্রকাশের সময়') },
+    { key: 'capacity', type: 'int', required: true, label: label('Capacity', 'আসন সংখ্যা') },
+    { key: 'act_by_date', type: 'date', label: label('Act by', 'সময়সীমা') },
+    { key: 'activated_at', type: 'datetime', label: label('Activated at', 'চালুর সময়') },
+    { key: 'filter', type: 'json', label: label('Filter', 'ফিল্টার') },
   ],
-  scalars: ['kind', 'sequence', 'order_by', 'active', 'published_at'],
-  ints: ['sequence'],
+  scalars: [
+    'kind',
+    'sequence',
+    'order_by',
+    'active',
+    'published_at',
+    'capacity',
+    'act_by_date',
+    'activated_at',
+    'filter',
+  ],
+  ints: ['sequence', 'capacity'],
   keyCells: ['intake', 'kind', 'sequence'],
+  check: (v, bad) => {
+    if (typeof v.capacity === 'number' && v.capacity < 0)
+      bad('capacity', 'Column "capacity": must be 0 or more.');
+    jsonObject(v, 'filter', bad);
+  },
 });
 
 export const admissionListMembersTab = makeTab({

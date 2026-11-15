@@ -9473,6 +9473,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admission/intakes/{id}/lists/merit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Build the merit list; its first `capacity` applicants are offered. */
+        post: operations["AdmissionListController_createMerit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/intakes/{id}/lists/waiting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Build the next waiting list (inactive until activated). */
+        post: operations["AdmissionListController_createWaiting_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/intakes/{id}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists of a round with members, counts and seats left. */
+        get: operations["AdmissionListController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/lists/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open the next list after the previous act-by date: lapsed offers expire, vacant seats are offered. */
+        post: operations["AdmissionListController_activate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/lists/{id}/expire-pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Expire the offers of a list whose act-by date has passed. */
+        post: operations["AdmissionListController_expirePending_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/lists/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Add, remove or reorder the members of a list that is not active yet. */
+        patch: operations["AdmissionListController_patchMembers_v1"];
+        trace?: never;
+    };
     "/api/v1/seat-plans/generate": {
         parameters: {
             query?: never;
@@ -21294,6 +21396,88 @@ export interface components {
         };
         LotteryImportCommitResponseDto: {
             imported: number;
+        };
+        CreateMeritListDto: {
+            /**
+             * @description Seats this list offers.
+             * @example 40
+             */
+            capacity: number;
+            /**
+             * @description Offers lapse after this day (YYYY-MM-DD).
+             * @example 2026-12-20
+             */
+            act_by_date: string;
+        };
+        ListActionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Applicants moved to OFFERED / EXPIRED / WAITING by this call. */
+            affected: number;
+        };
+        /** @enum {string} */
+        AdmissionListOrder: "MERIT" | "FIRST_COME" | "MANUAL" | "FILTER";
+        ListFilterDto: {
+            quota_tags?: string[];
+            /** @example 60.5 */
+            min_score?: number;
+            /** @example FEMALE */
+            gender?: string;
+        };
+        CreateWaitingListDto: {
+            /**
+             * @description Seats this list offers.
+             * @example 40
+             */
+            capacity: number;
+            /**
+             * @description Offers lapse after this day (YYYY-MM-DD).
+             * @example 2026-12-20
+             */
+            act_by_date: string;
+            order: components["schemas"]["AdmissionListOrder"];
+            /** @description Required for MANUAL: the order is the list. */
+            applicant_ids?: string[];
+            filter?: components["schemas"]["ListFilterDto"];
+        };
+        ListCountsDto: {
+            OFFERED: number;
+            WAITING: number;
+            ADMITTED: number;
+            EXPIRED: number;
+        };
+        ListMemberDto: {
+            /** Format: uuid */
+            applicant_id: string;
+            applicant_name: string;
+            position: number;
+            status: string;
+        };
+        AdmissionListDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "MERIT" | "WAITING";
+            sequence: number;
+            order_by: components["schemas"]["AdmissionListOrder"];
+            capacity: number;
+            act_by_date: string | null;
+            activated_at: string | null;
+            counts: components["schemas"]["ListCountsDto"];
+            /** @description First 500 members. */
+            members: components["schemas"]["ListMemberDto"][];
+        };
+        AdmissionListsResponseDto: {
+            seat_count: number;
+            /** @description seat_count - ADMITTED - OFFERED, never below 0. */
+            seats_left: number;
+            lists: components["schemas"]["AdmissionListDto"][];
+        };
+        PatchMembersDto: {
+            add?: string[];
+            remove?: string[];
+            /** @description Applicant ids in the new order; must be every current member. */
+            order?: string[];
         };
         GenerateSeatPlanDto: {
             name: string;
@@ -46894,6 +47078,216 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LotteryImportCommitResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionListController_createMerit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMeritListDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionListController_createWaiting_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWaitingListDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionListController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionListsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionListController_activate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionListController_expirePending_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionListController_patchMembers_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchMembersDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActionResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
