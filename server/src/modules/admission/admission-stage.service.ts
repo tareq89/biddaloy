@@ -121,7 +121,12 @@ export class AdmissionStageService {
         stage.kind = dto.kind;
       }
       if (dto.title !== undefined) stage.title = dto.title;
-      if (dto.config !== undefined) stage.config = dto.config;
+      if (dto.config !== undefined) {
+        // [#4184] The publish flag is owned by the publish route: keep it as stored.
+        const { published_at: _drop, ...rest } = dto.config as Record<string, unknown>;
+        const keep = stage.config?.published_at;
+        stage.config = keep === undefined ? rest : { ...rest, published_at: keep };
+      }
       return manager.getRepository(AdmissionStage).save(stage);
     });
   }
