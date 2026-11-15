@@ -2,12 +2,17 @@ import { PaymentSubmissionStatus } from '@biddaloy/shared';
 import { StatusBadge, type DataTableColumn, type StatusTone } from '@biddaloy/ui/components';
 import { useOnlinePaymentSubmissions, type ProofReviewListItem } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
+import {
+  ListShell,
+  useListShellState,
+  type FilterFieldDescriptor,
+  type PageAction,
+} from '@biddaloy/ui/shells';
 import { formatDateTime, formatServerAmount } from '@biddaloy/ui/utils';
 import { CreditCard } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-// ponytail: one page of 100 (the API's cap); a note shows when more exist. Cursor paging if queues grow.
+/** One page is 100 rows (the API's cap); the header's Next page walks the rest by cursor. */
 export const PAGE_LIMIT = 100;
 
 export const STATUS_TONE: Record<PaymentSubmissionStatus, StatusTone> = {
@@ -33,15 +38,34 @@ const ONLINE_STATUSES = [
   PaymentSubmissionStatus.REVERSED,
 ] as const;
 
+/** Header buttons: Next page (while the server has more) and First page (once past page one). */
+export function pagingActions(
+  t: (key: string) => string,
+  cursor: string | undefined,
+  nextCursor: string | null | undefined,
+  setCursor: (c: string | undefined) => void,
+): PageAction[] {
+  return [
+    ...(nextCursor
+      ? [{ id: 'next', label: t('paging.next'), onClick: () => setCursor(nextCursor) }]
+      : []),
+    ...(cursor
+      ? [{ id: 'first', label: t('paging.first'), onClick: () => setCursor(undefined) }]
+      : []),
+  ];
+}
+
 /** [3.x/#3993] Every online payment, with a status filter. */
 export function OnlineTab({ tabs }: { tabs: ReactNode }) {
   const { t } = useTranslation('onlinePayments');
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
   const picked = ONLINE_STATUSES.find((s) => s === state.filters.status);
+  const [cursor, setCursor] = useState<string | undefined>();
   const query = useOnlinePaymentSubmissions({
     ...(picked ? { status: picked } : {}),
     limit: PAGE_LIMIT,
+    ...(cursor ? { cursor } : {}),
   });
   const items = query.data?.items ?? [];
 
@@ -108,7 +132,15 @@ export function OnlineTab({ tabs }: { tabs: ReactNode }) {
           : t('subtitle')
       }
       tabs={tabs}
-      filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
+      actions={pagingActions(t, cursor, query.data?.nextCursor, setCursor)}
+      filters={{
+        fields: filterFields,
+        values: state.filters,
+        onChange: (next) => {
+          setCursor(undefined);
+          actions.setFilters(next);
+        },
+      }}
       tableId="online-payments-online"
       caption={t('online.caption')}
       columns={columns}

@@ -4,16 +4,21 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDateTime, formatServerAmount } from '@biddaloy/ui/utils';
 import { Wallet } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { PAGE_LIMIT, STATUS_TONE } from './-online-tab';
+import { PAGE_LIMIT, STATUS_TONE, pagingActions } from './-online-tab';
 
 /** [3.x/#3993] Online payments where some money went to the wallet (D12, D18). */
 export function UnmatchedTab({ tabs }: { tabs: ReactNode }) {
   const { t } = useTranslation('onlinePayments');
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
-  const query = useOnlinePaymentSubmissions({ unmatched: true, limit: PAGE_LIMIT });
+  const [cursor, setCursor] = useState<string | undefined>();
+  const query = useOnlinePaymentSubmissions({
+    unmatched: true,
+    limit: PAGE_LIMIT,
+    ...(cursor ? { cursor } : {}),
+  });
   const items = query.data?.items ?? [];
   const money = (v: string) => formatServerAmount(v, regionConfig);
 
@@ -84,6 +89,7 @@ export function UnmatchedTab({ tabs }: { tabs: ReactNode }) {
           : t('subtitle')
       }
       tabs={tabs}
+      actions={pagingActions(t, cursor, query.data?.nextCursor, setCursor)}
       tableId="online-payments-unmatched"
       caption={t('unmatched.caption')}
       columns={columns}

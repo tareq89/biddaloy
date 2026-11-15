@@ -3,6 +3,7 @@
  */
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -159,5 +160,38 @@ describe('/payments/online', () => {
     );
     render('/payments/online?tab=unmatched');
     expect(await screen.findByText('No unmatched receipts')).toBeTruthy();
+  });
+
+  it.each([
+    ['online', 'source', 'ONLINE'],
+    ['unmatched', 'unmatched', 'true'],
+  ])('%s tab pages by cursor: Next page sends nextCursor, First page resets', async (tab) => {
+    const cursors: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/payment-submissions', ({ request }) => {
+        const c = new URL(request.url).searchParams.get('cursor');
+        cursors.push(c);
+        return HttpResponse.json(
+          c
+            ? {
+                items: [item({ id: 'p2', submitterName: 'Second Page Guardian' })],
+                nextCursor: null,
+              }
+            : { items: [item({})], nextCursor: 'CUR1' },
+        );
+      }),
+    );
+    render(`/payments/online?tab=${tab}`);
+    expect(await screen.findByText('Rahim Uddin Guardian')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'First page' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('Second Page Guardian')).toBeTruthy();
+    expect(cursors).toContain('CUR1');
+    expect(screen.queryByRole('button', { name: 'Next page' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'First page' }));
+    expect(await screen.findByText('Rahim Uddin Guardian')).toBeTruthy();
+    expect(cursors).toEqual([null, 'CUR1']);
   });
 });

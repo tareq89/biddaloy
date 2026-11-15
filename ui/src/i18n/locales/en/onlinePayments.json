@@ -111,6 +111,7 @@
       "OTHER": "Other"
     }
   },
+  "paging": { "next": "Next page", "first": "First page" },
   "online": {
     "caption": "Online payments",
     "count_one": "{{count}} online payment",
