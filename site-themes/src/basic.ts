@@ -157,6 +157,16 @@ export const BASIC: ThemeManifest = {
       ],
     },
     {
+      key: SiteSectionKey.ADMISSION_RESULT,
+      enabledByDefault: false,
+      fields: [text('title', t('ভর্তির ফলাফল দেখুন', 'Check admission result'))],
+    },
+    {
+      key: SiteSectionKey.ADMISSION_LISTS,
+      enabledByDefault: false,
+      fields: [text('title', t('ভর্তির তালিকা', 'Admission lists'))],
+    },
+    {
       key: SiteSectionKey.CONTACT,
       fields: [
         text('title', t('যোগাযোগ', 'Contact')),
@@ -217,7 +227,14 @@ export const BASIC: ThemeManifest = {
     },
     { page: SitePage.ABOUT, sections: [SiteSectionKey.ABOUT] },
     { page: SitePage.ACADEMICS, sections: [SiteSectionKey.ACADEMICS, SiteSectionKey.ROUTINE] },
-    { page: SitePage.ADMISSIONS, sections: [SiteSectionKey.ADMISSIONS] },
+    {
+      page: SitePage.ADMISSIONS,
+      sections: [
+        SiteSectionKey.ADMISSIONS,
+        SiteSectionKey.ADMISSION_RESULT,
+        SiteSectionKey.ADMISSION_LISTS,
+      ],
+    },
     { page: SitePage.NOTICES, sections: [SiteSectionKey.NOTICES] },
     { page: SitePage.TEACHERS, sections: [SiteSectionKey.TEACHERS] },
     { page: SitePage.RESULTS, sections: [], enabledByDefault: false },

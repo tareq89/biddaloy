@@ -20,6 +20,8 @@ import { WebsiteResultsService } from '../../../exams/website-results.service';
 import { AuditService } from '../../../audit/audit.service';
 import { FeesFeed } from './fees.feed';
 import { GalleryFeed } from './gallery.feed';
+import { AdmissionListsFeed } from './admission-lists.feed';
+import { AdmissionResultsFeed } from './admission-results.feed';
 import { NoticesFeed } from './notices.feed';
 import { RoutineFeed } from './routine.feed';
 import { TeachersFeed } from './teachers.feed';
@@ -111,6 +113,8 @@ describe('Site feeds (integration)', () => {
         'notices',
         'calendar_events',
         'fee_structures',
+        'admission_lists',
+        'admission_stages',
         'admission_intakes',
         'class_sections',
         'classes',
@@ -136,6 +140,8 @@ describe('Site feeds (integration)', () => {
       WebsiteResultsService,
       { provide: AuditService, useValue: { record: async () => undefined } },
       GalleryFeed,
+      AdmissionListsFeed,
+      AdmissionResultsFeed,
       FeedRegistry,
       { provide: SiteCacheService, useValue: new SiteCacheService(redis as never) },
       { provide: SchoolsService, useValue: { todayFor: async () => TODAY } },
@@ -376,8 +382,59 @@ describe('Site feeds (integration)', () => {
     expect(fees).toEqual([expect.objectContaining({ name: 'a tuition', amount: 500.5 })]);
     const admissions = await registry.cached('admissions', A);
     expect(admissions).toEqual([
-      expect.objectContaining({ title: 'a open intake', link: `/admission/feed-a-${tag}` }),
+      expect.objectContaining({ title: 'a open intake', open: true, always_show: false }),
     ]);
+    // No relative `/admission/<slug>` link is ever printed (#3721).
+    expect(JSON.stringify(admissions)).not.toMatch(/"\/admission\//);
+    expect(admissions[0]).not.toHaveProperty('link');
+  });
+
+  it('admissions: open shows, closed disappears, always_show keeps it; other schools never; home flag', async () => {
+    const intake = (tenant: string, title: string, open: string, close: string, always = false) =>
+      ds.query(
+        `INSERT INTO admission_intakes (tenant_id, title, seat_count, open_date, close_date, widget_always_show)
+         VALUES ($1,$2,10,$3,$4,$5) RETURNING id`,
+        [tenant, title, open, close, always],
+      );
+    const [{ id: openId }] = await intake(A, 'open', '2026-11-01', '2026-11-30');
+    await intake(A, 'closed', '2026-01-01', '2026-02-01');
+    await intake(A, 'pinned', '2026-01-01', '2026-02-01', true);
+    await intake(B, 'other school', '2026-11-01', '2026-11-30');
+    const rows = await registry.cached('admissions', A);
+    expect(titles(rows)).toEqual(['open', 'pinned']);
+    expect(rows[1]).toMatchObject({ open: false, always_show: true });
+    expect(rows[0]).toMatchObject({ round_id: openId, seats_left: 10 });
+
+    const cfg = {
+      pages: [{ page: 'home', enabled: true, sections: [] }],
+    } as unknown as SiteConfig;
+    const home = await withFeeds(buildPage(cfg, 'home')!, A, registry);
+    expect(home.admissions_open).toBe(true);
+    expect(home.admissions_open_link).toBe(`/admission?round=${openId}`);
+    expect(home.admissions_open_link).not.toMatch(/^\/admission\//);
+    const homeB = await withFeeds(buildPage(cfg, 'home')!, B, registry);
+    expect(homeB.admissions_open_link).not.toContain(openId);
+  });
+
+  it('admission result and lists: nothing until something is published; tenant isolated', async () => {
+    const [{ id }] = await ds.query(
+      `INSERT INTO admission_intakes (tenant_id, title, seat_count, open_date, close_date)
+       VALUES ($1,'round',10,'2026-11-01','2026-11-30') RETURNING id`,
+      [A],
+    );
+    expect(await registry.live('admission_result', A)).toEqual([]);
+    expect(await registry.live('admission_lists', A)).toEqual([]);
+    await ds.query(
+      `INSERT INTO admission_lists (tenant_id, intake_id, kind, sequence, order_by, published_at)
+       VALUES ($1,$2,'MERIT',1,'MERIT',now())`,
+      [A, id],
+    );
+    expect(await registry.live('admission_result', A)).toEqual([{ round_id: id, title: 'round' }]);
+    expect(await registry.live('admission_lists', A)).toEqual([
+      expect.objectContaining({ round_id: id, kind: 'MERIT', members: [] }),
+    ]);
+    expect(await registry.live('admission_result', B)).toEqual([]);
+    expect(await registry.live('admission_lists', B)).toEqual([]);
   });
 
   it('an empty feed marks its section empty; admissions keeps its own text; a section with no feed is untouched', async () => {

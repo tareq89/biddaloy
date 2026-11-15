@@ -35,6 +35,10 @@ export interface PublicPage {
     /** True when a system-fed section has nothing to show: the site hides it (D12). */
     empty?: boolean;
   }[];
+  /** Home page only: a round is open for applications today (Epic 71 D7). */
+  admissions_open?: boolean;
+  /** Home page only, when open: `/admission?round=<id>` of the first open round (the site adds `/<lang>`). */
+  admissions_open_link?: string;
 }
 
 /**
@@ -51,6 +55,8 @@ const SYSTEM_FED: Partial<Record<SiteSectionKey, { feed: FeedKind; empty: 'hides
   [SiteSectionKey.BLOG]: { feed: 'blog', empty: 'hides' },
   [SiteSectionKey.FEES]: { feed: 'fees', empty: 'hides' },
   [SiteSectionKey.ADMISSIONS]: { feed: 'admissions', empty: 'keeps' },
+  [SiteSectionKey.ADMISSION_RESULT]: { feed: 'admission_result', empty: 'hides' },
+  [SiteSectionKey.ADMISSION_LISTS]: { feed: 'admission_lists', empty: 'hides' },
 };
 
 /** Fills each system-fed section from the feed registry (60 s cache per kind, never per site version). */
@@ -87,7 +93,14 @@ export async function withFeeds(
         : { ...s, feed };
     }),
   );
-  return { ...page, sections };
+  if (page.page !== SitePage.HOME) return { ...page, sections };
+  const open = (await registry.cached('admissions', tenantId)).find((r) => r.open === true);
+  return {
+    ...page,
+    sections,
+    admissions_open: !!open,
+    ...(open ? { admissions_open_link: `/admission?round=${String(open.round_id)}` } : {}),
+  };
 }
 
 /**
