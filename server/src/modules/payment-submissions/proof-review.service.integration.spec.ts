@@ -326,6 +326,32 @@ describe('ProofReviewService (integration)', () => {
     expect(p2.items[0].id).not.toBe(p1.items[0].id);
   });
 
+  it('list carries students, applied/wallet split, payment and filters by unmatched', async () => {
+    const a = await newProof(100);
+    const b = await newProof(200);
+    await review.confirm(a.id, staff);
+    const all = await review.list(staff, {});
+    const ra = all.items.find((i) => i.id === a.id)!;
+    expect(ra.students).toHaveLength(1);
+    expect(ra.appliedAmount).toBe('100.00');
+    expect(ra.walletAmount).toBe('0.00');
+    expect(ra.paymentId).not.toBeNull();
+    expect(ra.unmatched).toBe(false);
+    const rb = all.items.find((i) => i.id === b.id)!;
+    expect(rb.appliedAmount).toBe('0.00');
+    expect(rb.paymentId).toBeNull();
+    await ds.query(`UPDATE payment_submissions SET unmatched = true WHERE id = $1`, [b.id]);
+    const only = await review.list(staff, { unmatched: true });
+    expect(only.items.map((i) => i.id)).toEqual([b.id]);
+    expect(only.items[0].walletAmount).toBe('200.00');
+  });
+
+  it('list never shows another tenant', async () => {
+    await newProof(100);
+    const other = await review.list({ ...staff, tenantId: '00000000-0000-4000-8000-000000000000' }, {});
+    expect(other.items).toEqual([]);
+  });
+
   it('reversing the proof payment sets REVERSED and writes one event row', async () => {
     const { id } = await newProof();
     const { paymentIds } = await review.confirm(id, staff);

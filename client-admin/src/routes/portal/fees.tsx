@@ -1,4 +1,4 @@
-import { FeeStatus, InvoiceStatus, PaymentStatus } from '@biddaloy/shared';
+import { FeeStatus, InvoiceStatus, PaymentStatus, Permission } from '@biddaloy/shared';
 import {
   Card,
   DataTable,
@@ -24,6 +24,7 @@ import {
   useCurrentUser,
   useFamilyStudentSchedules,
   useFines,
+  useHasPermission,
   useMyStudents,
   useStudentFeeSummary,
   useStudentWallet,
@@ -239,7 +240,10 @@ function PortalFees() {
 
   // [3.x/#3975] On the proofs tab the five bills queries stay parked: that tab must not
   // wait on, fail on, or fire them.
-  const onProofs = search.tab === 'proofs';
+  // Proof routes need PAYMENT_SUBMIT (PARENT only): a student gets no tab, and ?tab=proofs
+  // falls back to the bills.
+  const canSeeProofs = useHasPermission(Permission.PAYMENT_SUBMIT);
+  const onProofs = canSeeProofs && search.tab === 'proofs';
   const billsId = onProofs ? undefined : selected?.id;
   const summaryQuery = useStudentFeeSummary(billsId);
   // `GET /invoices` defaults to 10 per page, and a monthly fee schedule
@@ -286,7 +290,7 @@ function PortalFees() {
     return (
       <PageContainer>
         <PageHeader title={tNav('items.portalFees')} />
-        <FeesTabs tab="proofs" onTab={goTab}>
+        <FeesTabs tab="proofs" onTab={goTab} showProofs={canSeeProofs}>
           <MyProofsTab />
         </FeesTabs>
       </PageContainer>
@@ -328,7 +332,7 @@ function PortalFees() {
     finesQuery.isPending
   ) {
     return (
-      <FeesTabs tab="bills" onTab={goTab}>
+      <FeesTabs tab="bills" onTab={goTab} showProofs={canSeeProofs}>
         <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />
       </FeesTabs>
     );
@@ -346,7 +350,7 @@ function PortalFees() {
     // imply the rest is complete. No `<h1>`, and never the server's own
     // message — a raw id must not reach a parent.
     return (
-      <FeesTabs tab="bills" onTab={goTab}>
+      <FeesTabs tab="bills" onTab={goTab} showProofs={canSeeProofs}>
         <ErrorState
           message={t('fees.error.message')}
           retryLabel={t('fees.error.retry')}
@@ -390,7 +394,7 @@ function PortalFees() {
           <HelpHint helpId="portal.fees.action.pickStudent" />
         </div>
       )}
-      <FeesTabs tab="bills" onTab={goTab}>
+      <FeesTabs tab="bills" onTab={goTab} showProofs={canSeeProofs}>
         <div className="grid gap-6 md:grid-cols-3 md:items-start">
           <div className="min-w-0 space-y-6 md:col-span-2">
             <FeesSummary summary={summaryQuery.data} config={config} />
@@ -426,13 +430,16 @@ function PortalFees() {
 function FeesTabs({
   tab,
   onTab,
+  showProofs,
   children,
 }: {
   tab: 'bills' | 'proofs';
   onTab: (tab: string) => void;
+  showProofs: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation('portal');
+  if (!showProofs) return <>{children}</>;
   return (
     <Tabs value={tab} onValueChange={onTab} className="gap-4">
       <TabsList variant="line" aria-label={t('proofs.tabsLabel')}>

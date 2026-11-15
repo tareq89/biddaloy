@@ -30,8 +30,9 @@ describe('notice stories', () => {
     expect(Object.keys(modules).length).toBeGreaterThanOrEqual(7);
   });
 
-  it.each(stories)('%s renders with no missing i18n key', async (_name, Story) => {
+  it.each(stories)('%s renders with no missing i18n key', async (name, Story) => {
     server.use(...(Story.parameters?.msw?.handlers ?? []));
-    expect(await missingKeysOf(<Story />)).toEqual([]);
+    // A Loading story keeps its fetch pending on purpose, so there is nothing to wait out.
+    expect(await missingKeysOf(<Story />, undefined, !/Loading$/.test(name))).toEqual([]);
   });
 });

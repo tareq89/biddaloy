@@ -85,6 +85,9 @@ const DONE: PaymentSubmissionStatus[] = [
   PaymentSubmissionStatus.REVERSED,
 ];
 
+/** Pool is 10 by default and one settle holds up to 2 connections: 3 settles leave headroom. */
+const SETTLE_CONCURRENCY = 3;
+
 /**
  * [3.x] Turns one guardian submission into one Payment + Invoice per student, through the
  * existing checkout (D4, D39). Only the submission row is locked here: checkout locks the
@@ -106,9 +109,37 @@ export class PaymentSubmissionSettlement {
     actorUserId: string,
     mode: SettlementMode,
   ): Promise<SettlementResult> {
-    // ponytail: the outer tx holds a pool connection while checkout and ensureInvoiceLinked
-    // take more. N concurrent settles at or above pool size deadlock the pool. Callers must cap
-    // settle concurrency below pool size (e.g. one BullMQ worker, concurrency 1).
+    // ponytail: in-process bound (one pool of 10 per process); each replica gets its own bound, so total DB load is replicas×pool ≤ max_connections 300; move to one BullMQ worker if replicas × 3 settles ever contend on the same rows.
+    await this.acquireSlot();
+    try {
+      return await this.run(submissionId, tenantId, actorUserId, mode);
+    } finally {
+      this.releaseSlot();
+    }
+  }
+
+  /** Counting semaphore: one settle holds up to 2 pool connections, so cap them below the pool. */
+  private inFlight = 0;
+  private readonly waiters: (() => void)[] = [];
+  private async acquireSlot(): Promise<void> {
+    if (this.inFlight < SETTLE_CONCURRENCY) {
+      this.inFlight += 1;
+      return;
+    }
+    await new Promise<void>((r) => this.waiters.push(r)); // slot handed over, inFlight unchanged
+  }
+  private releaseSlot(): void {
+    const next = this.waiters.shift();
+    if (next) next();
+    else this.inFlight -= 1;
+  }
+
+  private async run(
+    submissionId: string,
+    tenantId: string,
+    actorUserId: string,
+    mode: SettlementMode,
+  ): Promise<SettlementResult> {
     return this.dataSource.transaction(async (manager) => {
       const sub = await manager
         .getRepository(PaymentSubmission)

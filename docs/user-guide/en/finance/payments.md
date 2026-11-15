@@ -237,6 +237,7 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 - [**Student dues**](dues.md) — after a reversal the bills come back here.
 - [**Creating fee bills**](generate-fees.md) — where bills come from.
 - [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.
+- [**Online payments**](online-payments.md) — check a guardian's payment proof and confirm it.
 - [**Invoices**](invoices.md) — see invoices and credit notes, share links.
 - [**Fines**](fines.md) — waiving a fine.
 - [**Adding students and viewing their details**](../people/students.md) — Add a new student, import many at once, and use each student's profile to handle class, guardians, fees, notes and leaving the school.

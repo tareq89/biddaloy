@@ -2,8 +2,14 @@
   "title": "Online payments",
   "subtitle": "Payment proofs that guardians have sent and that need your answer.",
   "tabsLabel": "Online payment lists",
-  "tabs": { "waiting": "Waiting for confirmation" },
-  "record": { "waitingTag": "Waiting for confirmation" },
+  "tabs": {
+    "waiting": "Waiting for confirmation",
+    "online": "Online",
+    "unmatched": "Unmatched receipts"
+  },
+  "record": {
+    "waitingTag": "Waiting for confirmation"
+  },
   "list": {
     "caption": "Payment proofs waiting for confirmation",
     "count_one": "{{count}} payment proof waiting",
@@ -84,8 +90,7 @@
     "confirmError": "Could not confirm. Reload to check the proof status before you try again.",
     "confirmed": "Confirmed.",
     "discarded": "This bill was paid already. The proof is discarded and no money moved.",
-    "notWaiting": "This proof is not waiting any more. Reload to see where it stands.",
-    "noPhone": "No phone number on file"
+    "notWaiting": "This proof is not waiting any more. Reload to see where it stands."
   },
   "reject": {
     "title": "Reject this payment proof",
@@ -105,5 +110,36 @@
       "DUPLICATE": "Already submitted",
       "OTHER": "Other"
     }
+  },
+  "paging": { "next": "Next page", "first": "First page" },
+  "online": {
+    "caption": "Online payments",
+    "count_one": "{{count}} online payment",
+    "count_other": "{{count}} online payments",
+    "moreNote": "Showing the first {{count}} online payments.",
+    "emptyTitle": "No online payments yet",
+    "emptyText": "When a guardian pays online, it shows up here.",
+    "error": "Could not load the online payments. Try again.",
+    "columnDate": "Date",
+    "columnStudents": "Students",
+    "columnStatus": "Status",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses",
+    "openPayment": "Open payment",
+    "openDetail": "Open details"
+  },
+  "unmatched": {
+    "caption": "Online payments that put money in the wallet",
+    "count_one": "{{count}} unmatched receipt",
+    "count_other": "{{count}} unmatched receipts",
+    "moreNote": "Showing the first {{count}} unmatched receipts.",
+    "emptyTitle": "No unmatched receipts",
+    "emptyText": "When an online payment is more than the bills it was for, the extra money is listed here.",
+    "error": "Could not load the unmatched receipts. Try again.",
+    "columnPaid": "Paid",
+    "columnApplied": "Put on bills",
+    "columnWallet": "Put in wallet",
+    "openWallet": "Open wallet",
+    "openWalletOf": "Open wallet of {{name}}"
   }
 }

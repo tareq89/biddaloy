@@ -1272,8 +1272,11 @@ export function uniqueRegistration(): Pick<
   };
 }
 
-export async function registerTrialSchool(request: APIRequestContext): Promise<RegisteredSchool> {
-  const who = uniqueRegistration();
+export async function registerTrialSchool(
+  request: APIRequestContext,
+  overrides: { phone?: string } = {},
+): Promise<RegisteredSchool> {
+  const who = { ...uniqueRegistration(), ...overrides };
   const started = await request.post('/api/v1/auth/register/start', {
     data: {
       admin_name: who.adminName,

@@ -19,6 +19,21 @@ function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe('mergeTenantSettings', () => {
+  it('a null bKash secret removes only that key; the others stay (#3997)', () => {
+    const existing = {
+      version: 1,
+      payments: { bkash: { environment: 'SANDBOX', appKey: 'enc:k', appSecret: 'enc:s' } },
+    };
+    const merged = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, payments: { bkash: { appSecret: null } } }),
+    );
+    expect((merged.payments as { bkash: object }).bkash).toEqual({
+      environment: 'SANDBOX',
+      appKey: 'enc:k',
+    });
+  });
+
   it('stores routine on PATCH and leaves fees alone (#1811)', () => {
     const existing = { version: 1, fees: { approvalMode: 'OTP' } };
     const merged = mergeTenantSettings(

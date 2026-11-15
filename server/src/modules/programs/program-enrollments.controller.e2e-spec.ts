@@ -250,15 +250,15 @@ describe('Program Enrollments E2E', () => {
       expect(res.body[0].program.id).toBe(programId);
     });
 
-    it("PARENT gets 401/403 for another family's child", async () => {
+    it("PARENT gets 404/403 for another family's child", async () => {
       const studentId = await createStudentWithParent(OTHER_PARENT_USER_ID);
-      await req('get', `${API}/students/${studentId}/programs`, parentToken, TENANT_ID).expect(401);
+      await req('get', `${API}/students/${studentId}/programs`, parentToken, TENANT_ID).expect(404);
     });
 
     it("PARENT of tenant A can't reach a student via a spoofed tenant header", async () => {
       const studentId = await createStudentWithParent(PARENT_USER_ID);
       await req('get', `${API}/students/${studentId}/programs`, otherParentToken, TENANT_ID).expect(
-        401,
+        404,
       );
     });
   });

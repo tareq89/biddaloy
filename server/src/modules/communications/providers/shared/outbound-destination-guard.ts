@@ -173,7 +173,7 @@ export interface SafeSmtpDestination {
  * Fails closed: both conditions must hold, read on every call, never cached. Boot refuses the
  * flag in production (`assertProductionConfig`). See 08-security.md Rule 7.
  */
-function testLoopbackAllowed(): boolean {
+export function testLoopbackAllowed(): boolean {
   return (
     process.env.NODE_ENV === 'test' && process.env.OUTBOUND_TEST_ALLOW_LOOPBACK === 'true'
   );

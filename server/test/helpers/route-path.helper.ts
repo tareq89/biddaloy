@@ -1001,6 +1001,13 @@ export const ALLOWLIST: AllowlistEntry[] = [
       '[49 W4 #1820] Public bKash redirect target (a browser redirect carries no bearer token). The paymentID is only believed after bKash execute/query confirms it, the order is paid only on Completed + matching invoice and amount, and a replay is a no-op. Throttled via STRICT_RATE_LIMIT.',
   },
   {
+    controller: 'OnlinePaymentsPublicController',
+    method: 'GET',
+    path: '/online-payments/callback',
+    reason:
+      '[3.x/#3984] Public bKash redirect target (a browser redirect carries no bearer token). The paymentID is only believed after bKash execute/query confirms it; money is booked only on Completed with the same amount and our submission id as invoice number; a replay is a no-op. Throttled via STRICT_RATE_LIMIT.',
+  },
+  {
     controller: 'SocialAuthController',
     method: 'GET',
     path: '/auth/social/providers',

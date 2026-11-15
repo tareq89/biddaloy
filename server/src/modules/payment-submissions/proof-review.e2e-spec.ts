@@ -153,6 +153,12 @@ describe('Proof review (E2E)', () => {
     await call('get', `${URL}?limit=100`, admin).expect(200);
   });
 
+  it('unmatched filter takes true/false only', async () => {
+    await call('get', `${URL}?unmatched=garbage`, admin).expect(400);
+    await call('get', `${URL}?unmatched=true`, admin).expect(200);
+    await call('get', `${URL}?unmatched=false`, admin).expect(200);
+  });
+
   it('OTHER without a note is 400; reject, reopen and file stream round trip', async () => {
     const p = await newProof();
     await call('post', `${URL}/${p.id}/reject`, admin).send({ reason: 'OTHER' }).expect(400);

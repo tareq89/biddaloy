@@ -603,7 +603,15 @@
       "bnWord": "The Bangla word. Leave it empty to keep the usual word.",
       "applyKind": "Apply changes your modules and words to match the institution kind. Your data stays as it is."
     },
-    "proofEnabled": "Guardians pay by hand, then send the transaction number and a photo. You confirm it."
+    "proofEnabled": "Guardians pay by hand, then send the transaction number and a photo. You confirm it.",
+    "bkash": {
+      "environment": "Use Practice while you set up. Switch to Live when your bKash merchant account is ready. Changing it needs a new test.",
+      "username": "In the bKash merchant panel, open the API details. This is the username shown there.",
+      "password": "In the bKash merchant panel, open the API details. This is the password shown there. It cannot be seen again after you save.",
+      "appKey": "In the bKash merchant panel, open the API details and copy the app key.",
+      "appSecret": "In the bKash merchant panel, open the API details and copy the app secret. It cannot be seen again after you save.",
+      "onlineEnabled": "Guardians can pay their bills with bKash from the portal. Changing any detail above turns this off until you test again."
+    }
   },
   "helpRequired": {
     "schoolName": "Yes",
@@ -882,6 +890,23 @@
       "ROCKET": "Rocket",
       "BANK_TRANSFER": "Bank transfer"
     },
-    "tooLong": "Use at most {{max}} characters."
+    "tooLong": "Use at most {{max}} characters.",
+    "bkash": {
+      "title": "bKash connection",
+      "intro": "Your school's own bKash merchant account details.",
+      "environment": "Mode",
+      "sandbox": "Practice (no real money)",
+      "production": "Live",
+      "username": "Username",
+      "password": "Password",
+      "appKey": "App key",
+      "appSecret": "App secret",
+      "saveFirst": "Save the new details first, then test them.",
+      "testOk": "Last passing test: {{at}}.",
+      "testFailed": "Couldn't connect — check the details and try again.",
+      "testMissing": "Add all four details and save them first.",
+      "onlineEnabled": "Pay with bKash online",
+      "testFirst": "Test the connection first. It must pass before you can turn this on."
+    }
   }
 }

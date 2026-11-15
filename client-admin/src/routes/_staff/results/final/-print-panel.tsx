@@ -199,8 +199,10 @@ export function PrintPanel({ summary }: PrintPanelProps) {
         setPrinted(null);
       })();
     });
+    // The ref is a run counter, not a DOM node: bump the live value on cleanup to cancel the run.
+    const runCounter = printRun;
     return () => {
-      printRun.current++;
+      runCounter.current++;
       cancelAnimationFrame(id);
     };
   }, [cardsReady, tabReady]); // eslint-disable-line react-hooks/exhaustive-deps -- printed/summary only matter when a job becomes ready

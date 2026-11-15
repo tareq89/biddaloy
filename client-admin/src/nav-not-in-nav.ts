@@ -40,6 +40,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/fees_/pay':
     'guardian portal page, an action on Fees & invoices, no nav item (D: Epic 3 #3978)',
+  '/portal/fees_/pay_/result':
+    'guardian portal page, where bKash sends the guardian back; no nav item (Epic 3 #3997)',
   '/portal/statement': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/programs': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
