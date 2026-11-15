@@ -257,9 +257,12 @@ export async function createWalkInApplicant(
       guardian_phone: fields.guardianPhone,
       // The default round ticks father and mother as required catalogue fields.
       extra_fields: JSON.stringify({ father_name: 'E2E Father', mother_name: 'E2E Mother' }),
-      ...(fields.photo
-        ? { PHOTO: { name: 'photo.jpg', mimeType: 'image/jpeg', buffer: fields.photo } }
-        : {}),
+      // Rounds here require a PHOTO; the server checks the JPEG signature, not the mimetype.
+      PHOTO: {
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        buffer: fields.photo ?? Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]),
+      },
     },
   });
   if (!response.ok()) {
