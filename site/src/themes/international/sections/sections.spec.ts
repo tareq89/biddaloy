@@ -152,17 +152,14 @@ describe('international system-fed sections', () => {
     const data = { sections: [{ id: 's1', label: bt('প্রথম', 'One') }] };
     expect(await render(SiteSectionKey.ROUTINE, { data })).toContain('data-routine');
   });
-  it('admissions lists open intakes only when their link is absolute (any scheme case)', async () => {
-    const feed = [
-      { title: 'Open', link: 'HTTPS://app.school.test/apply', deadline: '2026-12-15' },
-      { title: 'Elsewhere', link: '/bn/admissions/' },
-    ];
+  it('admissions lists open intakes with an apply link built from round_id', async () => {
+    const feed = [{ title: 'Open', round_id: 'r1', deadline: '2026-12-15' }];
     const html = await render(SiteSectionKey.ADMISSIONS, {
       data: { title: bt('ভর্তি', 'Admissions') },
       feed,
     });
     expect(html).toContain('Open');
-    expect(html).not.toContain('Elsewhere');
+    expect(html).toContain('href="/bn/admission?round=r1"');
   });
 });
 
