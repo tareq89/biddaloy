@@ -214,6 +214,7 @@ If you confirmed by mistake, open the proof (it is now **Confirmed**) and press 
 **Related pages**
 
 - [**Fees and invoices**](../portal/fees.md) — where the guardian pays and sees the state of a proof.
+- [**Payments**](payments.md) — find a confirmed payment and reverse it.
 - [**Invoices**](invoices.md) — the receipt and its **How it was paid** part.
 - [**Changing the school's settings**](../administration/settings.md#task-online-payments) — set up the bKash connection and the proof methods.
 

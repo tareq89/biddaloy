@@ -834,4 +834,24 @@ describe('PaymentSubmissionSettlement (integration)', () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe('assertNoWaitingSubmissionBills', () => {
+    it('refuses a bill a PENDING submission of the same school covers', async () => {
+      const s1 = await mkStudent();
+      const b1 = await mkBill(s1.id);
+      await mkSubmission([b1]);
+      await expect(
+        ds.transaction((m) => assertNoWaitingSubmissionBills(m, TENANT_ID, [b1.id])),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("ignores another school's PENDING submission row on the same bill id", async () => {
+      const s1 = await mkStudent();
+      const b1 = await mkBill(s1.id);
+      await mkSubmission([b1], { tenantId: OTHER_TENANT_ID });
+      await expect(
+        ds.transaction((m) => assertNoWaitingSubmissionBills(m, TENANT_ID, [b1.id])),
+      ).resolves.toBeUndefined();
+    });
+  });
 });
