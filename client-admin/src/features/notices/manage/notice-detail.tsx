@@ -4,7 +4,15 @@
  * The route (53.4.01) passes `noticeId`.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, StatusBadge, toast } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import {
+  AccessDeniedState,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  StatusBadge,
+  toast,
+} from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { useSearchNavigate } from '@biddaloy/ui/routes';
@@ -24,10 +32,17 @@ import { NoticeReportTab } from './notice-report-tab';
 import { NoticeSmsPage } from './notice-sms-page';
 import { useCopyNotice, useNotice, useWithdrawNotice } from './use-notices';
 
+// `apiClient` rejects with a raw AxiosError, so read both shapes.
+const isForbidden = (e: unknown) =>
+  e instanceof ApiError
+    ? e.statusCode === 403
+    : (e as { response?: { status?: number } } | null)?.response?.status === 403;
+
 const TABS = ['notice', 'report'] as const;
 
 export function NoticeDetail({ noticeId }: { noticeId: string }) {
   const { t } = useTranslation('notices');
+  const { t: ts } = useTranslation('states');
   const config = useTenantRegionConfig();
   const query = useNotice(noticeId);
   const [tab, setTab] = useDetailShellTab(TABS);
@@ -38,8 +53,8 @@ export function NoticeDetail({ noticeId }: { noticeId: string }) {
   const canApprove = useHasPermission(Permission.NOTICE_SMS_APPROVE);
   const navigateSearch = useSearchNavigate();
   // `?sms=1` opens the SMS approval page over the detail; closing goes back, or drops the param.
-  const search: Record<string, unknown> = useSearch({ strict: false });
-  const smsParam = search.sms;
+  const urlParams: Record<string, unknown> = useSearch({ strict: false });
+  const smsParam = urlParams.sms;
   const closeSms = useCloseFullPage(() =>
     navigateSearch(
       (prev) => {
@@ -52,16 +67,24 @@ export function NoticeDetail({ noticeId }: { noticeId: string }) {
   );
 
   if (query.isError) {
+    return isForbidden(query.error) ? (
+      <AccessDeniedState title={ts('denied.title')} explanation={ts('denied.body')} />
+    ) : (
+      <ErrorState
+        message={t('manage.notFound')}
+        onRetry={() => void query.refetch()}
+        retryLabel={t('manage.retry')}
+      />
+    );
+  }
+  if (!notice) {
     return (
-      <div role="alert" className="flex flex-col items-start gap-3 p-4">
-        <p>{t('manage.notFound')}</p>
-        <Button variant="outline" onClick={() => void query.refetch()}>
-          {t('manage.retry')}
-        </Button>
+      <div role="status" aria-busy="true" className="flex flex-col gap-3 p-4">
+        <Skeleton className="h-8 w-1/2" />
+        <Skeleton className="h-24 w-full" />
       </div>
     );
   }
-  if (!notice) return <div aria-busy="true" className="p-4" />;
 
   const facts = [
     ...(notice.publishedAt
@@ -128,7 +151,9 @@ export function NoticeDetail({ noticeId }: { noticeId: string }) {
                     </>
                   )}
                 </div>
-                <p className="whitespace-pre-line">{notice.body || t('manage.noBody')}</p>
+                notice.body ? (<p className="whitespace-pre-line">{notice.body}</p>
+                ) : (
+                <EmptyState title={t('manage.noBody')} explanation={ts('empty.body')} />)
               </div>
             ),
           },
