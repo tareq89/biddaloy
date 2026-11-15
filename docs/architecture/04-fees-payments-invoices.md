@@ -544,6 +544,24 @@ A guardian can pay a child's open bills from the portal (Epic #291). One rule si
 
 Each school brings its own bKash merchant account. Its credentials sit in the tenant settings under `payments.bkash.*` (encrypted, `@Secret()`). When a guardian pays online, bKash moves the money from the guardian to _that school's_ merchant wallet. Biddaloy only asks bKash "did this payment complete?" and then books it. The only bKash account Biddaloy owns is the platform's own, used for seat orders ([38-billing.md](38-billing.md)).
 
+```mermaid
+flowchart LR
+  G["Guardian"] -->|"school fee"| SM["School's own<br/>merchant account"]
+  S["School"] -->|"subscription seats,<br/>SMS packages"| BM["Biddaloy's<br/>merchant account"]
+  SM -. "never" .-> BM
+```
+
+The rules, one line each:
+
+- Guardian fee payments go only to the school's own gateway merchant account.
+- Biddaloy takes only its own revenue: seats ([Epic 49](https://github.com/tareq89/biddaloy/issues/1649), shipped) and SMS packages (Epic 100, [#3727](https://github.com/tareq89/biddaloy/issues/3727), shipped; see [05-communications](05-communications.md#sms-source-and-packages-epic-100)).
+- Each school's gateway credentials are stored per school, encrypted with `SETTINGS_ENCRYPTION_KEY`.
+- Card numbers are never stored. The gateway's hosted page takes them.
+- Biddaloy never trusts the browser redirect. It asks the gateway server-to-server (callback handler and reconciler); webhooks use the verification kit (Rule 19 in [08-security.md](08-security.md)).
+- Why: holding other people's money would make Biddaloy a payment service provider under Bangladesh Bank rules. The owner's licensing question to the gateways is open in [#1751](https://github.com/tareq89/biddaloy/issues/1751).
+
+**Example:** a guardian pays a Tk 500 tuition bill. The Tk 500 lands in the school's own bKash merchant wallet. Biddaloy's own bKash account never sees it.
+
 Two ways to pay, one ending:
 
 ```mermaid
