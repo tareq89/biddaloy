@@ -115,9 +115,12 @@ few deliberate ways:
 - **A `Reports` module was planned but not yet built.** There is no
   reporting/analytics endpoint yet — dues/payment data is queried directly
   through the fees API today.
-- **An online/self-service payment flow was planned but not yet built.**
-  Payments today are recorded manually by staff (`received_by` on
-  `Payment`); there's no guardian-initiated online payment endpoint.
+- **Guardian-initiated payments are built (Epic #291).** A guardian pays open
+  bills from the portal either by uploading a payment proof that staff
+  confirm, or through the school's **own** bKash merchant account (merchant
+  per school; Biddaloy never holds school money). Counter payments recorded by
+  staff (`received_by` on `Payment`) still work as before. See
+  [04-fees-payments-invoices.md](04-fees-payments-invoices.md#guardian-payments-whose-money-is-it).
 
 Where the current code and the old plan disagree, **the code is the source
 of truth** — that's what these docs describe.

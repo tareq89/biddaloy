@@ -131,6 +131,7 @@ flowchart LR
   B -- no --> D[normal guard: private, loopback, metadata refused]
 ```
 
+- **Gateway calls (Epic #291).** The school-fee bKash client (`server/src/modules/payment-gateways/bkash/bkash.client.ts`) is not a fixed-host call: a school's credentials pick sandbox or production from the fixed `BKASH_HOSTS` list, and the host is checked with `assertSafeHttpDestination` and sent through `fetchPinnedJson`. A school never types a URL, so no `REVIEWED_OUTBOUND` entry is needed for it.
 - **Test.** `server/src/outbound-http.contract.spec.ts` (only the guard and `env.validation.ts` may mention the flag), `outbound-destination-guard.spec.ts`.
 
 ### Rule 8: Suspend, remove or reset bumps tokens_valid_after
@@ -198,6 +199,7 @@ flowchart LR
     | an IP address, an empty or a malformed name                                                                                     | `444`                                                                         |
 
     **The exception, and why it is safe.** A school's own domain reaches the site container under its own name, so a pure "known names only" listener cannot serve it. The custom path is a map that refuses every fixed host and everything under the root first (exact names beat the regex), never a bare `server_name _`. The site container reads nothing from the visitor but `Host` and answers `404` unless that host is an ACTIVE `custom_domain`; it holds no secret and no cookie. Direct mode publishes no `:8081` and serves no school host: school websites are off there (D5). nginx drops `Cookie`, `X-Forwarded-Host` and `X-Site-Preview` on every public school request (the site container trusts the preview header, only the app-host preview route may set it), and the cache key holds `$host`. Owner check (runbook 17a): cloudflared's own `ingress rule https://STAGING.<root>` on the VM must not print `service: http://nginx:80`; the edge check `curl -sI -H 'Host: STAGING.<root>' https://staging.<root>/` must also give `302` to `<team>.cloudflareaccess.com`. See [25-cloudflare](25-cloudflare.md#wildcard-subdomain-cloudflare-saas).
+
 - **Why.** A direct hit on the origin IP skips Cloudflare's WAF and rate limits when Cloudflare is in front, and exposes internal tools when it is not (D14, D17, 75.5, Epic 79.0 D8).
 - **Example.** `curl -H 'Host: evil.test' http://<origin-ip>/` → empty reply. `curl https://kuma.<domain>/` or `https://inbox-staging.<domain>/` in direct mode → `401` (`inbox-demo.<domain>` is public by design, noindex). See [30-deployment-target](30-deployment-target.md#edge-two-modes-same-nginx).
 - **Test.** `nginx/test/edge-mode.infra.test.sh` (both modes, bad `EDGE_MODE`, unknown host, auth layers, two app upstreams), `nginx/test/landing.infra.test.sh`, `nginx/test/inbox.infra.test.sh` (staging inbox behind the outer layer), `nginx/test/site.infra.test.sh` (school-site listener: fixed hosts in any letter case, the apex, two labels, IP and malformed Host get 444; a custom host reaches the site container; no cookie, no preview header, no `X-Forwarded-Host`; staging school sites: a listed host with the clean name reaches `staging-site`, an unlisted one or another spelling gets 444), `nginx/test/edge-mode.infra.test.sh` also refuses a bad `STAGING_SITE_HOSTS` at start (duplicate, upper case, wrong root, a glob) and writes one `listed` line per clean host, `infra/ansible/test/cloudflared-staging-sites.infra.test.sh` (each listed host gets an exact cloudflared rule with `access.required`, the team and the staging audience tag; the catch-all has none).
@@ -206,7 +208,7 @@ flowchart LR
 
 - **Rule.** Tokens, phone numbers, emails and secret query strings (`password`, `token`, `otp`, `code`, …) never reach a log. nginx logs with the `redacted` format and the API log goes through `redactPii`. A new secret-bearing URL shape is added to `redactPii` in the same ticket (the website draft-preview link `?preview=<token>` is one: nginx logs `$uri` without the query, `redactPii` masks `preview=`). Request ids are kept only if they are 1-64 of `[A-Za-z0-9_-]`.
 - **Why.** Logs are read by more people, and kept longer, than the data (75.23, 75.19).
-- **Example.** `GET /api/v1/public/invoices/<token>` logs as `[REDACTED]`.
+- **Example.** `GET /api/v1/public/invoices/<token>` logs as `[REDACTED]`. The bKash return URL `GET /api/v1/online-payments/callback?paymentID=...&status=...` is another: nginx logs `$uri` without the query, and `redactPii` also masks `paymentID=` and `trxID=` in app logs.
 - **Test.** `redact-log.util.spec.ts`, `nginx/test/access-log.infra.test.sh`, `request-context.util.spec.ts`.
 
 ### Rule 14: API responses are no-store
@@ -282,6 +284,7 @@ flowchart LR
 - **Rule.** An inbound webhook is accepted only after `verifyWebhookSignature` (`server/src/common/webhooks/webhook-signature.util.ts`) checks its HMAC over the raw body, timing-safe, with a timestamp window.
 - **Why.** Anyone can POST to a public URL (75.30).
 - **Example.** An empty or non-string secret makes verification return `false`, never pass.
+- **Not a webhook: the bKash return URL.** `GET /api/v1/online-payments/callback` (and `GET /billing/bkash/callback`) is public and throttled (`STRICT_RATE_LIMIT`), but it is the guardian's browser coming back, with no body to sign. The kit does not apply. The rule that does: the `paymentID` in the query is never believed. `handleCallback` checks its shape, finds our own row for it, asks bKash (execute or query) and settles only on `Completed` with the same amount, `BDT` and our submission id; the URL's `status` never closes a row. A bad shape is a `400`, any other outcome is a `302` to the result page that does not say why (Rule 23). It has no `@FailClosedWithoutRedis()`: a gateway redirect must work while the rate limiter is down (Rule 15).
 - **Test.** `webhook-signature.util.spec.ts`, `webhook-signature.e2e-spec.ts`.
 
 ### Rule 20: A reachability change updates the route snapshot
@@ -291,6 +294,7 @@ flowchart LR
 - **Example.** `GET /api/v1/platform/alerts  401 PASS 403 …` (`TENANT_SA` 403).
 - **Module column.** The snapshot carries a trailing `MODULE` column (Epic 77, `requiresModule` route metadata, `-` when untagged); a module tag change is a reachability change.
 - **Test.** `server/src/route-status-snapshot.e2e-spec.ts`. See `server/CLAUDE.md` "Route status snapshot".
+- **Log.** 2026-11-15 [#291 online payments]: new public route `GET /api/v1/online-payments/callback` is `PASS` for every role (it is the bKash browser return, on the route-guard allowlist, throttled, and re-verified with bKash before anything is booked; Rules 1, 13, 19). The guardian routes `POST /portal/online-payments` and `GET /portal/online-payments/:id` need `PAYMENT_SUBMIT` (the snapshot shows PASS for PARENT and the two super-admin columns, 403 for the other roles). Lines are in `route-status.snapshot.txt`.
 - **Log.** 2026-11-05 [81.0.1] D5b: `PATCH /exams/:examId/marks` and `POST /exams/:examId/marks/submit` flip `EXAM_CONTROLLER` 403 → PASS (it now holds `MARK_ENTER`, a backup for an absent teacher). Teacher scope, other roles and other routes unchanged.
 - **Log.** 2026-11-06 [81.2] D5a/D21: new routes `GET /exams/:examId/marks/sheet` (`MARK_VIEW`), `POST …/marks/sheet/validate` and `POST …/marks/sheet/commit` (`MARK_ENTER`; the two writes pass for `ADMIN`, `TEACHER` and `EXAM_CONTROLLER`; `EXECUTIVE` and every other role get 403). Lines are in `route-status.snapshot.txt`.
 
