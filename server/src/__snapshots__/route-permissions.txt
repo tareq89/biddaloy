@@ -622,6 +622,7 @@ POST /admission-intakes/:id/stages | IntakeController | perm: ADMISSION_REVIEW
 POST /admission/applicants | AdmissionApplicantStaffController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/admit | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMISSION_REVIEW
+POST /admission/applicants/:id/expire | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/confirm | AdmissionFeeController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/send-back | AdmissionFeeController | perm: ADMISSION_REVIEW

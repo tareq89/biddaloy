@@ -145,6 +145,87 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
       .expect(400);
   });
 
+  describe('[#4183] expire and section pick', () => {
+    const url = (id = applicantId) => `/api/v1/admission/applicants/${id}/expire`;
+    const offer = () =>
+      ds.query(`UPDATE admission_applicants SET status = 'OFFERED' WHERE id = $1`, [applicantId]);
+
+    it('ADMIN expires an OFFERED applicant; a repeat is 409', async () => {
+      await offer();
+      const res = await as(http().post(url()), UserRole.ADMIN).expect(201);
+      expect(res.body.status).toBe('EXPIRED');
+      await as(http().post(url()), UserRole.ADMIN).expect(409);
+    });
+
+    it('a PENDING applicant cannot be expired (409)', async () => {
+      await as(http().post(url()), UserRole.ADMIN).expect(409);
+    });
+
+    it('TEACHER gets 403, tenant B gets 404, bad uuid 400, bad tenant header is refused', async () => {
+      await offer();
+      await as(http().post(url()), UserRole.TEACHER).expect(403);
+      await as(http().post(url()), UserRole.ADMIN, OTHER_TENANT_ID).expect(404);
+      await as(http().post(url('not-a-uuid')), UserRole.ADMIN).expect(400);
+      await as(http().post(url()), UserRole.ADMIN, 'not-a-tenant').expect((r) => {
+        if (r.status < 400 || r.status >= 500) throw new Error(`status ${r.status}`);
+      });
+    });
+
+    it('an EXPIRED applicant cannot be admitted (409)', async () => {
+      await ds.query(`UPDATE admission_applicants SET status = 'EXPIRED' WHERE id = $1`, [
+        applicantId,
+      ]);
+      await as(http().post(`/api/v1/admission/applicants/${applicantId}/admit`), UserRole.ADMIN)
+        .send({ guardian_choice: 'CREATE_NEW' })
+        .expect(409);
+    });
+
+    it('a section that differs from the round fixed section is 400; non-uuid is 400', async () => {
+      await as(http().post(`/api/v1/admission/applicants/${applicantId}/admit`), UserRole.ADMIN)
+        .send({ guardian_choice: 'CREATE_NEW', class_section_id: 'nope' })
+        .expect(400);
+      await as(http().post(`/api/v1/admission/applicants/${applicantId}/admit`), UserRole.ADMIN)
+        .send({
+          guardian_choice: 'CREATE_NEW',
+          class_section_id: '00000000-0000-4000-8000-0000000000aa',
+        })
+        .expect(400);
+    });
+
+    it('admit on a closed-year round is 409 ACADEMIC_YEAR_CLOSED', async () => {
+      const [{ academic_year_id: year }] = await ds.query(
+        `SELECT c.academic_year_id FROM class_sections s JOIN classes c ON c.id = s.class_id WHERE s.id = $1`,
+        [SEED_SECTION_1_ID],
+      );
+      await ds.query(`UPDATE admission_intakes SET academic_year_id = $2 WHERE tenant_id = $1`, [
+        SEED_TENANT_ID,
+        year,
+      ]);
+      const [{ is_current: wasCurrent }] = await ds.query(
+        `SELECT is_current FROM academic_years WHERE id = $1`,
+        [year],
+      );
+      await ds.query(
+        `UPDATE academic_years SET closed_at = NOW(), is_current = false WHERE id = $1`,
+        [year],
+      );
+      try {
+        const res = await as(
+          http().post(`/api/v1/admission/applicants/${applicantId}/admit`),
+          UserRole.ADMIN,
+        )
+          .send({ guardian_choice: 'CREATE_NEW' })
+          .expect(409);
+        expect(JSON.stringify(res.body)).toContain('ACADEMIC_YEAR_CLOSED');
+      } finally {
+        await ds.query(
+          `UPDATE academic_years SET closed_at = NULL, is_current = $2 WHERE id = $1`,
+          [year, wasCurrent],
+        );
+      }
+    });
+  });
+
   describe('[#2281] documents', () => {
     const DOC_BYTES = Buffer.from('birth-certificate-bytes');
     let key: string;

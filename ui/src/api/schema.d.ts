@@ -9133,6 +9133,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admission/applicants/{id}/expire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark an OFFERED applicant EXPIRED (offer deadline missed). */
+        post: operations["ApplicantReviewController_expire_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admission/applicants/{id}/reject": {
         parameters: {
             query?: never;
@@ -21176,6 +21193,8 @@ export interface components {
             guardian_choice?: "LINK_EXISTING" | "CREATE_NEW";
             /** Format: uuid */
             guardian_id?: string;
+            /** Format: uuid */
+            class_section_id?: string;
         };
         CheckApplicantStatusDto: {
             reference_number: string;
@@ -46371,6 +46390,39 @@ export interface operations {
                 "application/json": components["schemas"]["AdmitApplicantDto"];
             };
         };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionApplicant"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicantReviewController_expire_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {
