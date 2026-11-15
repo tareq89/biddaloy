@@ -140,10 +140,14 @@ describe('ImportStagingService', () => {
       const redis = fakeRedis();
       const service = new ImportStagingService(redis as any);
       const { stagingId } = await service.stage('t', 'u', { rows: 1 }, undefined, 'marks-sheet');
-      redis.getdel.mockResolvedValue(redis.set.mock.calls[0][1]);
+      const stored = redis.set.mock.calls[0][1];
+      redis.get.mockResolvedValue(stored);
+      redis.getdel.mockResolvedValueOnce(stored).mockResolvedValueOnce(null);
       await expect(service.consume('t', 'u', stagingId, 'homework')).rejects.toBeInstanceOf(
         BadRequestException,
       );
+      // The wrong-kind attempt must not have claimed (deleted) the stage.
+      expect(redis.getdel).not.toHaveBeenCalled();
       await expect(service.consume('t', 'u', stagingId, 'marks-sheet')).resolves.toEqual({
         rows: 1,
       });

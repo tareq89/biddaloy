@@ -9,6 +9,11 @@ import {
 import type { RecurringScheduleRule } from './entities/recurring-schedule.entity';
 
 describe('recurrence.util [16.7.1]', () => {
+  it('isDue rejects a MONTHLY rule with a non-positive day_of_month', () => {
+    const rule = { kind: 'MONTHLY', day_of_month: 0 } as RecurringScheduleRule;
+    expect(() => isDue(rule, '2026-03-05')).toThrow('no valid day_of_month');
+  });
+
   describe('periodFor', () => {
     it("MONTHLY returns the 1st of the given date's month", () => {
       const rule: RecurringScheduleRule = { kind: 'MONTHLY', day_of_month: 15 };

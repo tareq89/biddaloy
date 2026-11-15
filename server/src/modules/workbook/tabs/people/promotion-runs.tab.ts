@@ -320,7 +320,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
           column: 'exams',
           message: `Column "exams": no exam was found.`,
           severity: 'error',
-          value: examKeys.join(';'),
+          value: examKey,
         });
         continue;
       }

@@ -1624,6 +1624,20 @@ describe('SchoolsService', () => {
       return { service, repo };
     }
 
+    it('Rule 8: a same-status suspend retry still runs the cutoff', async () => {
+      const { service, repo } = buildService({
+        id: 's3',
+        status: 'SUSPENDED',
+        status_reason: 'Non-payment for 60 days',
+      });
+      await service.updateStatus(
+        's3',
+        { status: 'SUSPENDED', reason: 'Non-payment for 60 days' },
+        'u1',
+      );
+      expect(repo.manager.query).toHaveBeenCalledTimes(1);
+    });
+
     // Epic 49: no daily trial job any more, so an old trial_ends_at no longer blocks reactivation.
     it('reactivates a school whose old trial already ended', async () => {
       const { service, repo } = buildService({

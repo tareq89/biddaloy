@@ -14,6 +14,7 @@
  * yet, so this shows the one number the API actually returns rather than
  * inventing the three-way split.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -68,6 +69,16 @@ export function RecomputePreviewDialog({
     onOpenChange(next);
   }
 
+  // The server names the unpublished finals that block the change; show them so the user knows which to fix.
+  const blockingFinals =
+    confirmBands.error instanceof ApiError &&
+    confirmBands.error.details?.code === 'SCALE_FINAL_SOURCE_UNPUBLISHED' &&
+    Array.isArray(confirmBands.error.details.finals)
+      ? (confirmBands.error.details.finals as { name?: unknown }[])
+          .map((f) => (typeof f.name === 'string' ? f.name : ''))
+          .filter(Boolean)
+      : [];
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
@@ -93,6 +104,9 @@ export function RecomputePreviewDialog({
           <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
             <CircleAlertIcon aria-hidden="true" className="size-3.5" />
             {t('recomputePreview.errorMessage')}
+            {blockingFinals.length > 0 && (
+              <> {t('recomputePreview.finalsBlocking', { names: blockingFinals.join(', ') })}</>
+            )}
           </p>
         )}
 

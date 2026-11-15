@@ -59,6 +59,10 @@ interface OtpRecord {
 // capped request writes nothing). ARGV[4] = cap (0 = uncapped), ARGV[5] = window ms.
 const REQUEST_SCRIPT = `
 local cap = tonumber(ARGV[4])
+-- A cap key that lost its TTL (restore) must expire before it can reject, or it blocks forever.
+if cap > 0 and redis.call('EXISTS', KEYS[3]) == 1 and redis.call('PTTL', KEYS[3]) < 0 then
+  redis.call('PEXPIRE', KEYS[3], ARGV[5])
+end
 if cap > 0 and tonumber(redis.call('GET', KEYS[3]) or '0') >= cap then
   return 2
 end

@@ -237,6 +237,58 @@ describe('SmsCreditService (integration)', () => {
     });
   });
 
+  it('[2149] a reservation settled whole stays out of the orphan sweep, so real orphans are still released', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-whole-${tenantA}` });
+    const settled = '22222222-2222-4222-8222-222222222222';
+    const orphan = '33333333-3333-4333-8333-333333333333';
+    await service.reserve(tenantA, 10, `batch:${settled}`, { type: 'batch', id: settled });
+    await service.settle(tenantA, `batch:${settled}`, 'RELEASE');
+    await service.reserve(tenantA, 20, `batch:${orphan}`, { type: 'batch', id: orphan });
+    const later = new Date(Date.now() + 31 * 60_000);
+    // limit 1 would pick the older, already-settled row first if it stayed a candidate
+    expect(await service.releaseOrphanedReservations(later, { limit: 1 })).toEqual({
+      reservations: 1,
+      units: 20,
+    });
+    expect(await service.getBalance(tenantA)).toEqual({ available: 50, reserved: 0 });
+  });
+
+  it('[2149] a QUEUED log carrying metadata.batch_id protects its reservation from the sweep', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-queued-${tenantA}` });
+    const batchId = '44444444-4444-4444-8444-444444444444';
+    await service.reserve(tenantA, 5, `batch:${batchId}`, { type: 'batch', id: batchId });
+    await dataSource.query(
+      `INSERT INTO communication_logs (tenant_id, medium, recipient_address, recipient_name, message_body, status, trigger, metadata)
+       VALUES ($1, 'SMS', '+8801700000000', 'n', 'x', 'QUEUED', 'MANUAL', $2)`,
+      [tenantA, JSON.stringify({ batch_id: batchId })],
+    );
+    const later = new Date(Date.now() + 31 * 60_000);
+    expect(await service.releaseOrphanedReservations(later)).toEqual({ reservations: 0, units: 0 });
+  });
+
+  it('[4138] a reserved drop is laid on the LEGACY lot draws only', async () => {
+    await service.grant(tenantA, 20, { idempotencyKey: `grant-leg-${tenantA}` });
+    await dataSource.query(`UPDATE sms_credit_lots SET source = 'LEGACY' WHERE tenant_id = $1`, [
+      tenantA,
+    ]);
+    await service.grant(tenantA, 10, { idempotencyKey: `grant-other-${tenantA}` });
+    await service.reserve(tenantA, 30, `batch:two-lots-${tenantA}`);
+    // old code settled 10 reserved units as a debit without touching lots or draws
+    await dataSource.query(
+      `UPDATE sms_credit_balance SET reserved = reserved - 10 WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    expect((await service.reconcileLotsToBalance(tenantA)).manual).toBe(false);
+    const rows: { source: string; open: number }[] = await dataSource.query(
+      `SELECT l.source, SUM(d.open_units)::int AS open
+         FROM sms_credit_lot_draws d JOIN sms_credit_lots l ON l.id = d.lot_id
+        WHERE d.tenant_id = $1 GROUP BY l.source`,
+      [tenantA],
+    );
+    expect(rows.find((r) => r.source !== 'LEGACY')?.open).toBe(10);
+    expect(rows.find((r) => r.source === 'LEGACY')?.open).toBe(10);
+  });
+
   it('[4138] lots follow a balance that old-code instances moved after the backfill, once', async () => {
     await service.grant(tenantA, 50, { idempotencyKey: `grant-drift-${tenantA}` });
     // the migration backfill made this one LEGACY lot; make the fixture look like that

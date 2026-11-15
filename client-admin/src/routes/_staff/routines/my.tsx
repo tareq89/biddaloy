@@ -179,7 +179,7 @@ function MyRoutinePage() {
     roomsQuery.isPending ||
     sectionLookupQuery.isPending ||
     periodLookupQuery.isPending ||
-    deliveriesQuery.isPending
+    (canReadLessons && deliveriesQuery.isPending)
   ) {
     return frame(<MyRoutineSkeleton label={t('myRoutine.loading')} />);
   }
@@ -245,6 +245,18 @@ function MyRoutinePage() {
         firstSection: sectionLabel(first.section_id, '—'),
       };
     });
+
+  // Without SYLLABUS_READ there is no lesson data (query disabled): show the upcoming days only.
+  if (!day) {
+    return frame(
+      <div className="flex flex-col gap-4">
+        <p className="rounded-lg border border-border-subtle bg-surface p-4 text-text-secondary">
+          {t('myRoutine.noLessonAccess')}
+        </p>
+        <NextDays days={nextDays} subjectLabel={subjectLabel} />
+      </div>,
+    );
+  }
 
   return frame(
     <div className="flex flex-col gap-4">

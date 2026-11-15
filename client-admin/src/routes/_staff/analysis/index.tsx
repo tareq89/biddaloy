@@ -51,9 +51,9 @@ import { flushSync } from 'react-dom';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+import { usePrintPageRule } from '../../../use-print-page-rule';
 
 import './-analysis-print.css';
-import { usePrintPageRule } from '../../../use-print-page-rule';
 
 import { DefaultedTab } from './-defaulted-tab';
 import { MeritTab } from './-merit-tab';
