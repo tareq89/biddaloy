@@ -18844,6 +18844,8 @@ export interface components {
             unmatched: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description The reconciler may still change this status; keep polling. */
+            reconcilable: boolean;
             /** @description Receipts of the caller own children; empty until the payment is booked. */
             receipts: components["schemas"]["OnlinePaymentReceiptDto"][];
             /** Format: date-time */
@@ -22262,7 +22264,7 @@ export interface components {
             academic_year_id: string;
             form_version_id: string;
             /** @enum {string} */
-            status: "COMPLETED" | "INCOMPLETE";
+            status: "INCOMPLETE" | "COMPLETED";
             total: number | null;
             assessed_by: string;
             step1_data: {
