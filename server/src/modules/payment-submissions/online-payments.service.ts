@@ -424,6 +424,9 @@ export class OnlinePaymentsService {
 
   /** Token grant only (no payment). On success stamps `lastTestOkAt` (D13). */
   async testConnection(tenantId: string): Promise<{ ok: true; lastTestOkAt: string }> {
+    // Snapshot of the saved settings BEFORE the creds are read: the stamp below lands only if
+    // they are still the same, so a test of old creds never marks new ones as verified.
+    const snapshot = await this.bkashSnapshot(tenantId);
     const creds = await this.credsOf(tenantId);
     if (!creds) throw new BadRequestException(MSG.credsMissing);
     try {
@@ -442,11 +445,20 @@ export class OnlinePaymentsService {
                      COALESCE(settings->'payments','{}'::jsonb)),
            '{payments,bkash}', COALESCE(settings->'payments'->'bkash','{}'::jsonb)),
          '{payments,bkash,lastTestOkAt}', to_jsonb($1::text)), updated_at = NOW()
-       WHERE id = $2`,
-      [at, tenantId],
+       WHERE id = $2 AND (COALESCE(settings->'payments'->'bkash','{}'::jsonb) - 'lastTestOkAt') = $3::jsonb`,
+      [at, tenantId, snapshot],
     );
     this.settingsCache.invalidate(tenantId);
     return { ok: true, lastTestOkAt: at };
+  }
+
+  /** Stored (encrypted) bKash settings without the test stamp, as JSON text. */
+  private async bkashSnapshot(tenantId: string): Promise<string> {
+    const rows: { s: unknown }[] = await this.ds.query(
+      `SELECT COALESCE(settings->'payments'->'bkash','{}'::jsonb) - 'lastTestOkAt' AS s FROM schools WHERE id = $1`,
+      [tenantId],
+    );
+    return JSON.stringify(rows[0]?.s ?? {});
   }
 
   // ---------------------------------------------------------------- helpers

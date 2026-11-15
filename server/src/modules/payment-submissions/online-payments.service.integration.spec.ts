@@ -12,7 +12,8 @@ import { SchoolsService } from '../schools/schools.service';
 import { OnlinePaymentsService } from './online-payments.service';
 import { ProofCaller } from './proof-submissions.service';
 import { PAYMENT_SUBMISSION_EVENTS, paymentSubmissionEvents } from './payment-submission.events';
-import { PaymentReversalListener } from './payment-reversal.listener';
+import { AuditService } from '../audit/audit.service';
+import { syncSubmissionsOnReversal } from './sync-submissions-on-reversal';
 
 /** Stub provider: no live bKash. Each test sets what bKash "answers". */
 class StubBkash {
@@ -264,11 +265,14 @@ describe('OnlinePaymentsService (integration)', () => {
       `SELECT payment_id FROM payment_submission_bills WHERE submission_id=$1`,
       [id],
     );
-    const touched = await app.get(PaymentReversalListener).onReversed({
-      tenantId: SEED_TENANT_ID,
-      paymentId: payment_id,
-      actorUserId: fix.parent.id,
-    } as never);
+    const touched = await ds.transaction((m) =>
+      syncSubmissionsOnReversal(m, app.get(AuditService), {
+        tenantId: SEED_TENANT_ID,
+        paymentId: payment_id,
+        actorUserId: fix.parent.id,
+        reason: 'test',
+      }),
+    );
     expect(touched).toEqual([id]);
     expect((await sub(id)).status).toBe('REVERSED');
   });
@@ -375,5 +379,21 @@ describe('OnlinePaymentsService (integration)', () => {
     ]);
     expect(settings.payments.bkash.lastTestOkAt).toBe(res.lastTestOkAt);
     expect(settings.payments.onlineEnabled).toBe(true);
+  });
+
+  it('credentials changed while the test ran: no stamp', async () => {
+    const stub = app.get(BkashClient) as unknown as StubBkash;
+    stub.testConnection.mockImplementationOnce(async () => {
+      await ds.query(
+        `UPDATE schools SET settings = jsonb_set(COALESCE(settings,'{}'::jsonb), '{payments,bkash}', '{"appKey":"changed"}'::jsonb, true) WHERE id = $1`,
+        [SEED_TENANT_ID],
+      );
+    });
+    await svc.testConnection(SEED_TENANT_ID);
+    const [{ settings }] = await ds.query(`SELECT settings FROM schools WHERE id=$1`, [
+      SEED_TENANT_ID,
+    ]);
+    expect(settings.payments.bkash.appKey).toBe('changed');
+    expect(settings.payments.bkash.lastTestOkAt).toBeUndefined();
   });
 });
