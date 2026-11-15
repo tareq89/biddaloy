@@ -5,7 +5,7 @@
  * aggregate endpoints the dashboard cards read, through the same hooks and table helpers, so
  * the page and the cards cannot disagree. Totals only (D44): nothing here names a person.
  */
-import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { Button, Skeleton } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
 import {
@@ -39,6 +39,7 @@ import {
 import { buildCommitteeSummary } from '../../../dashboard/widgets/committee/committee-summary';
 import { loadRouteNamespaces } from '../../../route-loaders';
 import { useActiveSchoolName } from '../../../use-active-school-name';
+import { QueryFailed } from '../fees/-query-failed';
 import './-committee-report-print.css';
 
 export const Route = createFileRoute('/_staff/print/committee-report')({
@@ -141,7 +142,8 @@ function CommitteeReportPage() {
       <ReportShell>
         <header className="flex flex-col gap-1">{heading}</header>
         {toolbar}
-        <ErrorState
+        <QueryFailed
+          error={queries.find((q) => q.isError)?.error}
           message={tr('loadError')}
           retryLabel={t('states.retry')}
           onRetry={() => queries.forEach((q) => void q.refetch())}
