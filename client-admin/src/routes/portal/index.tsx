@@ -598,6 +598,7 @@ function ChildCard({
               now={now}
               config={config}
               payOptions={payOptions}
+              studentId={child.id}
             />
           )}
         </div>
@@ -670,7 +671,13 @@ function SingleStudentView({
       </Card>
 
       {feesOn && (
-        <DueThisMonthCard dues={child.dues} now={now} config={config} payOptions={payOptions} />
+        <DueThisMonthCard
+          dues={child.dues}
+          now={now}
+          config={config}
+          payOptions={payOptions}
+          studentId={child.id}
+        />
       )}
 
       {feesOn && <RecentPayments query={paymentsQuery} config={config} />}

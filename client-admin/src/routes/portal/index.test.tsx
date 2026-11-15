@@ -315,7 +315,7 @@ describe('/portal', () => {
         await screen.findByRole('heading', { level: 3, name: 'Fatima Rahman' })
       ).closest('[data-slot="card"]') as HTMLElement;
       const pay = await within(card).findByRole('link', { name: /^Pay/ });
-      expect(pay.getAttribute('href')).toBe('/portal/fees/pay');
+      expect(pay.getAttribute('href')).toBe('/portal/fees/pay?student=student-1');
     });
 
     it('counts only the overdue portion in the hero, not the whole balance of an overdue child', async () => {

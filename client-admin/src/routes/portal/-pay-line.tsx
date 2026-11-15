@@ -8,10 +8,13 @@ export function PayLine({
   options,
   total,
   config,
+  studentId,
 }: {
   options: Pick<PaymentOptions, 'onlineEnabled' | 'proofEnabled'> | undefined;
   total: number;
   config: RegionConfig;
+  /** The child this due line belongs to: the pay page opens with only their bills ticked. */
+  studentId?: string | undefined;
 }) {
   const { t } = useTranslation('portalPay');
   if (!options) return null;
@@ -20,7 +23,7 @@ export function PayLine({
   }
   return (
     <Button asChild className="w-full md:w-auto">
-      <Link to="/portal/fees/pay">
+      <Link to="/portal/fees/pay" search={studentId ? { student: studentId } : {}}>
         {t('dueCard.pay', { amount: formatServerAmount(total, config) })}
       </Link>
     </Button>

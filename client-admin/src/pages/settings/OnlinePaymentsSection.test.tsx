@@ -83,4 +83,40 @@ describe('OnlinePaymentsSection', () => {
     expect(await screen.findByText('Use at most 500 characters.')).toBeTruthy();
     expect(patchBody).not.toHaveBeenCalled();
   });
+
+  it('does not validate instructions of a method that was deselected', async () => {
+    const patchBody = capturePatch();
+    const { user } = renderWithProviders(
+      <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={PAYMENTS} />,
+      opts,
+    );
+    fireEvent.change(await screen.findByLabelText('What to tell the guardian'), {
+      target: { value: 'x'.repeat(501) },
+    });
+    await user.click(screen.getByLabelText('bKash'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    expect(patchBody.mock.calls[0]![0].payments.proofMethods).toEqual([]);
+  });
+
+  it('locks the controls while the save is pending', async () => {
+    let release!: () => void;
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async () => {
+        await new Promise<void>((resolve) => (release = resolve));
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+    const { user } = renderWithProviders(
+      <OnlinePaymentsSection schoolId={SCHOOL_ID} payments={PAYMENTS} />,
+      opts,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('What to tell the guardian') as HTMLInputElement).disabled,
+      ).toBe(true),
+    );
+    release();
+  });
 });

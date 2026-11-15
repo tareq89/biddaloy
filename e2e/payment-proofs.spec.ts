@@ -1,4 +1,4 @@
-import { type APIRequestContext } from '@playwright/test';
+import { type APIRequestContext, type BrowserContext } from '@playwright/test';
 
 import {
   adminApiSession,
@@ -60,51 +60,55 @@ test.describe('payment proofs: guardian sends -> accountant decides -> guardian 
     const trxId = `E2E${suffix.slice(-8)}`;
     const admin = await adminApiSession(request);
 
-    const before = await get<{ payments?: { proofEnabled?: boolean; proofMethods?: never[] } }>(
-      request,
-      admin,
-      `/schools/${admin.tenantId}/settings`,
-    );
-    await setProofSwitch(request, admin, {
-      proofEnabled: true,
-      proofMethods: [{ method: 'BKASH', instructions: 'Send to 01700000000' }],
-    });
-
-    const guardian = await createGuardian(request, admin, `Proof Guardian ${suffix}`, phone);
-    const a = await createStudentWithDues(request, admin, childA, { guardianId: guardian.id });
-    const b = await createStudentWithDues(request, admin, childB, { guardianId: guardian.id });
-    const batch = await post<{ batch_id: string }>(request, admin, '/users/invitations/batch', {
-      guardian_ids: [guardian.id],
-    });
-    await expect
-      .poll(
-        async () =>
-          (
-            await get<InviteBatchStatus>(
-              request,
-              admin,
-              `/users/invitations/batch/${batch.batch_id}`,
-            )
-          ).queued,
-        { timeout: 30_000, intervals: [500, 1000] },
-      )
-      .toBe(0);
-
-    const accountantApi = await playwright.request.newContext({ baseURL: shells.app.baseURL });
-    const password = process.env[SEED_PASSWORD_ENV];
-    if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
-    const accountantContext = await browser.newContext({
-      storageState: await loginAsFreshUser(
-        accountantApi,
-        shells.app.baseURL,
-        SEED_ROLE_EMAILS.accountant,
-        password,
-      ),
-    });
-    const guardianContext = await browser.newContext();
-    const paidOn = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-
+    const before = await get<{
+      payments?: {
+        proofEnabled?: boolean;
+        proofMethods?: { method: string; instructions: string }[];
+      };
+    }>(request, admin, `/schools/${admin.tenantId}/settings`);
+    let accountantApi: APIRequestContext | undefined;
+    let accountantContext: BrowserContext | undefined;
+    let guardianContext: BrowserContext | undefined;
     try {
+      await setProofSwitch(request, admin, {
+        proofEnabled: true,
+        proofMethods: [{ method: 'BKASH', instructions: 'Send to 01700000000' }],
+      });
+
+      const guardian = await createGuardian(request, admin, `Proof Guardian ${suffix}`, phone);
+      const a = await createStudentWithDues(request, admin, childA, { guardianId: guardian.id });
+      const b = await createStudentWithDues(request, admin, childB, { guardianId: guardian.id });
+      const batch = await post<{ batch_id: string }>(request, admin, '/users/invitations/batch', {
+        guardian_ids: [guardian.id],
+      });
+      await expect
+        .poll(
+          async () =>
+            (
+              await get<InviteBatchStatus>(
+                request,
+                admin,
+                `/users/invitations/batch/${batch.batch_id}`,
+              )
+            ).queued,
+          { timeout: 30_000, intervals: [500, 1000] },
+        )
+        .toBe(0);
+
+      accountantApi = await playwright.request.newContext({ baseURL: shells.app.baseURL });
+      const password = process.env[SEED_PASSWORD_ENV];
+      if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+      accountantContext = await browser.newContext({
+        storageState: await loginAsFreshUser(
+          accountantApi,
+          shells.app.baseURL,
+          SEED_ROLE_EMAILS.accountant,
+          password,
+        ),
+      });
+      guardianContext = await browser.newContext();
+      const paidOn = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+
       const guardianPage = await guardianContext.newPage();
       await test.step('guardian signs in for the first time', async () => {
         const login = new LoginPage(guardianPage);
@@ -223,13 +227,16 @@ test.describe('payment proofs: guardian sends -> accountant decides -> guardian 
         expect(none.data).toHaveLength(0);
       });
     } finally {
-      await guardianContext.close();
-      await accountantContext.close();
-      await accountantApi.dispose();
+      // Restore the school first; a failed close must not leave settings changed.
       await setProofSwitch(request, admin, {
         proofEnabled: before.payments?.proofEnabled ?? false,
-        proofMethods: [],
+        proofMethods: before.payments?.proofMethods ?? [],
       });
+      await Promise.allSettled([
+        guardianContext?.close(),
+        accountantContext?.close(),
+        accountantApi?.dispose(),
+      ]);
     }
   });
 });

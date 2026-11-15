@@ -230,11 +230,13 @@ function SendMessageBody() {
   }
 
   function handleSelectStudent(selected: Student) {
+    prefilled.current = true; // a manual pick beats a still-pending prefill
     setStudent(selected);
     setGuardianId(null);
   }
 
   function handleReset() {
+    prefilled.current = true;
     sendMessage.reset();
     setMessageBody('');
     setSubject('');
@@ -328,6 +330,7 @@ function SendMessageBody() {
                   registrationNumber={student.registration_number}
                   changeLabel={t('send.clearStudent')}
                   onChange={() => {
+                    prefilled.current = true;
                     setStudent(null);
                     setGuardianId(null);
                   }}
@@ -352,6 +355,7 @@ function SendMessageBody() {
                   value={guardianId ?? ''}
                   onValueChange={(value) => {
                     const guardian = student.guardians.find((candidate) => candidate.id === value);
+                    prefilled.current = true;
                     if (guardian !== undefined) setGuardianId(guardian.id);
                   }}
                   className="gap-0 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle"

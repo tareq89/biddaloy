@@ -48,10 +48,14 @@ const buildSchema = (tooLong: string) =>
     proofEnabled: z.boolean(),
     methods: z.record(
       z.string(),
-      z.object({
-        enabled: z.boolean(),
-        instructions: z.string().max(INSTRUCTIONS_MAX, tooLong),
-      }),
+      z
+        .object({ enabled: z.boolean(), instructions: z.string() })
+        // Only an enabled method is saved, so only its instructions are length-checked.
+        .superRefine((row, ctx) => {
+          if (row.enabled && row.instructions.length > INSTRUCTIONS_MAX) {
+            ctx.addIssue({ code: 'custom', path: ['instructions'], message: tooLong });
+          }
+        }),
     ),
   });
 type Values = z.infer<ReturnType<typeof buildSchema>>;
@@ -135,6 +139,7 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
                 <Switch
                   id="online-payments-proofEnabled"
                   checked={field.value}
+                  disabled={updateSettings.isPending}
                   onCheckedChange={field.onChange}
                 />
               </FormControl>
@@ -148,7 +153,7 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
         <p className="mt-1 text-text-secondary">{t('onlinePayments.methodsIntro')}</p>
         <ul className="mt-2 divide-y divide-border-subtle">
           {PROOF_METHODS.map((method) => (
-            <MethodRow key={method} method={method} form={form} />
+            <MethodRow key={method} method={method} form={form} saving={updateSettings.isPending} />
           ))}
         </ul>
         {/* The bKash connection card (#3995) is intentionally absent in this wave. */}
@@ -160,9 +165,11 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
 function MethodRow({
   method,
   form,
+  saving,
 }: {
   method: (typeof PROOF_METHODS)[number];
   form: UseFormReturn<Values>;
+  saving: boolean;
 }) {
   const { t } = useTranslation('settings');
   const row = form.watch(`methods.${method}`);
@@ -179,6 +186,7 @@ function MethodRow({
               <Checkbox
                 id={`online-payments-${method}-enabled`}
                 checked={field.value}
+                disabled={saving}
                 onCheckedChange={(checked) => field.onChange(checked === true)}
               />
             </FormControl>
@@ -202,7 +210,11 @@ function MethodRow({
                   {t('onlinePayments.instructionsLabel')}
                 </FormLabel>
                 <FormControl>
-                  <Input id={`online-payments-${method}-instructions`} {...field} />
+                  <Input
+                    id={`online-payments-${method}-instructions`}
+                    {...field}
+                    disabled={saving}
+                  />
                 </FormControl>
                 <FormDescription className={over ? 'text-destructive' : undefined}>
                   {t('onlinePayments.counter', {

@@ -26,7 +26,7 @@ import {
   formatServerAmount,
   minorUnitsToDecimalString,
   serverAmountToMinorUnits,
-  toIsoDate,
+  tenantTodayIso,
 } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
@@ -36,22 +36,30 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 export const Route = createFileRoute('/portal/fees_/pay')({
   loader: () => loadRouteNamespaces('portalPay', 'common'),
   component: PortalPayRoute,
+  // The child whose bills the pay link opens with; a bad value falls back to all bills.
+  validateSearch: (search: Record<string, unknown>): { student?: string } =>
+    typeof search.student === 'string' && UUID_RE.test(search.student)
+      ? { student: search.student }
+      : {},
 });
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_FILES = 2;
 const ACCEPT = 'image/jpeg,image/png,application/pdf';
 
 function PortalPayRoute() {
+  const { student } = Route.useSearch();
   return (
     <RegionConfigProvider>
-      <PortalPayPage />
+      <PortalPayPage scopeStudentId={student} />
     </RegionConfigProvider>
   );
 }
 
 type ErrorKey = 'method' | 'date' | 'future' | 'evidence' | 'tooManyFiles';
 
-export function PortalPayPage() {
+export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | undefined } = {}) {
   const { t } = useTranslation('portalPay');
   const { t: tCommon } = useTranslation('common');
   const config = useRegionConfig();
@@ -63,7 +71,8 @@ export function PortalPayPage() {
   const submit = useSubmitPaymentProof();
 
   // Pre-ticked: every open bill that is not already waiting. The guardian only un-ticks.
-  const [unticked, setUnticked] = React.useState<ReadonlySet<string>>(new Set());
+  // Explicit ticks only; a bill with no entry follows the scope (see `isOn`).
+  const [picked, setPicked] = React.useState<ReadonlyMap<string, boolean>>(new Map());
   const [method, setMethod] = React.useState<string | undefined>(undefined);
   const [paidOn, setPaidOn] = React.useState('');
   const [trxId, setTrxId] = React.useState('');
@@ -73,9 +82,11 @@ export function PortalPayPage() {
   const [done, setDone] = React.useState(false);
 
   const students = cartQuery.data?.students ?? [];
-  const selected = students
-    .flatMap((s) => s.bills)
-    .filter((b) => b.waitingSubmission === null && !unticked.has(b.id));
+  const scopeValid = students.some((s) => s.studentId === scopeStudentId);
+  const isOn = (bill: { id: string; waitingSubmission: unknown }, studentId: string) =>
+    bill.waitingSubmission === null &&
+    (picked.get(bill.id) ?? (!scopeValid || studentId === scopeStudentId));
+  const selected = students.flatMap((s) => s.bills.filter((b) => isOn(b, s.studentId)));
   const totalPaisa = selected.reduce(
     (sum, b) => sum + serverAmountToMinorUnits(b.balance, config),
     0,
@@ -86,15 +97,10 @@ export function PortalPayPage() {
   const methods = options?.proofMethods ?? [];
   const chosen =
     methods.find((m) => m.method === method) ?? (methods.length === 1 ? methods[0] : undefined);
-  const today = toIsoDate(new Date());
+  const today = tenantTodayIso(config, new Date());
 
   function toggle(id: string, on: boolean) {
-    setUnticked((prev) => {
-      const next = new Set(prev);
-      if (on) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setPicked((prev) => new Map(prev).set(id, on));
   }
 
   function onSubmit() {
@@ -122,6 +128,7 @@ export function PortalPayPage() {
         onError: (error) => {
           const status = error instanceof ApiError ? error.statusCode : 0;
           setSubmitError(status === 503 ? 'storageDown' : status === 409 ? 'busy' : 'generic');
+          if (status === 409) void cartQuery.refetch(); // busy bill returns as waiting and drops out
         },
       },
     );
@@ -197,7 +204,7 @@ export function PortalPayPage() {
                       <div key={bill.id} className="flex min-h-11 items-center gap-3 px-1">
                         <Checkbox
                           id={id}
-                          checked={!waiting && !unticked.has(bill.id)}
+                          checked={isOn(bill, student.studentId)}
                           disabled={waiting}
                           onCheckedChange={(on) => toggle(bill.id, on === true)}
                         />

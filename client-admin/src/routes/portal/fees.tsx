@@ -327,7 +327,11 @@ function PortalFees() {
     schedulesQuery.isPending ||
     finesQuery.isPending
   ) {
-    return <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />;
+    return (
+      <FeesTabs tab="bills" onTab={goTab}>
+        <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />
+      </FeesTabs>
+    );
   }
 
   if (
@@ -342,17 +346,19 @@ function PortalFees() {
     // imply the rest is complete. No `<h1>`, and never the server's own
     // message — a raw id must not reach a parent.
     return (
-      <ErrorState
-        message={t('fees.error.message')}
-        retryLabel={t('fees.error.retry')}
-        onRetry={() => {
-          void summaryQuery.refetch();
-          void invoicesQuery.refetch();
-          void walletQuery.refetch();
-          void schedulesQuery.refetch();
-          void finesQuery.refetch();
-        }}
-      />
+      <FeesTabs tab="bills" onTab={goTab}>
+        <ErrorState
+          message={t('fees.error.message')}
+          retryLabel={t('fees.error.retry')}
+          onRetry={() => {
+            void summaryQuery.refetch();
+            void invoicesQuery.refetch();
+            void walletQuery.refetch();
+            void schedulesQuery.refetch();
+            void finesQuery.refetch();
+          }}
+        />
+      </FeesTabs>
     );
   }
 

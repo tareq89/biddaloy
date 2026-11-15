@@ -25,7 +25,12 @@ const CART = {
   ],
 };
 
-function render(options: Record<string, unknown> | null = null, submitStatus = 201) {
+function render(
+  options: Record<string, unknown> | null = null,
+  submitStatus = 201,
+  entry = '/portal/fees/pay',
+  cart: unknown = CART,
+) {
   const seen = { headers: [] as (string | null)[], forms: [] as FormData[] };
   server.use(
     http.get('/api/v1/portal/payment-options', () =>
@@ -37,7 +42,7 @@ function render(options: Record<string, unknown> | null = null, submitStatus = 2
         },
       ),
     ),
-    http.get('/api/v1/portal/payment-cart', () => HttpResponse.json(CART)),
+    http.get('/api/v1/portal/payment-cart', () => HttpResponse.json(cart)),
     http.post('/api/v1/portal/payment-proofs', async ({ request }) => {
       seen.headers.push(request.headers.get('Idempotency-Key'));
       seen.forms.push(await request.formData());
@@ -57,7 +62,7 @@ function render(options: Record<string, unknown> | null = null, submitStatus = 2
     }),
   );
   renderWithRouter(routeTree, {
-    initialEntries: ['/portal/fees/pay'],
+    initialEntries: [entry],
     tenantId: 'tenant-1',
     role: 'PARENT',
     locale: 'en',
@@ -81,6 +86,27 @@ describe('/portal/fees/pay', () => {
     expect(waiting?.hasAttribute('disabled')).toBe(true);
     expect(waiting?.getAttribute('aria-checked')).toBe('false');
     expect(screen.getByText('Waiting for confirmation')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Amount').value).toBe('৳1,500.00');
+  });
+
+  it('opens with only the linked child bills ticked', async () => {
+    const A = '11111111-1111-4111-8111-111111111111';
+    const B = '22222222-2222-4222-8222-222222222222';
+    const cart = {
+      students: [
+        { studentId: A, fullName: 'Rahim Uddin', bills: [bill('b1', 'April fee', '500.00')] },
+        { studentId: B, fullName: 'Sumi Akter', bills: [bill('b2', 'Exam fee', '800.00')] },
+      ],
+    };
+    render(null, 201, `/portal/fees/pay?student=${A}`, cart);
+    await screen.findByRole('checkbox', { name: /April fee/, checked: true });
+    expect(screen.getByRole('checkbox', { name: /Exam fee/, checked: false })).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Amount').value).toBe('৳500.00');
+  });
+
+  it('ignores a malformed student scope and ticks every bill', async () => {
+    render(null, 201, '/portal/fees/pay?student=nope');
+    await screen.findByRole('checkbox', { name: /Exam fee/, checked: true });
     expect(screen.getByLabelText<HTMLInputElement>('Amount').value).toBe('৳1,500.00');
   });
 

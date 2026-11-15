@@ -20,7 +20,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
 const STATUS_TONE: Partial<Record<PaymentSubmissionStatus, StatusTone>> = {
@@ -32,10 +32,15 @@ const STATUS_TONE: Partial<Record<PaymentSubmissionStatus, StatusTone>> = {
 };
 
 /** The proof file route needs the bearer token, so an `<img src>` cannot reach it: fetch blobs. */
-function useProofFileUrls(proof: ProofSubmission): (string | null)[] {
+function useProofFileUrls(proof: ProofSubmission): {
+  urls: (string | null)[];
+  failed: boolean;
+  retry: () => void;
+} {
+  const queryClient = useQueryClient();
   // `combine` hands back a structurally shared array: same reference until a blob changes.
-  const blobs = useQueries({
-    combine: (rs) => rs.map((r) => r.data ?? null),
+  const { blobs, failed } = useQueries({
+    combine: (rs) => ({ blobs: rs.map((r) => r.data ?? null), failed: rs.some((r) => r.isError) }),
     queries: proof.files.map((file) => ({
       queryKey: ['payment-submissions', 'portal-file', proof.id, file.id] as const,
       queryFn: async ({ signal }: { signal: AbortSignal }) =>
@@ -55,30 +60,46 @@ function useProofFileUrls(proof: ProofSubmission): (string | null)[] {
     setUrls(made);
     return () => made.forEach((u) => u && URL.revokeObjectURL(u));
   }, [blobs]);
-  return urls;
+  const retry = () =>
+    void queryClient.refetchQueries({
+      queryKey: ['payment-submissions', 'portal-file', proof.id],
+    });
+  return { urls, failed, retry };
 }
 
 function ProofFiles({ proof }: { proof: ProofSubmission }) {
   const { t } = useTranslation('portal');
-  const urls = useProofFileUrls(proof);
+  const { urls, failed, retry } = useProofFileUrls(proof);
   const files = proof.files.flatMap((file, i) => {
     const url = urls[i];
     return url
       ? [{ url, contentType: file.contentType, label: t('proofs.fileLabel', { n: i + 1 }) }]
       : [];
   });
-  if (files.length === 0) return null;
+  if (files.length === 0 && !failed) return null;
   return (
-    <ImageViewer
-      files={files}
-      labels={{
-        openFile: t('proofs.viewer.openFile'),
-        zoomIn: t('proofs.viewer.zoomIn'),
-        zoomOut: t('proofs.viewer.zoomOut'),
-        previous: t('proofs.viewer.previous'),
-        next: t('proofs.viewer.next'),
-      }}
-    />
+    <>
+      {failed && (
+        <div role="alert" className="flex items-center justify-between gap-2 text-body">
+          <p>{t('proofs.filesError')}</p>
+          <Button type="button" variant="outline" onClick={retry}>
+            {t('fees.error.retry')}
+          </Button>
+        </div>
+      )}
+      {files.length > 0 && (
+        <ImageViewer
+          files={files}
+          labels={{
+            openFile: t('proofs.viewer.openFile'),
+            zoomIn: t('proofs.viewer.zoomIn'),
+            zoomOut: t('proofs.viewer.zoomOut'),
+            previous: t('proofs.viewer.previous'),
+            next: t('proofs.viewer.next'),
+          }}
+        />
+      )}
+    </>
   );
 }
 

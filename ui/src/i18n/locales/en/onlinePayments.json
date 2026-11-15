@@ -81,7 +81,7 @@
       "reverse": "Reverse this payment",
       "backToList": "Back to the list"
     },
-    "confirmError": "Could not confirm. Nothing was changed. Try again.",
+    "confirmError": "Could not confirm. Reload to check the proof status before you try again.",
     "confirmed": "Confirmed.",
     "discarded": "This bill was paid already. The proof is discarded and no money moved.",
     "notWaiting": "This proof is not waiting any more. Reload to see where it stands.",
@@ -97,7 +97,7 @@
     "noteHint": "Write a short note for the guardian.",
     "cancel": "Cancel",
     "submit": "Reject",
-    "error": "Could not reject. Nothing was changed. Try again.",
+    "error": "Could not reject. Reload to check the proof status before you try again.",
     "reasons": {
       "TRXID_NOT_FOUND": "Transaction ID not found",
       "AMOUNT_MISMATCH": "Amount does not match",

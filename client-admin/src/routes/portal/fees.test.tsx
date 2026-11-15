@@ -980,6 +980,8 @@ describe('/portal/fees', () => {
       expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
       expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
       expect(document.body.textContent).not.toContain('9f1c3d20');
+      // The proofs tab stays reachable while the bills are down.
+      expect(screen.getByRole('tab', { name: 'My payment proofs' })).toBeTruthy();
     });
 
     it('shows the same error frame when the invoice list fails', async () => {

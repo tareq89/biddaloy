@@ -577,6 +577,7 @@
     "hideDetails": "Hide details"
   },
   "proofs": {
+    "filesError": "Could not load the attachments.",
     "tabsLabel": "Fees sections",
     "tabBills": "Fees and invoices",
     "tabProofs": "My payment proofs",
