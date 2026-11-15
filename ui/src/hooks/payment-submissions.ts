@@ -45,6 +45,15 @@ export interface ProofReviewListItem {
   submitterName: string;
   billCount: number;
   createdAt: string;
+  /** Online only: paid at bKash but part (or all) of it went to the wallet. */
+  unmatched: boolean;
+  /** Taka that went onto bills, `"0.00"` until settled. */
+  appliedAmount: string;
+  /** Taka that went to the wallet instead; `"0.00"` unless `unmatched`. */
+  walletAmount: string;
+  /** First payment made from this submission (a receipt to open), if any. */
+  paymentId: string | null;
+  students: { id: string; name: string }[];
 }
 
 export interface ProofReviewList {
@@ -97,6 +106,8 @@ export interface ConfirmProofResult {
 export interface ProofReviewFilters {
   source?: PaymentSubmissionSource;
   status?: PaymentSubmissionStatus;
+  /** `true`: only online payments that left money in the wallet. */
+  unmatched?: boolean;
   limit?: number;
   cursor?: string;
 }

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -29,6 +30,12 @@ export class QueryProofReviewDto {
   @IsOptional()
   @IsEnum(PaymentSubmissionStatus)
   status?: PaymentSubmissionStatus;
+
+  @ApiPropertyOptional({ description: 'true: only online payments that left money in the wallet.' })
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
+  @IsBoolean()
+  unmatched?: boolean;
 
   @ApiPropertyOptional({ maximum: 100 })
   @IsOptional()
