@@ -704,6 +704,12 @@ GET    /api/v1/public/invoices/:token                                           
 GET    /api/v1/public/notices/:token                                             PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/public/notices/:token/files/:fileId                               PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 POST   /api/v1/public/notices/:token/opened                                      PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+POST   /api/v1/public/site/by-host/:host/admission/admit-card                    PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+POST   /api/v1/public/site/by-host/:host/admission/applicants                    PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+GET    /api/v1/public/site/by-host/:host/admission/lists                         PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+POST   /api/v1/public/site/by-host/:host/admission/result                        PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+GET    /api/v1/public/site/by-host/:host/admission/rounds                        PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+POST   /api/v1/public/site/by-host/:host/admission/status                        PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/public/site/by-host/:host/blog/:slug                              PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/public/site/by-host/:host/island/:kind                            PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 POST   /api/v1/public/site/by-host/:host/island/enquiry                          PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -

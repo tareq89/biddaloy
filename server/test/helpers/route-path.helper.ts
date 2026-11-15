@@ -965,6 +965,41 @@ export const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[27.7] Reference number + guardian phone is the credential; tenant resolved from `:slug`. Wrong or unknown either one 404s identically. Throttled via ADMISSION_STATUS_RATE_LIMIT.',
   },
+  ...(
+    [
+      ['GET', 'rounds', 'lists the open admission rounds', 'ADMISSION_STATUS_RATE_LIMIT'],
+      ['GET', 'lists', 'reads the published admission lists', 'ADMISSION_STATUS_RATE_LIMIT'],
+      [
+        'POST',
+        'applicants',
+        'submits an application (multipart, optional fee proof): Turnstile first (fail-closed in production, Rule 22), then the write',
+        'STRICT_RATE_LIMIT (5/min per IP)',
+      ],
+      [
+        'POST',
+        'status',
+        'looks up one application by reference number plus guardian phone, the credential',
+        'ADMISSION_STATUS_RATE_LIMIT',
+      ],
+      [
+        'POST',
+        'result',
+        'reads one published admission result by reference number plus guardian phone, the credential',
+        'ADMISSION_STATUS_RATE_LIMIT',
+      ],
+      [
+        'POST',
+        'admit-card',
+        'reads one admit card by reference number plus guardian phone, the credential',
+        'ADMISSION_STATUS_RATE_LIMIT',
+      ],
+    ] as const
+  ).map(([method, leaf, what, limit]) => ({
+    controller: 'PublicAdmissionSiteController',
+    method,
+    path: `/public/site/by-host/:host/admission/${leaf}`,
+    reason: `[71.3] D7, D30 — ${what}, for the school-site container. The host name is the only tenant signal (no JWT, user or X-Tenant-ID); unknown host and switched-off site answer one 404 (site.not_found). Throttled via ${limit}.`,
+  })),
   {
     controller: 'FirstPasswordController',
     method: 'POST',
