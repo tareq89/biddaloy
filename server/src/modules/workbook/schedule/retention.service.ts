@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../../audit/audit.service';
 import { StorageService } from '../../storage/storage.service';
@@ -62,9 +62,42 @@ export class RetentionService {
 
   /** `now` is injectable for tests (fake clock) — production callers omit it. */
   async enforce(tenantId: string, now: Date = new Date()): Promise<void> {
+    await this.recoverInterruptedDeletions(tenantId);
     await this.pruneExpired(tenantId, now);
     await this.pruneCategoryOverflow(tenantId, now);
     await this.pruneOverCap(tenantId);
+  }
+
+  /**
+   * [#735] A row that is DELETED but still holds `storage_key` was claimed and then the process
+   * died (or the bookkeeping failed) before `finalizeDeletion` ran: the object may still be in
+   * storage and no BACKUP_DELETED audit row exists. Finish those first. `storage.delete` of a key
+   * that is already gone is a no-op, so repeating it is safe. Runs before the prune passes and
+   * `enforce` is serialised per process (export worker concurrency 1), so it never meets a
+   * deletion of this process that is still in flight.
+   */
+  private async recoverInterruptedDeletions(tenantId: string): Promise<void> {
+    const stuck = await this.jobs.find({
+      where: {
+        tenant_id: tenantId,
+        status: WorkbookJobStatus.DELETED,
+        storage_key: Not(IsNull()),
+      },
+    });
+    for (const row of stuck) {
+      if (!row.storage_key) continue;
+      try {
+        await this.storage.delete(row.storage_key);
+      } catch (err) {
+        this.logger.error(
+          `RetentionService: storage delete failed while recovering job ${row.id} (tenant ${row.tenant_id}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        continue; // stays DELETED with its key, retried on the next sweep
+      }
+      await this.finalizeDeletion(row);
+    }
   }
 
   private async pruneExpired(tenantId: string, now: Date): Promise<void> {
@@ -118,31 +151,31 @@ export class RetentionService {
   }
 
   private async pruneOverCap(tenantId: string): Promise<void> {
-    // Total is over every still-DONE row (pinned included — a pinned row
-    // still occupies storage and counts against the cap even though it can
-    // never itself be evicted to relieve it).
-    let rows = await this.jobs.find({
-      where: { tenant_id: tenantId, status: WorkbookJobStatus.DONE },
-      order: { created_at: 'ASC' },
-    });
-
-    let total = rows.reduce((sum, r) => sum + Number(r.size_bytes ?? 0), 0);
-
-    for (const row of rows) {
-      if (total <= STORAGE_CAP_BYTES) break;
-      if (row.pinned) continue;
-      const deleted = await this.deleteRow(row);
-      // Only count bytes actually freed — a storage-delete failure leaves
-      // the row (and its bytes) in place, so the running total must not
-      // drop as if they were reclaimed (that would let the sweep "succeed"
-      // while the tenant stays over cap).
-      if (deleted) total -= Number(row.size_bytes ?? 0);
+    // [#735] Re-read the rows after a lost claim: another worker removed that row (or it was
+    // pinned), so the total this pass started with is stale and trusting it could delete a backup
+    // the cap no longer requires. `skipped` = rows whose storage delete failed (retried next sweep).
+    const skipped = new Set<string>();
+    for (;;) {
+      // Total is over every still-DONE row (pinned included — a pinned row still occupies storage
+      // and counts against the cap even though it can never itself be evicted to relieve it).
+      const rows = await this.jobs.find({
+        where: { tenant_id: tenantId, status: WorkbookJobStatus.DONE },
+        order: { created_at: 'ASC' },
+      });
+      const total = rows.reduce((sum, r) => sum + Number(r.size_bytes ?? 0), 0);
+      if (total <= STORAGE_CAP_BYTES) return;
+      const oldest = rows.find((r) => !r.pinned && !skipped.has(r.id));
+      if (!oldest) return;
+      const outcome = await this.deleteRow(oldest);
+      // A storage-delete failure leaves the row (and its bytes) in place: skip it, or the sweep
+      // would retry it forever while the tenant stays over cap.
+      if (outcome === 'failed') skipped.add(oldest.id);
     }
   }
 
-  /** Returns whether the row was actually deleted (claim + storage delete +
-   * status flip). A storage-side failure returns `false` and puts the row
-   * back to DONE so the next `enforce()` retries it.
+  /** Returns `deleted` (claim + storage delete + status flip), `lost` (the claim matched nothing:
+   * pinned or taken by another worker) or `failed` (storage-side failure: the row goes
+   * back to DONE so the next `enforce()` retries it).
    *
    * The claim is the whole point: `PATCH /backup/jobs/:id/pin` and this
    * sweep both start from a snapshot read, so without it the two can
@@ -152,14 +185,14 @@ export class RetentionService {
    * predicate makes the row the single source of truth: whichever of the
    * two conditional updates lands second matches zero rows and backs off
    * (`pin()` answers 410 in that case). */
-  private async deleteRow(row: WorkbookJob): Promise<boolean> {
+  private async deleteRow(row: WorkbookJob): Promise<'deleted' | 'lost' | 'failed'> {
     const claim = await this.jobs.update(
       { id: row.id, status: WorkbookJobStatus.DONE, pinned: false },
       { status: WorkbookJobStatus.DELETED },
     );
     if (!claim.affected) {
       // Pinned (or otherwise changed) since this pass loaded it.
-      return false;
+      return 'lost';
     }
 
     if (row.storage_key) {
@@ -177,12 +210,12 @@ export class RetentionService {
           { id: row.id, status: WorkbookJobStatus.DELETED },
           { status: WorkbookJobStatus.DONE },
         );
-        return false;
+        return 'failed';
       }
     }
 
     await this.finalizeDeletion(row);
-    return true;
+    return 'deleted';
   }
 
   /** Clearing `storage_key` and writing the BACKUP_DELETED audit row happen

@@ -6,6 +6,7 @@ describe('buildRuntimeConfig', () => {
   it('exposes exactly the public keys, never a secret', () => {
     const cfg = buildRuntimeConfig({ TURNSTILE_SECRET_KEY: 'secret', JWT_SECRET: 'x' });
     expect(Object.keys(cfg).sort()).toEqual([
+      'demoMode',
       'envBadge',
       'envBadgeDate',
       'messageSinkUrl',
@@ -32,7 +33,14 @@ describe('buildRuntimeConfig', () => {
       envBadge: '',
       envBadgeDate: '',
       siteEnvTag: '',
+      demoMode: false,
     });
+  });
+
+  it('demoMode is true only for DEMO_MODE=true', () => {
+    expect(buildRuntimeConfig({ DEMO_MODE: 'true' }).demoMode).toBe(true);
+    expect(buildRuntimeConfig({ DEMO_MODE: 'false' }).demoMode).toBe(false);
+    expect(buildRuntimeConfig({}).demoMode).toBe(false);
   });
 
   it('siteEnvTag is demo or staging only', () => {

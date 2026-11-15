@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { lessonDeliveriesTab, type LessonDeliveryRow } from './academics/lesson-deliveries.tab';
+import { promotionEntriesTab } from './people/promotion-entries.tab';
+import { promotionRunsTab } from './people/promotion-runs.tab';
+import { studentLifecycleEventsTab } from './people/student-lifecycle-events.tab';
 import { seatAllocationsTab, type SeatAllocationRow } from './exams/seat-allocations.tab';
 import { leaveRecordTab, type LeaveRecordRow } from './hr/leave-record.tab';
 import {
@@ -219,4 +222,72 @@ describe('diffFields: a blank actor cell clears a current actor only (#2687)', (
       expect(blankCell(change, null, '')).toEqual([]);
     });
   });
+});
+
+// #2755 (D12): the same rule for the three actor columns #2687 left out. Only the actor field is
+// asserted, so the fixtures need not be equal on every other column.
+describe('diffFields: a blank actor cell clears a current actor only (#2755)', () => {
+  const when = new Date('2026-01-01T00:00:00.000Z');
+  const cases: Array<{
+    name: string;
+    field: string;
+    idProp: string;
+    keyProp: string;
+    diff: (row: any, existing: any) => string[];
+    row: object;
+    existing: object;
+  }> = [
+    {
+      name: 'student_lifecycle_events.recorded_by',
+      field: 'recorded_by',
+      idProp: 'recorded_by_user_id',
+      keyProp: 'recorded_by_key',
+      diff: (r, e) => studentLifecycleEventsTab.diffFields(r, e),
+      row: { occurred_on: '2026-01-01', created_at: null },
+      existing: { occurred_on: when },
+    },
+    {
+      name: 'promotion_runs.committed_by',
+      field: 'committed_by',
+      idProp: 'committed_by_user_id',
+      keyProp: 'committed_by_key',
+      diff: (r, e) => promotionRunsTab.diffFields(r, e),
+      row: { exam_ids: [], refreshed_at: when.toISOString(), committed_at: null },
+      existing: { exam_ids: [], refreshed_at: when, committed_at: null },
+    },
+    {
+      name: 'promotion_runs.approved_by',
+      field: 'approved_by',
+      idProp: 'approved_by_user_id',
+      keyProp: 'approved_by_key',
+      diff: (r, e) => promotionRunsTab.diffFields(r, e),
+      row: { exam_ids: [], refreshed_at: when.toISOString(), committed_at: null },
+      existing: { exam_ids: [], refreshed_at: when, committed_at: null },
+    },
+    {
+      name: 'promotion_entries.overridden_by',
+      field: 'overridden_by',
+      idProp: 'overridden_by_user_id',
+      keyProp: 'overridden_by_key',
+      diff: (r, e) => promotionEntriesTab.diffFields(r, e),
+      row: {},
+      existing: {},
+    },
+  ];
+
+  for (const c of cases) {
+    const blank = (stored: string | null, key: string) =>
+      c.diff({ ...c.row, [c.idProp]: null }, { ...c.existing, [c.idProp]: stored, [c.keyProp]: key });
+    describe(c.name, () => {
+      it('stored actor current: a blank cell is a change', () => {
+        expect(blank(USER, 'a@x')).toContain(c.field);
+      });
+      it('stored actor departed: a blank cell is no change', () => {
+        expect(blank(USER, '')).not.toContain(c.field);
+      });
+      it('stored null: a blank cell is no change', () => {
+        expect(blank(null, '')).not.toContain(c.field);
+      });
+    });
+  }
 });

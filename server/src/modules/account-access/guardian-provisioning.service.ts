@@ -263,36 +263,56 @@ export class GuardianProvisioningService {
     // could never count them as sent: only real invites are the batch's `queued` total.
     const invites = to_invite.filter((e) => !e.join_request).length;
 
-    for (const entry of to_invite) {
-      await this.queue.add(
-        'invite-guardian',
-        {
-          tenantId: input.tenantId,
-          guardianId: entry.guardian_id,
-          actorUserId: input.actorUserId,
-          batchId,
-          counted: !entry.join_request,
+    // The batch row goes first: a part-way enqueue failure must leave a record that
+    // batchStatus can find and that says how many jobs really went out. It is written with the
+    // repository's manager so a failed write throws (fail closed) and nothing is enqueued.
+    await this.audit.record(
+      {
+        action: AuditAction.INVITATION_SENT,
+        entity_type: 'InvitationBatch',
+        entity_id: batchId,
+        tenant_id: input.tenantId,
+        performed_by_user_id: input.actorUserId,
+        new_values: {
+          batch_id: batchId,
+          queued: invites,
+          requested: to_invite.length - invites,
+          skipped: skipped.length,
         },
-        {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-        },
-      );
-    }
-
-    await this.audit.record({
-      action: AuditAction.INVITATION_SENT,
-      entity_type: 'InvitationBatch',
-      entity_id: batchId,
-      tenant_id: input.tenantId,
-      performed_by_user_id: input.actorUserId,
-      new_values: {
-        batch_id: batchId,
-        queued: invites,
-        requested: to_invite.length - invites,
-        skipped: skipped.length,
       },
-    });
+      this.auditLogRepo.manager,
+    );
+
+    let enqueuedInvites = 0;
+    try {
+      for (const entry of to_invite) {
+        await this.queue.add(
+          'invite-guardian',
+          {
+            tenantId: input.tenantId,
+            guardianId: entry.guardian_id,
+            actorUserId: input.actorUserId,
+            batchId,
+            counted: !entry.join_request,
+          },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+          },
+        );
+        if (!entry.join_request) enqueuedInvites += 1;
+      }
+    } catch (err) {
+      await this.audit.record({
+        action: AuditAction.UPDATE,
+        entity_type: 'InvitationBatch',
+        entity_id: batchId,
+        tenant_id: input.tenantId,
+        performed_by_user_id: input.actorUserId,
+        new_values: { batch_id: batchId, enqueue_failed: true, queued: enqueuedInvites },
+      });
+      throw err;
+    }
 
     return { batch_id: batchId, queued: invites, next_after, skipped };
   }
@@ -306,7 +326,7 @@ export class GuardianProvisioningService {
       .andWhere("a.new_values->>'batch_id' = :batchId", { batchId })
       .getOne();
 
-    const total = (auditRow?.new_values?.queued as number | undefined) ?? 0;
+    let total = (auditRow?.new_values?.queued as number | undefined) ?? 0;
 
     const skipRow = await this.auditLogRepo
       .createQueryBuilder('a')
@@ -317,6 +337,17 @@ export class GuardianProvisioningService {
       .andWhere("a.new_values->>'batch_id' = :batchId", { batchId })
       .getRawOne<{ count: string }>();
     const skipped = Number(skipRow?.count ?? 0);
+
+    // A part-way enqueue failure records how many invites really went out: that is the total.
+    const failRow = await this.auditLogRepo
+      .createQueryBuilder('a')
+      .where('a.tenant_id = :tenantId', { tenantId })
+      .andWhere('a.entity_type = :entityType', { entityType: 'InvitationBatch' })
+      .andWhere('a.action = :update', { update: AuditAction.UPDATE })
+      .andWhere("a.new_values->>'batch_id' = :batchId", { batchId })
+      .andWhere("a.new_values->>'enqueue_failed' = 'true'")
+      .getOne();
+    if (failRow) total = (failRow.new_values?.queued as number | undefined) ?? total;
 
     const rows = await this.logRepo
       .createQueryBuilder('log')

@@ -91,8 +91,15 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
 
   const send = useSendManualAlert();
   const preview = useManualAlertPreview(useDebouncedValue(audience, 400));
-  const kind = audienceKind(audience);
-  const linkOptions = useLinkOptions(kind, audience.roles);
+  // Named people are judged by their own roles, not the sender's (#2192). A person whose role is
+  // unknown here adds nothing; with no known roles at all the sender's own permissions apply.
+  const [personRoles, setPersonRoles] = React.useState<Record<string, string>>({});
+  const kind = audienceKind(audience, personRoles);
+  const viewerRoles = [
+    ...(audience.roles ?? []),
+    ...(audience.userIds ?? []).flatMap((id) => (personRoles[id] ? [personRoles[id]] : [])),
+  ];
+  const linkOptions = useLinkOptions(kind, viewerRoles);
   const actionUrl = linkOptions.some((o) => o.value === link) ? link : '';
   // The preview endpoint is rate-limited: on a failure (429) keep showing the last count, marked
   // as possibly out of date. While a new audience loads, `data` is still the old audience's count.
@@ -343,7 +350,11 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
                 </h2>
                 <p className="mt-1 text-text-secondary">{t('composer.whoHelp')}</p>
               </div>
-              <AudiencePicker value={audience} onChange={setAudience} />
+              <AudiencePicker
+                value={audience}
+                onChange={setAudience}
+                onPersonPicked={(id, role) => setPersonRoles((prev) => ({ ...prev, [id]: role }))}
+              />
               <div
                 aria-live="polite"
                 className="rounded-md border border-border-subtle bg-muted p-3"

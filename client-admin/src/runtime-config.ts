@@ -14,6 +14,8 @@ export interface RuntimeConfig {
   envBadgeDate: string;
   /** 'demo', 'staging' or '': suffix a school-site address must carry here. */
   siteEnvTag: 'demo' | 'staging' | '';
+  /** The public demo (`DEMO_MODE=true`): known at page load, no request. */
+  demoMode: boolean;
 }
 
 declare global {
@@ -40,5 +42,6 @@ export function runtimeConfig(): RuntimeConfig {
     envBadge: c.envBadge ?? '',
     envBadgeDate: c.envBadgeDate ?? '',
     siteEnvTag: c.siteEnvTag ?? '',
+    demoMode: c.demoMode ?? false,
   };
 }

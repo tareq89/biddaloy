@@ -3,6 +3,7 @@ import type { EntityManager } from 'typeorm';
 import { PromotionRunStatus, PlacementAlgorithm } from '@biddaloy/shared';
 import { PromotionRun } from '../../../promotions/entities/promotion-run.entity';
 import { fromCell } from '../../codec/cell-format';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
@@ -180,7 +181,10 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
   deleteByAbsence: true,
 
   async load(tenantId: string, m: EntityManager): Promise<PromotionRun[]> {
-    return m.find(PromotionRun, { where: { tenant_id: tenantId } });
+    const runs = await m.find(PromotionRun, { where: { tenant_id: tenantId } });
+    // #2755 (D12): a blank committed_by / approved_by clears a current member, keeps one who left.
+    await stampActorKeys(tenantId, runs, 'committed_by_user_id', 'committed_by_key', m);
+    return stampActorKeys(tenantId, runs, 'approved_by_user_id', 'approved_by_key', m);
   },
 
   toRow(entity: PromotionRun, ctx: ExportContext): Record<string, unknown> {
@@ -402,14 +406,18 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
     if (rowCommittedAt !== existingCommittedAt) changed.push('committed_at');
     // null = the export could not name the user (departed / SUPER_ADMIN): keep existing.
     if (
-      row.committed_by_user_id !== null &&
-      row.committed_by_user_id !== existing.committed_by_user_id
+      nullableActor(
+        row.committed_by_user_id,
+        existing,
+        'committed_by_user_id',
+        'committed_by_key',
+      ) !== (existing.committed_by_user_id ?? null)
     ) {
       changed.push('committed_by');
     }
     if (
-      row.approved_by_user_id !== null &&
-      row.approved_by_user_id !== existing.approved_by_user_id
+      nullableActor(row.approved_by_user_id, existing, 'approved_by_user_id', 'approved_by_key') !==
+      (existing.approved_by_user_id ?? null)
     ) {
       changed.push('approved_by');
     }
@@ -474,8 +482,18 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
     run.status = row.status;
     run.refreshed_at = new Date(row.refreshed_at);
     run.committed_at = row.committed_at ? new Date(row.committed_at) : null;
-    run.committed_by_user_id = row.committed_by_user_id ?? existing?.committed_by_user_id ?? null;
-    run.approved_by_user_id = row.approved_by_user_id ?? existing?.approved_by_user_id ?? null;
+    run.committed_by_user_id = nullableActor(
+      row.committed_by_user_id,
+      existing,
+      'committed_by_user_id',
+      'committed_by_key',
+    );
+    run.approved_by_user_id = nullableActor(
+      row.approved_by_user_id,
+      existing,
+      'approved_by_user_id',
+      'approved_by_key',
+    );
     run.override_count = row.override_count;
     // NOT NULL column: a new run whose creator the export could not name is
     // attributed to the admin running the restore.

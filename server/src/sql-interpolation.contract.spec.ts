@@ -257,6 +257,16 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   'modules/students/students.service.ts': ['BN_COLLATION', 'BN_COLLATION'],
   // BN_COLLATION / NOT_SWAPPED_SQL constants
   'modules/users/users.service.ts': ['BN_COLLATION', 'NOT_SWAPPED_SQL'],
+  // [#688] table, soft-delete and tenant column names come from entity metadata (softDeleteTarget); user values are bound as $1/$2
+  'modules/workbook/codec/soft-deleted.ts': [
+    'target.deleted',
+    'target.deleted',
+    'target.deleted',
+    'target.table',
+    'target.table',
+    'target.tenant',
+    'target.tenant',
+  ],
   // not SQL: `Buffer.from(\`<svg …\`)` builds a demo picture; w/h are seed pixel constants
   'scripts/demo-seed/slices/website.ts': ['h', 'w'],
   // DEMO: constant `s.slug LIKE 'bmsc-%'` fragment, no input

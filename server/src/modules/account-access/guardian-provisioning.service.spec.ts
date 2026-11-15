@@ -69,7 +69,7 @@ describe('GuardianProvisioningService', () => {
       manager: { exists: vi.fn().mockResolvedValue(false), getRepository: () => userRepo },
     };
     logRepo = { createQueryBuilder: vi.fn() };
-    auditLogRepo = { createQueryBuilder: vi.fn() };
+    auditLogRepo = { createQueryBuilder: vi.fn(), manager: { tag: 'manager' } };
     authTokens = { latest: vi.fn().mockResolvedValue(null) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     queue = { add: vi.fn().mockResolvedValue(undefined) };
@@ -454,10 +454,48 @@ describe('GuardianProvisioningService', () => {
           entity_type: 'InvitationBatch',
           new_values: expect.objectContaining({ batch_id: result.batch_id, queued: 2 }),
         }),
+        auditLogRepo.manager,
       );
       expect(result.queued).toBe(2);
       expect(result.skipped).toEqual([]);
       expect(result.next_after).toBeNull();
+    });
+
+    it('[503] writes the batch row before the first enqueue and marks it failed when enqueue throws', async () => {
+      const guardians = [
+        makeGuardian({ id: 'g1' }),
+        makeGuardian({ id: 'g2', phone: '+8801711111112' }),
+      ];
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: guardians }));
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+      queue.add.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(
+        service.dispatch({ tenantId: TENANT, actorUserId: 'admin-1', selection: { all: true } }),
+      ).rejects.toThrow('redis down');
+
+      const firstAdd = queue.add.mock.invocationCallOrder[0];
+      expect(audit.record.mock.invocationCallOrder[0]).toBeLessThan(firstAdd);
+      expect(audit.record).toHaveBeenCalledTimes(2);
+      expect(audit.record).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          entity_type: 'InvitationBatch',
+          new_values: expect.objectContaining({ enqueue_failed: true, queued: 1 }),
+        }),
+      );
+    });
+
+    it('[503] enqueues nothing when the initial batch row cannot be persisted', async () => {
+      guardianRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ many: [makeGuardian({ id: 'g1' })] }),
+      );
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+      audit.record.mockRejectedValueOnce(new Error('db down'));
+
+      await expect(
+        service.dispatch({ tenantId: TENANT, actorUserId: 'admin-1', selection: { all: true } }),
+      ).rejects.toThrow('db down');
+      expect(queue.add).not.toHaveBeenCalled();
     });
 
     it('[2870] `all` over the cap sends one slice and returns the cursor after it', async () => {
@@ -505,6 +543,7 @@ describe('GuardianProvisioningService', () => {
         expect.objectContaining({
           new_values: expect.objectContaining({ queued: 0, requested: 1 }),
         }),
+        auditLogRepo.manager,
       );
     });
   });
@@ -554,10 +593,29 @@ describe('GuardianProvisioningService', () => {
       expect(result).toMatchObject({ total: 4, sent: 4, failed: 0, queued: 0 });
     });
 
+    it('[503] uses the enqueue-failure record queued count as the total', async () => {
+      auditLogRepo.createQueryBuilder
+        .mockReturnValueOnce(fakeQueryBuilder({ one: { new_values: { batch_id: 'b1', queued: 2 } } }))
+        .mockReturnValueOnce(fakeQueryBuilder({ rawOne: { count: '0' } }))
+        .mockReturnValueOnce(
+          fakeQueryBuilder({ one: { new_values: { enqueue_failed: true, queued: 1 } } }),
+        );
+      logRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ raw: [{ status: CommunicationStatus.SENT, count: '1' }] }),
+      );
+
+      const result = await service.batchStatus(TENANT, 'b1');
+
+      expect(result).toMatchObject({ total: 1, sent: 1, queued: 0 });
+    });
+
     it('subtracts skip rows from queued, clamps at 0, and filters by action and tenant', async () => {
       const totalQb = fakeQueryBuilder({ one: { new_values: { batch_id: 'b1', queued: 2 } } });
       const skipQb = fakeQueryBuilder({ rawOne: { count: '3' } });
-      auditLogRepo.createQueryBuilder.mockReturnValueOnce(totalQb).mockReturnValueOnce(skipQb);
+      auditLogRepo.createQueryBuilder
+        .mockReturnValueOnce(totalQb)
+        .mockReturnValueOnce(skipQb)
+        .mockReturnValueOnce(fakeQueryBuilder({ one: null }));
       logRepo.createQueryBuilder.mockReturnValue(
         fakeQueryBuilder({ raw: [{ status: CommunicationStatus.SENT, count: '1' }] }),
       );

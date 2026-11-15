@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { ALL_TABS } from '../codec/registry';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
+import { softDeletedRowIds } from '../codec/soft-deleted';
 import type { TabSpec } from '../codec/tab-spec';
 import type { ValidatedWorkbook } from './validated-workbook';
 import type { RowError } from '../codec/tab-spec';
@@ -59,6 +60,8 @@ export class DiffService {
         presentNonSchoolTabsHaveRows = true;
       }
 
+      // [#688] A row naming a soft-deleted row of this school is revived by the restore: an update.
+      const revivable = await softDeletedRowIds(tabSpec, validatedTab.rows, tenantId, manager);
       const existingById = new Map<string, any>();
       const existingByKey = new Map<string, any>();
       for (const entity of existing) {
@@ -71,17 +74,26 @@ export class DiffService {
       const changedFields: Record<string, number> = {};
       const samples: TabDiff['samples'] = { creates: [], updates: [], deletes: [] };
       const matchedIds = new Set<string>();
+      const claimedBy = new Map<string, string>(); // matched entity id -> key of the row that took it
       let newSeats = 0; // students tab only: rows that end ACTIVE and were not an active seat
       const isActive = (x: unknown) =>
         (x as { enrollment_status?: string }).enrollment_status === EnrollmentStatus.ACTIVE;
 
       for (const row of validatedTab.rows) {
         const rowId = (row as { id?: unknown }).id;
+        // Same id-first rule as the apply: a revivable id is a row of its own, so it must not
+        // fall through to a natural-key match with an unrelated active row.
+        const reviving = typeof rowId === 'string' && revivable.has(rowId);
         const matched =
           (typeof rowId === 'string' && existingById.get(rowId)) ||
-          existingByKey.get(tabSpec.keyOf(row as any));
+          (reviving ? undefined : existingByKey.get(tabSpec.keyOf(row as any)));
 
         if (isActive(row) && (!matched || !isActive(matched))) newSeats++;
+        if (!matched && typeof rowId === 'string' && revivable.has(rowId)) {
+          counts.updates++;
+          if (samples.updates.length < SAMPLE_SIZE) samples.updates.push(tabSpec.keyOf(row as any));
+          continue;
+        }
         if (!matched) {
           counts.creates++;
           if (samples.creates.length < SAMPLE_SIZE) samples.creates.push(tabSpec.keyOf(row as any));
@@ -89,7 +101,23 @@ export class DiffService {
         }
 
         const matchedId: unknown = (matched as { id?: unknown }).id;
-        if (typeof matchedId === 'string') matchedIds.add(matchedId);
+        if (typeof matchedId === 'string') {
+          // [#690] A second row claiming an entity another row already matched would be counted
+          // as a second update: refuse it, naming both rows.
+          const first = claimedBy.get(matchedId);
+          if (first !== undefined) {
+            diffErrors.push({
+              tab: tabSpec.name,
+              row: 0,
+              column: null,
+              severity: 'error',
+              message: `Rows "${first}" and "${tabSpec.keyOf(row as any)}" both match the same existing row. Give them distinct rows or remove one.`,
+            });
+            continue;
+          }
+          claimedBy.set(matchedId, tabSpec.keyOf(row as any));
+          matchedIds.add(matchedId);
+        }
 
         const changed = tabSpec.diffFields(row as any, matched);
         if (changed.length > 0) {
@@ -126,7 +154,7 @@ export class DiffService {
       // mid-commit. Per-row `takeSeat()` stays as the race-safe backstop. It takes every new seat before
       // `deleteByAbsence` removals run and never releases one, so the preview credits nothing: counting
       // what apply counts keeps an approved preview from failing mid-restore.
-      // ponytail: ignores soft-deleted students a restore revives (counted conservatively at commit).
+      // Soft-deleted ACTIVE students a restore revives are checked by the apply (assertRevivedSeats).
       if (tabSpec.name === 'students' && newSeats > 0) {
         const { used, limit } = await getSeatUsage(manager, tenantId);
         if (limit !== null && used + newSeats > limit) {

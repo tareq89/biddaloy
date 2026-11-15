@@ -11,8 +11,11 @@ import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { InvitationService } from '../../account-access/invitation.service';
 import { ALL_TABS } from '../codec/registry';
+import { dropStaleRelations } from '../codec/stale-relations';
+import { reviveRows, softDeletedRowIds } from '../codec/soft-deleted';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import { joinRequestedUsers } from '../tabs/people/users.tab';
+import { assertRevivedSeats } from '../tabs/people/students.tab';
 import type { User } from '../../users/entities/user.entity';
 import { KeyIndex } from '../codec/key-index';
 import { ValidationService } from '../import/validation.service';
@@ -248,6 +251,13 @@ export class RestoreProcessor extends WorkerHost {
         currentTab = tab.name;
 
         await this.dataSource.transaction(async (m) => {
+          // [#688] Rows an earlier restore removed by soft delete come back when the file names
+          // them again, so they match as existing below instead of inserting a duplicate.
+          const revivable = await softDeletedRowIds(tab, tabResult.rows, tenantId, m);
+          if (tab.name === 'students') {
+            await assertRevivedSeats(m, tenantId, revivable, tabResult.rows);
+          }
+          await reviveRows(tab, revivable, tenantId, m);
           const existingEntities = await tab.load(tenantId, m);
           const index = KeyIndex.fromEntities(tab, existingEntities);
           indexes.set(tab.name, index);
@@ -287,6 +297,8 @@ export class RestoreProcessor extends WorkerHost {
             // D13: insert-only tabs never update an existing row. A kept row
             // is not a write, so only real upserts count as applied.
             const kept = insertOnly && existing !== null;
+            // [#2761] A loaded relation must not beat the FK the file changed (every tab).
+            if (!kept && existing !== null) dropStaleRelations(tab, typedRow, existing, m);
             const entity = kept
               ? existing
               : await tab.upsert(typedRow, existing, tenantId, m, row.requested_by_user_id);
@@ -571,8 +583,15 @@ export class RestoreProcessor extends WorkerHost {
     }
   }
 
+  /**
+   * [#2356] Fires for every failed job, including one whose worker crashed (BullMQ reports it
+   * `stalled`) and so never reached `terminate`: that row is still QUEUED/RUNNING and the school
+   * is read-only while the lock lives. Close the row and give the lock back now instead of
+   * leaving it to the 1 h TTL. A job that already ended through `terminate` only gets the
+   * release, which is a compare-and-delete no-op by then.
+   */
   @OnWorkerEvent('failed')
-  onFailed(job: Job<RestoreJobData> | undefined, err: Error): void {
+  async onFailed(job: Job<RestoreJobData> | undefined, err: Error): Promise<void> {
     if (!job) return;
     this.logger.error({
       msg: 'workbook restore job failed',
@@ -580,5 +599,25 @@ export class RestoreProcessor extends WorkerHost {
       workbook_job_id: job.data.jobId,
       error: err?.message,
     });
+    try {
+      const row = await this.jobs.findOne({ where: { id: job.data.jobId } });
+      if (!row) return;
+      if (row.status === WorkbookJobStatus.QUEUED || row.status === WorkbookJobStatus.RUNNING) {
+        await this.terminate(row, row.tenant_id, {
+          status: WorkbookJobStatus.FAILED,
+          error: 'RESTORE_INTERRUPTED',
+          failedTab: row.progress?.tab ?? null,
+          cause: err,
+        });
+      } else {
+        await this.restoreService.release(row.tenant_id, row.id).catch(() => undefined);
+      }
+    } catch (cleanupErr) {
+      this.logger.error(
+        `RestoreProcessor: cleanup after failed job ${job.data.jobId} failed: ${
+          cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+        }`,
+      );
+    }
   }
 }

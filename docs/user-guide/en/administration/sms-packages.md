@@ -19,7 +19,6 @@ appVersion: 0.1.0 (cce2fcbf9)
 owner: tareq89
 lastVerified: 2026-11-14
 knownIssues:
-  - { id: no-switch-back-button, checked: 2026-11-14, issue: 4145 }
   - { id: no-package-receipt-link, checked: 2026-11-14, issue: 4146 }
 -->
 
@@ -120,7 +119,7 @@ If your school sends with its own SMS company, the packages are shown but the SM
 
 Press **Switch and continue**. The buy window opens. Press **Not now** to stay as you are. The same card also shows lower in the **SMS credit** part, with the button **Switch to SchoolManagerP SMS**. Your own SMS company details stay saved: "Your own SMS company details stay saved."
 
-> **Not built yet:** the card says "You can switch back in one click", but there is no button on this page to switch back to your own SMS company. Your saved details are kept, so nothing is lost when it is added.
+**Going back:** when your school sends with SchoolManagerP SMS, the **SMS credit** part ends with the card **Send with your own SMS company**. Press **Switch to our own SMS company**, then **Switch** to confirm. New SMS go out through your own company again, with the details you saved. SMS you already bought stay on your account until their end date.
 
 ### The sender shows as a number <a href="#task-unmasked" id="task-unmasked"></a>
 
@@ -159,7 +158,6 @@ Checked in version 0.1.0, 2026-11-14. Each line is removed once it is fixed.
 
 | Problem                                                                                   | Whose, and when                                   | Is data saved?                       | What to do for now                       |
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
-| There is no button to go back to your own SMS company after you chose the platform's SMS. | A school admin who switched to the platform's SMS | Yes, the choice is saved             | Ask the platform owner to switch it back |
 | A bought package shows no link to download its receipt.                                   | A school admin after a package payment            | Yes, the receipt is made and emailed | Open the receipt from the email          |
 
 ---

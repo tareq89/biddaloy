@@ -22,11 +22,13 @@ type GroupKey = 'roles' | 'sectionIds' | 'guardiansOfSectionIds' | 'userIds';
 export interface AudiencePickerProps {
   value: ManualAudience;
   onChange: (next: ManualAudience) => void;
+  /** Called when a named person is picked, with their role, so the form can limit the link list. */
+  onPersonPicked?: (id: string, role: string) => void;
 }
 
 const ROLES = Object.values(UserRole).filter((r) => r !== UserRole.SUPER_ADMIN);
 
-export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
+export function AudiencePicker({ value, onChange, onPersonPicked }: AudiencePickerProps) {
   const { t } = useTranslation('attention');
   const [opened, setOpened] = React.useState<Partial<Record<GroupKey, boolean>>>({});
   const sectionOptions = useSectionOptions();
@@ -161,6 +163,8 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
                     if (key === 'userIds') {
                       const picked = options.find((o) => o.value === next)?.label;
                       if (picked) setPickedLabels((prev) => ({ ...prev, [next]: picked }));
+                      const person = users.data?.data.find((u) => u.id === next);
+                      if (person?.role) onPersonPicked?.(next, person.role);
                     }
                     set(key, [...ids, next]);
                   }}
