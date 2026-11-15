@@ -24,10 +24,7 @@ import { ListShellPage } from './pages/list-shell';
  */
 test.use(loggedIn('admin'));
 
-test('walk-in application → staff shortlist/admit → student created', async ({
-  page,
-  request,
-}) => {
+test('walk-in application → staff shortlist/admit → student created', async ({ page, request }) => {
   const admin = await adminApiSession(request);
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const applicantName = `Admission E2E ${suffix}`;
