@@ -450,6 +450,59 @@ describe('SchoolsService (integration)', () => {
       }
     });
 
+    /** A school with SANDBOX credentials, a passing test, and online on. */
+    const onlineSchool = async () => {
+      const school = await createSchool();
+      await service.updateSettings(
+        school.id,
+        patch({ bkash: { environment: 'SANDBOX', ...CREDS } }),
+        SEED_ADMIN_USER_ID,
+      );
+      await markTested(school.id);
+      await service.updateSettings(school.id, patch({ onlineEnabled: true }), SEED_ADMIN_USER_ID);
+      return school;
+    };
+
+    it('resending the unchanged environment with online on keeps the test (200)', async () => {
+      const school = await onlineSchool();
+      await service.updateSettings(
+        school.id,
+        patch({ onlineEnabled: true, bkash: { environment: 'SANDBOX' } }),
+        SEED_ADMIN_USER_ID,
+      );
+      const p = await stored(school.id);
+      expect(p.bkash.lastTestOkAt).toBe('2026-01-01T00:00:00.000Z');
+      expect(p.onlineEnabled).toBe(true);
+    });
+
+    it('resending only the unchanged environment leaves online on', async () => {
+      const school = await onlineSchool();
+      await service.updateSettings(
+        school.id,
+        patch({ bkash: { environment: 'SANDBOX' } }),
+        SEED_ADMIN_USER_ID,
+      );
+      expect((await stored(school.id)).onlineEnabled).toBe(true);
+    });
+
+    it('the audit row of a credential change shows the forced switch-off and the voided test', async () => {
+      const school = await onlineSchool();
+      await service.updateSettings(
+        school.id,
+        patch({ bkash: { appKey: 'NEW-KEY' } }),
+        SEED_ADMIN_USER_ID,
+      );
+      const [row] = await dataSource.query(
+        `SELECT old_values, new_values FROM audit_logs
+          WHERE entity_id = $1 AND action = $2 ORDER BY created_at DESC LIMIT 1`,
+        [school.id, AuditAction.SETTINGS_CHANGE],
+      );
+      expect(row.old_values.payments.onlineEnabled).toBe(true);
+      expect(row.old_values.payments.bkash.lastTestOkAt).toBe('2026-01-01T00:00:00.000Z');
+      expect(row.new_values.payments.onlineEnabled).toBe(false);
+      expect(row.new_values.payments.bkash.lastTestOkAt).toBeNull();
+    });
+
     it('nulling a credential while online forces online off; turning online off is always allowed', async () => {
       const school = await createSchool();
       await service.updateSettings(school.id, patch({ bkash: CREDS }), SEED_ADMIN_USER_ID);
