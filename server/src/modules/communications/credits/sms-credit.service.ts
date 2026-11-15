@@ -351,6 +351,9 @@ export class SmsCreditService {
           WHERE r.kind = 'RESERVE' AND r.reference_type = 'batch' AND r.reference_id IS NOT NULL
             AND r.created_at < $1 AND r.units > COALESCE(s.used, 0)
             AND NOT EXISTS (
+              SELECT 1 FROM sms_credit_ledger w
+               WHERE w.tenant_id = r.tenant_id AND w.idempotency_key = r.idempotency_key || ':settle')
+            AND NOT EXISTS (
               SELECT 1 FROM communication_logs l
                WHERE l.tenant_id = r.tenant_id AND l.status = 'QUEUED'
                  AND (l.metadata->>'batch_id' = r.reference_id::text OR l.id::text = r.reference_id::text))
@@ -930,7 +933,10 @@ export class SmsCreditService {
         order: { id: 'ASC' },
         lock: { mode: 'pessimistic_write' },
       });
-      const open = draws.reduce((n, d) => n + d.open_units, 0);
+      // Only the LEGACY lot's own draws can absorb the correction: the counter update above
+      // moved that lot alone, so another lot's draws must stay in step with their lots.
+      const legacyDraws = draws.filter((d) => d.lot_id === lot!.id);
+      const open = legacyDraws.reduce((n, d) => n + d.open_units, 0);
       if (
         lot.remaining + drift.available < 0 ||
         lot.reserved_units + drift.reserved < 0 ||
@@ -969,7 +975,7 @@ export class SmsCreditService {
         }
       } else if (drift.reserved < 0) {
         let left = -drift.reserved;
-        for (const d of draws.filter((x) => x.open_units > 0)) {
+        for (const d of legacyDraws.filter((x) => x.open_units > 0)) {
           const take = Math.min(left, d.open_units);
           await manager.query(
             `UPDATE "sms_credit_lot_draws" SET open_units = open_units - $2 WHERE id = $1`,

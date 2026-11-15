@@ -412,6 +412,8 @@ export class NoticeSmsService {
               status: CommunicationStatus.QUEUED,
               trigger: CommunicationTrigger.MANUAL,
               reference_key: `notice-sms:${id}:${r.recipient.id}`,
+              // Protects the reservation from the orphan sweep while this log is QUEUED.
+              metadata: { batch_id: batchId },
             }),
           );
           await tx.update(
