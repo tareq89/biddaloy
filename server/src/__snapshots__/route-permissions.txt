@@ -626,6 +626,9 @@ POST /admission/fee-proofs/:id/send-back | AdmissionFeeController | perm: ADMISS
 POST /admission/intakes/:id/rolls | AdmissionRollController | perm: ADMISSION_REVIEW
 POST /admission/stages/:id/cutoff/commit | AdmissionStageResultController | perm: ADMISSION_REVIEW
 POST /admission/stages/:id/cutoff/preview | AdmissionStageResultController | perm: ADMISSION_REVIEW
+POST /admission/stages/:id/lottery/draw | AdmissionLotteryController | perm: ADMISSION_REVIEW
+POST /admission/stages/:id/lottery/import/commit | AdmissionLotteryController | perm: ADMISSION_REVIEW
+POST /admission/stages/:id/lottery/import/validate | AdmissionLotteryController | perm: ADMISSION_REVIEW
 POST /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/attachments | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
