@@ -619,6 +619,7 @@ export * from './exams';
 export * from './routines';
 export * from './homework';
 export * from './admission';
+export * from './legal';
 export * from './seat-plan';
 export * from './programs';
 export * from './student-lifecycle';
