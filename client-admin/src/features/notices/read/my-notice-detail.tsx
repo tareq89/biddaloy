@@ -5,7 +5,8 @@
  * `MyNoticePage` is the full page (`/portal/notices/<id>`): there the title is the page `h1` (#3438);
  * in the list's dialog it stays the detail's own `h2`.
  */
-import { Button } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import { AccessDeniedState, Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
@@ -132,15 +133,23 @@ export function MyNoticeDetail({ id, inPage = false }: { id: string; inPage?: bo
   const { t } = useTranslation('portalNotices');
   const query = useMyNotice(id);
   const acknowledge = useAcknowledgeNotice();
-  if (query.isPending) return <p role="status">{t('detail.loading')}</p>;
+  if (query.isPending) {
+    return (
+      <div role="status" aria-label={t('detail.loading')} className="flex flex-col gap-2">
+        <Skeleton className="h-6 w-2/3" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+  if (query.error instanceof ApiError && query.error.statusCode === 403)
+    return <AccessDeniedState />;
   if (query.isError || !query.data) {
     return (
-      <div role="alert" className="flex flex-col items-start gap-2">
-        <p>{t('error.message')}</p>
-        <Button type="button" variant="outline" onClick={() => void query.refetch()}>
-          {t('error.retry')}
-        </Button>
-      </div>
+      <ErrorState
+        message={t('error.message')}
+        retryLabel={t('error.retry')}
+        onRetry={() => void query.refetch()}
+      />
     );
   }
   return (
