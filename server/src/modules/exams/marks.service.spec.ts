@@ -105,6 +105,11 @@ async function buildService(
     into: () => insertQb,
     values: () => insertQb,
     orIgnore: () => insertQb,
+    // shareLockLive's subject lock (#2715): one live subject found.
+    setLock: () => insertQb,
+    where: () => insertQb,
+    select: () => insertQb,
+    getMany: async () => [{ id: 'subj-1' }],
     execute: vi.fn(async () => undefined),
   };
   markRepo.manager = {
