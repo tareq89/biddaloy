@@ -440,6 +440,10 @@ export async function resolvePath(
     const applicant = (Array.isArray(listed) ? listed : listed.data)[0]!;
     return route.path.replace('$applicantId', applicant.id);
   }
+  if (route.path === '/payments/online/$id') {
+    // [#3978] A proof nobody made: the page's own "not found" card is what gets scanned.
+    return route.path.replace('$id', '00000000-0000-4000-8000-000000000000');
+  }
   if (route.path.startsWith('/payments/')) {
     const { studentId } = await createStudentWithDues(request, session, `Reflow Payer ${stamp}`);
     const student = await get<{ full_name: string }>(request, session, `/students/${studentId}`);

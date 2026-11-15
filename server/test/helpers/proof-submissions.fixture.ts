@@ -90,6 +90,13 @@ export async function createProofFixture(app: INestApplication, ds: DataSource) 
         fx.guardianA,
       ]);
     },
+    /** Links the other guardian to a student too (a co-guardian of that child). */
+    async linkOtherTo(studentId: string) {
+      await ds.query(`INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`, [
+        studentId,
+        fx.guardianB,
+      ]);
+    },
     /** An open bill: total `total`, `paid` already paid. Balance = total - paid. */
     async bill(studentId: string, total: number, paid = 0, status = 'PENDING'): Promise<string> {
       const structure = await ensureFeeStructure(ds);

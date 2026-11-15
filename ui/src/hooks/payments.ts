@@ -80,6 +80,7 @@ export interface CartBill {
   is_late_fee: boolean;
   is_overdue: boolean;
   suggested_allocation: number;
+  waiting_submission?: { id: string; source: 'ONLINE' | 'PROOF' } | null;
 }
 export interface CartStudent {
   id: string;

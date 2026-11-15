@@ -396,6 +396,14 @@
     "routes": ["/fees/fines", "/fees/fines/rules"]
   },
   {
+    "id": "finance.onlinePayments",
+    "kind": "nav",
+    "path": "finance/online-payments",
+    "route": "/payments/online",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/payments/online", "/payments/online/$id"]
+  },
+  {
     "id": "finance.payments",
     "kind": "nav",
     "path": "finance/payments",
@@ -597,7 +605,7 @@
     "path": "portal/fees",
     "route": "/portal/fees",
     "roles": ["PARENT", "STUDENT"],
-    "routes": ["/portal/fees"]
+    "routes": ["/portal/fees", "/portal/fees/pay"]
   },
   {
     "id": "portal.statement",

@@ -112,6 +112,27 @@ describe('Payment proofs (E2E)', () => {
 
   it('a STUDENT role is 403', async () => {
     await call('get', URL, fix.student.token).expect(403);
+    await call('get', '/api/v1/portal/payment-options', fix.student.token).expect(403);
+    await call('get', '/api/v1/portal/payment-cart', fix.student.token).expect(403);
+  });
+
+  it('payment-options and payment-cart: tenant header missing/invalid is refused', async () => {
+    for (const url of ['/api/v1/portal/payment-options', '/api/v1/portal/payment-cart']) {
+      await call('get', url, fix.parent.token, null).expect(401);
+      await call('get', url, fix.parent.token, UUID).expect((r) =>
+        expect([401, 403, 404]).toContain(r.status),
+      );
+    }
+  });
+
+  it('payment-cart: a guardian cannot read another guardian students', async () => {
+    const mine = await fix.bill(fix.fx.studentA, 300);
+    const theirs = await fix.bill(fix.fx.studentB, 200);
+    const res = await call('get', '/api/v1/portal/payment-cart', fix.parent.token).expect(200);
+    const text = JSON.stringify(res.body);
+    expect(text).toContain(mine);
+    expect(text).not.toContain(theirs);
+    expect(text).not.toContain(fix.fx.studentB);
   });
 
   it('non-UUID ids are 400', async () => {

@@ -354,6 +354,8 @@ GET /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('coc
 GET /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/users | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
+GET /portal/payment-cart | PortalPaymentController | perm: PAYMENT_SUBMIT
+GET /portal/payment-options | PortalPaymentController | perm: PAYMENT_SUBMIT
 GET /portal/payment-proofs | ProofSubmissionsController | perm: PAYMENT_SUBMIT
 GET /portal/payment-proofs/:id/files/:fileId | ProofSubmissionsController | perm: PAYMENT_SUBMIT
 GET /portal/students/:studentId/statement | StudentStatementController | perm: FEE_READ

@@ -1,0 +1,164 @@
+import { cleanupTestState, server, studentFactory } from '@biddaloy/ui/test';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { renderPortalCard } from './-card-test-utils';
+import { MyProofsTab } from './-my-proofs-tab';
+
+const ME = 'user-me';
+const OTHER = 'user-other';
+
+function proof(over: Record<string, unknown> = {}) {
+  return {
+    id: 'p1',
+    status: 'PENDING',
+    method: 'BKASH',
+    amount: '500.00',
+    paidOn: '2026-03-10',
+    reference: 'TRX123',
+    submittedByUserId: ME,
+    createdAt: '2026-03-10T08:00:00.000Z',
+    rejectReason: null,
+    rejectNote: null,
+    discardReason: null,
+    bills: [{ studentFeeId: 'f1', studentId: 's1', amount: '500.00' }],
+    files: [],
+    ...over,
+  };
+}
+
+function mock(proofs: unknown[]) {
+  const withdrawn: string[] = [];
+  server.use(
+    http.get('/api/v1/users/me', () => HttpResponse.json({ id: ME, full_name: 'Me' })),
+    http.get('/api/v1/students/mine', () =>
+      HttpResponse.json([studentFactory({ id: 's1', full_name: 'Fatima Rahman' })]),
+    ),
+    http.get('/api/v1/portal/payment-proofs', () => HttpResponse.json(proofs)),
+    http.post('/api/v1/portal/payment-proofs/:id/withdraw', ({ params }) => {
+      withdrawn.push(params.id as string);
+      return HttpResponse.json(proof({ id: params.id, status: 'WITHDRAWN' }));
+    }),
+  );
+  return withdrawn;
+}
+
+/** [3.x/#3975] The guardian's "My payment proofs" tab. */
+describe('MyProofsTab', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('shows the empty state when there are no proofs', async () => {
+    mock([]);
+    renderPortalCard(<MyProofsTab />);
+    expect(await screen.findByText('No payment proofs yet')).toBeTruthy();
+  });
+
+  it('renders each status with the glossary words, the student, amount and TrxID', async () => {
+    mock([
+      proof({ id: 'a', status: 'PENDING' }),
+      proof({ id: 'b', status: 'CONFIRMED' }),
+      proof({ id: 'c', status: 'REJECTED', rejectReason: 'IMAGE_UNCLEAR', rejectNote: 'Blurry' }),
+      proof({ id: 'd', status: 'DISCARDED' }),
+      proof({ id: 'e', status: 'WITHDRAWN' }),
+    ]);
+    renderPortalCard(<MyProofsTab />);
+    const cards = await screen.findAllByTestId('proof-card');
+    expect(cards).toHaveLength(5);
+    expect(within(cards[0]!).getByText('Waiting for confirmation')).toBeTruthy();
+    expect(within(cards[0]!).getByText('Fatima Rahman')).toBeTruthy();
+    expect(within(cards[0]!).getByText('TRX123')).toBeTruthy();
+    expect(within(cards[1]!).getByText('Confirmed')).toBeTruthy();
+    expect(within(cards[2]!).getByText('Rejected')).toBeTruthy();
+    expect(within(cards[2]!).getByText(/Image unclear/)).toBeTruthy();
+    expect(within(cards[2]!).getByText(/Blurry/)).toBeTruthy();
+    expect(within(cards[3]!).getByText('Discarded — already paid')).toBeTruthy();
+    expect(within(cards[3]!).getByText('Bill already paid — submit again next month')).toBeTruthy();
+    expect(within(cards[4]!).getByText('Withdrawn')).toBeTruthy();
+  });
+
+  it('a co-guardian row with no reason shows the badge and no reason line', async () => {
+    mock([proof({ status: 'REJECTED', submittedByUserId: OTHER })]);
+    renderPortalCard(<MyProofsTab />);
+    expect(await screen.findByText('Rejected')).toBeTruthy();
+    expect(screen.queryByText(/Reason/)).toBeNull();
+  });
+
+  it('withdraw is offered only on your own waiting proof', async () => {
+    mock([
+      proof({ id: 'mine-pending' }),
+      proof({ id: 'mine-confirmed', status: 'CONFIRMED' }),
+      proof({ id: 'theirs-pending', submittedByUserId: OTHER }),
+    ]);
+    renderPortalCard(<MyProofsTab />);
+    await screen.findAllByTestId('proof-card');
+    // Wait for the current user: the button only appears once the id is known.
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Withdraw' })).toHaveLength(1),
+    );
+    const cards = screen.getAllByTestId('proof-card');
+    expect(within(cards[0]!).getByRole('button', { name: 'Withdraw' })).toBeTruthy();
+    expect(within(cards[1]!).queryByRole('button', { name: 'Withdraw' })).toBeNull();
+    expect(within(cards[2]!).queryByRole('button', { name: 'Withdraw' })).toBeNull();
+  });
+
+  it('revokes every blob URL it made when the tab unmounts', async () => {
+    const created: string[] = [];
+    const revoked: string[] = [];
+    URL.createObjectURL = () => {
+      const u = `blob:test/${created.length}`;
+      created.push(u);
+      return u;
+    };
+    URL.revokeObjectURL = (u: string) => void revoked.push(u);
+    mock([proof({ files: [{ id: 'f1', contentType: 'image/png', sizeBytes: 3 }] })]);
+    server.use(
+      http.get('/api/v1/portal/payment-proofs/:id/files/:fileId', () =>
+        HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+          headers: { 'Content-Type': 'image/png' },
+        }),
+      ),
+    );
+    const view = renderPortalCard(<MyProofsTab />);
+    await waitFor(() => expect(created.length).toBeGreaterThan(0));
+    view.unmount();
+    // Every URL made was revoked: create and revoke are paired.
+    expect([...revoked].sort()).toEqual([...created].sort());
+  });
+
+  it('shows an alert and a Retry when an attachment cannot load, then the file', async () => {
+    URL.createObjectURL = () => 'blob:test/1';
+    URL.revokeObjectURL = () => undefined;
+    mock([proof({ files: [{ id: 'f1', contentType: 'image/png', sizeBytes: 3 }] })]);
+    let healthy = false;
+    server.use(
+      http.get('/api/v1/portal/payment-proofs/:id/files/:fileId', () => {
+        if (!healthy) return HttpResponse.json({ message: 'boom' }, { status: 500 });
+        return HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+          headers: { 'Content-Type': 'image/png' },
+        });
+      }),
+    );
+    renderPortalCard(<MyProofsTab />);
+    const user = userEvent.setup();
+    const alert = await screen.findByRole('alert', {}, { timeout: 15000 });
+    expect(alert.textContent).toContain('Could not load the attachments.');
+    healthy = true;
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull(), { timeout: 15000 });
+  }, 30000);
+
+  it('withdraw asks first, then posts once', async () => {
+    const withdrawn = mock([proof({ id: 'mine-pending' })]);
+    renderPortalCard(<MyProofsTab />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Withdraw' }));
+    expect(withdrawn).toEqual([]);
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }));
+    await waitFor(() => expect(withdrawn).toEqual(['mine-pending']));
+  });
+});

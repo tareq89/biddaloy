@@ -39,6 +39,24 @@ function student(overrides: Partial<CartStudent> = {}): CartStudent {
   };
 }
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    params,
+    children,
+    className,
+  }: {
+    to: string;
+    params: { id: string };
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <a href={to.replace('$id', params.id)} className={className}>
+      {children}
+    </a>
+  ),
+}));
+
 async function renderTable(overrides: Partial<React.ComponentProps<typeof CartTable>> = {}) {
   const onLineChange = vi.fn();
   const onWalletUseChange = vi.fn();
@@ -95,6 +113,24 @@ describe('CartTable', () => {
     expect(await screen.findByText('Pending')).toBeTruthy();
     expect(screen.queryByText('Total')).toBeNull();
     expect(screen.getByText(formatMonth('2026-03-01', REGION_BD_EN))).toBeTruthy();
+  });
+
+  it('tags a bill that has a proof waiting and links to its review screen', async () => {
+    await renderTable({
+      students: [
+        student({
+          bills: [
+            {
+              ...student().bills[0]!,
+              waiting_submission: { id: 'sub-1', source: 'ONLINE' },
+            },
+          ],
+        }),
+      ],
+    });
+
+    const tag = await screen.findByText('Waiting for confirmation');
+    expect(tag.closest('a')?.getAttribute('href')).toBe('/payments/online/sub-1');
   });
 
   it('shows the empty-cart message when no bills are open', async () => {

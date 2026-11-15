@@ -26,7 +26,9 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useCommunicationLog,
+  useGuardian,
   useSendCommunication,
+  useStudent,
   type Guardian,
   type SendCommunicationInput,
   type Student,
@@ -42,6 +44,7 @@ import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
@@ -73,7 +76,18 @@ import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-
  * same permission (`route-permissions.ts`), before this component ever
  * mounts. Duplicating the check here would be dead code.
  */
+// `to=guardian:<guardianId>` prefills one recipient (Send SMS on the payment-proof review).
+// Nothing is sent by the link: the sender still presses Send (D10).
+const sendSearchSchema = z.object({
+  to: z
+    .string()
+    .regex(/^guardian:\S+$/)
+    .optional()
+    .catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/communications/send')({
+  validateSearch: sendSearchSchema,
   loader: () => loadRouteNamespaces('communications'),
   pendingComponent: SendMessagePending,
   component: SendMessageForm,
@@ -119,6 +133,21 @@ function SendMessageBody() {
   // [78 D37/D38] Warn, never block, when SMS cannot go out right now. Called
   // here, above the result-panel early return, so the hook order is stable.
   const readiness = useSmsReadiness(medium === 'SMS');
+
+  // `?to=guardian:<id>`: the guardian's own page names the student; the student answer lists
+  // every guardian. Applied once, so the sender can still change the pick.
+  const { to } = Route.useSearch();
+  const prefillGuardianId = to?.slice('guardian:'.length);
+  const prefillGuardian = useGuardian(prefillGuardianId);
+  const prefillStudent = useStudent(prefillGuardian.data?.students[0]?.id);
+  const prefilled = React.useRef(false);
+  React.useEffect(() => {
+    if (prefilled.current || !prefillStudent.data || !prefillGuardianId) return;
+    if (!prefillStudent.data.guardians.some((g) => g.id === prefillGuardianId)) return;
+    prefilled.current = true;
+    setStudent(prefillStudent.data);
+    setGuardianId(prefillGuardianId);
+  }, [prefillStudent.data, prefillGuardianId]);
 
   // Refreshes the queued message's delivery status after the send — the
   // 201 body always says QUEUED (dispatch is async via BullMQ), so the
@@ -201,11 +230,13 @@ function SendMessageBody() {
   }
 
   function handleSelectStudent(selected: Student) {
+    prefilled.current = true; // a manual pick beats a still-pending prefill
     setStudent(selected);
     setGuardianId(null);
   }
 
   function handleReset() {
+    prefilled.current = true;
     sendMessage.reset();
     setMessageBody('');
     setSubject('');
@@ -299,6 +330,7 @@ function SendMessageBody() {
                   registrationNumber={student.registration_number}
                   changeLabel={t('send.clearStudent')}
                   onChange={() => {
+                    prefilled.current = true;
                     setStudent(null);
                     setGuardianId(null);
                   }}
@@ -323,6 +355,7 @@ function SendMessageBody() {
                   value={guardianId ?? ''}
                   onValueChange={(value) => {
                     const guardian = student.guardians.find((candidate) => candidate.id === value);
+                    prefilled.current = true;
                     if (guardian !== undefined) setGuardianId(guardian.id);
                   }}
                   className="gap-0 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle"

@@ -5,6 +5,7 @@ import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { renderPortalCard } from './-card-test-utils';
 import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
 
 /**
@@ -166,6 +167,32 @@ describe('DueThisMonthCard', () => {
       expect(within(section).getByText('Carried over')).toBeTruthy();
       const totalRow = within(section).getByText('Total to pay this month').parentElement;
       expect(totalRow?.textContent).toContain('৳800.00');
+    });
+  });
+
+  describe('[3.4.01] pay line', () => {
+    const renderCard = (payOptions?: { onlineEnabled: boolean; proofEnabled: boolean }) =>
+      renderPortalCard(
+        <DueThisMonthCard dues={[due()]} now={now} config={REGION_BD_EN} payOptions={payOptions} />,
+      );
+
+    it('shows a Pay button with the total when proof payment is on', async () => {
+      renderCard({ onlineEnabled: false, proofEnabled: true });
+      const link = await screen.findByRole('link', { name: 'Pay ৳500.00' });
+      expect(link.getAttribute('href')).toBe('/portal/fees/pay');
+    });
+
+    it('hides the button and says to pay at the school office when both are off', async () => {
+      renderCard({ onlineEnabled: false, proofEnabled: false });
+      expect(await screen.findByText('Pay at the school office')).toBeTruthy();
+      expect(screen.queryByRole('link', { name: /^Pay / })).toBeNull();
+    });
+
+    it('shows no pay line until the options have loaded', async () => {
+      renderCard(undefined);
+      await screen.findByText('Tuition');
+      expect(screen.queryByText('Pay at the school office')).toBeNull();
+      expect(screen.queryByRole('link', { name: /^Pay / })).toBeNull();
     });
   });
 });

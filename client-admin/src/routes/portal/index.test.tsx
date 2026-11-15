@@ -302,6 +302,22 @@ describe('/portal', () => {
       expect(within(sibling).queryByText(/days late/)).toBeNull();
     });
 
+    it('shows the Pay link on a due card when the school accepts proofs (#3978)', async () => {
+      server.use(
+        http.get('/api/v1/portal/payment-options', () =>
+          HttpResponse.json({ onlineEnabled: false, proofEnabled: true, methods: [] }),
+        ),
+      );
+      mockPortal(students, dues);
+      renderPortal();
+
+      const card = (
+        await screen.findByRole('heading', { level: 3, name: 'Fatima Rahman' })
+      ).closest('[data-slot="card"]') as HTMLElement;
+      const pay = await within(card).findByRole('link', { name: /^Pay/ });
+      expect(pay.getAttribute('href')).toBe('/portal/fees/pay?student=student-1');
+    });
+
     it('counts only the overdue portion in the hero, not the whole balance of an overdue child', async () => {
       mockPortal(
         [students[0], students[1]],

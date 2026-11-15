@@ -15,7 +15,7 @@ import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { BkashCallbackController } from './bkash/bkash.controller';
-import { BkashClient } from './bkash/bkash.client';
+import { PaymentGatewaysModule } from '../payment-gateways/payment-gateways.module';
 import { BKASH_RECONCILE_QUEUE, BkashReconciler } from './bkash/bkash.reconciler';
 import { BkashService } from './bkash/bkash.service';
 import { BillingController } from './billing.controller';
@@ -33,7 +33,8 @@ import { SeatNoticesService } from './seat-notices.service';
 /** Billing (Epic 49): seat orders, the entitlement that sets `schools.seat_limit`, the daily recompute. */
 @Module({
   imports: [
-    AccountAccessModule, // OTP_REDIS: the bKash token cache
+    AccountAccessModule,
+    PaymentGatewaysModule, // BkashClient
     AuditModule,
     CouponsModule, // CouponRedemptionService for OrdersService
     PlansModule, // PlansService
@@ -63,7 +64,6 @@ import { SeatNoticesService } from './seat-notices.service';
     BillingScheduler,
     SeatNoticesService,
     AdminNoticeService,
-    BkashClient,
     BkashService,
     BkashReconciler,
   ],

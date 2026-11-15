@@ -17,7 +17,12 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { PaymentMethod, PaymentSubmissionStatus } from '@biddaloy/shared';
+import {
+  PaymentMethod,
+  PaymentProofRejectReason,
+  PaymentSubmissionSource,
+  PaymentSubmissionStatus,
+} from '@biddaloy/shared';
 import { MONEY_MAX } from '../../../common/constants/money';
 
 /** multipart sends one value as a string and many as an array. */
@@ -92,6 +97,49 @@ export class ProofSubmissionResponseDto {
   @ApiProperty({ nullable: true }) reference: string | null;
   @ApiProperty() submittedByUserId: string;
   @ApiProperty() createdAt: Date;
+  /** Only the submitting guardian sees these; any other linked guardian gets null (D12). */
+  @ApiProperty({ enum: PaymentProofRejectReason, nullable: true })
+  rejectReason: PaymentProofRejectReason | null;
+  @ApiProperty({ nullable: true }) rejectNote: string | null;
+  @ApiProperty({ nullable: true }) discardReason: string | null;
   @ApiProperty({ type: [ProofSubmissionBillDto] }) bills: ProofSubmissionBillDto[];
   @ApiProperty({ type: [ProofSubmissionFileDto] }) files: ProofSubmissionFileDto[];
+}
+
+export class PaymentOptionsMethodDto {
+  @ApiProperty({ enum: PaymentMethod }) method: PaymentMethod;
+  @ApiProperty() instructions: string;
+}
+
+/** `GET /portal/payment-options`: only these fields, never a bKash credential. */
+export class PaymentOptionsResponseDto {
+  @ApiProperty() onlineEnabled: boolean;
+  @ApiProperty() proofEnabled: boolean;
+  @ApiProperty({ type: [PaymentOptionsMethodDto] }) proofMethods: PaymentOptionsMethodDto[];
+}
+
+export class WaitingSubmissionDto {
+  /** Null when another linked guardian submitted it. */
+  @ApiProperty({ type: String, nullable: true }) id: string | null;
+  @ApiProperty({ enum: PaymentSubmissionSource }) source: PaymentSubmissionSource;
+}
+
+export class PaymentCartBillDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ nullable: true }) dueDate: string | null;
+  @ApiProperty() balance: string;
+  @ApiProperty({ type: WaitingSubmissionDto, nullable: true })
+  waitingSubmission: WaitingSubmissionDto | null;
+}
+
+export class PaymentCartStudentDto {
+  @ApiProperty() studentId: string;
+  @ApiProperty() fullName: string;
+  @ApiProperty({ type: [PaymentCartBillDto] }) bills: PaymentCartBillDto[];
+}
+
+/** `GET /portal/payment-cart`: each linked child's open bills and whether one is already waiting. */
+export class PaymentCartResponseDto {
+  @ApiProperty({ type: [PaymentCartStudentDto] }) students: PaymentCartStudentDto[];
 }

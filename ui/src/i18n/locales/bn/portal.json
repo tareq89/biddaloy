@@ -575,5 +575,52 @@
     "attendance": "{{working}} দিনের মধ্যে উপস্থিত {{present}} দিন ({{percent}})",
     "showDetails": "বিস্তারিত ও কার্ড দেখুন",
     "hideDetails": "বিস্তারিত লুকান"
+  },
+  "proofs": {
+    "filesError": "সংযুক্ত ফাইল লোড করা যায়নি।",
+    "tabsLabel": "ফি-এর অংশ",
+    "tabBills": "ফি ও চালান",
+    "tabProofs": "আমার পেমেন্টের প্রমাণ",
+    "loading": "আপনার পেমেন্টের প্রমাণ লোড হচ্ছে",
+    "error": "পেমেন্টের প্রমাণ দেখানো যায়নি।",
+    "empty": "এখনও কোনো পেমেন্টের প্রমাণ নেই",
+    "unknownStudent": "$t(common:entities.student_one)",
+    "method": "মাধ্যম",
+    "trxId": "লেনদেন নম্বর (TrxID)",
+    "submittedOn": "জমা দেওয়ার তারিখ",
+    "reasonLabel": "কারণ",
+    "fileLabel": "প্রমাণের ফাইল {{n}}",
+    "discardedExplanation": "বিল আগেই পরিশোধিত হয়েছে — আগামী মাসে আবার জমা দিন",
+    "withdraw": "তুলে নিন",
+    "withdrawTitle": "এই পেমেন্টের প্রমাণ তুলে নেবেন?",
+    "withdrawDescription": "বিদ্যালয় এটি আর দেখবে না। একই বিলের জন্য আপনি নতুন প্রমাণ জমা দিতে পারবেন।",
+    "withdrawn": "পেমেন্টের প্রমাণ তুলে নেওয়া হয়েছে",
+    "withdrawError": "পেমেন্টের প্রমাণ তুলে নেওয়া যায়নি। আবার চেষ্টা করুন।",
+    "status": {
+      "PENDING": "নিশ্চিত করা বাকি",
+      "CONFIRMED": "নিশ্চিত",
+      "REJECTED": "বাতিল",
+      "DISCARDED": "বাতিল — বিল আগেই পরিশোধিত",
+      "WITHDRAWN": "তুলে নেওয়া হয়েছে",
+      "COMPLETED": "নিশ্চিত",
+      "FAILED": "ব্যর্থ",
+      "CANCELLED": "বাতিল",
+      "EXPIRED": "মেয়াদ শেষ",
+      "REVERSED": "ফেরত"
+    },
+    "rejectReason": {
+      "TRXID_NOT_FOUND": "লেনদেন নম্বর পাওয়া যায়নি",
+      "AMOUNT_MISMATCH": "টাকার অঙ্ক মিলছে না",
+      "IMAGE_UNCLEAR": "ছবি পরিষ্কার নয়",
+      "DUPLICATE": "আগেই জমা হয়েছে",
+      "OTHER": "অন্য কারণ"
+    },
+    "viewer": {
+      "openFile": "ফাইল খুলুন",
+      "zoomIn": "বড় করুন",
+      "zoomOut": "ছোট করুন",
+      "previous": "আগের ফাইল",
+      "next": "পরের ফাইল"
+    }
   }
 }

@@ -22,7 +22,10 @@ import { PlatformBillingController } from '../../src/modules/billing/platform-bi
 import { SmsBundleOrdersController } from '../../src/modules/sms-bundles/orders/sms-bundle-orders.controller';
 import { SmsBundlePayController } from '../../src/modules/sms-bundles/payment/sms-bundle-pay.controller';
 import { ProofReviewController } from '../../src/modules/payment-submissions/proof-review.controller';
-import { ProofSubmissionsController } from '../../src/modules/payment-submissions/proof-submissions.controller';
+import {
+  PortalPaymentController,
+  ProofSubmissionsController,
+} from '../../src/modules/payment-submissions/proof-submissions.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -62,6 +65,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   BillingController,
   PlatformBillingController,
   ProofSubmissionsController,
+  PortalPaymentController,
   ProofReviewController,
 ];
 
@@ -137,6 +141,9 @@ export const FAIL_OPEN = [
   'GET /portal/payment-proofs',
   'POST /portal/payment-proofs/:id/withdraw',
   'GET /portal/payment-proofs/:id/files/:fileId',
+  // [3.x/#3975 D12] Pay-page reads: no password, code or money moved.
+  'GET /portal/payment-options',
+  'GET /portal/payment-cart',
   // [3.x/#3970] Staff proof review: no password or code; Idempotency-Key fails open by design.
   'GET /payment-submissions',
   'GET /payment-submissions/:id',
