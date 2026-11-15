@@ -369,6 +369,28 @@ describe('OnlinePaymentsService (integration)', () => {
     await expect(svc.start({ billIds: [a] }, ctx)).rejects.toThrow('cannot take a payment');
   });
 
+  it('a bill held by an EXPIRED payment the reconciler can still settle refuses the start', async () => {
+    const a = await fix.bill(fix.fx.studentA, 500);
+    const [p] = await ds.query(
+      `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, amount,
+         provider, environment, provider_payment_id)
+       VALUES ($1,'ONLINE','EXPIRED',$2,500,'BKASH','SANDBOX','PID-LATE') RETURNING id`,
+      [SEED_TENANT_ID, fix.parent.id],
+    );
+    await ds.query(
+      `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+       VALUES ($1,$2,$3,$4,500)`,
+      [SEED_TENANT_ID, p.id, a, fix.fx.studentA],
+    );
+    await expect(svc.start({ billIds: [a] }, ctx)).rejects.toThrow('cannot take a payment');
+    // Past the 72 h reconcile window the bill is free again.
+    await ds.query(
+      `UPDATE payment_submissions SET created_at = now() - interval '73 hours' WHERE id = $1`,
+      [p.id],
+    );
+    await expect(svc.start({ billIds: [a] }, ctx)).resolves.toBeDefined();
+  });
+
   it('online switched off: refused, nothing written', async () => {
     await setOnline(false);
     const a = await fix.bill(fix.fx.studentA, 500);

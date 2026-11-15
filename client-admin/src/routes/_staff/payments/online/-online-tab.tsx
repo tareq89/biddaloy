@@ -61,7 +61,13 @@ export function OnlineTab({ tabs }: { tabs: ReactNode }) {
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
   const picked = ONLINE_STATUSES.find((s) => s === state.filters.status);
-  const [cursor, setCursor] = useState<string | undefined>();
+  // The cursor is only valid for the status that produced it (Back can change the status).
+  const [page, setPage] = useState<{ status: string | undefined; cursor: string | undefined }>({
+    status: undefined,
+    cursor: undefined,
+  });
+  const cursor = page.status === picked ? page.cursor : undefined;
+  const setCursor = (c: string | undefined) => setPage({ status: picked, cursor: c });
   const query = useOnlinePaymentSubmissions({
     ...(picked ? { status: picked } : {}),
     limit: PAGE_LIMIT,

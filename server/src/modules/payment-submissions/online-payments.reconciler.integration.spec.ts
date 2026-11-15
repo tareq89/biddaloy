@@ -285,7 +285,9 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     await rec.process();
     expect((await row(id)).status).toBe('COMPLETED');
     expect(
-      query.mock.calls.every((c) => c[1].tenantId === SEED_TENANT_ID || c[0] === 'PID-A'),
+      query.mock.calls.every((c) =>
+        c[0] === 'PID-A' ? c[1].tenantId === otherTenant : c[1].tenantId === SEED_TENANT_ID,
+      ),
     ).toBe(true);
     const [a] = await ds.query(`SELECT status FROM payment_submissions WHERE tenant_id=$1`, [
       otherTenant,

@@ -39,7 +39,7 @@ import {
   PaymentSubmissionEventPayload,
   paymentSubmissionEvents,
 } from './payment-submission.events';
-import { isReconcilable } from './online-payments.reconciler';
+import { isReconcilable, RECONCILE_MAX_AGE_MS } from './online-payments.reconciler';
 import { ProofCaller, ProofSubmissionsService } from './proof-submissions.service';
 
 /** Rule 23: one fixed sentence per failure, never the submitted value or a credential. */
@@ -166,6 +166,19 @@ export class OnlinePaymentsService {
       // D24: a PENDING submission of either source holds the bill.
       const busy = await this.proofs.billsWithLiveSubmission(m, ctx.tenantId, billIds);
       if (!bills.every(open) || busy.length > 0) throw new ConflictException(MSG.billBusy);
+      // An EXPIRED/CANCELLED payment the reconciler can still settle also holds the bill
+      // (same rule as isReconcilable), or a second checkout could double-pay it.
+      const settling = await m.query(
+        `SELECT 1 FROM payment_submission_bills psb
+           JOIN payment_submissions ps ON ps.id = psb.submission_id AND ps.tenant_id = psb.tenant_id
+          WHERE psb.tenant_id = $1 AND psb.student_fee_id = ANY($2::uuid[])
+            AND ps.source = 'ONLINE' AND ps.provider = 'BKASH'
+            AND ps.status IN ('EXPIRED', 'CANCELLED') AND ps.provider_payment_id IS NOT NULL
+            AND ps.created_at > $3
+          LIMIT 1`,
+        [ctx.tenantId, billIds, new Date(Date.now() - RECONCILE_MAX_AGE_MS)],
+      );
+      if (settling.length > 0) throw new ConflictException(MSG.billBusy);
 
       totalPaisa = bills.reduce((s, b) => s + toPaisa(b.balance), 0);
       await m.query(
