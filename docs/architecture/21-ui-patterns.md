@@ -612,3 +612,16 @@ Remove an entry when its file is fixed; never add one without a reason comment.
 - **A paged list in a view needs a Show more button.** The not-renewed list first ignored `next_cursor` and hid schools silently. Pass `hasMore` and `onMore`; keep earlier pages in the route.
 - **Digits follow the region setting, not the test locale.** Match numbers in tests with a regex over Latin and Bangla digits.
 - **Dialog rules come from the server DTO.** The VAT rate range is 0.01 to 50 (`UpdateVatDto`), not the 0 to 100 in the ticket. Read the DTO before writing a form.
+
+### Admission desk learnings (Epic #2204, Wave 4 close, 2026-11-16)
+
+Specs were written without a local Playwright run (Docker unavailable); CI is the first real run. Found while reading the screens against the server:
+
+- **A wizard round is pass/fail until `total_marks` is set.** `intake.service.ts` creates stages with `config: { list_order }` only, `toStageResponse` then reports PASS_FAIL, and `StagePanel` hides the cut-off. No screen sets `total_marks`; the journey PATCHes the stage. Follow-up needed.
+- **A pass/fail stage never gets `cutoff_committed_at`**, so the desk's "enter marks" card stays on that stage (`AdmissionDesk.tsx`, `done: cutoff_committed_at !== null`).
+- **Waiting lists draw only from applicants that passed the last stage's cut-off** (`admission-list.service.ts`), except after a lottery. A spec that wants a waiting list must let more people pass than the seats.
+- **The wizard's default `open_date` is the browser's local today; the server compares against the school-timezone today** (`admission-applicant.service.ts`). A browser ahead of the school zone gets `INTAKE_NOT_OPEN` on clerk entry.
+- **The wizard's class list is the first 100 classes.** A fresh `createClassSection` class may be absent on a crowded database.
+- **Clerk-form boxes are located by id (`#clerk-name`)**: catalogue labels carry a trailing " *" and repeat words. A photo input has no keyboard path, so the keyboard spec uses a round that needs no document.
+- **`t()` in `e2e/i18n.ts` needs each namespace registered**; `admission-lists` and `admission-stages` were missing.
+- **Task 5 (guardian on a phone) has no browser coverage**: the e2e stack does not run the site container. The usability re-check in `docs/ux-research/epic-71-admission-findings.md` is a simulated heuristic pass; the human test (#4169) is still open.

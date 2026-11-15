@@ -9,6 +9,8 @@
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
 import bnAdmissionDesk from '../ui/src/i18n/locales/bn/admission-desk.json';
+import bnAdmissionLists from '../ui/src/i18n/locales/bn/admission-lists.json';
+import bnAdmissionStages from '../ui/src/i18n/locales/bn/admission-stages.json';
 import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
 import bnAdmissionReports from '../ui/src/i18n/locales/bn/admission-reports.json';
 import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staff-applicants.json';
@@ -93,6 +95,8 @@ import bnWebsite from '../ui/src/i18n/locales/bn/website.json';
 import enWebsite from '../ui/src/i18n/locales/en/website.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enAdmissionDesk from '../ui/src/i18n/locales/en/admission-desk.json';
+import enAdmissionLists from '../ui/src/i18n/locales/en/admission-lists.json';
+import enAdmissionStages from '../ui/src/i18n/locales/en/admission-stages.json';
 import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
 import enAdmissionReports from '../ui/src/i18n/locales/en/admission-reports.json';
 import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staff-applicants.json';
@@ -209,6 +213,8 @@ const catalogs = {
     trial: bnTrial,
     'admission-public': bnAdmissionPublic,
     'admission-desk': bnAdmissionDesk,
+    'admission-lists': bnAdmissionLists,
+    'admission-stages': bnAdmissionStages,
     'admission-reports': bnAdmissionReports,
     'admission-staff-applicants': bnAdmissionStaffApplicants,
     'admission-staff-intakes': bnAdmissionStaffIntakes,
@@ -304,6 +310,8 @@ const catalogs = {
     trial: enTrial,
     'admission-public': enAdmissionPublic,
     'admission-desk': enAdmissionDesk,
+    'admission-lists': enAdmissionLists,
+    'admission-stages': enAdmissionStages,
     'admission-reports': enAdmissionReports,
     'admission-staff-applicants': enAdmissionStaffApplicants,
     'admission-staff-intakes': enAdmissionStaffIntakes,

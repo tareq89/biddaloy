@@ -60,7 +60,7 @@ describe('isCacheableApiRequest', () => {
   });
 
   it('never caches any public route', () => {
-    expect(isCacheableApiRequest(match('/api/v1/public/admission/demo-school'))).toBe(false);
+    expect(isCacheableApiRequest(match('/api/v1/public/site/by-host/demo.example/admission/rounds'))).toBe(false);
   });
 
   it.each(['POST', 'PATCH', 'PUT', 'DELETE'])(
