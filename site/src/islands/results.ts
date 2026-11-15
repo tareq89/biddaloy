@@ -33,7 +33,7 @@ export interface SubjectMark {
   passed: boolean;
 }
 /** Every outcome of a lookup that is not a table. Each has one fixed sentence in `results.*`. */
-export type ResultsFailure = 'captcha' | 'invalid' | 'notfound' | 'rate' | 'error';
+export type ResultsFailure = 'captcha' | 'invalid' | 'notfound' | 'rate' | 'error' | 'offline';
 export interface Query {
   captcha_token: string;
   exam_id: string;
@@ -81,7 +81,7 @@ export async function queryResults(
     if (res.status === 429) return { failure: 'rate' };
     return { failure: 'error' };
   } catch {
-    return { failure: 'error' };
+    return { failure: typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'error' };
   }
 }
 
@@ -307,7 +307,13 @@ async function init(root: HTMLElement) {
     ts?.reset(widget);
     busy(false);
     out.replaceChildren();
-    if ('failure' in r) return say(d[`m${r.failure[0].toUpperCase()}${r.failure.slice(1)}`] ?? '');
+    if ('failure' in r) {
+      say(d[`m${r.failure[0].toUpperCase()}${r.failure.slice(1)}`] ?? '');
+      // One sentence + one button: a dropped connection or a server hiccup can be tried again.
+      if (r.failure === 'error' || r.failure === 'offline')
+        out.append(build('button', { type: 'button', className: 'btn btn-ghost btn-sm', textContent: d.retry ?? '', onclick: () => void run(pageNo) }, []));
+      return;
+    }
     if (r.page.rows.length === 0) return say(d.mEmpty ?? '');
     const table = renderTable(r.page, { ...labels, caption: exam()?.name }, async (row, into) => {
       const marks = await loadDetail(row.handle);
