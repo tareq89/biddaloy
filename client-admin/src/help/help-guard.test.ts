@@ -18,8 +18,8 @@ import { HELP_UNWIRED, PUBLIC } from './help-unwired';
 
 /** Guide pages whose feature id is not in their own helpIds yet; shrink, never grow. */
 // [70.5.5] Final results had no page until #3423; the set is empty again.
-// [Epic 3 / #3978] Online payments has no guide page until #3999 (bn + en); drop the id then.
-const NO_PAGE_ENTRY_YET = new Set<string>(['finance.onlinePayments']);
+// [Epic 3 / #3999] Online payments got its guide page, so the set is empty again.
+const NO_PAGE_ENTRY_YET = new Set<string>();
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const features = JSON.parse(

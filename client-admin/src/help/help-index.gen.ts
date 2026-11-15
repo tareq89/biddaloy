@@ -2987,6 +2987,16 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'fines', key: 'waiveReason' },
   },
+  'finance.onlinePayments': {
+    title: { bn: 'অনলাইন পেমেন্ট দেখুন ও নিশ্চিত করুন', en: 'Check and confirm online payments' },
+    summary: {
+      bn: 'অভিভাবকের পাঠানো পেমেন্টের প্রমাণ যাচাই করে নিশ্চিত বা বাতিল করুন, বিকাশে আসা অনলাইন পেমেন্ট দেখুন, আর অমিল রসিদের টাকা কোথায় গেল জানুন।',
+      en: 'Check the payment proofs guardians send and confirm or reject them, see the online payments that came in by bKash, and find where the money of an unmatched receipt went.',
+    },
+    path: 'finance/online-payments',
+    anchor: '',
+    knownIssues: 0,
+  },
   'finance.payments': {
     title: { bn: 'পেমেন্ট', en: 'Payments' },
     summary: {
@@ -4079,8 +4089,8 @@ export const HELP_INDEX: HelpIndex = {
   'portal.fees': {
     title: { bn: 'ফি ও চালান', en: 'Fees and invoices' },
     summary: {
-      bn: 'আপনার সন্তানের ফি মাস ধরে দেখুন — কত ধার্য, কত ছাড়, কত পরিশোধিত, কত বকেয়া — সঙ্গে জরিমানা, জমা টাকা, পুনরাবৃত্ত ফি আর চালান প্রিন্ট।',
-      en: "See your child's fees month by month — what was charged, discounted, paid and is still due — along with fines, credit balance, recurring fees and invoice printing.",
+      bn: 'সন্তানের ফি মাস ধরে দেখুন, বিকাশে বিল দিন বা পেমেন্টের প্রমাণ পাঠান, স্কুল নিশ্চিত না করা পর্যন্ত প্রমাণের অবস্থা দেখুন, আর চালান প্রিন্ট করুন।',
+      en: "See your child's fees month by month; a parent can pay a bill with bKash or send a payment proof, follow the proof until the school confirms it, and print invoices.",
     },
     path: 'portal/fees',
     anchor: '',
@@ -4089,8 +4099,8 @@ export const HELP_INDEX: HelpIndex = {
   'portal.fees.action.print': {
     title: { bn: 'ফি ও চালান', en: 'Fees and invoices' },
     summary: {
-      bn: 'আপনার সন্তানের ফি মাস ধরে দেখুন — কত ধার্য, কত ছাড়, কত পরিশোধিত, কত বকেয়া — সঙ্গে জরিমানা, জমা টাকা, পুনরাবৃত্ত ফি আর চালান প্রিন্ট।',
-      en: "See your child's fees month by month — what was charged, discounted, paid and is still due — along with fines, credit balance, recurring fees and invoice printing.",
+      bn: 'সন্তানের ফি মাস ধরে দেখুন, বিকাশে বিল দিন বা পেমেন্টের প্রমাণ পাঠান, স্কুল নিশ্চিত না করা পর্যন্ত প্রমাণের অবস্থা দেখুন, আর চালান প্রিন্ট করুন।',
+      en: "See your child's fees month by month; a parent can pay a bill with bKash or send a payment proof, follow the proof until the school confirms it, and print invoices.",
     },
     path: 'portal/fees',
     anchor: 'task-main',
@@ -4099,8 +4109,8 @@ export const HELP_INDEX: HelpIndex = {
   'portal.fees.action.pickStudent': {
     title: { bn: 'ফি ও চালান', en: 'Fees and invoices' },
     summary: {
-      bn: 'আপনার সন্তানের ফি মাস ধরে দেখুন — কত ধার্য, কত ছাড়, কত পরিশোধিত, কত বকেয়া — সঙ্গে জরিমানা, জমা টাকা, পুনরাবৃত্ত ফি আর চালান প্রিন্ট।',
-      en: "See your child's fees month by month — what was charged, discounted, paid and is still due — along with fines, credit balance, recurring fees and invoice printing.",
+      bn: 'সন্তানের ফি মাস ধরে দেখুন, বিকাশে বিল দিন বা পেমেন্টের প্রমাণ পাঠান, স্কুল নিশ্চিত না করা পর্যন্ত প্রমাণের অবস্থা দেখুন, আর চালান প্রিন্ট করুন।',
+      en: "See your child's fees month by month; a parent can pay a bill with bKash or send a payment proof, follow the proof until the school confirms it, and print invoices.",
     },
     path: 'portal/fees',
     anchor: 'task-main',
