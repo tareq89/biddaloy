@@ -16,6 +16,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
   Input,
   Select,
   SelectContent,
@@ -32,6 +37,7 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { toLatinDigits } from '@biddaloy/ui/utils';
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
 
 import { ErrorText, Field, useCloseGuard } from './-dialog-kit';
 
@@ -102,12 +108,13 @@ export function ClassFormDialog({
   const initialVersion = initial.version ?? NONE_VALUE;
   // Callers mount this dialog only while it is open, so state starts fresh
   // on every open (no reset effect needed).
-  const [name, setName] = React.useState(initial.name);
-  const [numericGrade, setNumericGrade] = React.useState(initialGrade);
-  const [academicYearId, setAcademicYearId] = React.useState(initialYear);
+  // The three validated fields go through react-hook-form; shift/version stay plain state.
+  const form = useForm<{ name: string; numericGrade: string; academicYearId: string }>({
+    defaultValues: { name: initial.name, numericGrade: initialGrade, academicYearId: initialYear },
+  });
+  const { name, numericGrade, academicYearId } = form.watch();
   const [shift, setShift] = React.useState(initialShift);
   const [version, setVersion] = React.useState(initialVersion);
-  const [validationError, setValidationError] = React.useState<string | null>(null);
 
   const isDirty =
     name !== initial.name ||
@@ -125,25 +132,10 @@ export function ClassFormDialog({
   const showShift = shifts.length >= 2;
   const showVersion = versions.length >= 2;
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function handleValid() {
     if (mutation.isPending) return;
-
-    if (!name.trim()) {
-      setValidationError(t('classForm.errorNameRequired'));
-      return;
-    }
-    if (mode === 'create' && !academicYearId) {
-      setValidationError(t('classForm.errorAcademicYearRequired'));
-      return;
-    }
     const parsedGrade =
       numericGrade.trim() === '' ? undefined : Number(toLatinDigits(numericGrade.trim()));
-    if (parsedGrade !== undefined && (!Number.isInteger(parsedGrade) || parsedGrade <= 0)) {
-      setValidationError(t('classForm.errorGradeInvalid'));
-      return;
-    }
-    setValidationError(null);
 
     if (mode === 'create') {
       // `exactOptionalPropertyTypes` — `CreateClassDto.numeric_grade?:
@@ -196,113 +188,162 @@ export function ClassFormDialog({
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
         <DialogContent size="md" onInteractOutside={(e) => e.preventDefault()}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <DialogHeader>
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription>{t('classForm.description')}</DialogDescription>
-            </DialogHeader>
-
-            <Field id="class-form-name" label={t('classForm.nameLabel')} required>
-              <Input
-                id="class-form-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t('classForm.namePlaceholder')}
-              />
-            </Field>
-
-            <Field
-              id="class-form-grade"
-              label={t('classForm.gradeLabel')}
-              helpId="academics.classes.field.grade"
+          <Form {...form}>
+            <form
+              onSubmit={(event) =>
+                void form.handleSubmit(handleValid, () => {
+                  const [first] = Object.keys(form.formState.errors);
+                  if (first) form.setFocus(first as 'name');
+                })(event)
+              }
+              className="flex flex-col gap-4"
             >
-              <Input
-                id="class-form-grade"
-                inputMode="numeric"
-                value={numericGrade}
-                onChange={(event) => setNumericGrade(event.target.value)}
-                placeholder={t('classForm.gradePlaceholder')}
+              <DialogHeader>
+                <DialogTitle>{title}</DialogTitle>
+                <DialogDescription>{t('classForm.description')}</DialogDescription>
+              </DialogHeader>
+
+              <FormField
+                control={form.control}
+                name="name"
+                rules={{ validate: (v) => v.trim() !== '' || t('classForm.errorNameRequired') }}
+                render={({ field }) => (
+                  <FormItem>
+                    <Field id="class-form-name" label={t('classForm.nameLabel')} required>
+                      <FormControl>
+                        <Input
+                          id="class-form-name"
+                          placeholder={t('classForm.namePlaceholder')}
+                          {...field}
+                        />
+                      </FormControl>
+                    </Field>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </Field>
 
-            {mode === 'create' && (
-              <Field id="class-form-year" label={t('classForm.academicYearLabel')} required>
-                <Select value={academicYearId} onValueChange={setAcademicYearId}>
-                  <SelectTrigger id="class-form-year">
-                    <SelectValue placeholder={t('classForm.academicYearPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {academicYearsQuery.data?.data.map((year) => (
-                      <SelectItem key={year.id} value={year.id}>
-                        {year.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
+              <FormField
+                control={form.control}
+                name="numericGrade"
+                rules={{
+                  validate: (v) => {
+                    if (v.trim() === '') return true;
+                    const n = Number(toLatinDigits(v.trim()));
+                    return (Number.isInteger(n) && n > 0) || t('classForm.errorGradeInvalid');
+                  },
+                }}
+                render={({ field }) => (
+                  <FormItem>
+                    <Field
+                      id="class-form-grade"
+                      label={t('classForm.gradeLabel')}
+                      helpId="academics.classes.field.grade"
+                    >
+                      <FormControl>
+                        <Input
+                          id="class-form-grade"
+                          inputMode="numeric"
+                          placeholder={t('classForm.gradePlaceholder')}
+                          {...field}
+                        />
+                      </FormControl>
+                    </Field>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {showShift && (
-              <Field
-                id="class-form-shift"
-                label={t('classForm.shiftLabel')}
-                helpId="academics.classes.field.shift"
-              >
-                <Select value={shift} onValueChange={setShift}>
-                  <SelectTrigger id="class-form-shift">
-                    <SelectValue placeholder={t('classForm.shiftPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
-                    {shifts.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
+              {mode === 'create' && (
+                <FormField
+                  control={form.control}
+                  name="academicYearId"
+                  rules={{ required: t('classForm.errorAcademicYearRequired') }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <Field id="class-form-year" label={t('classForm.academicYearLabel')} required>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger id="class-form-year">
+                              <SelectValue placeholder={t('classForm.academicYearPlaceholder')} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {academicYearsQuery.data?.data.map((year) => (
+                              <SelectItem key={year.id} value={year.id}>
+                                {year.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
-            {showVersion && (
-              <Field
-                id="class-form-version"
-                label={t('classForm.versionLabel')}
-                helpId="academics.classes.field.version"
-              >
-                <Select value={version} onValueChange={setVersion}>
-                  <SelectTrigger id="class-form-version">
-                    <SelectValue placeholder={t('classForm.versionPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
-                    {versions.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
+              {showShift && (
+                <Field
+                  id="class-form-shift"
+                  label={t('classForm.shiftLabel')}
+                  helpId="academics.classes.field.shift"
+                >
+                  <Select value={shift} onValueChange={setShift}>
+                    <SelectTrigger id="class-form-shift">
+                      <SelectValue placeholder={t('classForm.shiftPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
+                      {shifts.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
 
-            {validationError && <ErrorText>{validationError}</ErrorText>}
-            {mutation.isError && <ErrorText>{t('classForm.errorMessage')}</ErrorText>}
+              {showVersion && (
+                <Field
+                  id="class-form-version"
+                  label={t('classForm.versionLabel')}
+                  helpId="academics.classes.field.version"
+                >
+                  <Select value={version} onValueChange={setVersion}>
+                    <SelectTrigger id="class-form-version">
+                      <SelectValue placeholder={t('classForm.versionPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
+                      {versions.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={mutation.isPending}
-                onClick={requestClose}
-              >
-                {t('actions.cancel', { ns: 'common' })}
-              </Button>
-              <Button type="submit" loading={mutation.isPending}>
-                {mutation.isPending ? t('classForm.saving') : t('classForm.save')}
-              </Button>
-            </DialogFooter>
-          </form>
+              {mutation.isError && <ErrorText>{t('classForm.errorMessage')}</ErrorText>}
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={mutation.isPending}
+                  onClick={requestClose}
+                >
+                  {t('actions.cancel', { ns: 'common' })}
+                </Button>
+                <Button type="submit" loading={mutation.isPending}>
+                  {mutation.isPending ? t('classForm.saving') : t('classForm.save')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
       {discardDialog}
