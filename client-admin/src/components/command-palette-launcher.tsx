@@ -14,13 +14,9 @@
  * - staff -> nowhere yet. No `/staff/:id` detail page exists (`/staff`
  *   is a list-only route in `nav-tree.ts`) — selecting one just closes
  *   the palette, same as "teacher" did in the old launcher.
- * - payment (receipt) -> also nowhere. The old launcher opened the
- *   paying student's own page here, but `GET /search`'s
- *   `SearchPaymentResult` (`search.dto.ts`) carries `student_name` for
- *   display only, not the student's `id` — there is no FK in the
- *   response to navigate with. A server-side gap, not something this
- *   ticket's territory (`server/`) can fix; selecting a payment result
- *   closes the palette without navigating, like staff.
+ * - payment (receipt) -> the paying student's own page, through the
+ *   `student_id` the search result carries (#886). A payment whose student
+ *   is deleted has none: selecting it just closes the palette, like staff.
  *
  * Action tab: an `ACTIONS` entry is listed (grouped by nav group) only when
  * the signed-in role holds its `permission`. If it declares a `context` the
@@ -436,9 +432,11 @@ export function CommandPaletteLauncher({
         void navigate({ to: '/guardians/$guardianId', params: { guardianId: resultId } });
       } else if (groupId === 'invoices') {
         void navigate({ to: '/invoices/$invoiceId', params: { invoiceId: resultId } });
+      } else if (groupId === 'payments') {
+        const studentId = peopleResults.payments.find((p) => p.id === resultId)?.student_id;
+        if (studentId) void navigate({ to: '/students/$studentId', params: { studentId } });
       }
-      // 'staff' and 'payments' — no destination page/FK exists yet, see
-      // this file's own header comment.
+      // 'staff' — no destination page exists yet, see this file's own header comment.
       return;
     }
     // Listed as a page (portal/platform) or an action (staff); either way it is a sign-out.

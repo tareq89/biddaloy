@@ -3,6 +3,10 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { SubjectService } from './subjects.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { shareLockLive } from '../../common/utils/share-lock-live';
+import { Subject } from './entities/subject.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from './entities/academic-year.entity';
@@ -15,6 +19,7 @@ import { Mark } from '../exams/entities/mark.entity';
 import { ExamKind, ExamComponentKind, MarkStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 
 /**
@@ -39,6 +44,7 @@ describe('SubjectService (integration)', () => {
       ALL_ENTITIES,
       [
         SubjectService,
+        AuditService,
         {
           provide: SchoolSettingsReader,
           useValue: {
@@ -217,6 +223,102 @@ describe('SubjectService (integration)', () => {
         response: { details: { code: 'SUBJECT_IN_USE', exam_components_count: 1 } },
       });
       await expect(service.findOne(subject.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    // [2715] A writer holding the share lock makes the delete wait, then count the new row.
+    it('a delete waits for a component writer holding the subject share lock, then answers 409', async () => {
+      const subject = await service.create({ name_en: 'Physics', code: 'PHY' }, TENANT_ID);
+      let removed: Promise<unknown> | undefined;
+      await dataSource.transaction(async (manager) => {
+        expect(await shareLockLive(manager, Subject, [subject.id], TENANT_ID)).toBe(1);
+        removed = service.remove(subject.id, TENANT_ID).catch((err: unknown) => err);
+        // pg_stat_activity cuts long queries: match the start of the entity's column list.
+        await waitForLockWaiters(dataSource, '%"Subject_id"%', 1);
+        const exam = await manager.save(Exam, {
+          tenant_id: TENANT_ID,
+          academic_year_id: academicYearId,
+          class_id: classId,
+          name: 'Race exam',
+          kind: ExamKind.TERM,
+        });
+        await manager.save(ExamComponent, {
+          tenant_id: TENANT_ID,
+          exam_id: exam.id,
+          subject_id: subject.id,
+          name: 'Written',
+          kind: ExamComponentKind.WRITTEN,
+          full_marks: '100',
+          sequence: 1,
+        });
+      });
+      expect(await removed).toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', exam_components_count: 1 } },
+      });
+    });
+
+    it('writes a Subject audit row with the removed teacher assignments count [#2756]', async () => {
+      const subject = await service.create({ name_en: 'Biology', code: 'BIO' }, TENANT_ID);
+      await service.remove(subject.id, TENANT_ID, null);
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'Subject', entity_id: subject.id, tenant_id: TENANT_ID } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].action).toBe('DELETE');
+      expect(rows[0].old_values).toMatchObject({ code: 'BIO', teacher_assignments_removed: 0 });
+    });
+
+    it('refuses to delete a subject offered in a closed year and keeps the offering [#4045]', async () => {
+      const subject = await service.create({ name_en: 'Geography', code: 'GEO' }, TENANT_ID);
+      await service.attachToClass(
+        classId,
+        { subject_id: subject.id, academic_year_id: academicYearId },
+        TENANT_ID,
+      );
+      await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+        academicYearId,
+      ]);
+      await expect(service.remove(subject.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', closed_year_offerings_count: 1 } },
+      });
+      const [offering] = await dataSource.query(
+        'SELECT deleted_at FROM class_subjects WHERE subject_id = $1',
+        [subject.id],
+      );
+      expect(offering.deleted_at).toBeNull();
+      await expect(service.findOne(subject.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    // The delete share-locks the offerings' years, so a year close holding the row first makes
+    // the delete wait, then see the year closed.
+    it('a delete waits for a year close in flight and then refuses [#4045]', async () => {
+      const subject = await service.create({ name_en: 'History', code: 'HIS' }, TENANT_ID);
+      await service.attachToClass(
+        classId,
+        { subject_id: subject.id, academic_year_id: academicYearId },
+        TENANT_ID,
+      );
+      let removed: Promise<unknown> | undefined;
+      await dataSource.transaction(async (manager) => {
+        await manager.query(`SELECT id FROM academic_years WHERE id = $1 FOR UPDATE`, [
+          academicYearId,
+        ]);
+        removed = service.remove(subject.id, TENANT_ID).catch((err: unknown) => err);
+        await waitForLockWaiters(dataSource, '%academic_years%FOR SHARE%', 1);
+        await manager.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+          academicYearId,
+        ]);
+      });
+      expect(await removed).toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', closed_year_offerings_count: 1 } },
+      });
+    });
+
+    it('a writer that runs after the delete finds no live subject to lock', async () => {
+      const subject = await service.create({ name_en: 'Chemistry', code: 'CHE' }, TENANT_ID);
+      await service.remove(subject.id, TENANT_ID);
+      await dataSource.transaction(async (manager) => {
+        expect(await shareLockLive(manager, Subject, [subject.id], TENANT_ID)).toBe(0);
+      });
     });
 
     it('refuses to delete a subject that has a mark (409 SUBJECT_IN_USE)', async () => {

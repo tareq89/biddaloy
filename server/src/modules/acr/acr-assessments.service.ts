@@ -56,38 +56,45 @@ export class AcrAssessmentsService {
       throw new BadRequestException('User is not a staff member of this school');
     if (!(await this.years.findOne({ where: { id: dto.academic_year_id, tenant_id: tenantId } })))
       throw new BadRequestException('Academic year not found');
-    await assertYearOpen(this.assessments.manager, tenantId, dto.academic_year_id); // [69.3.05] D4
-    const latest = await this.versions.findOne({
-      where: { tenant_id: tenantId },
-      order: { version: 'DESC' },
-    });
-    if (!latest)
-      throw new ConflictException({
-        message: 'No ACR form version exists; save criteria first',
-        details: { code: 'ACR_NO_FORM_VERSION' },
+    // [69.3.05] D4: the guard and the insert share one transaction (#4046).
+    const row = await this.assessments.manager.transaction(async (em) => {
+      await assertYearOpen(em, tenantId, dto.academic_year_id);
+      const latest = await em.getRepository(AcrFormVersion).findOne({
+        where: { tenant_id: tenantId },
+        order: { version: 'DESC' },
       });
-    const dup = await this.assessments.findOne({
-      where: { tenant_id: tenantId, user_id: dto.user_id, academic_year_id: dto.academic_year_id },
-    });
-    if (dup) throw new ConflictException('An ACR already exists for this user and year');
-    let row: AcrAssessment;
-    try {
-      row = await this.assessments.save(
-        this.assessments.create({
+      if (!latest)
+        throw new ConflictException({
+          message: 'No ACR form version exists; save criteria first',
+          details: { code: 'ACR_NO_FORM_VERSION' },
+        });
+      const assessments = em.getRepository(AcrAssessment);
+      const dup = await assessments.findOne({
+        where: {
           tenant_id: tenantId,
           user_id: dto.user_id,
           academic_year_id: dto.academic_year_id,
-          form_version_id: latest.id,
-          status: 'INCOMPLETE',
-          total: null,
-          assessed_by: callerId,
-        }),
-      );
-    } catch (err) {
-      if ((err as { code?: unknown })?.code === '23505')
-        throw new ConflictException('An ACR already exists for this user and year');
-      throw err;
-    }
+        },
+      });
+      if (dup) throw new ConflictException('An ACR already exists for this user and year');
+      try {
+        return await assessments.save(
+          assessments.create({
+            tenant_id: tenantId,
+            user_id: dto.user_id,
+            academic_year_id: dto.academic_year_id,
+            form_version_id: latest.id,
+            status: 'INCOMPLETE',
+            total: null,
+            assessed_by: callerId,
+          }),
+        );
+      } catch (err) {
+        if ((err as { code?: unknown })?.code === '23505')
+          throw new ConflictException('An ACR already exists for this user and year');
+        throw err;
+      }
+    });
     return this.toResponse(row, tenantId);
   }
 

@@ -34,6 +34,7 @@ export const STUDY_PLAN_LIMITS = {
   maxLessons: 400,
   titleMax: 200,
   notesMax: 2000,
+  lessonIdMax: 64,
   periodsMin: 1,
   periodsMax: 20,
   templateNameMax: 200,

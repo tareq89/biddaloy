@@ -112,11 +112,14 @@ export class ClassService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Class> {
-    const organisation = await this.settingsReader.organisationVocabulary(tenantId);
-    assertInVocabulary(dto.shift, organisation.shifts, 'shift');
-    assertInVocabulary(dto.version, organisation.versions, 'version');
-
     return this.repo.manager.transaction(async (manager) => {
+      // Inside the transaction, share-locked: a concurrent vocabulary removal waits (#929).
+      const organisation = await this.settingsReader.organisationVocabularyLocked(
+        tenantId,
+        manager,
+      );
+      assertInVocabulary(dto.shift, organisation.shifts, 'shift');
+      assertInVocabulary(dto.version, organisation.versions, 'version');
       // Share-lock the year: AcademicYearService.remove() holds FOR UPDATE and counts classes, so
       // a class cannot slip in under a year that is being deleted. Tenant-scoped, so another
       // school's year id is a 404 too (the FK alone only checks the id exists).
@@ -273,16 +276,19 @@ export class ClassService {
     // `plainToInstance` sets every declared property key on the instance
     // (`useDefineForClassFields`), so an unsent field is still present as
     // `undefined` rather than absent, and `in` would always be true here.
-    if (dto.shift !== undefined || dto.version !== undefined) {
-      const organisation = await this.settingsReader.organisationVocabulary(tenantId);
-      if (dto.shift !== undefined) assertInVocabulary(dto.shift, organisation.shifts, 'shift');
-      if (dto.version !== undefined)
-        assertInVocabulary(dto.version, organisation.versions, 'version');
-    }
-
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {
       await this.repo.manager.transaction(async (manager) => {
+        if (dto.shift !== undefined || dto.version !== undefined) {
+          // Inside the transaction, share-locked: a concurrent vocabulary removal waits (#929).
+          const organisation = await this.settingsReader.organisationVocabularyLocked(
+            tenantId,
+            manager,
+          );
+          if (dto.shift !== undefined) assertInVocabulary(dto.shift, organisation.shifts, 'shift');
+          if (dto.version !== undefined)
+            assertInVocabulary(dto.version, organisation.versions, 'version');
+        }
         await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
         const repo = manager.getRepository(Class);
         // Diffed against exactly the fields this request changed — see the
@@ -482,10 +488,12 @@ export class SectionService {
       throw new NotFoundException('Class not found');
     }
 
-    const organisation = await this.settingsReader.organisationVocabulary(tenantId);
-    assertInVocabulary(dto.group_name, organisation.groups, 'group');
-
     return this.repo.manager.transaction(async (manager) => {
+      const organisation = await this.settingsReader.organisationVocabularyLocked(
+        tenantId,
+        manager,
+      );
+      assertInVocabulary(dto.group_name, organisation.groups, 'group');
       const repo = manager.getRepository(ClassSection);
       const entity = repo.create({
         class_id: classId,
@@ -582,14 +590,16 @@ export class SectionService {
 
     // `dto.group_name !== undefined`, not `'group_name' in dto` — same
     // reasoning as `ClassService.update` above.
-    if (dto.group_name !== undefined) {
-      const organisation = await this.settingsReader.organisationVocabulary(tenantId);
-      assertInVocabulary(dto.group_name, organisation.groups, 'group');
-    }
-
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {
       await this.repo.manager.transaction(async (manager) => {
+        if (dto.group_name !== undefined) {
+          const organisation = await this.settingsReader.organisationVocabularyLocked(
+            tenantId,
+            manager,
+          );
+          assertInVocabulary(dto.group_name, organisation.groups, 'group');
+        }
         const repo = manager.getRepository(ClassSection);
         const oldValues = Object.fromEntries(
           changedKeys.map((key) => [key, (section as any)[key]]),

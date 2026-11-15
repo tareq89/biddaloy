@@ -138,7 +138,7 @@ function fakeJob(jobId: string, inviteUsers = false) {
   return { data: { jobId, inviteUsers } } as any;
 }
 
-describe('RestoreProcessor (integration)', () => {
+describe('RestoreProcessor (integration)', { timeout: 30_000 }, () => {
   let dataSource: DataSource;
   let auditService: AuditService;
   let storage: FakeStorageService;

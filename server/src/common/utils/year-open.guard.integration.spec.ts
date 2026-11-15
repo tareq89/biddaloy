@@ -5,6 +5,7 @@ import { TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { assertDateNotInClosedYear, assertYearOpen } from './year-open.guard';
 
 // Needs Postgres: the guard is one SQL query, so it is tested against the real table.
@@ -38,6 +39,23 @@ describe('year-open guard', () => {
 
   afterAll(async () => {
     await module.close();
+  });
+
+  it('a year close waits for an attendance-style write holding the date guard [#4067]', async () => {
+    const id = await addYear('race-1', '2033-01-01', '2033-12-31', false);
+    const order: string[] = [];
+    let closing: Promise<void> | undefined;
+    await ds.transaction(async (m) => {
+      await assertDateNotInClosedYear(m, tenantId, '2033-06-01');
+      closing = ds.transaction(async (m2) => {
+        await m2.query(`SELECT id FROM academic_years WHERE id = $1 FOR UPDATE`, [id]);
+        order.push('close');
+      });
+      await waitForLockWaiters(ds, '%academic_years%FOR UPDATE%', 1);
+      order.push('write');
+    });
+    await closing;
+    expect(order).toEqual(['write', 'close']);
   });
 
   it('lets an open year pass', async () => {

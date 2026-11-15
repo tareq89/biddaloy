@@ -256,6 +256,7 @@ describe('Promotion groups E2E (69.4.01)', () => {
       const res = await call('get', `/promotions/${runId}/groups`, UserRole.ADMIN).expect(200);
 
       expect(res.body.total).toBe(2);
+      expect(Array.isArray(res.body.sections)).toBe(true);
       expect(res.body.data[0].result).toEqual({
         gpa: 5,
         subjects: [{ subject_code: subjectCode, marks: 90, grade: 'A' }],
@@ -312,7 +313,7 @@ describe('Promotion groups E2E (69.4.01)', () => {
 
       const res = await call('get', `/promotions/${runId}/groups`, UserRole.TEACHER).expect(200);
 
-      expect(res.body).toEqual({ data: [], total: 0, page: 1, limit: 50 });
+      expect(res.body).toEqual({ data: [], total: 0, page: 1, limit: 50, sections: [] });
     });
 
     it('TEACHER whose homeroom has no entry in the run gets 404', async () => {

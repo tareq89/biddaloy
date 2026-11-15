@@ -84,6 +84,8 @@ function PromotionGroupsPage() {
   const pageRows = query.data?.data;
   const rows = React.useMemo(() => pageRows ?? [], [pageRows]);
   const total = query.data?.total ?? 0;
+  // Every source section of the run (#4056), from the server: not only those on this page.
+  const sections = query.data?.sections ?? [];
   const groups = vocabulary.data?.groups ?? [];
   const noSource = !hasFilter && rows.length > 0 && rows.every((r) => r.result.source === null);
   const subject = filters.subject_code;
@@ -233,6 +235,7 @@ function PromotionGroupsPage() {
         ) : (
           <GroupsFilterBar
             subjects={subjects}
+            sections={sections}
             values={values}
             onChange={changeFilters}
             resultCount={total}

@@ -286,6 +286,8 @@ describe('SearchService', () => {
     });
 
     expect(result.payments?.map((r) => r.id)).toContain(payment.id);
+    // #886: the paying student's id rides along so the palette can open their page.
+    expect(result.payments?.find((r) => r.id === payment.id)?.student_id).toBe(student.id);
   });
 
   it("payments branch: matches the linked student's full name or registration number, not just transaction reference", async () => {
@@ -336,6 +338,7 @@ describe('SearchService', () => {
     const match = result.payments?.find((r) => r.id === payment.id);
     expect(match).toBeDefined();
     expect(match?.student_name).toBeNull();
+    expect(match?.student_id).toBeNull();
 
     // The soft-deleted student's own name must not surface a payment match either.
     const byName = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {

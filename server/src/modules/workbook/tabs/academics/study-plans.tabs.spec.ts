@@ -148,6 +148,7 @@ describe('studyPlansTab', () => {
       '[{"id":"a","title":"x","periods":1},{"id":"a","title":"y","periods":1}]',
       '[{"id":"a","title":"x","periods":21}]',
       `[{"id":"a","title":"${'x'.repeat(201)}","periods":1}]`,
+      `[{"id":"${'i'.repeat(65)}","title":"x","periods":1}]`,
     ]) {
       expect(errorsOf(studyPlansTab, { ...cells, lessons: bad })[0].column).toBe('lessons');
     }

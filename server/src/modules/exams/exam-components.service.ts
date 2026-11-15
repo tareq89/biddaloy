@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { shareLockLive } from '../../common/utils/share-lock-live';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
@@ -201,6 +202,10 @@ export class ExamComponentsService {
 
     return this.repo.manager.transaction(async (manager) => {
       const exam = await this.lockEditableExam(manager, examId, tenantId);
+      // Share-lock the subject (#2715): SubjectsService.remove counts components under FOR UPDATE.
+      if ((await shareLockLive(manager, Subject, [dto.subject_id], tenantId)) !== 1) {
+        throw new BadRequestException('Subject not found for this tenant.');
+      }
       await this.validate(manager, examId, dto.subject_id, tenantId, {
         name: dto.name,
         kind: dto.kind,

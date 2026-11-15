@@ -64,6 +64,16 @@ function sleep(ms: number): Promise<void> {
  * two colons is exact. */
 const PENDING_REF_PATTERN = /^pending:([^:]+):([\s\S]*)$/;
 
+/** A row refers to a row this restore skipped on purpose; the row is skipped with a warning. */
+class RowSkipped extends Error {
+  constructor(
+    readonly refTab: string,
+    readonly refKey: string,
+  ) {
+    super(`waiting for ${refTab} row "${refKey}"`);
+  }
+}
+
 /**
  * Walks a validated row (a plain object of primitives/arrays — never a live
  * entity) and replaces every `pending:<tab>:<key>` placeholder with the real
@@ -78,12 +88,19 @@ const PENDING_REF_PATTERN = /^pending:([^:]+):([\s\S]*)$/;
  * target tab name — no column metadata is needed to know which tab a
  * reference targets.
  */
-function resolvePendingRefs(value: unknown, indexes: Map<string, KeyIndex>): unknown {
+function resolvePendingRefs(
+  value: unknown,
+  indexes: Map<string, KeyIndex>,
+  skipped: ReadonlySet<string>,
+): unknown {
   if (typeof value === 'string') {
     const match = PENDING_REF_PATTERN.exec(value);
     if (!match) return value;
     const [, refTab, key] = match;
     const resolved = indexes.get(refTab)?.get(key);
+    // The target row was skipped on purpose (#2344), e.g. a person who still has to accept the
+    // join request: this row waits too, the rest of the restore carries on.
+    if (resolved === undefined && skipped.has(`${refTab}:${key}`)) throw new RowSkipped(refTab, key);
     if (resolved === undefined) {
       // Failing open here would write the literal placeholder string into a
       // real column (silently, if the column is text/jsonb) — never do that.
@@ -92,12 +109,12 @@ function resolvePendingRefs(value: unknown, indexes: Map<string, KeyIndex>): unk
     return resolved;
   }
   if (Array.isArray(value)) {
-    return value.map((v) => resolvePendingRefs(v, indexes));
+    return value.map((v) => resolvePendingRefs(v, indexes, skipped));
   }
   if (value !== null && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = resolvePendingRefs(v, indexes);
+      out[k] = resolvePendingRefs(v, indexes, skipped);
     }
     return out;
   }
@@ -242,6 +259,8 @@ export class RestoreProcessor extends WorkerHost {
       // a later tab (or a self-reference within the same tab) can resolve a
       // row created earlier in this same restore.
       const indexes = new Map<string, KeyIndex>();
+      // `<tab>:<key>` of rows skipped on purpose (join-requested users and rows that wait on them).
+      const skippedRefs = new Set<string>();
 
       for (const tab of ALL_TABS) {
         if (lockLost) throw new RestoreLockLostError();
@@ -287,7 +306,28 @@ export class RestoreProcessor extends WorkerHost {
             // Replace any `pending:<tab>:<key>` placeholder left by
             // ValidationService with the real id, now that earlier tabs'
             // rows are actually persisted — see `resolvePendingRefs`.
-            const typedRow = resolvePendingRefs(rawRow, indexes) as never;
+            let typedRow: never;
+            try {
+              typedRow = resolvePendingRefs(rawRow, indexes, skippedRefs) as never;
+            } catch (err) {
+              if (!(err instanceof RowSkipped)) throw err;
+              // A person with only a pending join request is not a member yet: skip every row
+              // that refers to them, so one shared person does not fail the whole restore.
+              const skippedKey = tab.keyOf(rawRow as never);
+              skippedRefs.add(`${tab.name}:${skippedKey}`);
+              // The skipped row's existing record is still named in the file, so removal by
+              // absence must not take it (it would be soft-deleted for a row we only skipped).
+              const skippedId: unknown = (rawRow as { id?: unknown }).id;
+              const skippedExisting =
+                (typeof skippedId === 'string' ? existingById.get(skippedId) : undefined) ??
+                existingByKey.get(skippedKey);
+              const skippedExistingId = (skippedExisting as { id?: unknown } | undefined)?.id;
+              if (typeof skippedExistingId === 'string') matchedIds.add(skippedExistingId);
+              this.logger.warn(
+                `RestoreProcessor: restore ${row.id} skipped a "${tab.name}" row (${skippedKey}): ${err.message}`,
+              );
+              continue;
+            }
             const key = tab.keyOf(typedRow);
             const rowId: unknown = (typedRow as { id?: unknown }).id;
             const existing =
@@ -305,7 +345,10 @@ export class RestoreProcessor extends WorkerHost {
             if (!kept) applied += 1;
             // Not a member here yet (a join request was filed): never index it,
             // never invite it. A later tab's ref to it then fails as unresolved.
-            if (joinRequestedUsers.has(entity as User)) continue;
+            if (joinRequestedUsers.has(entity as User)) {
+              skippedRefs.add(`${tab.name}:${key}`);
+              continue;
+            }
             const entityId = (entity as { id: string }).id;
             // Index by the key we already computed from the validated row,
             // not `tab.keyOf(entity)` — several tabs derive their key from
@@ -355,14 +398,22 @@ export class RestoreProcessor extends WorkerHost {
       // fails, `terminate` below releases again, which is a no-op.
       await this.restoreService.release(tenantId, row.id).catch(() => undefined);
       const finishedAt = new Date();
-      await this.dataSource.transaction(async (m) => {
-        await m.getRepository(WorkbookJob).update(row.id, {
-          status: WorkbookJobStatus.DONE,
-          row_counts: rowCounts,
-          finished_at: finishedAt,
-          error: null,
-          failed_tab: null,
-        });
+      const landed = await this.dataSource.transaction(async (m) => {
+        // Only a still-RUNNING job may become DONE (#4091): the owner's lock release may have
+        // failed it meanwhile, and a late DONE must not hide a half-applied restore.
+        const written = await m
+          .getRepository(WorkbookJob)
+          .update(
+            { id: row.id, status: WorkbookJobStatus.RUNNING },
+            {
+              status: WorkbookJobStatus.DONE,
+              row_counts: rowCounts,
+              finished_at: finishedAt,
+              error: null,
+              failed_tab: null,
+            },
+          );
+        if (!written.affected) return false;
         await this.audit.record(
           {
             action: AuditAction.CREATE,
@@ -380,7 +431,12 @@ export class RestoreProcessor extends WorkerHost {
           },
           m,
         );
+        return true;
       });
+      if (!landed) {
+        this.logger.warn(`RestoreProcessor: job ${row.id} left RUNNING before it finished, DONE not written`);
+        return;
+      }
 
       this.safeEmit({
         jobId: row.id,

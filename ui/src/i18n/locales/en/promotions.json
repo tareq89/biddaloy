@@ -191,6 +191,8 @@
       "gpa": "GPA",
       "gpaMin": "GPA from",
       "gpaMax": "GPA up to",
+      "section": "Section",
+      "sectionAll": "All sections",
       "subject": "Subject",
       "subjectAll": "Choose a subject",
       "marksMin": "Marks at least"

@@ -67,6 +67,7 @@ function setup(yearState: { closedAt: Date | null } = { closedAt: null }) {
   const aRepo = fakeRepo(db.assessments, 'a');
   const sRepo = fakeRepo(db.scores, 's');
   const cRepo = fakeRepo(db.criteria, 'cc');
+  const vRepo = fakeRepo(db.versions, 'v');
   // assertYearOpen's one query [69.3.05]
   const query = async () => [{ closed_at: yearState.closedAt }];
   aRepo.manager = {
@@ -75,7 +76,13 @@ function setup(yearState: { closedAt: Date | null } = { closedAt: null }) {
       cb({
         query,
         getRepository: (e: any) =>
-          e.name === 'AcrAssessment' ? aRepo : e.name === 'AcrScore' ? sRepo : cRepo,
+          e.name === 'AcrAssessment'
+            ? aRepo
+            : e.name === 'AcrScore'
+              ? sRepo
+              : e.name === 'AcrFormVersion'
+                ? vRepo
+                : cRepo,
       }),
   };
   const audit = { record: vi.fn() };
@@ -83,7 +90,7 @@ function setup(yearState: { closedAt: Date | null } = { closedAt: null }) {
     aRepo,
     sRepo,
     cRepo,
-    fakeRepo(db.versions, 'v'),
+    vRepo,
     fakeRepo(db.userTenants, 'u'),
     fakeRepo(db.years, 'y'),
     audit as any,

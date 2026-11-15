@@ -119,8 +119,16 @@ export class StudyPlansService {
               AND r.deleted_at IS NULL AND r.state = $5 AND r.academic_year_id = $4
          JOIN teachers t ON t.id = rst.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
         WHERE rst.tenant_id = $1 AND rs.section_id = $2 AND rs.subject_id = $3
-          AND (rs.valid_to IS NULL OR rs.valid_to >= $6)`,
-      [tenantId, sectionId, subjectId, academicYearId, RoutineState.PUBLISHED, year.start_date],
+          AND rs.valid_from <= $7 AND (rs.valid_to IS NULL OR rs.valid_to >= $6)`,
+      [
+        tenantId,
+        sectionId,
+        subjectId,
+        academicYearId,
+        RoutineState.PUBLISHED,
+        year.start_date,
+        year.end_date,
+      ],
     );
     if (routine.length) return routine.map((r) => r.teacher_id);
 
@@ -159,6 +167,19 @@ export class StudyPlansService {
       overrideTeacherId,
     );
     return owners.includes(me);
+  }
+
+  /** `canWrite` for a caller whose plan owners are already known (one lookup, not three). */
+  private async canWriteWithOwners(caller: StudyPlanCaller, ownerIds: string[]): Promise<boolean> {
+    if (
+      hasTenantDataScope(caller.role) &&
+      roleHasPermission(caller.role, Permission.SYLLABUS_MANAGE)
+    ) {
+      return true;
+    }
+    if (caller.role !== UserRole.TEACHER) return false;
+    const me = await this.callerTeacherId(caller);
+    return !!me && ownerIds.includes(me);
   }
 
   async assertCanWrite(
@@ -205,6 +226,87 @@ export class StudyPlansService {
       coordinated.allSubjects ||
       coordinated.subjectIds.includes(plan.subject_id)
     );
+  }
+
+  /**
+   * `canRead` for a teacher over many plans at once: same rules (D6 owner, D9 homeroom, 83.3.1
+   * coordinator), but the owner lookups are two batched queries instead of several per plan.
+   */
+  private async teacherVisiblePlans(
+    caller: StudyPlanCaller,
+    plans: StudyPlan[],
+  ): Promise<StudyPlan[]> {
+    if (caller.role !== UserRole.TEACHER || plans.length === 0) return [];
+    const me = await this.callerTeacherId(caller);
+    if (!me) return [];
+    const tenantId = caller.tenantId;
+    const sectionIds = [...new Set(plans.map((p) => p.section_id))];
+    const subjectIds = [...new Set(plans.map((p) => p.subject_id))];
+    const routine: {
+      section_id: string;
+      subject_id: string;
+      year_id: string;
+      teacher_id: string;
+    }[] = await this.em.query(
+      `SELECT DISTINCT rs.section_id, rs.subject_id, r.academic_year_id AS year_id, rst.teacher_id
+           FROM routine_slot_teachers rst
+           JOIN routine_slots rs ON rs.id = rst.routine_slot_id AND rs.tenant_id = $1
+           JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = $1
+                AND r.deleted_at IS NULL AND r.state = $4
+           JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.tenant_id = $1
+           JOIN teachers t ON t.id = rst.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
+          WHERE rst.tenant_id = $1 AND rs.section_id = ANY($2::uuid[]) AND rs.subject_id = ANY($3::uuid[])
+            AND rs.valid_from <= ay.end_date AND (rs.valid_to IS NULL OR rs.valid_to >= ay.start_date)`,
+      [tenantId, sectionIds, subjectIds, RoutineState.PUBLISHED],
+    );
+    const tcs: { section_id: string; subject_id: string; teacher_id: string }[] =
+      await this.em.query(
+        `SELECT DISTINCT tcs.section_id, tcs.subject_id, tcs.teacher_id
+           FROM teacher_class_sections tcs
+           JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
+          WHERE tcs.tenant_id = $1 AND tcs.section_id = ANY($2::uuid[])
+            AND tcs.subject_id = ANY($3::uuid[]) AND tcs.assignment_type = $4`,
+        [tenantId, sectionIds, subjectIds, TeacherAssignmentType.SUBJECT_TEACHER],
+      );
+    const routineOwners = new Map<string, Set<string>>();
+    for (const r of routine) {
+      const k = `${r.section_id}|${r.subject_id}|${r.year_id}`;
+      (routineOwners.get(k) ?? routineOwners.set(k, new Set()).get(k)!).add(r.teacher_id);
+    }
+    const tcsOwners = new Map<string, Set<string>>();
+    for (const r of tcs) {
+      const k = `${r.section_id}|${r.subject_id}`;
+      (tcsOwners.get(k) ?? tcsOwners.set(k, new Set()).get(k)!).add(r.teacher_id);
+    }
+    const roles = new Map<string, Awaited<ReturnType<TeacherScopeService['rolesInSection']>>>();
+    const out: StudyPlan[] = [];
+    for (const p of plans) {
+      const owners = p.owner_override_teacher_id
+        ? new Set([p.owner_override_teacher_id])
+        : (routineOwners.get(`${p.section_id}|${p.subject_id}|${p.academic_year_id}`) ??
+          tcsOwners.get(`${p.section_id}|${p.subject_id}`));
+      if (owners?.has(me)) {
+        out.push(p);
+        continue;
+      }
+      let r = roles.get(p.section_id);
+      if (!r) {
+        r = await this.teacherScope.rolesInSection({
+          userId: caller.userId,
+          tenantId,
+          sectionId: p.section_id,
+        });
+        roles.set(p.section_id, r);
+      }
+      if (
+        r.homeroom !== null ||
+        r.coordinated.allSubjects ||
+        r.coordinated.subjectIds.includes(p.subject_id)
+      ) {
+        out.push(p);
+      }
+    }
+    return out;
   }
 
   async assertCanRead(caller: StudyPlanCaller, plan: StudyPlan): Promise<void> {
@@ -363,13 +465,7 @@ export class StudyPlansService {
       ...base,
       owners,
       owner_override_teacher_id: plan.owner_override_teacher_id,
-      can_edit: await this.canWrite(
-        caller,
-        plan.section_id,
-        plan.subject_id,
-        plan.academic_year_id,
-        plan.owner_override_teacher_id,
-      ),
+      can_edit: await this.canWriteWithOwners(caller, ownerIds),
       lessons,
       exam_markers,
       ...extra,
@@ -423,14 +519,21 @@ export class StudyPlansService {
         .take(limit)
         .getManyAndCount();
     } else {
-      // ponytail: a teacher's visibility is per-plan (owner / homeroom), so filter
-      // in memory then page; fine for one school's plan count. Move into SQL if a
-      // tenant ever holds thousands of plans.
-      const all = await qb.getMany();
-      const visible: StudyPlan[] = [];
-      for (const p of all) if (await this.canRead(caller, p)) visible.push(p);
+      // A teacher's visibility is per plan (owner / homeroom / coordinator). Load only the
+      // columns that decide it (no lessons jsonb), decide for all of them with a few batched
+      // queries, then fetch the one page of full rows (#2034).
+      const candidates = await qb
+        .select(['p.id', 'p.section_id', 'p.subject_id', 'p.academic_year_id'])
+        .addSelect('p.owner_override_teacher_id')
+        .getMany();
+      const visible = await this.teacherVisiblePlans(caller, candidates);
       total = visible.length;
-      rows = visible.slice((page - 1) * limit, page * limit);
+      const pageIds = visible.slice((page - 1) * limit, page * limit).map((p) => p.id);
+      const full = pageIds.length
+        ? await this.repo.find({ where: { tenant_id: tenantId, id: In(pageIds) } })
+        : [];
+      const byId = new Map(full.map((p) => [p.id, p]));
+      rows = pageIds.map((pid) => byId.get(pid)!).filter(Boolean);
     }
     return {
       data: await this.baseDtos(rows, tenantId),
@@ -522,6 +625,9 @@ export class StudyPlansService {
           'STUDY_PLAN_LESSON_INVALID',
           `Lesson ${i + 1}: notes are at most ${L.notesMax} characters.`,
         );
+      }
+      if (typeof raw.id === 'string' && raw.id.length > L.lessonIdMax) {
+        throw badRequest('STUDY_PLAN_LESSON_INVALID', `Lesson ${i + 1}: lesson id is too long.`);
       }
       const id = raw.id || randomUUID();
       if (seen.has(id)) {
@@ -702,29 +808,80 @@ export class StudyPlansService {
     );
     const section = await this.requireSectionWithClass(tenantId, plan.section_id);
     const next = await this.normalizeLessons(lessons, tenantId, section.class_id, plan.subject_id);
-
-    const keep = new Set(next.map((l) => l.id));
-    const dropped = plan.exam_markers.filter((m) => !keep.has(m.up_to_lesson_id));
-    const markers = plan.exam_markers.filter((m) => keep.has(m.up_to_lesson_id));
+    let dropped: StudyPlanExamMarker[] = [];
 
     const saved = await this.em.transaction(async (manager) => {
       await assertYearOpen(manager, tenantId, plan.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(StudyPlan);
+      // Re-read under a row lock (#2034): two co-owners editing at once queue here instead of
+      // overwriting each other, and the markers are judged against the stored lessons.
+      const locked = await repo.findOne({
+        where: { id: plan.id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Study plan not found.');
+      const kept = await this.keepHiddenTopicLinks(
+        manager,
+        locked,
+        next,
+        tenantId,
+        section.class_id,
+      );
+      const keep = new Set(kept.map((l) => l.id));
+      dropped = locked.exam_markers.filter((m) => !keep.has(m.up_to_lesson_id));
+      const markers = locked.exam_markers.filter((m) => keep.has(m.up_to_lesson_id));
       await repo.update(
         { id: plan.id, tenant_id: tenantId },
-        { lessons: next, exam_markers: markers },
+        { lessons: kept, exam_markers: markers },
       );
       await this.auditWrite(
         AuditAction.UPDATE,
         plan.id,
         caller,
-        { lessons: plan.lessons.length },
-        { lessons: next.length, dropped_markers: dropped.length },
+        { lessons: locked.lessons.length },
+        { lessons: kept.length, dropped_markers: dropped.length },
         manager,
       );
       return repo.findOneByOrFail({ id: plan.id, tenant_id: tenantId });
     });
     return this.detailDto(saved, caller, { dropped_markers: dropped });
+  }
+
+  /**
+   * D32 hides a dead topic link in the response only. A client that sends that response back
+   * has no `topic_id` on the lesson, so keep the stored link when its topic is gone (#2034).
+   * A link to a live topic that the client left out is a real clear and is respected.
+   */
+  private async keepHiddenTopicLinks(
+    manager: EntityManager,
+    stored: StudyPlan,
+    next: StudyPlanLesson[],
+    tenantId: string,
+    classId: string,
+  ): Promise<StudyPlanLesson[]> {
+    const storedTopic = new Map(
+      stored.lessons.filter((l) => l.topic_id).map((l) => [l.id, l.topic_id!]),
+    );
+    const candidates = next.filter((l) => !l.topic_id && storedTopic.has(l.id));
+    if (!candidates.length) return next;
+    const ids = [...new Set(candidates.map((l) => storedTopic.get(l.id)!))];
+    const live = new Set(
+      (
+        await manager.getRepository(SyllabusTopic).find({
+          where: {
+            tenant_id: tenantId,
+            class_id: classId,
+            subject_id: stored.subject_id,
+            id: In(ids),
+          },
+          select: { id: true },
+        })
+      ).map((t) => t.id),
+    );
+    return next.map((l) => {
+      const was = !l.topic_id ? storedTopic.get(l.id) : undefined;
+      return was && !live.has(was) ? { ...l, topic_id: was } : l;
+    });
   }
 
   async setExamMarkers(
@@ -763,25 +920,49 @@ export class StudyPlansService {
         "An exam is not of this plan's class and year.",
       );
     }
-    const lessonIds = new Set(plan.lessons.map((l) => l.id));
-    if (markers.some((m) => !lessonIds.has(m.up_to_lesson_id))) {
-      throw badRequest(
-        'STUDY_PLAN_MARKER_INVALID',
-        'A marker points at a lesson that is not in the plan.',
-      );
-    }
     const clean = markers.map((m) => ({ exam_id: m.exam_id, up_to_lesson_id: m.up_to_lesson_id }));
 
     const saved = await this.em.transaction(async (manager) => {
       await assertYearOpen(manager, tenantId, plan.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(StudyPlan);
-      await repo.update({ id: plan.id, tenant_id: tenantId }, { exam_markers: clean });
+      // Re-read under a row lock (#2034): the lessons a marker points at are the stored ones now,
+      // not the ones read before a co-owner's concurrent lesson edit.
+      const locked = await repo.findOne({
+        where: { id: plan.id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Study plan not found.');
+      const lessonIds = new Set(locked.lessons.map((l) => l.id));
+      if (clean.some((m) => !lessonIds.has(m.up_to_lesson_id))) {
+        throw badRequest(
+          'STUDY_PLAN_MARKER_INVALID',
+          'A marker points at a lesson that is not in the plan.',
+        );
+      }
+      // D32 hides a marker whose exam is gone in the response only, so a client that sends the
+      // response back omits it: keep the stored one (its lesson still exists) (#2034).
+      const sent = new Set(clean.map((m) => m.exam_id));
+      const storedOnly = locked.exam_markers.filter(
+        (m) => !sent.has(m.exam_id) && lessonIds.has(m.up_to_lesson_id),
+      );
+      const liveStored = storedOnly.length
+        ? new Set(
+            (
+              await manager.getRepository(Exam).find({
+                where: { tenant_id: tenantId, id: In(storedOnly.map((m) => m.exam_id)) },
+                select: { id: true },
+              })
+            ).map((e) => e.id),
+          )
+        : new Set<string>();
+      const final = [...clean, ...storedOnly.filter((m) => !liveStored.has(m.exam_id))];
+      await repo.update({ id: plan.id, tenant_id: tenantId }, { exam_markers: final });
       await this.auditWrite(
         AuditAction.UPDATE,
         plan.id,
         caller,
-        { exam_markers: plan.exam_markers.length },
-        { exam_markers: clean.length },
+        { exam_markers: locked.exam_markers.length },
+        { exam_markers: final.length },
         manager,
       );
       return repo.findOneByOrFail({ id: plan.id, tenant_id: tenantId });
@@ -885,11 +1066,26 @@ export class StudyPlansService {
       if (!sameClass) delete copy.topic_id;
       return copy;
     });
-    const exam_markers = sameClass
-      ? src.exam_markers
-          .filter((m) => idMap.has(m.up_to_lesson_id))
-          .map((m) => ({ exam_id: m.exam_id, up_to_lesson_id: idMap.get(m.up_to_lesson_id)! }))
-      : [];
+    // Only markers whose exam still exists for the target's class and year are copied (#2034).
+    const copyable = sameClass ? src.exam_markers.filter((m) => idMap.has(m.up_to_lesson_id)) : [];
+    const liveExams = copyable.length
+      ? new Set(
+          (
+            await this.em.getRepository(Exam).find({
+              where: {
+                tenant_id: tenantId,
+                id: In(copyable.map((m) => m.exam_id)),
+                class_id: target.class_id,
+                academic_year_id: target.year_id,
+              },
+              select: { id: true },
+            })
+          ).map((e) => e.id),
+        )
+      : new Set<string>();
+    const exam_markers = copyable
+      .filter((m) => liveExams.has(m.exam_id))
+      .map((m) => ({ exam_id: m.exam_id, up_to_lesson_id: idMap.get(m.up_to_lesson_id)! }));
 
     const saved = await this.insertPlan(caller, {
       section_id: target.id,

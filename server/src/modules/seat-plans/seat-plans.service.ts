@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { shareLockLive } from '../../common/utils/share-lock-live';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, QueryFailedError, Repository } from 'typeorm';
 import { EMPLOYEE_ROLES, EnrollmentStatus, SeatOrderMode, SeatPlanStatus } from '@biddaloy/shared';
@@ -290,6 +291,10 @@ export class SeatPlansService {
     }
 
     const created = await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Share-lock the rooms (#2715): RoomsService.remove counts allocations under FOR UPDATE.
+      if ((await shareLockLive(manager, Room, roomIds, tenantId)) !== roomIds.length) {
+        throw new NotFoundException('One or more rooms not found');
+      }
       const plan = await manager.save(SeatPlan, {
         tenant_id: tenantId,
         name: dto.name,
@@ -525,7 +530,12 @@ export class SeatPlansService {
     allocation.room_id = dto.room_id;
     allocation.seat_number = dto.seat_number;
     try {
-      return await this.allocationRepo.save(allocation);
+      return await this.dataSource.transaction(async (manager) => {
+        if ((await shareLockLive(manager, Room, [dto.room_id], tenantId)) !== 1) {
+          throw new NotFoundException('Room not found');
+        }
+        return manager.save(SeatAllocation, allocation);
+      });
     } catch (err) {
       // Concurrent request won the race between the check above and this
       // write — the DB's unique index (IDX_seat_allocations_room_seat)

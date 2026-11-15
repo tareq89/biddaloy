@@ -1,4 +1,6 @@
 import { toPaisa } from '../../common/constants/money';
+import { shareLockLive } from '../../common/utils/share-lock-live';
+import { Subject } from '../academics/entities/subject.entity';
 import {
   Injectable,
   NotFoundException,
@@ -254,6 +256,10 @@ export class MarksService {
       });
       if (grid.state === MarkGridState.SUBMITTED) {
         throw marksGridSubmittedForEdit();
+      }
+      // Share-lock the subject (#2715): SubjectsService.remove counts marks under FOR UPDATE.
+      if ((await shareLockLive(manager, Subject, [dto.subject_id], tenantId)) !== 1) {
+        throw new NotFoundException('Subject not found.');
       }
 
       const repo = manager.getRepository(Mark);

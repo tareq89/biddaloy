@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { FinalResult } from '../final-results/entities/final-result.entity';
@@ -1309,6 +1311,48 @@ describe('PromotionsService (integration)', () => {
           .getRepository(StudentLifecycleEvent)
           .count({ where: { student_id: student.id } }),
       ).toBe(1);
+    });
+
+    it('asks the attention engine to re-evaluate groups-pending when a run is created [#4057]', async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+      const seen: Array<{ tenantId: string; ruleKey: string }> = [];
+      const listener = (p: { tenantId: string; ruleKey: string }) => seen.push(p);
+      attentionEvents.on(ATTENTION_RECHECK, listener);
+      try {
+        await service.create(
+          {
+            source_class_id: SOURCE_CLASS_ID,
+            target_academic_year_id: TARGET_YEAR_ID,
+            exam_ids: [examId],
+            algorithm: PlacementAlgorithm.BLOCK,
+          },
+          TENANT_ID,
+          ADMIN_USER_ID,
+        );
+      } finally {
+        attentionEvents.off(ATTENTION_RECHECK, listener);
+      }
+      expect(seen).toContainEqual(
+        expect.objectContaining({ tenantId: TENANT_ID, ruleKey: 'promotion.groups_pending' }),
+      );
+    });
+
+    it('refuses to commit a PROMOTE row on a graduation run and changes no student (#2421)', async () => {
+      const { run, student } = await buildGraduationRun();
+      await entryRepo.update(
+        { run_id: run.id, student_id: student.id },
+        { final_outcome: PromotionOutcome.PROMOTE },
+      );
+
+      const err = await service
+        .commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })
+        .catch((e) => e);
+      expect(err.getResponse?.().details?.code).toBe('MOVE_UP_NOT_FOR_GRADUATION');
+      expect(
+        (await studentRepo.findOneOrFail({ where: { id: student.id } })).enrollment_status,
+      ).toBe(EnrollmentStatus.ACTIVE);
     });
 
     it('refuses create with RETAIN_CLASS_MISSING when a failing student would be retained, and leaves no run row (#2924)', async () => {

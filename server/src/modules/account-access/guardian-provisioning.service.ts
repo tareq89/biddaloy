@@ -50,6 +50,9 @@ export interface InvitationBatchJobData {
  * `communication_logs.metadata.batch_id` / `auth_tokens.metadata.batch_id`
  * — not a `ReminderBatch`-shaped entity — per the plan's corrections.
  */
+// First key of pg_advisory_xact_lock's two-key form; the second is hashtext(job id).
+const INVITE_JOB_LOCK_NAMESPACE = 510_501;
+
 @Injectable()
 export class GuardianProvisioningService {
   constructor(
@@ -286,20 +289,58 @@ export class GuardianProvisioningService {
     let enqueuedInvites = 0;
     try {
       for (const entry of to_invite) {
-        await this.queue.add(
-          'invite-guardian',
-          {
-            tenantId: input.tenantId,
-            guardianId: entry.guardian_id,
-            actorUserId: input.actorUserId,
-            batchId,
-            counted: !entry.join_request,
-          },
-          {
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 5000 },
-          },
-        );
+        // One job per guardian (#501): the job id is the claim. The lookup, the failed-job
+        // removal and the add run under a Postgres advisory lock on that id, so two dispatches
+        // for the same guardian cannot interleave (one removing the other's fresh job, or both
+        // adding). BullMQ's add() returns a job built from what was submitted, so a duplicate can
+        // only be told apart by looking the id up first.
+        // The explicit resend path is a different method and is not affected.
+        const jobId = `invite-guardian-${input.tenantId}-${entry.guardian_id}`;
+        const added = await this.auditLogRepo.manager.transaction(async (m) => {
+          await m.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [
+            INVITE_JOB_LOCK_NAMESPACE,
+            jobId,
+          ]);
+          const existing = await this.queue.getJob(jobId);
+          if (existing) {
+            // A failed job is kept by `removeOnFail`; it must not block a fresh invite.
+            if (!(await existing.isFailed())) return false;
+            await existing.remove();
+          }
+          await this.queue.add(
+            'invite-guardian',
+            {
+              tenantId: input.tenantId,
+              guardianId: entry.guardian_id,
+              actorUserId: input.actorUserId,
+              batchId,
+              counted: !entry.join_request,
+            },
+            {
+              jobId,
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 5000 },
+            },
+          );
+          return true;
+        });
+        if (!added) {
+          // Another request already queued this guardian: nothing is sent for this batch, so
+          // count it as skipped the way the processor does, or the batch would never drain.
+          await this.audit.record({
+            action: AuditAction.UPDATE,
+            entity_type: 'InvitationBatch',
+            entity_id: batchId,
+            tenant_id: input.tenantId,
+            performed_by_user_id: input.actorUserId,
+            new_values: {
+              batch_id: batchId,
+              guardian_id: entry.guardian_id,
+              reason: 'already_pending',
+            },
+          });
+          continue;
+        }
         if (!entry.join_request) enqueuedInvites += 1;
       }
     } catch (err) {

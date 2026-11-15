@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryFailedError } from 'typeorm';
 import { RestoreProcessor } from './restore.processor';
 import { ALL_TABS } from '../codec/registry';
+import { User } from '../../users/entities/user.entity';
+import { joinRequestedUsers } from '../tabs/people/users.tab';
 import { WorkbookFormatError } from '../codec/workbook-codec';
 import { WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
 
@@ -74,8 +76,13 @@ describe('RestoreProcessor', () => {
         if (id === snapshotRow.id) return snapshotRow;
         return null;
       }),
-      update: vi.fn(async (id: string, patch: any) => {
+      update: vi.fn(async (idOrWhere: any, patch: any) => {
+        const id = typeof idOrWhere === 'string' ? idOrWhere : idOrWhere.id;
+        if (typeof idOrWhere === 'object' && idOrWhere.status && jobRow.status !== idOrWhere.status) {
+          return { affected: 0 };
+        }
         if (id === jobRow.id) Object.assign(jobRow, patch);
+        return { affected: id === jobRow.id ? 1 : 0 };
       }),
     };
 
@@ -162,6 +169,19 @@ describe('RestoreProcessor', () => {
 
       expect(statusAtRelease).toBe(WorkbookJobStatus.RUNNING);
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
+    // #4091: the owner released (FAILED) the job while the worker was still applying tabs.
+    it('does not overwrite an owner-released job with DONE, and writes no completion audit', async () => {
+      validationService.validate.mockResolvedValue(makeValidatedWorkbook({}));
+      restoreService.release.mockImplementation(async () => {
+        jobRow.status = WorkbookJobStatus.FAILED;
+      });
+
+      await run();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('fails the restore with SNAPSHOT_FAILED when the snapshot job is FAILED, without touching any tab', async () => {
@@ -367,6 +387,91 @@ describe('RestoreProcessor', () => {
 
       expect(classEntity.academic_year_id).toBe('year-real-id');
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+  });
+
+  describe('rows that refer to a person with only a pending join request [#2344]', () => {
+    it('skips the dependent row with a warning and still finishes DONE', async () => {
+      const usersTab = ALL_TABS.find((t) => t.name === 'users')!;
+      const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
+      const stranger = new User();
+      stranger.id = 'user-stranger';
+      joinRequestedUsers.add(stranger);
+
+      vi.spyOn(usersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(usersTab, 'keyOf').mockReturnValue('teacher@x.example');
+      vi.spyOn(usersTab, 'upsert').mockResolvedValue(stranger as any);
+      vi.spyOn(usersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      vi.spyOn(teachersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(teachersTab, 'keyOf').mockReturnValue('T-7');
+      const teacherUpsert = vi.spyOn(teachersTab, 'upsert').mockResolvedValue({ id: 't-1' } as any);
+      vi.spyOn(teachersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({
+          users: [{ email: 'teacher@x.example' }],
+          teachers: [{ employee_id: 'T-7', user_id: 'pending:users:teacher@x.example' }],
+        }),
+      );
+
+      await run();
+
+      expect(teacherUpsert).not.toHaveBeenCalled();
+      expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
+    it('does not remove an existing row it skipped, even with deleteByAbsence on', async () => {
+      const usersTab = ALL_TABS.find((t) => t.name === 'users')!;
+      const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
+      const stranger = new User();
+      stranger.id = 'user-stranger';
+      joinRequestedUsers.add(stranger);
+      const existingTeacher = { id: 'teacher-existing' };
+
+      vi.spyOn(usersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(usersTab, 'keyOf').mockReturnValue('teacher@x.example');
+      vi.spyOn(usersTab, 'upsert').mockResolvedValue(stranger as any);
+      vi.spyOn(usersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      vi.spyOn(teachersTab, 'load').mockResolvedValue([existingTeacher] as any);
+      vi.spyOn(teachersTab, 'keyOf').mockReturnValue('T-7');
+      const teacherUpsert = vi.spyOn(teachersTab, 'upsert');
+      vi.spyOn(teachersTab, 'deleteByAbsence', 'get').mockReturnValue(true);
+      const teacherRemove = vi.spyOn(teachersTab, 'remove').mockResolvedValue(undefined);
+
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({
+          users: [{ email: 'teacher@x.example' }],
+          teachers: [
+            {
+              id: 'teacher-existing',
+              employee_id: 'T-7',
+              user_id: 'pending:users:teacher@x.example',
+            },
+          ],
+        }),
+      );
+
+      await run();
+
+      expect(teacherUpsert).not.toHaveBeenCalled();
+      expect(teacherRemove).not.toHaveBeenCalled();
+      expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
+    it('still fails on a reference that is unresolved for any other reason', async () => {
+      const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
+      vi.spyOn(teachersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(teachersTab, 'keyOf').mockReturnValue('T-7');
+      vi.spyOn(teachersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({
+          teachers: [{ employee_id: 'T-7', user_id: 'pending:users:nobody@x.example' }],
+        }),
+      );
+
+      await run();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
     });
   });
 

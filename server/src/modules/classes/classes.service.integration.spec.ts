@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { Repository, DataSource, QueryFailedError } from 'typeorm';
+import { Repository, DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { ClassService, SectionService } from './classes.service';
 import { Class } from '../academics/entities/class.entity';
@@ -14,6 +14,7 @@ import { User } from '../users/entities/user.entity';
 import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import {
   EnrollmentStatus,
@@ -68,6 +69,17 @@ describe('ClassService / SectionService (integration)', () => {
           provide: SchoolSettingsReader,
           useValue: {
             organisationVocabulary: async () => FAKE_ORGANISATION_VOCABULARY,
+            // Same lock as the real reader (#929); the stored organisation, when set, wins.
+            organisationVocabularyLocked: async (tenantId: string, manager: EntityManager) => {
+              const school = await manager.findOneOrFail(School, {
+                where: { id: tenantId },
+                lock: { mode: 'pessimistic_read' },
+              });
+              return (
+                (school.settings as { organisation?: typeof FAKE_ORGANISATION_VOCABULARY })
+                  ?.organisation ?? FAKE_ORGANISATION_VOCABULARY
+              );
+            },
           },
         },
       ],
@@ -291,6 +303,45 @@ describe('ClassService / SectionService (integration)', () => {
 
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
+    });
+  });
+
+  describe('vocabulary guard races with a removal [#929]', () => {
+    it('create waits for a removal holding the school row, then rejects the removed shift', async () => {
+      const year = await createYear();
+      const schoolRepo = dataSource.getRepository(School);
+      const school = await schoolRepo.findOneByOrFail({ id: TENANT_ID });
+      let created: Promise<unknown> | undefined;
+
+      await dataSource.transaction(async (manager) => {
+        // The guard of SchoolsService.updateSettings: the school row is held FOR UPDATE.
+        await manager.findOneOrFail(School, {
+          where: { id: TENANT_ID },
+          lock: { mode: 'pessimistic_write' },
+        });
+        created = classService
+          .create(
+            { name: 'Late', academic_year_id: year.id, shift: 'Morning' } as any,
+            TENANT_ID,
+          )
+          .catch((err: unknown) => err);
+        // pg_stat_activity cuts long queries: match the start of the entity's column list.
+        await waitForLockWaiters(dataSource, '%"School_id"%', 1);
+        await manager.update(
+          School,
+          { id: TENANT_ID },
+          {
+            settings: {
+              ...(school.settings ?? {}),
+              organisation: { ...FAKE_ORGANISATION_VOCABULARY, shifts: ['Day'] },
+            },
+          },
+        );
+      });
+
+      expect(await created).toBeInstanceOf(BadRequestException);
+      expect(await classRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+      await schoolRepo.update({ id: TENANT_ID }, { settings: school.settings });
     });
   });
 

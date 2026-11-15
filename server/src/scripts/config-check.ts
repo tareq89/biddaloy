@@ -110,6 +110,8 @@ export function composeAppEnv(env: Record<string, unknown>): Record<string, unkn
     S3_BUCKET: str('S3_BUCKET') || 'biddaloy',
     SENTRY_TRACES_SAMPLE_RATE: str('SENTRY_TRACES_SAMPLE_RATE') || '0.1',
     DB_SSL: 'true',
+    // The edge serves /api on the app host, so stack.yml defaults it to APP_BASE_URL (#2459).
+    API_BASE_URL: str('API_BASE_URL') || str('APP_BASE_URL'),
     // Same mapping as the x-app block of deploy/stack.yml.
     SITE_ROOT_DOMAIN: str('ROOT_DOMAIN'),
     // After ...env: compose builds it, a DATABASE_URL in the host file is never used.

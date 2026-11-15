@@ -52,9 +52,8 @@ async function buildClassService(vocabulary: { shifts: string[]; versions: strin
   // `create` share-locks the academic year through the same stubbed repo: the year exists.
   classRepo.findOne = vi.fn(async () => ({ id: 'y1' }));
   const auditService = { record: vi.fn(async () => undefined) };
-  const settingsReader = {
-    organisationVocabulary: vi.fn(async () => ({ groups: [], ...vocabulary })),
-  };
+  const vocab = vi.fn(async () => ({ groups: [], ...vocabulary }));
+  const settingsReader = { organisationVocabulary: vocab, organisationVocabularyLocked: vocab };
 
   const moduleRef = await Test.createTestingModule({
     providers: [
@@ -76,9 +75,8 @@ async function buildSectionService(vocabulary: { groups: string[] }, existingSec
   sectionRepo.findOne = vi.fn(async () => existingSection);
   const classRepo = { findOne: vi.fn(async () => ({ id: 'class-1' })) };
   const auditService = { record: vi.fn(async () => undefined) };
-  const settingsReader = {
-    organisationVocabulary: vi.fn(async () => ({ shifts: [], versions: [], ...vocabulary })),
-  };
+  const vocab = vi.fn(async () => ({ shifts: [], versions: [], ...vocabulary }));
+  const settingsReader = { organisationVocabulary: vocab, organisationVocabularyLocked: vocab };
 
   const moduleRef = await Test.createTestingModule({
     providers: [

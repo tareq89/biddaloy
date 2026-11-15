@@ -26,6 +26,9 @@ describe('DeviceAbsentSweepScheduler', () => {
   let sweepSection: ReturnType<typeof vi.fn>;
 
   let closedYears: unknown[] = [];
+  // what the lock-taking re-check inside the section transaction sees
+  let txClosedYears: unknown[] = [];
+  let txManager: any;
 
   function build(s: any, scans = 1) {
     queue = { upsertJobScheduler: vi.fn(async () => undefined) };
@@ -35,7 +38,10 @@ describe('DeviceAbsentSweepScheduler', () => {
         .fn()
         .mockResolvedValueOnce(scans ? [{ '?column?': 1 }] : [])
         .mockResolvedValueOnce([{ id: 'sec-1', class_id: 'c-1', shift_id: null }]),
-      transaction: vi.fn(async (fn: any) => fn({})),
+      transaction: vi.fn(async (fn: any) => {
+        txManager = { query: vi.fn(async () => txClosedYears) };
+        return fn(txManager);
+      }),
       // closed-year lookup (assertDateNotInClosedYear): no closed year by default
       manager: { query: vi.fn(async () => closedYears) },
     };
@@ -60,6 +66,7 @@ describe('DeviceAbsentSweepScheduler', () => {
 
   beforeEach(() => {
     closedYears = [];
+    txClosedYears = [];
     build(settings(DailyAttendanceSource.DEVICE));
   });
 
@@ -85,11 +92,26 @@ describe('DeviceAbsentSweepScheduler', () => {
   });
 
   it('sweeps nothing when today is inside a closed year (D12)', async () => {
-    closedYears = [{ id: 'closed-year' }];
+    closedYears = [{ closed_at: new Date() }];
     build(settings(DailyAttendanceSource.DEVICE));
     expect(await scheduler.sweepTenant('t-1')).toBe(0);
     expect(sweepSection).not.toHaveBeenCalled();
     expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('re-checks the closed year inside the section transaction and skips only that section (#4067)', async () => {
+    txClosedYears = [{ closed_at: new Date() }];
+    expect(await scheduler.sweepTenant('t-1')).toBe(0);
+    expect(txManager.query).toHaveBeenCalledWith(expect.stringContaining('FOR SHARE'), [
+      't-1',
+      expect.any(String),
+    ]);
+    expect(sweepSection).not.toHaveBeenCalled();
+  });
+
+  it('sweeps the section when the in-transaction re-check finds no closed year', async () => {
+    expect(await scheduler.sweepTenant('t-1')).toBe(2);
+    expect(sweepSection).toHaveBeenCalledWith(txManager, 't-1', 'sec-1', expect.any(String));
   });
 
   it('skips the school when no device scan arrived today', async () => {

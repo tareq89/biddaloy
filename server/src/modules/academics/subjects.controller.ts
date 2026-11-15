@@ -10,7 +10,11 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Inject,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { requestContext } from '../../common/request-context.util';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -26,7 +30,7 @@ import {
   AttachClassSubjectDto,
   UpdateClassSubjectDto,
 } from './dto/subjects.dto';
-import { Permission } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('subjects')
 @ApiTenantAuth()
@@ -81,8 +85,10 @@ export class SubjectController {
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.service.remove(id, tenant.id);
+    return this.service.remove(id, tenant.id, user.sub, requestContext(request));
   }
 }
 

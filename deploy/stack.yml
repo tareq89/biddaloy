@@ -59,6 +59,9 @@ x-app: &app
     APP_BASE_URL: ${APP_BASE_URL:-}
     # Public https origin of invoice share links (`/i/<token>`). Required in production.
     PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+    # Public https origin of this API; calendar feed links are built from it. The edge serves /api on
+    # the app host, so it defaults to APP_BASE_URL. Required in production.
+    API_BASE_URL: ${API_BASE_URL:-${APP_BASE_URL:-}}
     # Opt-in token for /api/health/ready (12-operations.md); unset = that route 404s.
     HEALTH_TOKEN: ${HEALTH_TOKEN:-}
     SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}

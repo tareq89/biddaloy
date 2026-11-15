@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('../../common/utils/share-lock-live', () => ({
+  shareLockLive: vi.fn(async (_m: unknown, _e: unknown, ids: string[]) => ids.length),
+}));
 import {
   BadRequestException,
   ConflictException,

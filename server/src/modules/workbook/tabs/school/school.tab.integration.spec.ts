@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { TestingModule } from '@nestjs/testing';
 import { School } from '../../../schools/entities/school.entity';
@@ -15,6 +15,14 @@ import { schoolTab, type SchoolRow } from './school.tab';
  * one tenant's row and leaves every other tenant's alone. That needs a real
  * table with more than one school in it.
  */
+// `upsert` locks the school row, so it must run in a transaction like the restore processor's per-tab one.
+const upsertInTxn = (
+  row: Parameters<typeof schoolTab.upsert>[0],
+  existing: Parameters<typeof schoolTab.upsert>[1],
+  tenantId: string,
+  outer: EntityManager,
+) => outer.transaction((m) => schoolTab.upsert(row, existing, tenantId, m));
+
 describe('schoolTab (integration)', () => {
   let module: TestingModule;
   let dataSource: DataSource;
@@ -84,14 +92,14 @@ describe('schoolTab (integration)', () => {
   it('updates only the addressed tenant and leaves the other unchanged', async () => {
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 
-    await schoolTab.upsert(rowFor(), existing, TENANT_A, dataSource.manager);
+    await upsertInTxn(rowFor(), existing, TENANT_A, dataSource.manager);
 
     expect((await schoolRepo.findOneByOrFail({ id: TENANT_A })).registration_id).toBe('REG-A-999');
     expect((await schoolRepo.findOneByOrFail({ id: TENANT_B })).registration_id).toBeNull();
   });
 
   it('resolves the destination school from the tenant id when none is passed', async () => {
-    await schoolTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+    await upsertInTxn(rowFor(), null, TENANT_A, dataSource.manager);
 
     expect((await schoolRepo.findOneByOrFail({ id: TENANT_A })).registration_id).toBe('REG-A-999');
     expect((await schoolRepo.findOneByOrFail({ id: TENANT_B })).registration_id).toBeNull();
@@ -104,7 +112,7 @@ describe('schoolTab (integration)', () => {
   // provisioned from a template) silently renaming its destination would be
   // exactly that mistake.
   it("never renames the destination school, even though the row carries the source's name", async () => {
-    await schoolTab.upsert(
+    await upsertInTxn(
       rowFor({ name: 'Tenant A Renamed' }),
       null,
       TENANT_B,
@@ -131,7 +139,7 @@ describe('schoolTab (integration)', () => {
     );
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 
-    await schoolTab.upsert(
+    await upsertInTxn(
       rowFor({
         settings: {
           region: { timezone: 'Asia/Kolkata' },
@@ -148,6 +156,31 @@ describe('schoolTab (integration)', () => {
     expect(updated.settings?.region?.timezone).toBe('Asia/Kolkata');
   });
 
+  // #4087: the `existing` entity was loaded before the change; the upsert must re-read, not save it back.
+  it('a supportAccess change made after the restore read the school survives the save [#4087]', async () => {
+    const stale = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+    const changed = {
+      mode: 'ask',
+      confirmedAt: '2026-03-03T00:00:00.000Z',
+      confirmedBy: null,
+      textVersion: 1,
+    };
+    await schoolRepo.update(
+      { id: TENANT_A },
+      { settings: { ...stale.settings, supportAccess: changed } },
+    );
+
+    await upsertInTxn(
+      rowFor({ settings: { region: { timezone: 'Asia/Kolkata' } } }),
+      stale,
+      TENANT_A,
+      dataSource.manager,
+    );
+
+    const updated = await schoolRepo.findOneByOrFail({ id: TENANT_A });
+    expect(updated.settings?.supportAccess).toEqual(changed);
+  });
+
   it('round-trips settings.modules and settings.labels exactly [77.1.09]', async () => {
     const modules = { fines: { on: false }, homework: { offForRoles: ['TEACHER'] } };
     const labels = { section: { en: { one: 'Batch', other: 'Batches' }, bn: 'ব্যাচ' } };
@@ -159,7 +192,7 @@ describe('schoolTab (integration)', () => {
     const exported = schoolTab.toRow(source, {} as never);
 
     const destination = await schoolRepo.findOneByOrFail({ id: TENANT_B });
-    await schoolTab.upsert(
+    await upsertInTxn(
       rowFor({ id: TENANT_B, settings: exported.settings as Record<string, unknown> }),
       destination,
       TENANT_B,
@@ -174,7 +207,7 @@ describe('schoolTab (integration)', () => {
   it('keeps the stored secret when the imported settings do not mention it', async () => {
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 
-    await schoolTab.upsert(
+    await upsertInTxn(
       rowFor({ settings: { region: { timezone: 'Asia/Kolkata' } } }),
       existing,
       TENANT_A,
@@ -193,7 +226,7 @@ describe('schoolTab (integration)', () => {
   it('does not let an imported secret value overwrite the stored one', async () => {
     const existing = await schoolRepo.findOneByOrFail({ id: TENANT_A });
 
-    await schoolTab.upsert(
+    await upsertInTxn(
       rowFor({
         settings: {
           communications: { sms: { provider: 'mimsms', mimsms: { apiKey: 'attacker-supplied' } } },

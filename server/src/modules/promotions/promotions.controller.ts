@@ -17,7 +17,7 @@ import {
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -36,6 +36,7 @@ import {
   SetPromotionGroupsDto,
 } from './dto/promotions.dto';
 import { PromotionGroupsService } from './promotion-groups.service';
+import { PromotionGroupEntriesPageDto } from './dto/promotion-groups-response.dto';
 import { Permission, JwtPayload, ModuleKey } from '@biddaloy/shared';
 import { RequiresModule } from '../auth/decorators/require-module.decorator';
 
@@ -117,6 +118,7 @@ export class PromotionsController {
   // sees and sets entries of their homeroom sections (PromotionGroupsService, Rule 2).
   @Get('promotions/:id/groups')
   @RequirePermissions(Permission.PROMOTION_GROUP_SET)
+  @ApiOkResponse({ type: PromotionGroupEntriesPageDto })
   listGroups(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query() query: ListPromotionGroupsQueryDto,

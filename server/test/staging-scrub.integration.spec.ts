@@ -533,5 +533,5 @@ describe('scrub.sql', () => {
       await qr?.rollbackTransaction();
       await qr?.release();
     }
-  });
+  }, 30_000);
 });

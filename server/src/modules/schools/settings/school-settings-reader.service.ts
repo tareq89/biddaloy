@@ -10,10 +10,11 @@ import type {
   SupportAccessSettings,
 } from '@biddaloy/shared';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { SchoolsService } from '../schools.service';
 import { School } from '../entities/school.entity';
 import { readSupportAccess } from './support-access-settings';
+import { resolveTenantSettings } from './tenant-settings-resolver';
 
 /**
  * Narrow, read-only entry point onto a tenant's resolved settings for
@@ -80,6 +81,23 @@ export class SchoolSettingsReader {
     // `feesApprovalMode` above (the resolver fills it from
     // `DEFAULT_ORGANISATION_SETTINGS`).
     return settings.organisation!;
+  }
+
+  /**
+   * [#929] The vocabulary read inside the caller's transaction, share-locking the school row.
+   * `SchoolsService.updateSettings` holds that row `FOR UPDATE` while it counts usage and removes a
+   * value, so a class write validating through this cannot pass against a value being removed.
+   * Reads the row, not the 30 s per-process settings cache, so a second replica sees it at once.
+   */
+  async organisationVocabularyLocked(
+    tenantId: string,
+    manager: EntityManager,
+  ): Promise<OrganisationSettings> {
+    const school = await manager.findOneOrFail(School, {
+      where: { id: tenantId },
+      lock: { mode: 'pessimistic_read' },
+    });
+    return resolveTenantSettings(school.settings).organisation!;
   }
 
   /** [21.3.1] The tenant's `settings.routine` — scheduling constraints

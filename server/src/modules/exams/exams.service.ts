@@ -4,6 +4,8 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { shareLockLive } from '../../common/utils/share-lock-live';
+import { Subject } from '../academics/entities/subject.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, QueryFailedError, EntityManager } from 'typeorm';
 import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
@@ -205,6 +207,11 @@ export class ExamsService {
       .andWhere('cs.academic_year_id = :yearId', { yearId: exam.academic_year_id })
       .andWhere('cs.deleted_at IS NULL')
       .getMany();
+    // Share-lock the subjects the copy points at (#2715), as the single-component create does.
+    const subjectIds = [...new Set(offered.map((cs) => cs.subject_id))];
+    if ((await shareLockLive(manager, Subject, subjectIds, tenantId)) !== subjectIds.length) {
+      throw new BadRequestException('A subject of this class was just removed. Try again.');
+    }
     const subjectIdByCode = new Map(offered.map((cs) => [cs.subject.code, cs.subject_id]));
 
     const rows = await this.templatesService.componentsFor(

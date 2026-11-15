@@ -15,6 +15,7 @@ const prodConfig = {
   SETTINGS_ENCRYPTION_KEY: 'Fh3Jd9Kc2Vb7Nx5Mz1Qw8Er4Ty6Ui0OpLk3Ase=',
   APP_BASE_URL: 'https://app.school.org',
   PUBLIC_APP_URL: 'https://app.school.org',
+  API_BASE_URL: 'https://api.school.org',
   CORS_ORIGINS: 'https://app.school.org,https://admin.school.org',
   S3_ACCESS_KEY_ID: 'AKIA7QW3ER9TY2UI',
   S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
@@ -246,6 +247,20 @@ describe('assertProductionConfig (via validate)', () => {
     expect(() => validate(rest)).toThrow(
       /SETTINGS_ENCRYPTION_KEY[\s\S]*APP_BASE_URL[\s\S]*PUBLIC_APP_URL/,
     );
+  });
+
+  it('rejects a missing API_BASE_URL in production (calendar feed links, #2459)', () => {
+    const { API_BASE_URL: _a, ...rest } = prodConfig;
+    expect(() => validate(rest)).toThrow(/API_BASE_URL is required in production/);
+  });
+
+  it('rejects an API_BASE_URL that is not a bare https origin', () => {
+    for (const bad of ['http://api.school.org', 'api.school.org', 'https://api.school.org/']) {
+      expect(() => validate({ ...prodConfig, API_BASE_URL: bad })).toThrow(
+        /API_BASE_URL must be an https origin/,
+      );
+    }
+    expect(() => validate({ ...prodConfig, API_BASE_URL: 'https://api.school.org' })).not.toThrow();
   });
 
   it('rejects a CORS_ORIGINS entry with a trailing slash', () => {
