@@ -110,6 +110,7 @@ describe('PaymentReversalService (integration)', () => {
   let service: PaymentReversalService;
   let checkoutService: CheckoutService;
   let walletService: WalletService;
+  let auditSvc: AuditService;
   let redis: Redis;
   let studentRepo: Repository<Student>;
   let studentFeeRepo: Repository<StudentFee>;
@@ -184,6 +185,7 @@ describe('PaymentReversalService (integration)', () => {
     service = module.get<PaymentReversalService>(PaymentReversalService);
     checkoutService = module.get<CheckoutService>(CheckoutService);
     walletService = module.get<WalletService>(WalletService);
+    auditSvc = module.get<AuditService>(AuditService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
@@ -251,6 +253,7 @@ describe('PaymentReversalService (integration)', () => {
   beforeEach(async () => {
     settings = {};
     await dataSource.query('DELETE FROM user_tenants');
+    await dataSource.query('DELETE FROM payment_submissions');
     await dataSource.query('DELETE FROM audit_logs');
     await dataSource.query('DELETE FROM wallet_transactions');
     await dataSource.query('DELETE FROM student_wallets');
@@ -515,6 +518,55 @@ describe('PaymentReversalService (integration)', () => {
     expect(seen).toEqual([
       { paymentId: payment.id, tenantId: TENANT_ID, actorUserId: ACTOR_USER_ID, reason: 'wrong' },
     ]);
+  });
+
+  it('a failed submission sync rolls the whole reversal back (payment and proof stay consistent)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 400 }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111179',
+        lines: [{ student_fee_id: bill.id, amount: 400, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    const [sub] = await dataSource.query(
+      `INSERT INTO payment_submissions
+         (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on,
+          reference_raw, reference_normalised)
+       VALUES ($1,'PROOF','CONFIRMED',$2,'BKASH',400,'2026-11-01','trx 1','TRX1') RETURNING id`,
+      [TENANT_ID, ACTOR_USER_ID],
+    );
+    await dataSource.query(
+      `INSERT INTO payment_submission_bills
+         (tenant_id, submission_id, student_fee_id, student_id, amount_at_start, payment_id)
+       VALUES ($1,$2,$3,$4,400,$5)`,
+      [TENANT_ID, sub.id, bill.id, student.id, payment.id],
+    );
+    const realRecord = auditSvc.record.bind(auditSvc);
+    const spy = vi.spyOn(auditSvc, 'record').mockImplementation(async (entry, manager) => {
+      if (entry.entity_type === 'PaymentSubmission') throw new Error('audit down');
+      return realRecord(entry, manager);
+    });
+    try {
+      await expect(
+        service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong'),
+      ).rejects.toThrow('audit down');
+    } finally {
+      spy.mockRestore();
+    }
+    const [paid] = await dataSource.query(`SELECT reversed_by_payment_id FROM payments WHERE id = $1`, [
+      payment.id,
+    ]);
+    const [after] = await dataSource.query(`SELECT status FROM payment_submissions WHERE id = $1`, [
+      sub.id,
+    ]);
+    expect(paid.reversed_by_payment_id).toBeNull();
+    expect(after.status).toBe('CONFIRMED');
+    expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(1);
   });
 
   it('a committed reversal rechecks the fee alerts', async () => {

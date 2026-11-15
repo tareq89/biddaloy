@@ -21,20 +21,33 @@ function build(row: Record<string, unknown> | undefined, locale = 'en-US') {
 describe('PaymentSubmissionNotificationsListener', () => {
   beforeEach(() => paymentSubmissionEvents.removeAllListeners());
 
-  it.each(['SUBMITTED', 'CONFIRMED', 'REJECTED', 'DISCARDED'] as const)(
-    '%s sends exactly one push, to the submitting guardian only',
-    async (kind) => {
-      const { listener, sendToUser } = build({
-        submitted_by_user_id: 'guardian-1',
-        source: 'PROOF',
-        reject_reason: null,
-      });
-      await listener.handle(kind, event);
-      expect(sendToUser).toHaveBeenCalledTimes(1);
-      // Recipient is the submitter, never the staff actor.
-      expect(sendToUser.mock.calls[0].slice(0, 2)).toEqual(['guardian-1', 't1']);
-    },
-  );
+  async function expectOnePushToSubmitter(kind: 'SUBMITTED' | 'CONFIRMED' | 'REJECTED' | 'DISCARDED') {
+    const { listener, sendToUser } = build({
+      submitted_by_user_id: 'guardian-1',
+      source: 'PROOF',
+      reject_reason: null,
+    });
+    await listener.handle(kind, event);
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+    // Recipient is the submitter, never the staff actor.
+    expect(sendToUser.mock.calls[0].slice(0, 2)).toEqual(['guardian-1', 't1']);
+  }
+
+  it('SUBMITTED sends exactly one push, to the submitting guardian only', async () => {
+    await expectOnePushToSubmitter('SUBMITTED');
+  });
+
+  it('CONFIRMED sends exactly one push, to the submitting guardian only', async () => {
+    await expectOnePushToSubmitter('CONFIRMED');
+  });
+
+  it('REJECTED sends exactly one push, to the submitting guardian only', async () => {
+    await expectOnePushToSubmitter('REJECTED');
+  });
+
+  it('DISCARDED sends exactly one push, to the submitting guardian only', async () => {
+    await expectOnePushToSubmitter('DISCARDED');
+  });
 
   it('reject push carries the reason label, not a free-text note', async () => {
     const { listener, sendToUser } = build({

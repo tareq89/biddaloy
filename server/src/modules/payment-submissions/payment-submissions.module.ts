@@ -9,7 +9,6 @@ import { PaymentSubmission } from './entities/payment-submission.entity';
 import { PaymentSubmissionBill } from './entities/payment-submission-bill.entity';
 import { PaymentSubmissionFile } from './entities/payment-submission-file.entity';
 import { PaymentSubmissionEvent } from './entities/payment-submission-event.entity';
-import { PaymentReversalListener } from './payment-reversal.listener';
 import { ProofReviewController } from './proof-review.controller';
 import { ProofReviewService } from './proof-review.service';
 import { ProofSubmissionsController } from './proof-submissions.controller';
@@ -33,7 +32,7 @@ const ENTITIES = [
     StudentModule,
   ],
   controllers: [ProofSubmissionsController, ProofReviewController],
-  providers: [ProofSubmissionsService, ProofReviewService, PaymentReversalListener],
+  providers: [ProofSubmissionsService, ProofReviewService],
   exports: [TypeOrmModule, ProofSubmissionsService],
 })
 export class PaymentSubmissionsModule {}
