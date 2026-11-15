@@ -253,7 +253,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', TENANT_B)
       .set('X-Role', UserRole.PARENT)
-      .expect(401); // genuinely not linked to childInB in tenant B either
+      .expect(404); // genuinely not linked to childInB in tenant B either (assertLinked: 404)
   });
 
   it('rejects a role the caller has no membership for', async () => {
