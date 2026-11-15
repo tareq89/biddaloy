@@ -1,12 +1,17 @@
 /**
  * [71.4.05] The desk's applicants step: "Check fees (N)" chip with its queue, a "New application"
- * link, and the round's applicant list. Filters stay status + search; the API has no more (plan, D1).
+ * link, and the round's applicant list. Filters live in `ApplicantList` (status, fee, quota, source, search).
  */
-import { Button } from '@biddaloy/ui/components';
-import { useAdmissionRound, useFeeProofs } from '@biddaloy/ui/hooks';
+import { Button, NextActionCard } from '@biddaloy/ui/components';
+import {
+  useAdmissionApplicants,
+  useAdmissionRound,
+  useAdmissionStages,
+  useFeeProofs,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { ApplicantList } from '../ApplicantList';
@@ -19,7 +24,15 @@ export function ApplicantsPanel() {
   const { t } = useTranslation('admission-desk');
   const region = useRegionConfig();
   const { roundId = '' } = useParams({ strict: false });
+  const navigate = useNavigate();
   const round = useAdmissionRound(roundId);
+  const stages = useAdmissionStages(roundId);
+  // ponytail: first 100 only (server cap); a round with more unrolled applicants still shows the card.
+  const roster = useAdmissionApplicants({ intakeId: roundId, sort: 'roll', limit: 100 });
+  const testStage = (stages.data ?? []).find((s) => s.kind !== 'NONE' && s.kind !== 'FIRST_COME');
+  const unrolled = (roster.data?.data ?? []).filter(
+    (a) => a.roll_number === null && a.status !== 'FEE_PENDING' && a.status !== 'REJECTED',
+  ).length;
   const count = useFeeProofs({ intakeId: roundId, state: 'AWAITING', limit: 1 });
   const [queueOpen, setQueueOpen] = React.useState(false);
   const [page, setPage] = React.useState(1);
@@ -111,6 +124,22 @@ export function ApplicantsPanel() {
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {testStage && unrolled > 0 ? (
+        <NextActionCard
+          title={t('applicantsPanel.rollPending.title', { num: formatNumber(unrolled, region) })}
+          description={t('applicantsPanel.rollPending.description')}
+          action={{
+            label: t('applicantsPanel.rollPending.action'),
+            onClick: () =>
+              void navigate({
+                to: '.',
+                search: (prev: object) => ({ ...prev, step: testStage.id }),
+                replace: true,
+              }),
+          }}
+        />
       ) : null}
 
       <ApplicantList intakeId={roundId} />

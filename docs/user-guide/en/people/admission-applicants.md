@@ -99,7 +99,7 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
    → The application page opens. At the top are the child's name, the status badge, and the **Reference number**, **Applied on** and **Admission round**.
 
-3. In the **Applicant** card check the details: **Date of birth**, **Gender**, **Guardian name**, **Guardian phone**, **Guardian email**, **Home address**. Anything the guardian left out says **Not provided**.
+3. In the **Applicant** card check the details: **Date of birth**, **Gender**, **Guardian name**, **Guardian phone**, **Guardian email**, **Home address**. Anything the guardian left out says **Not provided**. The **Application details** card shows how the application came in (**Applied through**), the **Quota**, whether a child of the family is already in this school (**Sibling in this school**), the **Roll number** and **Fee** once they exist, and any **More information** the form collected. **Fee history** lists every fee proof sent for this application, with its answer and, if it was sent back, the reason.
 
 4. In the **Documents** card press **Open** next to each document.
 
@@ -150,16 +150,21 @@ A decision is saved only while you are online; it cannot be kept on the device a
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
-Two fields above the list:
+Fields above the list:
 
-| Field               | What to choose                                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Admission round** | One round. If you choose none, it says **All admission rounds**                                                  |
-| **Status**          | **Awaiting review**, **Shortlisted**, **Admitted** or **Rejected**. If you choose none, it says **All statuses** |
+| Field               | What to choose                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Admission round** | One round. If you choose none, it says **All admission rounds**                                                                  |
+| **Status**          | **Awaiting review**, **Shortlisted**, **Admitted** or **Rejected**. If you choose none, it says **All statuses**                 |
+| **Fee**             | **No fee proof**, **Fee waiting to be checked**, **Fee ok** or **Fee sent back**. If you choose none, it says **All fee states** |
+| **Quota**           | Type a quota tag, for example the one a guardian ticked on the form                                                              |
+| **Applied through** | **Online form** or **Entered by staff**. If you choose none, it says **All sources**                                             |
+
+Each filter you use shows as a chip under the fields. Press a chip to remove that filter.
 
 Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. To find one application, type a name, reference number or phone in **Search**. With no applications at all, it says **No applications yet**.
 
-The admission desk of a round shows this same list in its Applications step, but only for that round, so the **Admission round** field is not there. Above the list, **Check fees (N)** opens the fees that are waiting to be checked. Open one and look at the proof. Then press **Fee is ok**, or write a reason and press **Send back**. **New application** opens a form where you can enter an application for a guardian who has come to the school.
+The admission desk of a round shows this same list in its Applications step, but only for that round, so the **Admission round** field is not there. Above the list, **Check fees (N)** opens the fees that are waiting to be checked. Open one and look at the proof. When some applicants have no roll number yet, a card **N applicants have no roll number yet** appears; press **Make roll numbers** to go to the test step. Then press **Fee is ok**, or write a reason and press **Send back**. **New application** opens a form where you can enter an application for a guardian who has come to the school.
 
 ### When the phone number matches an earlier guardian <a href="#task-guardian" id="task-guardian"></a>
 

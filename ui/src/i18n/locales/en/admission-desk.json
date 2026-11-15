@@ -221,7 +221,12 @@
     "page": "Page {{current}} of {{total}}",
     "retry": "Try again",
     "queueLoading": "Loading…",
-    "queueError": "Could not load the fees waiting to be checked."
+    "queueError": "Could not load the fees waiting to be checked.",
+    "rollPending": {
+      "title": "{{num}} applicants have no roll number yet",
+      "description": "Make roll numbers in the test step so seat cards and mark sheets can be printed.",
+      "action": "Make roll numbers"
+    }
   },
   "fee": {
     "title": "Fee of {{name}}",

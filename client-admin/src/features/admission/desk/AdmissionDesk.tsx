@@ -58,7 +58,11 @@ export function AdmissionDesk() {
     applicants: applicants.data.total,
     feePending: fees.data.total,
     seatsLeft: listsQ.data.seats_left,
-    stages: stages.map((s) => ({ id: s.id, kind: s.kind as DeskStageKind })),
+    stages: stages.map((s) => ({
+      id: s.id,
+      kind: s.kind as DeskStageKind,
+      done: s.cutoff_committed_at !== null,
+    })),
     lists,
   };
   const action = nextAction(counts, tenantTodayIso(region));
