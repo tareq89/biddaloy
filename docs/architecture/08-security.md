@@ -139,6 +139,7 @@ flowchart LR
 - **Why.** A 15-minute access token outlived the action that should have ended it (D12, 75.2).
 - **Example.** Admin suspends a teacher; the teacher's next request with the old token → `401`.
 - **Test.** `session-cutoff.service.integration.spec.ts`, `jwt.strategy.spec.ts`.
+- **Decided (#2462).** (1) An admin who edits their *own* email or phone is signed out everywhere, this device included. We keep it: a stolen session must not be able to move the contact and stay in. (2) "Log out everywhere" also revokes the user's calendar-feed tokens (`calendar_feed_tokens.revoked_at`); the user makes a new feed link on the calendar page. (3) The "this email or phone is already in use" `409` on user edit stays: only an admin sees it, and a generic error would hide a real collision from them.
 
 ### Rule 9: One bcrypt cost, one password check
 

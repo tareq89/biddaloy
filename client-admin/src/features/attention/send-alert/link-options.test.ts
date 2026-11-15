@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PORTAL_PAGES } from './link-options';
+import { audienceKind, PORTAL_PAGES } from './link-options';
 
 const paths = PORTAL_PAGES.map(([to]) => to) as string[];
 
@@ -19,5 +19,17 @@ describe('PORTAL_PAGES', () => {
     const navPaths = [...src.matchAll(/to: '(\/portal[^']*)'/g)].map((m) => m[1]);
     expect(navPaths.length).toBeGreaterThan(5);
     for (const p of navPaths) expect(paths).toContain(p);
+  });
+});
+
+describe('audienceKind with named people', () => {
+  it('a named PARENT is a portal audience', () => {
+    expect(audienceKind({ userIds: ['u1'] }, { u1: 'PARENT' })).toBe('portal');
+  });
+  it('a named staff member plus a named STUDENT is mixed', () => {
+    expect(audienceKind({ userIds: ['u1', 'u2'] }, { u1: 'TEACHER', u2: 'STUDENT' })).toBe('mixed');
+  });
+  it('a named person with an unknown role counts as staff', () => {
+    expect(audienceKind({ userIds: ['u1'] })).toBe('staff');
   });
 });

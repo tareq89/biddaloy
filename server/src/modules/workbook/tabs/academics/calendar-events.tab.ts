@@ -221,7 +221,7 @@ export const calendarEventsTab: TabSpec<CalendarEvent, CalendarEventRow> = {
           tab: 'calendar_events',
           row: rowNo,
           column: 'academic_year',
-          message: `Column "academic_year": no academic year named "${academicYearKey}" was found.`,
+          message: `Column "academic_year": no academic year was found.`,
           severity: 'error',
           value: academicYearKey,
         });
@@ -237,7 +237,7 @@ export const calendarEventsTab: TabSpec<CalendarEvent, CalendarEventRow> = {
           tab: 'calendar_events',
           row: rowNo,
           column: 'classes',
-          message: `Column "classes": no class named "${key}" was found.`,
+          message: `Column "classes": no class was found.`,
           severity: 'error',
           value: key,
         });

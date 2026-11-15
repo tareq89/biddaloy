@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -296,7 +296,7 @@ describe('FamilyAccessService (integration)', () => {
 
       await expect(
         service.assertLinked(UserRole.PARENT, PARENT_USER_ID, childInB.id, SEED_TENANT_ID),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
       await expect(
         service.assertLinked(UserRole.PARENT, PARENT_USER_ID, childInB.id, TENANT_B),
       ).resolves.toBeUndefined();
@@ -311,7 +311,7 @@ describe('FamilyAccessService (integration)', () => {
 
       await expect(
         service.assertLinked(UserRole.STUDENT, STUDENT_USER_ID, selfInB.id, SEED_TENANT_ID),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -337,7 +337,7 @@ describe('FamilyAccessService (integration)', () => {
 
       await expect(
         service.assertLinked(UserRole.STUDENT, STUDENT_USER_ID, self.id, SEED_TENANT_ID),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -362,7 +362,7 @@ describe('FamilyAccessService (integration)', () => {
       ).resolves.toBeUndefined();
       await expect(
         service.assertLinked(UserRole.PARENT, PARENT_USER_ID, theirs.id, SEED_TENANT_ID),
-      ).rejects.toThrow("You do not have access to this student's information");
+      ).rejects.toThrow("Student not found");
     });
 
     it('refuses a family caller for a student id that does not exist', async () => {
@@ -373,7 +373,7 @@ describe('FamilyAccessService (integration)', () => {
           '00000000-0000-4000-8000-00000000dead',
           SEED_TENANT_ID,
         ),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

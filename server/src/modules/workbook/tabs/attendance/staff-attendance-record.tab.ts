@@ -138,7 +138,7 @@ export const staffAttendanceRecordTab: TabSpec<StaffAttendanceRecord, StaffAtten
         tab: 'staff_attendance_records',
         row: rowNo,
         column: 'session',
-        message: `Column "session": no session dated "${sessionKey}" was found.`,
+        message: `Column "session": no session dated was found.`,
         severity: 'error',
         value: sessionKey,
       });
@@ -151,7 +151,7 @@ export const staffAttendanceRecordTab: TabSpec<StaffAttendanceRecord, StaffAtten
         tab: 'staff_attendance_records',
         row: rowNo,
         column: 'staff_profile',
-        message: `Column "staff_profile": no staff with the key "${staffProfileKey}" was found.`,
+        message: `Column "staff_profile": no staff was found.`,
         severity: 'error',
         value: staffProfileKey,
       });

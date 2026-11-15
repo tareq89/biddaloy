@@ -169,7 +169,7 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
           tab: 'teachers',
           row: rowNo,
           column: 'user',
-          message: `Column "user": no user with the key "${userKey}" was found.`,
+          message: `Column "user": no user was found.`,
           severity: 'error',
           value: userKey,
         });

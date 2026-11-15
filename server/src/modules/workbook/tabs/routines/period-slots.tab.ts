@@ -130,7 +130,7 @@ export const periodSlotsTab: TabSpec<PeriodSlot, PeriodSlotRow> = {
         tab: 'period_slots',
         row: rowNo,
         column: 'shift',
-        message: `Column "shift": no shift named "${shiftKey}" was found.`,
+        message: `Column "shift": no shift was found.`,
         severity: 'error',
         value: shiftKey,
       });

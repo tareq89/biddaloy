@@ -5,6 +5,8 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLedger, SmsCreditLedgerKind } from './entities/sms-credit-ledger.entity';
+import { attentionEvents } from '../../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../../attention/engine/attention-events';
 import { SmsCreditService } from './sms-credit.service';
 
 /**
@@ -209,6 +211,143 @@ describe('SmsCreditService (integration)', () => {
     const rows = await service.listLedger(tenantA, 1, 50);
     const debit = rows.data.find((r) => r.kind === 'DEBIT');
     expect(debit?.reason).toBe('reconcile #1317');
+  });
+
+  it('[2149] releases a batch reservation with no log row once it is old, and only then', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-orphan-${tenantA}` });
+    const batchId = '11111111-1111-4111-8111-111111111111';
+    await service.reserve(tenantA, 20, `batch:${batchId}`, { type: 'batch', id: batchId });
+
+    // Fresh reservation: left alone.
+    expect(await service.releaseOrphanedReservations(new Date())).toEqual({
+      reservations: 0,
+      units: 0,
+    });
+
+    const later = new Date(Date.now() + 31 * 60_000);
+    expect(await service.releaseOrphanedReservations(later)).toEqual({
+      reservations: 1,
+      units: 20,
+    });
+    expect(await service.getBalance(tenantA)).toEqual({ available: 50, reserved: 0 });
+    // Second run: nothing left to release.
+    expect(await service.releaseOrphanedReservations(later)).toEqual({
+      reservations: 0,
+      units: 0,
+    });
+  });
+
+  it('[2149] a reservation settled whole stays out of the orphan sweep, so real orphans are still released', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-whole-${tenantA}` });
+    const settled = '22222222-2222-4222-8222-222222222222';
+    const orphan = '33333333-3333-4333-8333-333333333333';
+    await service.reserve(tenantA, 10, `batch:${settled}`, { type: 'batch', id: settled });
+    await service.settle(tenantA, `batch:${settled}`, 'RELEASE');
+    await service.reserve(tenantA, 20, `batch:${orphan}`, { type: 'batch', id: orphan });
+    const later = new Date(Date.now() + 31 * 60_000);
+    // limit 1 would pick the older, already-settled row first if it stayed a candidate
+    expect(await service.releaseOrphanedReservations(later, { limit: 1 })).toEqual({
+      reservations: 1,
+      units: 20,
+    });
+    expect(await service.getBalance(tenantA)).toEqual({ available: 50, reserved: 0 });
+  });
+
+  it('[2149] a QUEUED log carrying metadata.batch_id protects its reservation from the sweep', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-queued-${tenantA}` });
+    const batchId = '44444444-4444-4444-8444-444444444444';
+    await service.reserve(tenantA, 5, `batch:${batchId}`, { type: 'batch', id: batchId });
+    await dataSource.query(
+      `INSERT INTO communication_logs (tenant_id, medium, recipient_address, recipient_name, message_body, status, trigger, metadata)
+       VALUES ($1, 'SMS', '+8801700000000', 'n', 'x', 'QUEUED', 'MANUAL', $2)`,
+      [tenantA, JSON.stringify({ batch_id: batchId })],
+    );
+    const later = new Date(Date.now() + 31 * 60_000);
+    expect(await service.releaseOrphanedReservations(later)).toEqual({ reservations: 0, units: 0 });
+  });
+
+  it('[4138] a reserved drop is laid on the LEGACY lot draws only', async () => {
+    await service.grant(tenantA, 20, { idempotencyKey: `grant-leg-${tenantA}` });
+    await dataSource.query(`UPDATE sms_credit_lots SET source = 'LEGACY' WHERE tenant_id = $1`, [
+      tenantA,
+    ]);
+    await service.grant(tenantA, 10, { idempotencyKey: `grant-other-${tenantA}` });
+    await service.reserve(tenantA, 30, `batch:two-lots-${tenantA}`);
+    // old code settled 10 reserved units as a debit without touching lots or draws
+    await dataSource.query(
+      `UPDATE sms_credit_balance SET reserved = reserved - 10 WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    expect((await service.reconcileLotsToBalance(tenantA)).manual).toBe(false);
+    const rows: { source: string; open: number }[] = await dataSource.query(
+      `SELECT l.source, SUM(d.open_units)::int AS open
+         FROM sms_credit_lot_draws d JOIN sms_credit_lots l ON l.id = d.lot_id
+        WHERE d.tenant_id = $1 GROUP BY l.source`,
+      [tenantA],
+    );
+    expect(rows.find((r) => r.source !== 'LEGACY')?.open).toBe(10);
+    expect(rows.find((r) => r.source === 'LEGACY')?.open).toBe(10);
+  });
+
+  it('[4138] lots follow a balance that old-code instances moved after the backfill, once', async () => {
+    await service.grant(tenantA, 50, { idempotencyKey: `grant-drift-${tenantA}` });
+    // the migration backfill made this one LEGACY lot; make the fixture look like that
+    await dataSource.query(`UPDATE sms_credit_lots SET source = 'LEGACY' WHERE tenant_id = $1`, [
+      tenantA,
+    ]);
+    // old code: reserve 20 (available -20, reserved +20), then grant 5, with no lot writes
+    await dataSource.query(
+      `UPDATE sms_credit_balance SET available = available - 20 + 5, reserved = reserved + 20 WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    const first = await service.reconcileLotsToBalance(tenantA);
+    expect(first).toEqual({ drift: { available: -15, reserved: 20 }, manual: false });
+    const [lot] = await dataSource.query(
+      `SELECT remaining, reserved_units, units_total, debited_units FROM sms_credit_lots WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    expect(lot).toMatchObject({ remaining: 35, reserved_units: 20, units_total: 55 });
+    // old code then settles that reservation as a DEBIT (reserved -20): the lot books it as debited
+    await dataSource.query(`UPDATE sms_credit_balance SET reserved = 0 WHERE tenant_id = $1`, [
+      tenantA,
+    ]);
+    expect((await service.reconcileLotsToBalance(tenantA)).manual).toBe(false);
+    const [after] = await dataSource.query(
+      `SELECT remaining, reserved_units, debited_units FROM sms_credit_lots WHERE tenant_id = $1`,
+      [tenantA],
+    );
+    expect(after).toMatchObject({ remaining: 35, reserved_units: 0, debited_units: 20 });
+    expect(await service.reconcileLotsToBalance(tenantA)).toEqual({
+      drift: { available: 0, reserved: 0 },
+      manual: false,
+    });
+  });
+
+  it('[4150] a DEBIT settle and an expiry ask the attention engine to recheck sms.low and sms.expiring', async () => {
+    const seen: string[] = [];
+    const listen = (p: { tenantId: string; ruleKey: string }) => {
+      if (p.tenantId === tenantA) seen.push(p.ruleKey);
+    };
+    attentionEvents.on(ATTENTION_RECHECK, listen);
+    try {
+      await service.grant(tenantA, 50, { idempotencyKey: `grant-recheck-${tenantA}` });
+      await service.reserve(tenantA, 5, `reserve-recheck-${tenantA}`);
+      await service.settle(tenantA, `reserve-recheck-${tenantA}`, 'RELEASE');
+      expect(seen).toEqual([]); // a release only adds units back
+      await service.reserve(tenantA, 5, `reserve-recheck2-${tenantA}`);
+      await service.settle(tenantA, `reserve-recheck2-${tenantA}`, 'DEBIT');
+      expect(seen).toEqual(['sms.low', 'sms.expiring']);
+
+      seen.length = 0;
+      await dataSource.query(
+        `UPDATE sms_credit_lots SET expires_at = now() - interval '1 day' WHERE tenant_id = $1`,
+        [tenantA],
+      );
+      await service.expireDue(new Date());
+      expect(seen).toEqual(['sms.low', 'sms.expiring']);
+    } finally {
+      attentionEvents.off(ATTENTION_RECHECK, listen);
+    }
   });
 
   it('getBalance returns zeros when no balance row exists yet', async () => {

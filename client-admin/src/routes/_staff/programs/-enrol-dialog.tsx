@@ -79,8 +79,6 @@ export function EnrolDialog({
   const programsQuery = usePrograms();
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(classId || undefined);
-  // ponytail: the enrol POST caps `student_ids` at 500 (`ArrayMaxSize`), so enrolling a whole
-  // class over 500 at once is a 400; pick a section, or chunk the POST if that ever matters.
   const studentsQuery = useAllStudents(
     {
       ...(classId ? { class_id: classId } : {}),

@@ -192,6 +192,7 @@ export const slice: DemoSlice = {
     await links.createPersonalLinks(
       admission,
       noLoginRows.map((r) => r.id),
+      T,
     );
 
     // 5. a class notice written by the demo teacher, to students and guardians of their own sections.
@@ -219,16 +220,28 @@ export const slice: DemoSlice = {
       }
     }
 
+    // Expired notices: the expiry is `back` days before the earlier of the anchor and the school's
+    // real today (approve and the sweep judge expiry against real today, so a far-future --anchor
+    // must not leave it live), and the notice is published 20 days before its expiry, so the
+    // dates never cross whatever the anchor is.
+    const realToday = await ctx.app.get(SchoolsService).todayFor(T);
+    const expiryPlan = (back: number) => {
+      const expiresOn = addDays(ctx.anchor < realToday ? ctx.anchor : realToday, -back);
+      const daysBeforeAnchor = Math.round((Date.parse(ctx.anchor) - Date.parse(expiresOn)) / 864e5);
+      return { expiresOn, publishedDays: daysBeforeAnchor + 20 };
+    };
+
     // 6. expired: published, then its expiry passed.
     const expired = await draft(
       admin,
       { title: 'বৃত্তি পরীক্ষার আবেদন', body: 'বৃত্তি পরীক্ষার আবেদনের শেষ তারিখ পার হয়ে গেছে।' },
       some(pool, 8).map((s) => guardian(s)),
     );
-    await publish(admin, expired, 30);
+    const expiredPlan = expiryPlan(10);
+    await publish(admin, expired, expiredPlan.publishedDays);
     await ctx.ds.query(`UPDATE notices SET expires_on = $2::date WHERE id = $1`, [
       expired,
-      addDays(ctx.anchor, -10),
+      expiredPlan.expiresOn,
     ]);
 
     // 7. withdrawn: published by mistake, then taken back.
@@ -269,13 +282,12 @@ export const slice: DemoSlice = {
     await sms.decline(T, await smsNotice('এসএমএস প্রত্যাখ্যাত নোটিশ', 8), org.adminUserId);
     // Expired and closed: the notice expired while the request waited. Approve answers 409 and
     // the service closes the dead request itself (declined by the system, no deciding user).
-    const smsExpired = await smsNotice('মেয়াদোত্তীর্ণ এসএমএস অনুরোধ', 25);
-    // approve checks expiry against the school's real today (same call isLive makes), so the
-    // date is 5 days before the earlier of the anchor and real today: expired for any --anchor.
-    const realToday = await ctx.app.get(SchoolsService).todayFor(T);
+    const smsExpiredPlan = expiryPlan(5);
+    const smsExpired = await smsNotice('মেয়াদোত্তীর্ণ এসএমএস অনুরোধ', smsExpiredPlan.publishedDays);
+    // approve checks expiry against the school's real today (same call isLive makes).
     await ctx.ds.query(`UPDATE notices SET expires_on = $2::date WHERE id = $1`, [
       smsExpired,
-      addDays(ctx.anchor < realToday ? ctx.anchor : realToday, -5),
+      smsExpiredPlan.expiresOn,
     ]);
     // Only the expected not-live 409 is accepted: an approval that goes through, or any other
     // failure (insufficient credit, not pending), breaks the seed.
@@ -365,6 +377,18 @@ export const slice: DemoSlice = {
     await ctx.ds.query(
       `UPDATE alerts a SET raised_at = n.published_at, last_evaluated_at = n.published_at
          FROM notices n WHERE a.subject_type = 'notice' AND a.subject_id = n.id`,
+    );
+    // [#3459] The real SMS request stamped "now": date it from the notice, and close the task
+    // when the decision landed.
+    await ctx.ds.query(
+      `UPDATE notices SET sms_requested_at = published_at WHERE tenant_id = $1 AND sms_requested_at IS NOT NULL`,
+      [T],
+    );
+    await ctx.ds.query(
+      `UPDATE alerts a SET resolved_at = COALESCE(n.sms_decided_at, n.published_at + interval '3 hours')
+         FROM notices n
+        WHERE a.id = n.sms_task_alert_id AND n.tenant_id = $1 AND a.resolved_at IS NOT NULL`,
+      [T],
     );
     await ctx.ds.query(
       `UPDATE alert_recipients ar SET resolved_at = n.published_at + interval '3 hours'

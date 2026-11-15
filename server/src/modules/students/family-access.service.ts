@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { RoleScope, UserRole, isGuardianRole, roleScope } from '@biddaloy/shared';
@@ -117,11 +117,9 @@ export class FamilyAccessService {
   /**
    * Throws unless the caller may read this specific student.
    *
-   * No-op for staff roles except TEACHER (404 outside their current-year sections). For PARENT/STUDENT it throws
-   * `UnauthorizedException` with the exact message the inline check in
-   * `students.controller.ts` threw before [5.1] — the contract that route
-   * already had is unchanged, including the (unconventional but deliberate)
-   * 401-rather-than-403 status.
+   * No-op for staff roles except TEACHER (404 outside their current-year sections). For PARENT/STUDENT a student
+   * they are not linked to and one that does not exist look the same: 404 `Student not found` (#2466; a 401 made
+   * the client's refresh-on-401 interceptor retry a request that can never succeed).
    */
   async assertLinked(
     role: string,
@@ -153,7 +151,7 @@ export class FamilyAccessService {
 
     const count = await qb.andWhere('student.id = :studentId', { studentId }).getCount();
     if (count === 0) {
-      throw new UnauthorizedException("You do not have access to this student's information");
+      throw new NotFoundException('Student not found');
     }
   }
 
@@ -182,7 +180,7 @@ export class FamilyAccessService {
 
     const ids = [...new Set(studentIds)];
     if (ids.length === 0) {
-      throw new UnauthorizedException("You do not have access to this student's information");
+      throw new NotFoundException('Student not found');
     }
 
     const rows = await qb
@@ -191,7 +189,7 @@ export class FamilyAccessService {
       .getRawMany<{ id: string }>();
     const linkedIds = rows.map((r) => r.id);
     if (linkedIds.length === 0) {
-      throw new UnauthorizedException("You do not have access to this student's information");
+      throw new NotFoundException('Student not found');
     }
     return linkedIds;
   }

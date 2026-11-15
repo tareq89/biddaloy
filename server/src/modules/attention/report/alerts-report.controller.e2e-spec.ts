@@ -147,6 +147,6 @@ describe('Alerts report API E2E', () => {
     expect(body.slice(1).split('\r\n')[0]).toBe(
       '"Rule key","Category","Severity","Section","Count"',
     );
-    expect(body).toContain('"attendance.not_taken","ATTENDANCE","REMINDER","7-B","1"');
+    expect(body).toContain('"attendance.not_taken","ATTENDANCE","WARNING","7-B","1"');
   });
 });

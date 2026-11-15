@@ -205,7 +205,13 @@ export class SubstitutionsService {
     const period = await this.periodSlotRepo.findOne({
       where: { id: slot.period_slot_id, tenant_id: tenantId },
     });
-    if (!period) return;
+    if (!period) {
+      // Fail closed: skipping would also skip the teacher-busy check below (#2385).
+      throw new NotFoundException({
+        message: 'The period for this slot was not found',
+        details: { code: 'PERIOD_SLOT_NOT_FOUND' },
+      });
+    }
     // The period's times on that date: a special timing (e.g. Ramadan) can move it.
     const { starts_at, ends_at } = periodTimesOn(
       resolveAttendancePolicy(await this.schools.getResolvedSettings(tenantId)),

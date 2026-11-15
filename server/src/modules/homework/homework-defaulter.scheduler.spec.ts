@@ -34,7 +34,7 @@ describe('HomeworkDefaulterScheduler', () => {
     submissionRepo = { find: vi.fn(async () => []) };
     studentRepo = { find: vi.fn(async () => [{ id: 's-1' }]) };
     schoolsService = {
-      findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
+      findAllActive: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
       getResolvedSettings: vi.fn(async () => ({
         region: { timezone: 'Asia/Dhaka' },
         homework: { notifyDefaulters: true },
@@ -140,7 +140,7 @@ describe('HomeworkDefaulterScheduler', () => {
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive.mockResolvedValue([
       { id: 'tenant-broken', name: 'Broken' },
       { id: TENANT, name: 'Green Valley School' },
     ]);
@@ -150,6 +150,8 @@ describe('HomeworkDefaulterScheduler', () => {
     });
 
     await expect(scheduler.process()).resolves.not.toThrow();
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('tenant-broken');
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith(TENANT);
     expect(homeworkNoticeService.notifyDefaulters).toHaveBeenCalledTimes(1);
   });
 
@@ -166,7 +168,7 @@ describe('HomeworkDefaulterScheduler', () => {
 
   // [77.2.10] D9: Homework off for tenant A -> A skipped, B still swept.
   it('skips a school with homework off and still sweeps the next', async () => {
-    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
     moduleState.forTenant.mockImplementation(async (id: string) => ({
       platform: {},
       school: id === 'A' ? { homework: { on: false } } : {},
@@ -178,7 +180,7 @@ describe('HomeworkDefaulterScheduler', () => {
 
   // Fail closed: unreadable state is skipped (and logged), never treated as on.
   it('skips a school whose module state cannot be read and still sweeps the next', async () => {
-    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
     moduleState.forTenant.mockImplementation(async (id: string) => {
       if (id === 'A') throw new Error('db down');
       return { platform: {}, school: {} };

@@ -3,9 +3,14 @@
  * guardians of sections, named people). A checked group shows its chips and an
  * "add" combobox. The value is the `ManualAudience` the server takes.
  */
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { Checkbox, Combobox, type ComboboxOption } from '@biddaloy/ui/components';
-import { useDebouncedValue, useUsers, type ManualAudience } from '@biddaloy/ui/hooks';
+import {
+  useDebouncedValue,
+  useHasPermission,
+  useUsers,
+  type ManualAudience,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { XIcon } from 'lucide-react';
 import * as React from 'react';
@@ -17,18 +22,23 @@ type GroupKey = 'roles' | 'sectionIds' | 'guardiansOfSectionIds' | 'userIds';
 export interface AudiencePickerProps {
   value: ManualAudience;
   onChange: (next: ManualAudience) => void;
+  /** Called when a named person is picked, with their role, so the form can limit the link list. */
+  onPersonPicked?: (id: string, role: string) => void;
 }
 
 const ROLES = Object.values(UserRole).filter((r) => r !== UserRole.SUPER_ADMIN);
 
-export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
+export function AudiencePicker({ value, onChange, onPersonPicked }: AudiencePickerProps) {
   const { t } = useTranslation('attention');
   const [opened, setOpened] = React.useState<Partial<Record<GroupKey, boolean>>>({});
   const sectionOptions = useSectionOptions();
   // The "Named people" box asks the server (name, email or phone) as you type.
   const [userQuery, setUserQuery] = React.useState('');
   const q = useDebouncedValue(userQuery, 300).trim();
-  const users = useUsers({ limit: 100, ...(q ? { search: q } : {}) });
+  // Finding named people lists users (USER_READ). A role without it (a principal) would get a 403, so the
+  // request is not sent and the named-people group is not offered (#2514).
+  const canFindPeople = useHasPermission(Permission.USER_READ);
+  const users = useUsers({ limit: 100, ...(q ? { search: q } : {}) }, { enabled: canFindPeople });
   // Until the typed text's search has answered, list nobody: the previous
   // list (debounce pending, or kept as placeholder data while the request is
   // in flight) does not match what was typed, and Enter would pick its first row.
@@ -67,12 +77,16 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
       addLabel: t('composer.addSection'),
       options: sectionOptions,
     },
-    {
-      key: 'userIds',
-      title: t('composer.namedPeople'),
-      addLabel: t('composer.findPerson'),
-      options: userOptions,
-    },
+    ...(canFindPeople
+      ? [
+          {
+            key: 'userIds' as const,
+            title: t('composer.namedPeople'),
+            addLabel: t('composer.findPerson'),
+            options: userOptions,
+          },
+        ]
+      : []),
   ];
 
   const set = (key: GroupKey, ids: string[]) => {
@@ -149,6 +163,8 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
                     if (key === 'userIds') {
                       const picked = options.find((o) => o.value === next)?.label;
                       if (picked) setPickedLabels((prev) => ({ ...prev, [next]: picked }));
+                      const person = users.data?.data.find((u) => u.id === next);
+                      if (person?.role) onPersonPicked?.(next, person.role);
                     }
                     set(key, [...ids, next]);
                   }}

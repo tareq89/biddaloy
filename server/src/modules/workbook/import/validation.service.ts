@@ -438,6 +438,7 @@ export class ValidationService {
               });
               const idx = rows.indexOf(prior.row);
               if (idx >= 0) rows.splice(idx, 1);
+              pendingIndexes.get(tab.name)!.delete(tab.keyOf(prior.row as never));
             }
             recordError(tabErrors, {
               tab: tab.name,

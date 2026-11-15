@@ -141,7 +141,7 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
         tab: 'admission_evaluations',
         row: rowNo,
         column: 'applicant',
-        message: `Column "applicant": no applicant with the key "${applicantKey}" was found.`,
+        message: `Column "applicant": no applicant was found.`,
         severity: 'error',
         value: applicantKey,
       });
@@ -154,7 +154,7 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
         tab: 'admission_evaluations',
         row: rowNo,
         column: 'reviewer',
-        message: `Column "reviewer": no user with the key "${reviewerKey}" was found.`,
+        message: `Column "reviewer": no user was found.`,
         severity: 'error',
         value: reviewerKey,
       });

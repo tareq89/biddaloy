@@ -75,18 +75,22 @@ export class NoticeLinksService {
   async createPersonalLinks(
     noticeId: string,
     recipientIds: string[],
+    tenantId: string,
     em?: EntityManager,
   ): Promise<{ recipientId: string; token: string }[]> {
     if (recipientIds.length === 0) return [];
     const recipients = em ? em.getRepository(NoticeRecipient) : this.recipients;
     const rows = await recipients.find({
       select: { id: true },
-      where: { notice_id: noticeId, id: In(recipientIds) },
+      where: { tenant_id: tenantId, notice_id: noticeId, id: In(recipientIds) },
     });
     const out: { recipientId: string; token: string }[] = [];
     for (const { id } of rows) {
       const token = generateRawToken();
-      await recipients.update({ id, notice_id: noticeId }, { link_token_hash: hashToken(token) });
+      await recipients.update(
+        { id, notice_id: noticeId, tenant_id: tenantId },
+        { link_token_hash: hashToken(token) },
+      );
       out.push({ recipientId: id, token });
     }
     return out;

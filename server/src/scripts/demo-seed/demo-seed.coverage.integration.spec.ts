@@ -101,7 +101,6 @@ const CLOCK_COLS: Record<string, string[]> = {
   // manual and notice alerts only, see CLOCK_ONLY_WHEN
   alerts: ['raised_at', 'last_evaluated_at', 'expires_at', 'resolved_at'],
   alert_recipients: ['pushed_at'], // delivery stamps it with the real clock, after the seed returns
-  notices: ['sms_requested_at'], // [53.5.05] the real SMS request stamps it
 };
 
 /** [40.5.09, 40.6.10] What the demo school's website holds after a full run. */

@@ -325,6 +325,14 @@ describe('SubstitutionsService [21.5.1]', () => {
       );
     });
 
+    it('a missing PeriodSlot is a 404, not a silent skip of the busy check (#2385)', async () => {
+      ctx.periodSlotRepo.findOne = vi.fn(async () => null);
+      await expect(ctx.service.record(dto as any, TENANT_ID, 'user-1')).rejects.toMatchObject({
+        response: { details: { code: 'PERIOD_SLOT_NOT_FOUND' } },
+      });
+      expect(ctx.substitutionRepo.save).not.toHaveBeenCalled();
+    });
+
     it('is_cancelled: true never calls busyAt', async () => {
       await ctx.service.record({ ...dto, is_cancelled: true } as any, TENANT_ID, 'user-1');
       expect(ctx.busy.busyAt).not.toHaveBeenCalled();

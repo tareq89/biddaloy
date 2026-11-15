@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import JSZip from 'jszip';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import { DataSource } from 'typeorm';
@@ -142,7 +143,15 @@ describe('ExportProcessor (integration)', () => {
 
     // The workbook bytes never contain the tenant's secret settings value —
     // the `school` tab redacts known secret paths before export.
-    expect(buffer!.toString('latin1')).not.toContain(SECRET);
+    // An .xlsx is a DEFLATE zip: scan the unzipped XML, not the compressed bytes (#699).
+    const zip = await JSZip.loadAsync(buffer as Buffer);
+    let text = '';
+    for (const entry of Object.values(zip.files)) {
+      if (!entry.dir) text += await entry.async('string');
+    }
+    // Positive control: the scan can see real content.
+    expect(text).toContain('Export Test School A');
+    expect(text).not.toContain(SECRET);
   });
 
   it("exports a ref column as the referenced row's natural key, not its uuid — regression for `ExportContext.keyOf`", async () => {

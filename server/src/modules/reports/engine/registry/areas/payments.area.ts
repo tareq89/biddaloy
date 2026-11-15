@@ -12,7 +12,8 @@ const NOT_REVERSAL = 'p.reversal_of_payment_id IS NULL';
 /**
  * [8.15.21] Payments, one row per payment row (a reversal is its own positive row that subtracts,
  * the convention of the payments list and the collections report). `baseWhere` is the collections
- * report's own rule for what counts: a payment that succeeded, or is one side of a reversal.
+ * report's own rule for what counts (#3506: decided on purpose, a report never totals a FAILED or PENDING
+ * payment as collected money; a saved list report says so through its `failedHidden` note): a payment that succeeded, or is one side of a reversal.
  * A student who was later deleted: the payment still shows (money is never hidden) but the student's
  * name and registration number come out empty, as on the payments list. The report author can filter
  * out reversals with `is_reversal`, or hide the originals that were later taken back with

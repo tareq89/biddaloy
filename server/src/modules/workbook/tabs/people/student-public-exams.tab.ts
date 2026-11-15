@@ -137,7 +137,7 @@ export const studentPublicExamsTab: TabSpec<StudentPublicExam, StudentPublicExam
             tab: 'student_public_exams',
             row: rowNo,
             column: 'student',
-            message: `Column "student": no student with the key "${studentKey}" was found.`,
+            message: `Column "student": no student was found.`,
             severity: 'error',
             value: studentKey,
           },

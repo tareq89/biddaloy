@@ -119,7 +119,7 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
     // The setting defaults to off, so the raw JSON check is correct.
     const schools: SchoolRow[] = await this.dataSource.query(
       `SELECT id, name, name_bn, settings FROM schools
-        WHERE status = 'ACTIVE'
+        WHERE status = 'ACTIVE' AND is_platform = false
           AND (settings->'attention'->>'guardianSmsFallback' = 'true'
             OR settings->'attention'->>'staffSmsFallback' = 'true')`,
     );

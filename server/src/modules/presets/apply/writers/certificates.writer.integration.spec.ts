@@ -132,6 +132,20 @@ describe('writeCertificates (integration)', () => {
     expect(await live(tenantId)).toHaveLength(0);
   });
 
+  it('a live template of another kind with a clashing name is a 409, not a raw 500 (#1985)', async () => {
+    await expect(
+      run(packWith(['TESTIMONIAL'], 'en-US'), async (t) => {
+        await ds.getRepository(PrintTemplate).save({
+          tenant_id: t,
+          document_kind: DocumentKind.CHARACTER_CERTIFICATE,
+          name: 'testimonial (english)',
+          draft: {} as never,
+          created_by: userId,
+        });
+      }),
+    ).rejects.toMatchObject({ response: { details: { code: 'PRESET_TEMPLATE_NAME_TAKEN' } } });
+  });
+
   it('a kind that already has a live template is skipped; the existing one stays default', async () => {
     const { tenantId, counts } = await run(packWith(['TESTIMONIAL', 'CHARACTER']), async (t) => {
       await ds.getRepository(PrintTemplate).save({

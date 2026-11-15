@@ -91,6 +91,33 @@ describe('DiffService', () => {
   const manager = {} as EntityManager;
   const service = new DiffService();
 
+  it('[688] a revivable id is matched by id, not by the natural key of an unrelated active row', async () => {
+    // Two rows share a key: one is a live row, the other names a soft-deleted row to revive.
+    const tab = makeTab('a', { existing: [{ id: '11111111-1111-4111-8111-111111111111', key: 'k1', value: 'v' }] });
+    const fakeManager = {
+      connection: {
+        hasMetadata: () => true,
+        getMetadata: () => ({
+          tableName: 'a',
+          deleteDateColumn: { databaseName: 'deleted_at' },
+          findColumnWithPropertyName: (n: string) => ({ databaseName: n }),
+        }),
+      },
+      query: async () => [{ id: '22222222-2222-4222-8222-222222222222' }],
+    } as unknown as EntityManager;
+    const validated = validatedFor({
+      a: {
+        present: true,
+        rows: [
+          { id: '11111111-1111-4111-8111-111111111111', key: 'k1', value: 'v' },
+          { id: '22222222-2222-4222-8222-222222222222', key: 'k1', value: 'v' },
+        ],
+      },
+    });
+    const report = await service.diff(validated, 'tenant', fakeManager, [tab]);
+    expect(report.tabs[0]).toMatchObject({ updates: 1, unchanged: 1 });
+  });
+
   it('buckets rows into creates, updates, unchanged, and deletes', async () => {
     const tab = makeTab('a', {
       existing: [
@@ -120,6 +147,26 @@ describe('DiffService', () => {
     expect(tabDiff.samples.updates).toEqual(['k1']);
     expect(tabDiff.samples.deletes).toEqual(['k3']);
     expect(report.totals).toEqual({ creates: 1, updates: 1, unchanged: 1, deletes: 1 });
+  });
+
+  it('[690] two rows matching one existing row is an error naming both, not two updates', async () => {
+    const tab = makeTab('a', { existing: [{ id: '1', key: 'k1', value: 'old' }] });
+    const validated = validatedFor({
+      a: {
+        present: true,
+        rows: [
+          { id: '1', key: 'other', value: 'a' }, // matches by id
+          { key: 'k1', value: 'b' }, // no id: matches the same entity by key
+        ],
+      },
+    });
+    const report = await service.diff(validated, 'tenant-1', manager, [tab]);
+    expect(report.tabs[0].updates).toBe(1);
+    expect(report.diffErrors).toHaveLength(1);
+    expect(report.diffErrors[0]).toMatchObject({ tab: 'a', severity: 'error' });
+    expect(report.diffErrors[0].message).toContain('other');
+    expect(report.diffErrors[0].message).toContain('k1');
+    expect(report.hardErrorCount).toBe(1);
   });
 
   it('never produces deletes for a tab with deleteByAbsence: false', async () => {
@@ -178,5 +225,47 @@ describe('DiffService', () => {
     const validated = validatedFor({ payment_allocations: { present: true, rows: [] } });
     const report = await service.diff(validated, 'tenant-1', manager, [tab]);
     expect(report.tabs[0].deletes).toBe(0);
+  });
+
+  describe('student seat preflight (#1654)', () => {
+    const seatManager = (limit: number | null, used: number) =>
+      ({
+        query: async (sql: string) =>
+          sql.includes('count(*)') ? [{ n: String(used) }] : [{ seat_limit: limit }],
+      }) as unknown as EntityManager;
+    const studentRows = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        key: `new${i}`,
+        value: 'x',
+        enrollment_status: 'ACTIVE',
+      }));
+
+    it('adds a hard error when new ACTIVE students would pass seat_limit', async () => {
+      const tab = makeTab('students');
+      const validated = validatedFor({ students: { present: true, rows: studentRows(6) } });
+      const report = await service.diff(validated, 't', seatManager(50, 45), [tab]);
+      expect(report.hardErrorCount).toBe(1);
+      expect(report.diffErrors[0]).toMatchObject({ tab: 'students', severity: 'error' });
+      expect(report.diffErrors[0].message).toContain('50');
+    });
+
+    it('passes at exactly the limit, and when the limit is null', async () => {
+      const tab = makeTab('students');
+      const validated = validatedFor({ students: { present: true, rows: studentRows(5) } });
+      expect((await service.diff(validated, 't', seatManager(50, 45), [tab])).hardErrorCount).toBe(
+        0,
+      );
+      const big = validatedFor({ students: { present: true, rows: studentRows(500) } });
+      expect((await service.diff(big, 't', seatManager(null, 45), [tab])).hardErrorCount).toBe(0);
+    });
+
+    it('does not credit ACTIVE students the restore deletes (apply takes seats first)', async () => {
+      const tab = makeTab('students', {
+        existing: [{ id: '1', key: 'gone', value: 'x', enrollment_status: 'ACTIVE' } as any],
+      });
+      const validated = validatedFor({ students: { present: true, rows: studentRows(6) } });
+      const report = await service.diff(validated, 't', seatManager(50, 45), [tab]);
+      expect(report.hardErrorCount).toBe(1);
+    });
   });
 });

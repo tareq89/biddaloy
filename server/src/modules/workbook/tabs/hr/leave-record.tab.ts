@@ -182,7 +182,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
         tab: 'leave_records',
         row: rowNo,
         column: 'staff_profile',
-        message: `Column "staff_profile": no staff with the key "${staffProfileKey}" was found.`,
+        message: `Column "staff_profile": no staff was found.`,
         severity: 'error',
         value: staffProfileKey,
       });
@@ -199,7 +199,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
           tab: 'leave_records',
           row: rowNo,
           column: 'approved_by',
-          message: `Column "approved_by": no user with the key "${approvedByKey}" was found.`,
+          message: `Column "approved_by": no user was found.`,
           severity: 'error',
           value: approvedByKey,
         });
@@ -218,7 +218,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
           tab: 'leave_records',
           row: rowNo,
           column: 'application',
-          message: `Column "application": no application with the key "${applicationKey}" was found.`,
+          message: `Column "application": no application was found.`,
           severity: 'error',
           value: applicationKey,
         });

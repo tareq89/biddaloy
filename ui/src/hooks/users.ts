@@ -81,8 +81,8 @@ export function usersQueryOptions(filters: UserListFilters) {
   });
 }
 
-export function useUsers(filters: UserListFilters) {
-  return useQuery(usersQueryOptions(filters));
+export function useUsers(filters: UserListFilters, { enabled = true } = {}) {
+  return useQuery({ ...usersQueryOptions(filters), enabled });
 }
 
 export function userQueryOptions(id: string) {

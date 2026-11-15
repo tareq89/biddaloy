@@ -3,7 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ExamStatus, FinalResultStatus } from '@biddaloy/shared';
-import { RecomputeActor, ResultRecomputer } from '../grading/recompute.service';
+import { PublishedUsingScale, RecomputeActor, ResultRecomputer } from '../grading/recompute.service';
 import { FinalResultsService } from '../final-results/final-results.service';
 import { lockExam } from './exam-lock';
 import { ResultsService } from './results.service';
@@ -92,13 +92,18 @@ export class ExamResultRecomputer implements ResultRecomputer {
     tenantId: string,
     scaleId: string,
     manager: EntityManager = this.dataSource.manager,
-  ): Promise<Array<{ id: string; name: string }>> {
+  ): Promise<PublishedUsingScale> {
     const exams = await this.examsUsingScale(manager, tenantId, scaleId);
     const finals = await this.finalsUsingScale(manager, tenantId, scaleId);
-    return [
-      ...exams.filter((e) => e.status === ExamStatus.PUBLISHED),
-      ...finals.filter((f) => f.status === FinalResultStatus.PUBLISHED),
-    ].map(({ id, name }) => ({ id, name }));
+    // Listed apart, like the confirm 409's details: a final's id is not an exam id (name = the class).
+    return {
+      exams: exams
+        .filter((e) => e.status === ExamStatus.PUBLISHED)
+        .map(({ id, name }) => ({ id, name })),
+      finals: finals
+        .filter((f) => f.status === FinalResultStatus.PUBLISHED)
+        .map(({ id, name }) => ({ id, name })),
+    };
   }
 
   async recompute(

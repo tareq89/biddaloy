@@ -5157,7 +5157,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/sms-packages',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 1,
   },
   'administration.seatCoupon': {
     title: { bn: 'কুপন ব্যবহার করা', en: 'Using a coupon' },

@@ -116,7 +116,7 @@ export const seatPlanSchedulesTab: TabSpec<SeatPlanSchedule, SeatPlanScheduleRow
         tab: 'seat_plan_schedules',
         row: rowNo,
         column: 'seat_plan',
-        message: `Column "seat_plan": no seat plan "${seatPlanKey}" was found.`,
+        message: `Column "seat_plan": no seat plan was found.`,
         severity: 'error',
         value: seatPlanKey,
       });
@@ -129,7 +129,7 @@ export const seatPlanSchedulesTab: TabSpec<SeatPlanSchedule, SeatPlanScheduleRow
         tab: 'seat_plan_schedules',
         row: rowNo,
         column: 'exam_schedule',
-        message: `Column "exam_schedule": no exam schedule "${examScheduleKey}" was found.`,
+        message: `Column "exam_schedule": no exam schedule was found.`,
         severity: 'error',
         value: examScheduleKey,
       });

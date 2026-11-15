@@ -133,7 +133,7 @@ export const examSchedulesTab: TabSpec<ExamSchedule, ExamScheduleRow> = {
           tab: 'exam_schedules',
           row: rowNo,
           column: 'exam',
-          message: `Column "exam": no exam "${examKey}" was found.`,
+          message: `Column "exam": no exam was found.`,
           severity: 'error',
           value: examKey,
         });
@@ -149,7 +149,7 @@ export const examSchedulesTab: TabSpec<ExamSchedule, ExamScheduleRow> = {
           tab: 'exam_schedules',
           row: rowNo,
           column: 'subject',
-          message: `Column "subject": no subject "${subjectKey}" was found.`,
+          message: `Column "subject": no subject was found.`,
           severity: 'error',
           value: subjectKey,
         });
