@@ -1,4 +1,4 @@
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -83,6 +83,19 @@ describe('/reports/student-count', () => {
     ).toBeTruthy();
     expect(router.state.location.pathname).toBe('/reports/student-count');
     expect(screen.getByRole('button', { name: 'All reports' })).toBeTruthy();
+  });
+
+  it('says access is refused when the catalogue answers 403', async () => {
+    server.use(
+      http.get('/api/v1/reports/catalogue', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/api/v1/reports/catalogue'), {
+          status: 403,
+        }),
+      ),
+    );
+    renderBookmark('TEACHER');
+
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
   });
 
   it('shows the same plain page in Bangla', async () => {
