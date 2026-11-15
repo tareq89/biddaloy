@@ -5,7 +5,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
-import { BkashClient } from '../billing/bkash/bkash.client';
+import { BkashClient } from '../payment-gateways/bkash/bkash.client';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { SmsExpiryService } from './expiry/sms-expiry.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';

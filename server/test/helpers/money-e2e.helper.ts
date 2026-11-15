@@ -8,7 +8,7 @@ import { ApprovalScope, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../src/app.module';
 import { StepUpService } from '../../src/modules/auth/step-up.service';
 import { PlatformHomeService } from '../../src/modules/platform-identity/platform-home.service';
-import { BkashClient, paisaToBdt } from '../../src/modules/billing/bkash/bkash.client';
+import { BkashClient, paisaToBdt } from '../../src/modules/payment-gateways/bkash/bkash.client';
 import { buildValidationPipeOptions } from '../../src/validation-pipe';
 import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '../constants';
 import { configureApiVersioning } from './e2e-app.helper';

@@ -10,7 +10,7 @@ import { AppModule } from '../../app.module';
 import { OTP_REDIS } from '../account-access/otp.service';
 import { StepUpService } from '../auth/step-up.service';
 import { PlatformHomeService } from '../platform-identity/platform-home.service';
-import { BkashClient, paisaToBdt } from './bkash/bkash.client';
+import { BkashClient, paisaToBdt } from '../payment-gateways/bkash/bkash.client';
 import { PAYMENT_KEY } from './bkash/bkash.service';
 import { CouponRedemptionService } from '../coupons/coupon-redemption.service';
 import { OrdersService } from './orders.service';
