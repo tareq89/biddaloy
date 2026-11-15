@@ -77,6 +77,13 @@ export class PrintJobsService {
     if (kind === DocumentKind.STAFF_ID_CARD && !roleHasPermission(role, Permission.STAFF_HR_READ)) {
       throw new ForbiddenException('Missing permission: STAFF_HR_READ');
     }
+    // Applicant data (guardian phone) is PII: DOCUMENT_PRINT alone is not enough.
+    if (
+      kind === DocumentKind.ADMISSION_ADMIT_CARD &&
+      !roleHasPermission(role, Permission.ADMISSION_REVIEW)
+    ) {
+      throw new ForbiddenException('Missing permission: ADMISSION_REVIEW');
+    }
     // ACR is confidential: DOCUMENT_PRINT alone (ACCOUNTANT) is not enough.
     if (kind === DocumentKind.ACR_ASSESSMENT && !roleHasPermission(role, Permission.ACR_READ)) {
       throw new ForbiddenException('Missing permission: ACR_READ');
@@ -504,7 +511,7 @@ export class PrintJobsService {
     jobId: string,
     s: {
       kind: DocumentKind;
-      subjectType: 'STUDENT' | 'STAFF' | 'ACR';
+      subjectType: 'STUDENT' | 'STAFF' | 'ACR' | 'APPLICANT';
       subjectId: string;
       label: string;
       baseValues: Record<string, unknown>;
@@ -650,7 +657,13 @@ export class PrintJobsService {
   }
 
   /** Stream a subject photo. Old keys stay valid (snapshots reference them, D48). */
-  async photo(caller: PrintCaller, type: 'STUDENT' | 'STAFF', subjectId: string, key: string) {
+  async photo(
+    caller: PrintCaller,
+    type: 'STUDENT' | 'STAFF' | 'APPLICANT',
+    subjectId: string,
+    key: string,
+  ) {
+    if (type === 'APPLICANT') return this.applicantPhoto(caller, subjectId, key);
     const kind = type === 'STAFF' ? DocumentKind.STAFF_ID_CARD : DocumentKind.STUDENT_ID_CARD;
     if (caller.channel === 'CERTIFICATE') {
       // Certificates are student documents; the ID-card kind check does not apply.
@@ -674,6 +687,26 @@ export class PrintJobsService {
       );
       if (rows.length === 0) throw new NotFoundException('Photo not found');
     }
+    return this.storage.get(key);
+  }
+
+  /** [71.5.01] An applicant's photo: the key must be one of their own PHOTO documents, or one a job froze. */
+  private async applicantPhoto(caller: PrintCaller, subjectId: string, key: string) {
+    this.assertCanPrint(DocumentKind.ADMISSION_ADMIT_CARD, caller);
+    if (!key.startsWith(`tenants/${caller.tenantId}/`) || key.includes('..')) {
+      throw new ForbiddenException('Invalid photo key');
+    }
+    const rows = await this.ds.query(
+      `SELECT 1 FROM admission_applicants a
+        WHERE a.tenant_id = $1 AND a.id = $2 AND a.deleted_at IS NULL
+          AND (EXISTS (SELECT 1 FROM jsonb_array_elements(a.documents) d
+                        WHERE d->>'type' = 'PHOTO' AND d->>'storage_key' = $3)
+            OR EXISTS (SELECT 1 FROM print_job_items p
+                        WHERE p.tenant_id = $1 AND p.subject_type = 'APPLICANT'
+                          AND p.subject_id = a.id AND p.data_snapshot->>'photoKey' = $3))`,
+      [caller.tenantId, subjectId, key],
+    );
+    if (rows.length === 0) throw new NotFoundException('Photo not found');
     return this.storage.get(key);
   }
 }

@@ -30,7 +30,7 @@ const searchSchema = z.object({
   ids: z.string().optional().catch(undefined),
   class_section_id: z.string().uuid().optional().catch(undefined),
   // The exam an admit card, result or merit certificate belongs to.
-  context_type: z.enum(['EXAM']).optional().catch(undefined),
+  context_type: z.enum(['EXAM', 'ADMISSION_STAGE']).optional().catch(undefined),
   context_id: z.string().uuid().optional().catch(undefined),
   // Set when the preview was reached from the picker (so "Back" has somewhere to go).
   pick: z.literal('1').optional().catch(undefined),
@@ -93,6 +93,7 @@ function PrintPreviewPage() {
   const picking =
     search.ids === undefined && stateIds === undefined && search.class_section_id === undefined;
   const contextExam = search.context_type === 'EXAM' ? search.context_id : undefined;
+  const contextStage = search.context_type === 'ADMISSION_STAGE' ? search.context_id : undefined;
   const admitExam = search.kind === DocumentKind.EXAM_ADMIT_CARD ? contextExam : undefined;
   // D9: a student who owes fees is flagged in the pre-flight; staff can still print.
   const admitRoster = useAdmitCardRoster(admitExam);
@@ -185,7 +186,9 @@ function PrintPreviewPage() {
       subjectIds={ids}
       {...(contextExam !== undefined
         ? { context: { type: 'EXAM' as const, id: contextExam } }
-        : {})}
+        : contextStage !== undefined
+          ? { context: { type: 'ADMISSION_STAGE' as const, id: contextStage } }
+          : {})}
       extraIssues={extraIssues}
       onCreateTemplate={() => void navigate({ to: '/print-templates', search: { new: '1' } })}
       onAddPrinter={() => void navigate({ to: '/settings', hash: 'printers-section' })}

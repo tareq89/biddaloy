@@ -1294,6 +1294,7 @@ export {
   useCutoffPreview,
   useDrawLottery,
   useExpirePendingList,
+  fetchStageApplicants,
   useFeeProofs,
   usePublish,
   usePublishEstimate,

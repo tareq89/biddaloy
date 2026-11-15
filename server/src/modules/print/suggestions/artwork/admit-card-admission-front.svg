@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200mm" height="140mm" viewBox="0 0 200 140">
+<title>Admission admit card front</title>
+<desc>Background artwork only. Fields are placed by the print template.</desc>
+<rect width="200" height="140" fill="#FBFDFE"/><rect x="3" y="3" width="194" height="134" fill="none" stroke="#0B3A6B" stroke-width="0.5"/><rect x="3" y="3" width="194" height="25" fill="#E6F1F5"/><rect x="3" y="28" width="194" height="0.6" fill="#C9A227"/><rect x="6" y="33" width="188" height="78" fill="none" stroke="#0B3A6B" stroke-opacity="0.45" stroke-width="0.3"/><line x1="140" y1="129" x2="194" y2="129" stroke="#0B3A6B" stroke-width="0.3"/>
+</svg>

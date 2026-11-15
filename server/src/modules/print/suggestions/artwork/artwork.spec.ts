@@ -23,8 +23,8 @@ const ALLOWED = new Set(
 );
 
 describe('suggestion artwork', () => {
-  it('ships all 20 files (8 card designs x front/back + ACR, admit card and 2 certificate pages)', () => {
-    expect(FILES).toHaveLength(20);
+  it('ships all 21 files (8 card designs x front/back + ACR, 2 admit cards and 2 certificate pages)', () => {
+    expect(FILES).toHaveLength(21);
   });
 
   it.each(FILES)('%s is clean, correctly sized background artwork', (file) => {

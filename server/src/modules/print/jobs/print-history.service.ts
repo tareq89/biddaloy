@@ -288,6 +288,13 @@ export class PrintHistoryService {
     ) {
       throw new ForbiddenException('Missing permission: STAFF_HR_READ');
     }
+    // Applicant snapshots carry the guardian phone.
+    if (
+      rows[0].subject_type === 'APPLICANT' &&
+      !roleHasPermission(caller.role, Permission.ADMISSION_REVIEW)
+    ) {
+      throw new ForbiddenException('Missing permission: ADMISSION_REVIEW');
+    }
     return rows[0];
   }
 

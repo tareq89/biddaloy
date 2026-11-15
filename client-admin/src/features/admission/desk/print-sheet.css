@@ -1,0 +1,46 @@
+/* [71.5.01] Printed list / attendance sheet. Hidden on screen; in print it is the only thing shown.
+ * Scoped by `body:has(.print-sheet-root)` so it cannot touch another page's printout. */
+.print-sheet-root {
+  display: none;
+}
+@media print {
+  body:has(.print-sheet-root) > *:not(.print-sheet-root) {
+    display: none !important;
+  }
+  .print-sheet-root {
+    display: block;
+    color: #000;
+    background: #fff;
+    font-size: 11pt;
+  }
+  .print-sheet-root h1 {
+    font-size: 15pt;
+    margin: 0;
+  }
+  .print-sheet-root h2 {
+    font-size: 12pt;
+    margin: 2mm 0 0;
+  }
+  .print-sheet-root p {
+    margin: 1mm 0 4mm;
+  }
+  .print-sheet-root table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .print-sheet-root th,
+  .print-sheet-root td {
+    border: 0.3mm solid #000;
+    padding: 1.5mm 2mm;
+    text-align: left;
+  }
+  .print-sheet-root th.wide {
+    width: 40%;
+  }
+  .print-sheet-root tr {
+    break-inside: avoid;
+  }
+  .print-sheet-root thead {
+    display: table-header-group;
+  }
+}

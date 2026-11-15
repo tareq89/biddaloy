@@ -22349,10 +22349,10 @@ export interface components {
             /** Format: uuid */
             template_id: string;
             /** @enum {string} */
-            subject_type: "STUDENT" | "STAFF" | "ACR";
+            subject_type: "STUDENT" | "STAFF" | "ACR" | "APPLICANT";
             subject_ids: string[];
             /** @enum {string} */
-            context_type?: "EXAM";
+            context_type?: "EXAM" | "ADMISSION_STAGE";
             /** Format: uuid */
             context_id?: string;
             issue_values?: {
@@ -22363,10 +22363,10 @@ export interface components {
             /** Format: uuid */
             template_id: string;
             /** @enum {string} */
-            subject_type: "STUDENT" | "STAFF" | "ACR";
+            subject_type: "STUDENT" | "STAFF" | "ACR" | "APPLICANT";
             subject_ids: string[];
             /** @enum {string} */
-            context_type?: "EXAM";
+            context_type?: "EXAM" | "ADMISSION_STAGE";
             /** Format: uuid */
             context_id?: string;
             issue_values?: {

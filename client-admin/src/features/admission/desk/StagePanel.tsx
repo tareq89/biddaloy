@@ -144,7 +144,17 @@ function StageBody({ roundId, stage }: { roundId: string; stage: Stage }) {
         <Button disabled={rolls.isPending} onClick={() => void makeRolls()}>
           {t('header.makeRolls')}
         </Button>
-        <AdmissionPrintMenu />
+        <AdmissionPrintMenu
+          roundId={roundId}
+          stage={{
+            id: stage.id,
+            title: stage.title,
+            kind: stage.kind,
+            date: stage.date,
+            start_time: stage.start_time,
+            venue: stage.venue,
+          }}
+        />
         {stage.cutoff_committed_at ? (
           <span role="status" className="text-sm font-medium">
             {t('header.cutoffDone')}

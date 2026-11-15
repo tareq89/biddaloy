@@ -18,6 +18,7 @@ import * as React from 'react';
 import { AdmitApplicantModal } from '../AdmitApplicantModal';
 import { useApplicant } from '../hooks/useApplicants';
 
+import { PrintListButton } from './AdmissionPrintMenu';
 import { CallListDialog } from './CallListDialog';
 import { ListBuildDialog } from './ListBuildDialog';
 
@@ -141,6 +142,11 @@ function ListCard({
         <Button variant="outline" onClick={() => setCalling(true)}>
           {t('actions.call')}
         </Button>
+        <PrintListButton
+          roundId={roundId}
+          title={isMerit ? t('card.merit') : t('card.waiting', { n: n(list.sequence) })}
+          members={list.members}
+        />
       </div>
       {activateReason ? (
         <p role="note" className="text-sm text-text-secondary">

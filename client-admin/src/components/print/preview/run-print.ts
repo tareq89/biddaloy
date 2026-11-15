@@ -141,7 +141,8 @@ export async function runPrint(
         .map((a) => ({ family: a.font_family ?? a.id, url: assetData.get(a.id) as string }));
 
       const logoUrl = `/schools/${tenantId}/logo`;
-      const prefix = subjectType === 'STUDENT' ? 'student' : 'staff';
+      const prefix =
+        subjectType === 'STUDENT' ? 'student' : subjectType === 'APPLICANT' ? 'applicant' : 'staff';
       const cards = await Promise.all(
         job.items.map(async (item) => {
           const wantsLogo = Boolean(item.values['school.logo']);

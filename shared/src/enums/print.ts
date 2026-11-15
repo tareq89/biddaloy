@@ -62,7 +62,12 @@ export type PrintJobStatus = (typeof PrintJobStatus)[keyof typeof PrintJobStatus
 export const PrintItemOutcome = { PENDING: 'PENDING', OK: 'OK', FAILED: 'FAILED' } as const;
 export type PrintItemOutcome = (typeof PrintItemOutcome)[keyof typeof PrintItemOutcome];
 
-export const PrintSubjectType = { STUDENT: 'STUDENT', STAFF: 'STAFF', ACR: 'ACR' } as const;
+export const PrintSubjectType = {
+  STUDENT: 'STUDENT',
+  STAFF: 'STAFF',
+  ACR: 'ACR',
+  APPLICANT: 'APPLICANT',
+} as const;
 export type PrintSubjectType = (typeof PrintSubjectType)[keyof typeof PrintSubjectType];
 
 /** Hard cap on items in one print job (D46). */
@@ -79,11 +84,12 @@ export const ACR_CRITERIA_SLOTS = 30;
 export const ADMIT_CARD_SITTING_SLOTS = 15;
 
 /** What a document kind is printed for, besides a student/staff subject. */
-export const PrintContextType = { EXAM: 'EXAM' } as const;
+export const PrintContextType = { EXAM: 'EXAM', ADMISSION_STAGE: 'ADMISSION_STAGE' } as const;
 export type PrintContextType = (typeof PrintContextType)[keyof typeof PrintContextType];
 
 export const KIND_CONTEXT: Partial<Record<DocumentKind, PrintContextType>> = {
   [DocumentKind.EXAM_ADMIT_CARD]: PrintContextType.EXAM,
+  [DocumentKind.ADMISSION_ADMIT_CARD]: PrintContextType.ADMISSION_STAGE,
   [DocumentKind.RESULT_CERTIFICATE]: PrintContextType.EXAM,
   [DocumentKind.MERIT_CERTIFICATE]: PrintContextType.EXAM,
 };

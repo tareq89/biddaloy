@@ -27,8 +27,8 @@ import { PrintJobsService } from './print-jobs.service';
 import { CreatePrintJobDto, PreviewPrintJobDto } from './dto/print-job.dto';
 
 export class PhotoQueryDto {
-  @IsIn(['STUDENT', 'STAFF'])
-  subject_type: 'STUDENT' | 'STAFF';
+  @IsIn(['STUDENT', 'STAFF', 'APPLICANT'])
+  subject_type: 'STUDENT' | 'STAFF' | 'APPLICANT';
 
   @IsUUID()
   subject_id: string;

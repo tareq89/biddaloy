@@ -5,6 +5,7 @@ import { StudentCardResolver } from './student-card.resolver';
 import { StaffCardResolver } from './staff-card.resolver';
 import { AcrAssessmentResolver } from './acr-assessment.resolver';
 import { AdmitCardResolver } from './admit-card.resolver';
+import { AdmissionAdmitCardResolver } from './admission-admit-card.resolver';
 import { StudentCertificateResolver } from './student-certificate.resolver';
 import { ResultCertificateResolver } from './result-certificate.resolver';
 
@@ -23,7 +24,7 @@ export interface PrintContext {
 
 export interface FieldResolver {
   kind: DocumentKind;
-  subjectType: 'STUDENT' | 'STAFF' | 'ACR';
+  subjectType: 'STUDENT' | 'STAFF' | 'ACR' | 'APPLICANT';
   /** Only subjects that exist in `tenantId` come back; a missing id means not found. */
   resolve(
     tenantId: string,
@@ -40,6 +41,7 @@ export const RESOLVERS: Partial<Record<DocumentKind, FieldResolver>> = {
   [DocumentKind.STAFF_ID_CARD]: new StaffCardResolver(),
   [DocumentKind.ACR_ASSESSMENT]: new AcrAssessmentResolver(),
   [DocumentKind.EXAM_ADMIT_CARD]: new AdmitCardResolver(),
+  [DocumentKind.ADMISSION_ADMIT_CARD]: new AdmissionAdmitCardResolver(),
   ...Object.fromEntries(
     STUDENT_CERTIFICATE_KINDS.map((k) => [k, new StudentCertificateResolver(k)]),
   ),
