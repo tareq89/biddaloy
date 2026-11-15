@@ -9,6 +9,7 @@ import { AdmissionReportsController } from './admission-reports.controller';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import type { ModuleStateReader } from '../../modules/auth/guards/module-state.reader';
 import { UserRole } from '@biddaloy/shared';
+import ExcelJS from 'exceljs';
 
 /** [39.5.1] Lifecycle report: counts/rows, class + year filters, tenant isolation, permission. */
 describe('AdmissionReportsService (integration)', () => {
@@ -17,6 +18,11 @@ describe('AdmissionReportsService (integration)', () => {
 
   const T1 = '39500000-0000-4000-8000-000000000001';
   const T2 = '39500000-0000-4000-8000-000000000002';
+  const T3 = '39500000-0000-4000-8000-000000000003';
+  const T4 = '39500000-0000-4000-8000-000000000004';
+  const T5 = '39500000-0000-4000-8000-000000000005';
+  const T6 = '39500000-0000-4000-8000-000000000006';
+  const ALL = [T1, T2, T3, T4, T5, T6];
 
   async function seedTenant(tenant: string, slug: string) {
     await ds.query(`INSERT INTO schools (id, name, slug) VALUES ($1, $2, $2)`, [tenant, slug]);
@@ -102,6 +108,10 @@ describe('AdmissionReportsService (integration)', () => {
   afterAll(async () => {
     if (!ds) return;
     for (const t of [
+      'admission_list_members',
+      'admission_lists',
+      'admission_stage_results',
+      'admission_stages',
       'admission_applicants',
       'admission_intakes',
       'student_lifecycle_events',
@@ -111,9 +121,9 @@ describe('AdmissionReportsService (integration)', () => {
       'classes',
       'academic_years',
     ]) {
-      await ds.query(`DELETE FROM ${t} WHERE tenant_id IN ($1, $2)`, [T1, T2]);
+      await ds.query(`DELETE FROM ${t} WHERE tenant_id = ANY($1)`, [ALL]);
     }
-    await ds.query(`DELETE FROM schools WHERE id IN ($1, $2)`, [T1, T2]);
+    await ds.query(`DELETE FROM schools WHERE id = ANY($1)`, [ALL]);
     await ds.destroy();
   });
 
@@ -170,5 +180,141 @@ describe('AdmissionReportsService (integration)', () => {
       }) as unknown as ExecutionContext;
     expect(() => guard.canActivate(ctx(UserRole.TEACHER))).toThrow(ForbiddenException);
     expect(await guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
+  });
+
+  /** One intake with two stages (WRITTEN, VIVA) and six applicants across the funnel. */
+  async function seedFunnel(tenant: string, ctx: Awaited<ReturnType<typeof seedTenant>>) {
+    const [intake] = await ds.query(
+      `INSERT INTO admission_intakes (tenant_id, class_section_id, title, seat_count, open_date, close_date)
+       VALUES ($1, $2, 'f', 5, '2026-01-01', '2026-02-01') RETURNING id`,
+      [tenant, ctx.classes[0].sectionId],
+    );
+    const stageIds: string[] = [];
+    for (const [pos, kind] of [
+      [1, 'WRITTEN'],
+      [2, 'VIVA'],
+    ] as const) {
+      const [st] = await ds.query(
+        `INSERT INTO admission_stages (tenant_id, intake_id, position, kind) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [tenant, intake.id, pos, kind],
+      );
+      stageIds.push(st.id);
+    }
+    const mk = async (
+      name: string,
+      status: string,
+      source: string,
+      quotas: string[],
+      passedStages: number,
+      score: number | null = null,
+    ) => {
+      n += 1;
+      const [a] = await ds.query(
+        `INSERT INTO admission_applicants
+           (tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, status, source, quota_tags)
+         VALUES ($1, $2, $3, $4, '2015-01-01', 'M', 'G', $5, $6, $7, $8::jsonb) RETURNING id`,
+        [tenant, intake.id, `FN-${n}`, name, `0180000${n}`, status, source, JSON.stringify(quotas)],
+      );
+      for (let k = 0; k < passedStages; k++) {
+        await ds.query(
+          `INSERT INTO admission_stage_results (tenant_id, stage_id, applicant_id, score, passed) VALUES ($1, $2, $3, $4, true)`,
+          [tenant, stageIds[k], a.id, score],
+        );
+      }
+      return a.id as string;
+    };
+    await mk('Online rejected at written', 'REJECTED', 'ONLINE', [], 0);
+    await mk('Online passed written only', 'SHORTLISTED', 'ONLINE', ['FF'], 1);
+    await mk('=HYPERLINK("x")', 'OFFERED', 'ONLINE', ['FF'], 2, 88.5);
+    await mk('Online admitted', 'ADMITTED', 'ONLINE', ['SIBLING'], 2);
+    await mk('Clerk admitted no stages', 'ADMITTED', 'CLERK', ['FF', 'SIBLING'], 0);
+    await mk('Clerk pending', 'PENDING', 'CLERK', [], 0);
+    return intake.id as string;
+  }
+
+  it('funnel counts by status (CLERK admitted counted), steps never grow, tenant isolation', async () => {
+    const c3 = await seedTenant(T3, 'ar-3');
+    const c4 = await seedTenant(T4, 'ar-4');
+    await seedFunnel(T3, c3);
+    await seedFunnel(T4, c4);
+
+    const r = await svc.funnel(T3, { academic_year_id: c3.years[0] });
+    expect(r.funnel.map((s) => [s.step, s.position, s.kind, s.count])).toEqual([
+      ['APPLIED', null, null, 6],
+      ['STAGE', 1, 'WRITTEN', 4], // passed written (2) + offered + both admitted
+      ['STAGE', 2, 'VIVA', 3], // offered + both admitted
+      ['OFFERED', null, null, 3],
+      ['ADMITTED', null, null, 2],
+    ]);
+    const counts = r.funnel.map((s) => s.count);
+    expect(counts).toEqual([...counts].sort((a, b) => b - a));
+    // Admitted is by status: the CLERK one counts too.
+    expect(r.sources).toEqual([
+      { source: 'ONLINE', applied: 4, admitted: 1 },
+      { source: 'CLERK', applied: 2, admitted: 1 },
+    ]);
+    expect(r.quotas).toEqual([
+      { quota: 'FF', applied: 3, admitted: 1 },
+      { quota: 'SIBLING', applied: 2, admitted: 2 },
+    ]);
+
+    // Another tenant's year under T3 returns an empty funnel; class filter narrows.
+    const leak = await svc.funnel(T3, { academic_year_id: c4.years[0] });
+    expect(leak.funnel).toEqual([
+      { step: 'APPLIED', position: null, kind: null, count: 0 },
+      { step: 'OFFERED', position: null, kind: null, count: 0 },
+      { step: 'ADMITTED', position: null, kind: null, count: 0 },
+    ]);
+    const other = await svc.funnel(T3, {
+      academic_year_id: c3.years[0],
+      class_id: c3.classes[1].classId,
+    });
+    expect(other.funnel[0].count).toBe(0);
+  });
+
+  it('exports: numeric cells, formula text escaped, tenant isolated', async () => {
+    const c5 = await seedTenant(T5, 'ar-5');
+    const c6 = await seedTenant(T6, 'ar-6');
+    await seedFunnel(T5, c5);
+    await seedFunnel(T6, c6);
+    const load = async (kind: 'applicants' | 'scores' | 'lists', tenant: string, year: string) => {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load((await svc.exportKind(tenant, kind, { academic_year_id: year })) as never);
+      return wb.worksheets[0];
+    };
+    const apps = await load('applicants', T5, c5.years[0]);
+    expect(apps.rowCount).toBe(7); // header + 6, none from T6
+    const names = apps.getColumn(2).values.slice(2);
+    expect(names).toContain('\'=HYPERLINK("x")');
+
+    const scores = await load('scores', T5, c5.years[0]);
+    expect(scores.rowCount).toBe(1 + 1 + 2 + 2 + 0); // stage rows: 1 + 2 + 2
+    const scored = scores.getColumn(6).values.filter((v) => v === 88.5);
+    expect(scored).toHaveLength(2); // numeric, not "88.5"
+
+    const lists = await load('lists', T5, c5.years[0]);
+    expect(lists.rowCount).toBe(1); // header only
+
+    const empty = await load('applicants', T5, c6.years[0]);
+    expect(empty.rowCount).toBe(1);
+  });
+
+  it('new routes need ADMISSION_REVIEW: TEACHER 403, ADMIN passes', async () => {
+    const guard = new PermissionsGuard(new Reflector(), {
+      forTenant: async () => ({ platform: {}, school: {} }),
+    } as unknown as ModuleStateReader);
+    for (const handler of [
+      AdmissionReportsController.prototype.funnel,
+      AdmissionReportsController.prototype.exportKind,
+    ]) {
+      const ctx = (role: string) =>
+        ({
+          getHandler: () => handler,
+          getClass: () => AdmissionReportsController,
+          switchToHttp: () => ({ getRequest: () => ({ currentTenant: { role } }) }),
+        }) as unknown as ExecutionContext;
+      expect(() => guard.canActivate(ctx(UserRole.TEACHER))).toThrow(ForbiddenException);
+      expect(await guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
+    }
   });
 });

@@ -90,6 +90,8 @@ GET /admission/fee-proofs/:id/attachment | AdmissionFeeController | perm: ADMISS
 GET /admission/intakes/:id/call-list | AdmissionPublicationController | perm: ADMISSION_REVIEW
 GET /admission/intakes/:id/lists | AdmissionListController | perm: ADMISSION_REVIEW
 GET /admission/intakes/:id/publish/estimate | AdmissionPublicationController | perm: ADMISSION_REVIEW
+GET /admission/reports/export/:kind | AdmissionReportsController | perm: ADMISSION_REVIEW
+GET /admission/reports/funnel | AdmissionReportsController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
 GET /admission/stages/:id/results | AdmissionStageResultController | perm: ADMISSION_REVIEW
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
