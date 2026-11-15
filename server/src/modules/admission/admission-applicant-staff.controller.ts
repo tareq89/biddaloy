@@ -23,7 +23,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { AdmissionApplicantService } from './admission-applicant.service';
-import { MAX_DOCUMENT_FILE_SIZE } from './public-admission.controller';
+import { MAX_DOCUMENT_FILE_SIZE } from './admission-upload.constants';
 import { StaffCreateApplicantDto } from './dto/staff-create-applicant.dto';
 import { SubmitApplicantResponseDto } from './dto/submit-applicant.dto';
 

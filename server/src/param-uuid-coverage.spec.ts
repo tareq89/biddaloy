@@ -12,7 +12,6 @@ import { join, relative } from 'path';
  * unpiped to an allowlisted file still fails.
  */
 const NON_UUID_PARAMS = new Map<string, number>([
-  ['modules/admission/public-admission.controller.ts:slug', 3], // school slug
   ['modules/auth/social/social-auth.controller.ts:provider', 4], // google / facebook
   ['modules/calendar/calendar-feed.controller.ts:token', 1], // opaque feed token
   ['modules/invoices/public-invoice.controller.ts:token', 1], // share-link token

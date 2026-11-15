@@ -1,4 +1,10 @@
-import { adminApiSession, createClassSection, createGuardian, post } from './api';
+import {
+  adminApiSession,
+  createClassSection,
+  createGuardian,
+  createWalkInApplicant,
+  post,
+} from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
 import { DetailShellPage } from './pages/detail-shell';
@@ -18,7 +24,7 @@ import { ListShellPage } from './pages/list-shell';
  */
 test.use(loggedIn('admin'));
 
-test('public submit → staff shortlist/admit → student created → public status shows ADMITTED', async ({
+test('walk-in application → staff shortlist/admit → student created', async ({
   page,
   request,
 }) => {
@@ -28,10 +34,11 @@ test('public submit → staff shortlist/admit → student created → public sta
   const guardianPhone = `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
 
   let referenceNumber = '';
+  let intakeId = '';
 
   await test.step('seed an open intake over the API', async () => {
     const section = await createClassSection(request, admin);
-    await post(request, admin, '/admission-intakes', {
+    const intake = await post<{ id: string }>(request, admin, '/admission-intakes', {
       title: `E2E Intake ${suffix}`,
       class_section_id: section.sectionId,
       seat_count: 10,
@@ -39,66 +46,16 @@ test('public submit → staff shortlist/admit → student created → public sta
       close_date: '2099-12-31',
       required_document_types: ['PHOTO'],
     });
+    intakeId = intake.id;
   });
 
-  await test.step('a guardian submits the public application, no login', async () => {
-    // Fresh, signed-out context — this test is `loggedIn('admin')` for the
-    // staff half below, but the public form must never see that session.
-    const guestContext = await page.context().browser()!.newContext();
-    const guestPage = await guestContext.newPage();
-
-    await guestPage.goto('/admission/default-school');
-
-    // The intake picker only renders when the school has more than one open intake -
-    // default-school always has the seed script's own "Class 1 Admission 2026", so with our
-    // own intake added there are always two. Choose ours by title. Waiting on the combobox
-    // itself matters: the intake list is still loading right after goto().
-    await guestPage
-      .getByRole('combobox', { name: t('admission-public.form.fields.intake') })
-      .click();
-    await guestPage.getByRole('option', { name: `E2E Intake ${suffix}` }).click();
-
-    // Labels carry a required mark (" *" and a screen-reader "(required)"), so match on the
-    // label text rather than the whole accessible name.
-    await guestPage.getByLabel(t('admission-public.form.fields.applicantName')).fill(applicantName);
-
-    // Date of birth is a DatePicker: open it and pick the 1st of the current month (never in
-    // the future, because the picker's max is today).
-    const today = new Date();
-    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-    await guestPage
-      .getByRole('button', { name: t('admission-public.form.fields.dateOfBirth') })
-      .click();
-    await guestPage.locator(`[data-date="${firstOfMonth}"]`).click();
-
-    await guestPage
-      .getByRole('combobox', { name: t('admission-public.form.fields.gender') })
-      .click();
-    await guestPage
-      .getByRole('option', { name: t('admission-public.form.fields.genderOptions.MALE') })
-      .click();
-    await guestPage
-      .getByLabel(t('admission-public.form.fields.guardianName'))
-      .fill(`Guardian of ${applicantName}`);
-    await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
-    await guestPage
-      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
-      .setInputFiles({
-        name: 'photo.jpg',
-        mimeType: 'image/jpeg',
-        // A real JPEG signature - the server's magic-byte check (T10) rejects anything else
-        // with a 400.
-        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-      });
-
-    await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
-
-    const referenceLocator = guestPage.getByTestId('reference-number');
-    await referenceLocator.waitFor();
-    referenceNumber = (await referenceLocator.textContent())?.trim() ?? '';
+  await test.step('a guardian application is entered at the desk (the public form is on the school site)', async () => {
+    ({ reference_number: referenceNumber } = await createWalkInApplicant(request, admin, {
+      intakeId,
+      name: applicantName,
+      guardianPhone,
+    }));
     expect(referenceNumber).not.toBe('');
-
-    await guestContext.close();
   });
 
   const detail = new DetailShellPage(page);
@@ -154,24 +111,6 @@ test('public submit → staff shortlist/admit → student created → public sta
     await list.search(applicantName);
     await list.expectResultCount(1);
   });
-
-  await test.step('the public status page shows ADMITTED for the same reference number', async () => {
-    const guestContext = await page.context().browser()!.newContext();
-    const guestPage = await guestContext.newPage();
-
-    await guestPage.goto('/admission/default-school/status');
-    await guestPage
-      .getByLabel(t('admission-public.status.fields.referenceNumber'))
-      .fill(referenceNumber);
-    await guestPage
-      .getByLabel(t('admission-public.status.fields.guardianPhone'))
-      .fill(guardianPhone);
-    await guestPage.getByRole('button', { name: t('admission-public.status.submit') }).click();
-
-    await expect(guestPage.getByText(t('admission-public.status.statuses.ADMITTED'))).toBeVisible();
-
-    await guestContext.close();
-  });
 });
 
 /**
@@ -184,12 +123,13 @@ test('admit modal shows the matched guardian and requires a choice', async ({ pa
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const applicantName = `Match E2E ${suffix}`;
   const existingGuardianName = `Existing Family ${suffix}`;
+  let intakeId = '';
   const guardianPhone = `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
 
   await test.step('seed a guardian and an open intake over the API', async () => {
     await createGuardian(request, admin, existingGuardianName, guardianPhone);
     const section = await createClassSection(request, admin);
-    await post(request, admin, '/admission-intakes', {
+    const intake = await post<{ id: string }>(request, admin, '/admission-intakes', {
       title: `Match Intake ${suffix}`,
       class_section_id: section.sectionId,
       seat_count: 10,
@@ -197,43 +137,15 @@ test('admit modal shows the matched guardian and requires a choice', async ({ pa
       close_date: '2099-12-31',
       required_document_types: ['PHOTO'],
     });
+    intakeId = intake.id;
   });
 
-  await test.step('a guardian submits the public application with that phone', async () => {
-    const guestContext = await page.context().browser()!.newContext();
-    const guestPage = await guestContext.newPage();
-    await guestPage.goto('/admission/default-school');
-    await guestPage
-      .getByRole('combobox', { name: t('admission-public.form.fields.intake') })
-      .click();
-    await guestPage.getByRole('option', { name: `Match Intake ${suffix}` }).click();
-    await guestPage.getByLabel(t('admission-public.form.fields.applicantName')).fill(applicantName);
-    const today = new Date();
-    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-    await guestPage
-      .getByRole('button', { name: t('admission-public.form.fields.dateOfBirth') })
-      .click();
-    await guestPage.locator(`[data-date="${firstOfMonth}"]`).click();
-    await guestPage
-      .getByRole('combobox', { name: t('admission-public.form.fields.gender') })
-      .click();
-    await guestPage
-      .getByRole('option', { name: t('admission-public.form.fields.genderOptions.MALE') })
-      .click();
-    await guestPage
-      .getByLabel(t('admission-public.form.fields.guardianName'))
-      .fill(`Typed Guardian ${suffix}`);
-    await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
-    await guestPage
-      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
-      .setInputFiles({
-        name: 'photo.jpg',
-        mimeType: 'image/jpeg',
-        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-      });
-    await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
-    await guestPage.getByTestId('reference-number').waitFor();
-    await guestContext.close();
+  await test.step('a guardian application is entered at the desk with that phone', async () => {
+    await createWalkInApplicant(request, admin, {
+      intakeId,
+      name: applicantName,
+      guardianPhone,
+    });
   });
 
   await test.step('staff opens Admit: the matched guardian is named and a choice is required', async () => {
@@ -281,9 +193,9 @@ test('[#2281] staff opens an uploaded document; after Reject the documents can b
   const applicantName = `Docs E2E ${suffix}`;
   const guardianPhone = `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
 
-  await test.step('seed an open intake and submit a public application with a photo', async () => {
+  await test.step('seed an open intake and enter a walk-in application with a photo', async () => {
     const section = await createClassSection(request, admin);
-    await post(request, admin, '/admission-intakes', {
+    const intake = await post<{ id: string }>(request, admin, '/admission-intakes', {
       title: `Docs Intake ${suffix}`,
       class_section_id: section.sectionId,
       seat_count: 10,
@@ -291,40 +203,12 @@ test('[#2281] staff opens an uploaded document; after Reject the documents can b
       close_date: '2099-12-31',
       required_document_types: ['PHOTO'],
     });
-    const guestContext = await page.context().browser()!.newContext();
-    const guestPage = await guestContext.newPage();
-    await guestPage.goto('/admission/default-school');
-    await guestPage
-      .getByRole('combobox', { name: t('admission-public.form.fields.intake') })
-      .click();
-    await guestPage.getByRole('option', { name: `Docs Intake ${suffix}` }).click();
-    await guestPage.getByLabel(t('admission-public.form.fields.applicantName')).fill(applicantName);
-    const today = new Date();
-    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-    await guestPage
-      .getByRole('button', { name: t('admission-public.form.fields.dateOfBirth') })
-      .click();
-    await guestPage.locator(`[data-date="${firstOfMonth}"]`).click();
-    await guestPage
-      .getByRole('combobox', { name: t('admission-public.form.fields.gender') })
-      .click();
-    await guestPage
-      .getByRole('option', { name: t('admission-public.form.fields.genderOptions.MALE') })
-      .click();
-    await guestPage
-      .getByLabel(t('admission-public.form.fields.guardianName'))
-      .fill(`Docs Guardian ${suffix}`);
-    await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
-    await guestPage
-      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
-      .setInputFiles({
-        name: 'photo.jpg',
-        mimeType: 'image/jpeg',
-        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-      });
-    await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
-    await guestPage.getByTestId('reference-number').waitFor();
-    await guestContext.close();
+    await createWalkInApplicant(request, admin, {
+      intakeId: intake.id,
+      name: applicantName,
+      guardianPhone,
+      photo: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+    });
   });
 
   const detail = new DetailShellPage(page);

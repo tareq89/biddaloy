@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ATTACHMENT_LIMITS } from '@biddaloy/shared';
-import { MAX_DOCUMENT_FILE_SIZE } from './modules/admission/public-admission.controller';
+import { MAX_DOCUMENT_FILE_SIZE } from './modules/admission/admission-upload.constants';
 import {
   HOMEWORK_SUBMISSION_MAX_FILES,
   HOMEWORK_SUBMISSION_MAX_FILE_SIZE,
