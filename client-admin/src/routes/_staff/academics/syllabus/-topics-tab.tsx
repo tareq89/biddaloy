@@ -13,12 +13,13 @@
  * move one topic one place.
  */
 import { SyllabusTopicStatus } from '@biddaloy/shared';
-import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
+import { ApiError, captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
   ConfirmDialog,
   EmptyState,
+  AccessDeniedState,
   ErrorState,
   RowActions,
   Select,
@@ -115,6 +116,7 @@ export function TopicsTab({
 }) {
   const { t, i18n } = useTranslation('syllabus');
   const { t: tCommon } = useTranslation('common');
+  const { t: tStates } = useTranslation('states');
   const regionConfig = useTenantRegionConfig();
   const isPhone = useIsPhone();
   const {
@@ -410,13 +412,16 @@ export function TopicsTab({
       </Card>
     );
   } else if (topicsQuery.isError) {
-    content = (
-      <ErrorState
-        message={t('list.errorMessage')}
-        retryLabel={tCommon('actions.retry')}
-        onRetry={() => void topicsQuery.refetch()}
-      />
-    );
+    content =
+      topicsQuery.error instanceof ApiError && topicsQuery.error.statusCode === 403 ? (
+        <AccessDeniedState title={tStates('denied.title')} explanation={tStates('denied.body')} />
+      ) : (
+        <ErrorState
+          message={t('list.errorMessage')}
+          retryLabel={tCommon('actions.retry')}
+          onRetry={() => void topicsQuery.refetch()}
+        />
+      );
   } else if (sortedTopics.length === 0) {
     content = (
       <EmptyState
