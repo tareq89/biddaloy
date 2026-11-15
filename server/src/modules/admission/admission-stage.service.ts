@@ -102,7 +102,10 @@ export class AdmissionStageService {
           position: Number(max) + 1,
           kind: dto.kind,
           title: dto.title ?? null,
-          config: dto.config ?? {},
+          // Owned by the publish / cut-off routes: a client cannot forge them.
+          config: (({ published_at: _p, cutoff_committed_at: _c, ...rest }) => rest)(
+            (dto.config ?? {}) as Record<string, unknown>,
+          ),
         }),
       );
       return toStageResponse(saved);
