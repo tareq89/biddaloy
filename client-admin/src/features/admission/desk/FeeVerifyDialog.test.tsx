@@ -25,6 +25,7 @@ const proof = (seen: number): FeeProofRow => ({
   reason: null,
   created_at: '2027-01-01T00:00:00Z',
   seen_before: seen,
+  amount_paisa: 50000,
 });
 
 function setup(seen = 0, onClose = vi.fn()) {
