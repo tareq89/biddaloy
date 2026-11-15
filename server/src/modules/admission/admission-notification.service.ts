@@ -61,6 +61,82 @@ const FEE_SENT_BACK: Record<
     `${intake}-এ ${name}-এর আবেদনের ফি পেমেন্ট যাচাই করা যায়নি: ${reason}। অনুগ্রহ করে স্কুল অফিসে যোগাযোগ করুন।`,
 };
 
+const dateText = (locale: TemplateLocale, at: Date) =>
+  at.toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-GB', {
+    timeZone: 'Asia/Dhaka',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+const dayText = (locale: TemplateLocale, at: Date) =>
+  at.toLocaleDateString(locale === 'bn' ? 'bn-BD' : 'en-GB', {
+    timeZone: 'Asia/Dhaka',
+    dateStyle: 'medium',
+  });
+
+// [#4184, D26] Same rule as above: typed values are inserted as typed.
+const LIST_OFFER: Record<
+  TemplateLocale,
+  (name: string, intake: string, deadline?: Date | null) => string
+> = {
+  en: (name, intake, deadline) =>
+    `Good news! ${name} has been offered a seat for ${intake}.` +
+    (deadline ? ` Please confirm by ${dayText('en', deadline)}.` : '') +
+    ' Contact the school office.',
+  bn: (name, intake, deadline) =>
+    `সুখবর! ${intake}-এ ${name}-কে আসন দেওয়া হয়েছে।` +
+    (deadline ? ` অনুগ্রহ করে ${dayText('bn', deadline)} এর মধ্যে নিশ্চিত করুন।` : '') +
+    ' স্কুল অফিসে যোগাযোগ করুন।',
+};
+
+const STAGE_SCHEDULE: Record<
+  TemplateLocale,
+  (name: string, intake: string, stage: string, at?: Date | null) => string
+> = {
+  en: (name, intake, stage, at) =>
+    `${name}: ${stage} for ${intake}` +
+    (at ? ` is on ${dateText('en', at)}.` : ' will be scheduled.'),
+  bn: (name, intake, stage, at) =>
+    `${name}: ${intake}-এর ${stage}` +
+    (at ? ` ${dateText('bn', at)}-এ হবে।` : ' শীঘ্রই জানানো হবে।'),
+};
+
+/** What a published result tells the guardian. REJECTED is opt-in (D26). */
+export type AdmissionResultOutcome = 'SELECTED' | 'WAITING' | 'PASSED' | 'NOT_PASSED' | 'REJECTED';
+
+const RESULT: Record<
+  TemplateLocale,
+  Record<AdmissionResultOutcome, (name: string, intake: string) => string>
+> = {
+  en: {
+    SELECTED: (n, i) =>
+      `Congratulations! ${n} is selected for ${i}. Please contact the school office.`,
+    WAITING: (n, i) => `${n} is on the waiting list for ${i}. We will contact you if a seat opens.`,
+    PASSED: (n, i) => `${n} has passed the current round for ${i}. We will share the next step.`,
+    NOT_PASSED: (n, i) => `${n} did not pass the current round for ${i}. Thank you for applying.`,
+    REJECTED: (n, i) => `Thank you for applying. ${n}'s application for ${i} was not successful.`,
+  },
+  bn: {
+    SELECTED: (n, i) => `অভিনন্দন! ${i}-এ ${n} নির্বাচিত হয়েছে। স্কুল অফিসে যোগাযোগ করুন।`,
+    WAITING: (n, i) => `${i}-এ ${n} অপেক্ষমাণ তালিকায় আছে। আসন খালি হলে জানানো হবে।`,
+    PASSED: (n, i) => `${i}-এর এই ধাপে ${n} উত্তীর্ণ হয়েছে। পরের ধাপ জানানো হবে।`,
+    NOT_PASSED: (n, i) => `${i}-এর এই ধাপে ${n} উত্তীর্ণ হয়নি। আবেদনের জন্য ধন্যবাদ।`,
+    REJECTED: (n, i) => `আবেদনের জন্য ধন্যবাদ। ${i}-এ ${n}-এর আবেদন সফল হয়নি।`,
+  },
+};
+
+export const resultBody = (
+  locale: TemplateLocale,
+  outcome: AdmissionResultOutcome,
+  name: string,
+  intake: string,
+) => RESULT[locale][outcome](name, intake);
+export const listOfferBody = (
+  locale: TemplateLocale,
+  name: string,
+  intake: string,
+  deadline?: Date | null,
+) => LIST_OFFER[locale](name, intake, deadline);
+
 /**
  * [27.7] Thin producer for admission status-change notifications — reuses
  * the same `CommunicationLog` + `COMMUNICATIONS_QUEUE` mechanism every
@@ -182,21 +258,49 @@ export class AdmissionNotificationService {
   }
 
   async notifyListOffer(
-    _applicant: NotifyApplicant,
-    _intakeTitle: string,
-    _deadline?: Date | null,
-  ): Promise<void> {}
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    deadline?: Date | null,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) => LIST_OFFER[locale](applicant.applicant_name, intakeTitle, deadline),
+      { applicant_id: applicant.id, admission_event: 'LIST_OFFER' },
+    );
+  }
 
   async notifyStageSchedule(
-    _applicant: NotifyApplicant,
-    _intakeTitle: string,
-    _stageName: string,
-    _scheduledAt?: Date | null,
-  ): Promise<void> {}
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    stageName: string,
+    scheduledAt?: Date | null,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) =>
+        STAGE_SCHEDULE[locale](applicant.applicant_name, intakeTitle, stageName, scheduledAt),
+      { applicant_id: applicant.id, admission_event: 'STAGE_SCHEDULE' },
+    );
+  }
 
   async notifyResult(
-    _applicant: NotifyApplicant,
-    _intakeTitle: string,
-    _outcome: string,
-  ): Promise<void> {}
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    outcome: AdmissionResultOutcome,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) => resultBody(locale, outcome, applicant.applicant_name, intakeTitle),
+      { applicant_id: applicant.id, admission_event: 'RESULT', outcome },
+    );
+  }
+
+  /** Locale the school's SMS go out in (same rule as `sendSms`). */
+  async localeFor(tenantId: string): Promise<TemplateLocale> {
+    const school = await this.logRepo.manager.findOne(School, {
+      where: { id: tenantId },
+      select: { id: true, settings: true },
+    });
+    return resolveTemplateLocale(school?.settings?.region?.locale);
+  }
 }

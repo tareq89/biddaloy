@@ -9336,6 +9336,74 @@ export interface paths {
         patch: operations["AdmissionListController_patchMembers_v1"];
         trace?: never;
     };
+    "/api/v1/admission/intakes/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a stage result or a list: set the public flag and SMS the right guardians. Needs an Idempotency-Key. */
+        post: operations["AdmissionPublicationController_publish_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/intakes/{id}/publish/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many SMS (and credits) a publish would send. */
+        get: operations["AdmissionPublicationController_estimate_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/intakes/{id}/call-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Name, phone, roll and called flag for one list. */
+        get: operations["AdmissionPublicationController_callList_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/call-list/{applicantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark an applicant called (or not) with a short note. */
+        patch: operations["AdmissionPublicationController_setCalled_v1"];
+        trace?: never;
+    };
     "/api/v1/seat-plans/generate": {
         parameters: {
             query?: never;
@@ -20582,8 +20650,8 @@ export interface components {
             fee_pay_methods?: ("BKASH" | "NAGAD" | "ROCKET" | "BANK")[];
             /** @description Field catalogue keys. */
             form_fields?: ("name" | "dob" | "gender" | "religion" | "blood_group" | "birth_reg_no" | "nationality" | "photo" | "father_name" | "father_phone" | "father_occupation" | "father_nid" | "mother_name" | "mother_phone" | "mother_occupation" | "mother_nid" | "guardian_name" | "guardian_phone" | "present_address" | "permanent_address" | "previous_school" | "previous_class" | "ssc_gpa" | "ssc_roll" | "ssc_board" | "ssc_year" | "group_preference" | "siblings_in_school" | "quota_freedom_fighter" | "quota_teacher_child" | "quota_disabled" | "quota_ethnic_minority" | "special_needs" | "transport_need" | "heard_of_us")[];
-            publish_channels?: string[];
-            tie_break?: string[];
+            publish_channels?: ("SITE" | "SMS" | "STATUS_CHECK" | "CALL_LIST")[];
+            tie_break?: ("DOB" | "APPLIED_AT" | "ID")[];
             show_names_publicly?: boolean;
             widget_always_show?: boolean;
             auto_activate_lists?: boolean;
@@ -20608,8 +20676,8 @@ export interface components {
             fee_pay_methods?: ("BKASH" | "NAGAD" | "ROCKET" | "BANK")[];
             /** @description Field catalogue keys. */
             form_fields?: ("name" | "dob" | "gender" | "religion" | "blood_group" | "birth_reg_no" | "nationality" | "photo" | "father_name" | "father_phone" | "father_occupation" | "father_nid" | "mother_name" | "mother_phone" | "mother_occupation" | "mother_nid" | "guardian_name" | "guardian_phone" | "present_address" | "permanent_address" | "previous_school" | "previous_class" | "ssc_gpa" | "ssc_roll" | "ssc_board" | "ssc_year" | "group_preference" | "siblings_in_school" | "quota_freedom_fighter" | "quota_teacher_child" | "quota_disabled" | "quota_ethnic_minority" | "special_needs" | "transport_need" | "heard_of_us")[];
-            publish_channels?: string[];
-            tie_break?: string[];
+            publish_channels?: ("SITE" | "SMS" | "STATUS_CHECK" | "CALL_LIST")[];
+            tie_break?: ("DOB" | "APPLIED_AT" | "ID")[];
             show_names_publicly?: boolean;
             widget_always_show?: boolean;
             auto_activate_lists?: boolean;
@@ -21079,6 +21147,45 @@ export interface components {
             remove?: string[];
             /** @description Applicant ids in the new order; must be every current member. */
             order?: string[];
+        };
+        PublishDto: {
+            /** @description The version this publish started from (409 site.stale if behind). */
+            version: number;
+            /** @description The draft_revision the publisher is looking at (409 site.stale if it changed). */
+            draft_revision: number;
+        };
+        PublishResponseDto: {
+            published_at: string;
+            already_published: boolean;
+            /** @description SMS handed to the sender; 0 when send_sms is false or repeated. */
+            sms_attempted: number;
+        };
+        PublishEstimateResponseDto: {
+            recipients: number;
+            /** @description SMS segments (credits) the send will use. */
+            segments: number;
+            metered: boolean;
+            available: number | null;
+            already_published: boolean;
+        };
+        CallListRowDto: {
+            /** Format: uuid */
+            applicant_id: string;
+            name: string;
+            phone: string;
+            roll: string | null;
+            called: boolean;
+            note: string | null;
+        };
+        SetCalledDto: {
+            called: boolean;
+            note?: string;
+        };
+        SetCalledResponseDto: {
+            /** Format: uuid */
+            applicant_id: string;
+            called: boolean;
+            note: string | null;
         };
         GenerateSeatPlanDto: {
             name: string;
@@ -22850,12 +22957,6 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @description The draft_revision this edit started from (409 site.stale if someone saved since). */
-            draft_revision: number;
-        };
-        PublishDto: {
-            /** @description The version this publish started from (409 site.stale if behind). */
-            version: number;
-            /** @description The draft_revision the publisher is looking at (409 site.stale if it changed). */
             draft_revision: number;
         };
         SetEnabledDto: {
@@ -46369,6 +46470,153 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListActionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionPublicationController_publish_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionPublicationController_estimate_v1: {
+        parameters: {
+            query: {
+                what: "STAGE" | "MERIT" | "WAITING";
+                ref_id: string;
+                include_not_selected?: boolean;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishEstimateResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionPublicationController_callList_v1: {
+        parameters: {
+            query: {
+                list_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallListRowDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionPublicationController_setCalled_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                applicantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCalledDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetCalledResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

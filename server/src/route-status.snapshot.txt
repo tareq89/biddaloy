@@ -48,13 +48,17 @@ POST   /api/v1/admission/applicants/:id/evaluate                                
 POST   /api/v1/admission/applicants/:id/expire                                   401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/applicants/:id/guardian-match                           401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/applicants/:id/reject                                   401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+PATCH  /api/v1/admission/call-list/:applicantId                                  401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/fee-proofs                                              401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/fee-proofs/:id/attachment                               401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/fee-proofs/:id/confirm                                  401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/fee-proofs/:id/send-back                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission/intakes/:id/call-list                                   401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/intakes/:id/lists                                       401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/intakes/:id/lists/merit                                 401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/intakes/:id/lists/waiting                               401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+POST   /api/v1/admission/intakes/:id/publish                                     401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+GET    /api/v1/admission/intakes/:id/publish/estimate                            401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/intakes/:id/rolls                                       401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/lists/:id/activate                                      401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/lists/:id/expire-pending                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission

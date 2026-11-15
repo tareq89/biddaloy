@@ -24,6 +24,10 @@ import {
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { MONEY_MAX, toPaisa } from '../../../common/constants/money';
+import { TIE_BREAK_KEYS } from '../admission-merit.util';
+
+/** [#4184, D6] Where a round's results go: public site, SMS, status check, call list. */
+export const PUBLISH_CHANNELS = ['SITE', 'SMS', 'STATUS_CHECK', 'CALL_LIST'] as const;
 
 /** [Epic 71 D2] A round is one class. `class_section_id` stays accepted until Wave 4 so the
  * old admin screens keep working; exactly one of the two is required (checked in the service). */
@@ -99,20 +103,18 @@ export class CreateIntakeDto {
   @IsIn(ADMISSION_FIELD_CATALOGUE.map((f) => f.key), { each: true })
   form_fields?: string[];
 
-  @ApiPropertyOptional({ type: String, isArray: true })
+  @ApiPropertyOptional({ type: String, isArray: true, enum: PUBLISH_CHANNELS })
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(10)
-  @IsString({ each: true })
-  @MaxLength(40, { each: true })
+  @ArrayMaxSize(PUBLISH_CHANNELS.length)
+  @IsIn([...PUBLISH_CHANNELS], { each: true })
   publish_channels?: string[];
 
-  @ApiPropertyOptional({ type: String, isArray: true })
+  @ApiPropertyOptional({ type: String, isArray: true, enum: TIE_BREAK_KEYS })
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(10)
-  @IsString({ each: true })
-  @MaxLength(40, { each: true })
+  @ArrayMaxSize(TIE_BREAK_KEYS.length)
+  @IsIn([...TIE_BREAK_KEYS], { each: true })
   tie_break?: string[];
 
   @ApiPropertyOptional()
