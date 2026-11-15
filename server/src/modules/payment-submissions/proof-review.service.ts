@@ -49,7 +49,7 @@ export class ProofReviewService {
   /** Oldest first, so the longest-waiting proof is on top. Cursor = created_at + id. */
   async list(
     ctx: ReviewCaller,
-    q: { source?: string; status?: string; limit?: number; cursor?: string },
+    q: { source?: string; status?: string; unmatched?: boolean; limit?: number; cursor?: string },
   ) {
     const limit = q.limit ?? DEFAULT_LIMIT;
     let after: { at: string; id: string } | null = null;
@@ -64,12 +64,21 @@ export class ProofReviewService {
       `SELECT s.id, s.source, s.status, s.method, s.amount, s.paid_on, s.reference_raw, s.created_at,
               s.created_at::text AS cursor_at,
               u.full_name AS submitter_name,
-              (SELECT COUNT(*)::int FROM payment_submission_bills b WHERE b.submission_id = s.id) AS bill_count
+              s.unmatched,
+              (SELECT COUNT(*)::int FROM payment_submission_bills b WHERE b.submission_id = s.id) AS bill_count,
+              (SELECT (array_agg(b.payment_id ORDER BY b.created_at, b.id))[1] FROM payment_submission_bills b
+                WHERE b.submission_id = s.id AND b.payment_id IS NOT NULL) AS payment_id,
+              (SELECT COALESCE(SUM(b.amount_at_start), 0)::numeric(12,2)::text
+                 FROM payment_submission_bills b WHERE b.submission_id = s.id) AS bills_amount,
+              (SELECT COALESCE(SUM(p.total_amount), 0)::numeric(12,2)::text FROM payments p
+                WHERE p.tenant_id = s.tenant_id AND p.id IN (
+                  SELECT b.payment_id FROM payment_submission_bills b WHERE b.submission_id = s.id)) AS applied_amount
          FROM payment_submissions s JOIN users u ON u.id = s.submitted_by_user_id
         WHERE s.tenant_id = $1
           AND ($2::text IS NULL OR s.source::text = $2)
           AND ($3::text IS NULL OR s.status::text = $3)
           AND ($4::timestamptz IS NULL OR (s.created_at, s.id) > ($4::timestamptz, $5::uuid))
+          AND ($7::boolean IS NULL OR s.unmatched = $7)
         ORDER BY s.created_at, s.id LIMIT $6`,
       [
         ctx.tenantId,
@@ -78,9 +87,21 @@ export class ProofReviewService {
         after?.at ?? null,
         after?.id ?? null,
         limit + 1,
+        q.unmatched ?? null,
       ],
     );
     const page = rows.slice(0, limit);
+    // One batched query for the students of the whole page (no N+1), tenant-scoped.
+    const studentRows: { submission_id: string; id: string; name: string }[] = page.length
+      ? await this.ds.query(
+          `SELECT DISTINCT b.submission_id, st.id, st.full_name AS name
+             FROM payment_submission_bills b
+             JOIN students st ON st.id = b.student_id AND st.tenant_id = $1
+            WHERE b.tenant_id = $1 AND b.submission_id = ANY($2::uuid[])
+            ORDER BY st.full_name, st.id`,
+          [ctx.tenantId, page.map((r) => r.id)],
+        )
+      : [];
     const last = page[page.length - 1];
     return {
       items: page.map((r) => ({
@@ -94,6 +115,16 @@ export class ProofReviewService {
         submitterName: r.submitter_name,
         billCount: r.bill_count,
         createdAt: r.created_at,
+        unmatched: r.unmatched,
+        appliedAmount: r.applied_amount,
+        // Money that went to the wallet instead of a bill, in whole paisa (Rule 26).
+        walletAmount: r.unmatched
+          ? (Math.max(toPaisa(r.bills_amount) - toPaisa(r.applied_amount), 0) / 100).toFixed(2)
+          : '0.00',
+        paymentId: r.payment_id ?? null,
+        students: studentRows
+          .filter((x) => x.submission_id === r.id)
+          .map((x) => ({ id: x.id, name: x.name })),
       })),
       nextCursor:
         rows.length > limit
