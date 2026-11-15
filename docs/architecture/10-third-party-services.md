@@ -134,7 +134,11 @@ The reviewed files and why each is safe:
 
 ## Inbound webhooks (kit only)
 
-No inbound webhook route exists yet. When one is added (bKash, SSLCommerz,
+No inbound webhook route exists yet. The bKash callbacks
+(`GET /online-payments/callback`, `GET /billing/bkash/callback`) are **not**
+webhooks: they are the guardian's browser coming back, they carry no
+signature, and each one is re-checked by asking bKash itself (Rule 19 in
+[`08-security.md`](08-security.md)). When a real webhook is added (SSLCommerz,
 Stripe, SMS delivery reports), it verifies the request with
 `verifyWebhookSignature` from `server/src/common/webhooks/webhook-signature.util.ts`.
 
@@ -196,11 +200,18 @@ accounts. Run it with `--help` for the settings.
 Worth stating explicitly so nobody assumes one of these is wired up
 somewhere:
 
-- **No payment gateway for school fees.** No Nagad, SSLCommerz, or Stripe. Fee
-  payments are recorded manually as `Payment` rows — see
-  [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md). The one
-  exception is the platform's own seat billing, which takes **bKash** (Epic 49):
-  [`38-billing.md`](38-billing.md).
+- **School fees: bKash, one merchant account per school (Epic #291).** A
+  guardian can pay a bill from the portal through the school's **own** bKash
+  merchant account; the money goes to the school, never through Biddaloy
+  (D1). Credentials live in the tenant settings (`payments.bkash.*`,
+  `@Secret()`), and the host comes from a fixed sandbox/production list, never
+  from the school (Rule 7). One shared client,
+  `server/src/modules/payment-gateways/bkash/`, serves both this and the
+  platform's own seat billing (Epic 49), which uses operator env credentials:
+  [`38-billing.md`](38-billing.md). Counter payments and guardian proofs still
+  become ordinary `Payment` rows — see
+  [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md#guardian-payments-whose-money-is-it).
+  Nagad, SSLCommerz and Stripe are not wired up.
 - **Object storage is now wired up** (Epic 15.0/#521) — an S3-compatible
   bucket (SeaweedFS in dev) via `server/src/modules/storage/`, see
   [`13-backup-restore.md`](13-backup-restore.md). It backs uploaded assets

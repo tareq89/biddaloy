@@ -6,6 +6,11 @@ This doc covers the **bKash pay step** (Epic 49 W4, #1820) and the **receipt** (
 Code: `server/src/modules/billing/` (`bkash/` holds billing's service, controller, reconciler).
 The bKash HTTP client is shared with school online payments and lives in
 `server/src/modules/payment-gateways/bkash/` (`bkash.client.ts`, `bkash-hosts.ts`).
+Billing passes the platform's env credentials. A school passes its own, and its
+access token is cached per tenant and environment at Redis key
+`bkash:token:<tenantId>:<environment>` (billing's env credentials use the plain
+key `bkash:token`). The school flow is in
+[04-fees-payments-invoices.md](04-fees-payments-invoices.md#guardian-payments-whose-money-is-it).
 
 ```mermaid
 flowchart LR
