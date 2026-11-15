@@ -25,7 +25,7 @@ import { orgIds } from './org';
 
 /**
  * [Epic 71 W1 close] Admission: one open round per template (six), each with the template's
- * stages, applicants in the first four statuses (pending, shortlisted, admitted, rejected), stage results, a merit list, waiting list 1 and fee proofs (one awaiting, one sent back).
+ * stages, applicants in the first four statuses (pending, shortlisted, admitted, rejected), stage results, a merit list, waiting list 1 (active, with a deadline), waiting list 2 (pending), a drawn lottery, one desk-entered (CLERK) applicant and fee proofs in each state.
  * The first round (APPLY_ONLY) is the old people-ops intake, moved here with its three tables.
  * Bulk-inserted (D38); applicants skip the public controller, so no captcha is involved.
  */
@@ -186,11 +186,13 @@ export const slice: DemoSlice = {
               ? AdmissionFeeState.AWAITING
               : i === 1
                 ? AdmissionFeeState.SENT_BACK
-                : ctx.weighted([
-                    [AdmissionFeeState.CONFIRMED, 60],
-                    [AdmissionFeeState.AWAITING, 30],
-                    [AdmissionFeeState.SENT_BACK, 10],
-                  ] as const);
+                : i === 2
+                  ? AdmissionFeeState.CONFIRMED
+                  : ctx.weighted([
+                      [AdmissionFeeState.CONFIRMED, 60],
+                      [AdmissionFeeState.AWAITING, 30],
+                      [AdmissionFeeState.SENT_BACK, 10],
+                    ] as const);
           applicants.push({
             id,
             tenant_id: t.id,
@@ -205,6 +207,10 @@ export const slice: DemoSlice = {
             home_address: `${ctx.pick(DHAKA_AREAS).bn}, ঢাকা`,
             documents: [],
             status,
+            // The fifth applicant of every pipeline round was typed in at the desk (D18 reports
+            // split ONLINE / CLERK); every fourth one carries a quota tag.
+            source: !legacy && i === 4 ? 'CLERK' : 'ONLINE',
+            quota_tags: i % 4 === 3 ? ['FF'] : [],
             fee_state: feeState,
           });
           if (status !== AdmissionApplicantStatus.PENDING) {
@@ -254,6 +260,16 @@ export const slice: DemoSlice = {
         if (first) makeApplicant(1, first);
         for (let i = 2; i < count; i++) makeApplicant(i);
 
+        // A lottery round is already drawn: points = N - rank + 1, nobody pass/fail (as the real draw).
+        const lotteryStage = stageRows.find((st) => st.kind === AdmissionStageKind.LOTTERY);
+        if (lotteryStage) {
+          const mine = results.filter((r) => r.stage_id === lotteryStage.id);
+          ctx.rng.helpers.shuffle(mine).forEach((r, i) => {
+            r.score = mine.length - i;
+            r.passed = null;
+          });
+        }
+
         // A published merit list of the first half of those who passed every stage, and waiting
         // list 1 (not yet activated, offers lapse in 10 days) with the rest (pipeline rounds only).
         const ranked = roundApplicants.filter((a) => a.passed);
@@ -286,11 +302,22 @@ export const slice: DemoSlice = {
             act_by_date: addDays(ctx.anchor, 3),
             activated_at: stamp(addDays(ctx.anchor, -2), 10),
           });
-          if (ranked.length > meritCount)
-            buildList(AdmissionListKind.WAITING, ranked.slice(meritCount), {
-              active: false,
+          // Waiting list 1 is active with a deadline; list 2 is made but waits its turn.
+          const rest = ranked.slice(meritCount);
+          const half = Math.ceil(rest.length / 2);
+          if (rest.length > 0)
+            buildList(AdmissionListKind.WAITING, rest.slice(0, half), {
+              active: true,
               published_at: stamp(addDays(ctx.anchor, -1), 10),
               act_by_date: addDays(ctx.anchor, 10),
+              activated_at: stamp(addDays(ctx.anchor, -1), 10),
+            });
+          if (rest.length > half)
+            buildList(AdmissionListKind.WAITING, rest.slice(half), {
+              sequence: 2,
+              active: false,
+              published_at: null,
+              act_by_date: addDays(ctx.anchor, 20),
               activated_at: null,
             });
         }
