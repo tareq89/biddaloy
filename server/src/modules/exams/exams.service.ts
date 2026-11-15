@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, QueryFailedError, EntityManager } from 'typeorm';
 import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
+import { SEAT_PLAN_PUBLISH_LOCK_NAMESPACE } from './seat-plan-lock';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
 import { Result } from './entities/result.entity';
@@ -418,6 +419,11 @@ export class ExamsService {
     await this.repo.manager.transaction(async (manager) => {
       const locked = await lockExam(manager, id, tenantId);
       await assertYearOpen(manager, tenantId, locked.academic_year_id);
+      // Same tenant lock seat-plan publish takes: the check below and a publish cannot interleave.
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        tenantId,
+        SEAT_PLAN_PUBLISH_LOCK_NAMESPACE,
+      ]);
       // A sitting in a PUBLISHED seat plan is frozen (same rule as ExamSchedulesService); deleting the
       // whole exam must not bypass it (#2385). Raw SQL keeps ExamsModule free of seat-plan imports.
       const inPlan = await manager.query(

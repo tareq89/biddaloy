@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { usePrintPageRule } from './use-print-page-rule';
 
 const pageRules = () =>

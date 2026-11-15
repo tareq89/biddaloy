@@ -1,5 +1,5 @@
 import { assertYearOpen } from '../../common/utils/year-open.guard';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AuditAction, EnrollmentStatus, PeriodType } from '@biddaloy/shared';
@@ -42,6 +42,8 @@ const PREVIEW_LIMIT = 50;
  */
 @Injectable()
 export class RecurringSchedulesService {
+  private readonly logger = new Logger(RecurringSchedulesService.name);
+
   constructor(
     @InjectRepository(RecurringSchedule)
     private readonly repo: Repository<RecurringSchedule>,
@@ -398,9 +400,16 @@ export class RecurringSchedulesService {
       const from = schedule.starts_on > today ? schedule.starts_on : today;
       const lastRun = schedule.last_run_period ? String(schedule.last_run_period) : null;
       // `nextRunDates` scans at most a year ahead, which is enough to get past a ran period.
-      const next = nextRunDates(schedule.rule, from, 24).find(
-        (d) => !lastRun || periodFor(d, schedule.rule) > lastRun,
-      );
+      let next: string | undefined;
+      try {
+        next = nextRunDates(schedule.rule, from, 24).find(
+          (d) => !lastRun || periodFor(d, schedule.rule) > lastRun,
+        );
+      } catch (err) {
+        // A malformed stored rule must not hide the other schedules' next runs.
+        this.logger.error(`Schedule ${schedule.id} has a malformed rule: ${String(err)}`);
+        continue;
+      }
       if (next && next <= schedule.ends_on && (earliest === null || next < earliest)) {
         earliest = next;
       }
@@ -965,7 +974,13 @@ export class RecurringSchedulesService {
 
       // The next date the rule fires, clamped to the schedule's own window:
       // a schedule that ends this month must not promise a bill next month.
-      const [nextRun] = nextRunDates(schedule.rule, today, 1);
+      let nextRun: string | undefined;
+      try {
+        [nextRun] = nextRunDates(schedule.rule, today, 1);
+      } catch (err) {
+        // A malformed stored rule shows no next period instead of failing the family view.
+        this.logger.error(`Schedule ${schedule.id} has a malformed rule: ${String(err)}`);
+      }
       const nextPeriod =
         nextRun && nextRun <= schedule.ends_on ? periodFor(nextRun, schedule.rule) : null;
 

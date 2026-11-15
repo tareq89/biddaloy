@@ -127,6 +127,7 @@ export class AbsenceNoticeScheduler extends WorkerHost implements OnModuleInit {
           period_no: IsNull(),
           state: AttendanceSessionState.DRAFT,
           source: AttendanceSource.SYSTEM,
+          marked_by_user_id: IsNull(),
           notified_at: IsNull(),
         },
       ],

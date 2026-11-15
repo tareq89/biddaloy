@@ -134,10 +134,11 @@ export class MarksService {
     // latter is the student's CURRENT placement and drifts away from an
     // old exam's year/class after promotion.
     const studentIds = [...new Set(dto.cells.map((c) => c.student_id))];
-    const enrolledCount = await gridEnrollments(this.enrollmentRepo, exam, tenantId, dto.section_id)
+    const enrolled = await gridEnrollments(this.enrollmentRepo, exam, tenantId, dto.section_id)
       .andWhere('e.student_id IN (:...studentIds)', { studentIds })
-      .getCount();
-    if (enrolledCount !== studentIds.length) {
+      .getMany();
+    const enrolledIds = new Set(enrolled.map((e) => e.student_id));
+    if (studentIds.some((id) => !enrolledIds.has(id))) {
       throw new BadRequestException('One or more students are not enrolled in this section.');
     }
 

@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { isNoticeReady } from './absence-notice.service';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
@@ -122,6 +123,7 @@ describe('AbsenceNoticeScheduler', () => {
       tenant_id: TENANT,
       state: AttendanceSessionState.DRAFT,
       source: AttendanceSource.SYSTEM,
+      marked_by_user_id: IsNull(),
     });
   });
 
@@ -162,7 +164,7 @@ describe('AbsenceNoticeScheduler', () => {
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive.mockResolvedValue([
       { id: 'tenant-broken', name: 'Broken' },
       { id: TENANT, name: 'Green Valley School' },
     ]);
@@ -173,6 +175,8 @@ describe('AbsenceNoticeScheduler', () => {
     sessionRepo.find = vi.fn(async () => [{ id: 'sess-1', section_id: 'sec-1' }]);
 
     await expect(scheduler.process()).resolves.not.toThrow();
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('tenant-broken');
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith(TENANT);
     expect(absenceNoticeService.sendAbsenceNotices).toHaveBeenCalledTimes(1);
   });
 
@@ -203,11 +207,12 @@ describe('isNoticeReady (D30)', () => {
   const S = AttendanceSessionState;
   const A = AttendanceSource;
   it.each([
-    [S.FINALIZED, A.TEACHER, true],
-    [S.DRAFT, A.SYSTEM, true],
-    [S.DRAFT, A.TEACHER, false],
-    [S.DRAFT, A.DEVICE, false],
-  ])('%s + %s -> %s', (state, source, expected) => {
-    expect(isNoticeReady({ state, source })).toBe(expected);
+    [S.FINALIZED, A.TEACHER, null, true],
+    [S.DRAFT, A.SYSTEM, null, true],
+    [S.DRAFT, A.SYSTEM, 'teacher-1', false], // teacher-saved draft that kept the SYSTEM source
+    [S.DRAFT, A.TEACHER, null, false],
+    [S.DRAFT, A.DEVICE, null, false],
+  ])('%s + %s (marked by %s) -> %s', (state, source, marked_by_user_id, expected) => {
+    expect(isNoticeReady({ state, source, marked_by_user_id })).toBe(expected);
   });
 });

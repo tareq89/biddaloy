@@ -230,13 +230,13 @@ describe('DiffService', () => {
       expect((await service.diff(big, 't', seatManager(null, 45), [tab])).hardErrorCount).toBe(0);
     });
 
-    it('nets out ACTIVE students the restore deletes', async () => {
+    it('does not credit ACTIVE students the restore deletes (apply takes seats first)', async () => {
       const tab = makeTab('students', {
         existing: [{ id: '1', key: 'gone', value: 'x', enrollment_status: 'ACTIVE' } as any],
       });
       const validated = validatedFor({ students: { present: true, rows: studentRows(6) } });
       const report = await service.diff(validated, 't', seatManager(50, 45), [tab]);
-      expect(report.hardErrorCount).toBe(0);
+      expect(report.hardErrorCount).toBe(1);
     });
   });
 });

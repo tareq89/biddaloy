@@ -2,7 +2,6 @@ import { Permission } from '@biddaloy/shared';
 import { isTenantRestoringError } from '@biddaloy/ui/api';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-
 import { formatDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 

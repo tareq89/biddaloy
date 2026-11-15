@@ -14,6 +14,42 @@ export function getExtension(filename: string): string {
 }
 
 /**
+ * Record separators the CSV parser (fast-csv) will see: LF, CR or CRLF (counted once), outside a
+ * quoted field. A quote opens a field only at a field start; `""` inside one is an escaped quote.
+ * Stops at `stopAfter` so a huge file is not scanned past the cap.
+ */
+export function countCsvRecordSeparators(buffer: Buffer, stopAfter: number): number {
+  const QUOTE = 34;
+  const COMMA = 44;
+  const LF = 10;
+  const CR = 13;
+  let count = 0;
+  let inQuote = false;
+  let fieldStart = true;
+  for (let i = 0; i < buffer.length; i++) {
+    const b = buffer[i];
+    if (inQuote) {
+      if (b !== QUOTE) continue;
+      if (buffer[i + 1] === QUOTE) i++;
+      else {
+        inQuote = false;
+        fieldStart = false;
+      }
+      continue;
+    }
+    if (b === QUOTE && fieldStart) {
+      inQuote = true;
+      fieldStart = false;
+    } else if (b === LF || b === CR) {
+      if (b === CR && buffer[i + 1] === LF) i++;
+      if (++count >= stopAfter) return count;
+      fieldStart = true;
+    } else fieldStart = b === COMMA;
+  }
+  return count;
+}
+
+/**
  * The one .xlsx/.csv loader for the row-capped bulk parsers (marks sheet, homework). The xlsx path
  * is bounded by `assertXlsxWithinLimits`; a csv has only a byte cap upstream, so its line count is
  * checked on the buffer BEFORE ExcelJS builds a `Row` object per line. Every message is a fixed
@@ -52,14 +88,8 @@ export async function loadWorksheet(
   }
 
   if (ext === '.csv') {
-    let lines = 0;
-    for (let i = buffer.indexOf(10); i !== -1; i = buffer.indexOf(10, i + 1)) {
-      if (++lines > maxCsvLines) {
-        throw new Fail(
-          ImportFileErrorCode.TOO_MANY_ROWS,
-          `File has too many rows (max ${maxRows})`,
-        );
-      }
+    if (countCsvRecordSeparators(buffer, maxCsvLines + 1) > maxCsvLines) {
+      throw new Fail(ImportFileErrorCode.TOO_MANY_ROWS, `File has too many rows (max ${maxRows})`);
     }
     try {
       return await workbook.csv.read(Readable.from(buffer), { map: (datum: string) => datum });
