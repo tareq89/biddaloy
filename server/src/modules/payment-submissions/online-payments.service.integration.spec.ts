@@ -8,6 +8,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { createProofFixture } from '@test/helpers/proof-submissions.fixture';
 import { AppModule } from '../../app.module';
 import { BkashClient } from '../payment-gateways/bkash/bkash.client';
+import { PaymentSubmissionSettlement } from '../fees/payment-submission-settlement.service';
 import { SchoolsService } from '../schools/schools.service';
 import { OnlinePaymentsService } from './online-payments.service';
 import { ProofCaller } from './proof-submissions.service';
@@ -237,12 +238,26 @@ describe('OnlinePaymentsService (integration)', () => {
     const emitted: string[] = [];
     const on = (p: { submissionId: string }) => emitted.push(p.submissionId);
     paymentSubmissionEvents.on(PAYMENT_SUBMISSION_EVENTS.COMPLETED, on);
+    // Latch: both callbacks are held at the settlement boundary until both have arrived, then
+    // released together, so the race is real and not left to Promise.all timing.
+    const settlement = app.get(PaymentSubmissionSettlement);
+    const realSettle = settlement.settle.bind(settlement);
+    let arrived = 0;
+    let release!: () => void;
+    const bothArrived = new Promise<void>((r) => (release = r));
+    const spy = vi.spyOn(settlement, 'settle').mockImplementation(async (...args) => {
+      if (++arrived === 2) release();
+      await bothArrived;
+      return realSettle(...args);
+    });
     try {
       await Promise.all([
         svc.handleCallback(StubBkash.paymentID, 'success'),
         svc.handleCallback(StubBkash.paymentID, 'success'),
       ]);
+      expect(spy).toHaveBeenCalledTimes(2);
     } finally {
+      spy.mockRestore();
       paymentSubmissionEvents.off(PAYMENT_SUBMISSION_EVENTS.COMPLETED, on);
     }
     expect((await sub(id)).status).toBe('COMPLETED');
