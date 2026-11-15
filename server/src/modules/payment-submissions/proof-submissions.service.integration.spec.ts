@@ -199,7 +199,11 @@ describe('ProofSubmissionsService (integration)', () => {
         'Bill not found',
       );
       expect(await rows('payment_submissions')).toBe(0);
-      for (const t of ['payment_submissions', 'payment_submission_bills', 'payment_submission_files']) {
+      for (const t of [
+        'payment_submissions',
+        'payment_submission_bills',
+        'payment_submission_files',
+      ]) {
         const [{ n }] = await ds.query(`SELECT COUNT(*)::int n FROM ${t}`);
         expect(n).toBe(0);
       }

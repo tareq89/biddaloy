@@ -558,9 +558,10 @@ describe('PaymentReversalService (integration)', () => {
     } finally {
       spy.mockRestore();
     }
-    const [paid] = await dataSource.query(`SELECT reversed_by_payment_id FROM payments WHERE id = $1`, [
-      payment.id,
-    ]);
+    const [paid] = await dataSource.query(
+      `SELECT reversed_by_payment_id FROM payments WHERE id = $1`,
+      [payment.id],
+    );
     const [after] = await dataSource.query(`SELECT status FROM payment_submissions WHERE id = $1`, [
       sub.id,
     ]);

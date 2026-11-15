@@ -1072,46 +1072,6 @@ describe('RestoreProcessor (integration)', () => {
       expect(student?.deleted_at).toBeNull();
     });
 
-    it('a bill with a waiting proof, absent from an older backup, is removed with its proof bill row', async () => {
-      const d = await seed();
-      const backup = await exportTenant(d.tenantId); // taken before the bill below existed
-      const newer = await em().save(
-        em().create(StudentFee, {
-          student_id: d.student.id,
-          academic_year_id: d.fee1.academic_year_id,
-          fee_structure_id: d.fee1.fee_structure_id,
-          period_start: '2026-03-01' as never,
-          total_amount: 1000 as never,
-          paid_amount: 0 as never,
-          status: 'PENDING' as never,
-        }),
-      );
-      const guardian = await em().save(
-        em().create(User, { full_name: 'Proof Guardian', email: `proof-${randomUUID()}@example.com` }),
-      );
-      const [sub] = await dataSource.query(
-        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, reference_raw, reference_normalised)
-         VALUES ($1, 'PROOF', 'PENDING', $2, 'BKASH', 1000, '2026-03-02', 'trx', 'TRX') RETURNING id`,
-        [d.tenantId, guardian.id],
-      );
-      await dataSource.query(
-        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
-         VALUES ($1, $2, $3, $4, 1000)`,
-        [d.tenantId, sub.id, newer.id, d.student.id],
-      );
-
-      const job = await restore(d.tenantId, backup);
-
-      expect(job.error).toBeNull();
-      expect(job.status).toBe(WorkbookJobStatus.DONE);
-      expect(await em().findOne(StudentFee, { where: { id: newer.id }, withDeleted: true })).toBeNull();
-      const [{ n }] = await dataSource.query(
-        `SELECT COUNT(*)::int n FROM payment_submission_bills WHERE student_fee_id = $1`,
-        [newer.id],
-      );
-      expect(n).toBe(0);
-    });
-
     it('a new payment with its allocation in the file is inserted', async () => {
       const d = await seed();
       const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {

@@ -175,7 +175,8 @@ const excluded: readonly string[] = [
 ];
 
 /** Postgres error code for a foreign-key violation. */
-const FK_VIOLATION = '23503';
+// 23503 = NO ACTION fk, 23001 = ON DELETE RESTRICT fk (payment_submission_bills).
+const FK_VIOLATIONS = ['23503', '23001'];
 
 const logger = new Logger('StudentFeesTab');
 
@@ -532,8 +533,13 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       );
       await m.delete(StudentFee, { id: entity.id });
     } catch (e) {
-      if (e instanceof QueryFailedError && (e as { code?: string }).code === FK_VIOLATION) {
-        throw new Error(`Cannot delete student fee ${entity.id}: it is referenced by a payment or payment submission.`);
+      if (
+        e instanceof QueryFailedError &&
+        FK_VIOLATIONS.includes((e as { code?: string }).code ?? '')
+      ) {
+        throw new Error(
+          `Cannot delete student fee ${entity.id}: it is referenced by a payment or payment submission.`,
+        );
       }
       throw e;
     }

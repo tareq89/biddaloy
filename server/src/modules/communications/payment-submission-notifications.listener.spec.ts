@@ -21,7 +21,9 @@ function build(row: Record<string, unknown> | undefined, locale = 'en-US') {
 describe('PaymentSubmissionNotificationsListener', () => {
   beforeEach(() => paymentSubmissionEvents.removeAllListeners());
 
-  async function expectOnePushToSubmitter(kind: 'SUBMITTED' | 'CONFIRMED' | 'REJECTED' | 'DISCARDED') {
+  async function expectOnePushToSubmitter(
+    kind: 'SUBMITTED' | 'CONFIRMED' | 'REJECTED' | 'DISCARDED',
+  ) {
     const { listener, sendToUser } = build({
       submitted_by_user_id: 'guardian-1',
       source: 'PROOF',

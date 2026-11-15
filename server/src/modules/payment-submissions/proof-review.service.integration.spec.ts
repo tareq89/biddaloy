@@ -192,7 +192,9 @@ describe('ProofReviewService (integration)', () => {
       [id],
     );
     expect(payments).toBe(1);
-    expect(await ds.query(`SELECT 1 FROM payments WHERE tenant_id = $1`, [SEED_TENANT_ID])).toHaveLength(1);
+    expect(
+      await ds.query(`SELECT 1 FROM payments WHERE tenant_id = $1`, [SEED_TENANT_ID]),
+    ).toHaveLength(1);
     expect(await audits(id)).toBe(2); // submit + one confirm
   });
 
@@ -249,7 +251,9 @@ describe('ProofReviewService (integration)', () => {
     expect(settled[0].status).toBe('fulfilled');
     expect(settled[1]).toMatchObject({
       status: 'rejected',
-      reason: { response: { message: 'Another payment proof is already waiting for one of these bills' } },
+      reason: {
+        response: { message: 'Another payment proof is already waiting for one of these bills' },
+      },
     });
     const rows = await ds.query(
       `SELECT status FROM payment_submissions WHERE tenant_id = $1 ORDER BY status`,
