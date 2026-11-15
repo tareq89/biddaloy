@@ -1,0 +1,14 @@
+%% title: The steps of paying fees
+%% desc: A parent presses Pay on the Due this month card of Overview, ticks the bills, then pays with bKash or submits a payment proof. After bKash, the result page says Payment done, Waiting for confirmation or Payment not done. A submitted proof shows under My payment proofs.
+flowchart TD
+  C["Due this month"]:::guardian --> S["Tick bills"]:::guardian
+  S --> H{"How to pay?"}:::note
+  H -->|"bKash"| K["bKash page"]
+  K --> Q{"Result"}:::note
+  Q --> Q1["Payment done"]:::guardian
+  Q --> Q2["Waiting for confirmation"]:::note
+  Q --> Q3["Payment not done"]:::note
+  H -->|"Already paid"| P["Submit proof"]:::guardian
+  P --> M["My proofs"]:::note
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

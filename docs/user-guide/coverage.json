@@ -38,6 +38,7 @@
   "finance.generateFees": "done",
   "finance.recurringSchedules": "done",
   "finance.fines": "done",
+  "finance.onlinePayments": "done",
   "finance.payments": "done",
   "finance.invoices": "done",
   "examsResults.marksEntry": "done",

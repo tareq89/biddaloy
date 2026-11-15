@@ -10,6 +10,8 @@ sources:
   - server/src/modules/invoices/invoices.controller.ts
   - server/src/modules/invoices/invoice-share.service.ts
   - server/src/modules/invoices/public-invoice.controller.ts
+  - server/src/modules/invoices/invoice-payment-origin.ts
+  - server/src/modules/invoices/public-invoice-receipt.dto.ts
   - server/src/modules/invoices/invoice-numbering.util.ts
 labels:
   [
@@ -34,9 +36,9 @@ devices: [desktop, phone]
 entry: [sidebar, palette]
 keywords:
   [invoices, invoice, receipt, credit note, share link, print, WhatsApp, SMS]
-appVersion: 0.1.0 (978d9b96a)
+appVersion: 0.1.0 (4fa6d3d1b)
 owner: tareq89
-lastVerified: 2026-10-25
+lastVerified: 2026-11-15
 knownIssues: []
 -->
 
@@ -60,6 +62,7 @@ You never make an invoice by hand. When you take money with [**Record payment**]
   - [Send to the guardian by WhatsApp or SMS](#task-send)
   - [Create a share link](#task-share)
   - [Make a new link or turn it off](#task-regenerate)
+  - [See how a guardian's payment arrived](#task-how-paid)
   - [What the guardian sees when they open the link](#task-guardian)
 - [Troubleshooting](#trouble)
 - [Who can do what](#roles)
@@ -143,13 +146,28 @@ When there is an active link, two buttons appear:
 
 Both ask first, because nobody holding an old link can open the receipt any more. If a link went to the wrong person, press **Regenerate link**, then give the new one to the right guardian.
 
+### See how a guardian's payment arrived <a href="#task-how-paid" id="task-how-paid"></a>
+
+When the money came from a guardian, either a payment proof you confirmed or a bKash payment, the printed invoice has an extra part under the totals: **How it was paid / কীভাবে পরিশোধ হয়েছে**. A payment taken at the counter has no such part, and neither does a credit note. It shows on all three paper sizes; on the receipt printers the heading reads **How it was paid**.
+
+| Line | What it shows |
+| ---- | ------------- |
+| **Method / মাধ্যম** | A proof only: how the guardian paid, written as a code, for example BKASH. |
+| **Gateway / গেটওয়ে** | A bKash payment only, as the first line instead of **Method / মাধ্যম**: the provider's name. This is the exact printed label. |
+| **TrxID** | The full transaction ID, when there is one. |
+| **Submitted on / জমার তারিখ** | The day the guardian sent the proof. A proof only. |
+| **Verified / যাচাই** | A proof only. On your own print: "by" the name of the person who confirmed it, then "on" the date. On a print a guardian opens from the portal: "by the school on" the date, with no name. |
+| **Paid at / পরিশোধ** | A bKash payment only: the day bKash settled it. |
+
+The share link does not carry this part, and it hides most of the transaction ID: see [What the guardian sees when they open the link](#task-guardian).
+
 ### What the guardian sees when they open the link <a href="#task-guardian" id="task-guardian"></a>
 
 When a guardian opens the link on a phone, they see the **Invoice receipt** page without signing in:
 
 - At the top, the school's name (with its logo and address if set), then the invoice number and the **Issue date**.
 - Each bill, **Billed**, **Discount**, **Paid**, **Change**.
-- The **payment method**, the **payment date**, and the amount **in words**.
+- The **payment method**, the **payment date**, and the amount **in words**. If the payment had a transaction ID, only its last 4 characters show, after the method and a dot; the rest is hidden by stars. The **How it was paid** part of a print is not on this page.
 - If it is a credit note, it says **Credit note**.
 - At the bottom, **Save as PDF** — the phone's print opens, and from there the PDF can be kept.
 
@@ -228,6 +246,7 @@ For other roles, **Invoices** is not in the left menu.
 
 - [**Record payment**](record-payment.md) — where invoices are made.
 - [**Payments**](payments.md) — reversing a payment, and credit notes.
+- [**Online payments**](online-payments.md) — confirming a guardian's payment proof, which then shows on the invoice.
 - [**Student dues**](dues.md) — seeing what is still owed.
 - [**Fines**](fines.md) — fine bills and waiving.
 - [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.

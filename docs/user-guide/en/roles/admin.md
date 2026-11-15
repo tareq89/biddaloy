@@ -101,7 +101,7 @@ All your features, in the order of the left menu. The list is built automaticall
 - [Fee bills created](../finance/generate-fees.md) — Create fee bills for chosen students for one month or week in one go; decide what happens when bills for the same period already exist, and view, change or delete an earlier billing round.
 - [Automatic billing](../finance/recurring-schedules.md) — Set a rule so fee bills for active students are created on their own on a fixed day each month or week; exclude someone, switch a rule off, or copy it to a new academic year.
 - [Fines](../finance/fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules, and waive a fine in full or in part when needed.
-- Online payments (coming soon)
+- [Online payments](../finance/online-payments.md) — Check the payment proofs guardians send and confirm or reject them, see the online payments that came in by bKash, and find where the money of an unmatched receipt went.
 - [Payments](../finance/payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment in full.
 - [Invoices](../finance/invoices.md) — Find the invoice and credit note of every payment, print them, send them to a guardian by WhatsApp or SMS, and give a 30-day share link that opens without signing in.
 

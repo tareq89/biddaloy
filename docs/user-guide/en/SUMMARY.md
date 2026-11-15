@@ -77,6 +77,7 @@
   - [Automatic billing rules](finance/recurring-schedules.md)
   - [Student dues](finance/dues.md)
   - [Record payment](finance/record-payment.md)
+  - [Online payments](finance/online-payments.md)
   - [Payments](finance/payments.md)
   - [Invoices](finance/invoices.md)
   - [Fines](finance/fines.md)

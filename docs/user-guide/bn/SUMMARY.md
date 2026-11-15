@@ -77,6 +77,7 @@
   - [স্বয়ংক্রিয় বিলের নিয়ম](finance/recurring-schedules.md)
   - [শিক্ষার্থীর বকেয়া](finance/dues.md)
   - [পেমেন্ট রেকর্ড করুন](finance/record-payment.md)
+  - [অনলাইন পেমেন্ট](finance/online-payments.md)
   - [পেমেন্ট](finance/payments.md)
   - [চালান](finance/invoices.md)
   - [জরিমানা](finance/fines.md)

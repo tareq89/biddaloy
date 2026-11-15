@@ -56,7 +56,7 @@ Your child's fees, today's attendance and school news on one page.
 **Where to go:** on a phone, **Overview** in the bottom bar. On a computer, **Overview** in the left menu. This is the first page that opens when you sign in to the portal.
 **Before you start:** your account must be set up as a parent or student at the school, and the school office must have linked you to your child.
 
-With one child (or if you are the student), the page shows their name and class at the top. With more than one child, each gets their own card. You cannot change anything here and you cannot pay here; you can only look.
+With one child (or if you are the student), the page shows their name and class at the top. With more than one child, each gets their own card. You cannot change anything here. A parent can pay from the **Due this month** card: see [**Fees and invoices**](fees.md#task-pay).
 
 [See dues](#task-main) · [At school today](#task-today) · [Tell the school](#task-tell) · [Troubleshooting](#trouble)
 
@@ -158,7 +158,7 @@ On a phone, the bottom bar has four pages: **Overview**, **Fees**, **Attendance*
 | **Could not load your portal.** …           | Check your connection and tap **Try again**.                                            | —             |
 | One child is missing from the list          | The school office has not linked them to you yet. Tell the office.                      | School office |
 | **Could not load recent payments.**         | Tap **Try again**.                                                                      | —             |
-| You paid, but the amount is still due       | It only goes down once the school records the payment. Take your receipt to the office. | Accountant    |
+| You paid, but the amount is still due       | If you paid at the school, it goes down once the school records the payment; take your receipt to the office. If you sent a payment proof or paid with bKash, see [**Fees and invoices**](fees.md#task-proofs). | Accountant    |
 | No **Tell the school** button               | It only appears when absent or attendance not taken; not on a school-closed day.        | —             |
 
 ---
