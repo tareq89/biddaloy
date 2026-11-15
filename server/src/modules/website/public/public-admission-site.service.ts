@@ -9,7 +9,7 @@ import { AdmissionIntake } from '../../admission/entities/admission-intake.entit
 import { normalizeBdPhoneNumber } from '../../communications/providers/shared/phone-number.util';
 import { ModuleStateReader } from '../../auth/guards/module-state.reader';
 import { CheckApplicantStatusDto } from '../../admission/dto/check-applicant-status.dto';
-import { SubmitApplicantDto } from '../../admission/dto/submit-applicant.dto';
+import { PublicSiteSubmitApplicantDto } from './public-site-submit-applicant.dto';
 import { PublicSiteService, siteNotFound } from './public-site.service';
 
 /** One text for every miss of a roll + phone lookup (Rule 23): wrong roll equals wrong phone. */
@@ -70,9 +70,16 @@ export class PublicAdmissionSiteService {
     });
   }
 
-  async submit(host: string, dto: SubmitApplicantDto, files: Express.Multer.File[]) {
+  async submit(host: string, dto: PublicSiteSubmitApplicantDto, files: Express.Multer.File[]) {
     const { slug } = await this.school(host);
-    return this.applicants.submit(slug, dto, files);
+    // Same shape createByStaff builds: the `fee_proof` part is the proof, the rest are documents.
+    const proof = files.find((f) => f.fieldname === 'fee_proof');
+    return this.applicants.submit(
+      slug,
+      dto,
+      files.filter((f) => f !== proof),
+      { method: dto.fee_method, reference: dto.fee_reference?.trim(), file: proof },
+    );
   }
 
   async status(host: string, dto: CheckApplicantStatusDto) {

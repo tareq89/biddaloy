@@ -23,7 +23,7 @@ import { requestContext } from '../../../common/request-context.util';
 import { TurnstileService } from '../../registration/turnstile.service';
 import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
 import { MAX_DOCUMENT_FILE_SIZE } from '../../admission/public-admission.controller';
-import { SubmitApplicantDto } from '../../admission/dto/submit-applicant.dto';
+import { PublicSiteSubmitApplicantDto } from './public-site-submit-applicant.dto';
 import { CheckApplicantStatusDto } from '../../admission/dto/check-applicant-status.dto';
 import { PublicAdmissionSiteService } from './public-admission-site.service';
 
@@ -80,7 +80,7 @@ export class PublicAdmissionSiteController {
   @Post('applicants')
   @Throttle({ default: STRICT_RATE_LIMIT })
   @FailClosedWithoutRedis(ADMISSION_WRITE_UNAVAILABLE)
-  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 3 } }))
+  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 4 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
@@ -88,7 +88,7 @@ export class PublicAdmissionSiteController {
   })
   async submit(
     @Param('host') host: string,
-    @Body() dto: SubmitApplicantDto,
+    @Body() dto: PublicSiteSubmitApplicantDto,
     @UploadedFiles() files: Express.Multer.File[],
     @Headers('idempotency-key') _idempotencyKey: string | undefined,
     @Req() request: Request,

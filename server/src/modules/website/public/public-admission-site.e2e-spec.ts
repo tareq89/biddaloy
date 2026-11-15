@@ -226,6 +226,76 @@ describe('Public site admission API (e2e)', () => {
       expect(await countApplicants(id)).toBe(1);
     });
 
+    describe('fee proof', () => {
+      const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]);
+      const feeIntake = async (fee: number | null) => {
+        const id = await intake(SEED_TENANT_ID);
+        await ds.query(`UPDATE admission_intakes SET fee_amount_paisa = $2 WHERE id = $1`, [id, fee]);
+        return id;
+      };
+      const proofs = async (intakeId: string) =>
+        ds.query(
+          `SELECT p.method, p.reference FROM admission_fee_proofs p
+             JOIN admission_applicants a ON a.id = p.applicant_id WHERE a.intake_id = $1`,
+          [intakeId],
+        );
+
+      it('a fee round takes method + reference + proof and answers FEE_PENDING', async () => {
+        const id = await feeIntake(50000);
+        const res = await api()
+          .post(`${BASE(hostA)}/applicants`)
+          .field({ ...payload(id), fee_method: 'BKASH', fee_reference: 'TX123' })
+          .attach('fee_proof', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+          .expect(201);
+        expect(res.body).toEqual({
+          reference_number: expect.stringMatching(/^ADM-/),
+          status: 'FEE_PENDING',
+          fee_status: 'AWAITING',
+        });
+        expect(await proofs(id)).toEqual([{ method: 'BKASH', reference: 'TX123' }]);
+      });
+
+      it('a fee round without proof or method is a plain 400 and writes nothing', async () => {
+        const id = await feeIntake(50000);
+        const noProof = await api()
+          .post(`${BASE(hostA)}/applicants`)
+          .field({ ...payload(id), fee_method: 'BKASH' })
+          .expect(400);
+        expect(noProof.body.message).toBe('A fee payment method and proof file are required');
+        await api()
+          .post(`${BASE(hostA)}/applicants`)
+          .field(payload(id))
+          .attach('fee_proof', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+          .expect(400);
+        expect(await countApplicants(id)).toBe(0);
+      });
+
+      it('a proof whose bytes are not an image is refused', async () => {
+        const id = await feeIntake(50000);
+        await api()
+          .post(`${BASE(hostA)}/applicants`)
+          .field({ ...payload(id), fee_method: 'BKASH' })
+          .attach('fee_proof', Buffer.from('<html>x</html>'), {
+            filename: 'p.jpg',
+            contentType: 'image/jpeg',
+          })
+          .expect(400);
+        expect(await countApplicants(id)).toBe(0);
+      });
+
+      it('a free round ignores fee fields and stores no proof', async () => {
+        const id = await feeIntake(null);
+        const res = await api()
+          .post(`${BASE(hostA)}/applicants`)
+          .field({ ...payload(id), fee_method: 'BKASH' })
+          .attach('fee_proof', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+          .expect(201);
+        expect(res.body.status).toBe('PENDING');
+        expect(res.body.fee_status).toBe('NONE');
+        expect(await proofs(id)).toEqual([]);
+      });
+    });
+
     it('a Turnstile failure writes nothing', async () => {
       const id = await intake(SEED_TENANT_ID);
       const config = app.get(ConfigService);
