@@ -113,6 +113,14 @@ export function admissionStageNotScored(): ConflictException {
   });
 }
 
+// [#4181] A lottery stage is filled once, by draw or by import. Fixed text, no ids.
+export function lotteryAlreadyDrawn(): ConflictException {
+  return new ConflictException({
+    message: 'This lottery has already been drawn',
+    details: { code: 'LOTTERY_ALREADY_DRAWN' },
+  });
+}
+
 function mapHomeworkActiveUnique(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;
   const { code, constraint } = exception.driverError as { code?: string; constraint?: string };

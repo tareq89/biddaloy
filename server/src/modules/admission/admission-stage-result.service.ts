@@ -36,7 +36,7 @@ export interface ResultActor {
   userAgent?: string | null;
 }
 
-interface Candidate extends MeritRow {
+export interface Candidate extends MeritRow {
   /** A row exists for this applicant in this stage. */
   recorded: boolean;
 }
@@ -55,7 +55,7 @@ export class AdmissionStageResultService {
   ) {}
 
   /** Locks the round, then re-reads the stage under the lock; 404 when it is not this tenant's. */
-  private async lockStage(
+  async lockStage(
     manager: EntityManager,
     stageId: string,
     tenantId: string,
@@ -90,7 +90,7 @@ export class AdmissionStageResultService {
    * Who is in this stage: not FEE_PENDING, and (unless it is the first real stage) passed the nearest
    * earlier stage that is not NONE. FEE_PENDING applicants are never eligible.
    */
-  private async eligible(
+  async eligible(
     manager: EntityManager,
     stage: AdmissionStage,
     tenantId: string,
