@@ -137,6 +137,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/results/final/$finalResultId': 'detail route reached from the final results list',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/admissions/intakes/$intakeId': 'detail route reached from the admission intakes list',
+  '/_staff/admissions/rounds/$roundId': 'round desk, reached from the admission rounds list',
+  '/_staff/admissions/intakes/new': 'new-round wizard, reached from the rounds list and Ctrl+K',
+  '/_staff/admissions/applicants/new': 'clerk entry page, reached from the desk and Ctrl+K',
   '/_staff/admissions/applicants/$applicantId':
     'detail route reached from the admission applicants list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
