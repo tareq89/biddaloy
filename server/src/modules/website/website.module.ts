@@ -42,6 +42,8 @@ import { ClassSectionsFeed } from './public/feeds/class-sections.feed';
 import { BlogFeed } from './public/feeds/blog.feed';
 import { FeesFeed } from './public/feeds/fees.feed';
 import { AdmissionsFeed } from './public/feeds/admissions.feed';
+import { AdmissionListsFeed } from './public/feeds/admission-lists.feed';
+import { AdmissionResultsFeed } from './public/feeds/admission-results.feed';
 import { GalleryFeed } from './public/feeds/gallery.feed';
 import { GalleryController } from './gallery/gallery.controller';
 import { GalleryService } from './gallery/gallery.service';
@@ -109,6 +111,8 @@ import { UmamiService } from './umami.service';
     BlogFeed,
     FeesFeed,
     AdmissionsFeed,
+    AdmissionListsFeed,
+    AdmissionResultsFeed,
     ResultsFeed,
     ClassSectionsFeed,
     GalleryFeed,
