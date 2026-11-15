@@ -36,6 +36,7 @@ import { AdmissionStageResultController } from './admission-stage-result.control
 import { AdmissionLotteryService } from './admission-lottery.service';
 import { AdmissionLotteryController } from './admission-lottery.controller';
 import { AdmissionListService } from './admission-list.service';
+import { AdmissionListAutoJob, ADMISSION_LIST_AUTO_QUEUE } from './admission-list-auto.job';
 import { AdmissionListController } from './admission-list.controller';
 import { AdmissionPublicationService } from './admission-publication.service';
 import { AdmissionPublicationController } from './admission-publication.controller';
@@ -76,6 +77,7 @@ import {
       CommunicationLog,
       StudentLifecycleEvent,
     ]),
+    BullModule.registerQueue({ name: ADMISSION_LIST_AUTO_QUEUE }),
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
@@ -116,6 +118,7 @@ import {
     AdmissionStageResultService,
     AdmissionLotteryService,
     AdmissionListService,
+    AdmissionListAutoJob,
     AdmissionPublicationService,
   ],
   exports: [
