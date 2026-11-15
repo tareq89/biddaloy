@@ -52,6 +52,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   EmptyState,
+  AccessDeniedState,
   ErrorState,
   ExportMenu,
   HelpHint,
@@ -547,7 +548,9 @@ function ReportRunner({ reportId }: { reportId: string }) {
           aria-busy={run.isPending}
           className="flex flex-col gap-4"
         >
-          {run.isError ? (
+          {run.isError && run.error instanceof ApiError && run.error.statusCode === 403 ? (
+            <AccessDeniedState />
+          ) : run.isError ? (
             <ErrorState
               message={errorMessage()}
               retryLabel={t('runner.retry')}
