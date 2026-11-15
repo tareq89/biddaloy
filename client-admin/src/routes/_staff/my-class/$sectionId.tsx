@@ -5,7 +5,15 @@
  * an id that does not exist.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, ErrorState, HelpHint, RoutePending } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import {
+  AccessDeniedState,
+  Button,
+  EmptyState,
+  ErrorState,
+  HelpHint,
+  RoutePending,
+} from '@biddaloy/ui/components';
 import {
   myClassSectionsQueryOptions,
   useHasPermission,
@@ -81,6 +89,13 @@ function MyClassSectionPage() {
   }, [resolvedId, then]);
 
   if (query.isError && !section) {
+    if (query.error instanceof ApiError && query.error.statusCode === 403) {
+      return (
+        <PageContainer>
+          <AccessDeniedState />
+        </PageContainer>
+      );
+    }
     return (
       <PageContainer>
         <ErrorState
@@ -92,6 +107,14 @@ function MyClassSectionPage() {
     );
   }
   if (query.isPending) return <SectionPending />;
+  if (query.data?.length === 0) {
+    // No homeroom at all: say so; a wrong id among real sections stays a 404 (see header).
+    return (
+      <PageContainer>
+        <EmptyState title={t('emptyTitle')} explanation={t('empty')} />
+      </PageContainer>
+    );
+  }
   if (!section) {
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw notFound();
