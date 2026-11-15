@@ -40,20 +40,22 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 /** `?how=proof` opens the proof form (the result page links here after a failed online payment). */
-const searchSchema = z.object({ how: z.literal('proof').optional().catch(undefined) });
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** `?student=<id>` scopes the page to one child's bills; a bad value falls back to all bills. */
+const searchSchema = z.object({
+  how: z.literal('proof').optional().catch(undefined),
+  student: z
+    .string()
+    .refine((v) => UUID_RE.test(v))
+    .optional()
+    .catch(undefined),
+});
 
 export const Route = createFileRoute('/portal/fees_/pay')({
   validateSearch: searchSchema,
   loader: () => loadRouteNamespaces('portalPay', 'common'),
   component: PortalPayRoute,
-  // The child whose bills the pay link opens with; a bad value falls back to all bills.
-  validateSearch: (search: Record<string, unknown>): { student?: string } =>
-    typeof search.student === 'string' && UUID_RE.test(search.student)
-      ? { student: search.student }
-      : {},
 });
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_FILES = 2;
 const ACCEPT = 'image/jpeg,image/png,application/pdf';
