@@ -20,6 +20,11 @@ import { School } from '../schools/entities/school.entity';
 import { resolveTemplateLocale, TemplateLocale } from '../account-access/account-access-templates';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 
+type NotifyApplicant = Pick<
+  AdmissionApplicant,
+  'id' | 'tenant_id' | 'applicant_name' | 'guardian_name' | 'guardian_phone' | 'status'
+>;
+
 type AdmissionTemplate = (applicantName: string, intakeTitle: string) => string;
 
 // [#2265] Typed values (name, intake title) are inserted as typed (D15).
@@ -137,4 +142,32 @@ export class AdmissionNotificationService {
       await this.logRepo.save(log);
     }
   }
+
+  // Wave 2 no-op hooks (#4176): final signatures so later tickets never edit call sites.
+  // #4178 fills notifyFeeSentBack; #4182/#4183 notifyListOffer; #4179 notifyStageSchedule;
+  // #4180/#4184 notifyResult.
+  async notifyFeeSentBack(
+    _applicant: NotifyApplicant,
+    _intakeTitle: string,
+    _reason: string,
+  ): Promise<void> {}
+
+  async notifyListOffer(
+    _applicant: NotifyApplicant,
+    _intakeTitle: string,
+    _deadline?: Date | null,
+  ): Promise<void> {}
+
+  async notifyStageSchedule(
+    _applicant: NotifyApplicant,
+    _intakeTitle: string,
+    _stageName: string,
+    _scheduledAt?: Date | null,
+  ): Promise<void> {}
+
+  async notifyResult(
+    _applicant: NotifyApplicant,
+    _intakeTitle: string,
+    _outcome: string,
+  ): Promise<void> {}
 }
