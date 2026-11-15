@@ -17,7 +17,6 @@
 import { Permission, RoleScope, roleScope } from '@biddaloy/shared';
 import {
   EmptyState,
-  ErrorState,
   Label,
   RoutePending,
   Select,
@@ -52,6 +51,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 import { usePrintPageRule } from '../../../use-print-page-rule';
+import { QueryFailure } from '../exams/-query-failure';
 
 import './-analysis-print.css';
 
@@ -75,7 +75,7 @@ export const Route = createFileRoute('/_staff/analysis/')({
     Promise.all([
       // Same key `useExams({ limit: 50 })` reads below.
       queryClient.ensureQueryData(examsQueryOptions({ limit: 50 })).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'grading', 'common', 'nav'),
+      loadRouteNamespaces('exams', 'grading', 'common', 'nav', 'states'),
     ]),
   pendingComponent: AnalysisPending,
   component: AnalysisPage,
@@ -195,10 +195,7 @@ function AnalysisPage() {
           <Skeleton className="h-11 w-full md:h-8 md:w-56" />
         </div>
       ) : examsQuery.isError ? (
-        <ErrorState
-          message={t('resultsRoute.loadError')}
-          onRetry={() => void examsQuery.refetch()}
-        />
+        <QueryFailure error={examsQuery.error} onRetry={() => void examsQuery.refetch()} />
       ) : exams.length === 0 ? (
         <EmptyState
           icon={<FilePenLineIcon />}

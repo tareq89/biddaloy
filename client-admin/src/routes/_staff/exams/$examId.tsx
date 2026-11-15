@@ -9,7 +9,6 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   ClosedYearNotice,
   ConfirmDialog,
-  ErrorState,
   RoutePending,
   Skeleton,
   isYearClosedError,
@@ -41,6 +40,7 @@ import { SchedulePanel } from './-detail/schedule-panel';
 import { useResultActions } from './-detail/use-result-actions';
 import { ExamFormDialog } from './-exam-form-dialog';
 import { ExamStatusBadge } from './-exam-status-badge';
+import { QueryFailure } from './-query-failure';
 
 // `tab` must be declared or `validateSearch` strips it; `copy=1` opens the copy-parts tool.
 const examDetailSearchSchema = z.object({
@@ -61,6 +61,7 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
         'examsTemplateField',
         'grading',
         'examDocuments',
+        'states',
         'printHistory', // the Results tab's reopen dialog (#2410)
       ),
     ]),
@@ -92,7 +93,7 @@ function ExamDetailPage() {
 
   if (examQuery.isPending) return <ExamHeaderSkeleton />;
   if (examQuery.isError || !exam) {
-    return <ErrorState message={t('detail.loadError')} onRetry={() => void examQuery.refetch()} />;
+    return <QueryFailure error={examQuery.error} onRetry={() => void examQuery.refetch()} />;
   }
 
   // A fact still loading shows a bar, never the id.

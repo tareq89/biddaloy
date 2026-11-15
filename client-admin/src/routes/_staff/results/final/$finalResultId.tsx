@@ -4,7 +4,7 @@
  * can send the SMS or be reopened (step-up approval, `results.reopen`).
  */
 import { Permission } from '@biddaloy/shared';
-import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
+import { RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import { finalResultQueryOptions, useFinalResult, useHasPermission } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab, type PageAction } from '@biddaloy/ui/shells';
@@ -15,6 +15,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
+import { QueryFailure } from '../../exams/-query-failure';
 
 import { BuildDialog } from './-build-dialog';
 import { PrintPanel } from './-print-panel';
@@ -36,7 +37,7 @@ export const Route = createFileRoute('/_staff/results/final/$finalResultId')({
       queryClient
         .ensureQueryData(finalResultQueryOptions(params.finalResultId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common', 'examDocuments', 'myClass', 'nav'),
+      loadRouteNamespaces('exams', 'common', 'examDocuments', 'myClass', 'nav', 'states'),
     ]),
   pendingComponent: FinalDetailPending,
   component: FinalDetailPage,
@@ -71,12 +72,7 @@ function FinalDetailPage() {
 
   if (query.isPending) return <FinalDetailPending />;
   if (query.isError || !summary) {
-    return (
-      <ErrorState
-        message={t('finalResults.detail.loadError')}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <QueryFailure error={query.error} onRetry={() => void query.refetch()} />;
   }
 
   const build: PageAction = {

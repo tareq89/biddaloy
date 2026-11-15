@@ -18,6 +18,7 @@ import {
   StatusBadge,
   toast,
   type DataTableColumn,
+  type EmptyStateProps,
 } from '@biddaloy/ui/components';
 import {
   type FinalResultListItem,
@@ -36,11 +37,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
+import { QueryFailure } from '../../exams/-query-failure';
 
 import { fetchAllPages, PAGE_SIZE } from './-fetch-all';
 
 export const Route = createFileRoute('/_staff/results/final/')({
-  loader: () => loadRouteNamespaces('exams', 'common', 'nav'),
+  loader: () => loadRouteNamespaces('exams', 'common', 'nav', 'states'),
   pendingComponent: FinalResultsPending,
   component: FinalResultsListPage,
 });
@@ -87,6 +89,10 @@ function FinalResultsListPage() {
     },
     enabled: canStart && Boolean(yearId),
   });
+  const emptyState: EmptyStateProps = {
+    title: t('finalResults.list.emptyTitle'),
+    explanation: t('finalResults.list.emptyBody'),
+  };
   const create = useCreateFinalResult();
   const [startingId, setStartingId] = React.useState<string | null>(null);
 
@@ -185,6 +191,10 @@ function FinalResultsListPage() {
     },
   ];
 
+  if (list.isError) {
+    return <QueryFailure error={list.error} onRetry={() => void list.refetch()} />;
+  }
+
   return (
     <ListShell
       title={t('finalResults.title')}
@@ -198,11 +208,7 @@ function FinalResultsListPage() {
       totalCount={list.data?.length ?? 0}
       paginated={false}
       loading={list.isLoading || years.isLoading}
-      {...(list.isError ? { error: t('finalResults.loadError') } : {})}
-      emptyState={{
-        title: t('finalResults.list.emptyTitle'),
-        explanation: t('finalResults.list.emptyBody'),
-      }}
+      emptyState={emptyState}
       tabs={
         <div className="flex flex-col gap-1.5 md:w-72">
           <Label htmlFor="final-year">{t('finalResults.yearLabel')}</Label>
