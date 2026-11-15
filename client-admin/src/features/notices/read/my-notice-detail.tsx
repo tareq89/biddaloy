@@ -129,26 +129,34 @@ export function MyNoticeDetailView({
   );
 }
 
+// `apiClient` rejects with a raw AxiosError, so read both shapes.
+const isForbidden = (e: unknown) =>
+  e instanceof ApiError
+    ? e.statusCode === 403
+    : (e as { response?: { status?: number } } | null)?.response?.status === 403;
+
 export function MyNoticeDetail({ id, inPage = false }: { id: string; inPage?: boolean }) {
   const { t } = useTranslation('portalNotices');
+  const { t: ts } = useTranslation('states');
   const query = useMyNotice(id);
   const acknowledge = useAcknowledgeNotice();
   if (query.isPending) {
     return (
-      <div role="status" aria-label={t('detail.loading')} className="flex flex-col gap-2">
-        <Skeleton className="h-6 w-2/3" />
+      <div role="status" aria-busy="true" className="flex flex-col gap-3">
+        <span className="sr-only">{t('detail.loading')}</span>
+        <Skeleton className="h-6 w-1/2" />
         <Skeleton className="h-24 w-full" />
       </div>
     );
   }
-  if (query.error instanceof ApiError && query.error.statusCode === 403)
-    return <AccessDeniedState />;
   if (query.isError || !query.data) {
-    return (
+    return isForbidden(query.error) ? (
+      <AccessDeniedState title={ts('denied.title')} explanation={ts('denied.body')} />
+    ) : (
       <ErrorState
         message={t('error.message')}
-        retryLabel={t('error.retry')}
         onRetry={() => void query.refetch()}
+        retryLabel={t('error.retry')}
       />
     );
   }

@@ -163,6 +163,18 @@ describe('AttentionWorklist (staff)', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
+  it('shows the access-denied state on a 403', async () => {
+    server.use(
+      http.get('*/attention/items', () =>
+        HttpResponse.json({ statusCode: 403, message: 'Forbidden' }, { status: 403 }),
+      ),
+    );
+    renderStaff();
+    expect(
+      await screen.findByText('You do not have permission', {}, { timeout: 5000 }),
+    ).toBeTruthy();
+  });
+
   it('renders cards with the action label at phone width', async () => {
     vi.stubGlobal('innerWidth', 390);
     server.use(itemsHandler([alertItemFactory({ actionLabel: 'Take attendance' })]));
