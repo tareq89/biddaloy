@@ -649,7 +649,7 @@ export class UserService {
     const changes: { email?: string | null; phone?: string | null } = {};
     if (dto.email !== undefined) {
       const email = dto.email ? normalizeEmail(dto.email) : null;
-      if (email !== (current.email ?? null)) changes.email = email;
+      if (email !== (current.email ? normalizeEmail(current.email) : null)) changes.email = email;
     }
     if (dto.phone !== undefined) {
       const phone = dto.phone ? normalizeLoginIdentifier(dto.phone) : null;
