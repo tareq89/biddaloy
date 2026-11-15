@@ -84,13 +84,16 @@ test.describe('sticky header scroll contract', () => {
     await expect(heading).toBeFocused();
 
     const header = page.locator('[data-app-header]');
-    const [headerBox, headingBox] = await Promise.all([
-      header.boundingBox(),
-      heading.boundingBox(),
-    ]);
-    expect(headerBox).not.toBeNull();
-    expect(headingBox).not.toBeNull();
-    expect(headingBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+    // Polled: focus lands first, the scroll that clears the sticky header settles after it.
+    await expect
+      .poll(async () => {
+        const [headerBox, headingBox] = await Promise.all([
+          header.boundingBox(),
+          heading.boundingBox(),
+        ]);
+        return headerBox && headingBox ? headingBox.y - (headerBox.y + headerBox.height - 1) : -1;
+      })
+      .toBeGreaterThanOrEqual(0);
   });
 
   test.describe('phone top bar at 390 px', () => {
@@ -116,8 +119,15 @@ test.describe('sticky header scroll contract', () => {
 
       const heading = page.getByRole('heading', { name: t('nav.dashboard.title') });
       await expect(heading).toBeFocused();
-      const [barBox, headingBox] = await Promise.all([bar.boundingBox(), heading.boundingBox()]);
-      expect(headingBox!.y).toBeGreaterThanOrEqual(barBox!.y + barBox!.height - 1);
+      await expect
+        .poll(async () => {
+          const [barBox, headingBox] = await Promise.all([
+            bar.boundingBox(),
+            heading.boundingBox(),
+          ]);
+          return barBox && headingBox ? headingBox.y - (barBox.y + barBox.height - 1) : -1;
+        })
+        .toBeGreaterThanOrEqual(0);
     });
   });
 });

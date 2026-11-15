@@ -115,46 +115,53 @@ function expectMethodsSumToNet(report: CollectionsReport, label: string): void {
 
 test.describe('dashboard reconciliation: admin', () => {
   test('attendance-today = GET /attendance/my-sections for today', async ({ request }) => {
-    const w = await widget<{
-      counts: Counts & { unmarked: number };
-      percentage: number | null;
-      sections_total: number;
-      pending_sections: { section_id: string }[];
-    }>(request, 'admin', 'attendance-today');
-    const sourceUrl = `/attendance/my-sections?date=${TODAY}`;
-    const rows = await getJson<
-      {
-        section_id: string;
-        is_working_day: boolean;
-        today: (Counts & { state: string; unmarked: number }) | null;
-      }[]
-    >(request, 'admin', sourceUrl);
+    // The toPass window below is 75s; the 30s default would cut it off first.
+    test.setTimeout(120_000);
+    // The widget is cached for 60 s (DASHBOARD_CACHE_TTL_SECONDS); a section another spec
+    // created inside that window shows in the source list first. Re-read both until the
+    // cache has expired: the contract is that they agree once it does.
+    await expect(async () => {
+      const w = await widget<{
+        counts: Counts & { unmarked: number };
+        percentage: number | null;
+        sections_total: number;
+        pending_sections: { section_id: string }[];
+      }>(request, 'admin', 'attendance-today');
+      const sourceUrl = `/attendance/my-sections?date=${TODAY}`;
+      const rows = await getJson<
+        {
+          section_id: string;
+          is_working_day: boolean;
+          today: (Counts & { state: string; unmarked: number }) | null;
+        }[]
+      >(request, 'admin', sourceUrl);
 
-    const sum: Counts & { unmarked: number } = {
-      present: 0,
-      late: 0,
-      absent: 0,
-      leave: 0,
-      unmarked: 0,
-    };
-    for (const row of rows) {
-      for (const k of Object.keys(sum) as (keyof typeof sum)[]) sum[k] += row.today?.[k] ?? 0;
-    }
-    const url = '/dashboard/widgets/attendance-today';
-    expectSame('attendance counts', w.counts, url, sum, sourceUrl);
-    expectSame('sections_total', w.sections_total, url, rows.length, sourceUrl);
-    // RULE: a section is pending while its register is not FINALIZED (a DRAFT counts as pending).
-    const pending = rows
-      .filter((r) => r.is_working_day && r.today?.state !== 'FINALIZED')
-      .map((r) => r.section_id);
-    expectSame(
-      'pending sections',
-      sortedIds(w.pending_sections.map((s) => s.section_id)),
-      url,
-      sortedIds(pending),
-      sourceUrl,
-    );
-    expectSame('attendance %', w.percentage, url, attendancePct(sum), sourceUrl);
+      const sum: Counts & { unmarked: number } = {
+        present: 0,
+        late: 0,
+        absent: 0,
+        leave: 0,
+        unmarked: 0,
+      };
+      for (const row of rows) {
+        for (const k of Object.keys(sum) as (keyof typeof sum)[]) sum[k] += row.today?.[k] ?? 0;
+      }
+      const url = '/dashboard/widgets/attendance-today';
+      expectSame('attendance counts', w.counts, url, sum, sourceUrl);
+      expectSame('sections_total', w.sections_total, url, rows.length, sourceUrl);
+      // RULE: a section is pending while its register is not FINALIZED (a DRAFT counts as pending).
+      const pending = rows
+        .filter((r) => r.is_working_day && r.today?.state !== 'FINALIZED')
+        .map((r) => r.section_id);
+      expectSame(
+        'pending sections',
+        sortedIds(w.pending_sections.map((s) => s.section_id)),
+        url,
+        sortedIds(pending),
+        sourceUrl,
+      );
+      expectSame('attendance %', w.percentage, url, attendancePct(sum), sourceUrl);
+    }).toPass({ timeout: 75_000, intervals: [2_000, 5_000, 10_000] });
   });
 
   test("staff-today = the staff roster plus each staff member's attendance summary", async ({

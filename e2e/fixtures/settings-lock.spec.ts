@@ -61,3 +61,34 @@ test('re-entrant within one instance', async () => {
   lock.release();
   lock.release();
 });
+
+test('readers share; a writer waits for them and new readers wait for the writer', async () => {
+  const k = key();
+  const log: string[] = [];
+  const reader = (name: string, ms: number) => async () => {
+    const l = new SchoolSettingsLock({ key: k });
+    await l.acquireShared();
+    log.push(`${name}+`);
+    await new Promise((r) => setTimeout(r, ms));
+    log.push(`${name}-`);
+    l.releaseShared();
+  };
+  const r1 = reader('r1', 300)();
+  const r2 = reader('r2', 300)();
+  await new Promise((r) => setTimeout(r, 100));
+  const w = new SchoolSettingsLock({ key: k });
+  const writer = (async () => {
+    await w.acquire();
+    log.push('w+');
+    await new Promise((r) => setTimeout(r, 100));
+    log.push('w-');
+    w.release();
+  })();
+  await new Promise((r) => setTimeout(r, 100));
+  const r3 = reader('r3', 10)();
+  await Promise.all([r1, r2, writer, r3]);
+  expect(log.slice(0, 2).sort()).toEqual(['r1+', 'r2+']); // readers overlapped
+  expect(log.indexOf('w+')).toBeGreaterThan(log.indexOf('r1-')); // writer after both readers left
+  expect(log.indexOf('w+')).toBeGreaterThan(log.indexOf('r2-'));
+  expect(log.indexOf('r3+')).toBeGreaterThan(log.indexOf('w-')); // late reader behind the writer
+});

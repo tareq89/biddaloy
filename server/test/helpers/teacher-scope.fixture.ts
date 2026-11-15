@@ -108,6 +108,11 @@ export async function createTeacherScopeFixture(
     },
 
     async seed() {
+      // Another spec on this DB may have flipped the current year since beforeAll (#2464).
+      await dataSource.query(
+        `UPDATE academic_years SET is_current = (id = $2) WHERE tenant_id = $1`,
+        [tenantId, SEED_ACADEMIC_YEAR_ID],
+      );
       // Via the repository so the `staff_profile_id` default runs.
       const teacher = await dataSource.getRepository(Teacher).save({
         user_id: user.id,

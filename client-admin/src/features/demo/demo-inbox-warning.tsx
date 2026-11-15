@@ -15,9 +15,7 @@ import { useDemoMode } from './use-demo-mode';
  */
 export function DemoInboxWarning({ className }: { className?: string }) {
   const { enabled } = useDemoMode();
-  return enabled || runtimeConfig().demoMode ? (
-    <DemoInboxWarningBar className={className} />
-  ) : null;
+  return enabled || runtimeConfig().demoMode ? <DemoInboxWarningBar className={className} /> : null;
 }
 
 const FALLBACK =
@@ -43,7 +41,7 @@ function DemoInboxWarningBar({ className }: { className?: string | undefined }) 
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center font-medium underline"
             >
-              {t('testInbox.open')}
+              {t('testInbox.open', { defaultValue: 'Open test inbox' })}
             </a>
           ) : null}
         </span>
