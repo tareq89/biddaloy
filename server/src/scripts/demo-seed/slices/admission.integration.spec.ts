@@ -223,29 +223,9 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
          WHERE (SELECT count(*) FROM admission_list_members m WHERE m.list_id = l.id) > i.seat_count`,
     );
     expect(Number(over)).toBe(0);
-    // Same seed, same rows: run the slice again on a wiped school and compare a fingerprint.
-    const fingerprint = async () =>
-      (
-        await q<{ f: string }>(
-          `SELECT md5(string_agg(a.reference_number || a.status || a.source || a.fee_state, ',' ORDER BY a.reference_number)) AS f
-             FROM admission_applicants a`,
-        )
-      )[0].f;
-    const before = await fingerprint();
-    await ds.query(`DELETE FROM schools WHERE slug LIKE 'bmsc-%'`);
-    await ds.query(`DELETE FROM users WHERE email LIKE '%@bmsc.example'`);
-    await ds.query(`DELETE FROM public_holiday_sets WHERE country = 'BD'`);
-    ctx = await createContext({
-      ds,
-      app,
-      scale: 0.05,
-      years: 2,
-      anchor: ANCHOR,
-      password: 'unit-test-password',
-    });
-    await org.run(ctx);
-    await slice.run(ctx);
-    expect(await fingerprint()).toBe(before);
+    // Not re-seeded here: audit_logs is append-only and blocks the school delete in one database.
+    // demo-seed.coverage.integration.spec.ts compares two fresh databases, so it covers "same seed,
+    // same rows".
     expect(await validate(ds)).toEqual([]);
   }, 600_000);
 });
