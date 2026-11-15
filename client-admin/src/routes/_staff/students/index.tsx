@@ -1,11 +1,14 @@
 import { EnrollmentStatus, Permission, RoleScope, roleScope } from '@biddaloy/shared';
 import {
+  AccessDeniedState,
   Button,
   CachedDataNotice,
   ExportMenu,
   RoutePending,
   StatusBadge,
   type DataTableColumn,
+  type EmptyStateProps,
+  ErrorState,
 } from '@biddaloy/ui/components';
 import {
   downloadListExport,
@@ -140,6 +143,12 @@ function toStudentListFilters(filters: StudentFilters, sortColumnId: string | un
   };
 }
 
+// The list hook can surface either an `ApiError` or the raw Axios error, so read both shapes.
+function isForbidden(error: unknown): boolean {
+  const e = error as { statusCode?: number; response?: { status?: number } } | null;
+  return (e?.statusCode ?? e?.response?.status) === 403;
+}
+
 export const Route = createFileRoute('/_staff/students/')({
   validateSearch: studentsSearchSchema,
   // Without `loaderDeps`, the loader only reruns when the route's own
@@ -194,7 +203,7 @@ export const Route = createFileRoute('/_staff/students/')({
       // (empty) list — same permission-gated one-liner as
       // `students/import.tsx`, pointed the other direction.
       // 'staff' holds the role names the keep-as-report dialog lists.
-      loadRouteNamespaces('students', 'backup', 'staff', 'reportDesigner', 'reports'),
+      loadRouteNamespaces('students', 'backup', 'staff', 'reportDesigner', 'reports', 'states'),
     ]),
   pendingComponent: StudentsListPending,
   component: StudentsListPage,
@@ -203,6 +212,7 @@ export const Route = createFileRoute('/_staff/students/')({
 function StudentsListPage() {
   const { t } = useTranslation('students');
   const { t: tBackup } = useTranslation('backup');
+  const { t: tStates } = useTranslation('states');
   const queryClient = useQueryClient();
   const [state, actions] = useListShellState();
   const filters = state.filters as StudentFilters;
@@ -510,6 +520,37 @@ function StudentsListPage() {
     });
   }
 
+  // No rows to show and the fetch failed: a refused role gets the permission state, anything
+  // else a retry. A failed refetch with rows already on screen keeps the table (CachedDataNotice).
+  if (studentsQuery.isError && !studentsQuery.data) {
+    return isForbidden(studentsQuery.error) ? (
+      <AccessDeniedState title={tStates('denied.title')} explanation={tStates('denied.body')} />
+    ) : (
+      <ErrorState
+        title={tStates('error.title')}
+        message={tStates('error.body')}
+        retryLabel={tStates('error.retry')}
+        onRetry={() => void studentsQuery.refetch()}
+      />
+    );
+  }
+
+  const emptyState: EmptyStateProps = {
+    title: t('list.emptyMessage'),
+    explanation:
+      isTeacher && !hasActiveFilter
+        ? t('list.emptyTeacherExplanation')
+        : t('list.emptyExplanation'),
+    ...(canAddStudent
+      ? {
+          action: {
+            label: t('list.addStudent'),
+            onClick: () => void navigate({ to: '/students/new' }),
+          },
+        }
+      : {}),
+  };
+
   return (
     <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={studentsQueryOptions(studentListFilters).queryKey} />
@@ -639,21 +680,7 @@ function StudentsListPage() {
         loading={studentsQuery.isLoading}
         isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyState={{
-          title: t('list.emptyMessage'),
-          explanation:
-            isTeacher && !hasActiveFilter
-              ? t('list.emptyTeacherExplanation')
-              : t('list.emptyExplanation'),
-          ...(canAddStudent
-            ? {
-                action: {
-                  label: t('list.addStudent'),
-                  onClick: () => void navigate({ to: '/students/new' }),
-                },
-              }
-            : {}),
-        }}
+        emptyState={emptyState}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }

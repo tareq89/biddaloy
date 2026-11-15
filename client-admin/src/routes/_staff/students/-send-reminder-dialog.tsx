@@ -8,6 +8,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
   NoticeBar,
   Textarea,
   toast,
@@ -17,6 +22,7 @@ import { useSendBulkReminder } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
 
 import { MAX_BULK_REMINDER_STUDENTS } from '../communications/-shared/reminder-limits';
 import { useSmsReadiness } from '../communications/-shared/sms-readiness';
@@ -45,7 +51,8 @@ export function SendReminderDialog({
   onSent,
 }: SendReminderDialogProps) {
   const { t } = useTranslation('students');
-  const [message, setMessage] = React.useState('');
+  const { t: tStates } = useTranslation('states');
+  const form = useForm<{ message: string }>({ defaultValues: { message: '' } });
   const sendReminder = useSendBulkReminder();
   // The server caps one batch (several billed batches with partial failures is worse than a block).
   const over = studentIds.length > MAX_BULK_REMINDER_STUDENTS;
@@ -72,14 +79,13 @@ export function SendReminderDialog({
   // already went out.
   React.useEffect(() => {
     if (open) {
-      setMessage('');
+      form.reset({ message: '' });
       sendReminder.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions, not on every sendReminder identity change
   }, [open]);
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function handleValid({ message }: { message: string }) {
     if (over) return;
     sendReminder.mutate(
       { student_ids: [...studentIds], message_template: message },
@@ -100,57 +106,74 @@ export function SendReminderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <div className="flex items-center gap-1">
-              <DialogTitle>{t('sendReminderDialog.title')}</DialogTitle>
-              <HelpHint helpId="people.students.action.sendReminder" />
-            </div>
-            <DialogDescription>
-              {t('sendReminderDialog.description', { count: studentIds.length })}
-            </DialogDescription>
-          </DialogHeader>
-          {smsNotReady && (
-            <div className="mb-2">
-              <NoticeBar tone="warning">
-                {t(`sendReminderDialog.smsNotReady.${smsNotReady}`)}
-              </NoticeBar>
-            </div>
-          )}
-          {over && (
-            <p role="status" className="mb-2 text-sm text-destructive">
-              {limitText}{' '}
-              <Link to="/communications/reminders" className="underline">
-                {t('sendReminderDialog.limitLink')}
-              </Link>
-            </p>
-          )}
-          <Textarea
-            aria-label={t('sendReminderDialog.messageLabel')}
-            placeholder={t('sendReminderDialog.messagePlaceholder')}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            required
-            rows={4}
-          />
-          {sendReminder.isError && (
-            <p role="alert" className="mt-2 text-sm text-destructive">
-              {errorText}
-            </p>
-          )}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('actions.cancel', { ns: 'common' })}
+        <Form {...form}>
+          <form
+            noValidate
+            onSubmit={(event) =>
+              void form.handleSubmit(handleValid, () => form.setFocus('message'))(event)
+            }
+          >
+            <DialogHeader>
+              <div className="flex items-center gap-1">
+                <DialogTitle>{t('sendReminderDialog.title')}</DialogTitle>
+                <HelpHint helpId="people.students.action.sendReminder" />
+              </div>
+              <DialogDescription>
+                {t('sendReminderDialog.description', { count: studentIds.length })}
+              </DialogDescription>
+            </DialogHeader>
+            {smsNotReady && (
+              <div className="mb-2">
+                <NoticeBar tone="warning">
+                  {t(`sendReminderDialog.smsNotReady.${smsNotReady}`)}
+                </NoticeBar>
+              </div>
+            )}
+            {over && (
+              <p role="status" className="mb-2 text-sm text-destructive">
+                {limitText}{' '}
+                <Link to="/communications/reminders" className="underline">
+                  {t('sendReminderDialog.limitLink')}
+                </Link>
+              </p>
+            )}
+            <FormField
+              control={form.control}
+              name="message"
+              rules={{ validate: (v) => v.trim() !== '' || tStates('validation.fixFields') }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      aria-label={t('sendReminderDialog.messageLabel')}
+                      placeholder={t('sendReminderDialog.messagePlaceholder')}
+                      rows={4}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {sendReminder.isError && (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {errorText}
+              </p>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  {t('actions.cancel', { ns: 'common' })}
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={over} loading={sendReminder.isPending}>
+                {sendReminder.isPending
+                  ? t('sendReminderDialog.sending')
+                  : t('sendReminderDialog.send')}
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={over} loading={sendReminder.isPending}>
-              {sendReminder.isPending
-                ? t('sendReminderDialog.sending')
-                : t('sendReminderDialog.send')}
-            </Button>
-          </DialogFooter>
-        </form>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
