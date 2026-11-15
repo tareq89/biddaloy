@@ -522,10 +522,18 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
 
   async remove(entity: StudentFee, m: EntityManager): Promise<void> {
     try {
+      // A waiting proof's bill row (not yet paid) must not block the delete: drop it first.
+      // Settled rows (payment_id set) keep their RESTRICT guard.
+      await m.query(
+        `DELETE FROM payment_submission_bills
+          WHERE student_fee_id = $1 AND payment_id IS NULL
+            AND tenant_id = (SELECT tenant_id FROM students WHERE id = $2)`,
+        [entity.id, entity.student_id],
+      );
       await m.delete(StudentFee, { id: entity.id });
     } catch (e) {
       if (e instanceof QueryFailedError && (e as { code?: string }).code === FK_VIOLATION) {
-        throw new Error(`Cannot delete student fee ${entity.id}: it is referenced by a payment.`);
+        throw new Error(`Cannot delete student fee ${entity.id}: it is referenced by a payment or payment submission.`);
       }
       throw e;
     }

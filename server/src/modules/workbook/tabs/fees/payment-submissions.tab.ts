@@ -387,6 +387,9 @@ export const paymentSubmissionsTab: TabSpec<PaymentSubmission, PaymentSubmission
   async remove(entity, m) {
     // Bills, files and events go with it (ON DELETE CASCADE). Bills hold RESTRICT FKs to
     // payments / student_fees, so a restore removes them first through their own tab.
+    // A restore is a point-in-time rollback: the submission's history events go with it, while
+    // the decisions stay in audit_logs. Proof image objects of the cascaded
+    // payment_submission_files rows stay in storage as orphans (no cleanup here).
     await m.delete(PaymentSubmission, { id: entity.id });
   },
 };

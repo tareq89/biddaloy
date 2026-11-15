@@ -145,6 +145,77 @@ describe('ProofSubmissionsService (integration)', () => {
     expect(await rows('payment_submissions')).toBe(0);
   });
 
+  it("another school's bill is 404, writes nothing, stores no file and is never reported as waiting", async () => {
+    const B = '22222222-2222-4222-8222-2222222222b1';
+    const ids = {
+      year: '22222222-2222-4222-8222-2222222222b2',
+      cls: '22222222-2222-4222-8222-2222222222b3',
+      section: '22222222-2222-4222-8222-2222222222b4',
+      student: '22222222-2222-4222-8222-2222222222b5',
+      structure: '22222222-2222-4222-8222-2222222222b6',
+      fee: '22222222-2222-4222-8222-2222222222b7',
+    };
+    FakeStorage.keys = [];
+    try {
+      await ds.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Proof Tenant B', 'proof-tenant-b', NOW(), NOW())`,
+        [B],
+      );
+      await ds.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
+         VALUES ($1, 'B 2026', '2026-01-01', '2026-12-31', true, $2, NOW(), NOW())`,
+        [ids.year, B],
+      );
+      await ds.query(
+        `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
+         VALUES ($1, 'B Class', $2, $3, NOW(), NOW())`,
+        [ids.cls, ids.year, B],
+      );
+      await ds.query(
+        `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
+         VALUES ($1, 'B Section', $2, $3, NOW(), NOW())`,
+        [ids.section, ids.cls, B],
+      );
+      await ds.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id,
+           enrollment_status, preferred_communication, created_at, updated_at)
+         VALUES ($1, 'B Student', 'PB-1', 1, $2, $3, 'ACTIVE', 'SMS', NOW(), NOW())`,
+        [ids.student, ids.section, B],
+      );
+      await ds.query(
+        `INSERT INTO fee_structures (id, fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
+         VALUES ($1, 'MONTHLY_TUITION', 'B Tuition', 500, $2, $3, $4, NOW(), NOW())`,
+        [ids.structure, ids.cls, ids.year, B],
+      );
+      await ds.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start,
+           total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,'2026-03-01',500,0,0,'PENDING',NOW(),NOW())`,
+        [ids.fee, ids.student, ids.year, ids.structure],
+      );
+
+      await expect(svc.submit(dto([ids.fee], 500), [file()], ctx)).rejects.toThrow(
+        'Bill not found',
+      );
+      expect(await rows('payment_submissions')).toBe(0);
+      for (const t of ['payment_submissions', 'payment_submission_bills', 'payment_submission_files']) {
+        const [{ n }] = await ds.query(`SELECT COUNT(*)::int n FROM ${t}`);
+        expect(n).toBe(0);
+      }
+      expect(FakeStorage.keys).toEqual([]);
+      expect(await svc.billsWithLiveSubmission(ds.manager, SEED_TENANT_ID, [ids.fee])).toEqual([]);
+    } finally {
+      await ds.query(`DELETE FROM student_fees WHERE id = $1`, [ids.fee]);
+      await ds.query(`DELETE FROM fee_structures WHERE tenant_id = $1`, [B]);
+      await ds.query(`DELETE FROM students WHERE tenant_id = $1`, [B]);
+      await ds.query(`DELETE FROM class_sections WHERE tenant_id = $1`, [B]);
+      await ds.query(`DELETE FROM classes WHERE tenant_id = $1`, [B]);
+      await ds.query(`DELETE FROM academic_years WHERE tenant_id = $1`, [B]);
+      await ds.query(`DELETE FROM schools WHERE id = $1`, [B]);
+    }
+  });
+
   it('another family bill with a file writes no storage object (pre-check runs first)', async () => {
     const b = await fix.bill(fix.fx.studentB, 500);
     let puts = 0;

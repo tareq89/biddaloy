@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { TestingModule } from '@nestjs/testing';
@@ -951,6 +951,137 @@ describe('fees tabs (integration)', () => {
       }
       return out;
     }
+
+    const B_USER_EMAIL = 'guardian-sub-b@example.com';
+    const B_SUB_ID = '00000000-0000-4000-8000-0000000000b1';
+    const B_BILL_ID = '00000000-0000-4000-8000-0000000000b2';
+    const B_FILE_ID = '00000000-0000-4000-8000-0000000000b3';
+    const B_EVENT_ID = '00000000-0000-4000-8000-0000000000b4';
+
+    afterEach(async () => {
+      await dataSource.query('DELETE FROM payment_submissions WHERE tenant_id = $1', [TENANT_B]);
+      await dataSource.query('DELETE FROM users WHERE email = $1', [B_USER_EMAIL]);
+    });
+
+    /** One row of each submission table in tenant B (the bill is tenant B's too). */
+    async function seedTenantBSubmission(): Promise<{ userId: string }> {
+      const year = await yearRepo.save(
+        yearRepo.create({
+          tenant_id: TENANT_B,
+          name: '2026-2027',
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          is_current: true,
+        }),
+      );
+      const klass = await classRepo.save(
+        classRepo.create({ tenant_id: TENANT_B, name: 'Class 5', academic_year_id: year.id }),
+      );
+      const section = await sectionRepo.save(
+        sectionRepo.create({
+          tenant_id: TENANT_B,
+          class_id: klass.id,
+          section_name: 'A',
+          capacity: 40,
+        }),
+      );
+      const student = await studentRepo.save(
+        studentRepo.create({
+          tenant_id: TENANT_B,
+          full_name: 'Student B',
+          registration_number: 'REG-B-001',
+          roll_number: 1,
+          class_section_id: section.id,
+        }),
+      );
+      const structure = await feeStructureRepo.save(
+        feeStructureRepo.create({
+          tenant_id: TENANT_B,
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Tuition - January',
+          amount: '1500.00',
+          class_id: klass.id,
+          academic_year_id: year.id,
+        }),
+      );
+      const fee = await studentFeeRepo.save(
+        studentFeeRepo.create({
+          student_id: student.id,
+          academic_year_id: year.id,
+          fee_structure_id: structure.id,
+          period_start: '2026-01-01' as never,
+          total_amount: '1500.00' as never,
+          paid_amount: '0.00' as never,
+          status: FeeStatus.PENDING,
+        }),
+      );
+      const user = await dataSource.getRepository(User).save({
+        full_name: 'Guardian B',
+        email: B_USER_EMAIL,
+      });
+      await dataSource.query(
+        `INSERT INTO payment_submissions (id, tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, reference_raw, reference_normalised, unmatched)
+         VALUES ($1, $2, 'PROOF', 'PENDING', $3, 'BKASH', 1500.00, '2026-01-06', 'Trx-B1', 'TRXB1', false)`,
+        [B_SUB_ID, TENANT_B, user.id],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (id, tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1, $2, $3, $4, $5, 1500.00)`,
+        [B_BILL_ID, TENANT_B, B_SUB_ID, fee.id, student.id],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_files (id, tenant_id, submission_id, storage_key, content_type, size_bytes, original_name_hash)
+         VALUES ($1, $2, $3, 'proofs/b.jpg', 'image/jpeg', 2048, $4)`,
+        [B_FILE_ID, TENANT_B, B_SUB_ID, 'b'.repeat(64)],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_events (id, tenant_id, submission_id, from_status, to_status, actor_user_id, note)
+         VALUES ($1, $2, $3, NULL, 'PENDING', $4, 'submitted')`,
+        [B_EVENT_ID, TENANT_B, B_SUB_ID, user.id],
+      );
+      return { userId: user.id };
+    }
+
+    it('load(tenantA) excludes tenant B rows of all four submission tables', async () => {
+      await seedTenantBSubmission();
+      for (const tab of tabs) {
+        expect(await tab.load(TENANT_A, dataSource.manager)).toEqual([]);
+        expect((await tab.load(TENANT_B, dataSource.manager)).length).toBe(1);
+      }
+    });
+
+    it("restoring a tenant B submission id into tenant A is rejected and tenant B's row is unchanged", async () => {
+      const { userId } = await seedTenantBSubmission();
+      const [bRow] = await dataSource.query(`SELECT * FROM payment_submissions WHERE id = $1`, [
+        B_SUB_ID,
+      ]);
+      const parsed = paymentSubmissionsTab.fromRow(
+        {
+          id: B_SUB_ID,
+          source: 'PROOF',
+          status: 'REJECTED',
+          submitted_by: userId,
+          method: 'NAGAD',
+          amount: '9.00',
+          paid_on: '2026-01-07',
+          reference_raw: 'tampered',
+          reference_normalised: 'TAMPERED',
+          reject_reason: 'OTHER',
+          reject_note: 'x',
+          unmatched: 'false',
+        },
+        2,
+        { ...importCtx, ref: (_tab, key) => key },
+      );
+      if ('errors' in parsed) throw new Error(JSON.stringify(parsed.errors));
+      await expect(
+        paymentSubmissionsTab.upsert(parsed.row, null, TENANT_A, dataSource.manager, userId),
+      ).rejects.toThrow('already exists in another school');
+      const [after] = await dataSource.query(`SELECT * FROM payment_submissions WHERE id = $1`, [
+        B_SUB_ID,
+      ]);
+      expect(after).toEqual(bRow);
+    });
 
     it('export -> wipe -> import gives back every row of all four tables', async () => {
       await seedFeeStructureA();
