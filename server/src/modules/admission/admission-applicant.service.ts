@@ -90,7 +90,7 @@ export interface CreateApplicantOptions {
   actor?: { userId: string; ip: string | null; userAgent: string | null };
   /** Staff only: let a late walk-in past the round's close date. */
   allowAfterClose?: boolean;
-  /** Staff only: the fee payment proof (method + one file, reference optional). */
+  /** The fee payment proof (method + one file, reference optional). Staff always; the site form opts in by passing it. */
   fee?: { method?: string; reference?: string; file?: Express.Multer.File };
 }
 
@@ -98,6 +98,8 @@ export interface CreateApplicantResult {
   reference_number: string;
   status: string;
   warnings?: string[];
+  /** Site form only: NONE, or AWAITING while the school checks the proof. */
+  fee_status?: string;
 }
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -234,7 +236,8 @@ export class AdmissionApplicantService {
     slug: string,
     dto: SubmitApplicantDto,
     files: Express.Multer.File[],
-  ): Promise<{ reference_number: string; status: string }> {
+    fee?: CreateApplicantOptions['fee'],
+  ): Promise<CreateApplicantResult> {
     const school = await this.schoolOrNotFound(slug, 'School not found');
 
     // Honeypot: return a plausible-looking success without persisting
@@ -251,7 +254,7 @@ export class AdmissionApplicantService {
       };
     }
 
-    return this.createApplicant(school, dto, files, { source: AdmissionSource.ONLINE });
+    return this.createApplicant(school, dto, files, { source: AdmissionSource.ONLINE, fee });
   }
 
   /**
@@ -287,6 +290,7 @@ export class AdmissionApplicantService {
   ): Promise<CreateApplicantResult> {
     const uploadedKeys: string[] = [];
     let replacedKeys: string[] = [];
+    let strayKeys: string[] = [];
     try {
       const documents = await this.uploadDocuments(school.id, files, uploadedKeys);
       // Check the proof's bytes before anything is stored (Rule 6), then store it with the rest.
@@ -420,13 +424,17 @@ export class AdmissionApplicantService {
         }
 
         const isClerk = opts.source === AdmissionSource.CLERK;
-        const feeRound = isClerk && (intake.fee_amount_paisa ?? 0) > 0;
+        // The old public route passes no `fee`, so it keeps ignoring fees; the site form passes one.
+        const feeAware = isClerk || opts.fee !== undefined;
+        const feeRound = feeAware && (intake.fee_amount_paisa ?? 0) > 0;
         const warnings: string[] = [];
         if (isClerk && !feeRound && (proofKey || opts.fee?.method)) {
           throw new BadRequestException(
             refusalBody('This admission round takes no fee', 'FEE_NOT_REQUIRED'),
           );
         }
+        // Site form on a free round: ignore the proof, drop the file we already stored.
+        if (!isClerk && !feeRound && proofKey) strayKeys = [proofKey];
         if (feeRound) {
           // admission_fee_proofs.attachment_key is NOT NULL: a proof needs a file (D9).
           if (!opts.fee?.method || !proofKey) {
@@ -441,7 +449,8 @@ export class AdmissionApplicantService {
               .where('p.tenant_id = :tenantId', { tenantId: school.id })
               .andWhere('LOWER(TRIM(p.reference)) = LOWER(:ref)', { ref: opts.fee.reference })
               .getCount();
-            if (seen > 0) warnings.push('REFERENCE_SEEN');
+            // Staff only: telling an anonymous caller a reference was used before is a lookup oracle.
+            if (seen > 0 && isClerk) warnings.push('REFERENCE_SEEN');
           }
         }
 
@@ -527,14 +536,15 @@ export class AdmissionApplicantService {
           reference_number: saved.reference_number,
           status: saved.status,
           ...(warnings.length > 0 ? { warnings } : {}),
+          ...(opts.fee !== undefined && !isClerk ? { fee_status: saved.fee_state } : {}),
         };
       });
 
       // DATA-02: a stored key may come from a restored workbook, and this route
       // needs no login, so only ever delete inside this school's own prefix.
-      if (replacedKeys.length > 0) {
+      if (replacedKeys.length + strayKeys.length > 0) {
         await Promise.allSettled(
-          replacedKeys.map((key) => this.storage.deleteForTenant(key, school.id)),
+          [...replacedKeys, ...strayKeys].map((key) => this.storage.deleteForTenant(key, school.id)),
         );
       }
       return result;
