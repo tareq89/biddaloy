@@ -55,7 +55,9 @@ test('first login: the box is ticked, unticking and saving blocks support', asyn
   test.setTimeout(120_000);
   const login = new LoginPage(page);
   await login.goto();
-  await login.loginWithOtp(school.phone);
+  // The sign-in form looks the person up by the canonical trunk-0 number (01XXXXXXXXX), while the
+  // API-registered phone is stored as typed (+8801XXXXXXXXX): type the stored value's trunk-0 form.
+  await login.loginWithOtp(school.phone.replace(/^\+880/, '0'));
   // A code sign-in makes a new admin set a password first; then sign in again with it, which is
   // the sign-in that offers the support access page.
   await page.getByLabel(tc('auth', 'setPassword.label'), { exact: true }).fill(E2E_PASSWORD);
