@@ -1034,7 +1034,7 @@ flowchart LR
 
 ---
 
-## 7. Motion — three durations, two easings
+## 7. Motion — five durations, two easings
 
 | Token                    | Value                        | Used by                            |
 | ------------------------ | ---------------------------- | ---------------------------------- |
