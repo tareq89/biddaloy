@@ -624,6 +624,8 @@ POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISS
 POST /admission/fee-proofs/:id/confirm | AdmissionFeeController | perm: ADMISSION_REVIEW
 POST /admission/fee-proofs/:id/send-back | AdmissionFeeController | perm: ADMISSION_REVIEW
 POST /admission/intakes/:id/rolls | AdmissionRollController | perm: ADMISSION_REVIEW
+POST /admission/stages/:id/cutoff/commit | AdmissionStageResultController | perm: ADMISSION_REVIEW
+POST /admission/stages/:id/cutoff/preview | AdmissionStageResultController | perm: ADMISSION_REVIEW
 POST /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/attachments | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
@@ -949,6 +951,7 @@ POST /website/posts/:id/publish | SitePostsController | perm: WEBSITE_MANAGE
 POST /website/posts/:id/unpublish | SitePostsController | perm: WEBSITE_MANAGE
 POST /website/publish | SiteConfigController | perm: WEBSITE_MANAGE
 PUT /acr/criteria | AcrCriteriaController | perm: ACR_WRITE
+PUT /admission/stages/:id/results | AdmissionStageResultController | perm: ADMISSION_REVIEW
 PUT /attendance/sections/:sectionId/register | AttendanceController | perm: ATTENDANCE_MARK
 PUT /attendance/sections/:sectionId/register-matrix | AttendanceController | perm: ATTENDANCE_MARK
 PUT /communications/sms-source | SmsSourceController | perm: SETTINGS_MANAGE

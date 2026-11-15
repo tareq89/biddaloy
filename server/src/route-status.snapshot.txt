@@ -53,6 +53,9 @@ POST   /api/v1/admission/fee-proofs/:id/confirm                                 
 POST   /api/v1/admission/fee-proofs/:id/send-back                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 POST   /api/v1/admission/intakes/:id/rolls                                401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/admission/reports/lifecycle                                       401 401 PASS PASS PASS 403 403 403 403 PASS 403 403 403 admission
+POST   /api/v1/admission/stages/:id/cutoff/commit                         401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+POST   /api/v1/admission/stages/:id/cutoff/preview                        401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
+PUT    /api/v1/admission/stages/:id/results                               401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 PATCH  /api/v1/admission/stages/:id/schedule                              401 401 PASS PASS PASS 403 403 403 403 403 PASS 403 403 admission
 GET    /api/v1/applications                                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 applications
 POST   /api/v1/applications                                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 applications

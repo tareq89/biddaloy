@@ -9371,6 +9371,57 @@ export interface paths {
         patch: operations["AdmissionRollController_schedule_v1"];
         trace?: never;
     };
+    "/api/v1/admission/stages/{id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Record attendance and a score (or pass/fail) per applicant, up to 200 rows. Last write wins. */
+        put: operations["AdmissionStageResultController_put_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/stages/{id}/cutoff/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Who passes and who does not for a cut-off, without saving. */
+        post: operations["AdmissionStageResultController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/stages/{id}/cutoff/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark the cut-off passers (plus add, minus remove) as passed. Repeating the same body gives the same result. */
+        post: operations["AdmissionStageResultController_commit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/seat-plans/generate": {
         parameters: {
             query?: never;
@@ -21122,6 +21173,59 @@ export interface components {
             date: string;
             start_time: string;
             venue: string;
+        };
+        StageResultRowDto: {
+            /** Format: uuid */
+            applicant_id: string;
+            /** @description false = absent: no score, no passed. */
+            attended: boolean;
+            /**
+             * @description Score stages only; 2 decimals.
+             * @example 72.5
+             */
+            score?: number;
+            /** @description Pass/fail stages only. */
+            passed?: boolean;
+        };
+        PutStageResultsDto: {
+            results: components["schemas"]["StageResultRowDto"][];
+        };
+        PutStageResultsResponseDto: {
+            saved: number;
+        };
+        /** @enum {string} */
+        AdmissionCutoffMode: "TOP_N" | "MIN_SCORE";
+        CutoffPreviewDto: {
+            mode: components["schemas"]["AdmissionCutoffMode"];
+            /**
+             * @description TOP_N: a whole number; MIN_SCORE: 2 decimals.
+             * @example 30
+             */
+            value: number;
+        };
+        CutoffPreviewResponseDto: {
+            passing: string[];
+            failing: string[];
+            passing_count: number;
+            failing_count: number;
+            /** @description Lowest passing score. */
+            boundary_score: number | null;
+            /** @description Applicants on the boundary score, split by the tie-break. */
+            tied_at_boundary: number;
+        };
+        CutoffCommitDto: {
+            mode: components["schemas"]["AdmissionCutoffMode"];
+            /**
+             * @description TOP_N: a whole number; MIN_SCORE: 2 decimals.
+             * @example 30
+             */
+            value: number;
+            add?: string[];
+            remove?: string[];
+        };
+        CutoffCommitResponseDto: {
+            passed: number;
+            failed: number;
         };
         GenerateSeatPlanDto: {
             name: string;
@@ -46501,6 +46605,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StageScheduleResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionStageResultController_put_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutStageResultsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PutStageResultsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionStageResultController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CutoffPreviewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutoffPreviewResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionStageResultController_commit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CutoffCommitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutoffCommitResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
