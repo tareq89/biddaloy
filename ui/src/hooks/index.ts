@@ -1270,6 +1270,7 @@ export {
   type RemoveBatchStudentInput,
   type RemoveUncollectedResult,
 } from './fee-generations';
+export { useCreateAdmissionRound, type CreateAdmissionRoundInput } from './admission-rounds';
 export {
   admissionReportKeys,
   useAdmissionLifecycleReport,

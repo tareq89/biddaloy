@@ -1,65 +1,38 @@
 /**
- * [27.9] Admission intakes list — table→card responsive via `ListShell`,
+ * [27.9] [71.4.x] Admission rounds list (create moved to the four-step wizard, #4196) — table→card responsive via `ListShell`,
  * cloned from the grading-scales list shell
  * (`client-admin/src/routes/_staff/grading-scales/index.tsx`). The whole
  * screen is already gated behind `ADMISSION_REVIEW` at the route level
  * (`_staff.tsx` + `route-permissions.ts`), so every action here is shown
  * unconditionally — there's no separate "read only" role for this screen.
  */
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  StatusBadge,
-  toast,
-  type DataTableColumn,
-} from '@biddaloy/ui/components';
-import { useSchoolProfile } from '@biddaloy/ui/hooks';
+import { StatusBadge, toast, type DataTableColumn } from '@biddaloy/ui/components';
+import { usePreviewToken, useWebsiteConfig } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDateRange, formatNumber } from '@biddaloy/ui/utils';
-import { DoorOpenIcon, LinkIcon, PlusIcon } from 'lucide-react';
-import * as React from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { DoorOpenIcon, GlobeIcon, LinkIcon, PlusIcon } from 'lucide-react';
 
-import { useCreateIntake, useIntakes, type IntakeListRow } from './hooks/useIntakes';
-import {
-  EMPTY_INTAKE_FORM,
-  IntakeForm,
-  isIntakeFormValid,
-  toIntakeInput,
-  type IntakeFormValue,
-} from './IntakeForm';
+import { useIntakes, type IntakeListRow } from './hooks/useIntakes';
 
 export function IntakeList() {
   const { t } = useTranslation('admission-staff-intakes');
   const [state, actions] = useListShellState();
   const intakesQuery = useIntakes();
   const regionConfig = useRegionConfig();
-  const profile = useSchoolProfile();
-  const slug = profile.data?.slug;
+  const navigate = useNavigate();
+  const website = useWebsiteConfig();
+  const preview = usePreviewToken();
+  const hasSite = website.data?.has_published === true;
+  const noSite = website.isSuccess && !hasSite;
 
-  const [createOpen, setCreateOpen] = React.useState(false);
-  const [form, setForm] = React.useState<IntakeFormValue>(EMPTY_INTAKE_FORM);
-  const createIntake = useCreateIntake();
-
-  function handleCreateSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!isIntakeFormValid(form)) return;
-    createIntake.mutate(toIntakeInput(form), {
-      onSuccess: () => {
-        setCreateOpen(false);
-        setForm(EMPTY_INTAKE_FORM);
-      },
-    });
-  }
-
+  // The live site address is the origin of the preview link (as on the website address screen).
   async function handleCopyLink() {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/admission/${slug}`);
+      const { data } = await preview.refetch();
+      if (!data?.url) throw new Error('no site address');
+      await navigator.clipboard.writeText(`${new URL(data.url).origin}/admission`);
       toast.success(t('list.linkCopied'));
     } catch {
       toast.error(t('list.linkCopyFailed'));
@@ -74,10 +47,9 @@ export function IntakeList() {
       card: 'title',
     },
     {
-      id: 'classSection',
-      header: t('list.columnClassSection'),
-      accessorFn: (row) =>
-        row.class_name && row.section_name ? `${row.class_name} · ${row.section_name}` : '—',
+      id: 'class',
+      header: t('list.columnClass'),
+      accessorFn: (row) => row.class_name ?? '—',
       card: 'subtitle',
     },
     {
@@ -85,6 +57,11 @@ export function IntakeList() {
       header: t('list.columnSeatCount'),
       accessorFn: (row) => formatNumber(row.seat_count, regionConfig),
       align: 'end',
+    },
+    {
+      id: 'template',
+      header: t('list.columnTemplate'),
+      accessorFn: (row) => (row.template_key ? t(`list.template.${row.template_key}`) : '—'),
     },
     {
       id: 'window',
@@ -115,10 +92,10 @@ export function IntakeList() {
             label: t('list.addIntake'),
             icon: <PlusIcon aria-hidden />,
             priority: 'primary',
-            onClick: () => setCreateOpen(true),
+            to: '/admissions/intakes/new',
             helpId: 'people.admissionIntakes.action.add',
           },
-          ...(slug
+          ...(hasSite
             ? [
                 {
                   id: 'copy-link',
@@ -126,6 +103,17 @@ export function IntakeList() {
                   icon: <LinkIcon aria-hidden />,
                   priority: 'secondary' as const,
                   onClick: () => void handleCopyLink(),
+                },
+              ]
+            : []),
+          ...(noSite
+            ? [
+                {
+                  id: 'publish-site',
+                  label: t('list.publishSiteFirst'),
+                  icon: <GlobeIcon aria-hidden />,
+                  priority: 'secondary' as const,
+                  to: '/website',
                 },
               ]
             : []),
@@ -149,8 +137,8 @@ export function IntakeList() {
         rowActions={(row) => [
           {
             intent: 'view',
-            label: t('list.viewApplicants'),
-            to: `/admissions/applicants?intakeId=${row.id}`,
+            label: t('list.openDesk'),
+            to: `/admissions/rounds/${row.id}`,
           },
           {
             intent: 'edit',
@@ -163,42 +151,12 @@ export function IntakeList() {
           icon: <DoorOpenIcon aria-hidden />,
           title: t('list.emptyTitle'),
           explanation: t('list.emptyText'),
-          action: { label: t('list.addIntake'), onClick: () => setCreateOpen(true) },
+          action: {
+            label: t('list.addIntake'),
+            onClick: () => void navigate({ to: '/admissions/intakes/new' }),
+          },
         }}
       />
-
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent size="md">
-          <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4">
-            <DialogHeader>
-              <DialogTitle>{t('createDialog.title')}</DialogTitle>
-            </DialogHeader>
-
-            <IntakeForm value={form} onChange={setForm} />
-
-            {createIntake.isError && (
-              <p role="alert" className="text-sm text-destructive">
-                {t('createDialog.errorMessage')}
-              </p>
-            )}
-
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  {t('actions.cancel', { ns: 'common' })}
-                </Button>
-              </DialogClose>
-              <Button
-                type="submit"
-                loading={createIntake.isPending}
-                disabled={!isIntakeFormValid(form)}
-              >
-                {createIntake.isPending ? t('createDialog.saving') : t('createDialog.save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

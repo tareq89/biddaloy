@@ -6,7 +6,96 @@
     "title": "New application"
   },
   "wizard": {
-    "title": "New admission round"
+    "title": "New admission round",
+    "steps": {
+      "kind": "Class and kind",
+      "dates": "Seats and dates",
+      "fee": "Fee and form",
+      "publish": "Publish"
+    },
+    "class": "Class",
+    "year": "Academic year",
+    "pick": "Choose",
+    "kindTitle": "What kind of admission?",
+    "kindHelp": "Pick one. Stages can change later.",
+    "mostUsed": "Most used",
+    "templates": {
+      "APPLY_ONLY": {
+        "name": "Apply only",
+        "help": "Take applications, no test"
+      },
+      "WRITTEN": {
+        "name": "Written test",
+        "help": "Test, then merit list"
+      },
+      "WRITTEN_VIVA": {
+        "name": "Written and viva",
+        "help": "A two-stage test"
+      },
+      "LOTTERY": {
+        "name": "Lottery",
+        "help": "Draw a lottery from the applications"
+      },
+      "FIRST_COME": {
+        "name": "First come first served",
+        "help": "Closes when the seats are full"
+      },
+      "GPA_MERIT": {
+        "name": "GPA merit",
+        "help": "Class 11, SSC GPA"
+      }
+    },
+    "seats": "Seats",
+    "rollPrefix": "Roll number prefix (optional)",
+    "openDate": "Applications open",
+    "closeDate": "Last date to apply",
+    "datesHelp": "Guardians can apply online between these two dates. Waiting lists are made later.",
+    "feeTitle": "Application fee",
+    "fee": "Fee (taka, leave empty for no fee)",
+    "methods": "Ways to send the fee",
+    "method": {
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket",
+      "BANK": "Bank"
+    },
+    "feeHelp": "You check that each fee is ok. Until then the application joins no list.",
+    "fieldsTitle": "Which boxes the form has",
+    "fieldSearch": "Search boxes",
+    "recommended": "Recommended",
+    "noFieldMatch": "No box matches.",
+    "fieldCount_one": "{{count}} box ticked",
+    "fieldCount_other": "{{count}} boxes ticked",
+    "groups": {
+      "child": "The child",
+      "parents": "Parents",
+      "guardian": "Guardian",
+      "address": "Address",
+      "previous": "Previous school",
+      "quota": "Quota",
+      "other": "Other"
+    },
+    "resultTitle": "How results are told",
+    "channel": {
+      "SITE": "List on the school website",
+      "SMS": "SMS",
+      "STATUS_CHECK": "See result with roll and phone",
+      "CALL_LIST": "Call list (for the office)"
+    },
+    "siteTitle": "On the website",
+    "alwaysShow": "Always show on the website",
+    "alwaysShowHint": "Off: shown only while the round is open.",
+    "siteEditor": "Choose where it shows on the website",
+    "create": "Create round",
+    "defaultTitle": "{{class}} admission {{year}}",
+    "errors": {
+      "class": "Choose a class.",
+      "seats": "Seats must be a number from 1 to 100,000.",
+      "range": "The last date cannot be before the start.",
+      "fee": "Write the fee as taka, with at most 2 digits after the point.",
+      "create": "Could not create the round. Try again.",
+      "method": "Choose at least one way to send the fee."
+    }
   },
   "panels": {
     "applicants": "Applicants",
