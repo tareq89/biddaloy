@@ -59,6 +59,10 @@ interface OtpRecord {
 // capped request writes nothing). ARGV[4] = cap (0 = uncapped), ARGV[5] = window ms.
 const REQUEST_SCRIPT = `
 local cap = tonumber(ARGV[4])
+-- A cap key that lost its TTL (restore) must expire before it can reject, or it blocks forever.
+if cap > 0 and redis.call('EXISTS', KEYS[3]) == 1 and redis.call('PTTL', KEYS[3]) < 0 then
+  redis.call('PEXPIRE', KEYS[3], ARGV[5])
+end
 if cap > 0 and tonumber(redis.call('GET', KEYS[3]) or '0') >= cap then
   return 2
 end
@@ -67,8 +71,12 @@ if not claimed then
   return 0
 end
 redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
-if cap > 0 and redis.call('INCR', KEYS[3]) == 1 then
-  redis.call('PEXPIRE', KEYS[3], ARGV[5])
+if cap > 0 then
+  redis.call('INCR', KEYS[3])
+  -- Not only on the first INCR: a key that lost its TTL (restore) would stay locked forever.
+  if redis.call('PTTL', KEYS[3]) < 0 then
+    redis.call('PEXPIRE', KEYS[3], ARGV[5])
+  end
 end
 return 1
 `;
@@ -120,7 +128,20 @@ function cooldownKey(purpose: OtpPurpose, identifier: string): string {
  */
 function capKey(purpose: OtpPurpose, identifier: string): string {
   const id = normalizeLoginIdentifier(toLatinDigits(identifier));
-  return `otp-cap:${purpose}:${id.includes('@') ? id : toE164ish(id).replace(/^\+/, '')}`;
+  return `otp-cap:${purpose}:${id.includes('@') ? mailboxOf(id) : handsetOf(id)}`;
+}
+/** One mailbox however it was typed: `+tag` dropped, Gmail dots dropped (#2387). */
+function mailboxOf(email: string): string {
+  const at = email.lastIndexOf('@');
+  let local = email.slice(0, at).split('+')[0];
+  let domain = email.slice(at + 1);
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  if (domain === 'gmail.com') local = local.replace(/\./g, '');
+  return `${local}@${domain}`;
+}
+/** Digits only, with a trunk zero after +880 dropped: "+880 01712345678" is the same handset. */
+function handsetOf(phone: string): string {
+  return toE164ish(phone).replace(/^\+/, '').replace(/^8800/, '880');
 }
 function lockKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-lock:${purpose}:${identifier}`;

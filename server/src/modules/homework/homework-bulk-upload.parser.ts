@@ -5,8 +5,8 @@ import {
   XLSX_TOO_LARGE_MESSAGE,
   XlsxTooLargeError,
 } from '../../common/utils/xlsx-guard.util';
-import ExcelJS from 'exceljs';
-import { Readable } from 'stream';
+import { loadWorksheet } from '../../common/utils/spreadsheet-loader.util';
+import type ExcelJS from 'exceljs';
 
 // Cloned from students/bulk-upload.parser.ts — same ExcelJS-based
 // .xlsx/.csv parsing, different fixed column schema (D21: section-only
@@ -32,54 +32,6 @@ const MAX_DATA_ROWS = 2000;
 export interface ParsedRow {
   rowNumber: number;
   values: Record<BulkUploadHeader, string>;
-}
-
-function getExtension(filename: string): string {
-  const idx = filename.lastIndexOf('.');
-  return idx === -1 ? '' : filename.slice(idx).toLowerCase();
-}
-
-async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.Worksheet> {
-  const ext = getExtension(filename);
-  const workbook = new ExcelJS.Workbook();
-
-  if (ext === '.xlsx') {
-    try {
-      await assertXlsxWithinLimits(buffer);
-      await workbook.xlsx.load(buffer as never);
-    } catch (e) {
-      throw e instanceof XlsxTooLargeError
-        ? new BulkUploadParseError(ImportFileErrorCode.TOO_LARGE, XLSX_TOO_LARGE_MESSAGE)
-        : new BulkUploadParseError(
-            ImportFileErrorCode.UNREADABLE,
-            'Could not read file — is it a valid Excel file?',
-          );
-    }
-    const worksheet = workbook.worksheets[0];
-    if (!worksheet) {
-      throw new BulkUploadParseError(
-        ImportFileErrorCode.UNREADABLE,
-        'Could not read file — is it a valid Excel file?',
-      );
-    }
-    return worksheet;
-  }
-
-  if (ext === '.csv') {
-    try {
-      return await workbook.csv.read(Readable.from(buffer), { map: (datum: string) => datum });
-    } catch {
-      throw new BulkUploadParseError(
-        ImportFileErrorCode.UNREADABLE,
-        'Could not read file — is it a valid CSV file?',
-      );
-    }
-  }
-
-  throw new BulkUploadParseError(
-    ImportFileErrorCode.UNSUPPORTED_TYPE,
-    'Unsupported file type — upload .xlsx or .csv',
-  );
 }
 
 /** Excel stores an entered date (e.g. `2026-01-01`) as a date cell, and
@@ -123,7 +75,13 @@ function isRowBlank(row: ExcelJS.Row): boolean {
  * due_date, description.
  */
 export async function parseSpreadsheet(buffer: Buffer, filename: string): Promise<ParsedRow[]> {
-  const worksheet = await loadWorksheet(buffer, filename);
+  const worksheet = await loadWorksheet(
+    buffer,
+    filename,
+    BulkUploadParseError,
+    MAX_DATA_ROWS + 1 + 10,
+    MAX_DATA_ROWS,
+  );
 
   const columnIndex = new Map<string, number>();
   const headerRow = worksheet.getRow(1);

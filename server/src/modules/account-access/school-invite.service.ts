@@ -14,6 +14,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { reviveMembership } from '../users/users.service';
 import { Guardian } from '../students/entities/guardian.entity';
+import { syncLinkedGuardianContactsFromLogin } from '../students/linked-guardian-contacts.util';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { School } from '../schools/entities/school.entity';
 import type { RequestContext } from '../../common/request-context.util';
@@ -240,6 +241,7 @@ export class SchoolInviteService {
           );
           return 'unlinkable' as const;
         }
+        await syncLinkedGuardianContactsFromLogin(m, userId);
       }
 
       // Per role: someone who is already, say, a TEACHER here still needs the PARENT row.

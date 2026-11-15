@@ -7,7 +7,7 @@
  */
 /* Every rule is scoped under `body:has(#analysis-print-area)` so this sheet, which
  * stays loaded after leaving the screen, cannot affect other pages' printouts
- * (#1322). `@page` cannot be scoped. */
+ * (#1322). `@page` is injected by `usePrintPageRule` while the screen is mounted. */
 @media print {
   body:has(#analysis-print-area) * {
     visibility: hidden;
@@ -40,9 +40,5 @@
 
   #analysis-print-area thead {
     display: table-header-group;
-  }
-
-  @page {
-    margin: 10mm;
   }
 }

@@ -433,6 +433,7 @@
     "title": "My routine",
     "loading": "Loading your routine",
     "notATeacherExplanation": "Your account isn't linked to a teacher, so there are no periods to show.",
+    "noLessonAccess": "Your role cannot see lesson details, so only your upcoming periods are shown.",
     "noRoutineExplanation": "The school hasn't published a routine yet.",
     "error": {
       "message": "Could not load your routine. Check your connection and try again.",

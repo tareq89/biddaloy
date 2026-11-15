@@ -507,6 +507,7 @@
   "moduleOff": {
     "title": "This part is not turned on for your institution",
     "turnOn": "Turn on",
-    "askAdmin": "Ask your admin"
+    "askAdmin": "Ask your admin",
+    "askSchool": "Ask your school"
   }
 }

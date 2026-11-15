@@ -110,9 +110,14 @@ function MyRoutinePage() {
   const roomsQuery = useRooms();
   const sectionLookupQuery = useSectionLookup();
   const periodLookupQuery = usePeriodSlotLookup();
-  const deliveriesQuery = useMyLessonDeliveries(date);
+  // Lessons taught need SYLLABUS_READ; a role without it would only get a 403 (#2514).
+  const canReadLessons = useHasPermission(Permission.SYLLABUS_READ);
+  const deliveriesQuery = useMyLessonDeliveries(date, { enabled: canReadLessons });
   const markAll = useMarkTodayAllTaught();
-  const studyPlans = useSchoolSettings(useActiveTenant() ?? '').data?.studyPlans;
+  // Reading the settings needs SETTINGS_MANAGE: without it the call is a 403, so it is not sent (#2514).
+  const canReadSettings = useHasPermission(Permission.SETTINGS_MANAGE);
+  const studyPlans = useSchoolSettings(useActiveTenant() ?? '', { enabled: canReadSettings }).data
+    ?.studyPlans;
   const canMakePlan = useHasPermission(Permission.SYLLABUS_MANAGE);
 
   const frame = (body: React.ReactNode) => (
@@ -174,7 +179,7 @@ function MyRoutinePage() {
     roomsQuery.isPending ||
     sectionLookupQuery.isPending ||
     periodLookupQuery.isPending ||
-    deliveriesQuery.isPending
+    (canReadLessons && deliveriesQuery.isPending)
   ) {
     return frame(<MyRoutineSkeleton label={t('myRoutine.loading')} />);
   }
@@ -240,6 +245,18 @@ function MyRoutinePage() {
         firstSection: sectionLabel(first.section_id, '—'),
       };
     });
+
+  // Without SYLLABUS_READ there is no lesson data (query disabled): show the upcoming days only.
+  if (!day) {
+    return frame(
+      <div className="flex flex-col gap-4">
+        <p className="rounded-lg border border-border-subtle bg-surface p-4 text-text-secondary">
+          {t('myRoutine.noLessonAccess')}
+        </p>
+        <NextDays days={nextDays} subjectLabel={subjectLabel} />
+      </div>,
+    );
+  }
 
   return frame(
     <div className="flex flex-col gap-4">

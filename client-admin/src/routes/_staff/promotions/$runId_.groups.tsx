@@ -21,6 +21,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   promotionGroupEntriesQueryOptions,
+  promotionKeys,
   useHasPermission,
   useOrganisationVocabulary,
   usePromotionGroupEntries,
@@ -146,6 +147,8 @@ function PromotionGroupsPage() {
       setNotice(t('groups.applied', { n: formatNumber(ids.length, region) }));
     } catch (error) {
       setApplyError(closedYearErrorText(error, t('groups.applyFailed')));
+      // Earlier chunks may already be applied: refetch so the rows are not stale.
+      void queryClient.invalidateQueries({ queryKey: promotionKeys.detail(runId) });
     }
   }
 

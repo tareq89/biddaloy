@@ -48,6 +48,8 @@ export interface ProgramEnrollmentStatusResult {
   ended_on: string | null;
 }
 
+const ENROL_CHUNK = 500;
+
 export interface EnrolStudentsResult {
   created: number;
   skipped: number;
@@ -282,13 +284,23 @@ export function useEnrolStudents(programId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: EnrolStudentsInput) => {
-      const res = await apiClient.post<EnrolStudentsResult>(
-        `/programs/${programId}/enrollments`,
-        input,
-      );
-      return res.data;
+      // The POST takes at most ENROL_CHUNK ids (`ArrayMaxSize`): a bigger class goes in several calls (#2475).
+      const total: EnrolStudentsResult = { created: 0, skipped: 0 };
+      for (let i = 0; i < input.student_ids.length; i += ENROL_CHUNK) {
+        const res = await apiClient.post<EnrolStudentsResult>(
+          `/programs/${programId}/enrollments`,
+          {
+            ...input,
+            student_ids: input.student_ids.slice(i, i + ENROL_CHUNK),
+          },
+        );
+        total.created += res.data.created;
+        total.skipped += res.data.skipped;
+      }
+      return total;
     },
-    onSuccess: (_data, variables) => {
+    // onSettled: a later chunk failing still leaves the earlier chunks enrolled, so refresh either way.
+    onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: programKeys.all });
       for (const studentId of variables.student_ids) {
         void queryClient.invalidateQueries({ queryKey: studentProgramKeys(studentId) });

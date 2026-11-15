@@ -66,13 +66,13 @@ GET    /api/v1/attendance/arrival-subscriptions                                 
 POST   /api/v1/attendance/arrival-subscriptions                                  401 401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403 attendance
 PATCH  /api/v1/attendance/arrival-subscriptions/:id                              401 401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403 attendance
 PATCH  /api/v1/attendance/arrival-subscriptions/:id/lock                         401 401 PASS PASS PASS 403 403 403 403 PASS 403 403 403 attendance
-POST   /api/v1/attendance/device-events                                          401 401 401 401 401 401 401 401 401 401 401 401 401 -
+POST   /api/v1/attendance/device-events                                          401 401 401 401 401 401 401 401 401 401 401 401 401 attendance
 GET    /api/v1/attendance/devices                                                401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 attendance
 POST   /api/v1/attendance/devices                                                401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 attendance
 DELETE /api/v1/attendance/devices/:id                                            401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 attendance
 POST   /api/v1/attendance/devices/:id/rotate                                     401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 attendance
-POST   /api/v1/attendance/devices/me/heartbeat                                   401 401 401 401 401 401 401 401 401 401 401 401 401 -
-GET    /api/v1/attendance/devices/me/roster                                      401 401 401 401 401 401 401 401 401 401 401 401 401 -
+POST   /api/v1/attendance/devices/me/heartbeat                                   401 401 401 401 401 401 401 401 401 401 401 401 401 attendance
+GET    /api/v1/attendance/devices/me/roster                                      401 401 401 401 401 401 401 401 401 401 401 401 401 attendance
 GET    /api/v1/attendance/flags/low                                              401 401 PASS PASS PASS PASS 403 403 403 PASS PASS PASS 403 attendance
 POST   /api/v1/attendance/import/commit                                          401 401 PASS PASS PASS 403 PASS 403 403 403 403 403 403 attendance
 GET    /api/v1/attendance/import/template                                        401 401 PASS PASS PASS 403 PASS 403 403 403 403 403 403 attendance

@@ -21,6 +21,8 @@ export function buildRuntimeConfig(env: Record<string, string | undefined>) {
     envBadgeDate: env.ENV_BADGE_DATE ?? '',
     // [40 #3711] school-site labels carry this suffix on demo and staging; '' elsewhere
     siteEnvTag: siteEnvTag(env.ENV_NAME),
+    // [#3266] the public demo: the SPA shows its inbox warning from this, with no request to wait for
+    demoMode: env.DEMO_MODE === 'true',
   };
 }
 

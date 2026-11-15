@@ -181,7 +181,7 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
         tab: 'routine_change_requests',
         row: rowNo,
         column: 'routine_slot',
-        message: `Column "routine_slot": no routine slot named "${routineSlotKey}" was found.`,
+        message: `Column "routine_slot": no routine slot was found.`,
         severity: 'error',
         value: routineSlotKey,
       });
@@ -194,7 +194,7 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
         tab: 'routine_change_requests',
         row: rowNo,
         column: 'requested_by',
-        message: `Column "requested_by": no user "${requestedByKey}" was found.`,
+        message: `Column "requested_by": no user was found.`,
         severity: 'error',
         value: requestedByKey,
       });
@@ -209,7 +209,7 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
           tab: 'routine_change_requests',
           row: rowNo,
           column: 'resolved_by',
-          message: `Column "resolved_by": no user "${resolvedByKey}" was found.`,
+          message: `Column "resolved_by": no user was found.`,
           severity: 'error',
           value: resolvedByKey,
         });

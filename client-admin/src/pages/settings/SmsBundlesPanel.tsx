@@ -60,7 +60,12 @@ export function SmsBundlesPanel({
   const own = credits.source === 'OWN';
   const selected = packages.find((p) => p.id === selectedId);
 
-  function start(id: string) {
+  // The dialogs open from state, not a Radix trigger, so remember the opener to give focus back.
+  const opener = React.useRef<HTMLElement | null>(null);
+
+  // `trigger` is the clicked Buy button (Safari does not focus a clicked button); the auto-open has none.
+  function start(id: string, trigger: HTMLElement | null = null) {
+    opener.current = trigger;
     setSelectedId(id);
     if (own) setSwitchOpen(true);
     else setBuyOpen(true);
@@ -82,6 +87,9 @@ export function SmsBundlesPanel({
     setBuyOpen(false);
     setSwitchOpen(false);
     if (openBuy) onBuyClosed?.();
+    const back = opener.current;
+    // After Radix has torn the dialog down (it would otherwise leave focus on the body).
+    if (back) setTimeout(() => back.isConnected && back.focus(), 0);
   }
 
   const lotRows = [...credits.lots]
@@ -152,7 +160,7 @@ export function SmsBundlesPanel({
                     days: formatNumber(p.validityDays, config),
                   })}
                   buyLabel={t('packages.buy')}
-                  onBuy={() => start(p.id)}
+                  onBuy={(trigger) => start(p.id, trigger)}
                 />
               ))}
             </div>

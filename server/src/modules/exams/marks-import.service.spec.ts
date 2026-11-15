@@ -310,8 +310,27 @@ describe('MarksImportService.commit', () => {
     examId: EXAM,
     sectionId: SEC,
     subjectId: SUB,
-    cells: [{ student_id: 'st1', component_id: 'c1', value: '50.00', status: MarkStatus.PRESENT }],
+    cells: [
+      {
+        student_id: 'st1',
+        component_id: 'c1',
+        value: '50.00',
+        status: MarkStatus.PRESENT,
+        old_value: '45.00',
+        old_status: MarkStatus.PRESENT,
+      },
+    ],
   };
+
+  it('refuses with a 409 and writes nothing when a stored mark changed since validate (#3579)', async () => {
+    const { svc, staging, marksService } = setup();
+    staging.consume.mockResolvedValueOnce({
+      ...staged,
+      cells: [{ ...staged.cells[0], old_value: '40.00' }],
+    });
+    await expect(svc.commit(EXAM, dto, T, 'ADMIN', U, ctx)).rejects.toMatchObject({ status: 409 });
+    expect(marksService.upsertBatch).not.toHaveBeenCalled();
+  });
 
   it('calls upsertBatch once with exactly the staged cells, staged ids and SHEET', async () => {
     const { svc, staging, marksService } = setup();

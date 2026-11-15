@@ -109,7 +109,7 @@ function resolve(
         tab,
         rowNo,
         column,
-        `Column "${column}": no ${refTab} row with the key "${key}" was found.`,
+        `Column "${column}": no ${refTab} row was found.`,
         key,
       ),
     );

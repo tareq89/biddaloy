@@ -42,7 +42,14 @@
     "switch": "Switch to SchoolManagerP SMS",
     "switchAndBuy": "Switch and continue",
     "cancel": "Not now",
-    "failed": "We could not switch. Try again."
+    "failed": "We could not switch. Try again.",
+    "backTitle": "Send with your own SMS company",
+    "backBody": "Right now your school sends SMS through SchoolManagerP SMS. You can go back to your own SMS company. SMS you already bought stay on your account until their end date.",
+    "backAction": "Switch to our own SMS company",
+    "backNeedsDetails": "Save your own SMS company details first, then you can switch.",
+    "backConfirmTitle": "Switch to your own SMS company?",
+    "backConfirmBody": "New SMS will go out through your own SMS company, using the details you saved. You can switch to SchoolManagerP SMS again at any time.",
+    "backConfirm": "Switch"
   },
   "history": {
     "kind": {

@@ -281,8 +281,12 @@ export function schoolSettingsQueryOptions(schoolId: string) {
   });
 }
 
-export function useSchoolSettings(schoolId: string) {
-  return useQuery(schoolSettingsQueryOptions(schoolId));
+/** `enabled: false` for a role that cannot read the settings (no SETTINGS_MANAGE): no request, no 403. */
+export function useSchoolSettings(schoolId: string, { enabled = true } = {}) {
+  return useQuery({
+    ...schoolSettingsQueryOptions(schoolId),
+    enabled: enabled && Boolean(schoolId),
+  });
 }
 
 /**

@@ -33,10 +33,16 @@ export interface ResultRecomputer {
     tenantId: string,
     scaleId: string,
     manager?: EntityManager,
-  ): Promise<Array<{ id: string; name: string }>>;
+  ): Promise<PublishedUsingScale>;
 }
 
 /** Who made the band edit, for the per-exam Result audit rows. */
+export interface PublishedUsingScale {
+  exams: Array<{ id: string; name: string }>;
+  /** A final's `name` is its class. */
+  finals: Array<{ id: string; name: string }>;
+}
+
 export interface RecomputeActor {
   userId: string | null;
   context: RequestContext;
@@ -109,10 +115,10 @@ export class RecomputeService {
     // D16: the confirm would be refused with 409, so the preview says so now.
     if (problems.length === 0 && bandsChanged) {
       const published = await this.resultRecomputer.findPublishedExams(tenantId, scaleId);
-      if (published.length > 0) {
+      if (published.exams.length + published.finals.length > 0) {
         problems.push({
           type: 'SCALE_IN_PUBLISHED_RESULTS',
-          message: `Published results use this grading scale: ${published.map((e) => e.name).join(', ')}. Reopen them first.`,
+          message: `Published results use this grading scale: ${[...published.exams, ...published.finals].map((e) => e.name).join(', ')}. Reopen them first.`,
         });
       }
     }

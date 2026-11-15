@@ -126,7 +126,7 @@ describe('Public Notice links E2E', () => {
       `INSERT INTO notice_recipients (tenant_id, notice_id, kind, user_id) VALUES ($1,$2,'STAFF',$3) RETURNING id`,
       [SEED_TENANT_ID, n.id, SEED_ADMIN_USER_ID],
     );
-    const [p] = await links.createPersonalLinks(n.id, [r.id]);
+    const [p] = await links.createPersonalLinks(n.id, [r.id], n.tenant_id);
     await supertest(app.getHttpServer()).post(`${base}/${p.token}/opened`).expect(204);
     const [row] = await ds.query(`SELECT seen_at FROM notice_recipients WHERE id = $1`, [r.id]);
     expect(row.seen_at).not.toBeNull();

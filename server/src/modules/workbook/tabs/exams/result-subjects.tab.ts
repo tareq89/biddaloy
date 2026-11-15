@@ -151,7 +151,7 @@ export const resultSubjectsTab: TabSpec<ResultSubject, ResultSubjectRow> = {
           tab: 'result_subjects',
           row: rowNo,
           column: 'result',
-          message: `Column "result": no result "${resultKey}" was found.`,
+          message: `Column "result": no result was found.`,
           severity: 'error',
           value: resultKey,
         });
@@ -167,7 +167,7 @@ export const resultSubjectsTab: TabSpec<ResultSubject, ResultSubjectRow> = {
           tab: 'result_subjects',
           row: rowNo,
           column: 'subject',
-          message: `Column "subject": no subject "${subjectKey}" was found.`,
+          message: `Column "subject": no subject was found.`,
           severity: 'error',
           value: subjectKey,
         });

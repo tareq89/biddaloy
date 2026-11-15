@@ -1,9 +1,16 @@
 import { Permission } from '@biddaloy/shared';
 import { isTenantRestoringError } from '@biddaloy/ui/api';
 import { useHasPermission } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDate } from '@biddaloy/ui/utils';
+import * as React from 'react';
 
-import { SeatLimitReachedAction } from '../features/billing/SeatLimitReachedDialog';
+// Lazy: the buy-seats dialog and its billing code stay out of every bundle that only shows errors (#2768).
+const SeatLimitReachedAction = React.lazy(() =>
+  import('../features/billing/SeatLimitReachedDialog').then((m) => ({
+    default: m.SeatLimitReachedAction,
+  })),
+);
 
 /**
  * A failed mutation, in words: never the server's own `message` (it is
@@ -33,7 +40,16 @@ export function MutationErrorMessage({ error }: { error: unknown }) {
   const { t } = useTranslation('trial');
   const { t: tc } = useTranslation('common');
   const canBuy = useHasPermission(Permission.SETTINGS_MANAGE);
+  const config = useRegionConfig();
   const details = (error as { details?: Record<string, unknown> } | null)?.details;
+  // A 403 TENANT_READ_ONLY from any mutation: say why, with the date the school pauses (#2768).
+  if (details?.code === 'TENANT_READ_ONLY' && typeof details.until === 'string') {
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        {tc('readOnly.notice', { date: formatDate(details.until, config) })}
+      </p>
+    );
+  }
   if (details?.code === 'SEAT_LIMIT_REACHED') {
     const { used, limit, requested } = details;
     return (
@@ -50,9 +66,11 @@ export function MutationErrorMessage({ error }: { error: unknown }) {
           {!canBuy && t('seatLimit.hint')}
         </p>
         {canBuy && (
-          <SeatLimitReachedAction
-            shortfall={Number(used) + Number(requested ?? 1) - Number(limit)}
-          />
+          <React.Suspense fallback={null}>
+            <SeatLimitReachedAction
+              shortfall={Number(used) + Number(requested ?? 1) - Number(limit)}
+            />
+          </React.Suspense>
         )}
       </div>
     );

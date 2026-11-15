@@ -91,6 +91,14 @@ describe('AlertsReportService (integration)', () => {
     ]);
   });
 
+  it('[2191] the row severity is the worst one raised that month, not the catalogue default', async () => {
+    await add('2026-10-02T05:00:00Z', { severity: 'REMINDER' });
+    await add('2026-10-03T05:00:00Z', { severity: 'CRITICAL' });
+    await add('2026-10-04T05:00:00Z', { severity: 'WARNING' });
+    const r = await service.getReport(SEED_TENANT_ID, { month: '2026-10' });
+    expect(r.rows[0].severity).toBe('CRITICAL');
+  });
+
   it('uses the school-local month: 23:30 local on 30 Sep is September, local midnight is October', async () => {
     await add('2026-09-30T17:30:00Z'); // 23:30 in Dhaka, 30 Sep
     await add('2026-09-30T18:00:00Z'); // 00:00 in Dhaka, 1 Oct
@@ -164,8 +172,8 @@ describe('AlertsReportService (integration)', () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv.slice(1).split('\r\n')).toEqual([
       '"Rule key","Category","Severity","Section","Count"',
-      `"${RULE}","ATTENDANCE","REMINDER","7-B","1"`,
-      `"${RULE}","ATTENDANCE","REMINDER","No section","1"`,
+      `"${RULE}","ATTENDANCE","WARNING","7-B","1"`,
+      `"${RULE}","ATTENDANCE","WARNING","No section","1"`,
     ]);
   });
 });

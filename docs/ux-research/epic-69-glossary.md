@@ -1,16 +1,17 @@
 # Epic 69 glossary — year rollover, close year, groups
 
 Plain words for every screen, message and error of Epic 69 (#2202).
-Use the **Say** columns in the app. Never use the **Never say** column on a
+Use the **Say** columns in the app. They match the shipped strings in
+`ui/src/i18n/locales/bn/{academicYears,promotions}.json` (#4060: the glossary was aligned to the app, which already says চলমান everywhere; there is no "set as current anyway" button). Never use the **Never say** column on a
 screen, a button, an error or an alert a teacher reads.
 
 ```mermaid
 flowchart LR
   Y[শিক্ষাবর্ষ ২০২৬] -->|পরের বছর বানাও| N[২০২৭: নতুন / আগেই আছে]
-  N -->|এখনকার বছর করুন| C[এখনকার বছর]
+  N -->|চলমান হিসেবে নির্ধারণ করুন| C[চলমান]
   Y -->|বছর বন্ধ করো| X[বন্ধ বছর]
   X -->|আবার খোলো| Y
-  P[প্রমোশন খসড়া] -->|গ্রুপ দিন| G[বিজ্ঞান / ব্যবসায় শিক্ষা / মানবিক]
+  P[প্রমোশন খসড়া] -->|গ্রুপ ঠিক করুন| G[বিজ্ঞান / ব্যবসায় শিক্ষা / মানবিক]
 ```
 
 ## Words
@@ -20,16 +21,16 @@ flowchart LR
 | পরের বছর বানাও                         | Create next year              | rollover, clone, copy structure | year list action, wizard title, palette         |
 | আগেই আছে                              | already there                 | idempotent, upsert, existing row | wizard step 2 tiles, re-run summary           |
 | নতুন                                  | new                           | created row, insert           | wizard step 2 tiles                             |
-| বাদ পড়েছে                            | skipped                       | filtered, dropped             | skipped staff note in step 2                    |
+| বাদ                                    | skipped                       | filtered, dropped             | skipped staff note in step 2                    |
 | বছর বন্ধ করো                          | Close year                    | lock, freeze, archive         | year detail button, dialog title, palette       |
 | আবার খোলো                             | Reopen year                   | unlock, unfreeze              | year detail button, dialog title                |
 | বন্ধ                                  | Closed                        | locked, frozen, archived      | status badge, notice bar                        |
-| এখনকার বছর                            | Current year                  | active year                   | badge, set-current dialog                       |
-| এখনকার বছর করুন                       | Set as current year           | activate, switch year         | year list row, dialog                           |
+| চলমান                                  | Current year                  | active year                   | badge, set-current dialog                       |
+| চলমান হিসেবে নির্ধারণ করুন              | Set as current year           | activate, switch year         | year list row, dialog                           |
 | বাকি আছে                              | Pending                       | TODO, blocker, missing        | dialog count rows, group column                 |
 | গ্রুপ                                  | Group                         | stream, segregation           | groups page, My class card                      |
-| গ্রুপ দিন                              | Set group                     | assign stream, bulk update    | groups page button                              |
-| সব মিলেছে বাছুন                        | Select all that match         | select all filtered           | groups page                                     |
+| গ্রুপ ঠিক করুন                         | Set group                     | assign stream, bulk update    | groups page button                              |
+| মিলে যাওয়া সবাইকে বাছুন (N)           | Select all that match         | select all filtered           | groups page                                     |
 | শর্ত দিয়ে খুঁজুন                      | Find by condition             | rule filter, query            | groups page filter card                         |
 | ফলাফল প্রকাশিত                         | Result published              | committed result              | groups page source line                         |
 | রুটিন / ক্যালেন্ডার / নিয়ম / সময়সূচি আনুন | Bring routine / calendar / rules / schedule | clone, copy routine | wizard step 3 buttons                    |
@@ -45,7 +46,6 @@ freeze, archive, stream, segregation, active year, TODO, blocker.
 | বন্ধ হলে যা আর বদলাবে না     | What can no longer change    | frozen modules     | close dialog list          |
 | এখন যা বাকি আছে              | What is still pending        | warnings, blockers | close dialog counts        |
 | শিক্ষকের দায়িত্ব            | Teacher assignments          | teaching rows      | wizard step 2, set-current |
-| তবুও এখনকার বছর করুন         | Set as current anyway        | force, override    | set-current confirm button |
 
 ## One-sentence error (D, Rules 23/24)
 

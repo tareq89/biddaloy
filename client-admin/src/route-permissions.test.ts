@@ -1,4 +1,10 @@
-import { ModuleKey, moduleEnabled, Permission, UserRole } from '@biddaloy/shared';
+import {
+  ModuleKey,
+  moduleEnabled,
+  Permission,
+  roleHasPermission,
+  UserRole,
+} from '@biddaloy/shared';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
@@ -201,5 +207,12 @@ describe('routeModule [77.3.1]', () => {
     expect(offRoutes(school, UserRole.TEACHER).every((id) => id.includes('/homework'))).toBe(true);
     expect(offRoutes(school, UserRole.TEACHER)).not.toHaveLength(0);
     expect(offRoutes(school, UserRole.ADMIN)).toEqual([]);
+  });
+
+  it('[3448] a notice-only staff reader (accountant) can open the notice detail route', () => {
+    const needed = STAFF_ROUTE_PERMISSIONS['/_staff/communications/notices/$noticeId/']!;
+    expect(roleHasPermission(UserRole.ACCOUNTANT, needed)).toBe(true);
+    // the list, compose and edit routes stay poster-only
+    expect(STAFF_ROUTE_PERMISSIONS['/_staff/communications/notices/']).toBe(Permission.NOTICE_POST);
   });
 });

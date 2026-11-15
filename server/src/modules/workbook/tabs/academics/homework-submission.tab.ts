@@ -126,7 +126,7 @@ export const homeworkSubmissionTab: TabSpec<HomeworkSubmission, HomeworkSubmissi
         tab: 'homework_submissions',
         row: rowNo,
         column: 'assignment',
-        message: `Column "assignment": no assignment with the key "${assignmentKey}" was found.`,
+        message: `Column "assignment": no assignment was found.`,
         severity: 'error',
         value: assignmentKey,
       });
@@ -139,7 +139,7 @@ export const homeworkSubmissionTab: TabSpec<HomeworkSubmission, HomeworkSubmissi
         tab: 'homework_submissions',
         row: rowNo,
         column: 'student',
-        message: `Column "student": no student with registration number "${studentKey}" was found.`,
+        message: `Column "student": no student with registration number was found.`,
         severity: 'error',
         value: studentKey,
       });

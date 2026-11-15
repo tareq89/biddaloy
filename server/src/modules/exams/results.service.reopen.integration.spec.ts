@@ -527,9 +527,10 @@ describe('reopen + scale recompute coupling with final results (integration)', (
     const final = await processedFinal(exam);
     await finals.publish(final.id, TENANT_ID, 'user-1');
 
-    expect(await recomputer.findPublishedExams(TENANT_ID, scale.id)).toEqual([
-      { id: final.id, name: 'Class Nine' },
-    ]);
+    expect(await recomputer.findPublishedExams(TENANT_ID, scale.id)).toEqual({
+      exams: [],
+      finals: [{ id: final.id, name: 'Class Nine' }],
+    });
     await expect(
       ds.transaction((m) => recomputer.recompute(TENANT_ID, scale.id, m)),
     ).rejects.toMatchObject({

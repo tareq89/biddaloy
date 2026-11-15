@@ -62,4 +62,15 @@ describe('MutationErrorMessage', () => {
       'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
     );
   });
+
+  it('says the school pauses on a date for a TENANT_READ_ONLY 403 (#2768)', async () => {
+    renderMsg({
+      statusCode: 403,
+      message: 'raw',
+      details: { code: 'TENANT_READ_ONLY', until: '2026-12-01T00:00:00.000Z' },
+    });
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Read-only. The school pauses on');
+    expect(alert.textContent).not.toContain('raw');
+  });
 });

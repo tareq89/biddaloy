@@ -356,7 +356,7 @@ export class UserService {
         // employee_id (mirrors the [36.1.1] migration backfill, which did
         // the same for pre-existing teachers) — creating one here too would
         // hit the per-school `UQ_staff_profiles_tenant_user` key.
-        // COMMITTEE is deliberately absent (D16): not an employee, so not in
+        // COMMITTEE is deliberately absent (D17): not an employee, so not in
         // EMPLOYEE_ROLES. SUPER_ADMIN is refused above (#731).
         if (dto.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(dto.role)) {
           await this.staffProfilesService.createFor(savedUser.id, tenantId, {}, manager);

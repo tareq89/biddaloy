@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PayloadTooLargeException } from '@nestjs/common';
+import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { ImportStagingService, DEFAULT_STAGING_TTL_SEC } from './import-staging.service';
 
 function fakeRedis() {
@@ -136,6 +136,23 @@ describe('ImportStagingService', () => {
   });
 
   describe('consume', () => {
+    it('refuses a stage of another kind with a fixed 400 and accepts the matching kind', async () => {
+      const redis = fakeRedis();
+      const service = new ImportStagingService(redis as any);
+      const { stagingId } = await service.stage('t', 'u', { rows: 1 }, undefined, 'marks-sheet');
+      const stored = redis.set.mock.calls[0][1];
+      redis.get.mockResolvedValue(stored);
+      redis.getdel.mockResolvedValueOnce(stored).mockResolvedValueOnce(null);
+      await expect(service.consume('t', 'u', stagingId, 'homework')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      // The wrong-kind attempt must not have claimed (deleted) the stage.
+      expect(redis.getdel).not.toHaveBeenCalled();
+      await expect(service.consume('t', 'u', stagingId, 'marks-sheet')).resolves.toEqual({
+        rows: 1,
+      });
+    });
+
     it('uses getdel (not get) and returns the payload; a second consume returns null', async () => {
       const redis = fakeRedis();
       const service = new ImportStagingService(redis as any);

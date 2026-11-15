@@ -32,4 +32,11 @@ describe('DemoInboxWarning', () => {
     );
     expect(container.textContent?.toLowerCase()).not.toMatch(/sink|mailpit/);
   });
+
+  it('[3266] shows from the runtime flag while the roles request has not answered or has failed', async () => {
+    setDemo(false); // /demo/roles pending or failed: useDemoMode reports "not enabled"
+    window.__BIDDALOY_CONFIG__ = { demoMode: true };
+    renderWithProviders(<DemoInboxWarning />, { locale: 'en' });
+    expect(await screen.findByText(/Do not enter a real phone number/)).toBeTruthy();
+  });
 });

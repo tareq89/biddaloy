@@ -22,7 +22,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * ids, counts and codes only; see docs/architecture/05-communications.md.
  */
 const USAGE =
-  'usage: sms-credit:reconcile [--apply --confirm-db=<database name>] [--tenant=<uuid>]';
+  'usage: sms-credit:reconcile [--apply --confirm-db=<database name>] [--tenant=<uuid>] [--lots-from-balance]';
 
 /** Returns an error message when `--apply` is not confirmed against the connected DB. */
 export function applyGuardError(
@@ -40,8 +40,14 @@ export async function main(argv: string[]): Promise<number> {
   const tenantId = tenantArg?.slice('--tenant='.length);
   const confirmArg = argv.find((a) => a.startsWith('--confirm-db='));
   const confirmDb = confirmArg?.slice('--confirm-db='.length);
+  // [#4138] After the rolling restart: lay the old-code balance writes onto the lots (balance is truth).
+  const lotsFromBalance = argv.includes('--lots-from-balance');
   const unknown = argv.filter(
-    (a) => a !== '--apply' && !a.startsWith('--tenant=') && !a.startsWith('--confirm-db='),
+    (a) =>
+      a !== '--apply' &&
+      a !== '--lots-from-balance' &&
+      !a.startsWith('--tenant=') &&
+      !a.startsWith('--confirm-db='),
   );
   if ((tenantId !== undefined && !UUID.test(tenantId)) || unknown.length > 0) {
     console.error(USAGE);
@@ -94,7 +100,12 @@ export async function main(argv: string[]): Promise<number> {
     let lots = await checkLotInvariants(dataSource, { tenantId });
     if (apply) {
       for (const r of lots.filter((x) => x.lotsBroken.length === 0 && !isLotSchoolOk(x))) {
-        await credits.rebuildBalanceFromLots(r.tenantId, 'reconcile-sms-credit --apply');
+        if (lotsFromBalance) {
+          const res = await credits.reconcileLotsToBalance(r.tenantId);
+          if (res.manual) console.log(`lots tenant=${r.tenantId} lots-from-balance needs manual review`);
+        } else {
+          await credits.rebuildBalanceFromLots(r.tenantId, 'reconcile-sms-credit --apply');
+        }
       }
       lots = await checkLotInvariants(dataSource, { tenantId });
     }

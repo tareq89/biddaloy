@@ -141,7 +141,7 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
           tab: 'mark_grids',
           row: rowNo,
           column: 'exam',
-          message: `Column "exam": no exam "${examKey}" was found.`,
+          message: `Column "exam": no exam was found.`,
           severity: 'error',
           value: examKey,
         });
@@ -157,7 +157,7 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
           tab: 'mark_grids',
           row: rowNo,
           column: 'section',
-          message: `Column "section": no section "${sectionKey}" was found.`,
+          message: `Column "section": no section was found.`,
           severity: 'error',
           value: sectionKey,
         });
@@ -173,7 +173,7 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
           tab: 'mark_grids',
           row: rowNo,
           column: 'subject',
-          message: `Column "subject": no subject "${subjectKey}" was found.`,
+          message: `Column "subject": no subject was found.`,
           severity: 'error',
           value: subjectKey,
         });
@@ -189,7 +189,7 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
           tab: 'mark_grids',
           row: rowNo,
           column: 'submitted_by',
-          message: `Column "submitted_by": no user "${submitted_byKey}" was found.`,
+          message: `Column "submitted_by": no user was found.`,
           severity: 'error',
           value: submitted_byKey,
         });

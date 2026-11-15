@@ -388,6 +388,7 @@ export class NoticeSmsService {
         const tokens = await this.links.createPersonalLinks(
           id,
           will.map((r) => r.recipient.id),
+          tenantId,
           tx,
         );
         const tokenOf = new Map(tokens.map((t) => [t.recipientId, t.token]));
@@ -411,6 +412,8 @@ export class NoticeSmsService {
               status: CommunicationStatus.QUEUED,
               trigger: CommunicationTrigger.MANUAL,
               reference_key: `notice-sms:${id}:${r.recipient.id}`,
+              // Protects the reservation from the orphan sweep while this log is QUEUED.
+              metadata: { batch_id: batchId },
             }),
           );
           await tx.update(
@@ -427,7 +430,14 @@ export class NoticeSmsService {
         try {
           await this.credits.settle(tenantId, batchKey, 'RELEASE');
         } catch (re) {
-          this.logger.error(`notice sms credit release failed: ${(re as Error).message}`);
+          // Stranded reservation: structured so a log alert can find it (a retry would reserve again).
+          this.logger.error({
+            msg: 'notice sms credit release failed - reservation left stranded',
+            tenant_id: tenantId,
+            notice_id: id,
+            batch_key: batchKey,
+            error: (re as Error).message,
+          });
         }
       }
       // The 409's transaction rolled back (lock released); close the dead request on its own.
@@ -465,6 +475,17 @@ export class NoticeSmsService {
           this.logger.error(`notice sms failure bookkeeping failed: ${(ue as Error).message}`);
         }
       }
+    }
+    // The approve row above holds the planned count; when enqueue fell short, say what really went out.
+    if (queued !== jobs.length) {
+      await this.audit.record({
+        action: AuditAction.UPDATE,
+        entity_type: 'Notice',
+        entity_id: id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        new_values: { event: 'SMS_ENQUEUE_SHORT', planned: jobs.length, queued },
+      });
     }
     await this.invalidate(tenantId, taskId);
     // Only the messages really handed to the queue: a failed enqueue is a FAILED log, not "queued".

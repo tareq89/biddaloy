@@ -129,7 +129,7 @@ export const reportDefinitionVersionsTab: TabSpec<
             tab: 'report_definition_versions',
             row: rowNo,
             column: 'report',
-            message: `Column "report": no report with the key "${reportKey}" was found.`,
+            message: `Column "report": no report was found.`,
             severity: 'error',
             value: reportKey,
           },

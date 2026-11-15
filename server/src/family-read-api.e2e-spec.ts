@@ -598,7 +598,7 @@ describe('[5.1] Family-facing read API', () => {
           .get(route.path(unlinkedChildId))
           .set('Authorization', `Bearer ${parentToken}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
-          .expect(401);
+          .expect(404);
       });
 
       it(`${route.name} refuses a STUDENT reading someone else's record`, async () => {
@@ -606,7 +606,7 @@ describe('[5.1] Family-facing read API', () => {
           .get(route.path(childOneId))
           .set('Authorization', `Bearer ${studentToken}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
-          .expect(401);
+          .expect(404);
       });
 
       it(`${route.name} admits the linked PARENT for their own child`, async () => {
@@ -643,7 +643,7 @@ describe('[5.1] Family-facing read API', () => {
         .get(`${API}/invoices/${unlinkedChildInvoiceId}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(404);
     });
 
     it('GET /invoices/:id admits a PARENT for their own child’s invoice', async () => {
@@ -659,7 +659,7 @@ describe('[5.1] Family-facing read API', () => {
         .get(`${API}/invoices/${unlinkedChildInvoiceId}/print`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(404);
     });
 
     it('GET /invoices/:id/print admits a PARENT for their own child’s invoice', async () => {
@@ -677,7 +677,7 @@ describe('[5.1] Family-facing read API', () => {
         .get(`${API}/invoices/${childOneInvoiceId}`)
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(404);
     });
 
     it('refuses the unrelated parent on every student-scoped route', async () => {
@@ -686,13 +686,13 @@ describe('[5.1] Family-facing read API', () => {
           .get(route.path(childOneId))
           .set('Authorization', `Bearer ${strangerToken}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
-          .expect(401);
+          .expect(404);
       }
       await http()
         .get(`${API}/invoices/${childOneInvoiceId}`)
         .set('Authorization', `Bearer ${strangerToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(404);
     });
   });
 

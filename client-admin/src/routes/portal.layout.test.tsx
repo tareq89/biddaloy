@@ -81,6 +81,22 @@ describe('portal layout shell', () => {
     expect(hrefs).toContain('/portal/account');
   });
 
+  it('a bookmark to an off module shows the refusal page, not a load error (D32, #4127)', async () => {
+    server.use(
+      http.get('/api/v1/schools/me/profile', () =>
+        HttpResponse.json({
+          name: 'Ananta School',
+          modules: { platform: {}, school: { routines: { on: false } } },
+          labels: {},
+        }),
+      ),
+    );
+    render('/portal/routine');
+    expect(await screen.findByText('This part is not turned on for your institution')).toBeTruthy();
+    expect(screen.getByText('Ask your school')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Turn on' })).toBeNull();
+  });
+
   it('marks exactly one sidebar link current on /portal/fees', async () => {
     render('/portal/fees');
     const nav = (await screen.findAllByRole('navigation', { name: /main|menu|navigation/i }))[0]!;

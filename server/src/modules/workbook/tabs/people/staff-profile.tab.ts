@@ -147,7 +147,7 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
         tab: 'staff_profiles',
         row: rowNo,
         column: 'user',
-        message: `Column "user": no user with the key "${userKey}" was found.`,
+        message: `Column "user": no user was found.`,
         severity: 'error',
         value: userKey,
       });

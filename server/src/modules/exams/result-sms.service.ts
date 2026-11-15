@@ -286,7 +286,11 @@ export class ResultSmsService {
       } catch (err) {
         // A concurrent double click lost the race on the unique reference_key.
         const duplicate = (err as { code?: string } | null)?.code === PG_UNIQUE_VIOLATION;
-        if (duplicate) {
+        if (
+          duplicate &&
+          !skipped.some((x) => x.student_id === job.log.student_id && x.reason === 'already_sent')
+        ) {
+          // One entry per student, not one per guardian.
           skipped.push({ student_id: job.log.student_id!, reason: 'already_sent' });
         }
         if (metered) {

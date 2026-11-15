@@ -158,7 +158,8 @@ function ReportsPageContent() {
   // Tenant switch + low-attendance threshold, read the way AttendanceSection's
   // page does: the active tenant's settings. Unreadable (no SETTINGS_MANAGE) =
   // switch treated as off, so `?view=subjects` falls back to summary.
-  const settingsQuery = useSchoolSettings(getActiveTenant() ?? '');
+  const canReadSettings = useHasPermission(Permission.SETTINGS_MANAGE); // else a 403 (#2514)
+  const settingsQuery = useSchoolSettings(getActiveTenant() ?? '', { enabled: canReadSettings });
   const periodEnabled = settingsQuery.data?.attendance?.periodAttendance?.enabled === true;
   const lowThreshold = settingsQuery.data?.attendance?.lowAttendanceThresholdPercent;
   // Same roles the route accepts (SUPER_ADMIN passes RolesGuard): others never

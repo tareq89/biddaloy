@@ -80,6 +80,24 @@ describe('SchoolInviteService (integration)', () => {
   const memberships = (tenantId = SEED_TENANT_ID) =>
     ds.getRepository(UserTenant).find({ where: { user_id: user.id, tenant_id: tenantId } });
 
+  it('accept copies the login contact onto the linked guardian row (#2495)', async () => {
+    await ds.query(`UPDATE users SET phone = '01711111111' WHERE id = $1`, [user.id]);
+    const g = await ds.getRepository(Guardian).save(
+      ds.getRepository(Guardian).create({
+        full_name: 'G',
+        relationship: 'Mother',
+        tenant_id: SEED_TENANT_ID,
+        email: 'old@example.com',
+        phone: '01822222222',
+      }),
+    );
+    const row = await request(SEED_TENANT_ID, { guardianId: g.id });
+    await service.accept(user.id, row.id, CTX);
+    const linked = await ds.getRepository(Guardian).findOneOrFail({ where: { id: g.id } });
+    expect(linked.email).toBe('o@example.com');
+    expect(linked.phone).toBe('01711111111');
+  });
+
   it('accept creates the PARENT membership and links guardian.user_id', async () => {
     const g = await ds.getRepository(Guardian).save(
       ds.getRepository(Guardian).create({

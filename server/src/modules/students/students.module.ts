@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { HealthNotesInterceptor } from './health-notes.interceptor';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
@@ -58,6 +60,7 @@ import { StudentsDashboardController } from './students-dashboard.controller';
     EnrollmentModule,
   ],
   providers: [
+    { provide: APP_INTERCEPTOR, useClass: HealthNotesInterceptor },
     StudentService,
     GuardianService,
     StudentBulkUploadService,

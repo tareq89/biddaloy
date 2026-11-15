@@ -354,7 +354,7 @@ describe('null overridden_by keeps the existing user (export could not name them
     cells.overridden_by = 'x@y.test';
     const result = promotionEntriesTab.fromRow(cells, 3, importCtx());
     expect((result as { errors: RowError[] }).errors[0].message).toBe(
-      'Column "overridden_by": no user "x@y.test" was found.',
+      'Column "overridden_by": no user was found.',
     );
   });
 });

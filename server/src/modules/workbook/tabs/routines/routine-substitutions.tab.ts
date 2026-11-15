@@ -156,7 +156,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
         tab: 'routine_substitutions',
         row: rowNo,
         column: 'routine_slot',
-        message: `Column "routine_slot": no routine slot named "${routineSlotKey}" was found.`,
+        message: `Column "routine_slot": no routine slot was found.`,
         severity: 'error',
         value: routineSlotKey,
       });
@@ -171,7 +171,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
           tab: 'routine_substitutions',
           row: rowNo,
           column: 'substitute_teacher',
-          message: `Column "substitute_teacher": no teacher with employee_id "${substituteKey}" was found.`,
+          message: `Column "substitute_teacher": no teacher with employee_id was found.`,
           severity: 'error',
           value: substituteKey,
         });
@@ -185,7 +185,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
         tab: 'routine_substitutions',
         row: rowNo,
         column: 'created_by',
-        message: `Column "created_by": no user "${createdByKey}" was found.`,
+        message: `Column "created_by": no user was found.`,
         severity: 'error',
         value: createdByKey,
       });

@@ -109,7 +109,6 @@ async function freshLogin(
       ...(locale === 'bn' ? [] : [localeEntry(locale)]),
       ...expandedNavGroupEntries(),
     ];
-    if (localStorage.length === 0) return state;
     return {
       ...state,
       origins: [{ origin: shells.app.baseURL.replace(/\/$/, ''), localStorage }],

@@ -73,6 +73,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { usePrintPageRule } from '../../../use-print-page-rule';
 
 import {
   abbrev,
@@ -142,6 +143,7 @@ function RegisterPage() {
 }
 
 function RegisterPageContent() {
+  usePrintPageRule('size: landscape; margin: 10mm;');
   const { t } = useTranslation('attendance');
   const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useRegionConfig();

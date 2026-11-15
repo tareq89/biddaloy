@@ -2,7 +2,7 @@ import '@biddaloy/ui/test';
 
 import type { SmsCreditsResponse } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -75,6 +75,16 @@ describe('SmsBundlesPanel', () => {
     const card = (await screen.findByText('Medium')).closest('[role="group"]') as HTMLElement;
     await userEvent.click(within(card).getByRole('button', { name: 'Buy' }));
     expect(await screen.findByRole('button', { name: 'Buy with bKash' })).toBeTruthy();
+  });
+
+  it('returns focus to the Buy button when the buy dialog closes (#4149)', async () => {
+    setup();
+    const card = (await screen.findByText('Medium')).closest('[role="group"]') as HTMLElement;
+    const buy = within(card).getByRole('button', { name: 'Buy' });
+    await userEvent.click(buy);
+    await screen.findByRole('button', { name: 'Buy with bKash' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(document.activeElement).toBe(buy));
   });
 
   it('lists the lots soonest first, no-end-date last', async () => {
