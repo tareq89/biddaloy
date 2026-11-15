@@ -113,13 +113,13 @@ describe('PromotionGroupsService', () => {
       teacherScope as any,
       settings as any,
     );
-    return { service, entryRepo, promotions };
+    return { service, entryRepo, promotions, runRepo };
   }
 
   it('list: a teacher with no homeroom gets an empty page and no entry is read', async () => {
     const { service, entryRepo } = build({ homeroom: [] });
     const page = await service.list('r1', {}, actor);
-    expect(page).toEqual({ data: [], total: 0, page: 1, limit: 50 });
+    expect(page).toEqual({ data: [], total: 0, page: 1, limit: 50, sections: [] });
     expect(entryRepo.find).not.toHaveBeenCalled();
   });
 
@@ -158,6 +158,26 @@ describe('PromotionGroupsService', () => {
     const { service, entryRepo } = build();
     await service.list('r1', { section_id: 'sec-9' }, admin);
     expect(entryRepo.find.mock.calls[0][0].where.source_section_id).toBe('sec-9');
+  });
+
+  it('list: an upper-case section_id still matches a teacher homeroom [#4056]', async () => {
+    const id = '7b0f2d5e-4c1a-4e53-9a4d-1d6f6f0c2b11';
+    const { service, entryRepo } = build({ homeroom: [id] });
+    await service.list('r1', { section_id: id.toUpperCase() }, actor);
+    expect(entryRepo.find.mock.calls[0][0].where.source_section_id.value).toEqual([id]);
+  });
+
+  it('list: returns the run sections for the picker, scoped to the homeroom, not to filters', async () => {
+    const { service, runRepo } = build({ homeroom: ['s1'] });
+    runRepo.manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('promotion_entries') ? [{ id: 's1', name: 'A' }] : [],
+    );
+    const page = await service.list('r1', { section_id: 's1', gpa_min: 4 }, actor);
+    expect(page.sections).toEqual([{ id: 's1', name: 'A' }]);
+    const call = runRepo.manager.query.mock.calls.find((c: any[]) =>
+      String(c[0]).includes('promotion_entries'),
+    );
+    expect(call?.[1]).toEqual(['t1', 'r1', ['s1']]);
   });
 
   it('list: a teacher naming a section outside their homeroom reaches nothing (404) [#4056]', async () => {

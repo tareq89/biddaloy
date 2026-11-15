@@ -405,7 +405,10 @@ describe('diffFields', () => {
 // carries the nested D6 blob. Without lifting the stored side first, the merge keeps both shapes:
 // the resolver reads the nested block, never finds the stored token, and every send is REJECTED.
 describe('upsert: flat-stored messaging settings + a nested import', () => {
+  // upsert re-reads the school under a row lock (#4087); the stub hands back the stored row.
+  let stored: School;
   const manager = {
+    findOneOrFail: async () => stored,
     save: async (_entity: unknown, school: School) => school,
   } as unknown as Parameters<typeof schoolTab.upsert>[3];
 
@@ -423,6 +426,7 @@ describe('upsert: flat-stored messaging settings + a nested import', () => {
       settings: { communications: { whatsapp: { phoneNumberId: 'OLD', accessToken: SECRET } } },
     });
 
+    stored = existing;
     const saved = await schoolTab.upsert(nestedImport(existing), existing, SCHOOL_ID, manager);
 
     expect(saved.settings).toEqual({

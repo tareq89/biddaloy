@@ -194,6 +194,17 @@ export class SubjectService {
       }
       // [#4045] A closed year is read-only (Rule 28): its offerings would be soft-deleted by the
       // cascade below. Refuse instead; the offering stays and so does the subject.
+      // The years of the offerings are share-locked first: a year close needs the row FOR UPDATE,
+      // so it cannot commit between this check and the soft-delete below. Lock order is subject
+      // (FOR UPDATE), then years (FOR SHARE); a close takes only the year, so no deadlock.
+      await manager.query(
+        `SELECT y.id FROM academic_years y
+          WHERE y.tenant_id = $2 AND y.deleted_at IS NULL
+            AND y.id IN (SELECT cs.academic_year_id FROM class_subjects cs
+                          WHERE cs.subject_id = $1 AND cs.tenant_id = $2 AND cs.deleted_at IS NULL)
+          FOR SHARE`,
+        [id, tenantId],
+      );
       const closedOfferings = await manager
         .createQueryBuilder(ClassSubject, 'cs')
         .innerJoin(

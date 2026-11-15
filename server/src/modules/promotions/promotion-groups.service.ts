@@ -135,14 +135,18 @@ export class PromotionGroupsService {
     const limit = Math.min(query.limit ?? 50, 100);
 
     // Teacher with no homeroom: an empty list, not an error (Rule 2).
-    if (allowed !== null && allowed.length === 0) return { data: [], total: 0, page, limit };
+    if (allowed !== null && allowed.length === 0) {
+      return { data: [], total: 0, page, limit, sections: [] };
+    }
 
     // `section_id` narrows the caller's reach, never widens it: a teacher naming a section
     // outside their homeroom finds no entries, which is the 404 below.
+    // Lower-cased: the DB ids are, and a UUID is valid in either case.
+    const sectionId = query.section_id?.toLowerCase();
     const sectionScope =
       allowed !== null
-        ? In(query.section_id ? allowed.filter((id) => id === query.section_id) : allowed)
-        : query.section_id;
+        ? In(sectionId ? allowed.filter((id) => id === sectionId) : allowed)
+        : sectionId;
     const entries = await this.entryRepo.find({
       where: {
         run_id: run.id,
@@ -178,7 +182,31 @@ export class PromotionGroupsService {
       }))
       .filter((v) => matchesFilters(v.result, query));
 
-    return { data: all.slice((page - 1) * limit, page * limit), total: all.length, page, limit };
+    return {
+      data: all.slice((page - 1) * limit, page * limit),
+      total: all.length,
+      page,
+      limit,
+      sections: await this.sectionChoices(run.id, actor.tenantId, allowed),
+    };
+  }
+
+  /** The run's source sections the caller can reach, whatever the other filters say: the picker's options. */
+  private async sectionChoices(
+    runId: string,
+    tenantId: string,
+    allowed: string[] | null,
+  ): Promise<{ id: string; name: string }[]> {
+    const rows: { id: string; name: string }[] = await this.runRepo.manager.query(
+      `SELECT DISTINCT cs.id, cs.section_name AS name
+         FROM promotion_entries e
+         JOIN class_sections cs ON cs.id = e.source_section_id AND cs.tenant_id = $1
+        WHERE e.run_id = $2 AND e.tenant_id = $1
+          AND ($3::uuid[] IS NULL OR e.source_section_id = ANY($3::uuid[]))
+        ORDER BY cs.section_name`,
+      [tenantId, runId, allowed],
+    );
+    return rows;
   }
 
   async set(runId: string, entryIds: string[], groupName: string | null, actor: Actor) {

@@ -1381,9 +1381,10 @@ redact.
 Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
 `GET /api/v1/calendar/feed/[REDACTED]`.
 
-nginx's **error** log writes the full request line (502/504, client aborts), so
-`error_log ... crit` in `default.conf.template` keeps those lines out. A failed
-upstream still shows as a 502/504 line in the masked access log.
+nginx's **error** log writes the full request line on request-scoped lines (502/504, client
+aborts, and `crit`/`alert` ones such as fd exhaustion), so `error_log ... emerg` in
+`default.conf.template` keeps those lines out. Only config and startup failures remain, and
+they carry no request. A failed upstream still shows as a 502/504 line in the masked access log.
 `access-log.infra.test.sh` stops the upstream and checks no secret reaches the log.
 
 ## Repository and GitHub settings

@@ -19,6 +19,7 @@ import { Mark } from '../exams/entities/mark.entity';
 import { ExamKind, ExamComponentKind, MarkStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 
 /**
@@ -231,7 +232,8 @@ describe('SubjectService (integration)', () => {
       await dataSource.transaction(async (manager) => {
         expect(await shareLockLive(manager, Subject, [subject.id], TENANT_ID)).toBe(1);
         removed = service.remove(subject.id, TENANT_ID).catch((err: unknown) => err);
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // pg_stat_activity cuts long queries: match the start of the entity's column list.
+        await waitForLockWaiters(dataSource, '%"Subject_id"%', 1);
         const exam = await manager.save(Exam, {
           tenant_id: TENANT_ID,
           academic_year_id: academicYearId,
@@ -284,6 +286,31 @@ describe('SubjectService (integration)', () => {
       );
       expect(offering.deleted_at).toBeNull();
       await expect(service.findOne(subject.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    // The delete share-locks the offerings' years, so a year close holding the row first makes
+    // the delete wait, then see the year closed.
+    it('a delete waits for a year close in flight and then refuses [#4045]', async () => {
+      const subject = await service.create({ name_en: 'History', code: 'HIS' }, TENANT_ID);
+      await service.attachToClass(
+        classId,
+        { subject_id: subject.id, academic_year_id: academicYearId },
+        TENANT_ID,
+      );
+      let removed: Promise<unknown> | undefined;
+      await dataSource.transaction(async (manager) => {
+        await manager.query(`SELECT id FROM academic_years WHERE id = $1 FOR UPDATE`, [
+          academicYearId,
+        ]);
+        removed = service.remove(subject.id, TENANT_ID).catch((err: unknown) => err);
+        await waitForLockWaiters(dataSource, '%academic_years%FOR SHARE%', 1);
+        await manager.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+          academicYearId,
+        ]);
+      });
+      expect(await removed).toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', closed_year_offerings_count: 1 } },
+      });
     });
 
     it('a writer that runs after the delete finds no live subject to lock', async () => {
