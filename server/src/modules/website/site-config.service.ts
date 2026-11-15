@@ -34,10 +34,12 @@ export function slugFor(
   rand: () => string = () => randomBytes(2).toString('hex'),
   tag: SiteEnvTag | '' = siteEnvTag(process.env.ENV_NAME),
 ) {
+  // split + join, not replace + trim: same slug, and no `-$` scan that CodeQL flags as polynomial (#3006)
   let base = name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') // runs were collapsed to one '-' above
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join('-')
     .slice(0, 20 - (tag ? tag.length + 1 : 0))
     .replace(/-$/, '');
   if (base.length < 3 || RESERVED_SUBDOMAINS.includes(base)) base = 'school';

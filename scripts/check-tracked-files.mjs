@@ -96,6 +96,7 @@ const EXAMPLE_VALUES_ALLOWED = {
     ...TURNSTILE_TEST,
     ...sinkLines('staging'),
     'SMOKE_INBOX_API_URL=http://staging-mailpit:8025',
+    'SMOKE_IMPERSONATION=1', // [#4081] Login as fence, a public switch
     ...SMOKE_MONEY,
   ],
   demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST, ...sinkLines('demo')],
