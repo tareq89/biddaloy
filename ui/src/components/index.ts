@@ -406,6 +406,7 @@ export {
   type ClosedYearNoticeProps,
 } from './closed-year-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
+export { SessionExpiredDialog, openSessionExpiredDialog } from './session-expired-dialog';
 export {
   ProfileForm,
   type ProfileFormProps,

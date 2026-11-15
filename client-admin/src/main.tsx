@@ -10,7 +10,12 @@ import {
   updateSentryRouteTag,
   updateSentryTenantTag,
 } from '@biddaloy/ui/api';
-import { RoutePending, Toaster } from '@biddaloy/ui/components';
+import {
+  openSessionExpiredDialog,
+  RoutePending,
+  SessionExpiredDialog,
+  Toaster,
+} from '@biddaloy/ui/components';
 import { I18nProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
 import { installPromptListen } from '@biddaloy/ui/pwa';
@@ -163,10 +168,15 @@ router.subscribe('onResolved', () => {
 registerSessionExpiredHandler(() => {
   const { pathname, href } = router.state.location;
   const loginPath = isCockpitHost() ? '/sign-in' : '/login';
-  if (pathname !== loginPath) {
+  if (pathname === loginPath) return;
+  const redirect = () => {
     if (isCockpitHost()) showCockpitExpiredNotice();
     void router.navigate({ to: loginPath, search: { redirect: href }, replace: true });
-  }
+  };
+  // [3329 / 4293]: a staff session asks for sign-in in a dialog so typed text survives. The
+  // cockpit keeps today's redirect (and so does a login-as session, decided inside the dialog).
+  if (isCockpitHost()) redirect();
+  else openSessionExpiredDialog(redirect);
 });
 
 // Registers this app's concrete route tree against `@tanstack/react-
@@ -189,6 +199,7 @@ function renderApp(): void {
         <I18nProvider>
           <RouterProvider router={router} />
           <Toaster />
+          <SessionExpiredDialog />
         </I18nProvider>
       </QueryClientProvider>
     </StrictMode>,

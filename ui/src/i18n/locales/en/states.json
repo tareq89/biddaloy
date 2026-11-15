@@ -11,6 +11,7 @@
   "expired": {
     "title": "Sign in again",
     "body": "For your safety you were signed out. Sign in again and carry on where you left off.",
+    "kept": "What you typed is still on the page.",
     "signIn": "Sign in"
   },
   "empty": {
