@@ -89,6 +89,7 @@ async function resubmitPhoto(documents: AdmissionApplicantDocument[]) {
     } as never,
     new AdmissionFormSchemaService(),
     { findByPhoneAnyFormat: async () => null } as never,
+    {} as never,
   );
   const dto = {
     intake_id: INTAKE_ID,
@@ -182,6 +183,7 @@ describe('AdmissionApplicantService.submit extra fields', () => {
       { forTenant: async () => ({ platform: {}, school: {} }) } as never,
       new AdmissionFormSchemaService(),
       { findByPhoneAnyFormat: async () => guardian } as never,
+      {} as never,
     );
     const dto = {
       intake_id: INTAKE_ID,
@@ -235,5 +237,184 @@ describe('AdmissionApplicantService.submit extra fields', () => {
       },
     );
     expect(out.saved[0]).toMatchObject({ sibling_student_id: 'stu-2' });
+  });
+});
+
+// Epic 71 G1.02: one create path; source + fee_state set on every insert, clerk fee rounds wait.
+describe('AdmissionApplicantService create path (source, fee, seats)', () => {
+  const ACTOR = { userId: 'user-1', ip: '1.2.3.4', userAgent: 'ua' };
+  const proof = { fieldname: 'fee_proof', mimetype: 'image/jpeg', buffer: VALID_JPEG };
+
+  async function run(
+    intakeOver: Record<string, unknown>,
+    how: 'online' | 'clerk',
+    clerk: { method?: string; ref?: string; file?: unknown; late?: boolean } = {},
+    admitted = 0,
+    seenProofs = 0,
+  ) {
+    const intake = {
+      id: INTAKE_ID,
+      tenant_id: TENANT,
+      open_date: '2000-01-01',
+      close_date: '2999-12-31',
+      seat_count: 10,
+      required_document_types: [],
+      form_fields: ['name'],
+      fee_amount_paisa: null,
+      ...intakeOver,
+    };
+    const qb = { setLock: () => qb, where: () => qb, getOne: async () => intake };
+    const saved: Record<string, unknown>[] = [];
+    const proofs: Record<string, unknown>[] = [];
+    const audits: Record<string, unknown>[] = [];
+    const applicantRepo = {
+      find: async () => [],
+      count: async () => admitted,
+      exists: async () => false,
+      create: (x: Record<string, unknown>) => x,
+      save: async (x: Record<string, unknown>) => {
+        saved.push(x);
+        return { ...x, id: 'app-1', reference_number: 'ADM-2026-ZZZZZZ' };
+      },
+    };
+    const proofQb = {
+      where: () => proofQb,
+      andWhere: () => proofQb,
+      getCount: async () => seenProofs,
+    };
+    const proofRepo = {
+      create: (x: Record<string, unknown>) => x,
+      save: async (x: Record<string, unknown>) => void proofs.push(x),
+      createQueryBuilder: () => proofQb,
+    };
+    const manager = {
+      getRepository: (entity: { name?: string }) =>
+        entity === AdmissionIntake
+          ? { createQueryBuilder: () => qb }
+          : entity?.name === 'AdmissionFeeProof'
+            ? proofRepo
+            : applicantRepo,
+    };
+    const { storage } = recordingStorage();
+    const service = new AdmissionApplicantService(
+      { findBySlug: async () => ({ id: TENANT }), todayFor: async () => '2026-03-16' } as never,
+      storage,
+      { manager: { transaction: (cb: (m: typeof manager) => unknown) => cb(manager) } } as never,
+      {} as never,
+      { forTenant: async () => ({ platform: {}, school: {} }) } as never,
+      new AdmissionFormSchemaService(),
+      { findByPhoneAnyFormat: async () => null } as never,
+      { record: async (e: Record<string, unknown>) => void audits.push(e) } as never,
+    );
+    const dto = {
+      intake_id: INTAKE_ID,
+      applicant_name: 'Rahim',
+      date_of_birth: '2015-01-01',
+      gender: 'MALE',
+      guardian_name: 'Karim',
+      guardian_phone: PHONE,
+    } as SubmitApplicantDto;
+    const call =
+      how === 'online'
+        ? service.submit('test-school', dto, [])
+        : service.createByStaff(
+            TENANT,
+            {
+              ...dto,
+              fee_method: clerk.method,
+              fee_reference: clerk.ref,
+              allow_after_close: clerk.late,
+            } as never,
+            clerk.file ? [clerk.file as Express.Multer.File] : [],
+            ACTOR,
+          );
+    const out = await call.then(
+      (r) => ({ r }),
+      (e: unknown) => ({ e: e as { getResponse(): { details?: { code?: string } } } }),
+    );
+    return { saved, proofs, audits, ...out };
+  }
+
+  it('stores source ONLINE / NONE for the public form, even on a fee round', async () => {
+    const free = await run({}, 'online');
+    expect(free.saved[0]).toMatchObject({ source: 'ONLINE', status: 'PENDING', fee_state: 'NONE' });
+    const fee = await run({ fee_amount_paisa: 50000 }, 'online');
+    expect(fee.saved[0]).toMatchObject({ source: 'ONLINE', status: 'PENDING', fee_state: 'NONE' });
+    expect(fee.proofs).toEqual([]);
+  });
+
+  it('clerk create on a free round: CLERK / PENDING and an audit row with ids only', async () => {
+    const out = await run({}, 'clerk');
+    expect(out.saved[0]).toMatchObject({ source: 'CLERK', status: 'PENDING', fee_state: 'NONE' });
+    expect(out.audits).toHaveLength(1);
+    expect(out.audits[0]).toMatchObject({
+      entity_id: 'app-1',
+      performed_by_user_id: 'user-1',
+      tenant_id: TENANT,
+    });
+    expect(JSON.stringify(out.audits[0])).not.toContain(PHONE);
+  });
+
+  it('clerk create on a fee round ends FEE_PENDING with an AWAITING proof row', async () => {
+    const out = await run({ fee_amount_paisa: 50000 }, 'clerk', {
+      method: 'BKASH',
+      ref: 'TX1',
+      file: proof,
+    });
+    expect(out.saved[0]).toMatchObject({
+      source: 'CLERK',
+      status: 'FEE_PENDING',
+      fee_state: 'AWAITING',
+    });
+    expect(out.proofs[0]).toMatchObject({
+      method: 'BKASH',
+      reference: 'TX1',
+      applicant_id: 'app-1',
+    });
+    expect((out.r as { warnings?: string[] }).warnings).toBeUndefined();
+  });
+
+  it('a repeated reference warns and still creates', async () => {
+    const out = await run(
+      { fee_amount_paisa: 50000 },
+      'clerk',
+      { method: 'NAGAD', ref: 'TX1', file: proof },
+      0,
+      1,
+    );
+    expect((out.r as { warnings?: string[] }).warnings).toEqual(['REFERENCE_SEEN']);
+    expect(out.saved).toHaveLength(1);
+  });
+
+  it('a fee round without method or proof file is refused and stores nothing', async () => {
+    for (const clerk of [
+      { ref: 'TX1', file: proof },
+      { method: 'BKASH', ref: 'TX1' },
+    ]) {
+      const out = await run({ fee_amount_paisa: 50000 }, 'clerk', clerk);
+      expect(out.e?.getResponse().details?.code).toBe('FEE_PROOF_REQUIRED');
+      expect(out.saved).toEqual([]);
+    }
+  });
+
+  it('refuses a proof whose bytes do not match its type', async () => {
+    const bad = { ...proof, buffer: Buffer.from('not a jpeg') };
+    const out = await run({ fee_amount_paisa: 50000 }, 'clerk', { method: 'BKASH', file: bad });
+    expect(out.e).toBeDefined();
+    expect(out.saved).toEqual([]);
+  });
+
+  it('a closed round is refused unless the clerk allows late entry', async () => {
+    const closed = { close_date: '2026-03-01' };
+    expect((await run(closed, 'online')).e?.getResponse().details?.code).toBe('INTAKE_CLOSED');
+    expect((await run(closed, 'clerk')).e?.getResponse().details?.code).toBe('INTAKE_CLOSED');
+    expect((await run(closed, 'clerk', { late: true })).saved).toHaveLength(1);
+  });
+
+  it('a full round is refused for both paths', async () => {
+    for (const how of ['online', 'clerk'] as const) {
+      const out = await run({ seat_count: 1 }, how, {}, 1);
+      expect(out.e?.getResponse().details?.code).toBe('INTAKE_FULL');
+    }
   });
 });
