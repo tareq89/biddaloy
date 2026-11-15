@@ -83,6 +83,7 @@ describe('ApplicantReviewService', () => {
       findAndCount: vi.fn(),
       count: vi.fn(async () => 0),
       manager: {
+        query: vi.fn(async () => []),
         transaction: vi.fn(async (cb: (manager: unknown) => Promise<unknown>) =>
           cb({
             query: queryMock,
@@ -667,6 +668,45 @@ describe('ApplicantReviewService', () => {
         expect.objectContaining({ skip: 2, take: 2 }),
       );
       expect(result).toMatchObject({ total: 3, page: 2, limit: 2, totalPages: 2 });
+    });
+
+    it('applies fee_state, source and quota_tag filters in the query, roll sort, and adds fee info', async () => {
+      applicantRepo.findAndCount.mockResolvedValueOnce([
+        [makeApplicant({ sibling_student_id: 'stu-1' })],
+        1,
+      ]);
+      applicantRepo.manager.query.mockResolvedValueOnce([
+        { applicant_id: 'applicant-1', method: 'BKASH', reference: 'TX1' },
+      ]);
+
+      const result = await service.list(TENANT_A, {
+        fee_state: 'AWAITING',
+        source: 'CLERK',
+        quota_tag: 'FREEDOM_FIGHTER',
+        sort: 'roll',
+      });
+
+      expect(applicantRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_A,
+            fee_state: 'AWAITING',
+            source: 'CLERK',
+            quota_tags: expect.anything(),
+          }),
+          order: {
+            roll_number: { direction: 'ASC', nulls: 'LAST' },
+            applicant_name: 'ASC',
+            id: 'ASC',
+          },
+        }),
+      );
+      expect(applicantRepo.manager.query.mock.calls[0][1]).toEqual([TENANT_A, ['applicant-1']]);
+      expect(result.data[0]).toMatchObject({
+        fee_method: 'BKASH',
+        fee_reference: 'TX1',
+        has_sibling: true,
+      });
     });
 
     it('does not leak a tenant-B applicant into tenant-A results', async () => {

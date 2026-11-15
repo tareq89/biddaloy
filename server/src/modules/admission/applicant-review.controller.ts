@@ -32,7 +32,10 @@ import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
 import { GuardianMatchResponseDto } from './dto/guardian-match.dto';
-import { ApplicantListResponseDto } from './dto/applicant-list-response.dto';
+import {
+  ApplicantDetailResponseDto,
+  ApplicantListResponseDto,
+} from './dto/applicant-list-response.dto';
 
 /** [27.5] Staff review/evaluate/admit/reject over `admission_applicants` —
  * same guard stack as `IntakeController` (#27.3). */
@@ -59,6 +62,7 @@ export class ApplicantReviewController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Read one applicant plus its evaluation history.' })
+  @ApiOkResponse({ type: ApplicantDetailResponseDto })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
