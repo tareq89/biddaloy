@@ -39,13 +39,13 @@ describe('DowngradeTenantLocalSuperAdmin1792500000000 (integration)', () => {
   });
 
   beforeEach(async () => {
-    await ds.query(`INSERT INTO schools (id, name, slug) VALUES ($1,'School','mig-1313-s')`, [
+    await ds.query(`INSERT INTO schools (id, name, slug) VALUES ($1,'School','mig-1313-s') ON CONFLICT DO NOTHING`, [
       schoolId,
     ]);
     // The platform school exists only for this spec unless the test database already has one.
     if (!hadPlatform) {
       await ds.query(
-        `INSERT INTO schools (id, name, slug, is_platform) VALUES ($1,'Platform','mig-1313-p',true)`,
+        `INSERT INTO schools (id, name, slug, is_platform) VALUES ($1,'Platform','mig-1313-p',true) ON CONFLICT DO NOTHING`,
         [platformId],
       );
     }
@@ -98,5 +98,37 @@ describe('DowngradeTenantLocalSuperAdmin1792500000000 (integration)', () => {
     await migration.down(ds.createQueryRunner());
     expect((await row(lone)).role).toBe('SUPER_ADMIN');
     expect((await row(bothSuper)).deleted_at).toBeNull();
+  });
+  it('cuts off the sessions of the people it changes, and only theirs (Rule 8)', async () => {
+    const changed = await mkUser();
+    await member(changed, schoolId, 'SUPER_ADMIN');
+    const untouched = await mkUser();
+    await member(untouched, schoolId, 'ADMIN');
+    const before = new Date();
+
+    await migration.up(ds.createQueryRunner());
+
+    const cutoff = async (id: string) =>
+      (await ds.query(`SELECT tokens_valid_after AS t FROM users WHERE id = $1`, [id]))[0].t;
+    expect(new Date(await cutoff(changed)).getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(await cutoff(untouched)).toBeNull();
+  });
+
+  it('up, down, revoke, up, down does not restore the revoked row', async () => {
+    const userId = await mkUser();
+    const id = await member(userId, schoolId, 'SUPER_ADMIN');
+
+    await migration.up(ds.createQueryRunner());
+    await migration.down(ds.createQueryRunner());
+    expect((await row(id)).role).toBe('SUPER_ADMIN');
+
+    // An operator revokes the restored membership, then the migration is applied again.
+    await ds.query(`UPDATE user_tenants SET deleted_at = now() WHERE id = $1`, [id]);
+    await migration.up(ds.createQueryRunner());
+    await migration.down(ds.createQueryRunner());
+
+    const after = await row(id);
+    expect(after.deleted_at).not.toBeNull();
+    expect(after.role).toBe('SUPER_ADMIN');
   });
 });
