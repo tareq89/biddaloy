@@ -55,6 +55,9 @@ function DashboardPending() {
 function DashboardError({ error }: { error: unknown }) {
   const { t } = useTranslation('dashboard');
   const router = useRouter();
+  // A suspended or trial-ended school has its own screen: the router's default error component.
+  if ((error as { details?: { code?: string } } | null)?.details?.code === 'TENANT_SUSPENDED')
+    throw error;
   if (error instanceof ApiError && error.statusCode === 403) return <AccessDeniedState />;
   return (
     <ErrorState
