@@ -74,7 +74,7 @@
     "waitingTitle": "Waiting for confirmation",
     "waitingBody": "We are waiting for bKash to answer. This page updates by itself. If money was taken, do not worry: the bills show paid once it is confirmed.",
     "failedTitle": "Payment not done",
-    "failedBody": "Your money was not taken. Try again, or submit payment proof if you already paid.",
+    "failedBody": "This payment did not complete. Your money may still have been taken, so do not pay again until the school confirms. If you already paid, submit payment proof.",
     "tryAgain": "Try again",
     "submitProof": "Submit payment proof",
     "backToFees": "Back to fees"

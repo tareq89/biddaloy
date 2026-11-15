@@ -27,7 +27,7 @@ interface Row {
   amount: string;
   provider_payment_id: string | null;
   submitted_by_user_id: string;
-  created_at: Date;
+  created_at: string; // ::text, keeps microseconds for the keyset cursor
 }
 
 /**
@@ -82,7 +82,9 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
           GROUP BY tenant_id`,
         [new Date(Date.now() - MAX_AGE_MS)],
       );
+    const active = new Set((await this.schools.findAllActive()).map((x) => x.id));
     for (const { tenant_id, live, stale } of tenants) {
+      if (!active.has(tenant_id)) continue; // TEN-06: a suspended school gets no background work
       if (stale !== (this.staleLogged.get(tenant_id) ?? 0)) {
         this.staleLogged.set(tenant_id, stale);
         if (stale > 0) {
@@ -127,20 +129,29 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
     };
     const now = Date.now();
     const cutoff = new Date(now - MAX_AGE_MS);
-    const rows: Row[] = await this.dataSource.query(
-      `SELECT id, status, amount, provider_payment_id, submitted_by_user_id, created_at
-         FROM payment_submissions
-        WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND created_at > $2
-          AND (status = 'PENDING' OR (status IN ('EXPIRED', 'CANCELLED') AND provider_payment_id IS NOT NULL))
-        ORDER BY (status = 'PENDING') DESC, created_at DESC LIMIT $3`, // PENDING first, newest first: stuck old rows must not starve fresh lost callbacks
-      [tenantId, cutoff, BATCH],
-    );
-    for (const row of rows) {
-      try {
-        await this.row(tenantId, row, creds, now);
-      } catch {
-        this.logger.warn(`online reconcile failed for submission ${row.id}`);
+    // Keyset pages: rows left PENDING after a query must not hide older eligible ones.
+    let cursor: { at: string; id: string } | null = null;
+    for (;;) {
+      const rows: Row[] = await this.dataSource.query(
+        `SELECT id, status, amount, provider_payment_id, submitted_by_user_id, created_at::text AS created_at
+           FROM payment_submissions
+          WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND created_at > $2
+            AND (environment = $3 OR provider_payment_id IS NULL)
+            AND (status = 'PENDING' OR (status IN ('EXPIRED', 'CANCELLED') AND provider_payment_id IS NOT NULL))
+            AND ($4::timestamptz IS NULL OR (created_at, id) < ($4::timestamptz, $5::uuid))
+          ORDER BY created_at DESC, id DESC LIMIT $6`,
+        [tenantId, cutoff, creds.environment, cursor?.at ?? null, cursor?.id ?? null, BATCH],
+      );
+      for (const row of rows) {
+        try {
+          await this.row(tenantId, row, creds, now);
+        } catch {
+          this.logger.warn(`online reconcile failed for submission ${row.id}`);
+        }
       }
+      if (rows.length < BATCH) return;
+      const last = rows[rows.length - 1];
+      cursor = { at: String(last.created_at), id: last.id };
     }
   }
 
@@ -211,11 +222,12 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
     reason: string,
   ): Promise<void> {
     const changed = await this.dataSource.transaction(async (m) => {
-      const upd: unknown[] = await m.query(
+      // TypeORM's pg UPDATE returns [rows, affectedCount]
+      const [upd] = (await m.query(
         `UPDATE payment_submissions SET status = $1, updated_at = now()
           WHERE id = $2 AND tenant_id = $3 AND status = 'PENDING' RETURNING id`,
         [to, row.id, tenantId],
-      );
+      )) as [unknown[], number];
       if (upd.length === 0) return false; // a late callback won
       await m.query(
         `INSERT INTO payment_submission_events

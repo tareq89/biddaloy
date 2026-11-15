@@ -115,7 +115,8 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
   const today = tenantTodayIso(config, new Date());
   const onlineOn = options?.onlineEnabled === true;
   const proofOn = options?.proofEnabled === true && methods.length > 0;
-  const mode = how ?? (onlineOn ? 'bkash' : 'proof');
+  const mode = how === 'bkash' && onlineOn ? 'bkash' : how === 'proof' && proofOn ? 'proof' : onlineOn ? 'bkash' : 'proof';
+  const modeLocked = start.isPending || submit.isPending;
 
   function onPayBkash() {
     setBkashError(undefined);
@@ -290,6 +291,7 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
                 labelledBy="pay-how"
                 value={mode}
                 onValueChange={(v) => {
+                  if (modeLocked) return;
                   setHow(v === 'bkash' ? 'bkash' : 'proof');
                   setErrors({});
                 }}

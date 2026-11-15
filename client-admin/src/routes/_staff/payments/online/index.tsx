@@ -32,6 +32,7 @@ import { UnmatchedTab } from './-unmatched-tab';
  */
 const searchSchema = z.object({
   tab: z.enum(['waiting', 'online', 'unmatched']).optional().catch(undefined),
+  status: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/payments/online/')({

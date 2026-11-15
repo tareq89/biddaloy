@@ -155,6 +155,7 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
     for (const k of BKASH_SECRETS) if (secrets[k] !== undefined) bkash[k] = secrets[k] as string;
     const sendBkash = Object.keys(bkash).length > 0;
     const onlineChanged = values.onlineEnabled !== form.formState.defaultValues?.onlineEnabled;
+    const submittedSecrets = secrets;
     updateSettings.mutate(
       {
         version: 1,
@@ -177,7 +178,10 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
       {
         onSuccess: () => {
           if (sendBkash) {
-            setSecrets({});
+            // keep anything typed while the save was in flight
+            setSecrets((prev) =>
+              Object.fromEntries(Object.entries(prev).filter(([k, v]) => submittedSecrets[k as BkashSecretKey] !== v)),
+            );
             setVoided(true);
             testBkash.reset();
           }

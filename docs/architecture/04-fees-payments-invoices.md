@@ -717,7 +717,7 @@ flowchart LR
 
 ### Online payments: callback and reconciler (#3984, #3986)
 
-bKash sends the guardian's browser back to us with `?paymentID=...&status=...`. That URL only names a payment; we never trust its `status`. If the browser never comes back (phone dies, tab closed), the reconciler catches the payment within 10 minutes.
+bKash sends the guardian's browser back to us with `?paymentID=...&status=...`. That URL only names a payment; we never trust its `status`. If the browser never comes back (phone dies, tab closed), the reconciler settles the payment within 10 minutes, but only when the bKash query reports `Completed`. A payment bKash still reports as `Initiated` is not executed by the reconciler; it stays `PENDING` until the 72-hour mark, then staff handle it.
 
 ```mermaid
 flowchart TD

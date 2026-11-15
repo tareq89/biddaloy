@@ -39,8 +39,6 @@ const ENTITIES = [
     StorageModule,
     StudentModule,
   ],
-  controllers: [ProofSubmissionsController, PortalPaymentController, ProofReviewController],
-  providers: [ProofSubmissionsService, ProofReviewService],
   controllers: [
     ProofSubmissionsController,
     PortalPaymentController,

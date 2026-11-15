@@ -460,11 +460,12 @@ export class OnlinePaymentsService {
     actor: string,
   ): Promise<void> {
     const moved = await this.ds.transaction(async (m) => {
-      const upd: unknown[] = await m.query(
+      // TypeORM's pg UPDATE returns [rows, affectedCount]
+      const [upd] = (await m.query(
         `UPDATE payment_submissions SET status = $1, updated_at = NOW()
           WHERE id = $2 AND tenant_id = $3 AND status = 'PENDING' RETURNING id`,
         [to, id, tenantId],
-      );
+      )) as [unknown[], number];
       if (upd.length === 0) return false;
       await this.event(m, tenantId, id, 'PENDING', to, actor, reason);
       return true;
