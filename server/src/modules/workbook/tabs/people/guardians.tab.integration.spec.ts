@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { TestingModule } from '@nestjs/testing';
 import { CommunicationMedium } from '@biddaloy/shared';
@@ -100,12 +100,17 @@ describe('guardiansTab (integration)', () => {
     };
   }
 
+  // Production calls `upsert` with the commit transaction's manager; the linked-login contact sync
+  // takes a pessimistic lock, which needs an open transaction.
+  const upsertInTx = <T>(fn: (m: EntityManager) => Promise<T>): Promise<T> =>
+    dataSource.transaction(fn);
+
   describe('upsert', () => {
     it('creates a new guardian, linked to a user', async () => {
       const user = await makeUser({ email: 'create@guardians-a.test' });
       const row = rowFor({ user_id: user.id, phone: '01711111111' });
 
-      const created = await guardiansTab.upsert(row, null, TENANT_A, dataSource.manager);
+      const created = await upsertInTx((m) => guardiansTab.upsert(row, null, TENANT_A, m));
 
       const saved = await guardianRepo.findOneByOrFail({ id: created.id });
       expect(saved.full_name).toBe('Karim Uddin');
@@ -117,7 +122,7 @@ describe('guardiansTab (integration)', () => {
       const user = await makeUser({ email: 'login@guardians-a.test', phone: '01733333333' });
       const row = rowFor({ user_id: user.id, phone: '01744444444', email: null });
 
-      const created = await guardiansTab.upsert(row, null, TENANT_A, dataSource.manager);
+      const created = await upsertInTx((m) => guardiansTab.upsert(row, null, TENANT_A, m));
 
       const saved = await guardianRepo.findOneByOrFail({ id: created.id });
       expect(saved.phone).toBe('01733333333');
@@ -127,7 +132,7 @@ describe('guardiansTab (integration)', () => {
     it('creates a new guardian with no linked user', async () => {
       const row = rowFor({ user_id: null, phone: '01722222222' });
 
-      const created = await guardiansTab.upsert(row, null, TENANT_A, dataSource.manager);
+      const created = await upsertInTx((m) => guardiansTab.upsert(row, null, TENANT_A, m));
 
       const saved = await guardianRepo.findOneByOrFail({ id: created.id });
       expect(saved.user_id).toBeNull();
@@ -135,18 +140,22 @@ describe('guardiansTab (integration)', () => {
     });
 
     it('updates only occupation for a single changed field', async () => {
-      const existing = await guardiansTab.upsert(
-        rowFor({ phone: '01733333333', occupation: 'Old job' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const existing = await upsertInTx((m) =>
+        guardiansTab.upsert(
+          rowFor({ phone: '01733333333', occupation: 'Old job' }),
+          null,
+          TENANT_A,
+          m,
+        ),
       );
 
-      const updated = await guardiansTab.upsert(
-        rowFor({ id: existing.id, phone: '01733333333', occupation: 'New job' }),
-        existing,
-        TENANT_A,
-        dataSource.manager,
+      const updated = await upsertInTx((m) =>
+        guardiansTab.upsert(
+          rowFor({ id: existing.id, phone: '01733333333', occupation: 'New job' }),
+          existing,
+          TENANT_A,
+          m,
+        ),
       );
 
       const saved = await guardianRepo.findOneByOrFail({ id: updated.id });
@@ -157,11 +166,8 @@ describe('guardiansTab (integration)', () => {
 
     it('revives a soft-deleted guardian holding the same user_id rather than inserting', async () => {
       const user = await makeUser({ email: 'revive@guardians-a.test' });
-      const created = await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01744444444' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const created = await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ user_id: user.id, phone: '01744444444' }), null, TENANT_A, m),
       );
       const loaded = await guardianRepo.findOneByOrFail({ id: created.id });
       await guardiansTab.remove(loaded, dataSource.manager);
@@ -174,11 +180,13 @@ describe('guardiansTab (integration)', () => {
 
       // Restore run again, with `existing: null` (as an importer would pass
       // for a row it doesn't already know about) — matched by user_id.
-      const revived = await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01744444444', occupation: 'Revived job' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const revived = await upsertInTx((m) =>
+        guardiansTab.upsert(
+          rowFor({ user_id: user.id, phone: '01744444444', occupation: 'Revived job' }),
+          null,
+          TENANT_A,
+          m,
+        ),
       );
 
       expect(revived.id).toBe(created.id);
@@ -191,18 +199,17 @@ describe('guardiansTab (integration)', () => {
 
     it('lets the same user hold a guardian row in each school (D11)', async () => {
       const user = await makeUser({ email: 'collide@guardians-a.test' });
-      await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01755555555' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ user_id: user.id, phone: '01755555555' }), null, TENANT_A, m),
       );
 
-      await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01766666666', user_key: user.email }),
-        null,
-        TENANT_B,
-        dataSource.manager,
+      await upsertInTx((m) =>
+        guardiansTab.upsert(
+          rowFor({ user_id: user.id, phone: '01766666666', user_key: user.email }),
+          null,
+          TENANT_B,
+          m,
+        ),
       );
 
       // One row per school, neither re-tenanted.
@@ -212,11 +219,8 @@ describe('guardiansTab (integration)', () => {
 
     it('prefers the live holder over a soft-deleted twin with the same user (no 23505)', async () => {
       const user = await makeUser({ email: 'twin@guardians-a.test' });
-      const old = await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01700000001' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const old = await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ user_id: user.id, phone: '01700000001' }), null, TENANT_A, m),
       );
       await guardiansTab.remove(
         await guardianRepo.findOneByOrFail({ id: old.id }),
@@ -233,11 +237,13 @@ describe('guardiansTab (integration)', () => {
         }),
       );
 
-      const again = await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01700000002', occupation: 'Kept' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const again = await upsertInTx((m) =>
+        guardiansTab.upsert(
+          rowFor({ user_id: user.id, phone: '01700000002', occupation: 'Kept' }),
+          null,
+          TENANT_A,
+          m,
+        ),
       );
 
       expect(again.id).toBe(live.id);
@@ -247,25 +253,21 @@ describe('guardiansTab (integration)', () => {
 
     it('refuses with a clear error when the user already holds a different live guardian', async () => {
       const user = await makeUser({ email: 'holder@guardians-a.test' });
-      await guardiansTab.upsert(
-        rowFor({ user_id: user.id, phone: '01700000003' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ user_id: user.id, phone: '01700000003' }), null, TENANT_A, m),
       );
-      const other = await guardiansTab.upsert(
-        rowFor({ phone: '01700000004' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const other = await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ phone: '01700000004' }), null, TENANT_A, m),
       );
 
       await expect(
-        guardiansTab.upsert(
-          rowFor({ user_id: user.id, phone: '01700000004' }),
-          other,
-          TENANT_A,
-          dataSource.manager,
+        upsertInTx((m) =>
+          guardiansTab.upsert(
+            rowFor({ user_id: user.id, phone: '01700000004' }),
+            other,
+            TENANT_A,
+            m,
+          ),
         ),
       ).rejects.toThrow(/already belongs to a different guardian record/);
     });
@@ -273,11 +275,8 @@ describe('guardiansTab (integration)', () => {
 
   describe('remove', () => {
     it('soft-deletes: deleted_at is set, and the row is absent from a default find', async () => {
-      const created = await guardiansTab.upsert(
-        rowFor({ phone: '01777777777' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const created = await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ phone: '01777777777' }), null, TENANT_A, m),
       );
       const loaded = await guardianRepo.findOneByOrFail({ id: created.id });
 
@@ -296,17 +295,11 @@ describe('guardiansTab (integration)', () => {
 
   describe('load', () => {
     it('never returns a tenant B guardian when loading tenant A', async () => {
-      const guardianA = await guardiansTab.upsert(
-        rowFor({ phone: '01788888888' }),
-        null,
-        TENANT_A,
-        dataSource.manager,
+      const guardianA = await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ phone: '01788888888' }), null, TENANT_A, m),
       );
-      await guardiansTab.upsert(
-        rowFor({ phone: '01799999999' }),
-        null,
-        TENANT_B,
-        dataSource.manager,
+      await upsertInTx((m) =>
+        guardiansTab.upsert(rowFor({ phone: '01799999999' }), null, TENANT_B, m),
       );
 
       const loaded = await guardiansTab.load(TENANT_A, dataSource.manager);
