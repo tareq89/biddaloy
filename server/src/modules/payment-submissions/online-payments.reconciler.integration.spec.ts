@@ -367,18 +367,44 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     expect((await row(id)).status).toBe('COMPLETED');
   });
 
-  it('batch cap: 101 pending rows, exactly 100 queried', async () => {
-    const id = await online();
+  it('paging: 101 rows left PENDING are all queried, none hidden behind the first page', async () => {
+    await online();
     await ds.query(
       `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, amount,
          provider, environment, provider_payment_id)
        SELECT $1,'ONLINE','PENDING',$2,10,'BKASH','SANDBOX','PID-'||g FROM generate_series(1,100) g`,
       [SEED_TENANT_ID, fix.parent.id],
     );
-    expect(id).toBeTruthy();
     query.mockResolvedValue({ transactionStatus: 'Initiated' });
     await rec.process();
-    expect(query).toHaveBeenCalledTimes(100);
+    expect(query).toHaveBeenCalledTimes(101);
+    expect(new Set(query.mock.calls.map((c) => c[0])).size).toBe(101);
+  });
+
+  it('a suspended school is skipped: no settings read, no bKash call', async () => {
+    await online();
+    await ds.query(`UPDATE schools SET status='SUSPENDED' WHERE id=$1`, [SEED_TENANT_ID]);
+    try {
+      await rec.process();
+    } finally {
+      await ds.query(`UPDATE schools SET status='ACTIVE' WHERE id=$1`, [SEED_TENANT_ID]);
+    }
+    expect(settings).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('rows of another bKash environment than the saved creds are not queried', async () => {
+    const mine = await online();
+    const other = await online();
+    await ds.query(`UPDATE payment_submissions SET environment='PRODUCTION' WHERE id=$1`, [other]);
+    query.mockResolvedValue({ transactionStatus: 'Initiated' });
+    await rec.process();
+    expect(query).toHaveBeenCalledTimes(1);
+    const [pid] = await ds.query(
+      `SELECT provider_payment_id p FROM payment_submissions WHERE id=$1`,
+      [mine],
+    );
+    expect(query.mock.calls[0][0]).toBe(pid.p);
   });
 
   it('amount or invoice mismatch is not settled', async () => {
