@@ -692,6 +692,10 @@ describe('smoke-post-deploy', () => {
       'GET /api/v1/billing/bkash/callback?paymentID=smoke-bogus-0&status=success': redirect(
         'https://x.test/billing?payment=error',
       ),
+      'GET /api/v1/online-payments/callback': json(400, {}),
+      'GET /api/v1/online-payments/callback?paymentID=smoke-bogus-0&status=success': redirect(
+        'https://x.test/pay?payment=error',
+      ),
       'POST /api/v1/billing/orders': json(401, {}),
       'POST /api/v1/sms-bundles/orders': json(401, {}),
       'POST /api/v1/billing/orders/preview': json(401, {}),
@@ -706,9 +710,9 @@ describe('smoke-post-deploy', () => {
       expect(r.lines).toContain('money: skipped (no SMOKE_MONEY)');
       expect(f.calls.filter((c) => c.includes('billing'))).toEqual([]);
     });
-    it('passes all four when the doors are closed', async () => {
+    it('passes all six when the doors are closed', async () => {
       const r = await go({});
-      expect(money(r).filter((l) => l.startsWith('PASS'))).toHaveLength(4);
+      expect(money(r).filter((l) => l.startsWith('PASS'))).toHaveLength(6);
       expect(r.failed).toBe(0);
     });
     it.each([
