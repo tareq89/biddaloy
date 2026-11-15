@@ -10,6 +10,6 @@ const searchSchema = z.object({ step: z.string().optional().catch(undefined) });
 
 export const Route = createFileRoute('/_staff/admissions/rounds/$roundId')({
   validateSearch: searchSchema,
-  loader: () => loadRouteNamespaces('admission-desk', 'common'),
+  loader: () => loadRouteNamespaces('admission-desk', 'admission-stages', 'common'),
   component: AdmissionDesk,
 });
