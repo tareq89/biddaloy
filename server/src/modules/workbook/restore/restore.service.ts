@@ -70,12 +70,7 @@ export class RestoreService {
   ): Promise<RequestRestoreResult> {
     // Peek, never consume — a refused or interrupted request must still
     // find the stage on a retry.
-    const staged = await this.staging.peek<StagedValidation>(
-      tenantId,
-      userId,
-      input.staging_id,
-      'workbook',
-    );
+    const staged = await this.staging.peek<StagedValidation>(tenantId, userId, input.staging_id);
     if (staged === null) {
       throw new NotFoundException({
         code: 'RESTORE_STAGE_NOT_FOUND',

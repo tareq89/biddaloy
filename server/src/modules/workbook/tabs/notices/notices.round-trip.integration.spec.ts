@@ -530,7 +530,7 @@ describe('notices workbook tabs (round trip)', () => {
       isEmptyTenant: false,
       errors: [],
       warnings: [],
-    } as any, undefined, 'workbook');
+    } as any);
     const snapshot = await jobs.save(
       jobs.create({
         tenant_id: T,

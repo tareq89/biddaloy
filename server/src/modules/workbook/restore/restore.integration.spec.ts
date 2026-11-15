@@ -231,7 +231,7 @@ describe('RestoreProcessor (integration)', () => {
       isEmptyTenant: false,
       errors: [],
       warnings: [],
-    }, undefined, 'workbook');
+    });
 
     const snapshot = await dataSource.getRepository(WorkbookJob).save(
       dataSource.getRepository(WorkbookJob).create({
@@ -438,7 +438,7 @@ describe('RestoreProcessor (integration)', () => {
       isEmptyTenant: false,
       errors: [],
       warnings: [],
-    }, undefined, 'workbook');
+    });
     const snapshot = await dataSource.getRepository(WorkbookJob).save(
       dataSource.getRepository(WorkbookJob).create({
         tenant_id: TENANT_A,
