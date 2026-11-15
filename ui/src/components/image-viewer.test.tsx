@@ -63,7 +63,7 @@ describe('ImageViewer', () => {
 
   it('keeps the open file when a refetch reorders files, and closes when it is gone', async () => {
     const user = userEvent.setup();
-    const [a, b] = files;
+    const [a, b] = files as [ImageViewerFile, ImageViewerFile, ImageViewerFile];
     const { rerender } = await setup();
     await user.click(screen.getByRole('button', { name: 'Receipt A' }));
     await screen.findByRole('dialog');

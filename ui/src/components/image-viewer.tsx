@@ -40,7 +40,9 @@ export function ImageViewer({ files, labels, className }: ImageViewerProps) {
   if (openUrl !== null && index < 0) setOpenUrl(null);
 
   const go = (i: number) => {
-    setOpenUrl(images[i].url);
+    const f = images[i];
+    if (!f) return;
+    setOpenUrl(f.url);
     setZoomed(false);
   };
 
