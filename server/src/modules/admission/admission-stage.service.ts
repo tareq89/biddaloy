@@ -4,7 +4,12 @@ import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionStage } from './entities/admission-stage.entity';
 import { AdmissionStageResult } from './entities/admission-stage-result.entity';
-import { CreateStageDto, UpdateStageDto } from './dto/stage.dto';
+import {
+  AdmissionStageResponseDto,
+  CreateStageDto,
+  toStageResponse,
+  UpdateStageDto,
+} from './dto/stage.dto';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
 import {
   admissionStageHasResults,
@@ -61,18 +66,23 @@ export class AdmissionStageService {
     return stage;
   }
 
-  async list(intakeId: string, tenantId: string): Promise<AdmissionStage[]> {
+  async list(intakeId: string, tenantId: string): Promise<AdmissionStageResponseDto[]> {
     const intake = await this.dataSource
       .getRepository(AdmissionIntake)
       .findOne({ where: { id: intakeId, tenant_id: tenantId, deleted_at: IsNull() } });
     if (!intake) throw new NotFoundException('Admission intake not found');
-    return this.stages.find({
+    const rows = await this.stages.find({
       where: { intake_id: intakeId, tenant_id: tenantId, deleted_at: IsNull() },
       order: { position: 'ASC' },
     });
+    return rows.map(toStageResponse);
   }
 
-  async create(intakeId: string, dto: CreateStageDto, tenantId: string): Promise<AdmissionStage> {
+  async create(
+    intakeId: string,
+    dto: CreateStageDto,
+    tenantId: string,
+  ): Promise<AdmissionStageResponseDto> {
     assertConfigSize(dto.config);
     return this.dataSource.transaction(async (manager) => {
       await this.lockIntake(manager, intakeId, tenantId);
@@ -85,7 +95,7 @@ export class AdmissionStageService {
           tenantId,
         })
         .getRawOne()) as { max: number };
-      return repo.save(
+      const saved = await repo.save(
         repo.create({
           tenant_id: tenantId,
           intake_id: intakeId,
@@ -95,6 +105,7 @@ export class AdmissionStageService {
           config: dto.config ?? {},
         }),
       );
+      return toStageResponse(saved);
     });
   }
 
@@ -103,7 +114,7 @@ export class AdmissionStageService {
     id: string,
     dto: UpdateStageDto,
     tenantId: string,
-  ): Promise<AdmissionStage> {
+  ): Promise<AdmissionStageResponseDto> {
     // PartialType re-allows null on every field; kind and config columns are NOT NULL.
     if (dto.kind === null || dto.config === null) {
       throw new BadRequestException('kind and config cannot be cleared');
@@ -124,10 +135,16 @@ export class AdmissionStageService {
       if (dto.config !== undefined) {
         // [#4184] The publish flag is owned by the publish route: keep it as stored.
         const { published_at: _drop, ...rest } = dto.config as Record<string, unknown>;
+        const { cutoff_committed_at: _drop2, ...rest2 } = rest;
         const keep = stage.config?.published_at;
-        stage.config = keep === undefined ? rest : { ...rest, published_at: keep };
+        const kept = stage.config?.cutoff_committed_at;
+        stage.config = {
+          ...rest2,
+          ...(keep === undefined ? {} : { published_at: keep }),
+          ...(kept === undefined ? {} : { cutoff_committed_at: kept }),
+        };
       }
-      return manager.getRepository(AdmissionStage).save(stage);
+      return toStageResponse(await manager.getRepository(AdmissionStage).save(stage));
     });
   }
 

@@ -13,7 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, ModuleKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -23,7 +23,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { IntakeService } from './intake.service';
 import { AdmissionStageService } from './admission-stage.service';
-import { CreateStageDto, UpdateStageDto } from './dto/stage.dto';
+import { AdmissionStageResponseDto, CreateStageDto, UpdateStageDto } from './dto/stage.dto';
 import { CreateIntakeDto } from './dto/create-intake.dto';
 import { UpdateIntakeDto } from './dto/update-intake.dto';
 
@@ -84,6 +84,7 @@ export class IntakeController {
 
   @Get(':id/stages')
   @ApiOperation({ summary: 'List the stages of a round, in order.' })
+  @ApiOkResponse({ type: [AdmissionStageResponseDto] })
   listStages(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -93,6 +94,7 @@ export class IntakeController {
 
   @Post(':id/stages')
   @ApiOperation({ summary: 'Add a stage at the end of a round.' })
+  @ApiCreatedResponse({ type: AdmissionStageResponseDto })
   createStage(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateStageDto,
@@ -103,6 +105,7 @@ export class IntakeController {
 
   @Patch(':id/stages/:stageId')
   @ApiOperation({ summary: 'Edit a stage of a round.' })
+  @ApiOkResponse({ type: AdmissionStageResponseDto })
   updateStage(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('stageId', ParseUUIDPipe) stageId: string,

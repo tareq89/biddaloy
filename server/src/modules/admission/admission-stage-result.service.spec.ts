@@ -40,6 +40,8 @@ function build(
         applicant_id: r.applicant_id,
         date_of_birth: r.dob ?? '2015-01-01',
         created_at: r.at ?? '2026-01-01T00:00:00.000000',
+        name: `Name ${r.applicant_id}`,
+        roll: null,
         recorded: r.recorded,
         score: r.score,
       }));
@@ -47,7 +49,8 @@ function build(
     getRepository: () => ({
       findOne: async () => ({ ...stage, config, kind: opts.kind ?? 'WRITTEN' }),
       create: (v: object) => ({ ...v }),
-      save: async (v: Record<string, unknown>[]) => saved.push(...v),
+      save: async (v: Record<string, unknown>[] | Record<string, unknown>) =>
+        Array.isArray(v) ? saved.push(...v) : v,
       createQueryBuilder: () => {
         const qb = { where: () => qb, getMany: async () => [] };
         return qb;
@@ -210,7 +213,10 @@ describe('cut-off preview and commit', () => {
     const { service, updates } = build(rows);
     const p = await service.preview('s1', 'TOP_N', 3, TENANT);
     const c = await service.commit('s1', { mode: 'TOP_N', value: 3 } as never, TENANT, actor);
-    expect(c).toEqual({ passed: p.passing_count, failed: p.failing_count });
+    expect(c).toMatchObject({ passed: p.passing_count, failed: p.failing_count });
+    expect(c.passing_rows).toEqual(p.passing_rows);
+    expect(c.failing_rows).toEqual(p.failing_rows);
+    expect(c.cutoff_committed_at).toEqual(expect.any(String));
     expect(passed(updates)).toEqual(new Set(p.passing));
   });
 

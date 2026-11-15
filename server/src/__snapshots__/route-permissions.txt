@@ -91,6 +91,7 @@ GET /admission/intakes/:id/call-list | AdmissionPublicationController | perm: AD
 GET /admission/intakes/:id/lists | AdmissionListController | perm: ADMISSION_REVIEW
 GET /admission/intakes/:id/publish/estimate | AdmissionPublicationController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
+GET /admission/stages/:id/results | AdmissionStageResultController | perm: ADMISSION_REVIEW
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 GET /applications/:id | ApplicationsController | perm: APPLICATION_SUBMIT
 GET /applications/:id/attachments/:attachmentId | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
