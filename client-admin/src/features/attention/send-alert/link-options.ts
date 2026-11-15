@@ -42,12 +42,22 @@ export const PORTAL_PAGES = [
 
 const PORTAL_ROLES: readonly string[] = ['PARENT', 'STUDENT'];
 
-/** Who the audience reaches, by app. An empty audience counts as staff. */
-export function audienceKind(audience: ManualAudience): AudienceKind {
+/**
+ * Who the audience reaches, by app. An empty audience counts as staff. A named person counts by
+ * their own role (`personRoles`, by user id); one whose role is unknown counts as staff.
+ */
+export function audienceKind(
+  audience: ManualAudience,
+  personRoles: Record<string, string> = {},
+): AudienceKind {
   const roles = audience.roles ?? [];
-  const staff = roles.some((r) => !PORTAL_ROLES.includes(r)) || (audience.userIds?.length ?? 0) > 0;
+  const named = (audience.userIds ?? []).map((id) => personRoles[id]);
+  const staff =
+    roles.some((r) => !PORTAL_ROLES.includes(r)) ||
+    named.some((r) => !r || !PORTAL_ROLES.includes(r));
   const portal =
     roles.some((r) => PORTAL_ROLES.includes(r)) ||
+    named.some((r) => !!r && PORTAL_ROLES.includes(r)) ||
     (audience.sectionIds?.length ?? 0) > 0 ||
     (audience.guardiansOfSectionIds?.length ?? 0) > 0;
   return staff && portal ? 'mixed' : portal ? 'portal' : 'staff';

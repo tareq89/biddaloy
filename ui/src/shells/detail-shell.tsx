@@ -122,11 +122,6 @@ export function DetailShell({
                 </TabsTrigger>
               ))}
             </TabsList>
-            {/* ponytail: fade always drawn; add a scroll-width check only if it ever covers a tab. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 end-0 w-12 bg-linear-to-l from-bg to-transparent rtl:bg-linear-to-r"
-            />
           </div>
           {tabs.map((tab) => {
             const visited = visitedTabs.has(tab.id);

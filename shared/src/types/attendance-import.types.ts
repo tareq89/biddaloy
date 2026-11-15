@@ -36,5 +36,7 @@ export interface AttendanceImportHistoryRow {
   after: AttendanceStatus | null;
   outcome: AttendanceImportRowOutcome;
   recordId: string | null;
+  /** The matched student, kept even when the row wrote nothing (no `recordId`). Absent on older uploads. */
+  studentId?: string;
   code?: AttendanceImportRowCode;
 }

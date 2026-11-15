@@ -56,7 +56,7 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
       {
         provide: SchoolsService,
         useValue: {
-          findAll: async () => tenantIds.map((id) => ({ id })),
+          findAllActive: async () => tenantIds.map((id) => ({ id })),
           getResolvedSettings: async () => ({
             region: { timezone: 'UTC' },
             homework: { notifyDefaulters },

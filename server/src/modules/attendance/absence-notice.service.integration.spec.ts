@@ -28,6 +28,7 @@ import { AttendanceRecord } from './entities/attendance-record.entity';
 import {
   AttendanceStatus,
   AttendanceSessionState,
+  AttendanceSource,
   CommunicationMedium,
   CommunicationStatus,
   EnrollmentStatus,
@@ -603,6 +604,40 @@ describe('AbsenceNoticeService (integration)', () => {
 
     expect(result.skipped_reason).toBe('not_finalized');
     expect(result.batch_id).toBeNull();
+  });
+
+  it('an empty sweep draft does not consume notified_at: a later teacher finalize still notifies', async () => {
+    const sessions = dataSource.getRepository(AttendanceSession);
+    await sessions.save(
+      sessions.create({
+        tenant_id: TENANT_ID,
+        section_id: sectionId,
+        date: TODAY(),
+        period_no: null,
+        source: AttendanceSource.SYSTEM,
+        state: AttendanceSessionState.DRAFT,
+      }),
+    );
+
+    const first = await absenceNoticeService.sendAbsenceNotices({
+      tenantId: TENANT_ID,
+      sectionId,
+      date: TODAY(),
+      initiatedByUserId: ADMIN_USER_ID,
+    });
+    expect(first.batch_id).toBeNull();
+    const stamped = await sessions.findOne({
+      where: { tenant_id: TENANT_ID, section_id: sectionId, date: TODAY(), period_no: IsNull() },
+    });
+    expect(stamped?.notified_at).toBeNull();
+
+    await attendanceService.putRegister(
+      putParams({ dto: basePutDto({ base_version: stamped!.version }) }),
+    );
+    const batch = await dataSource
+      .getRepository(ReminderBatch)
+      .findOne({ where: { tenant_id: TENANT_ID }, order: { created_at: 'DESC' } });
+    expect(batch?.total_recipients).toBe(1);
   });
 
   it("never lets tenant B's guardians appear in tenant A's batch", async () => {

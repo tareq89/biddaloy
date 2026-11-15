@@ -158,10 +158,10 @@ describe('high-school system-fed sections', () => {
     const data = { sections: [{ id: 's1', label: bt('প্রথম', 'One') }] };
     expect(await render(SiteSectionKey.ROUTINE, { data })).toContain('data-routine');
   });
-  it('admissions lists open intakes only when their link is a site path', async () => {
+  it('admissions lists open intakes only when their link is absolute (any scheme case)', async () => {
     const feed = [
-      { title: 'Open', link: '/bn/admissions/', deadline: '2026-12-15' },
-      { title: 'Elsewhere', link: 'https://other.example/' },
+      { title: 'Open', link: 'HTTPS://app.school.test/apply', deadline: '2026-12-15' },
+      { title: 'Elsewhere', link: '/bn/admissions/' },
     ];
     const html = await render(SiteSectionKey.ADMISSIONS, {
       data: { title: bt('ভর্তি', 'Admissions') },
