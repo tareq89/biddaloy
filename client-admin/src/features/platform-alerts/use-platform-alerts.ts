@@ -19,6 +19,8 @@ export function usePlatformAlerts(enabled: boolean) {
     refetchInterval: (query) => (forbidden(query) ? false : 30_000),
     refetchOnWindowFocus: (query) => !forbidden(query),
     refetchOnMount: (query) => !forbidden(query),
+    // A query that already failed (403) is not retried on mount; the 30 s poll covers other errors.
+    retryOnMount: false,
     refetchIntervalInBackground: false,
     retry: shouldRetryQuery,
     enabled,

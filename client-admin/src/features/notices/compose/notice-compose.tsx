@@ -519,6 +519,7 @@ export function NoticeCompose({ noticeId, onClose, onPublished }: NoticeComposeP
                 loading: people.isFetching,
                 error: people.isError ? t('audience.loadError') : undefined,
               }}
+              emptyTitle={t('audience.noMatch')}
               onPageChange={setMatchPage}
               onRetry={() => void people.refetch()}
               rowKey={(r) => r.key}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole } from '@biddaloy/shared';
@@ -115,7 +115,7 @@ describe('FamilyAccessService', () => {
       await build({ count: 0 });
       await expect(
         service.assertLinked(UserRole.PARENT, USER_ID, STUDENT_ID, TENANT_ID),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     // The message and the (unconventional) 401 are the contract
@@ -125,7 +125,7 @@ describe('FamilyAccessService', () => {
       await build({ count: 0 });
       await expect(
         service.assertLinked(UserRole.STUDENT, USER_ID, STUDENT_ID, TENANT_ID),
-      ).rejects.toThrow("You do not have access to this student's information");
+      ).rejects.toThrow("Student not found");
     });
 
     it('scopes the PARENT check to the tenant, the guardian linkage and the student id', async () => {
@@ -178,7 +178,7 @@ describe('FamilyAccessService', () => {
       await build({ raw: [] });
       await expect(
         service.assertLinkedToAny(UserRole.PARENT, USER_ID, [STUDENT_ID, SIBLING_ID], TENANT_ID),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('returns only the linked subset when the caller is linked to one of two siblings', async () => {
@@ -195,7 +195,7 @@ describe('FamilyAccessService', () => {
       await build({ raw: [{ id: STUDENT_ID }] });
       await expect(
         service.assertLinkedToAny(UserRole.PARENT, USER_ID, [], TENANT_ID),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

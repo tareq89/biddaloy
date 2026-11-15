@@ -52,6 +52,8 @@ export class SmsExpiryService {
   }> {
     // ponytail: one sweep of up to 1000 lots a day; a bigger backlog drains over the next days.
     const { lots, units } = await this.credits.expireDue(now, { limit: 1000 });
+    // [#2149] Sweep reservations stranded by a crash before their log rows were written.
+    await this.credits.releaseOrphanedReservations(now);
     const ordersClosed = await this.closeOrders(now);
     const { sent, failed } = await this.sendNotices(now);
     this.logger.log(

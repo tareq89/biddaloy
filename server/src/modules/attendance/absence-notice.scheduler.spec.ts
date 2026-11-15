@@ -1,10 +1,12 @@
+import { IsNull } from 'typeorm';
+import { isNoticeReady } from './absence-notice.service';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   AbsenceNoticeScheduler,
   ABSENCE_NOTICE_SWEEP_JOB_ID,
   ABSENCE_NOTICE_SWEEP_INTERVAL_MS,
 } from './absence-notice.scheduler';
-import { AttendanceSessionState, UserRole } from '@biddaloy/shared';
+import { AttendanceSessionState, AttendanceSource, UserRole } from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
 
@@ -38,7 +40,7 @@ describe('AbsenceNoticeScheduler', () => {
       findOne: vi.fn(async () => ({ user_id: 'admin-1', role: UserRole.ADMIN })),
     };
     schoolsService = {
-      findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
+      findAllActive: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
       getResolvedSettings: vi.fn(async () => tenantSettings()),
     };
     schoolCalendarService = { isNonWorkingDay: vi.fn(async () => false) };
@@ -110,21 +112,19 @@ describe('AbsenceNoticeScheduler', () => {
     expect(sessionRepo.find).not.toHaveBeenCalled();
   });
 
-  it('only sweeps FINALIZED sessions with notified_at IS NULL, never DRAFT ones', async () => {
-    // vitest can't fake Intl.DateTimeFormat's notion of "now" cheaply, so
-    // this asserts the query shape the scheduler issues rather than the
-    // wall-clock cut-off comparison, which the service-level integration
-    // test exercises against a real clock.
+  it('sweeps FINALIZED sessions and the device sweep\'s SYSTEM DRAFTs, both with notified_at IS NULL (D30)', async () => {
+    // Asserts the query shape; the wall-clock cut-off is covered at service level.
     await scheduler.process();
 
-    expect(sessionRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tenant_id: TENANT,
-          state: AttendanceSessionState.FINALIZED,
-        }),
-      }),
-    );
+    const { where } = sessionRepo.find.mock.calls[0][0] as { where: Record<string, unknown>[] };
+    expect(where).toHaveLength(2);
+    expect(where[0]).toMatchObject({ tenant_id: TENANT, state: AttendanceSessionState.FINALIZED });
+    expect(where[1]).toMatchObject({
+      tenant_id: TENANT,
+      state: AttendanceSessionState.DRAFT,
+      source: AttendanceSource.SYSTEM,
+      marked_by_user_id: IsNull(),
+    });
   });
 
   it('calls sendAbsenceNotices once per finalized, un-notified session found', async () => {
@@ -164,7 +164,7 @@ describe('AbsenceNoticeScheduler', () => {
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive.mockResolvedValue([
       { id: 'tenant-broken', name: 'Broken' },
       { id: TENANT, name: 'Green Valley School' },
     ]);
@@ -175,12 +175,14 @@ describe('AbsenceNoticeScheduler', () => {
     sessionRepo.find = vi.fn(async () => [{ id: 'sess-1', section_id: 'sec-1' }]);
 
     await expect(scheduler.process()).resolves.not.toThrow();
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('tenant-broken');
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith(TENANT);
     expect(absenceNoticeService.sendAbsenceNotices).toHaveBeenCalledTimes(1);
   });
 
   // [77.2.10] D9: attendance off for A -> A skipped (its settings are never even read), B still swept.
   it('skips a school with attendance off and still sweeps the next', async () => {
-    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
     moduleState.forTenant.mockImplementation(async (id: string) => ({
       platform: {},
       school: id === 'A' ? { attendance: { on: false } } : {},
@@ -191,12 +193,26 @@ describe('AbsenceNoticeScheduler', () => {
 
   // Fail closed: unreadable state skips that school and the sweep goes on.
   it('skips a school whose module state cannot be read and still sweeps the next', async () => {
-    schoolsService.findAll.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
+    schoolsService.findAllActive.mockResolvedValue([{ id: 'A' }, { id: 'B' }]);
     moduleState.forTenant.mockImplementation(async (id: string) => {
       if (id === 'A') throw new Error('db down');
       return { platform: {}, school: {} };
     });
     await expect(scheduler.process()).resolves.toBeUndefined();
     expect(schoolsService.getResolvedSettings.mock.calls.map((c: any[]) => c[0])).toEqual(['B']);
+  });
+});
+
+describe('isNoticeReady (D30)', () => {
+  const S = AttendanceSessionState;
+  const A = AttendanceSource;
+  it.each([
+    [S.FINALIZED, A.TEACHER, null, true],
+    [S.DRAFT, A.SYSTEM, null, true],
+    [S.DRAFT, A.SYSTEM, 'teacher-1', false], // teacher-saved draft that kept the SYSTEM source
+    [S.DRAFT, A.TEACHER, null, false],
+    [S.DRAFT, A.DEVICE, null, false],
+  ])('%s + %s (marked by %s) -> %s', (state, source, marked_by_user_id, expected) => {
+    expect(isNoticeReady({ state, source, marked_by_user_id })).toBe(expected);
   });
 });

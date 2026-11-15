@@ -317,11 +317,11 @@ describe('DetailShell', () => {
       expect(screen.getByRole('button', { name: 'More actions' }).className).toContain('md:hidden');
     });
 
-    it('renders the tab list as a scrolling line row, not a wrapping one', async () => {
+    it('renders the tab list as a wrapping line row, never a sideways scroller (320px reflow)', async () => {
       await renderInEnglish(<Controlled />);
       const list = screen.getByRole('tablist');
-      expect(list.className).toContain('overflow-x-auto');
-      expect(list.className).not.toContain('flex-wrap');
+      expect(list.className).toContain('flex-wrap');
+      expect(list.className).not.toContain('overflow-x-auto');
       expect(list.getAttribute('data-variant')).toBe('line');
     });
 

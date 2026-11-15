@@ -224,6 +224,38 @@ describe('SendAlertForm', () => {
     expect(screen.queryByRole('option', { name: 'Send an alert' })).toBeNull();
   });
 
+  it('[2192] named people are judged by their own role, not the sender', async () => {
+    const user = userEvent.setup();
+    server.use(
+      preview(1),
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'u-t',
+              full_name: 'Zahid Hasan',
+              email: 'z@x.test',
+              role: 'TEACHER',
+              status: 'ACTIVE',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+    );
+    renderForm();
+    await user.click(await screen.findByRole('checkbox', { name: 'Named people' }));
+    await user.type(await screen.findByRole('combobox', { name: 'Search by name or phone' }), 'Zahid');
+    await user.click(await screen.findByRole('option', { name: /Zahid Hasan/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Page to open (optional)' }));
+    expect(await screen.findByRole('option', { name: 'No page' })).toBeTruthy();
+    // an ADMIN sender could open it, a teacher cannot
+    expect(screen.queryByRole('option', { name: 'Send an alert' })).toBeNull();
+  });
+
   it('disables the link picker for a mixed audience', async () => {
     const user = userEvent.setup();
     server.use(preview(5));

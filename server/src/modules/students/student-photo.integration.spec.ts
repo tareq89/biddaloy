@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -207,7 +207,7 @@ describe('Student photos (integration)', () => {
     const user = { sub: PARENT_USER_ID } as any;
     await expect(controller.serve(mine.id, parentTenant, user, res())).resolves.toBeDefined();
     await expect(controller.serve(other.id, parentTenant, user, res())).rejects.toBeInstanceOf(
-      UnauthorizedException,
+      NotFoundException,
     );
   });
 

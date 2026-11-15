@@ -2109,13 +2109,13 @@ describe('workbook round trip (integration)', () => {
         .filter((e) => e.severity === 'error')
         .map((e) => `${e.tab}.${e.column}: ${e.message}`);
       expect(messages).toContain(
-        `promotion_runs.approved_by: Column "approved_by": no user "${operatorEmail}" was found.`,
+        `promotion_runs.approved_by: Column "approved_by": no user was found.`,
       );
       expect(messages).toContain(
-        `marks.entered_by: Column "entered_by": no user "${operatorEmail}" was found.`,
+        `marks.entered_by: Column "entered_by": no user was found.`,
       );
       expect(messages).toContain(
-        `mark_grids.submitted_by: Column "submitted_by": no user "${operatorEmail}" was found.`,
+        `mark_grids.submitted_by: Column "submitted_by": no user was found.`,
       );
     }
 

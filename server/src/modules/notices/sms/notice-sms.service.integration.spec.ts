@@ -207,6 +207,11 @@ describe('NoticeSmsService (integration)', () => {
     expect((await svc.approve(T, id, approver)).queued).toBe(1);
   });
 
+  it('the same number in two formats counts and sends once', async () => {
+    const id = await notice([await guardian('01744444445'), await guardian('+8801744444445')]);
+    expect((await svc.approve(T, id, approver)).queued).toBe(1);
+  });
+
   it('unticked people get nothing', async () => {
     const a = await guardian('01755555555');
     const b = await guardian('01766666666');
@@ -237,6 +242,45 @@ describe('NoticeSmsService (integration)', () => {
     add.mockClear();
     await expect(svc.approve(T, id, approver)).rejects.toBeInstanceOf(ConflictException);
     expect(add).not.toHaveBeenCalled();
+  });
+
+  it('an approve racing a decline: exactly one wins, the loser is 409, credit matches the winner', async () => {
+    await meter(10);
+    const id = await notice([await guardian('01711000041')]);
+    const before = await ledgerIds();
+    let entered!: () => void;
+    const inside = new Promise<void>((r) => (entered = r));
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    audit.mockImplementationOnce(async () => {
+      entered();
+      await gate;
+    });
+    try {
+      const approve = svc.approve(T, id, approver);
+      await inside;
+      const decline = svc.decline(T, id, approver);
+      await expect
+        .poll(async () => {
+          const rows = await ds.query(
+            `SELECT count(*)::int AS n FROM pg_stat_activity
+              WHERE datname = current_database() AND wait_event_type = 'Lock'
+                AND pid <> pg_backend_pid()`,
+          );
+          return rows[0].n;
+        })
+        .toBeGreaterThan(0);
+      open();
+      const [a, d] = await Promise.allSettled([approve, decline]);
+      expect(a).toEqual({ status: 'fulfilled', value: { status: 'APPROVED', queued: 1 } });
+      expect(d.status).toBe('rejected');
+      expect((d as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+    } finally {
+      open();
+    }
+    expect(add).toHaveBeenCalledTimes(1);
+    const reserves = (await newLedger(before)).filter((l: any) => l.kind === 'RESERVE');
+    expect(reserves).toHaveLength(1);
   });
 
   it('decline sends nothing and a later approve is 409', async () => {
@@ -449,9 +493,9 @@ describe('NoticeSmsService (integration)', () => {
     // writes the first recipient's hash for real (with the approve's own manager), then dies
     const links = vi
       .spyOn(service, 'createPersonalLinks')
-      .mockImplementation(async (noticeId, ids, em) => {
+      .mockImplementation(async (noticeId, ids, tenantId, em) => {
         expect(em).toBeDefined();
-        await real(noticeId, ids.slice(0, 1), em);
+        await real(noticeId, ids.slice(0, 1), tenantId, em);
         insideTx = (await em!.query(countLinked, [noticeId]))[0].c;
         outsideTx = (await ds.query(countLinked, [noticeId]))[0].c;
         throw new Error('link write down');
@@ -550,6 +594,12 @@ describe('NoticeSmsService (integration)', () => {
     const res = await svc.approve(T, id, approver);
     // the answer counts only the SMS really queued, not the one whose enqueue failed
     expect(res).toEqual({ status: 'APPROVED', queued: 1 });
+    // [3482] the audit says what really reached the queue, next to the planned count
+    expect(audit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        new_values: { event: 'SMS_ENQUEUE_SHORT', planned: 2, queued: 1 },
+      }),
+    );
     const failedId = add.mock.calls[0][1].logId;
     const okId = add.mock.calls[1][1].logId;
     const s = add.mock.calls[0][1].segments;

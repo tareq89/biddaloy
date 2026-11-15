@@ -24,6 +24,7 @@ import { Printer } from 'lucide-react';
 import * as React from 'react';
 
 import '../../-performance-print.css';
+import { usePrintPageRule } from '../../../../use-print-page-rule';
 
 const ALL = 'all';
 
@@ -34,6 +35,7 @@ export interface PerformanceTabProps {
 }
 
 export function PerformanceTab({ classId, className, academicYearId }: PerformanceTabProps) {
+  usePrintPageRule('margin: 10mm;');
   const { t } = useTranslation('performance');
   const { t: tCommon } = useTranslation('common');
   const { numerals } = useRegionConfig();

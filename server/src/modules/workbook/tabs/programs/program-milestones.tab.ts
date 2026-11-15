@@ -96,7 +96,7 @@ export const programMilestonesTab: TabSpec<ProgramMilestone, ProgramMilestoneRow
         tab: 'program_milestones',
         row: rowNo,
         column: 'program',
-        message: `Column "program": no program named "${programKey}" was found.`,
+        message: `Column "program": no program was found.`,
         severity: 'error',
         value: programKey,
       });

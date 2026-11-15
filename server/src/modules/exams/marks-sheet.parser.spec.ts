@@ -227,6 +227,18 @@ describe('parseMarksSheet', () => {
     });
   });
 
+  it('does not refuse a sheet whose far-down rows only carry formatting (#3590)', async () => {
+    const buf = await makeFilledSheet(makeGrid(3), meta, [
+      { roll: 1, component: 'Written', cell: 1 },
+    ]);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf as never);
+    wb.worksheets[0].getRow(5000).getCell(1).style = { font: { bold: true } };
+    const styled = Buffer.from(await wb.xlsx.writeBuffer());
+    const parsed = await parseMarksSheet(styled, 'm.xlsx');
+    expect(parsed.rows).toHaveLength(3);
+  });
+
   it('reads a component whose name starts with = back by its real name', async () => {
     const grid = makeGrid();
     grid.components[0].name = '=Written';

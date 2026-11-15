@@ -120,7 +120,7 @@ export const printTemplatesTab: TabSpec<PrintTemplate, PrintTemplateRow> = {
         tab: 'print_templates',
         row: rowNo,
         column: 'draft',
-        message: `Column "draft": no asset with the key "${key}" was found.`,
+        message: `Column "draft": no asset was found.`,
         severity: 'error',
         value: key,
       });

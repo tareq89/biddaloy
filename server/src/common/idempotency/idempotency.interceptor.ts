@@ -38,7 +38,9 @@ import { TENANT_STATUS_REDIS } from '../../modules/schools/tenant-status.service
  * `website/gallery/albums` (create) and `website/gallery/albums/:id/photos` (upload) ([40.6.03]),
  * `academic-years/:id/next` (create the next year, [69.2.02]) and `PATCH promotions/:id/groups`
  * (assign promotion groups; a double click would write the same set twice) and
- * `institution-kinds/:id/apply` ([77.4.1]; overwrites a school's switches and words).
+ * `institution-kinds/:id/apply` ([77.4.1]; overwrites a school's switches and words), and the notice
+ * routes `POST notices` (create), `notices/:id/copy`, `notices/:id/publish`, `notices/:id/sms/request`,
+ * `notices/:id/sms/approve` (reserves credit) and `notices/:id/sms/decline` ([#3444]).
  *
  * Exempt, with the reason (D23):
  * - `POST exams/:examId/results/sms`: deduped by the unique `reference_key` (result-sms.service.ts).

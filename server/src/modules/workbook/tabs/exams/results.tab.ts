@@ -212,7 +212,7 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
           tab: 'results',
           row: rowNo,
           column: 'exam',
-          message: `Column "exam": no exam "${examKey}" was found.`,
+          message: `Column "exam": no exam was found.`,
           severity: 'error',
           value: examKey,
         });
@@ -228,7 +228,7 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
           tab: 'results',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student "${studentKey}" was found.`,
+          message: `Column "student": no student was found.`,
           severity: 'error',
           value: studentKey,
         });
@@ -244,7 +244,7 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
           tab: 'results',
           row: rowNo,
           column: 'grading_scale',
-          message: `Column "grading_scale": no grading scale "${gradingScaleKey}" was found.`,
+          message: `Column "grading_scale": no grading scale was found.`,
           severity: 'error',
           value: gradingScaleKey,
         });
@@ -262,7 +262,7 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
           tab: 'results',
           row: rowNo,
           column: 'section',
-          message: `Column "section": no section with the key "${sectionKey}" was found.`,
+          message: `Column "section": no section was found.`,
           severity: 'error',
           value: sectionKey,
         });

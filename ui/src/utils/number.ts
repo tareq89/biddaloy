@@ -12,14 +12,14 @@ import { groupDigits } from './grouping';
 export function formatNumber(
   value: number | null | undefined,
   config: RegionConfig,
-  options: { decimals?: number; percent?: boolean } = {},
+  options: { decimals?: number; percent?: boolean; grouping?: boolean } = {},
 ): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  const { decimals = 0, percent = false } = options;
+  const { decimals = 0, percent = false, grouping = true } = options;
   const negative = value < 0;
   const fixed = Math.abs(value).toFixed(decimals);
   const [integerPart = '0', fractionPart = ''] = fixed.split('.');
-  const grouped = groupDigits(integerPart, 'thousand');
+  const grouped = grouping ? groupDigits(integerPart, 'thousand') : integerPart;
   const plain = fractionPart ? `${grouped}.${fractionPart}` : grouped;
   const numeral = renderDigits(plain, config.numerals);
   const signed = negative ? `-${numeral}` : numeral;

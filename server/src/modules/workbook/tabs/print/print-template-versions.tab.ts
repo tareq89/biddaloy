@@ -121,7 +121,7 @@ export const printTemplateVersionsTab: TabSpec<PrintTemplateVersion, PrintTempla
         tab: 'print_template_versions',
         row: rowNo,
         column: 'template',
-        message: `Column "template": no template with the key "${templateKey}" was found.`,
+        message: `Column "template": no template was found.`,
         severity: 'error',
         value: templateKey,
       });
@@ -134,7 +134,7 @@ export const printTemplateVersionsTab: TabSpec<PrintTemplateVersion, PrintTempla
         tab: 'print_template_versions',
         row: rowNo,
         column: 'definition',
-        message: `Column "definition": no asset with the key "${key}" was found.`,
+        message: `Column "definition": no asset was found.`,
         severity: 'error',
         value: key,
       });

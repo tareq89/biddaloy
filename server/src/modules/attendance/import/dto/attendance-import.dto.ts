@@ -88,6 +88,7 @@ export class CommitAttendanceImportResultDto {
 export class AttendanceImportSummaryDto {
   @ApiProperty() id: string;
   @ApiProperty({ type: String, nullable: true }) uploaded_by_user_id: string | null;
+  @ApiProperty({ type: String, nullable: true }) uploaded_by_name: string | null;
   @ApiProperty() file_name: string;
   @ApiProperty({ type: ImportCountsDto }) counts: ImportCountsDto;
   @ApiProperty({ type: String, nullable: true }) supersedes_import_id: string | null;
@@ -105,7 +106,15 @@ export class AttendanceImportListDto {
 export class AttendanceImportDetailRowDto {
   @ApiProperty() date: string;
   @ApiProperty() section_id: string;
+  @ApiProperty({ type: String, nullable: true }) class_name: string | null;
+  @ApiProperty({ type: String, nullable: true }) section_name: string | null;
   @ApiProperty() roll: number;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Null for a row that could not be matched to a student',
+  })
+  student_name: string | null;
   @ApiProperty({ enum: AttendanceStatus, nullable: true }) before: AttendanceStatus | null;
   @ApiProperty({ enum: AttendanceStatus, nullable: true }) after: AttendanceStatus | null;
   @ApiProperty({ enum: ['NEW', 'CHANGED', 'UNCHANGED', 'ERROR'] }) outcome: string;

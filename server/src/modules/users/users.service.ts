@@ -356,7 +356,7 @@ export class UserService {
         // employee_id (mirrors the [36.1.1] migration backfill, which did
         // the same for pre-existing teachers) — creating one here too would
         // hit the per-school `UQ_staff_profiles_tenant_user` key.
-        // COMMITTEE is deliberately absent (D16): not an employee, so not in
+        // COMMITTEE is deliberately absent (D17): not an employee, so not in
         // EMPLOYEE_ROLES. SUPER_ADMIN is refused above (#731).
         if (dto.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(dto.role)) {
           await this.staffProfilesService.createFor(savedUser.id, tenantId, {}, manager);
@@ -649,7 +649,7 @@ export class UserService {
     const changes: { email?: string | null; phone?: string | null } = {};
     if (dto.email !== undefined) {
       const email = dto.email ? normalizeEmail(dto.email) : null;
-      if (email !== (current.email ?? null)) changes.email = email;
+      if (email !== (current.email ? normalizeEmail(current.email) : null)) changes.email = email;
     }
     if (dto.phone !== undefined) {
       const phone = dto.phone ? normalizeLoginIdentifier(dto.phone) : null;
@@ -735,7 +735,9 @@ export class UserService {
     // One login serves every school the person belongs to, so a school may not
     // retarget it: that would let this school's admin reset the password and
     // sign in as the person in the other school. [68.1.#2209, TEN-01]
-    const emailChanges = dto.email !== undefined && (email ?? null) !== (current.email ?? null);
+    const emailChanges =
+      dto.email !== undefined &&
+      (email ?? null) !== (current.email ? normalizeEmail(current.email) : null);
     const phoneChanges = dto.phone !== undefined && (phone ?? null) !== storedPhone;
     if (
       (emailChanges || phoneChanges) &&

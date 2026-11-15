@@ -131,7 +131,7 @@ export const studentSubjectChoicesTab: TabSpec<StudentSubjectChoice, StudentSubj
           tab: 'student_subject_choices',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student "${studentKey}" was found.`,
+          message: `Column "student": no student was found.`,
           severity: 'error',
           value: studentKey,
         });
@@ -147,7 +147,7 @@ export const studentSubjectChoicesTab: TabSpec<StudentSubjectChoice, StudentSubj
           tab: 'student_subject_choices',
           row: rowNo,
           column: 'class_subject',
-          message: `Column "class_subject": no class subject "${classSubjectKey}" was found.`,
+          message: `Column "class_subject": no class subject was found.`,
           severity: 'error',
           value: classSubjectKey,
         });

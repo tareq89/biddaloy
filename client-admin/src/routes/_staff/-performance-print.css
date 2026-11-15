@@ -42,8 +42,4 @@
   #performance-print-area [role='region'] > * {
     width: auto;
   }
-
-  @page {
-    margin: 10mm;
-  }
 }

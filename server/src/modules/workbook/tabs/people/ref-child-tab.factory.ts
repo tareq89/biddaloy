@@ -179,7 +179,7 @@ export function createRefChildTab<E extends { id: string }>(
             tab: name,
             row: rowNo,
             column: r.key,
-            message: `Column "${r.key}": no ${r.tab.name} row with the key "${key}" was found.`,
+            message: `Column "${r.key}": no ${r.tab.name} row was found.`,
             severity: 'error',
             value: key,
           });

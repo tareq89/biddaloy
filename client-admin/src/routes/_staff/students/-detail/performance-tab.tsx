@@ -21,6 +21,7 @@ import { renderDigits } from '@biddaloy/ui/utils';
 import { Printer } from 'lucide-react';
 
 import '../../-performance-print.css';
+import { usePrintPageRule } from '../../../../use-print-page-rule';
 
 export interface PerformanceTabProps {
   studentId: string;
@@ -28,6 +29,7 @@ export interface PerformanceTabProps {
 }
 
 export function PerformanceTab({ studentId, subjectName }: PerformanceTabProps) {
+  usePrintPageRule('margin: 10mm;');
   const { t } = useTranslation('performance');
   const years = useAcademicYears({ limit: 100 });
 

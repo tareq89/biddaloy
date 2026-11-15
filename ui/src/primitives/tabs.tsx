@@ -25,7 +25,7 @@ const tabsListVariants = cva(
     variants: {
       variant: {
         default: 'bg-muted',
-        line: 'flex w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border-subtle bg-transparent p-0 [scrollbar-width:none] group-data-[orientation=horizontal]/tabs:h-auto',
+        line: 'flex w-full justify-start flex-wrap gap-0 rounded-none border-b border-border-subtle bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto',
       },
     },
     defaultVariants: {

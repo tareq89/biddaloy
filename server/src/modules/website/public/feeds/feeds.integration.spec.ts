@@ -10,6 +10,7 @@ import { SchoolsService } from '../../../schools/schools.service';
 import { SiteCacheService } from '../site-cache.service';
 import { buildPage, withFeeds } from '../page-read-model';
 import type { SiteConfig } from '@biddaloy/shared';
+import { ConfigService } from '@nestjs/config';
 import { AdmissionsFeed } from './admissions.feed';
 import { ClassSectionsFeed } from './class-sections.feed';
 import { BlogFeed } from './blog.feed';
@@ -131,6 +132,7 @@ describe('Site feeds (integration)', () => {
       BlogFeed,
       FeesFeed,
       AdmissionsFeed,
+      { provide: ConfigService, useValue: new ConfigService({}) },
       ClassSectionsFeed,
       ResultsFeed,
       WebsiteResultsService,
@@ -376,7 +378,10 @@ describe('Site feeds (integration)', () => {
     expect(fees).toEqual([expect.objectContaining({ name: 'a tuition', amount: 500.5 })]);
     const admissions = await registry.cached('admissions', A);
     expect(admissions).toEqual([
-      expect.objectContaining({ title: 'a open intake', link: `/admission/feed-a-${tag}` }),
+      expect.objectContaining({
+        title: 'a open intake',
+        link: expect.stringMatching(new RegExp(`^https?://[^/]+/admission/feed-a-${tag}$`)),
+      }),
     ]);
   });
 

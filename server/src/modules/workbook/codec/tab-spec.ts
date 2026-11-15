@@ -59,6 +59,25 @@ export interface RowError {
   value?: string;
 }
 
+/**
+ * [#2129] Thrown by the strict `ExportContext.keyOf` when a row points at an entity its tab does
+ * not export (a SUPER_ADMIN, a soft-deleted student). The export leaves that one row out with a
+ * warning instead of failing the school's whole backup.
+ */
+export class UnresolvedRefError extends Error {
+  constructor(
+    readonly tab: string,
+    readonly id: string,
+  ) {
+    super(
+      `ExportContext.keyOf: no natural key found for "${tab}" id "${id}" — either ` +
+        `that tab hasn't been exported yet (registry order bug) or the id doesn't ` +
+        `belong to this tenant.`,
+    );
+    this.name = 'UnresolvedRefError';
+  }
+}
+
 /** Resolves a foreign entity id to the natural key written into the cell. */
 export interface ExportContext {
   keyOf(tab: string, id: string): string;

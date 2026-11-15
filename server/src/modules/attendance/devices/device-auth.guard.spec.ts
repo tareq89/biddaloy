@@ -19,16 +19,35 @@ function tenantStatus(active = true) {
   return { isActive: vi.fn().mockResolvedValue(active) } as any;
 }
 
+function modules(attendanceOn = true) {
+  return {
+    forTenant: vi.fn().mockResolvedValue({
+      platform: {},
+      school: attendanceOn ? {} : { attendance: { on: false } },
+    }),
+  } as any;
+}
+
 describe('DeviceAuthGuard', () => {
+  it('refuses a device with one fixed sentence when the Attendance module is off (#4120)', async () => {
+    const device = { id: 'd', tenant_id: 't1', status: AttendanceDeviceStatus.ACTIVE };
+    const guard = new DeviceAuthGuard(fakeRepo(device), tenantStatus(), modules(false));
+    const err = await guard
+      .canActivate(fakeContext({ 'x-device-key': 'bd_dev_00000000000000000000000000000000' }))
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ForbiddenException);
+    expect(err.message).not.toMatch(/attendance|module/i);
+  });
+
   it('rejects with "Device key required" when the header is missing', async () => {
-    const guard = new DeviceAuthGuard(fakeRepo(null), tenantStatus());
+    const guard = new DeviceAuthGuard(fakeRepo(null), tenantStatus(), modules());
     await expect(guard.canActivate(fakeContext({}))).rejects.toThrow(
       new UnauthorizedException('Device key required'),
     );
   });
 
   it('rejects with "Device key required" when the header is too short', async () => {
-    const guard = new DeviceAuthGuard(fakeRepo(null), tenantStatus());
+    const guard = new DeviceAuthGuard(fakeRepo(null), tenantStatus(), modules());
     await expect(guard.canActivate(fakeContext({ 'x-device-key': 'short' }))).rejects.toThrow(
       new UnauthorizedException('Device key required'),
     );
@@ -36,7 +55,7 @@ describe('DeviceAuthGuard', () => {
 
   it('rejects an unknown key with "Invalid device key" — same message as a missing device', async () => {
     const repo = fakeRepo(null);
-    const guard = new DeviceAuthGuard(repo, tenantStatus());
+    const guard = new DeviceAuthGuard(repo, tenantStatus(), modules());
     const rawKey = 'bd_dev_00000000000000000000000000000000';
 
     await expect(guard.canActivate(fakeContext({ 'x-device-key': rawKey }))).rejects.toThrow(
@@ -53,7 +72,7 @@ describe('DeviceAuthGuard', () => {
     // guard cannot distinguish "unknown" from "revoked", which is the
     // point (no oracle for which keys exist).
     const repo = fakeRepo(null);
-    const guard = new DeviceAuthGuard(repo, tenantStatus());
+    const guard = new DeviceAuthGuard(repo, tenantStatus(), modules());
 
     await expect(
       guard.canActivate(fakeContext({ 'x-device-key': 'bd_dev_revoked_key_00000000000000' })),
@@ -67,7 +86,7 @@ describe('DeviceAuthGuard', () => {
       status: AttendanceDeviceStatus.ACTIVE,
     };
     const repo = fakeRepo(device);
-    const guard = new DeviceAuthGuard(repo, tenantStatus());
+    const guard = new DeviceAuthGuard(repo, tenantStatus(), modules());
     const request: any = {
       headers: {
         'x-device-key': 'bd_dev_valid_key_000000000000000',
@@ -90,7 +109,7 @@ describe('DeviceAuthGuard', () => {
       status: AttendanceDeviceStatus.ACTIVE,
     };
     const repo = fakeRepo(device);
-    const guard = new DeviceAuthGuard(repo, tenantStatus());
+    const guard = new DeviceAuthGuard(repo, tenantStatus(), modules());
     const request: any = { headers: { 'x-device-key': 'bd_dev_valid_key_000000000000000' } };
     const context = { switchToHttp: () => ({ getRequest: () => request }) } as any;
 
@@ -104,7 +123,7 @@ describe('DeviceAuthGuard', () => {
   it('[AUTH-08] refuses an active device of a suspended tenant with 403 TENANT_SUSPENDED', async () => {
     const device = { id: 'd1', tenant_id: 'tenant-1', status: AttendanceDeviceStatus.ACTIVE };
     const status = tenantStatus(false);
-    const guard = new DeviceAuthGuard(fakeRepo(device), status);
+    const guard = new DeviceAuthGuard(fakeRepo(device), status, modules());
     const request: any = { headers: { 'x-device-key': 'bd_dev_valid_key_000000000000000' } };
     const context = { switchToHttp: () => ({ getRequest: () => request }) } as any;
 

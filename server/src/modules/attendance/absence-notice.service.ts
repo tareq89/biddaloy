@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   AttendanceSessionState,
+  AttendanceSource,
   AttendanceStatus,
   AuditAction,
   CommunicationMedium,
@@ -125,6 +126,24 @@ const ABSENCE_CORRECTION_TEMPLATE_BN =
  * module's own recipient shape and skip vocabulary, because the fee path's
  * `resolveRecipients` filters on open dues — nothing here fits it.
  */
+/**
+ * A register may be told to guardians when a teacher finalized it, or when it is the device
+ * sweep's own DRAFT (source SYSTEM, D27/D30): those are never finalized by anyone, so without
+ * this no absence notice would ever go. `notified_at` keeps a later finalize from telling twice.
+ */
+export function isNoticeReady(
+  session: Pick<AttendanceSession, 'state' | 'source' | 'marked_by_user_id'>,
+): boolean {
+  // A teacher save stamps marked_by_user_id, so a teacher-saved draft (even one that kept the
+  // SYSTEM source) is still an unfinished teacher register and stays unsent.
+  return (
+    session.state === AttendanceSessionState.FINALIZED ||
+    (session.state === AttendanceSessionState.DRAFT &&
+      session.source === AttendanceSource.SYSTEM &&
+      !session.marked_by_user_id)
+  );
+}
+
 @Injectable()
 export class AbsenceNoticeService {
   private readonly logger = new Logger(AbsenceNoticeService.name);
@@ -169,7 +188,7 @@ export class AbsenceNoticeService {
     const session = await this.sessionRepo.findOne({
       where: { tenant_id: tenantId, section_id: sectionId, date, period_no: IsNull() },
     });
-    if (!session || session.state !== AttendanceSessionState.FINALIZED) {
+    if (!session || !isNoticeReady(session)) {
       return {
         session,
         className,
@@ -465,7 +484,7 @@ export class AbsenceNoticeService {
       if (!session) {
         return { batch: null, recipients: [], template: '', skipped_reason: 'no_session' as const };
       }
-      if (session.state !== AttendanceSessionState.FINALIZED) {
+      if (!isNoticeReady(session)) {
         return {
           batch: null,
           recipients: [],
@@ -489,6 +508,17 @@ export class AbsenceNoticeService {
         sectionName,
         schoolName,
       );
+
+      // An untouched sweep draft with nobody to tell (e.g. leave-only) must not burn notified_at:
+      // a teacher may later finalize it with a new ABSENT record, and that send must still go.
+      if (recipients.length === 0 && session.state === AttendanceSessionState.DRAFT) {
+        return {
+          batch: null,
+          recipients: [],
+          template: '',
+          skipped_reason: 'not_finalized' as const,
+        };
+      }
 
       const batchRepo = manager.getRepository(ReminderBatch);
       const batch = await batchRepo.save(

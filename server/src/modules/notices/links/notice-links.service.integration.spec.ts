@@ -118,7 +118,7 @@ describe('NoticeLinksService (integration)', () => {
   it('stores only the hash of a personal token and returns {recipientId, token}', async () => {
     const n = await notice();
     const rid = await recipient(n.id);
-    const [link] = await svc.createPersonalLinks(n.id, [rid]);
+    const [link] = await svc.createPersonalLinks(n.id, [rid], n.tenant_id);
     expect(link.recipientId).toBe(rid);
     const [r] = await ds.query(`SELECT link_token_hash FROM notice_recipients WHERE id = $1`, [
       rid,
@@ -127,11 +127,19 @@ describe('NoticeLinksService (integration)', () => {
     expect((await svc.resolve(link.token))?.recipientId).toBe(rid);
   });
 
+  it('createPersonalLinks writes nothing when the tenant does not match (#3450)', async () => {
+    const n = await notice();
+    const rid = await recipient(n.id);
+    expect(await svc.createPersonalLinks(n.id, [rid], TENANT_B)).toEqual([]);
+    const [r] = await ds.query(`SELECT link_token_hash FROM notice_recipients WHERE id = $1`, [rid]);
+    expect(r.link_token_hash).toBeNull();
+  });
+
   it('createPersonalLinks skips recipients of another notice', async () => {
     const a = await notice();
     const b = await notice();
     const foreign = await recipient(b.id);
-    expect(await svc.createPersonalLinks(a.id, [foreign])).toEqual([]);
+    expect(await svc.createPersonalLinks(a.id, [foreign], a.tenant_id)).toEqual([]);
     const [r] = await ds.query(`SELECT link_token_hash FROM notice_recipients WHERE id = $1`, [
       foreign,
     ]);
@@ -152,7 +160,7 @@ describe('NoticeLinksService (integration)', () => {
     await ds.query(`UPDATE notices SET is_public = false WHERE id = $1`, [n.id]);
     expect(await svc.resolve(token)).toBeNull();
     // a personal link does not depend on the public flag
-    const [p] = await svc.createPersonalLinks(n.id, [await recipient(n.id)]);
+    const [p] = await svc.createPersonalLinks(n.id, [await recipient(n.id)], n.tenant_id);
     expect(await svc.resolve(p.token)).not.toBeNull();
   });
 
@@ -160,8 +168,8 @@ describe('NoticeLinksService (integration)', () => {
     const n = await notice();
     const other = await notice();
     const pub = await svc.createPublicLink(n);
-    const [p] = await svc.createPersonalLinks(n.id, [await recipient(n.id)]);
-    const [keep] = await svc.createPersonalLinks(other.id, [await recipient(other.id)]);
+    const [p] = await svc.createPersonalLinks(n.id, [await recipient(n.id)], n.tenant_id);
+    const [keep] = await svc.createPersonalLinks(other.id, [await recipient(other.id)], other.tenant_id);
     await svc.killAll(n.id);
     expect(await svc.resolve(pub)).toBeNull();
     expect(await svc.resolve(p.token)).toBeNull();
@@ -189,7 +197,7 @@ describe('NoticeLinksService (integration)', () => {
     const n = await notice();
     const rid = await recipient(n.id);
     const fid = await file(n.id);
-    const [p] = await svc.createPersonalLinks(n.id, [rid]);
+    const [p] = await svc.createPersonalLinks(n.id, [rid], n.tenant_id);
     await svc.resolve(p.token);
     expect((await svc.getPage(p.token))?.files).toHaveLength(1);
     expect(await svc.getFile(p.token, fid)).not.toBeNull();
@@ -204,7 +212,7 @@ describe('NoticeLinksService (integration)', () => {
   it('markOpened with a personal token sets both times once and keeps the first', async () => {
     const n = await notice();
     const rid = await recipient(n.id);
-    const [p] = await svc.createPersonalLinks(n.id, [rid]);
+    const [p] = await svc.createPersonalLinks(n.id, [rid], n.tenant_id);
     expect(await svc.markOpened(p.token)).toBe(true);
     const sel = () =>
       ds.query(`SELECT link_opened_at, seen_at FROM notice_recipients WHERE id = $1`, [rid]);

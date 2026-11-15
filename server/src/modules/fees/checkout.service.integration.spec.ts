@@ -1065,6 +1065,33 @@ describe('CheckoutService (integration)', () => {
     expect(JSON.stringify(body)).not.toMatch(/600|500/);
   });
 
+  it('rejects lines whose sum is above MONEY_MAX with a 400, not a 500 overflow (#2484)', async () => {
+    const studentA = await studentRepo.save(makeStudent());
+    const studentB = await studentRepo.save(makeStudent());
+    const billA = await studentFeeRepo.save(makeBill(studentA.id, { total_amount: 60_000_000 }));
+    const billB = await studentFeeRepo.save(makeBill(studentB.id, { total_amount: 60_000_000 }));
+
+    const error = await service
+      .checkout(
+        {
+          idempotency_key: '88888888-8888-4888-8888-888888888888',
+          lines: [
+            { student_fee_id: billA.id, amount: 60_000_000, one_off_discount: 0 },
+            { student_fee_id: billB.id, amount: 60_000_000, one_off_discount: 0 },
+          ],
+          payment_method: PaymentMethod.CASH,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      )
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect((error as BadRequestException).getResponse()).toMatchObject({
+      details: { code: 'CHECKOUT_TOTAL_TOO_LARGE' },
+    });
+  });
+
   it('rejects a WAIVED bill (409, no write)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(

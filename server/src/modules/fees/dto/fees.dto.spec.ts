@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateFeeStructureDto, QueryFeeStructureDto } from './fees.dto';
+import { CreateFeeStructureDto, QueryFeeStructureDto, UpdateFeeStructureDto } from './fees.dto';
 import { FeeType } from '@biddaloy/shared';
 
 /**
@@ -84,5 +84,19 @@ describe('CreateFeeStructureDto no longer carries dropped fields', () => {
 
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'class_id')).toBe(true);
+  });
+});
+
+describe('UpdateFeeStructureDto non-nullable fields', () => {
+  it.each(['fee_type', 'name', 'amount'])(
+    'rejects an explicit null %s (400, not a DB 500)',
+    async (field) => {
+      const errors = await validate(plainToInstance(UpdateFeeStructureDto, { [field]: null }));
+      expect(errors.map((e) => e.property)).toContain(field);
+    },
+  );
+
+  it('still accepts an omitted field', async () => {
+    expect(await validate(plainToInstance(UpdateFeeStructureDto, {}))).toEqual([]);
   });
 });

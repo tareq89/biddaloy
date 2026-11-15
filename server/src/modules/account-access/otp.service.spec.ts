@@ -261,6 +261,25 @@ describe('OtpService', () => {
       await expect(req('LOGIN', 'a@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
     });
 
+    it('counts a trunk zero after the country code with the same handset (#2387)', async () => {
+      for (const form of ['+880 01712345678', '+8801712345678', '01712345678']) {
+        await req('REGISTER', form);
+      }
+      expect(redis.store.get('otp-cap:REGISTER:8801712345678')).toBe('3');
+    });
+
+    it('counts email aliases (+tag, gmail dots) as one mailbox (#2387)', async () => {
+      for (const form of ['foo@gmail.com', 'f.o.o+news@gmail.com', 'FOO+x@googlemail.com']) {
+        await req('LOGIN', form);
+      }
+      expect(redis.store.get('otp-cap:LOGIN:foo@gmail.com')).toBe('3');
+      // A dot is significant on other providers.
+      await req('LOGIN', 'a.b@test.com');
+      await req('LOGIN', 'ab+t@test.com');
+      expect(redis.store.get('otp-cap:LOGIN:a.b@test.com')).toBe('1');
+      expect(redis.store.get('otp-cap:LOGIN:ab@test.com')).toBe('1');
+    });
+
     it('leaves other destinations alone', async () => {
       for (let i = 0; i < 5; i++) await req('LOGIN', 'a@test.com');
       await expect(req('LOGIN', 'b@test.com')).resolves.toBeDefined();

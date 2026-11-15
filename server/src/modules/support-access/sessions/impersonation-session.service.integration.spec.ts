@@ -155,7 +155,7 @@ describe('ImpersonationSessionService (integration)', () => {
     await holder.startTransaction();
     await holder.query('SELECT 1 FROM impersonation_sessions WHERE id = $1 FOR UPDATE', [s.id]);
     const reads = Promise.all([service.listLive(w.owner.id), service.listLive(w.owner.id)]);
-    for (let waiting = 0; waiting < 2; ) {
+    for (let waiting = 0; waiting < 2;) {
       const [{ n }] = await ds.query(
         `SELECT count(*)::int AS n FROM pg_stat_activity
           WHERE wait_event_type = 'Lock' AND query ILIKE '%impersonation_sessions%'`,
@@ -173,6 +173,45 @@ describe('ImpersonationSessionService (integration)', () => {
     expect(row).toEqual({ status: 'EXPIRED', ended_by: 'EXPIRED' });
     expect(await auditRows(s.id, AuditAction.IMPERSONATION_ENDED)).toHaveLength(1);
     expect(await service.listLive(w.owner.id)).toEqual([]);
+  });
+
+  it('lazy expiry also ends an APPROVED ticket past ticket_expires_at (#4090)', async () => {
+    const w = await world();
+    const s = await w.start(w.people[0]);
+    await ds.query(
+      `UPDATE impersonation_sessions
+          SET status = 'APPROVED', started_at = NULL, expires_at = NULL,
+              ticket_expires_at = now() - interval '1 minute'
+        WHERE id = $1`,
+      [s.id],
+    );
+    await service.listLive(w.owner.id);
+    const [row] = await ds.query(
+      'SELECT status, ended_by FROM impersonation_sessions WHERE id = $1',
+      [s.id],
+    );
+    expect(row).toEqual({ status: 'EXPIRED', ended_by: 'EXPIRED' });
+  });
+
+  it('lazy expiry ends a REQUESTED ticket 24h after requested_at, with an ended_at and one audit row', async () => {
+    const w = await world();
+    const s = await w.start(w.people[0]);
+    await ds.query(
+      `UPDATE impersonation_sessions
+          SET status = 'REQUESTED', started_at = NULL, expires_at = NULL,
+              ticket_expires_at = NULL, requested_at = now() - interval '25 hours'
+        WHERE id = $1`,
+      [s.id],
+    );
+    await service.listLive(w.owner.id);
+    const [row] = await ds.query(
+      'SELECT status, ended_by, ended_at FROM impersonation_sessions WHERE id = $1',
+      [s.id],
+    );
+    expect(row.status).toBe('EXPIRED');
+    expect(row.ended_by).toBe('EXPIRED');
+    expect(row.ended_at).not.toBeNull();
+    expect(await auditRows(s.id, AuditAction.IMPERSONATION_ENDED)).toHaveLength(1);
   });
 
   it('a session of school A is never listed under school B', async () => {

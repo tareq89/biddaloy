@@ -1,3 +1,4 @@
+import { toPaisa } from '../../common/constants/money';
 import {
   Injectable,
   NotFoundException,
@@ -8,7 +9,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import {
   AuditAction,
-  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkGridState,
@@ -31,9 +31,11 @@ import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
 import { lockExam } from './exam-lock';
 import { lockGrid } from './mark-grid.service';
+import { gridEnrollments } from './exam-cohort';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { marksGridSubmittedForEdit } from '../../common/filters/known-errors';
 
 /** Postgres unique-violation code — same pattern as exams.service.ts's
  * own `isUniqueViolation`. */
@@ -132,17 +134,11 @@ export class MarksService {
     // latter is the student's CURRENT placement and drifts away from an
     // old exam's year/class after promotion.
     const studentIds = [...new Set(dto.cells.map((c) => c.student_id))];
-    const enrolledCount = await this.enrollmentRepo.count({
-      where: {
-        student_id: In(studentIds),
-        tenant_id: tenantId,
-        academic_year_id: exam.academic_year_id,
-        class_id: exam.class_id,
-        section_id: dto.section_id,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-      },
-    });
-    if (enrolledCount !== studentIds.length) {
+    const enrolled = await gridEnrollments(this.enrollmentRepo, exam, tenantId, dto.section_id)
+      .andWhere('e.student_id IN (:...studentIds)', { studentIds })
+      .getMany();
+    const enrolledIds = new Set(enrolled.map((e) => e.student_id));
+    if (studentIds.some((id) => !enrolledIds.has(id))) {
       throw new BadRequestException('One or more students are not enrolled in this section.');
     }
 
@@ -167,10 +163,8 @@ export class MarksService {
       // The column is numeric(6,2): round once here so the comparison, the
       // write and the audit row all see the value the database will hold.
       if (cell.value != null) cell.value = Number(cell.value).toFixed(2);
-      if (cell.value != null && Number(cell.value) > Number(component.full_marks)) {
-        throw new BadRequestException(
-          `value ${cell.value} exceeds full_marks (${component.full_marks}) for component "${component.name}".`,
-        );
+      if (cell.value != null && toPaisa(cell.value) > toPaisa(component.full_marks)) {
+        throw new BadRequestException('A mark cannot be above the full marks of its component.');
       }
     }
 
@@ -259,9 +253,7 @@ export class MarksService {
         subjectId: dto.subject_id,
       });
       if (grid.state === MarkGridState.SUBMITTED) {
-        throw new ConflictException(
-          `This grid was submitted (by user "${grid.submitted_by}" at ${grid.submitted_at?.toISOString()}) — reopen it before entering more marks.`,
-        );
+        throw marksGridSubmittedForEdit();
       }
 
       const repo = manager.getRepository(Mark);

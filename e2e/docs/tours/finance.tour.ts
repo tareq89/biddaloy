@@ -38,8 +38,17 @@ async function tall<T>(page: Page, fn: () => Promise<T>, size = TALL): Promise<T
 }
 
 /** `snap` clipped to the callout targets (plus a margin), so text stays legible at page width. */
-async function snapTight(page: Page, file: string, callouts: { target: Locator }[], skipLast = false): Promise<void> {
-  const boxes = (await Promise.all((skipLast ? callouts.slice(0, -1) : callouts).map((c) => c.target.boundingBox()))).filter((b) => b !== null);
+async function snapTight(
+  page: Page,
+  file: string,
+  callouts: { target: Locator }[],
+  skipLast = false,
+): Promise<void> {
+  const boxes = (
+    await Promise.all(
+      (skipLast ? callouts.slice(0, -1) : callouts).map((c) => c.target.boundingBox()),
+    )
+  ).filter((b) => b !== null);
   const x0 = Math.max(0, Math.min(...boxes.map((b) => b.x)) - 36);
   const y0 = Math.max(0, Math.min(...boxes.map((b) => b.y)) - 36);
   const x1 = Math.max(...boxes.map((b) => b.x + b.width)) + 36;
@@ -55,8 +64,8 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
   const page = await asRole(browser, info, 'admin');
   const main = page.getByRole('main');
 
-  // A reversed payment needs the step-up code, which the demo disables (DEMO_DISABLED),
-  // so the "Reversed" list image (payments page) stays pending.
+  // A reversed payment needs the step-up code. Since Epic 88 the demo opens the OTP (it goes to
+  // the public test inbox), so the "Reversed" list image (payments page) can be shot there.
   // ---- admin pages ----
   await step('fee-structures-list', async () => {
     await go(page, '/fee-structures');
@@ -121,7 +130,9 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
       { target: h1(page) },
       { target: page.getByText(tr('fees', 'schedules.columnNextRun'), { exact: true }) },
       { target: main.locator('div.rounded-lg.border').first() },
-      { target: page.getByRole('heading', { name: tr('fees', 'schedules.detail.runHistoryTitle') }) },
+      {
+        target: page.getByRole('heading', { name: tr('fees', 'schedules.detail.runHistoryTitle') }),
+      },
     ]);
   });
 
@@ -178,34 +189,55 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
     await page.waitForTimeout(1500);
     await page.getByText('Nishat Sultana').first().click();
     await page.waitForTimeout(1800);
-    await tall(page, async () => {
-      const amount = page.getByRole('textbox').nth(1);
-      await amount.fill('1000');
-      await page.waitForTimeout(800);
-      await snapTight(page, f('record-payment-01'), [
-        { target: page.locator('h2').nth(0) },
-        { target: amount },
-        { target: page.locator('h2').nth(1) },
-        { target: page.locator('h2').nth(2) },
-        { target: page.getByRole('button').last() },
-      ], true);
-    }, XTALL);
+    await tall(
+      page,
+      async () => {
+        const amount = page.getByRole('textbox').nth(1);
+        await amount.fill('1000');
+        await page.waitForTimeout(800);
+        await snapTight(
+          page,
+          f('record-payment-01'),
+          [
+            { target: page.locator('h2').nth(0) },
+            { target: amount },
+            { target: page.locator('h2').nth(1) },
+            { target: page.locator('h2').nth(2) },
+            { target: page.getByRole('button').last() },
+          ],
+          true,
+        );
+      },
+      XTALL,
+    );
   });
 
   await step('generations-list', async () => {
     await go(page, '/fees/generate');
-    await snap(page, f('generate-fees-02-list'), [{ target: h1(page) }, { target: rows(page).first() }]);
+    await snap(page, f('generate-fees-02-list'), [
+      { target: h1(page) },
+      { target: rows(page).first() },
+    ]);
   });
 
   await step('generate-01', async () => {
     await go(page, '/fees/generate?generate=1');
     await page.waitForTimeout(1000);
-    await tall(page, () => snapTight(page, f('generate-fees-01'), [{ target: cards(page).first() }, { target: cards(page).nth(1) }]));
+    await tall(page, () =>
+      snapTight(page, f('generate-fees-01'), [
+        { target: cards(page).first() },
+        { target: cards(page).nth(1) },
+      ]),
+    );
   });
 
   await step('fines-list', async () => {
     await go(page, '/fees/fines');
-    await snap(page, f('fines-03-list'), [{ target: h1(page) }, { target: main.locator('div.rounded-lg.border').first() }, { target: rows(page).first() }]);
+    await snap(page, f('fines-03-list'), [
+      { target: h1(page) },
+      { target: main.locator('div.rounded-lg.border').first() },
+      { target: rows(page).first() },
+    ]);
   });
 
   await step('log-fine', async () => {
@@ -219,7 +251,14 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
   await step('schedule-new', async () => {
     await go(page, '/fees/schedules?new=1');
     await page.waitForTimeout(800);
-    await tall(page, () => snapTight(page, f('recurring-schedules-01-new'), [{ target: cards(page).first() }, { target: cards(page).nth(1) }, { target: cards(page).nth(2) }, { target: cards(page).nth(3) }]));
+    await tall(page, () =>
+      snapTight(page, f('recurring-schedules-01-new'), [
+        { target: cards(page).first() },
+        { target: cards(page).nth(1) },
+        { target: cards(page).nth(2) },
+        { target: cards(page).nth(3) },
+      ]),
+    );
   });
   void saveBar;
 });

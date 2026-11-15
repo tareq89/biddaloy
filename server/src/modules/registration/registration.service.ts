@@ -138,7 +138,7 @@ export class RegistrationService {
   async resend(dto: RegisterResendDto): Promise<RegisterStartResult> {
     this.turnstile.assertAvailable();
     const staged = await this.staging.peek(dto.registration_id);
-    if (!staged) throw new GoneException('This registration has expired — start again');
+    if (!staged) throw registrationExpired();
     this.assertNotLegacyEmailStage(staged);
     if ((staged.resends ?? 0) >= MAX_RESENDS) {
       throw new HttpException(
@@ -152,7 +152,7 @@ export class RegistrationService {
     const result = await this.sendCode(dto.registration_id, staged);
     const resends = (staged.resends ?? 0) + 1;
     if (!(await this.staging.save(dto.registration_id, { ...staged, resends }))) {
-      throw new GoneException('This registration has expired — start again');
+      throw registrationExpired();
     }
     return result;
   }
@@ -164,7 +164,7 @@ export class RegistrationService {
   ): Promise<RegisterVerifyOutcome> {
     this.turnstile.assertAvailable();
     const peeked = await this.staging.peek(dto.registration_id);
-    if (!peeked) throw new GoneException('This registration has expired — start again');
+    if (!peeked) throw registrationExpired();
     this.assertNotLegacyEmailStage(peeked);
 
     // The code is checked against what the stage says it was sent to — the caller cannot pick it.
@@ -199,7 +199,7 @@ export class RegistrationService {
    */
   private assertNotLegacyEmailStage(staged: { channel: string }): void {
     if (staged.channel !== 'sms') {
-      throw new GoneException('This registration has expired — start again');
+      throw registrationExpired();
     }
   }
 
@@ -427,4 +427,12 @@ export class RegistrationService {
       },
     };
   }
+}
+
+/** Own code: the client tells "start again" (resend can never fix it) apart from an expired code (#1703). */
+function registrationExpired(): GoneException {
+  return new GoneException({
+    message: 'This registration has expired — start again',
+    details: { code: 'REGISTRATION_EXPIRED' },
+  });
 }

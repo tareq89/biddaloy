@@ -1,9 +1,8 @@
 /**
  * [76.5.06] The rows of one saved upload: before → after, outcome, and a
  * "changed later" badge when the record's current mark differs from what the
- * upload set (opens that record's own history). The row DTO carries section id,
- * roll and date only — no class or student name — so the register link is the
- * way to see who the row is.
+ * upload set (opens that record's own history). A row shows the student's name
+ * and class / section when the server could match it (an unmatched row has none).
  */
 import {
   Button,
@@ -69,7 +68,14 @@ export function ImportRowsTable({ rows }: ImportRowsTableProps) {
     {
       id: 'roll',
       header: t('review.columnRoll'),
-      accessorFn: (row) => formatNumber(row.roll, regionConfig),
+      accessorFn: (row) =>
+        [
+          formatNumber(row.roll, regionConfig),
+          row.student_name,
+          [row.class_name, row.section_name].filter(Boolean).join(' · '),
+        ]
+          .filter(Boolean)
+          .join(' · '),
       card: 'subtitle',
     },
     {

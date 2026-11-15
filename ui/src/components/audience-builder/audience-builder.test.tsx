@@ -150,6 +150,19 @@ describe('AudienceBuilder', () => {
     expect(screen.getByText('No one matches this filter')).toBeTruthy();
   });
 
+  it("shows the caller's empty title instead of the default [#3442]", async () => {
+    await setup(
+      <AudienceBuilder
+        {...props({
+          matches: { rows: [], total: 0, page: 1, pageSize: 25 },
+          emptyTitle: 'Nobody here',
+        })}
+      />,
+    );
+    expect(screen.getByText('Nobody here')).toBeTruthy();
+    expect(screen.queryByText('No one matches this filter')).toBeNull();
+  });
+
   it('renders the error state and retries', async () => {
     const onRetry = vi.fn();
     await setup(

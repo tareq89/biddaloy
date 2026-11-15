@@ -195,7 +195,7 @@ export const applicationsTab: TabSpec<Application, Rec> = {
           rowError(
             rowNo,
             key,
-            `Column "${key}": no ${tab} row with the key "${refKey}" was found.`,
+            `Column "${key}": no ${tab} row was found.`,
             refKey,
           ),
         );

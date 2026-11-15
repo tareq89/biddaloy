@@ -114,8 +114,11 @@ export class RecurringSchedule {
   @Column({ type: 'date', nullable: true })
   last_run_period: string | null;
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'created_by_user_id' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'created_by_user_id',
+    foreignKeyConstraintName: 'FK_recurring_schedules_created_by',
+  })
   created_by: User | null;
 
   @Column({ type: 'uuid', nullable: true })

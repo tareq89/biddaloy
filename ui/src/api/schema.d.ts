@@ -18401,6 +18401,7 @@ export interface components {
         AttendanceImportSummaryDto: {
             id: string;
             uploaded_by_user_id: string | null;
+            uploaded_by_name: string | null;
             file_name: string;
             counts: components["schemas"]["ImportCountsDto"];
             supersedes_import_id: string | null;
@@ -18415,7 +18416,11 @@ export interface components {
         AttendanceImportDetailRowDto: {
             date: string;
             section_id: string;
+            class_name: string | null;
+            section_name: string | null;
             roll: number;
+            /** @description Null for a row that could not be matched to a student */
+            student_name: string | null;
             /** @enum {string|null} */
             before: "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | null;
             /** @enum {string|null} */
@@ -18433,6 +18438,7 @@ export interface components {
         AttendanceImportDetailDto: {
             id: string;
             uploaded_by_user_id: string | null;
+            uploaded_by_name: string | null;
             file_name: string;
             counts: components["schemas"]["ImportCountsDto"];
             supersedes_import_id: string | null;

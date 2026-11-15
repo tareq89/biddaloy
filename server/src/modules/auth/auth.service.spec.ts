@@ -104,6 +104,7 @@ describe('AuthService', () => {
     // route the transactional read/write through the same mocks so existing
     // findOne/update setup and assertions keep working unchanged.
     mockUserRepo.manager = {
+      query: vi.fn().mockResolvedValue(undefined),
       transaction: vi.fn(async (cb: any) =>
         cb({
           getRepository: () => ({ findOne: (...args: any[]) => mockUserRepo.findOne(...args) }),
@@ -950,6 +951,15 @@ describe('AuthService', () => {
           entity_id: 'user-1',
           new_values: { scope: 'all_sessions' },
         }),
+      );
+    });
+
+    it('revokes the user\'s calendar-feed tokens too (#2462)', async () => {
+      await service.logoutAll('user-1', 'jti-123', { ip: null, userAgent: null });
+
+      expect(mockUserRepo.manager.query).toHaveBeenCalledWith(
+        expect.stringMatching(/UPDATE calendar_feed_tokens SET revoked_at = now\(\)\s+WHERE user_id = \$1 AND revoked_at IS NULL/),
+        ['user-1'],
       );
     });
 

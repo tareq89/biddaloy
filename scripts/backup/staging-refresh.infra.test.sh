@@ -91,13 +91,18 @@ cat >"$WORK/bin/age" <<'EOS'
 out=""; while [[ $# -gt 0 ]]; do [[ "$1" == -o ]] && out="$2"; last="$1"; shift; done
 cp "$last" "$out"
 EOS
-# aws: `s3 ls` and `s3 cp` read $FAKE_BUCKET/<key>. AWS_SHIM_ERROR=1 simulates a 403.
+# aws: `s3 ls`, `s3api head-object` and `s3 cp` read $FAKE_BUCKET/<key>. AWS_SHIM_ERROR=1 simulates a 403.
 cat >"$WORK/bin/aws" <<'EOS'
 #!/usr/bin/env bash
 echo "aws $*" >>"$SHIM_LOG"
 args=(); while [[ $# -gt 0 ]]; do if [[ "$1" == --endpoint-url ]]; then shift 2; else args+=("$1"); shift; fi; done
-if [[ "${AWS_SHIM_ERROR:-}" == 1 ]]; then echo "An error occurred (AccessDenied) when calling the ListObjectsV2 operation" >&2; exit 254; fi
+if [[ "${AWS_SHIM_ERROR:-}" == 1 ]]; then echo "An error occurred (AccessDenied) when calling the HeadObject operation" >&2; exit 254; fi
 case "${args[0]} ${args[1]}" in
+  "s3api head-object")
+    # exact key only (no prefix match), like the real HeadObject; 404 when it is absent
+    key=""; for ((i = 0; i < ${#args[@]}; i++)); do [[ "${args[i]}" == --key ]] && key="${args[i+1]}"; done
+    [[ -f "$FAKE_BUCKET/$key" ]] && exit 0
+    echo "An error occurred (404) when calling the HeadObject operation: Not Found" >&2; exit 254 ;;
   "s3 ls"|"s3 cp")
     src="$FAKE_BUCKET/$(sed 's#^s3://[^/]*/##' <<<"${args[2]}")"
     if [[ -d "$src" ]]; then ls "$src" | sed 's/^/2026-01-01 00:00:00 1 /'; exit 0; fi

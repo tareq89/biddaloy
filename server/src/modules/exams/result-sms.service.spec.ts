@@ -211,6 +211,22 @@ describe('ResultSmsService.sendForExam', () => {
     );
   });
 
+  it('a unique-violation lists a student once even with two guardians (#2375)', async () => {
+    const mk = (id: string) => ({
+      id,
+      phone: `017${id}`,
+      full_name: id,
+      is_primary_contact: true,
+      notifications_enabled: true,
+    });
+    const { service, logRepo } = await buildService({
+      students: [{ id: 'stu-1', full_name: 'Student One', guardians: [mk('g1'), mk('g2')] }],
+    });
+    logRepo.save.mockRejectedValue(Object.assign(new Error('dup'), { code: '23505' }));
+    const outcome = await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(outcome.skipped).toEqual([{ student_id: 'stu-1', reason: 'already_sent' }]);
+  });
+
   it('an enqueue failure releases the reference_key so a retry can send that pair', async () => {
     const { service, queue, logRepo } = await buildService();
     queue.add.mockRejectedValueOnce(new Error('redis down'));

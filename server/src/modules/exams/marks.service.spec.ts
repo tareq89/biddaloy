@@ -59,7 +59,7 @@ async function buildService(
     components?: ExamComponent[];
     grid?: Partial<MarkGrid> | null;
     existingMarks?: Partial<Mark>[];
-    enrolledCount?: number;
+    enrolledStudentRows?: string[];
     examStatus?: string;
   } = {},
 ) {
@@ -67,7 +67,7 @@ async function buildService(
     components = [component()],
     grid = null,
     existingMarks = [],
-    enrolledCount,
+    enrolledStudentRows,
     examStatus,
   } = opts;
 
@@ -123,10 +123,21 @@ async function buildService(
   // D17: the "student belongs to this section" IDOR guard now checks
   // Enrollment (exam's year/class/section, ACTIVE), not
   // Student.class_section_id.
+  // `gridEnrollments` (exam-cohort.ts) builds a query; the stub keeps the ids the guard asks about.
   const enrollmentRepo: any = {
-    count: vi.fn(
-      async ({ where }: any) => enrolledCount ?? (where.student_id.value as string[]).length,
-    ),
+    createQueryBuilder: vi.fn(() => {
+      let ids: string[] = [];
+      const qb: any = {
+        leftJoinAndSelect: () => qb,
+        where: () => qb,
+        andWhere: (_sql: string, params?: { studentIds?: string[] }) => {
+          if (params?.studentIds) ids = params.studentIds;
+          return qb;
+        },
+        getMany: async () => (enrolledStudentRows ?? ids).map((student_id) => ({ student_id })),
+      };
+      return qb;
+    }),
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
   const resultsService = {
@@ -305,7 +316,7 @@ describe('MarksService.upsertBatch', () => {
         UserRole.TEACHER,
         'user-1',
       ),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow('A mark cannot be above the full marks of its component.');
   });
 
   it('rejects an ABSENT cell carrying a value (D10)', async () => {
@@ -348,7 +359,7 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('refuses a write to a SUBMITTED grid, naming who and when', async () => {
+  it('refuses a write to a SUBMITTED grid with GRID_SUBMITTED and no user id or time (#3578)', async () => {
     const submittedAt = new Date('2026-01-01T00:00:00Z');
     const { service } = await buildService({
       grid: { state: MarkGridState.SUBMITTED, submitted_by: 'admin-1', submitted_at: submittedAt },
@@ -364,7 +375,12 @@ describe('MarksService.upsertBatch', () => {
         UserRole.TEACHER,
         'user-1',
       ),
-    ).rejects.toThrow(ConflictException);
+    ).rejects.toMatchObject({
+      response: {
+        message: 'This marks list is submitted. Ask an admin to reopen it before changing marks.',
+        details: { code: 'GRID_SUBMITTED' },
+      },
+    });
   });
 
   it('propagates an authorization rejection (a class teacher with no subject grant)', async () => {
@@ -407,8 +423,29 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects an unrostered student even when another student has two enrollment rows', async () => {
+    // stu-1 holds an ACTIVE and an INACTIVE row: the row count (2) equals the 2 requested ids.
+    const { service } = await buildService({ enrolledStudentRows: ['stu-1', 'stu-1'] });
+    const cell = (student_id: string) => ({
+      student_id,
+      component_id: 'comp-1',
+      value: '10',
+      status: MarkStatus.PRESENT,
+    });
+
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([cell('stu-1'), cell('stranger')]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('rejects a student not enrolled in this section (IDOR guard)', async () => {
-    const { service } = await buildService({ enrolledCount: 0 });
+    const { service } = await buildService({ enrolledStudentRows: [] });
 
     await expect(
       service.upsertBatch(

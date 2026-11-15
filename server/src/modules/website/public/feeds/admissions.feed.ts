@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { resolvePublicAppUrl } from '../../../invoices/public-app-url.util';
 import { SchoolsService } from '../../../schools/schools.service';
 import type { Feed, FeedRow } from './feed-registry';
 
@@ -10,6 +12,7 @@ export class AdmissionsFeed implements Feed {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly schools: SchoolsService,
+    private readonly config: ConfigService,
   ) {}
 
   async load(tenantId: string): Promise<FeedRow[]> {
@@ -33,7 +36,8 @@ export class AdmissionsFeed implements Feed {
       id: r.id,
       title: r.title,
       deadline: r.close_date,
-      link: `/admission/${r.slug}`,
+      // The form lives on the app host; the school's own site has no /admission page (#3721).
+      link: `${resolvePublicAppUrl(this.config)}/admission/${r.slug}`,
     }));
   }
 }

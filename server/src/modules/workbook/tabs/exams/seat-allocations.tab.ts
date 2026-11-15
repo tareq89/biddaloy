@@ -180,7 +180,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
         tab: 'seat_allocations',
         row: rowNo,
         column: 'seat_plan',
-        message: `Column "seat_plan": no seat plan "${seatPlanKey}" was found.`,
+        message: `Column "seat_plan": no seat plan was found.`,
         severity: 'error',
         value: seatPlanKey,
       });
@@ -193,7 +193,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
         tab: 'seat_allocations',
         row: rowNo,
         column: 'exam_schedule',
-        message: `Column "exam_schedule": no exam schedule "${examScheduleKey}" was found.`,
+        message: `Column "exam_schedule": no exam schedule was found.`,
         severity: 'error',
         value: examScheduleKey,
       });
@@ -206,7 +206,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
         tab: 'seat_allocations',
         row: rowNo,
         column: 'student',
-        message: `Column "student": no student "${studentKey}" was found.`,
+        message: `Column "student": no student was found.`,
         severity: 'error',
         value: studentKey,
       });
@@ -219,7 +219,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
         tab: 'seat_allocations',
         row: rowNo,
         column: 'room',
-        message: `Column "room": no room "${roomKey}" was found.`,
+        message: `Column "room": no room was found.`,
         severity: 'error',
         value: roomKey,
       });
@@ -234,7 +234,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
           tab: 'seat_allocations',
           row: rowNo,
           column: 'invigilator',
-          message: `Column "invigilator": no user "${invigilatorKey}" was found.`,
+          message: `Column "invigilator": no user was found.`,
           severity: 'error',
           value: invigilatorKey,
         });

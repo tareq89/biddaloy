@@ -3,10 +3,12 @@
  * cards on phone (`DataTable`'s own `card` roles, D23). The server returns
  * the whole register (no paging), so it is paged client-side (25 a page).
  */
+import { Permission } from '@biddaloy/shared';
 import { DataTable, Skeleton, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
   useAcrAssessments,
+  useHasPermission,
   useUser,
   type AcrAssessment,
   type AcrListFilters,
@@ -18,7 +20,11 @@ import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 const STATUSES = ['INCOMPLETE', 'COMPLETED'] as const;
 
 function StaffName({ userId }: { userId: string }) {
-  const { data } = useUser(userId);
+  // A committee member can read the register but not `GET /users/:id` (403): show a dash, not a skeleton
+  // that never resolves and 17 failing requests (#2514).
+  const canReadUsers = useHasPermission(Permission.USER_READ);
+  const { data } = useUser(canReadUsers ? userId : undefined);
+  if (!canReadUsers) return <span className="text-muted-foreground">—</span>;
   return data ? (
     <span className="font-medium">{data.full_name}</span>
   ) : (

@@ -51,6 +51,7 @@ import { flushSync } from 'react-dom';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+import { usePrintPageRule } from '../../../use-print-page-rule';
 
 import './-analysis-print.css';
 
@@ -81,6 +82,7 @@ export const Route = createFileRoute('/_staff/analysis/')({
 });
 
 function AnalysisPage() {
+  usePrintPageRule('margin: 10mm;');
   const { t } = useTranslation('exams');
   const { t: tg } = useTranslation('grading');
   const { t: tNav } = useTranslation('nav');

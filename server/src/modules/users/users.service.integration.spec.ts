@@ -1250,6 +1250,25 @@ describe('UserService (integration)', () => {
       expect(updated.email_verified_at).not.toBeNull();
     });
 
+    it('[#2506] a legacy mixed-case stored email resent in lower case is not a change', async () => {
+      const { user } = await service.create(
+        { full_name: 'Legacy Case', email: 'legacy-case@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await userRepo.update(user.id, {
+        email: 'Legacy-Case@example.com',
+        email_verified_at: new Date(),
+      });
+
+      const updated = await service.update(
+        user.id,
+        { email: 'legacy-case@example.com' },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
+      expect(updated.email_verified_at).not.toBeNull();
+    });
+
     it('should clear the phone number when phone is null', async () => {
       const { user } = await service.create(
         {

@@ -123,7 +123,7 @@ export const homeworkTab: TabSpec<Homework, HomeworkRow> = {
         tab: 'homework',
         row: rowNo,
         column: 'class',
-        message: `Column "class": no class named "${classKey}" was found.`,
+        message: `Column "class": no class was found.`,
         severity: 'error',
         value: classKey,
       });
@@ -136,7 +136,7 @@ export const homeworkTab: TabSpec<Homework, HomeworkRow> = {
         tab: 'homework',
         row: rowNo,
         column: 'subject',
-        message: `Column "subject": no subject with code "${subjectKey}" was found.`,
+        message: `Column "subject": no subject with code was found.`,
         severity: 'error',
         value: subjectKey,
       });

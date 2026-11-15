@@ -1,4 +1,5 @@
 import {
+  ValidateIf,
   IsString,
   IsNumber,
   IsOptional,
@@ -65,16 +66,18 @@ export class CreateFeeStructureDto {
 }
 
 export class UpdateFeeStructureDto {
-  @IsOptional()
+  // `@IsOptional()` also skips `null`, which would reach the DB NOT NULL column as a 500;
+  // `ValidateIf` skips only `undefined`, so an explicit null is a 400.
+  @ValidateIf((_o, v) => v !== undefined)
   @IsEnum(FeeType)
   fee_type?: FeeType;
 
-  @IsOptional()
+  @ValidateIf((_o, v) => v !== undefined)
   @IsString()
   @MaxLength(100)
   name?: string;
 
-  @IsOptional()
+  @ValidateIf((_o, v) => v !== undefined)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Max(MONEY_MAX)
   @Min(0)

@@ -190,7 +190,7 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
           tab: 'payments',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student with registration number "${studentKey}" was found.`,
+          message: `Column "student": no student with registration number was found.`,
           severity: 'error',
           value: studentKey,
         });
@@ -206,7 +206,7 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
           tab: 'payments',
           row: rowNo,
           column: 'received_by',
-          message: `Column "received_by": no user "${receivedByKey}" was found.`,
+          message: `Column "received_by": no user was found.`,
           severity: 'error',
           value: receivedByKey,
         });
@@ -224,7 +224,7 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
           tab: 'payments',
           row: rowNo,
           column: 'invoice',
-          message: `Column "invoice": no invoice numbered "${invoiceKey}" was found.`,
+          message: `Column "invoice": no invoice numbered was found.`,
           severity: 'error',
           value: invoiceKey,
         });

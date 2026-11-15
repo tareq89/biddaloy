@@ -34,6 +34,8 @@ export interface DiffReport {
   tabs: TabDiff[];
   totals: DiffCounts;
   hardErrorCount: number;
+  /** Hard errors found by the diff itself (e.g. seat limit), on top of the validation errors. */
+  diffErrors: RowError[];
   /**
    * True when every present tab except `school` has zero existing rows —
    * the signal a "first import into a brand-new tenant" UI uses to skip the

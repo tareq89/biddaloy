@@ -383,6 +383,33 @@ describe('notices workbook tabs (round trip)', () => {
     expect(link.link_token_hash).toBeNull();
   });
 
+  it('restore that withdraws a live important notice closes the alert it pointed at (#3451)', async () => {
+    const a = await seedTenant(A, 'notices-a-3451', 'a');
+    const notice = await seedNotice(A, a, { pub: TOKEN_A, link: LINK_A, key: KEY_A });
+    await ds.getRepository(Notice).update({ id: notice.id }, {
+      status: 'WITHDRAWN',
+      withdrawn_at: new Date('2026-05-02T08:00:00.000Z'),
+    } as any);
+    const file = await exportAll(A);
+    // Live again, with an open important alert, as if it had been published after the backup.
+    const [{ id: alertId }] = await ds.query(
+      `INSERT INTO alerts (tenant_id, rule_key, source, severity, category, dedupe_key, params, escalation_level, raised_at, last_evaluated_at)
+       VALUES ($1, 'notice.important', 'NOTICE', 'WARNING', 'NOTICE', 'k-' || gen_random_uuid()::text, '{}'::jsonb, 0, now(), now()) RETURNING id`,
+      [A],
+    );
+    await ds
+      .getRepository(Notice)
+      .update({ id: notice.id }, { status: 'PUBLISHED', alert_id: alertId } as any);
+
+    await restoreAll(A, file);
+
+    const after = await ds.getRepository(Notice).findOneByOrFail({ id: notice.id });
+    expect(after.status).toBe('WITHDRAWN');
+    expect(after.alert_id).toBeNull();
+    const [alert] = await ds.query(`SELECT status FROM alerts WHERE id = $1`, [alertId]);
+    expect(alert.status).toBe('WITHDRAWN');
+  });
+
   it("never keeps another school's file key, and rejects keys outside notice-files", async () => {
     const warnings: RowError[] = [];
     const base = {

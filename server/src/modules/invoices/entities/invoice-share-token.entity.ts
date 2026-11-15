@@ -47,8 +47,11 @@ export class InvoiceShareToken {
   @Column({ type: 'char', length: 64, unique: true })
   token_hash: string;
 
-  @ManyToOne(() => User, { nullable: false })
-  @JoinColumn({ name: 'created_by_user_id' })
+  @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({
+    name: 'created_by_user_id',
+    foreignKeyConstraintName: 'FK_invoice_share_tokens_created_by_user_id',
+  })
   created_by: User;
 
   @Column({ type: 'uuid' })

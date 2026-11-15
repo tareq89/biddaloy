@@ -596,6 +596,7 @@
     "print": {
       "studentLabel": "$t(common:entities.student_one)",
       "printAll": "Print all cards",
+      "resultCertificates": "Result certificates",
       "tabulation": "Tabulation sheet",
       "notBuilt": "Build the results first, then you can print the cards.",
       "noStudents": "No students in this section.",

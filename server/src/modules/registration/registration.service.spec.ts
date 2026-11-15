@@ -141,6 +141,9 @@ describe('RegistrationService.createSchool contacts', () => {
     await expect(s.verify({ registration_id: 'r', otp: '123456' } as never, ctx)).rejects.toThrow(
       GoneException,
     );
+    await expect(
+      s.verify({ registration_id: 'r', otp: '123456' } as never, ctx),
+    ).rejects.toMatchObject({ response: { details: { code: 'REGISTRATION_EXPIRED' } } });
   });
 });
 

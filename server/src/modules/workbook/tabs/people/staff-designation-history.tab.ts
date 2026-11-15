@@ -141,7 +141,7 @@ export const staffDesignationHistoryTab: TabSpec<
         tab: 'staff_designation_history',
         row: rowNo,
         column: 'staff',
-        message: `Column "staff": no user with the key "${staffKey}" was found.`,
+        message: `Column "staff": no user was found.`,
         severity: 'error',
         value: staffKey,
       });
@@ -154,7 +154,7 @@ export const staffDesignationHistoryTab: TabSpec<
         tab: 'staff_designation_history',
         row: rowNo,
         column: 'designation',
-        message: `Column "designation": no designation with the key "${designationKey}" was found.`,
+        message: `Column "designation": no designation was found.`,
         severity: 'error',
         value: designationKey,
       });

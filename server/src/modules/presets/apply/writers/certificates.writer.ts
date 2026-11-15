@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { Logger } from '@nestjs/common';
-import { IsNull } from 'typeorm';
+import { ConflictException, Logger } from '@nestjs/common';
+import { EntityManager, IsNull } from 'typeorm';
 import { DocumentKind, PrintAssetKind, validateTemplateDefinition } from '@biddaloy/shared';
 import type { PresetCertificateKind, PresetPack, TemplateDefinition } from '@biddaloy/shared';
 import { tenantObjectKey } from '../../../storage/storage-key';
@@ -51,6 +51,46 @@ function suggestionFor(slug: string, lang: Lang) {
   const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === `${slug}-a4-${lang}`);
   if (!suggestion) throw new Error(`Missing print suggestion ${slug}-a4-${lang}`);
   return suggestion;
+}
+
+/** Throws 409 when a live print template already uses `name` (UQ_print_templates_name is per tenant, all kinds). */
+async function assertTemplateNameFree(
+  manager: EntityManager,
+  tenantId: string,
+  name: string,
+): Promise<void> {
+  const clash = await manager
+    .getRepository(PrintTemplate)
+    .createQueryBuilder('t')
+    .where('t.tenant_id = :tenantId AND t.archived_at IS NULL', { tenantId })
+    .andWhere('lower(t.name) = lower(:name)', { name })
+    .getExists();
+  if (clash) {
+    throw new ConflictException({
+      message: 'A print template already uses a name this preset needs. Rename it and apply again.',
+      details: { code: 'PRESET_TEMPLATE_NAME_TAKEN' },
+    });
+  }
+}
+
+/**
+ * Fast-fail twin of the in-transaction check in writeCertificates: run it BEFORE uploadCertificateArtwork so a
+ * refused apply leaves no stray artwork in storage. The in-transaction check stays as the final guard.
+ */
+export async function assertCertificateNamesFree(
+  manager: EntityManager,
+  tenantId: string,
+  pack: PresetPack,
+): Promise<void> {
+  for (const packKind of pack.certificates) {
+    const cert = CERTS[packKind];
+    if (!cert) continue;
+    const live = await manager.getRepository(PrintTemplate).exists({
+      where: { tenant_id: tenantId, document_kind: cert.kind, archived_at: IsNull() },
+    });
+    if (live) continue;
+    for (const lang of LANGS) await assertTemplateNameFree(manager, tenantId, cert.names[lang]);
+  }
 }
 
 /**
@@ -149,6 +189,10 @@ export const writeCertificates: ApplyWriter = async (ctx) => {
         throw new Error(`Ready-made ${suggestion.key} is invalid: ${result.errors.join('; ')}`);
       }
       const definition = result.data;
+
+      // UQ_print_templates_name is per tenant across ALL kinds, the skip rule above is per kind: a live
+      // template of another kind with this name would make the insert a raw 500 (#1985).
+      await assertTemplateNameFree(manager, tenantId, cert.names[lang]);
 
       const template = await templates.save(
         templates.create({

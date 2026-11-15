@@ -21,6 +21,7 @@ const FIELDS: FilterFieldDescriptor[] = [
     options: [
       { value: 'active', label: 'Active' },
       { value: 'inactive', label: 'Inactive' },
+      { value: '__all__', label: 'Literal all' },
     ],
   },
   {
@@ -145,6 +146,17 @@ describe('FilterBar', () => {
     await user.click(await screen.findByRole('option', { name: 'Active' }));
 
     expect(onChangeSpy).toHaveBeenCalledWith({ status: 'active' });
+  });
+
+  it('an option literally valued "__all__" applies as a filter, not as "All"', async () => {
+    const user = userEvent.setup();
+    const onChangeSpy = vi.fn();
+    await renderInEnglish(<FilterBarDemo onChangeSpy={onChangeSpy} />);
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(await screen.findByRole('option', { name: 'Literal all' }));
+
+    expect(onChangeSpy).toHaveBeenCalledWith({ status: '__all__' });
   });
 
   it('a select value not in `options` (a stale bookmark, a renamed status) still shows something instead of a blank trigger', async () => {

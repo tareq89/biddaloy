@@ -12,6 +12,7 @@ import {
   useProgram,
   usePrograms,
   useRecordAchievements,
+  useEnrolStudents,
   useRemoveAchievement,
 } from './programs';
 
@@ -232,5 +233,45 @@ describe('useRemoveAchievement', () => {
       studentProgramKeys('student-1'),
     );
     expect(rolledBack?.[0]?.milestones[0]?.achievement?.id).toBe('achievement-1');
+  });
+});
+
+describe('useEnrolStudents', () => {
+  it('sends a class over 500 students in chunks of 500 and adds the results (#2475)', async () => {
+    const sizes: number[] = [];
+    server.use(
+      http.post('/api/v1/programs/program-1/enrollments', async ({ request }) => {
+        const body = (await request.json()) as { student_ids: string[] };
+        sizes.push(body.student_ids.length);
+        return HttpResponse.json({ created: body.student_ids.length - 1, skipped: 1 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useEnrolStudents('program-1'), {
+      tenantId: 'tenant-1',
+    });
+    const ids = Array.from({ length: 1100 }, (_, i) => `s-${i}`);
+    result.current.mutate({ student_ids: ids });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(sizes).toEqual([500, 500, 100]);
+    expect(result.current.data).toEqual({ created: 1097, skipped: 3 });
+  });
+
+  it('still refreshes the caches when a later chunk fails after an earlier one enrolled', async () => {
+    let calls = 0;
+    server.use(
+      http.post('/api/v1/programs/program-1/enrollments', () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ created: 500, skipped: 0 })
+          : HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useEnrolStudents('program-1'), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ student_ids: Array.from({ length: 600 }, (_, i) => `s-${i}`) });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalled();
   });
 });

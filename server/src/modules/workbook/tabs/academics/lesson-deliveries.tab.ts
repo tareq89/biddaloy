@@ -170,21 +170,21 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
 
     const sectionKey = values.section as string;
     const sectionId = ctx.ref('sections', sectionKey);
-    if (!sectionId) fail('section', `no section "${sectionKey}" was found.`, sectionKey);
+    if (!sectionId) fail('section', `no section was found.`, sectionKey);
 
     const subjectKey = values.subject as string;
     const subjectId = ctx.ref('subjects', subjectKey);
-    if (!subjectId) fail('subject', `no subject with code "${subjectKey}" was found.`, subjectKey);
+    if (!subjectId) fail('subject', `no subject was found.`, subjectKey);
 
     const slotKey = values.period_slot as string;
     const slotId = ctx.ref('period_slots', slotKey);
-    if (!slotId) fail('period_slot', `no period "${slotKey}" was found.`, slotKey);
+    if (!slotId) fail('period_slot', `no period was found.`, slotKey);
 
     const userKey = values.recorded_by as string | null;
     let userId: string | null = null;
     if (userKey) {
       userId = ctx.ref('users', userKey) ?? null;
-      if (!userId) fail('recorded_by', `no user "${userKey}" was found.`, userKey);
+      if (!userId) fail('recorded_by', `no user was found.`, userKey);
     }
 
     if (errors.length > 0) return { errors };

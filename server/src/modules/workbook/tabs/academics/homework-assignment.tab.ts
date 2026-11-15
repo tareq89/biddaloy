@@ -160,7 +160,7 @@ export const homeworkAssignmentTab: TabSpec<HomeworkAssignment, HomeworkAssignme
         tab: 'homework_assignments',
         row: rowNo,
         column: 'homework',
-        message: `Column "homework": no homework with the key "${homeworkKey}" was found.`,
+        message: `Column "homework": no homework was found.`,
         severity: 'error',
         value: homeworkKey,
       });
@@ -175,7 +175,7 @@ export const homeworkAssignmentTab: TabSpec<HomeworkAssignment, HomeworkAssignme
           tab: 'homework_assignments',
           row: rowNo,
           column: 'section',
-          message: `Column "section": no section with the key "${sectionKey}" was found.`,
+          message: `Column "section": no section was found.`,
           severity: 'error',
           value: sectionKey,
         });
@@ -193,7 +193,7 @@ export const homeworkAssignmentTab: TabSpec<HomeworkAssignment, HomeworkAssignme
           tab: 'homework_assignments',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student with registration number "${studentKey}" was found.`,
+          message: `Column "student": no student with registration number was found.`,
           severity: 'error',
           value: studentKey,
         });

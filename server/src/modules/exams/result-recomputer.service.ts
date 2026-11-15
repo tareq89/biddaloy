@@ -3,7 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ExamStatus, FinalResultStatus } from '@biddaloy/shared';
-import { RecomputeActor, ResultRecomputer } from '../grading/recompute.service';
+import { PublishedUsingScale, RecomputeActor, ResultRecomputer } from '../grading/recompute.service';
 import { FinalResultsService } from '../final-results/final-results.service';
 import { lockExam } from './exam-lock';
 import { ResultsService } from './results.service';
@@ -92,13 +92,18 @@ export class ExamResultRecomputer implements ResultRecomputer {
     tenantId: string,
     scaleId: string,
     manager: EntityManager = this.dataSource.manager,
-  ): Promise<Array<{ id: string; name: string }>> {
+  ): Promise<PublishedUsingScale> {
     const exams = await this.examsUsingScale(manager, tenantId, scaleId);
     const finals = await this.finalsUsingScale(manager, tenantId, scaleId);
-    return [
-      ...exams.filter((e) => e.status === ExamStatus.PUBLISHED),
-      ...finals.filter((f) => f.status === FinalResultStatus.PUBLISHED),
-    ].map(({ id, name }) => ({ id, name }));
+    // Listed apart, like the confirm 409's details: a final's id is not an exam id (name = the class).
+    return {
+      exams: exams
+        .filter((e) => e.status === ExamStatus.PUBLISHED)
+        .map(({ id, name }) => ({ id, name })),
+      finals: finals
+        .filter((f) => f.status === FinalResultStatus.PUBLISHED)
+        .map(({ id, name }) => ({ id, name })),
+    };
   }
 
   async recompute(
@@ -162,14 +167,31 @@ export class ExamResultRecomputer implements ResultRecomputer {
       : null;
     for (const f of lockedFinals.filter((x) => x.status === FinalResultStatus.PROCESSED)) {
       // Rebuilt against THIS scale (the one its rows pin), not whatever resolveScale picks now.
-      total += await finalsService!.recompute(
-        manager,
-        f.id,
-        tenantId,
-        actor.userId,
-        actor.context,
-        scaleId,
-      );
+      try {
+        total += await finalsService!.recompute(
+          manager,
+          f.id,
+          tenantId,
+          actor.userId,
+          actor.context,
+          scaleId,
+        );
+      } catch (err) {
+        // A PROCESSED final whose source exam is no longer PUBLISHED cannot be rebuilt. Name it,
+        // so the editor knows which final result to fix or reopen (#3461). Fixed sentence, Rule 23.
+        const code = (err instanceof ConflictException ? err.getResponse() : null) as {
+          details?: { code?: string };
+        } | null;
+        if (code?.details?.code !== 'FINAL_SOURCE_UNPUBLISHED') throw err;
+        throw new ConflictException({
+          message:
+            'A final result using this grading scale has an exam that is not published. Publish that exam again or delete the final result first.',
+          details: {
+            code: 'SCALE_FINAL_SOURCE_UNPUBLISHED',
+            finals: [{ id: f.id, name: f.name }],
+          },
+        });
+      }
     }
     return total;
   }

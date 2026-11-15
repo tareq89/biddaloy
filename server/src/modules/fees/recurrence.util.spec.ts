@@ -9,6 +9,11 @@ import {
 import type { RecurringScheduleRule } from './entities/recurring-schedule.entity';
 
 describe('recurrence.util [16.7.1]', () => {
+  it('isDue rejects a MONTHLY rule with a non-positive day_of_month', () => {
+    const rule = { kind: 'MONTHLY', day_of_month: 0 } as RecurringScheduleRule;
+    expect(() => isDue(rule, '2026-03-05')).toThrow('no valid day_of_month');
+  });
+
   describe('periodFor', () => {
     it("MONTHLY returns the 1st of the given date's month", () => {
       const rule: RecurringScheduleRule = { kind: 'MONTHLY', day_of_month: 15 };
@@ -131,6 +136,12 @@ describe('recurrence.util [16.7.1]', () => {
 
     it('MONTHLY: startsOn after the fire day means not due that month', () => {
       expect(firstFireInPeriod(m(1), '2026-03-31', '2026-03-02')).toBeNull();
+    });
+
+    it('a malformed MONTHLY rule (no day_of_month) throws instead of never firing', () => {
+      expect(() => firstFireInPeriod({ kind: 'MONTHLY' } as any, '2026-03-18')).toThrow(
+        /day_of_month/,
+      );
     });
 
     it('a malformed WEEKLY rule (no weekdays) throws', () => {

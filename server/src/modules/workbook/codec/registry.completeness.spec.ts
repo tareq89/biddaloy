@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { DataSource, type EntityTarget } from 'typeorm';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { ALL_TABS } from './registry';
-import { ENTITY_COVERAGE_EXEMPT } from './entity-coverage';
+import { ENTITY_COVERAGE_EXEMPT, NOT_IN_BACKUP } from './entity-coverage';
 
 /**
  * The gate that stops a workbook tab quietly falling behind its entity.
@@ -137,5 +137,43 @@ describe('registry completeness', () => {
       stale,
       `ENTITY_COVERAGE_EXEMPT lists entities not in ALL_ENTITIES (stale): ${stale.length}`,
     ).toEqual([]);
+  });
+
+  // [#2384] The admin-facing NOT_IN_BACKUP list and the #856 gap entries above must not drift:
+  // each #856 entity maps to one plain phrase, and each such phrase has an entity behind it.
+  it('keeps NOT_IN_BACKUP in step with the #856 gap entries', () => {
+    const PHRASE: Record<string, string> = {
+      AcademicTerm: 'academic terms',
+      CalendarEventClass: 'calendar event classes',
+      AttendanceSession: 'attendance registers and records',
+      AttendanceRecord: 'attendance registers and records',
+      AttendanceDevice: 'attendance devices',
+      AttendanceDeviceEvent: 'attendance devices',
+      UserTenant: 'school memberships (who can sign in to this school)',
+      SmsCreditLedger: 'SMS credit balance and history',
+      SmsCreditBalance: 'SMS credit balance and history',
+      SmsCreditLot: 'SMS credit balance and history',
+      SmsCreditLotDraw: 'SMS credit balance and history',
+      DiscountRule: 'discount rules',
+      FeeGeneration: 'fee generation runs',
+      RecurringSchedule: 'recurring fee schedules',
+      RecurringScheduleStructure: 'recurring fee schedules',
+      RecurringScheduleExclusion: 'recurring fee schedules',
+      StudentWallet: 'student wallet balances and history',
+      WalletTransaction: 'student wallet balances and history',
+    };
+    const tracked = [...ENTITY_COVERAGE_EXEMPT.entries()]
+      .filter(([, why]) => why.includes('#856'))
+      .map(([entity]) => (entity as { name: string }).name);
+
+    expect(
+      tracked.filter((n) => !PHRASE[n]),
+      'a #856 entity has no NOT_IN_BACKUP phrase',
+    ).toEqual([]);
+    const phrases = new Set(tracked.map((n) => PHRASE[n]));
+    for (const phrase of phrases) expect(NOT_IN_BACKUP).toContain(phrase);
+    // A mapped phrase whose entities all got a tab (so left the exempt list) must leave NOT_IN_BACKUP.
+    for (const phrase of new Set(Object.values(PHRASE)))
+      if (!phrases.has(phrase)) expect(NOT_IN_BACKUP).not.toContain(phrase);
   });
 });

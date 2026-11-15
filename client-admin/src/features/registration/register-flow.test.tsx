@@ -226,9 +226,11 @@ describe('RegisterFlow', () => {
     ['start', 409, { code: 'CONTACT_IN_USE' }, /already used for another school/],
     ['start', 409, { code: 'SIGN_IN_REQUIRED' }, /already have an account/],
     ['start', 400, { code: 'PHONE_NOT_SUPPORTED' }, /number is not supported/],
-    ['start', 400, undefined, /complete the check/],
+    ['start', 400, { code: 'CAPTCHA_FAILED' }, /complete the check/],
+    ['start', 400, undefined, /Something went wrong/],
     ['verify', 400, undefined, /code is not right/],
     ['verify', 410, undefined, /code has expired/],
+    ['verify', 410, { code: 'REGISTRATION_EXPIRED' }, /sign-up has expired/],
     ['verify', 429, undefined, /Too many wrong tries/],
     ['verify', 500, undefined, /Something went wrong/],
   ])(

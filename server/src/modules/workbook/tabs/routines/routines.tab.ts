@@ -122,7 +122,7 @@ export const routinesTab: TabSpec<Routine, RoutineRow> = {
         tab: 'routines',
         row: rowNo,
         column: 'academic_year',
-        message: `Column "academic_year": no academic year named "${yearKey}" was found.`,
+        message: `Column "academic_year": no academic year was found.`,
         severity: 'error',
         value: yearKey,
       });
