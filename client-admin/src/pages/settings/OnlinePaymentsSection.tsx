@@ -152,7 +152,7 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
       bkash.environment = values.environment as PaymentGatewayEnvironment;
     // `null` removes a saved secret: the server's @IsOptional lets it through and the merge
     // deletes the key (the DTO type just doesn't spell it).
-    for (const k of BKASH_SECRETS) if (secrets[k] !== undefined) bkash[k] = secrets[k] as string;
+    for (const k of BKASH_SECRETS) if (secrets[k] !== undefined) bkash[k] = secrets[k];
     const sendBkash = Object.keys(bkash).length > 0;
     const onlineChanged = values.onlineEnabled !== form.formState.defaultValues?.onlineEnabled;
     const submittedSecrets = secrets;
@@ -180,7 +180,11 @@ export function OnlinePaymentsSection({ schoolId, payments }: OnlinePaymentsSect
           if (sendBkash) {
             // keep anything typed while the save was in flight
             setSecrets((prev) =>
-              Object.fromEntries(Object.entries(prev).filter(([k, v]) => submittedSecrets[k as BkashSecretKey] !== v)),
+              Object.fromEntries(
+                Object.entries(prev).filter(
+                  ([k, v]) => submittedSecrets[k as BkashSecretKey] !== v,
+                ),
+              ),
             );
             setVoided(true);
             testBkash.reset();

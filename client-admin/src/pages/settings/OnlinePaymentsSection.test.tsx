@@ -113,9 +113,9 @@ describe('OnlinePaymentsSection', () => {
     );
     await user.click(await screen.findByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(
-        (screen.getByLabelText('What to tell the guardian') as HTMLInputElement).disabled,
-      ).toBe(true),
+      expect(screen.getByLabelText<HTMLInputElement>('What to tell the guardian').disabled).toBe(
+        true,
+      ),
     );
     release();
   });
