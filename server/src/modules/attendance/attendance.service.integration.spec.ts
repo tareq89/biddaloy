@@ -88,8 +88,11 @@ describe('AttendanceService (integration)', () => {
   function isoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
   }
+  // Pinned per test (beforeEach): a UTC-midnight rollover between a write and a
+  // read must not move TODAY() under the test.
+  let testNow = new Date();
   function addDays(days: number): string {
-    const d = new Date();
+    const d = new Date(testNow);
     d.setUTCDate(d.getUTCDate() + days);
     return isoDate(d);
   }
@@ -174,6 +177,7 @@ describe('AttendanceService (integration)', () => {
   });
 
   beforeEach(async () => {
+    testNow = new Date();
     // Baseline policy for most tests: no weekly-off collision, a 2-day
     // correction window, future dates refused by default.
     await setTenantSettings(TENANT_ID, {

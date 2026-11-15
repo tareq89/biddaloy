@@ -115,6 +115,8 @@ function expectMethodsSumToNet(report: CollectionsReport, label: string): void {
 
 test.describe('dashboard reconciliation: admin', () => {
   test('attendance-today = GET /attendance/my-sections for today', async ({ request }) => {
+    // The toPass window below is 75s; the 30s default would cut it off first.
+    test.setTimeout(120_000);
     // The widget is cached for 60 s (DASHBOARD_CACHE_TTL_SECONDS); a section another spec
     // created inside that window shows in the source list first. Re-read both until the
     // cache has expired: the contract is that they agree once it does.
