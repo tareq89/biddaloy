@@ -49,7 +49,7 @@ const seen: string[] = [];
 
 function handlers(
   rows: unknown[],
-  opts: { terms?: unknown[]; deleted?: string[]; fail?: boolean; settings?: unknown } = {},
+  opts: { terms?: unknown[]; deleted?: string[]; fail?: boolean | 403; settings?: unknown } = {},
 ) {
   seen.length = 0;
   server.use(
@@ -93,6 +93,12 @@ function handlers(
     http.get('/api/v1/subjects', () => HttpResponse.json(page([]))),
     http.get('/api/v1/study-plans', ({ request }) => {
       seen.push(new URL(request.url).search);
+      if (opts.fail === 403) {
+        return HttpResponse.json(
+          { statusCode: 403, message: 'no', requestId: 'r', path: '/', timestamp: 't' },
+          { status: 403 },
+        );
+      }
       if (opts.fail) return HttpResponse.json({ message: 'boom' }, { status: 500 });
       return HttpResponse.json(page(rows));
     }),
@@ -244,6 +250,14 @@ describe('Syllabus › Study plans tab', () => {
     await user.click(retry);
     await waitFor(() => expect(seen.length).toBeGreaterThan(before));
   }, 20_000);
+
+  it('a 403 shows the permission screen, not the retry error', async () => {
+    handlers([], { fail: 403 });
+    render();
+    await screen.findByText('You do not have permission');
+    expect(screen.getByText('Ask your school admin to give you access.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
 
   it('Bangla locale renders Bangla digits', async () => {
     handlers([row('p1')]);
