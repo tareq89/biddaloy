@@ -157,6 +157,8 @@ Two fields above the list:
 
 Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. To find one application, type a name, reference number or phone in **Search**. With no applications at all, it says **No applications yet**.
 
+The admission desk of a round shows this same list in its Applications step, but only for that round, so the **Admission round** field is not there. Above the list, **Check fees (N)** opens the fees that are waiting to be checked. Open one and look at the proof. Then press **Fee is ok**, or write a reason and press **Send back**. **New application** opens a form where you can enter an application for a guardian who has come to the school.
+
 ### When the phone number matches an earlier guardian <a href="#task-guardian" id="task-guardian"></a>
 
 This often happens when a brother or sister already studies at the school. The app does not join anything by itself; you have to choose.

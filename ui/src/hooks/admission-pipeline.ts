@@ -81,8 +81,9 @@ export function useAdmissionApplicants(filters: ApplicantFilters) {
   });
 }
 
-export function useFeeProofs(filters: FeeProofFilters) {
+export function useFeeProofs(filters: FeeProofFilters, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: admissionFeeProofKeys.list(filters),
     queryFn: async ({ signal }) =>
       (await apiClient.get<FeeProofList>('/admission/fee-proofs', { params: filters, signal }))

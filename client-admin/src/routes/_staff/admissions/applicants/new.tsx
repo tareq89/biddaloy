@@ -5,6 +5,9 @@ import { ClerkEntryPage } from '../../../../features/admission/desk/ClerkEntryPa
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
 export const Route = createFileRoute('/_staff/admissions/applicants/new')({
+  validateSearch: (s: Record<string, unknown>) => ({
+    round: typeof s.round === 'string' ? s.round : undefined,
+  }),
   loader: () => loadRouteNamespaces('admission-desk', 'common'),
   component: ClerkEntryPage,
 });

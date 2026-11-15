@@ -68,7 +68,46 @@
     }
   },
   "clerk": {
-    "title": "New application"
+    "title": "New application",
+    "round": "Admission round",
+    "pick": "Choose",
+    "save": "Save application",
+    "another": "Enter another",
+    "done": "Application saved. Reference: {{ref}}",
+    "referenceSeen": "This payment reference was used before. The application is saved; check the fee file carefully.",
+    "docsLater": "Add documents later",
+    "docs": {
+      "PHOTO": "Photo",
+      "BIRTH_CERTIFICATE": "Birth certificate",
+      "TRANSCRIPT": "Previous result",
+      "SSC_MARKSHEET": "SSC marksheet",
+      "TRANSFER_CERTIFICATE": "Transfer certificate",
+      "QUOTA_CERTIFICATE": "Quota certificate"
+    },
+    "feeTitle": "Application fee",
+    "feeMethod": "Sent by",
+    "feeReference": "Payment reference (optional)",
+    "feeProof": "Proof of payment (photo or PDF)",
+    "afterClose": "The last date has passed. Take this application anyway.",
+    "shortcut": "Press Ctrl and Enter to save.",
+    "options": {
+      "MALE": "Boy",
+      "FEMALE": "Girl",
+      "OTHER": "Other",
+      "ISLAM": "Islam",
+      "HINDUISM": "Hinduism",
+      "BUDDHISM": "Buddhism",
+      "CHRISTIANITY": "Christianity",
+      "SCIENCE": "Science",
+      "COMMERCE": "Commerce",
+      "HUMANITIES": "Humanities"
+    },
+    "errors": {
+      "REQUIRED": "This box must be filled.",
+      "INVALID": "This box is not right. Check it.",
+      "UNKNOWN_FIELD": "This box is not part of the round.",
+      "create": "Could not save the application. Try again."
+    }
   },
   "wizard": {
     "title": "New admission round",
@@ -169,5 +208,73 @@
     "lists": "Merit and waiting lists",
     "publication": "Publish online",
     "print": "Print"
+  },
+  "applicantsPanel": {
+    "checkFees": "Check fees ({{num}})",
+    "newApplication": "New application",
+    "queueLabel": "Fees waiting to be checked",
+    "check": "Check",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{current}} of {{total}}"
+  },
+  "fee": {
+    "title": "Fee of {{name}}",
+    "description": "Application {{ref}}",
+    "seenBefore": "This payment reference was used before. Look at the file carefully.",
+    "fileLoading": "Opening the file…",
+    "fileError": "Could not open the file.",
+    "fileTitle": "Fee proof",
+    "amount": "Fee",
+    "method": "Sent by",
+    "reference": "Reference",
+    "reasonLabel": "Reason (needed only to send back)",
+    "reasonCount": "{{used}} of {{max}}",
+    "sendBack": "Send back",
+    "confirm": "Fee is ok",
+    "errors": {
+      "decide": "Could not save. Try again."
+    }
+  },
+  "help": {
+    "admission": {
+      "field": {
+        "name": "Write the child's full name as on the birth certificate.",
+        "dob": "Pick the child's date of birth.",
+        "gender": "Choose one.",
+        "religion": "Choose one, or leave empty.",
+        "blood_group": "Leave empty if not known.",
+        "birth_reg_no": "The number on the birth certificate.",
+        "nationality": "For example Bangladeshi.",
+        "photo": "The photo is added as a document below.",
+        "father_name": "Write the father's full name.",
+        "father_phone": "11 digits, starting with 01.",
+        "father_occupation": "What the father does for work.",
+        "father_nid": "The number on the father's national ID card.",
+        "mother_name": "Write the mother's full name.",
+        "mother_phone": "11 digits, starting with 01.",
+        "mother_occupation": "What the mother does for work.",
+        "mother_nid": "The number on the mother's national ID card.",
+        "guardian_name": "The person who will come to the school. Often a parent.",
+        "guardian_phone": "11 digits, starting with 01. Messages go to this number.",
+        "present_address": "Where the family lives now.",
+        "permanent_address": "The home village or town address.",
+        "previous_school": "The school the child went to before.",
+        "previous_class": "The last class the child passed.",
+        "ssc_gpa": "The GPA on the SSC result, for example 4.50.",
+        "ssc_roll": "The roll number on the SSC result.",
+        "ssc_board": "The education board of the SSC exam.",
+        "ssc_year": "The year of the SSC exam.",
+        "group_preference": "The group the child wants.",
+        "siblings_in_school": "Tick if a brother or sister studies here.",
+        "quota_freedom_fighter": "Tick if the child is a freedom fighter's child. A certificate may be asked for.",
+        "quota_teacher_child": "Tick if a parent teaches at this school.",
+        "quota_disabled": "Tick if the child has a disability. A certificate may be asked for.",
+        "quota_ethnic_minority": "Tick if the child belongs to a small ethnic group.",
+        "special_needs": "Anything the school should know to help the child.",
+        "transport_need": "Tick if the child needs a way to get to school.",
+        "heard_of_us": "For example a friend, a banner or the website."
+      }
+    }
   }
 }

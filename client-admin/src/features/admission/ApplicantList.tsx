@@ -23,7 +23,8 @@ function IntakeTitle({ intakeId }: { intakeId: string }) {
   return <>{data?.find((i) => i.id === intakeId)?.title ?? '—'}</>;
 }
 
-export function ApplicantList() {
+/** `intakeId` pins the list to one round (the admission desk); the round filter and column then go away. */
+export function ApplicantList({ intakeId }: { intakeId?: string } = {}) {
   const { t } = useTranslation('admission-staff-applicants');
   const [state, actions] = useListShellState();
   const regionConfig = useRegionConfig();
@@ -33,7 +34,7 @@ export function ApplicantList() {
     page: state.page,
     limit: state.limit,
     ...(state.filters.search ? { search: state.filters.search } : {}),
-    ...(state.filters.intakeId ? { intakeId: state.filters.intakeId } : {}),
+    ...(intakeId || state.filters.intakeId ? { intakeId: intakeId ?? state.filters.intakeId } : {}),
     ...(state.filters.status ? { status: state.filters.status as AdmissionApplicantStatus } : {}),
   };
   const applicantsQuery = useApplicants(filters);
@@ -46,16 +47,20 @@ export function ApplicantList() {
       placeholder: t('list.searchPlaceholder'),
       primary: true,
     },
-    {
-      kind: 'select',
-      key: 'intakeId',
-      label: t('list.filterIntake'),
-      allLabel: t('list.filterAllIntakes'),
-      options: (intakesQuery.data ?? []).map((intake) => ({
-        value: intake.id,
-        label: intake.title,
-      })),
-    },
+    ...(intakeId
+      ? []
+      : [
+          {
+            kind: 'select' as const,
+            key: 'intakeId',
+            label: t('list.filterIntake'),
+            allLabel: t('list.filterAllIntakes'),
+            options: (intakesQuery.data ?? []).map((intake) => ({
+              value: intake.id,
+              label: intake.title,
+            })),
+          },
+        ]),
     {
       kind: 'select',
       key: 'status',
@@ -81,12 +86,16 @@ export function ApplicantList() {
       accessorFn: (row) => <span className="font-medium">{row.applicant_name}</span>,
       card: 'title',
     },
-    {
-      id: 'intake',
-      header: t('list.columnIntake'),
-      accessorFn: (row) => <IntakeTitle intakeId={row.intake_id} />,
-      card: 'subtitle',
-    },
+    ...(intakeId
+      ? []
+      : [
+          {
+            id: 'intake',
+            header: t('list.columnIntake'),
+            accessorFn: (row: AdmissionApplicantDto) => <IntakeTitle intakeId={row.intake_id} />,
+            card: 'subtitle' as const,
+          },
+        ]),
     {
       id: 'guardianPhone',
       header: t('list.columnGuardianPhone'),
