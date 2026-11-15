@@ -24,6 +24,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { ExamFormDialog } from './-exam-form-dialog';
 import { ExamStatusBadge } from './-exam-status-badge';
+import { QueryFailure } from './-query-failure';
 
 // `?create=1` opens the create dialog (palette "Create exam from template",
 // same pattern as seat-plans' `?generate=1`); `?template=<id>` pre-selects it.
@@ -64,7 +65,7 @@ export const Route = createFileRoute('/_staff/exams/')({
           }),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
+      loadRouteNamespaces('exams', 'common', 'examsTemplateField', 'states'),
     ]),
   pendingComponent: ExamsListPending,
   component: ExamsListPage,
@@ -173,6 +174,10 @@ function ExamsListPage() {
         // The header already holds the one primary add button; no second one here.
       };
 
+  if (examsQuery.isError) {
+    return <QueryFailure error={examsQuery.error} onRetry={() => void examsQuery.refetch()} />;
+  }
+
   return (
     <>
       <ListShell
@@ -250,7 +255,6 @@ function ExamsListPage() {
         onPageSizeChange={actions.setLimit}
         loading={examsQuery.isLoading}
         isFetching={examsQuery.isFetching}
-        {...(examsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={emptyState}
         announceResults={(count, total) =>
           t('list.announceResults', {
