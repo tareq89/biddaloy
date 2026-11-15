@@ -2,7 +2,7 @@ import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -31,7 +31,11 @@ function render(
   entry = '/portal/fees/pay',
   cart: { students: unknown[] } = CART,
 ) {
-  const seen = { headers: [] as (string | null)[], forms: [] as FormData[] };
+  const seen = {
+    headers: [] as (string | null)[],
+    forms: [] as FormData[],
+    starts: [] as { body: unknown; key: string | null }[],
+  };
   server.use(
     http.get('/api/v1/portal/payment-options', () =>
       HttpResponse.json(
@@ -42,6 +46,16 @@ function render(
         },
       ),
     ),
+    http.post('/api/v1/portal/online-payments', async ({ request }) => {
+      seen.starts.push({ body: await request.json(), key: request.headers.get('Idempotency-Key') });
+      if (submitStatus === 503) {
+        return HttpResponse.json(
+          { statusCode: 503, message: 'x', timestamp: 't', path: 'p', requestId: 'r' },
+          { status: 503 },
+        );
+      }
+      return HttpResponse.json({ id: 'o1', bkashUrl: 'https://pay.example/bk' }, { status: 201 });
+    }),
     http.get('/api/v1/portal/payment-cart', () => HttpResponse.json(cart)),
     http.post('/api/v1/portal/payment-proofs', async ({ request }) => {
       seen.headers.push(request.headers.get('Idempotency-Key'));
@@ -222,5 +236,48 @@ describe('/portal/fees/pay', () => {
     render({ onlineEnabled: false, proofEnabled: false, proofMethods: [] });
     expect(await screen.findByText(/Pay at the school office/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Submit payment proof' })).toBeNull();
+  });
+
+  describe('bKash', () => {
+    const both = {
+      onlineEnabled: true,
+      proofEnabled: true,
+      proofMethods: [{ method: 'BKASH', instructions: '' }],
+    };
+    const payButton = () => screen.findByRole('button', { name: /Pay .*1,500.00.* with bKash/ });
+
+    it('is offered only when online is enabled', async () => {
+      render();
+      await screen.findByText('Already paid — submit proof');
+      expect(screen.queryByText('Pay with bKash')).toBeNull();
+    });
+
+    it('is the default and hides the proof form', async () => {
+      render(both);
+      expect(await screen.findByText('Pay with bKash')).toBeTruthy();
+      expect(screen.queryByLabelText('Transaction ID (TrxID)')).toBeNull();
+    });
+
+    it('starts with only the ticked bill ids and redirects to the returned URL', async () => {
+      const assign = vi.fn();
+      vi.stubGlobal('location', { ...window.location, assign });
+      const seen = render(both);
+      const user = userEvent.setup();
+      await user.click(await payButton());
+      await waitFor(() => expect(assign).toHaveBeenCalledWith('https://pay.example/bk'));
+      expect(seen.starts[0]?.body).toEqual({ billIds: ['b1', 'b2'] });
+      expect(seen.starts[0]?.key).toBeTruthy();
+      vi.unstubAllGlobals();
+    });
+
+    it('503 offers proof instead', async () => {
+      const seen = render(both, 503);
+      const user = userEvent.setup();
+      await user.click(await payButton());
+      expect(await screen.findByText(/bKash is not available right now/)).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'Already paid — submit proof' }));
+      expect(await screen.findByLabelText('Transaction ID (TrxID)')).toBeTruthy();
+      expect(seen.starts).toHaveLength(1);
+    });
   });
 });
