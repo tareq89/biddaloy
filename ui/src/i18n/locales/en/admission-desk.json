@@ -14,7 +14,8 @@
     "stepper": {
       "label": "Steps",
       "progress": "Step {{current}} of {{total}}",
-      "pick": "Choose a step"
+      "pick": "Choose a step",
+      "next": "Next"
     },
     "steps": {
       "applicants": "Applications",
