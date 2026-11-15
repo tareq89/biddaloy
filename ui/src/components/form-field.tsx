@@ -12,6 +12,14 @@
  * + `FormLabel` + `FormControl` + `FormMessage` cannot end up unlabelled or
  * with its error unannounced by accident, which is the single guarantee
  * this component exists for.
+ *
+ * `focusFirstError(form)` — call it from `handleSubmit`'s invalid callback
+ * (`form.handleSubmit(onValid, () => focusFirstError(form))`) to move focus
+ * to the first field with an error. It only focuses, never reads or prints
+ * a submitted value (Rule 23); the message text comes from the caller's
+ * schema or `states.validation.*`. Errors show after submit or once a field
+ * is touched (react-hook-form's default `onSubmit` mode), not while typing
+ * the first character — `FormMessage` below keeps that behaviour.
  */
 import { CircleAlertIcon } from 'lucide-react';
 import { Slot } from 'radix-ui';
@@ -24,6 +32,7 @@ import {
   type ControllerProps,
   type FieldPath,
   type FieldValues,
+  type UseFormReturn,
 } from 'react-hook-form';
 
 import { useTranslation } from '../i18n';
@@ -211,6 +220,14 @@ function FormMessage({ className, children, ...props }: React.ComponentProps<'p'
   );
 }
 
+/** Focuses the first field (by error key order) that failed validation; no-op for a valid form. */
+function focusFirstError<T extends FieldValues>(
+  form: Pick<UseFormReturn<T>, 'formState' | 'setFocus'>,
+) {
+  const [first] = Object.keys(form.formState.errors);
+  if (first) form.setFocus(first as FieldPath<T>);
+}
+
 export {
   Form,
   FormControl,
@@ -219,5 +236,6 @@ export {
   FormItem,
   FormLabel,
   FormMessage,
+  focusFirstError,
   useFormField,
 };

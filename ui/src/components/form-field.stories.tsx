@@ -15,6 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  focusFirstError,
 } from './form-field';
 import { Input } from './input';
 
@@ -38,7 +39,15 @@ function DemoForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={(event) => void form.handleSubmit(() => {})(event)} className="grid gap-4">
+      <form
+        onSubmit={(event) =>
+          void form.handleSubmit(
+            () => {},
+            () => focusFirstError(form),
+          )(event)
+        }
+        className="grid gap-4"
+      >
         <FormField
           control={form.control}
           name="studentName"
