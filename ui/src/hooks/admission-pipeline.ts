@@ -245,7 +245,7 @@ export function useDrawLottery(stageId: string) {
       ).data,
     onSuccess: () => {
       rotate();
-      invalidate(admissionApplicantKeys.all);
+      invalidate(admissionApplicantKeys.all, admissionStageResultKeys.all, STAGES);
     },
     retry: false,
   });
@@ -277,7 +277,7 @@ export function useCommitLotteryImport(stageId: string) {
           input,
         )
       ).data,
-    onSuccess: () => invalidate(admissionApplicantKeys.all),
+    onSuccess: () => invalidate(admissionApplicantKeys.all, admissionStageResultKeys.all, STAGES),
     retry: false,
   });
 }
