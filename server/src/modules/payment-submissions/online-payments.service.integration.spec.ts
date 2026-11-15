@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { ConflictException, INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PaymentGatewayEnvironment, UserRole } from '@biddaloy/shared';
 import { SEED_TENANT_ID } from '@test/constants';
@@ -410,7 +410,7 @@ describe('OnlinePaymentsService (integration)', () => {
     expect(settings.payments.onlineEnabled).toBe(true);
   });
 
-  it('credentials changed while the test ran: no stamp', async () => {
+  it('credentials changed while the test ran: 409, no stamp', async () => {
     const stub = app.get(BkashClient) as unknown as StubBkash;
     stub.testConnection.mockImplementationOnce(async () => {
       await ds.query(
@@ -418,7 +418,7 @@ describe('OnlinePaymentsService (integration)', () => {
         [SEED_TENANT_ID],
       );
     });
-    await svc.testConnection(SEED_TENANT_ID);
+    await expect(svc.testConnection(SEED_TENANT_ID)).rejects.toThrow(ConflictException);
     const [{ settings }] = await ds.query(`SELECT settings FROM schools WHERE id=$1`, [
       SEED_TENANT_ID,
     ]);

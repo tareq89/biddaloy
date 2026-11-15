@@ -52,6 +52,7 @@ const MSG = {
   badQuery: 'Invalid callback',
   credsMissing: 'bKash credentials are not complete',
   testFailed: 'bKash did not accept these credentials',
+  credsChanged: 'The credentials changed during the test. Test again.',
 } as const;
 
 /** A payment waits this long for the guardian before the sweep may expire it (D24). */
@@ -440,7 +441,7 @@ export class OnlinePaymentsService {
     const at = new Date().toISOString();
     // ponytail: raw jsonb merge because SchoolsService is outside this ticket's territory;
     // move to a SchoolsService method when that file is free.
-    await this.ds.query(
+    const stamped: [unknown, number] = await this.ds.query(
       `UPDATE schools SET settings = jsonb_set(
          jsonb_set(
            jsonb_set(COALESCE(settings,'{}'::jsonb), '{payments}',
@@ -450,6 +451,8 @@ export class OnlinePaymentsService {
        WHERE id = $2 AND (COALESCE(settings->'payments'->'bkash','{}'::jsonb) - 'lastTestOkAt') = $3::jsonb`,
       [at, tenantId, snapshot],
     );
+    // pg UPDATE through TypeORM returns [rows, affected]; 0 means the creds moved under us.
+    if (stamped[1] === 0) throw new ConflictException(MSG.credsChanged);
     this.settingsCache.invalidate(tenantId);
     return { ok: true, lastTestOkAt: at };
   }
