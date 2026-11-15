@@ -111,5 +111,29 @@
     "callLink": "{{name}}-কে ফোন করুন",
     "saveError": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
     "close": "বন্ধ করুন"
+  },
+  "publish": {
+    "loading": "লোড হচ্ছে…",
+    "loadError": "পাতাটি লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "published": "প্রকাশিত",
+    "notPublished": "প্রকাশ হয়নি",
+    "channelSite": "সাইট",
+    "channelPhone": "ফোন",
+    "channelSms": "SMS পাঠান",
+    "includeNotSelected": "যারা বাছাই হয়নি তাদেরও SMS দিন",
+    "action": "প্রকাশ করুন",
+    "confirmTitle": "{{name}} প্রকাশ করবেন?",
+    "estimate": "{{count}}টা SMS ≈ {{credits}} ক্রেডিট",
+    "estimateLoading": "SMS গোনা হচ্ছে…",
+    "lowCredit": "ক্রেডিট যথেষ্ট নয়: দরকার {{credits}}, আছে {{available}}।",
+    "noSms": "কোনো SMS যাবে না।",
+    "names": "নাম সহ তালিকা",
+    "namesWarning": "এগুলো শিশুদের নাম। পাবলিক সাইট খুললে যে কেউ দেখতে পাবে। স্কুল সত্যিই চাইলে তবেই চালু করুন।",
+    "preview": "সাইটে কেমন দেখাবে",
+    "previewUnavailable": "পাবলিক তালিকার পাতা এখনো তৈরি হয়নি।",
+    "toast": {
+      "done": "প্রকাশ হয়েছে। {{count}}টা SMS গেছে।",
+      "error": "প্রকাশ করা যায়নি। আবার চেষ্টা করুন।"
+    }
   }
 }
