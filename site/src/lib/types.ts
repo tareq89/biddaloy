@@ -40,6 +40,8 @@ export interface SiteManifest {
 /** `GET /public/site/by-host/:host/page/:page`. */
 export interface SitePageData {
   page: SitePage;
+  admissions_open?: boolean;
+  admissions_open_link?: string;
   sections: (Pick<SiteSectionConfig, 'key' | 'data' | 'typography'> & {
     enabled?: boolean;
     /** True when a system-fed section had nothing to show: the site hides it (D12). */

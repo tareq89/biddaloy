@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { SiteCacheService } from '../website/public/site-cache.service';
 import { SchoolsService } from '../schools/schools.service';
 import { addDays, localToday } from '../attendance/attendance-policy.util';
 import { IntakeService } from './intake.service';
@@ -75,6 +76,7 @@ describe('IntakeService', () => {
           useValue: { transaction: async (cb: (m: unknown) => unknown) => cb(txManager) },
         },
         // real clock + Dhaka (the default region), so a fake Date drives it
+        { provide: SiteCacheService, useValue: { invalidate: vi.fn() } },
         { provide: SchoolsService, useValue: { todayFor: async () => localToday('Asia/Dhaka') } },
       ],
     }).compile();

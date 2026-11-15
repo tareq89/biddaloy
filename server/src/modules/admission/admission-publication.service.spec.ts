@@ -31,6 +31,7 @@ function build(recipients: R[], opts: { published?: boolean; smsFails?: boolean 
   const notify = vi.fn(async () => {
     if (opts.smsFails) throw new Error('boom');
   });
+  const invalidate = vi.fn(async () => undefined);
   const service = new AdmissionPublicationService(
     {
       manager,
@@ -42,8 +43,9 @@ function build(recipients: R[], opts: { published?: boolean; smsFails?: boolean 
       getBalance: async () => ({ available: 50, reserved: 0 }),
     } as never,
     { record: async (a: Record<string, unknown>) => void audits.push(a) } as never,
+    { invalidate } as never,
   );
-  return { service, notify, audits, queries };
+  return { service, notify, audits, queries, invalidate };
 }
 
 const dto = { what: 'MERIT', ref_id: 'l1', send_sms: true } as const;
@@ -89,6 +91,15 @@ describe('AdmissionPublicationService', () => {
     await expect(service.publish('i1', dto, TENANT, actor)).resolves.toMatchObject({
       already_published: false,
     });
+  });
+
+  it('first publish invalidates the site cache for the tenant; a repeat does not', async () => {
+    const first = build([]);
+    await first.service.publish('i1', dto, 't1', { userId: 'u', ip: null, userAgent: null } as never);
+    expect(first.invalidate).toHaveBeenCalledWith('t1');
+    const again = build([], { published: true });
+    await again.service.publish('i1', dto, 't1', { userId: 'u', ip: null, userAgent: null } as never);
+    expect(again.invalidate).not.toHaveBeenCalled();
   });
 
   it('send_sms false publishes without texting', async () => {

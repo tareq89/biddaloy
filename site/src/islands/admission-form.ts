@@ -121,7 +121,7 @@ export function mountAdmission(root: HTMLElement, deps: Deps): void {
       else
         c = el('input', {
           name: f.key,
-          type: f.input === 'date' ? 'date' : f.input === 'phone' ? 'tel' : f.input === 'number' ? 'text' : 'text',
+          type: f.input === 'date' ? 'date' : f.input === 'phone' ? 'tel' : 'text',
           inputMode: f.input === 'phone' ? 'tel' : f.input === 'number' ? 'decimal' : undefined,
         });
       form.append(field(label, c, f.key));

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, DataSource, EntityManager } from 'typeorm';
 import { ADMISSION_TEMPLATES, AdmissionTemplateKey } from '@biddaloy/shared';
@@ -10,6 +10,7 @@ import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { CreateIntakeDto } from './dto/create-intake.dto';
 import { UpdateIntakeDto } from './dto/update-intake.dto';
 import { SchoolsService } from '../schools/schools.service';
+import { SiteCacheService } from '../website/public/site-cache.service';
 import { addDays } from '../attendance/attendance-policy.util';
 
 export type IntakeStatus = 'OPEN' | 'CLOSED';
@@ -51,6 +52,8 @@ export class IntakeService {
     @InjectRepository(AdmissionIntake) private readonly repo: Repository<AdmissionIntake>,
     private readonly schoolsService: SchoolsService,
     private readonly dataSource: DataSource,
+    // forwardRef: WebsiteModule imports AdmissionModule too.
+    @Inject(forwardRef(() => SiteCacheService)) private readonly siteCache: SiteCacheService,
   ) {}
 
   /** Works out the class, optional legacy section and the class's year. A section wins
@@ -117,6 +120,7 @@ export class IntakeService {
       );
       return intake;
     });
+    await this.siteCache.invalidate(tenantId); // after commit: the 60 s admissions feed
     return withStatus(saved, await this.schoolsService.todayFor(tenantId));
   }
 
@@ -191,6 +195,7 @@ export class IntakeService {
         .getRepository(AdmissionIntake)
         .update({ id, tenant_id: tenantId }, { ...rest, ...target });
     });
+    await this.siteCache.invalidate(tenantId); // after commit: the 60 s admissions feed
     return this.findOne(id, tenantId);
   }
 
@@ -213,6 +218,7 @@ export class IntakeService {
         .getRepository(AdmissionIntake)
         .update({ id, tenant_id: tenantId }, { open_date: openDate, close_date: closeDate });
     });
+    await this.siteCache.invalidate(tenantId); // after commit: the 60 s admissions feed
     return this.findOne(id, tenantId);
   }
 }

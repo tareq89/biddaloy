@@ -1,7 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, forwardRef } from '@nestjs/common';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 import { AdmissionApplicantStatus, AuditAction, countSmsSegments } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
+import { SiteCacheService } from '../website/public/site-cache.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
@@ -54,6 +55,8 @@ export class AdmissionPublicationService {
     private readonly notifications: AdmissionNotificationService,
     private readonly credits: SmsCreditService,
     private readonly audit: AuditService,
+    // forwardRef: WebsiteModule imports AdmissionModule too.
+    @Inject(forwardRef(() => SiteCacheService)) private readonly siteCache: SiteCacheService,
   ) {}
 
   private async intake(manager: EntityManager, id: string, tenantId: string) {
@@ -206,7 +209,8 @@ export class AdmissionPublicationService {
       },
     );
 
-    // After commit: a failed SMS never undoes the publish.
+    // After commit: the 60 s result/list feeds refresh; a failed SMS never undoes the publish.
+    if (firstTime) await this.siteCache.invalidate(tenantId);
     if (firstTime) await this.sendBatches(intake.title, rows);
     return { published_at: publishedAt, already_published: !firstTime, sms_attempted: rows.length };
   }
