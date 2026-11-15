@@ -21,6 +21,7 @@ import { z } from 'zod';
 
 import { SaveAsReportDialog } from '../-save-as-report/save-as-report-dialog';
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { QueryFailed } from '../fees/-query-failed';
 
 import { usePaymentsList } from './-list/use-payments-list';
 
@@ -200,6 +201,16 @@ function PaymentsList({ canRecord, onRecord }: { canRecord: boolean; onRecord: (
         ]
       : []),
   ];
+
+  if (query.isError) {
+    return (
+      <QueryFailed
+        error={query.error}
+        message={t('list.error')}
+        onRetry={() => void query.refetch()}
+      />
+    );
+  }
 
   return (
     <>
