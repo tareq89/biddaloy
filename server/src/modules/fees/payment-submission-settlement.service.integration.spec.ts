@@ -196,7 +196,8 @@ describe('PaymentSubmissionSettlement (integration)', () => {
 
   /** Waits (condition, not duration) until some session of this db is blocked on a row lock. */
   async function untilLockWaiter() {
-    for (let i = 0; i < 100; i += 1) {
+    // Bounded under the test timeout, so a miss throws and `finally` releases the held settle.
+    for (let i = 0; i < 60; i += 1) {
       const [{ n }] = await ds.query(
         `SELECT count(*)::int AS n FROM pg_stat_activity
           WHERE datname = current_database() AND wait_event_type = 'Lock'`,
