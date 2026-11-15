@@ -14,6 +14,9 @@ type S = components['schemas'];
 export type ApplicantList = S['ApplicantListResponseDto'];
 export type FeeProofList = S['FeeProofListResponseDto'];
 export type FeeState = S['AdmissionFeeState'];
+export type ApplicantSource = S['AdmissionSource'];
+/** The applicant row with the Epic 71 fields (source, quota tags, fee state, sibling). */
+export type ApplicantRow = S['AdmissionApplicantResponseDto'];
 export type PutStageResultsInput = S['PutStageResultsDto'];
 export type CutoffPreviewInput = S['CutoffPreviewDto'];
 export type CutoffPreview = S['CutoffPreviewResponseDto'];
@@ -57,6 +60,9 @@ export interface ApplicantFilters {
     | 'WAITING'
     | 'EXPIRED';
   search?: string;
+  fee_state?: FeeState;
+  quota_tag?: string;
+  source?: ApplicantSource;
   /** Only applicants in this stage (eligible for it). */
   stage_id?: string;
   sort?: 'newest' | 'roll';
@@ -65,6 +71,8 @@ export interface ApplicantFilters {
 }
 export interface FeeProofFilters {
   intakeId?: string;
+  /** One applicant's proofs, every state (their fee history). */
+  applicantId?: string;
   state?: FeeState;
   page?: number;
   limit?: number;

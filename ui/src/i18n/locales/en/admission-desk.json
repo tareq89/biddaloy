@@ -216,7 +216,12 @@
     "check": "Check",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page {{current}} of {{total}}"
+    "page": "Page {{current}} of {{total}}",
+    "rollPending": {
+      "title": "{{num}} applicants have no roll number yet",
+      "description": "Make roll numbers in the test step so seat cards and mark sheets can be printed.",
+      "action": "Make roll numbers"
+    }
   },
   "fee": {
     "title": "Fee of {{name}}",

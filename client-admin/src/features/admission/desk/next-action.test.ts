@@ -21,6 +21,14 @@ describe('nextAction', () => {
     );
     expect(a).toMatchObject({ key: 'feePending', count: 3, step: 'applicants' });
   });
+  it('a stage with a committed cut-off is done, so the card moves on', () => {
+    const stages = [{ id: 's1', kind: 'WRITTEN' as const, done: true }];
+    expect(nextAction({ ...base, stages }, now).key).toBe('makeMerit');
+    expect(
+      nextAction({ ...base, stages: [{ id: 's1', kind: 'WRITTEN' as const, done: false }] }, now)
+        .key,
+    ).toBe('enterMarks');
+  });
   it('marks, then lottery, per stage kind', () => {
     expect(nextAction({ ...base, stages: [{ id: 's1', kind: 'WRITTEN' }] }, now)).toMatchObject({
       key: 'enterMarks',

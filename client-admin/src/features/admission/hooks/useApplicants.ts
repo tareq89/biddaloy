@@ -11,6 +11,7 @@ import type {
   AdmissionEvaluationDto,
 } from '@biddaloy/shared';
 import { apiClient } from '@biddaloy/ui/api';
+import type { ApplicantRow } from '@biddaloy/ui/hooks';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface ApplicantFilters {
@@ -18,6 +19,9 @@ export interface ApplicantFilters {
   status?: AdmissionApplicantStatus;
   /** Matches applicant name, reference number or guardian phone (server-side). */
   search?: string;
+  fee_state?: ApplicantRow['fee_state'];
+  quota_tag?: string;
+  source?: ApplicantRow['source'];
   /** 1-based page; the server caps `limit` at 100. */
   page?: number;
   limit?: number;
@@ -32,8 +36,16 @@ export interface ApplicantPage {
   totalPages: number;
 }
 
+/** The Epic 71 fields the server adds; the shared DTO predates them, so they are all optional here. */
+export type ApplicantExtras = Partial<
+  Pick<
+    ApplicantRow,
+    'source' | 'quota_tags' | 'extra_fields' | 'fee_state' | 'has_sibling' | 'roll_number'
+  >
+>;
+
 export interface ApplicantWithHistory {
-  applicant: AdmissionApplicantDto;
+  applicant: AdmissionApplicantDto & ApplicantExtras;
   evaluations: AdmissionEvaluationDto[];
 }
 

@@ -26,7 +26,23 @@
     "columnIntake": "ভর্তি পর্ব",
     "view": "দেখুন",
     "emptyTitle": "এখনো কোনো আবেদন আসেনি",
-    "emptyText": "অভিভাবকেরা অনলাইনে আবেদন করলে এখানে দেখা যাবে।"
+    "emptyText": "অভিভাবকেরা অনলাইনে আবেদন করলে এখানে দেখা যাবে।",
+    "filterFee": "ফি",
+    "filterAllFees": "সব ফির অবস্থা",
+    "filterQuota": "কোটা",
+    "filterQuotaPlaceholder": "কোটার ট্যাগ",
+    "filterSource": "যেভাবে আবেদন",
+    "filterAllSources": "সব মাধ্যম",
+    "feeState": {
+      "NONE": "ফির প্রমাণ নেই",
+      "AWAITING": "ফি দেখার অপেক্ষায়",
+      "CONFIRMED": "ফি ঠিক আছে",
+      "SENT_BACK": "ফি ফেরত পাঠানো হয়েছে"
+    },
+    "source": {
+      "ONLINE": "অনলাইন ফর্ম",
+      "CLERK": "স্টাফ লিখেছেন"
+    }
   },
   "detail": {
     "sectionApplicant": "আবেদনকারী",
@@ -76,7 +92,21 @@
       "REJECT": "প্রত্যাখ্যান করা হয়েছে"
     },
     "rejectNotesLabel": "কারণ (না দিলেও চলবে)",
-    "rejectDescription": "{{name}}-এর আবেদন গ্রহণ করা হয়নি বলে জানানো হবে। এটি আর ফেরানো যাবে না।"
+    "rejectDescription": "{{name}}-এর আবেদন গ্রহণ করা হয়নি বলে জানানো হবে। এটি আর ফেরানো যাবে না।",
+    "sectionAdmission": "আবেদনের তথ্য",
+    "fieldSource": "যেভাবে আবেদন",
+    "fieldQuota": "কোটা",
+    "fieldSibling": "এই স্কুলে ভাইবোন",
+    "siblingYes": "আছে",
+    "siblingNo": "নেই",
+    "fieldRoll": "রোল নম্বর",
+    "fieldFee": "ফি",
+    "sectionExtra": "আরও তথ্য",
+    "sectionFees": "ফির ইতিহাস",
+    "noFees": "এখনও ফির প্রমাণ নেই",
+    "feeReference": "রেফারেন্স {{ref}}",
+    "feeReason": "কারণ: {{reason}}",
+    "feesError": "ফির ইতিহাস লোড করা যায়নি।"
   },
   "evaluate": {
     "shortlistTitle": "বাছাই তালিকায় রাখুন",

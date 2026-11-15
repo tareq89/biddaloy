@@ -1303,6 +1303,7 @@ export {
   useStageResults,
   useValidateLotteryImport,
   type AdmissionLists,
+  type ApplicantRow,
   type CallListRow,
   type CreateWaitingListInput,
   type CutoffPreview,
