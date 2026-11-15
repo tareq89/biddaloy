@@ -201,7 +201,7 @@ describe('RestoreProcessor', () => {
       validationService.validate.mockResolvedValue(makeValidatedWorkbook({}));
       await run();
 
-      expect(staging.consume).toHaveBeenCalledWith(TENANT, USER, 'staging-1');
+      expect(staging.consume).toHaveBeenCalledWith(TENANT, USER, 'staging-1', 'workbook');
       expect(storage.get).toHaveBeenCalledWith('workbook-key-1');
       // Waits for its turn behind an upload being validated, never refused (#2624).
       expect(validationService.validate).toHaveBeenCalledWith(

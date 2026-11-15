@@ -199,6 +199,7 @@ export class RestoreProcessor extends WorkerHost {
         tenantId,
         row.requested_by_user_id ?? '',
         row.staging_id,
+        'workbook',
       );
       if (!staged) {
         throw new Error('Staged import not found or already consumed.');

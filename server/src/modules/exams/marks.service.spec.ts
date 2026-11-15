@@ -59,7 +59,7 @@ async function buildService(
     components?: ExamComponent[];
     grid?: Partial<MarkGrid> | null;
     existingMarks?: Partial<Mark>[];
-    enrolledCount?: number;
+    enrolledStudentRows?: string[];
     examStatus?: string;
   } = {},
 ) {
@@ -67,7 +67,7 @@ async function buildService(
     components = [component()],
     grid = null,
     existingMarks = [],
-    enrolledCount,
+    enrolledStudentRows,
     examStatus,
   } = opts;
 
@@ -134,7 +134,7 @@ async function buildService(
           if (params?.studentIds) ids = params.studentIds;
           return qb;
         },
-        getCount: async () => enrolledCount ?? ids.length,
+        getMany: async () => (enrolledStudentRows ?? ids).map((student_id) => ({ student_id })),
       };
       return qb;
     }),
@@ -423,8 +423,29 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects an unrostered student even when another student has two enrollment rows', async () => {
+    // stu-1 holds an ACTIVE and an INACTIVE row: the row count (2) equals the 2 requested ids.
+    const { service } = await buildService({ enrolledStudentRows: ['stu-1', 'stu-1'] });
+    const cell = (student_id: string) => ({
+      student_id,
+      component_id: 'comp-1',
+      value: '10',
+      status: MarkStatus.PRESENT,
+    });
+
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([cell('stu-1'), cell('stranger')]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('rejects a student not enrolled in this section (IDOR guard)', async () => {
-    const { service } = await buildService({ enrolledCount: 0 });
+    const { service } = await buildService({ enrolledStudentRows: [] });
 
     await expect(
       service.upsertBatch(

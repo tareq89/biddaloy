@@ -226,7 +226,13 @@ export class ImportController {
       warnings: warningDtos,
     };
 
-    const { stagingId, expiresAt } = await this.staging.stage(tenant.id, user.sub, staged);
+    const { stagingId, expiresAt } = await this.staging.stage(
+      tenant.id,
+      user.sub,
+      staged,
+      undefined,
+      'workbook',
+    );
 
     return {
       staging_id: stagingId,
@@ -264,7 +270,12 @@ export class ImportController {
   ): Promise<void> {
     // `peek`, not `consume`: downloading the error CSV must not burn the
     // single use a later commit step needs.
-    const staged = await this.staging.peek<StagedValidation>(tenant.id, user.sub, stagingId);
+    const staged = await this.staging.peek<StagedValidation>(
+      tenant.id,
+      user.sub,
+      stagingId,
+      'workbook',
+    );
     if (!staged) {
       throw new NotFoundException('No staged validation found for this id.');
     }

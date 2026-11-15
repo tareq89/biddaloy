@@ -3,12 +3,12 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Permission, roleHasPermission } from '@biddaloy/shared';
 
-const MAX_DEPTH = 8;
-
-function strip(value: unknown, depth: number): void {
-  if (depth > MAX_DEPTH || value === null || typeof value !== 'object') return;
+// Any depth (a depth cap would let a deeply nested health_notes through); `seen` makes cycles safe.
+function strip(value: unknown, seen: WeakSet<object>): void {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return;
+  seen.add(value);
   if (Array.isArray(value)) {
-    for (const v of value) strip(v, depth + 1);
+    for (const v of value) strip(v, seen);
     return;
   }
   const proto = Object.getPrototypeOf(value);
@@ -22,7 +22,7 @@ function strip(value: unknown, depth: number): void {
   }
   if (proto === null || typeof proto === 'object') {
     delete (value as { health_notes?: unknown }).health_notes;
-    for (const v of Object.values(value)) strip(v, depth + 1);
+    for (const v of Object.values(value)) strip(v, seen);
   }
 }
 
@@ -40,7 +40,7 @@ export class HealthNotesInterceptor implements NestInterceptor {
     if (role && roleHasPermission(role, Permission.STUDENT_RECORDS_READ)) return next.handle();
     return next.handle().pipe(
       map((body) => {
-        strip(body, 0);
+        strip(body, new WeakSet());
         return body;
       }),
     );
