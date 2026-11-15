@@ -1,5 +1,6 @@
 ---
 import AnnouncementBar from '../../components/AnnouncementBar.astro';
+import AdmissionRibbon from './AdmissionRibbon.astro';
 import Footer from '../../components/Footer.astro';
 import LangSwitch from '../../components/LangSwitch.astro';
 import { t } from '../../i18n/t';
@@ -15,14 +16,17 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
+  /** Home page only: `/admission?round=<id>` while a round is open (page read model `admissions_open_link`). */
+  admissionsOpenLink?: string;
 }
-const { manifest, lang, rest = '', title, description, image } = Astro.props;
+const { manifest, lang, rest = '', title, description, image, admissionsOpenLink } = Astro.props;
 const pre = Astro.locals.base ?? '';
 const name = pick(manifest.schoolName, lang) ?? '';
 const nav = manifest.nav.filter((n) => n.page !== 'home');
 ---
 <SiteLayout manifest={manifest} lang={lang} rest={rest} title={title} description={description} image={image}>
   <AnnouncementBar bar={manifest.announcements} lang={lang} />
+  <AdmissionRibbon lang={lang} link={admissionsOpenLink} />
   <header class="top"><div class="wrap">
     <a class="brand" href={`${pre}/${lang}/`}>
       <span class="logo">{manifest.logo ? <img src={manifest.logo} alt="" width="40" height="40" /> : name.slice(0, 1)}</span>
