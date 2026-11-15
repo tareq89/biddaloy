@@ -23,6 +23,7 @@ const BATCH = 100;
 
 interface Row {
   id: string;
+  status: 'PENDING' | 'EXPIRED';
   amount: string;
   provider_payment_id: string | null;
   submitted_by_user_id: string;
@@ -32,12 +33,17 @@ interface Row {
 /**
  * [3.6.02] Every 10 min, per school with online payments on: settle PENDING bKash submissions
  * whose callback was lost, FAIL the ones bKash rejected, EXPIRE the ones never started.
+ * An EXPIRED row that has a paymentID and is under 72 h old is asked too: the guardian may have
+ * paid after the sweep, and `settle` accepts EXPIRED (same as the callback). Only a Completed
+ * answer changes it; FAILED rows are never re-confirmed.
  * Logs carry ids only: never credentials or a raw bKash body (Rule 13).
  */
 @Injectable()
 @Processor(ONLINE_PAYMENTS_RECONCILE_QUEUE)
 export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(OnlinePaymentsReconciler.name);
+  /** Stale (>72 h) count last logged per school: warn when it changes, not every 10 min. */
+  private readonly staleLogged = new Map<string, number>();
 
   constructor(
     @InjectQueue(ONLINE_PAYMENTS_RECONCILE_QUEUE) private readonly queue: Queue,
@@ -63,15 +69,33 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
   }
 
   async process(): Promise<void> {
-    const tenants: { tenant_id: string }[] = await this.dataSource.query(
-      `SELECT DISTINCT tenant_id FROM payment_submissions
-        WHERE source = 'ONLINE' AND provider = 'BKASH' AND status = 'PENDING'`,
-    );
-    for (const { tenant_id } of tenants) {
+    // Only rows inside the window decide who is decrypted; older PENDING ones are just counted.
+    const tenants: { tenant_id: string; live: number; stale: number }[] =
+      await this.dataSource.query(
+        `SELECT tenant_id,
+                count(*) FILTER (WHERE created_at > $1)::int AS live,
+                count(*) FILTER (WHERE status = 'PENDING' AND created_at <= $1)::int AS stale
+           FROM payment_submissions
+          WHERE source = 'ONLINE' AND provider = 'BKASH'
+            AND (status = 'PENDING'
+                 OR (status = 'EXPIRED' AND provider_payment_id IS NOT NULL AND created_at > $1))
+          GROUP BY tenant_id`,
+        [new Date(Date.now() - MAX_AGE_MS)],
+      );
+    for (const { tenant_id, live, stale } of tenants) {
+      if (stale !== (this.staleLogged.get(tenant_id) ?? 0)) {
+        this.staleLogged.set(tenant_id, stale);
+        if (stale > 0) {
+          this.logger.warn(
+            `school ${tenant_id}: ${stale} online submissions PENDING over 72 h; need a human`,
+          );
+        }
+      }
+      if (live === 0) continue;
       try {
         await this.tenant(tenant_id);
-      } catch {
-        this.logger.warn(`online reconcile skipped tenant ${tenant_id}`);
+      } catch (e) {
+        this.logger.warn(`online reconcile skipped tenant ${tenant_id}: ${(e as Error).name}`);
       }
     }
   }
@@ -93,15 +117,22 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
       this.logger.warn(`online reconcile: incomplete bKash settings for tenant ${tenantId}`);
       return;
     }
-    const creds = { ...b, tenantId } as GatewayCreds;
+    const creds: GatewayCreds = {
+      environment: b.environment as string,
+      appKey: b.appKey as string,
+      appSecret: b.appSecret as string,
+      username: b.username as string,
+      password: b.password as string,
+      tenantId,
+    };
     const now = Date.now();
     const cutoff = new Date(now - MAX_AGE_MS);
     const rows: Row[] = await this.dataSource.query(
-      `SELECT id, amount, provider_payment_id, submitted_by_user_id, created_at
+      `SELECT id, status, amount, provider_payment_id, submitted_by_user_id, created_at
          FROM payment_submissions
-        WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND status = 'PENDING'
-          AND created_at > $2
-        ORDER BY created_at DESC LIMIT $3`, // newest first: stuck old rows must not starve fresh lost callbacks
+        WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND created_at > $2
+          AND (status = 'PENDING' OR (status = 'EXPIRED' AND provider_payment_id IS NOT NULL))
+        ORDER BY (status = 'PENDING') DESC, created_at DESC LIMIT $3`, // PENDING first, newest first: stuck old rows must not starve fresh lost callbacks
       [tenantId, cutoff, BATCH],
     );
     for (const row of rows) {
@@ -111,20 +142,11 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
         this.logger.warn(`online reconcile failed for submission ${row.id}`);
       }
     }
-    const stale: { id: string }[] = await this.dataSource.query(
-      `SELECT id FROM payment_submissions
-        WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND status = 'PENDING'
-          AND created_at <= $2
-        ORDER BY created_at ASC LIMIT $3`,
-      [tenantId, cutoff, BATCH],
-    );
-    for (const s of stale) {
-      this.logger.warn(`online submission ${s.id} is PENDING over 72 h; needs a human`);
-    }
   }
 
   private async row(tenantId: string, row: Row, creds: GatewayCreds, now: number): Promise<void> {
     if (!row.provider_payment_id) {
+      if (row.status !== 'PENDING') return;
       if (new Date(row.created_at).getTime() < now - UNSTARTED_MS) {
         await this.transition(tenantId, row, 'EXPIRED', 'NOT_STARTED');
       }
@@ -143,7 +165,10 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
         paid !== BigInt(toPaisa(row.amount)) ||
         res.merchantInvoiceNumber !== row.id ||
         typeof res.trxID !== 'string' ||
-        res.trxID.length === 0
+        res.trxID.length === 0 ||
+        res.trxID.length > 100 ||
+        res.paymentID !== row.provider_payment_id ||
+        res.currency !== 'BDT'
       ) {
         this.logger.warn(`online submission ${row.id}: amount/invoice mismatch; needs a human`);
         return;
@@ -151,7 +176,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
       try {
         // settle() reads provider_trx_id for checkout, so it is set first.
         await this.dataSource.query(
-          `UPDATE payment_submissions SET provider_trx_id = $1 WHERE id = $2 AND tenant_id = $3 AND status = 'PENDING'`,
+          `UPDATE payment_submissions SET provider_trx_id = $1 WHERE id = $2 AND tenant_id = $3 AND status IN ('PENDING', 'EXPIRED')`,
           [res.trxID, row.id, tenantId],
         );
       } catch (e) {
@@ -166,7 +191,10 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
         'ONLINE_LENIENT',
       );
       if (!out.alreadySettled) this.emit(PAYMENT_SUBMISSION_EVENTS.COMPLETED, tenantId, row);
-    } else if (res.transactionStatus === 'Failed' || res.transactionStatus === 'Cancelled') {
+    } else if (
+      row.status === 'PENDING' &&
+      (res.transactionStatus === 'Failed' || res.transactionStatus === 'Cancelled')
+    ) {
       await this.transition(
         tenantId,
         row,

@@ -11,6 +11,8 @@ import { BkashClient } from '../payment-gateways/bkash/bkash.client';
 import { SchoolsService } from '../schools/schools.service';
 import { OnlinePaymentsService } from './online-payments.service';
 import { ProofCaller } from './proof-submissions.service';
+import { PAYMENT_SUBMISSION_EVENTS, paymentSubmissionEvents } from './payment-submission.events';
+import { PaymentReversalListener } from './payment-reversal.listener';
 
 /** Stub provider: no live bKash. Each test sets what bKash "answers". */
 class StubBkash {
@@ -204,12 +206,46 @@ describe('OnlinePaymentsService (integration)', () => {
     const a = await fix.bill(fix.fx.studentA, 500);
     const { id } = await svc.start({ billIds: [a] }, ctx);
     StubBkash.executeAnswer = completed(id, '500.00');
-    await Promise.all([
-      svc.handleCallback(StubBkash.paymentID, 'success'),
-      svc.handleCallback(StubBkash.paymentID, 'success'),
-    ]);
+    const emitted: string[] = [];
+    const on = (p: { submissionId: string }) => emitted.push(p.submissionId);
+    paymentSubmissionEvents.on(PAYMENT_SUBMISSION_EVENTS.COMPLETED, on);
+    try {
+      await Promise.all([
+        svc.handleCallback(StubBkash.paymentID, 'success'),
+        svc.handleCallback(StubBkash.paymentID, 'success'),
+      ]);
+    } finally {
+      paymentSubmissionEvents.off(PAYMENT_SUBMISSION_EVENTS.COMPLETED, on);
+    }
     expect((await sub(id)).status).toBe('COMPLETED');
     expect(await paymentCount(id)).toBe(1);
+    // One settlement: one COMPLETED event on the bus and one history row.
+    expect(emitted).toEqual([id]);
+    const [{ n }] = await ds.query(
+      `SELECT count(*)::int n FROM payment_submission_events WHERE submission_id=$1 AND to_status='COMPLETED'`,
+      [id],
+    );
+    expect(n).toBe(1);
+  });
+
+  it('reversing the payment of a settled ONLINE submission marks it REVERSED, like a proof', async () => {
+    const a = await fix.bill(fix.fx.studentA, 500);
+    const { id } = await svc.start({ billIds: [a] }, ctx);
+    StubBkash.executeAnswer = completed(id, '500.00');
+    await svc.handleCallback(StubBkash.paymentID, 'success');
+    const [{ payment_id }] = await ds.query(
+      `SELECT payment_id FROM payment_submission_bills WHERE submission_id=$1`,
+      [id],
+    );
+    const touched = await app
+      .get(PaymentReversalListener)
+      .onReversed({
+        tenantId: SEED_TENANT_ID,
+        paymentId: payment_id,
+        actorUserId: fix.parent.id,
+      } as never);
+    expect(touched).toEqual([id]);
+    expect((await sub(id)).status).toBe('REVERSED');
   });
 
   it('mismatch leaves a durable MISMATCH event', async () => {

@@ -626,6 +626,47 @@ flowchart LR
 - **Surprise:** the portal cart returned a waiting proof's `id` for every linked guardian. Cost: a co-guardian received the id of a proof they did not send. Fix: `id` is returned only to the submitter; a co-guardian gets `source` and `id: null`. The Pay page only checks "is there a waiting proof", so nothing in the UI changed. Rule candidate: an id in a family-shared answer is a capability; return it only to its owner.
 - **Example:** guardian `Rahim` sends a bKash proof for ৳500 (TrxID `E2E41592653`, one photo). The accountant opens `/payments/online/<id>`, "Confirm & next" is focused, one press confirms it, and the invoice print shows "How it was paid: bKash, TrxID `E2E41592653`, verified by the accountant on the date". The second child's proof is rejected as `IMAGE_UNCLEAR`, and the guardian sees that reason in the proofs tab. Covered by `e2e/payment-proofs.spec.ts`.
 
+### Online payments: callback and reconciler (#3984, #3986)
+
+bKash sends the guardian's browser back to us with `?paymentID=...&status=...`. That URL only names a payment; we never trust its `status`. If the browser never comes back (phone dies, tab closed), the reconciler catches the payment within 10 minutes.
+
+```mermaid
+flowchart TD
+  B["Guardian pays at bKash"] --> C{"Browser returns<br/>to /online-payments/callback?"}
+  C -->|yes| H["handleCallback asks bKash<br/>(execute or query)"]
+  C -->|"no, callback lost"| R["Reconciler, every 10 min,<br/>asks bKash about the row"]
+  H --> S{"Completed + same amount,<br/>invoice, tenant, BDT?"}
+  R --> S
+  S -->|yes| T["settle(..., 'ONLINE_LENIENT')<br/>one Payment, status COMPLETED"]
+  S -->|"amount or invoice differs"| M["Left for a human<br/>(callback marks FAILED, reconciler only warns)"]
+```
+
+Which rows the reconciler asks about:
+
+| Row                             | Age         | Asked?                                                      | If bKash says Completed |
+| ------------------------------- | ----------- | ----------------------------------------------------------- | ----------------------- |
+| PENDING with a paymentID        | under 72 h  | yes                                                         | settled                 |
+| PENDING, never started at bKash | over 30 min | no call; becomes EXPIRED (`NOT_STARTED`)                    | n/a                     |
+| EXPIRED with a paymentID        | under 72 h  | yes, a late payer is real money                             | settled (from EXPIRED)  |
+| FAILED                          | any         | never; a bad amount or a used TrxID needs a human           | n/a                     |
+| PENDING                         | over 72 h   | no; one warning with the count, only when the count changes | n/a                     |
+
+Both paths call the same `settle`, and settle returns `alreadySettled` for a row that is COMPLETED, CONFIRMED or REVERSED. Each path emits `COMPLETED` only when `alreadySettled` is false, so one settlement gives one event and one history row. A reversal of the Payment marks the ONLINE submission REVERSED through the same listener as a proof.
+
+**Example:** a guardian pays ৳500 and bKash takes it, but the phone loses signal before the redirect. No callback arrives. At the next 10-minute run the reconciler asks bKash for that `paymentID`, sees Completed for ৳500.00 with `merchantInvoiceNumber` equal to our submission id, stores the TrxID and calls `settle`. The bill is paid, the invoice exists, and the guardian's result page shows COMPLETED. If the guardian was slow and the row had already expired at 30 minutes, the same thing happens, because EXPIRED rows under 72 h are asked too.
+
+Logs: nginx logs the path without the query string (`$uri`), so `paymentID` never reaches the access log; `redactPii` also masks `paymentID` and `trxID` in app logs (Rule 13).
+
+### Learnings (Epic #291, Wave 6, 2026-11-15)
+
+Wave 6 added the gateway client with per-school credentials, the start, callback and result routes, the reconciler, and the demo rows.
+
+- **Surprise:** the callback settled a late payment on an EXPIRED row, but the reconciler only read PENDING. Cost: a lost callback on an expired row stayed unpaid forever while the guardian's money was at bKash. Fix: the reconciler also asks EXPIRED rows that have a paymentID and are under 72 h old. Rule candidate: when two paths settle the same state, give both the same set of source states and test each one.
+- **Surprise:** the reconciler warned about every stale row every 10 minutes, and it decrypted the credentials of schools that only had stale rows. Cost: log noise and needless secret handling. Fix: one grouped query counts rows per school; only schools with a live row are decrypted, and a stale count is logged when it changes. Rule candidate: decide who needs secrets from a cheap count first.
+- **Surprise:** building gateway credentials with `{ ...settings, tenantId }` passes along any extra stored field. Cost: a future settings field would flow into the gateway client and its cache key. Fix: pick the five bKash fields by name. Rule candidate: build a credentials object field by field, never by spread.
+- **Surprise:** `schema.d.ts` is regenerated only at integration, so a lane that adds a route cannot type its hooks until then. Cost: hooks were typed from the DTO names before the schema had them. Fix: regenerate once at integration (`yarn api:types`) and commit it with the hooks.
+- **Surprise:** the demo cannot reach an unmatched online payment without a counter payment first. Cost: ordering again. Fix: the `payment-submissions` slice makes the ONLINE row, takes half the bill at the counter, then settles it; the other half goes to the wallet. Five ONLINE rows (3 COMPLETED, one of them unmatched, 1 CANCELLED, 1 EXPIRED) need 12 open bills in all, so the slice spec runs at scale 0.5. `onlineEnabled` stays off and no gateway is ever called.
+
 ## Student statement
 
 A statement answers one question for one student: **what was charged, what was paid, and what is still owed after each line?** It is a coded report (Epic 8.15 D10), not a defined one, because it is a ledger. The code is `server/src/modules/fees/statement/student-statement.service.ts`; the numbers are the same ones the student's fees tab and the dues list show.
