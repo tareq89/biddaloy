@@ -9,8 +9,7 @@
  * 0ms and the global rule collapses the transition, which lands on the final
  * state at once (design contract §7).
  *
- * The label is `states:success.title` (D9); `defaultValue` covers the gap
- * until that key ships. Not exported from the package yet (3329.1.99).
+ * The label is `states:success.title` (D9).
  */
 import * as React from 'react';
 
@@ -71,7 +70,7 @@ export function SuccessTick({ label, className }: SuccessTickProps) {
           })}
         />
       </svg>
-      <span className="sr-only">{label ?? t('success.title', { defaultValue: 'Done' })}</span>
+      <span className="sr-only">{label ?? t('success.title')}</span>
     </span>
   );
 }

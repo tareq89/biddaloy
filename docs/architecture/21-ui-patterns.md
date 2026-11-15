@@ -186,16 +186,16 @@ Every formatter takes the tenant's `RegionConfig` (`useRegionConfig()`), so the
 school's numeral setting is applied for you. Empty or missing values show `—`.
 None of them throws while rendering.
 
-| What                       | English                        | Bangla                            | Function                                                                             |
-| -------------------------- | ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------ |
+| What                       | English                        | Bangla                          | Function                                                                             |
+| -------------------------- | ------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------ |
 | Date                       | `9th September, 2026`          | `৯ই সেপ্টেম্বর, ২০২৬`             | `formatDate`                                                                         |
 | Date + time                | `9th September, 2026, 3:45 PM` | `৯ই সেপ্টেম্বর, ২০২৬, বিকাল ৩:৪৫` | `formatDateTime`                                                                     |
-| Date range                 | `8th – 10th October`           | `৮ই – ১০ই অক্টোবর`                | `formatDateRange`                                                                    |
-| Month                      | `October 2026`                 | `অক্টোবর ২০২৬`                    | `formatMonth`                                                                        |
-| Time (12-hour, no seconds) | `8:00 AM`                      | `সকাল ৮:০০`                       | `formatTime`                                                                         |
-| Number / count             | `1,250`                        | `১,২৫০`                           | `formatNumber(value, config, { decimals? })`; `{{count}}` in translations follows it |
-| Money                      | `৳500.00`                      | `৳৫০০.০০`                         | `formatCurrency` (minor units) / `formatServerAmount` (server decimal)               |
-| Phone                      | `01711-000004`                 | `01711-000004`                    | `formatPhone`                                                                        |
+| Date range                 | `8th – 10th October`           | `৮ই – ১০ই অক্টোবর`               | `formatDateRange`                                                                    |
+| Month                      | `October 2026`                 | `অক্টোবর ২০২৬`                   | `formatMonth`                                                                        |
+| Time (12-hour, no seconds) | `8:00 AM`                      | `সকাল ৮:০০`                     | `formatTime`                                                                         |
+| Number / count             | `1,250`                        | `১,২৫০`                         | `formatNumber(value, config, { decimals? })`; `{{count}}` in translations follows it |
+| Money                      | `৳500.00`                      | `৳৫০০.০০`                       | `formatCurrency` (minor units) / `formatServerAmount` (server decimal)               |
+| Phone                      | `01711-000004`                 | `01711-000004`                  | `formatPhone`                                                                        |
 
 - `formatNumber` always groups by thousands and has one option, `decimals`.
   There is no "no separator" switch. A year is not a number: write it through
@@ -306,6 +306,34 @@ own; where one exists it is shown.
 | `BarWidget`                                                                                                                | `components/performance/`          | changed: `target`, `emphasis`, `bare`                                                                     | changed, Epic 169.0 wave 1                                 |
 | `AttendanceMonthGrid`                                                                                                      | `components/`                      | changed: `upcoming` days                                                                                  | changed, Epic 169.0 wave 1                                 |
 | `HelpHint`, `HelpProvider`, `useHelp`                                                                                      | `components/`                      | the (?) that opens a help card linking into the user guide; see [HelpHint placement](#helphint-placement) | Epic 44 (#2561)                                            |
+| `ConnectionBanner`, `SessionExpiredDialog`                                                                                 | `components/`                      | no internet / slow network strip; "sign in again" dialog                                                  | 3329.1.02-1.05                                             |
+| `SuccessTick`, `RollingNumber`, `PullToRefresh`                                                                            | `components/`                      | success check mark; number that rolls; phone pull-down refresh (pass the `label`)                         | 3329.1.06-1.09                                             |
+
+### The ten states (Epic 3329)
+
+Every screen handles ten states. Each has one piece and one sentence in the
+`states` i18n namespace (`ui/src/i18n/locales/{en,bn}/states.json`). The words
+are in §11; never say "network error", "timeout", "token", "401" or "403".
+
+```mermaid
+flowchart LR
+  A[Something happens] --> B{Which state?}
+  B -->|no data yet| L[loading: Skeleton]
+  B -->|no rows| E[empty: EmptyState]
+  B -->|search finds nothing| N[no result: EmptyState]
+  B -->|request failed| R[error: ErrorState + Retry]
+  B -->|offline or slow| C[ConnectionBanner]
+  B -->|no permission| D[AccessDeniedState]
+  B -->|401| S[SessionExpiredDialog]
+  B -->|bad input| V[FormField + focusFirstError]
+  B -->|saved| T[SuccessTick]
+```
+
+Example: a teacher submits a form with an empty name. `FormField` shows
+`states:validation.fixFields`, focus jumps to the first bad field. On save,
+`SuccessTick` reads `states:success.title` ("Done" / "সফল হয়েছে") to screen readers.
+`PullToRefresh` and `RollingNumber` are polish, not states; both take a `label`.
+`yarn ux-states:audit` fails a route that lacks its states.
 
 Shell and shared props that tripped people (read the source, not the plan):
 
@@ -409,7 +437,7 @@ A concrete example — the Students list (`/students`) mapped to the kit:
 | Title + "Add student"                         | `PageHeader`               | one primary; "Import" is outline; "Upload photos" goes into More |
 | Search, class, section, status, date of birth | `FilterBar`                | every field labelled; phone: search + "Filter (2)"               |
 | Rows                                          | `DataTable` + `RowActions` | view (neutral), edit (brand), collect fee (success)              |
-| Footer                                        | `TableCount`               | "১–২৫ দেখানো হচ্ছে, মোট ৪৮"                                      |
+| Footer                                        | `TableCount`               | "১–২৫ দেখানো হচ্ছে, মোট ৪৮"                                       |
 | No students yet                               | `EmptyState`               | title, one sentence, outline "Add student"                       |
 
 Planning a large UI epic (many screens at once)? Follow the method Epic 31.0
