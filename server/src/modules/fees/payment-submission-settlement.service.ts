@@ -101,8 +101,9 @@ export class PaymentSubmissionSettlement {
     actorUserId: string,
     mode: SettlementMode,
   ): Promise<SettlementResult> {
-    // ponytail: this outer tx holds one pool connection while checkout uses another, so
-    // concurrent settles are capped by the pool size; upgrade = limit settle concurrency.
+    // ponytail: the outer tx holds a pool connection while checkout and ensureInvoiceLinked
+    // take more. N concurrent settles at or above pool size deadlock the pool. Callers must cap
+    // settle concurrency below pool size (e.g. one BullMQ worker, concurrency 1).
     return this.dataSource.transaction(async (manager) => {
       const sub = await manager
         .getRepository(PaymentSubmission)
