@@ -77,6 +77,7 @@ The **Settings** page is split into **categories**, such as **School** or **Fina
     - [Conduct lines on the report card](#task-conduct)
   - [Academics: attendance, evaluations, dashboard and more](#task-academics)
   - [Finance: fee rules](#task-finance)
+  - [Finance: online payments](#task-online-payments)
   - [Seats & billing](#task-billing)
   - [Communication](#task-communication)
   - [Alerts & reminders](#task-alerts)
@@ -280,7 +281,7 @@ To give students and staff the card number the machine reads, see [Card number](
 
 ### Finance: fee rules <a href="#task-finance" id="task-finance"></a>
 
-This category has one part: **Fee rules**. "Approval, telling families and late fees — for every fee bill."
+This category has two parts: **Fee rules** and [**Online payments**](#task-online-payments). "Approval, telling families and late fees — for every fee bill."
 
 **Extra approval**
 
@@ -307,6 +308,42 @@ This category has one part: **Fee rules**. "Approval, telling families and late 
 > **Remember:** late fees and the approval method involve money. Talk to the accountant before you change them.
 
 <img src="img/settings-finance.png" alt="Finance category, Fee rules; 1 · Approval method 2 · second admin checkbox 3 · Notify families 4 · late fee table; admin">
+
+### Finance: online payments <a href="#task-online-payments" id="task-online-payments"></a>
+
+This is the second part of the **Finance** category: **Online payments**. "Let guardians pay fees from the portal. Money goes straight to your school's account." Only an admin sees it. It decides how a guardian can pay from the portal: with bKash, by sending a payment proof, both, or neither. The guardian's steps are in [**Fees and invoices**](../portal/fees.md#task-pay); what the accountant does with a proof is in [**Online payments**](../finance/online-payments.md).
+
+**Payment proofs**
+
+| Field | What it does |
+| ----- | ------------ |
+| **Allow payment proofs** | When on, a guardian who has already paid can send a payment proof, and the accountant confirms it. "Guardians pay by hand, then send the transaction number and a photo. You confirm it." |
+| **Proof methods and instructions** | Tick the ways a guardian can pay: **bKash**, **Nagad**, **Rocket** or **Bank transfer**. Cash, cheque and card are not listed, because there is no transaction number to prove. |
+| **What to tell the guardian** | Appears under a ticked method. Write how to pay, for example your bKash number. At most 500 characters; the counter shows how many are used. The guardian sees this text on the **Pay fees** page as **School instructions: …**. |
+| **How guardians see it** | A preview of the method and your text, so you can check it before you save. |
+
+**bKash connection** — "Your school's own bKash merchant account details."
+
+| Field | What to enter |
+| ----- | ------------- |
+| **Mode** | **Practice (no real money)** while you set up. Switch to **Live** when your bKash merchant account is ready. Changing it needs a new test. |
+| **Username**, **Password**, **App key**, **App secret** | In the bKash merchant panel, open the API details and copy the four values. After you save, they are never shown again; each shows only **Added — ends …**. Use **Change** to replace one or **Remove** to delete it. |
+
+1. Fill in the four details and press **Save**.
+2. Press **Test connection**. It stays off while there are changes you have not saved: "Save the new details first, then test them."
+
+   → **Last passing test: …** with the time. If it fails: **Couldn't connect — check the details and try again.** If a detail is missing: **Add all four details and save them first.**
+
+3. Turn on **Pay with bKash online**. It stays off, and says "Test the connection first. It must pass before you can turn this on.", until a test has passed.
+4. Press **Save**.
+
+   → **Saved**. Guardians can now pay with bKash from the portal.
+
+If you later change the **Mode** or any of the four details and save, **Pay with bKash online** turns itself off. Test again, then turn it on again. This protects guardians from paying through a connection nobody has checked.
+
+> **Remember:** these are your school's own bKash account details, and the money goes into that account. Turn on **Live** only when the accountant is ready to check the bKash statement.
+
+Turning off both **Allow payment proofs** and **Pay with bKash online** means the guardian sees **Pay at the school office** instead of a **Pay …** button.
 
 ### Seats & billing <a href="#task-billing" id="task-billing"></a>
 
@@ -710,6 +747,7 @@ See: [**Roles & access**](roles.md).
 - [**Modules and words**](modules-and-words.md) — choose your institution kind, turn parts On or Off, change your words.
 - [**Taking attendance**](../attendance/attendance.md) — where the attendance policy applies.
 - [**Creating fee bills**](../finance/generate-fees.md) — where the fee rules apply.
+- [**Online payments**](../finance/online-payments.md) — where the accountant checks the payment proofs and sees bKash payments.
 - [**Ready-made curriculum**](curriculum-preset.md) — put the subjects and classes of a new school in at once.
 - [**Setting up printers and sizes**](print-templates/printers-and-calibration.md) — add a printer and fix its measurements.
 - [**Your account**](../start/account.md) — your own ways to sign in and your devices.

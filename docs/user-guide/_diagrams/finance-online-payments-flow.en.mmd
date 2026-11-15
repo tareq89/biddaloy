@@ -1,0 +1,15 @@
+%% title: The path of an online payment
+%% desc: When a guardian pays with bKash, the money goes straight to the school's bKash account and the bills show paid. If the guardian already paid, they send a payment proof, which stays as Waiting for confirmation. When an admin or accountant confirms it, the bills show paid and a receipt is made; if they reject it, the guardian sees the reason.
+flowchart TD
+  G["Guardian"]:::guardian --> H{"How to pay?"}:::note
+  H -->|"bKash"| B["Pay with bKash"]:::guardian
+  H -->|"Already paid"| P["Submit proof"]:::guardian
+  P --> W["Waiting for confirmation"]:::note
+  W --> A{"Accountant"}:::admin
+  A -->|"Confirm"| D["Bills paid"]
+  A -->|"Reject"| X["Rejected, with reason"]:::note
+  B --> D
+  D --> R["Receipt"]
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
