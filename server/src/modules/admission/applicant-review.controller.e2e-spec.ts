@@ -456,7 +456,12 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
          VALUES ($1, $2, 2, 'VIVA', '{}') RETURNING id`,
         [SEED_TENANT_ID, intakeId],
       );
-      expect((await get({ stage_id: first.id }).expect(200)).body.total).toBe(3);
+      const firstRoster = (await get({ stage_id: first.id }).expect(200)).body;
+      expect(firstRoster.data.map((a: { id: string }) => a.id)).not.toContain(ids.Charlie);
+      expect(firstRoster.data.map((a: { id: string }) => a.id)).toEqual(
+        expect.arrayContaining([ids.Alpha, ids.Bravo]),
+      );
+      expect(firstRoster.total).toBe(firstRoster.data.length);
       await ds.query(
         `INSERT INTO admission_stage_results (tenant_id, stage_id, applicant_id, score, passed)
          VALUES ($1, $2, $3, 80, true), ($1, $2, $4, 20, false)`,

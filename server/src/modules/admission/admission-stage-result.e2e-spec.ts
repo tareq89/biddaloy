@@ -194,6 +194,50 @@ describe('Admission stage results (e2e)', () => {
     ).expect(400);
   });
 
+  it('create strips forged marker keys; a stage PATCH after commit keeps cutoff_committed_at', async () => {
+    const base = `/api/v1/admission-intakes/${intake}/stages`;
+    const created = await admin(
+      http()
+        .post(base)
+        .send({
+          kind: 'WRITTEN',
+          config: {
+            total_marks: 50,
+            published_at: '2020-01-01T00:00:00.000Z',
+            cutoff_committed_at: '2020-01-01T00:00:00.000Z',
+          },
+        }),
+    ).expect(201);
+    expect(created.body.cutoff_committed_at).toBeNull();
+    const [{ config }] = await ds.query(`SELECT config FROM admission_stages WHERE id = $1`, [
+      created.body.id,
+    ]);
+    expect(config).toEqual({ total_marks: 50 });
+
+    await admin(
+      http()
+        .put(url(stage, 'results'))
+        .send({ results: people.map((p) => score(p, 60)) }),
+    ).expect(200);
+    const commit = await admin(
+      http().post(url(stage, 'cutoff/commit')).send({ mode: 'TOP_N', value: 1 }),
+    ).expect(200);
+    const patched = await admin(
+      http().patch(`${base}/${stage}`).send({ config: { total_marks: 100 } }),
+    ).expect(200);
+    expect(patched.body.cutoff_committed_at).toBe(commit.body.cutoff_committed_at);
+    // A new score voids the commit, so the marker goes with it.
+    await admin(
+      http()
+        .put(url(stage, 'results'))
+        .send({ results: [score(people[0], 61)] }),
+    ).expect(200);
+    const list = await admin(http().get(base)).expect(200);
+    expect(
+      list.body.find((x: { id: string }) => x.id === stage).cutoff_committed_at,
+    ).toBeNull();
+  });
+
   it('GET results lists saved rows by roll, caps limit at 100, flags absent', async () => {
     const [a, b, c] = people;
     await ds.query(`UPDATE admission_applicants SET roll_number = 'E-0002' WHERE id = $1`, [a]);

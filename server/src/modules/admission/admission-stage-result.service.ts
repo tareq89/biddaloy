@@ -213,6 +213,12 @@ export class AdmissionStageResultService {
         return entity;
       });
       await repo.save(toSave);
+      // The score change voided `passed` above, so a stored cut-off commit is stale: clear its marker.
+      if (total !== null && stage.config?.cutoff_committed_at !== undefined) {
+        const { cutoff_committed_at: _stale, ...rest } = stage.config;
+        stage.config = rest;
+        await manager.getRepository(AdmissionStage).save(stage);
+      }
       await this.audit(manager, tenantId, actor, {
         op: 'STAGE_RESULTS_PUT',
         stage_id: stage.id,
