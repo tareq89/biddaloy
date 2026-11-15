@@ -1,10 +1,10 @@
 /**
  * [3.x/#3990] Where bKash sends the guardian back (`?id=`). Polls the payment until it leaves
  * PENDING, then says in plain words what happened. The receipt is the existing invoice print
- * on the fees page (D22); no new PDF.
+ * (D22, family-scoped); no new PDF and no public link, which only staff can mint.
  */
-import { Button } from '@biddaloy/ui/components';
-import { useOnlinePaymentResult } from '@biddaloy/ui/hooks';
+import { Button, toast } from '@biddaloy/ui/components';
+import { openPrintableInvoice, useOnlinePaymentResult } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
 import { formatServerAmount } from '@biddaloy/ui/utils';
@@ -40,6 +40,7 @@ export function PortalPayResultPage() {
   const status = result.data?.status;
   const paid = status === 'COMPLETED' || status === 'CONFIRMED';
   const waiting = status === 'PENDING';
+  const receipts = result.data?.receipts ?? [];
   const amount = result.data ? formatServerAmount(result.data.amount, config) : '';
 
   let body;
@@ -60,12 +61,26 @@ export function PortalPayResultPage() {
     body = (
       <section className="space-y-3">
         <h2 className="text-h2">{t('result.paidTitle')}</h2>
-        <p className="text-h3 tabular-nums">{amount}</p>
+        <p className="text-h3 tabular-nums">
+          {receipts.length === 0
+            ? amount
+            : t('result.receiptLine', { amount, no: receipts.map((r) => r.receiptNo).join(', ') })}
+        </p>
         <p className="text-text-secondary">{t('result.paidBody')}</p>
         {result.data?.unmatched && <p role="note">{t('result.unmatched')}</p>}
-        <Button asChild variant="outline">
-          <Link to="/portal/fees">{t('result.receipt')}</Link>
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          {receipts.map((r) => (
+            <Button
+              key={r.invoiceId}
+              variant="outline"
+              onClick={() =>
+                void openPrintableInvoice(r.invoiceId, () => toast.error(t('result.printError')))
+              }
+            >
+              {receipts.length > 1 ? `${t('result.receipt')} ${r.receiptNo}` : t('result.receipt')}
+            </Button>
+          ))}
+        </div>
       </section>
     );
   } else if (waiting) {
@@ -85,7 +100,9 @@ export function PortalPayResultPage() {
             <Link to="/portal/fees/pay">{t('result.tryAgain')}</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/portal/fees/pay">{t('result.submitProof')}</Link>
+            <Link to="/portal/fees/pay" search={{ how: 'proof' }}>
+              {t('result.submitProof')}
+            </Link>
           </Button>
         </div>
       </section>

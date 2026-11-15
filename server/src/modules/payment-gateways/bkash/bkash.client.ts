@@ -17,6 +17,17 @@ const ENV_TOKEN_KEY = 'bkash:token';
 /** bKash tokens live 1 hour; refresh a little early. */
 const TOKEN_TTL_SEC = 50 * 60;
 
+/**
+ * Test-only seam (#3997): the e2e server talks to a fake bKash on 127.0.0.1. Fails closed like the
+ * loopback seam it rides on: NODE_ENV=test AND OUTBOUND_TEST_ALLOW_LOOPBACK=true, read each call.
+ * Boot refuses the loopback flag in production (`assertProductionConfig`), so this never exists
+ * there, and a tenant still never supplies a URL (D14). See 08-security.md Rule 7.
+ */
+function testStubBase(): string | undefined {
+  const on = process.env.NODE_ENV === 'test' && process.env.OUTBOUND_TEST_ALLOW_LOOPBACK === 'true';
+  return (on && process.env.BKASH_TEST_BASE_URL) || undefined;
+}
+
 type Resolved = Omit<GatewayCreds, 'environment' | 'tenantId'> & { base: string; cacheKey: string };
 
 export type BkashPayment = GatewayPayment;
@@ -79,9 +90,9 @@ export class BkashClient implements PaymentGatewayProvider {
       };
     }
     const env = String(creds.environment ?? '');
-    const base = Object.hasOwn(BKASH_HOSTS, env)
-      ? BKASH_HOSTS[env as PaymentGatewayEnvironment]
-      : undefined;
+    const base =
+      testStubBase() ??
+      (Object.hasOwn(BKASH_HOSTS, env) ? BKASH_HOSTS[env as PaymentGatewayEnvironment] : undefined);
     if (!base) throw new Error('bKash environment is not valid');
     if (!creds.tenantId) throw new Error('bKash tenant is required');
     return { ...creds, base, cacheKey: `${ENV_TOKEN_KEY}:${creds.tenantId}:${env}` };

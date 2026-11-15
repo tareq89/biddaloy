@@ -376,9 +376,14 @@ export class OnlinePaymentsService {
         WHERE id = $1 AND tenant_id = $2 AND source = 'ONLINE'`,
       [id, ctx.tenantId],
     );
-    const all: { student_fee_id: string; student_id: string; amount_at_start: string }[] = s
+    const all: {
+      student_fee_id: string;
+      student_id: string;
+      amount_at_start: string;
+      payment_id: string | null;
+    }[] = s
       ? await this.ds.query(
-          `SELECT student_fee_id, student_id, amount_at_start FROM payment_submission_bills
+          `SELECT student_fee_id, student_id, amount_at_start, payment_id FROM payment_submission_bills
             WHERE submission_id = $1 AND tenant_id = $2`,
           [id, ctx.tenantId],
         )
@@ -386,12 +391,27 @@ export class OnlinePaymentsService {
     const mine = all.filter((b) => linked.has(b.student_id));
     if (!s || mine.length === 0) throw new NotFoundException(MSG.notFound);
     const visible = mine.reduce((n, b) => n + toPaisa(b.amount_at_start), 0);
+    // Receipts of the caller's own children only (the payment ids come from `mine`).
+    const paymentIds = [...new Set(mine.flatMap((b) => (b.payment_id ? [b.payment_id] : [])))];
+    const paid: { invoice_id: string; invoice_number: string; payment_date: Date }[] =
+      paymentIds.length === 0
+        ? []
+        : await this.ds.query(
+            `SELECT DISTINCT i.id AS invoice_id, i.invoice_number, p.payment_date
+               FROM payments p
+               JOIN invoices i ON i.id = p.invoice_id AND i.tenant_id = $2
+              WHERE p.id = ANY($1::uuid[]) AND p.tenant_id = $2
+              ORDER BY p.payment_date, i.invoice_number`,
+            [paymentIds, ctx.tenantId],
+          );
     return {
       id: s.id,
       status: s.status,
       amount: (visible / 100).toFixed(2),
       unmatched: s.unmatched,
       createdAt: s.created_at,
+      receipts: paid.map((r) => ({ invoiceId: r.invoice_id, receiptNo: r.invoice_number })),
+      paidAt: paid.length > 0 ? paid[paid.length - 1].payment_date : null,
       bills: mine.map((b) => ({
         studentFeeId: b.student_fee_id,
         studentId: b.student_id,

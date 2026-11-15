@@ -95,6 +95,10 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
       'guardian portal page: the portal palette is pages-only, and Pay is an action on Fees & invoices reached from the due card',
   },
   {
+    file: `${R}portal/fees_/pay_/result.tsx`,
+    reason: 'guardian portal page where bKash returns; the portal palette is pages-only',
+  },
+  {
     file: `${R}_platform/holiday-sets/$setId.tsx`,
     reason: 'Platform console: its palette is pages-only (31.3.3); `ACTIONS` is staff-scoped',
   },

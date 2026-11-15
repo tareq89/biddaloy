@@ -28,7 +28,8 @@ const CART = {
 function render(
   options: Record<string, unknown> | null = null,
   submitStatus = 201,
-  entry = '/portal/fees/pay',
+  search = '',
+  bkashUrl = 'https://pay.example/bk',
   cart: { students: unknown[] } = CART,
 ) {
   const seen = {
@@ -54,7 +55,7 @@ function render(
           { status: 503 },
         );
       }
-      return HttpResponse.json({ id: 'o1', bkashUrl: 'https://pay.example/bk' }, { status: 201 });
+      return HttpResponse.json({ id: 'o1', bkashUrl }, { status: 201 });
     }),
     http.get('/api/v1/portal/payment-cart', () => HttpResponse.json(cart)),
     http.post('/api/v1/portal/payment-proofs', async ({ request }) => {
@@ -76,7 +77,7 @@ function render(
     }),
   );
   renderWithRouter(routeTree, {
-    initialEntries: [entry],
+    initialEntries: [`/portal/fees/pay${search}`],
     tenantId: 'tenant-1',
     role: 'PARENT',
     locale: 'en',
@@ -112,14 +113,14 @@ describe('/portal/fees/pay', () => {
         { studentId: B, fullName: 'Sumi Akter', bills: [bill('b2', 'Exam fee', '800.00')] },
       ],
     };
-    render(null, 201, `/portal/fees/pay?student=${A}`, cart);
+    render(null, 201, `?student=${A}`, undefined, cart);
     await screen.findByRole('checkbox', { name: /April fee/, checked: true });
     expect(screen.getByRole('checkbox', { name: /Exam fee/, checked: false })).toBeTruthy();
     expect(screen.getByLabelText<HTMLInputElement>('Amount').value).toBe('৳500.00');
   });
 
   it('ignores a malformed student scope and ticks every bill', async () => {
-    render(null, 201, '/portal/fees/pay?student=nope');
+    render(null, 201, '?student=nope');
     await screen.findByRole('checkbox', { name: /Exam fee/, checked: true });
     expect(screen.getByLabelText<HTMLInputElement>('Amount').value).toBe('৳1,500.00');
   });
@@ -268,6 +269,22 @@ describe('/portal/fees/pay', () => {
       expect(seen.starts[0]?.body).toEqual({ billIds: ['b1', 'b2'] });
       expect(seen.starts[0]?.key).toBeTruthy();
       vi.unstubAllGlobals();
+    });
+
+    it('never sends the guardian to a page that is not https', async () => {
+      const assign = vi.fn();
+      vi.stubGlobal('location', { ...window.location, assign });
+      render(both, 201, '', 'http://pay.example/bk');
+      const user = userEvent.setup();
+      await user.click(await payButton());
+      expect(await screen.findByText(/Could not start the bKash payment/)).toBeTruthy();
+      expect(assign).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it('?how=proof opens the proof form even when bKash is on', async () => {
+      render(both, 201, '?how=proof');
+      expect(await screen.findByLabelText('Transaction ID (TrxID)')).toBeTruthy();
     });
 
     it('503 offers proof instead', async () => {

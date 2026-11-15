@@ -18823,6 +18823,12 @@ export interface components {
             /** @description The bKash checkout page to send the guardian to. */
             bkashUrl: string;
         };
+        OnlinePaymentReceiptDto: {
+            /** Format: uuid */
+            invoiceId: string;
+            /** @description The invoice number printed on the receipt. */
+            receiptNo: string;
+        };
         OnlinePaymentBillDto: {
             studentFeeId: string;
             studentId: string;
@@ -18838,6 +18844,10 @@ export interface components {
             unmatched: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description Receipts of the caller own children; empty until the payment is booked. */
+            receipts: components["schemas"]["OnlinePaymentReceiptDto"][];
+            /** Format: date-time */
+            paidAt: string | null;
             bills: components["schemas"]["OnlinePaymentBillDto"][];
         };
         BkashTestResponseDto: {
