@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -125,7 +125,10 @@ describe('Admission admit card print E2E (71.5.01)', () => {
       )
     )[0].id;
     tokens.set('OTHER_ADMIN', await login(await addUser(otherTenantId, UserRole.ADMIN)));
+  }, 180000);
 
+  // The suite resets the transactional tables before every test, so the data is made per test.
+  beforeEach(async () => {
     const tpl = await http()
       .post(`${API}/print-templates`)
       .set(as('ADMIN'))
@@ -168,15 +171,10 @@ describe('Admission admit card print E2E (71.5.01)', () => {
       'PENDING',
       'P-0001',
     );
-  }, 180000);
+  }, 60000);
 
   afterAll(async () => {
     await app.close();
-  });
-
-  it('diagnostic: the ADMIN preview answers 200 (body shown on failure)', async () => {
-    const r = await preview(UserRole.ADMIN);
-    expect(r.status, JSON.stringify(r.body)).toBe(200);
   });
 
   it.each([UserRole.ADMIN, UserRole.OFFICE_STAFF])(
