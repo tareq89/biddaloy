@@ -3,6 +3,8 @@ import { SiteCacheService } from '../site-cache.service';
 import { ClassSectionsFeed } from './class-sections.feed';
 import { BlogFeed } from './blog.feed';
 import { AdmissionsFeed } from './admissions.feed';
+import { AdmissionListsFeed } from './admission-lists.feed';
+import { AdmissionResultsFeed } from './admission-results.feed';
 import { EventsFeed } from './events.feed';
 import { FeesFeed } from './fees.feed';
 import { GalleryFeed } from './gallery.feed';
@@ -33,7 +35,9 @@ export type FeedKind =
   | 'admissions'
   | 'sections'
   | 'results'
-  | 'gallery';
+  | 'gallery'
+  | 'admission_result'
+  | 'admission_lists';
 
 /**
  * `kind -> provider(tenantId, opts)`. Reads go through `cached`, which never depends on the
@@ -56,6 +60,8 @@ export class FeedRegistry {
     sections: ClassSectionsFeed,
     results: ResultsFeed,
     gallery: GalleryFeed,
+    admissionResult: AdmissionResultsFeed,
+    admissionLists: AdmissionListsFeed,
   ) {
     this.feeds = {
       notices,
@@ -68,6 +74,8 @@ export class FeedRegistry {
       sections,
       results,
       gallery,
+      admission_result: admissionResult,
+      admission_lists: admissionLists,
     };
   }
 
