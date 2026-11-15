@@ -1,4 +1,5 @@
 import { amountInWordsOrNull } from '@biddaloy/shared';
+import { PaymentOrigin, renderOriginBlockPos } from './invoice-payment-origin';
 import { Invoice } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import {
@@ -59,6 +60,7 @@ export function renderInvoicePosHtml(
   width: PosPrintWidth,
   linkedStudentIds?: string[],
   shareUrl?: string | null,
+  origin?: PaymentOrigin | null,
 ): string {
   const widthMm = WIDTH_MM[width];
   const columns = WIDTH_COLUMNS[width];
@@ -141,6 +143,7 @@ export function renderInvoicePosHtml(
   .row { display: flex; justify-content: space-between; gap: 4px; }
   .row-left { flex: 1; word-break: break-word; }
   .row-right { white-space: nowrap; }
+  .payment-origin .row-right { white-space: normal; word-break: break-word; text-align: right; }
   .row-emphasis { font-weight: bold; }
   .in-words { margin-top: 4px; font-size: 11px; }
   .totals { margin-top: 4px; page-break-inside: avoid; }
@@ -181,6 +184,8 @@ export function renderInvoicePosHtml(
   ${totalsBlock}
 
   <div class="payment-line">${paymentLine}</div>
+
+  ${creditNote ? '' : renderOriginBlockPos(origin, linkedStudentIds === undefined, lineRow)}
 
   ${qrBlock}
 

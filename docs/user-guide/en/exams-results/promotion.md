@@ -238,7 +238,7 @@ flowchart LR
 ```
 
 1. Admin: on the draft list press **Set groups**. Class teacher: on [My class](../academics/my-class.md#task-groups-card), press **Set groups** on the **Groups** card (it shows **Groups pending: N**). → The **Set groups** page opens, with a table: **Student**, **Section**, **GPA**, **Result**, **Group**. A student with no group yet shows **No group**.
-2. Optional: to pick students by marks, set **GPA from** / **GPA up to**, or choose a **Subject** and then **Marks at least**. → Only matching students are shown, and a column with that subject's marks appears. The **Result** column says **From final result** or **From exam average**, so you know where the numbers come from. If the students have no result yet, the page says **No results to filter on**; tick the students by hand.
+2. Optional: when the list has more than one section, choose a **Section** (or **All sections**) to see one section only. To pick students by marks, set **GPA from** / **GPA up to**, or choose a **Subject** and then **Marks at least**. → Only matching students are shown, and a column with that subject's marks appears. The **Result** column says **From final result** or **From exam average**, so you know where the numbers come from. If the students have no result yet, the page says **No results to filter on**; tick the students by hand.
 3. Tick the students, or press **Select all matching (N)**. → It picks everyone who matches, on every page of the table, not only the page you see. The bottom bar shows **N selected**.
 4. Choose a **Group** (only the school's own groups are listed), then press **Apply to N**. → A message says **Group set for N students**, and the **Group** column fills in.
 

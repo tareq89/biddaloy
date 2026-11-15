@@ -426,6 +426,19 @@ describe('OtpLoginService (integration)', () => {
       expect(debug?.otp).toMatch(/^\d{6}$/);
     });
 
+    it('[#2463] canReceiveCode skips an unverified email when a verified phone is outside the SMS prefixes', async () => {
+      const user = await createMember({
+        email: 'nosms@example.com',
+        email_verified_at: null,
+        phone: '+12025550123',
+        phone_verified_at: new Date(),
+      });
+      expect(await service.canReceiveCode(user)).toBe(false);
+
+      user.email_verified_at = new Date();
+      expect(await service.canReceiveCode(user)).toBe(true);
+    });
+
     it('locks an email identifier after 5 wrong tries', async () => {
       await createMember({ email: 'lock@example.com' });
       await service.request('lock@example.com', context);

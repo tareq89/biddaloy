@@ -3,7 +3,7 @@ import { round2 } from '../../common/constants/money';
 import { localToday } from '../../common/time';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { FeeType, PeriodType } from '@biddaloy/shared';
+import { FeeType, PaymentSubmissionSource, PeriodType } from '@biddaloy/shared';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { WalletService } from './wallet.service';
@@ -48,6 +48,7 @@ export interface CartBill {
   is_late_fee: boolean;
   is_overdue: boolean;
   suggested_allocation: number;
+  waiting_submission: { id: string; source: PaymentSubmissionSource } | null;
 }
 
 export interface CartStudent {
@@ -128,6 +129,26 @@ export class CheckoutCartService {
       Promise.all(students.map((s) => this.walletService.balance(s.id, tenantId))),
     ]);
 
+    // PENDING guardian submissions covering these bills (one batched read;
+    // raw SQL, tenant-bound on both tables). Newest submission wins.
+    const waitingRows =
+      fees.length === 0
+        ? []
+        : await this.studentFeeRepo.manager.query<
+            Array<{ student_fee_id: string; id: string; source: PaymentSubmissionSource }>
+          >(
+            `SELECT DISTINCT ON (b.student_fee_id) b.student_fee_id, s.id, s.source
+             FROM payment_submission_bills b
+             JOIN payment_submissions s ON s.id = b.submission_id
+             WHERE b.tenant_id = $1 AND s.tenant_id = $1 AND s.status = 'PENDING'
+               AND b.student_fee_id = ANY($2::uuid[])
+             ORDER BY b.student_fee_id, s.created_at DESC, s.id`,
+            [tenantId, fees.map((f) => f.id)],
+          );
+    const waitingByFee = new Map(
+      waitingRows.map((r) => [r.student_fee_id, { id: r.id, source: r.source }]),
+    );
+
     // `fees` is queried by student_id alone (no tenant join) because
     // StudentFee carries no tenant_id column of its own — tenant isolation
     // instead comes from `students` above already being scoped to
@@ -175,6 +196,7 @@ export class CheckoutCartService {
           is_late_fee: fee.late_fee_for_student_fee_id !== null,
           is_overdue: isOverdue(dueDate, today),
           suggested_allocation: 0,
+          waiting_submission: waitingByFee.get(fee.id) ?? null,
           due_date_sort: dueDate,
           period_start_sort: dateKey(fee.period_start) as string,
         };

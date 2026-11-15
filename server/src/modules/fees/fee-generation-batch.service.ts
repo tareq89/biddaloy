@@ -1,3 +1,4 @@
+import { assertNoWaitingSubmissionBills } from './submission-bill-guard';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -206,6 +207,7 @@ export class FeeGenerationBatchService {
       await assertYearOpen(manager, tenantId, batch.academic_year_id); // [69.3.03] D4
       const bills = await this.lockBills(manager, { fee_generation_id: batch.id });
       const billIds = bills.map((b) => b.id);
+      await assertNoWaitingSubmissionBills(manager, tenantId, billIds);
 
       const collected = await this.anyCollected(manager, billIds);
       let approvedBy: string | null = null;
@@ -270,6 +272,7 @@ export class FeeGenerationBatchService {
         student_id: studentId,
       });
       const billIds = bills.map((b) => b.id);
+      await assertNoWaitingSubmissionBills(manager, tenantId, billIds);
 
       const collected = await this.anyCollected(manager, billIds);
       let approvedBy: string | null = null;
@@ -346,6 +349,7 @@ export class FeeGenerationBatchService {
       const removableIds = candidateIds.filter((cid) => !allocatedIds.has(cid));
       if (removableIds.length === 0) return;
 
+      await assertNoWaitingSubmissionBills(manager, tenantId, removableIds);
       await manager.getRepository(StudentFee).softDelete({ id: In(removableIds) });
       removedCount = removableIds.length;
       await manager

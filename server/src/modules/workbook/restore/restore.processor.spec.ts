@@ -420,6 +420,44 @@ describe('RestoreProcessor', () => {
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
     });
 
+    it('does not remove an existing row it skipped, even with deleteByAbsence on', async () => {
+      const usersTab = ALL_TABS.find((t) => t.name === 'users')!;
+      const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
+      const stranger = new User();
+      stranger.id = 'user-stranger';
+      joinRequestedUsers.add(stranger);
+      const existingTeacher = { id: 'teacher-existing' };
+
+      vi.spyOn(usersTab, 'load').mockResolvedValue([]);
+      vi.spyOn(usersTab, 'keyOf').mockReturnValue('teacher@x.example');
+      vi.spyOn(usersTab, 'upsert').mockResolvedValue(stranger as any);
+      vi.spyOn(usersTab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      vi.spyOn(teachersTab, 'load').mockResolvedValue([existingTeacher] as any);
+      vi.spyOn(teachersTab, 'keyOf').mockReturnValue('T-7');
+      const teacherUpsert = vi.spyOn(teachersTab, 'upsert');
+      vi.spyOn(teachersTab, 'deleteByAbsence', 'get').mockReturnValue(true);
+      const teacherRemove = vi.spyOn(teachersTab, 'remove').mockResolvedValue(undefined);
+
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({
+          users: [{ email: 'teacher@x.example' }],
+          teachers: [
+            {
+              id: 'teacher-existing',
+              employee_id: 'T-7',
+              user_id: 'pending:users:teacher@x.example',
+            },
+          ],
+        }),
+      );
+
+      await run();
+
+      expect(teacherUpsert).not.toHaveBeenCalled();
+      expect(teacherRemove).not.toHaveBeenCalled();
+      expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
     it('still fails on a reference that is unresolved for any other reason', async () => {
       const teachersTab = ALL_TABS.find((t) => t.name === 'teachers')!;
       vi.spyOn(teachersTab, 'load').mockResolvedValue([]);

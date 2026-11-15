@@ -69,7 +69,11 @@ describe('GuardianProvisioningService', () => {
       manager: { exists: vi.fn().mockResolvedValue(false), getRepository: () => userRepo },
     };
     logRepo = { createQueryBuilder: vi.fn() };
-    auditLogRepo = { createQueryBuilder: vi.fn(), manager: { tag: 'manager' } };
+    const txManager = { query: vi.fn(async () => []) };
+    auditLogRepo = {
+      createQueryBuilder: vi.fn(),
+      manager: { tag: 'manager', transaction: vi.fn(async (fn: any) => fn(txManager)) },
+    };
     authTokens = { latest: vi.fn().mockResolvedValue(null) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     queue = {
@@ -472,8 +476,8 @@ describe('GuardianProvisioningService', () => {
         fakeQueryBuilder({ many: [makeGuardian({ id: 'g1' })] }),
       );
       userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
-      // BullMQ keeps the first job for an id and hands it back: it carries the other batch's id.
-      queue.add.mockResolvedValue({ data: { batchId: 'someone-elses-batch' } });
+      // Another request's job for this guardian is still waiting: getJob finds it.
+      queue.getJob.mockResolvedValue({ isFailed: vi.fn().mockResolvedValue(false) });
 
       const result = await service.dispatch({
         tenantId: TENANT,
@@ -492,6 +496,8 @@ describe('GuardianProvisioningService', () => {
           }),
         }),
       );
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(result.queued).toBe(1);
     });
 
     it('[#501] a failed job left behind is removed so the guardian can be invited again', async () => {

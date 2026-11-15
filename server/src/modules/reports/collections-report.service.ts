@@ -510,6 +510,7 @@ export class CollectionsReportService {
       Array<{
         user_id: string | null;
         full_name: string | null;
+        source: string | null;
         count: string;
         collected: string;
         reversed: string;
@@ -517,8 +518,9 @@ export class CollectionsReportService {
       }>
     >(
       `SELECT
-         p.received_by_user_id AS user_id,
-         u.full_name AS full_name,
+         CASE WHEN sub.source IS NULL THEN p.received_by_user_id END AS user_id,
+         CASE WHEN sub.source IS NULL THEN u.full_name END AS full_name,
+         sub.source AS source,
          COUNT(*) AS count,
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN ${CASH_RECEIVED_SQL} ELSE 0 END), 0) AS collected,
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN ${CASH_RECEIVED_SQL} ELSE 0 END), 0) AS reversed,
@@ -526,8 +528,15 @@ export class CollectionsReportService {
        FROM payments p
        LEFT JOIN payments o ON o.id = p.reversal_of_payment_id
        LEFT JOIN users u ON u.id = p.received_by_user_id
+       LEFT JOIN LATERAL (
+         SELECT s.source FROM payment_submission_bills b
+         JOIN payment_submissions s ON s.id = b.submission_id AND s.tenant_id = p.tenant_id
+         WHERE (CASE WHEN p.reversal_of_payment_id IS NULL THEN p.received_by_user_id ELSE o.received_by_user_id END) IS NULL
+           AND b.payment_id = COALESCE(p.reversal_of_payment_id, p.id) AND b.tenant_id = p.tenant_id
+         ORDER BY s.created_at LIMIT 1
+       ) sub ON TRUE
        WHERE ${clause}
-       GROUP BY p.received_by_user_id, u.full_name
+       GROUP BY 1, 2, 3
        ORDER BY full_name NULLS LAST`,
       params,
     );
@@ -609,17 +618,20 @@ export class CollectionsReportService {
       ]);
 
     const paidOutBy = new Map(payouts.map((r) => [r.user_id, Number(r.paid_out)]));
+    // ONLINE / PROOF money has no counter user; the public DTO carries no
+    // `source`, so those buckets are named through full_name.
+    const BUCKET_NAME: Record<string, string> = { ONLINE: 'Online', PROOF: 'Guardian proof' };
     const collectors: CollectionsByCollector[] = byCollector.map((r) => ({
       user_id: r.user_id,
-      full_name: r.full_name,
+      full_name: r.source ? (BUCKET_NAME[r.source] ?? null) : r.full_name,
       count: Number(r.count),
       collected: Number(r.collected),
       reversed: Number(r.reversed),
       net: Number(r.net),
-      paid_out: paidOutBy.get(r.user_id) ?? 0,
+      paid_out: r.source ? 0 : (paidOutBy.get(r.user_id) ?? 0),
     }));
     // An actor who only paid out (no payments in range) still gets a row.
-    const seen = new Set(byCollector.map((r) => r.user_id));
+    const seen = new Set(byCollector.filter((r) => !r.source).map((r) => r.user_id));
     for (const r of payouts) {
       if (!seen.has(r.user_id)) {
         collectors.push({

@@ -322,6 +322,7 @@ describe('mergeTenantSettings', () => {
     attention: { marker: 'attention' },
     dashboard: { marker: 'dashboard' },
     exams: { marker: 'exams' },
+    payments: { marker: 'payments' },
   };
 
   it('every DTO section survives a merge (#1811 guard)', () => {

@@ -241,17 +241,6 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   // [58.0.03] actorIsStaffIn: code-constant role list + literal $n / column refs
   'modules/routines/routine-slots.service.ts': ["actorIsStaffIn('$2', 'ft.tenant_id')"],
   'modules/routines/teacher-busy.service.ts': ["actorIsStaffIn('$3', 's.id')"],
-  // table / column names read from TypeORM entity metadata (decorators in code), never request input; ids are bound.
-  // Was hidden from the guard by a comment before the template (#3428).
-  'modules/workbook/codec/soft-deleted.ts': [
-    'target.deleted',
-    'target.deleted',
-    'target.deleted',
-    'target.table',
-    'target.table',
-    'target.tenant',
-    'target.tenant',
-  ],
   // column is list === 'shifts' ? 'shift' : 'version'
   // + [99.2] list query: order is a value of the fixed ORDER map (enum-validated sort); whereSql joins literal
   // fragments whose values go through bind() ($n); pLimit / pOffset are bind() placeholders
@@ -268,7 +257,8 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   'modules/students/students.service.ts': ['BN_COLLATION', 'BN_COLLATION'],
   // BN_COLLATION / NOT_SWAPPED_SQL constants
   'modules/users/users.service.ts': ['BN_COLLATION', 'NOT_SWAPPED_SQL'],
-  // [#688] table, soft-delete and tenant column names come from entity metadata (softDeleteTarget); user values are bound as $1/$2
+  // [#688] table, soft-delete and tenant column names come from entity metadata (softDeleteTarget); user values are bound as $1/$2.
+  // Was hidden from the guard by a comment before the template (#3428).
   'modules/workbook/codec/soft-deleted.ts': [
     'target.deleted',
     'target.deleted',
@@ -349,7 +339,8 @@ function templateExpressions(template: string): string[] {
 /** Blanks `//` and `/* *\/` comments, keeping strings and template literals (with
  * nested `${}` templates) intact, so a comment between `.query(` and its template,
  * or one holding a backtick, can neither hide a query nor start a false match.
- * Regex literals holding a quote are not modelled (none sit next to a query call). */
+ * Regex literals are copied verbatim (guessed from the previous token; the scan stops at a
+ * newline, so a wrong guess costs one line at most). */
 export function stripComments(src: string): string {
   let out = '';
   // 'c' = code, 't' = template text; a `${` pushes 'c' with its own brace depth.
@@ -369,7 +360,23 @@ export function stripComments(src: string): string {
       } else out += c;
       continue;
     }
-    if (c === '/' && src[i + 1] === '/') {
+    if (
+      c === '/' &&
+      src[i + 1] !== '/' &&
+      src[i + 1] !== '*' &&
+      /(^|[(,=:[!&|?{};+\-*%<>~^]|\breturn)\s*$/.test(out.slice(-40))
+    ) {
+      let j = i + 1;
+      let inClass = false;
+      while (j < src.length && src[j] !== '\n' && (inClass || src[j] !== '/')) {
+        if (src[j] === '\\') j++;
+        else if (src[j] === '[') inClass = true;
+        else if (src[j] === ']') inClass = false;
+        j++;
+      }
+      out += src.slice(i, j + 1);
+      i = j;
+    } else if (c === '/' && src[i + 1] === '/') {
       while (i < src.length && src[i] !== '\n') i++;
       out += '\n';
     } else if (c === '/' && src[i + 1] === '*') {
@@ -450,6 +457,16 @@ describe('SQL interpolation guard', () => {
     expect(stripComments("q(`a // b ${`x`}`, 'c // d'); // gone")).toBe(
       "q(`a // b ${`x`}`, 'c // d'); \n",
     );
+  });
+
+  it('stripComments: regex literals are kept, so `/[/*]/` or a backtick in one derails nothing', () => {
+    const q = (src: string) => [...stripComments(src).matchAll(FIRST_ARG)].map((m) => m[1]);
+    expect(q('const marker = /[/*]/;\ndb.query(`SELECT ${c}`)')).toEqual(['`SELECT ${c}`']);
+    // division is untouched, and the trailing comment is still stripped
+    expect(stripComments('x = a / b; db.query(`S ${d}`); // gone')).toBe(
+      'x = a / b; db.query(`S ${d}`); \n',
+    );
+    expect(q('const r = /`/;\ndb.query(`S ${e}`)')).toEqual(['`S ${e}`']);
   });
 
   it('no reviewed entry is stale', () => {

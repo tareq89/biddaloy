@@ -365,6 +365,56 @@ describe('Public Invoice Share E2E', () => {
       expect(res.body.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
     });
 
+    // [3.2.03, D38] A proof-paid invoice: staff print names the verifier, the
+    // public receipt shows the TrxID (masked) and "the school", never the name.
+    it('shows how a proof was paid without the verifier name; staff print has it', async () => {
+      const invoiceId = await createInvoice();
+      const [inv] = await dataSource.query(
+        `SELECT i.payment_id, i.student_id, a.student_fee_id
+           FROM invoices i JOIN payment_allocations a ON a.payment_id = i.payment_id
+          WHERE i.id = $1 LIMIT 1`,
+        [invoiceId],
+      );
+      const [sub] = await dataSource.query(
+        `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, reference_raw, reference_normalised, decided_by_user_id, decided_at)
+         VALUES ($1, 'PROOF', 'CONFIRMED', $2, 'BKASH', 1500, CURRENT_DATE, 'trx9a8b7c', 'TRX9A8B7C', $2, NOW())
+         RETURNING id`,
+        [TENANT_ID, SEED_ADMIN_USER_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start, payment_id)
+         VALUES ($1, $2, $3, $4, 1500, $5)`,
+        [TENANT_ID, sub.id, inv.student_fee_id, inv.student_id, inv.payment_id],
+      );
+      const [{ full_name: verifier }] = await dataSource.query(
+        `SELECT full_name FROM users WHERE id = $1`,
+        [SEED_ADMIN_USER_ID],
+      );
+
+      const shareRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/invoices/${invoiceId}/share`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .expect(201);
+      const pub = await supertest(app.getHttpServer())
+        .get(`/api/v1/public/invoices/${extractToken(shareRes.body.url)}`)
+        .expect(200);
+      expect(pub.body.how_paid.method).toBe('BKASH');
+      expect(pub.body.how_paid.trx_id_last4).toBe('*****8B7C');
+      expect(pub.body.how_paid.verified_on).toBeTruthy();
+      expect(JSON.stringify(pub.body)).not.toContain(verifier);
+
+      const print = await supertest(app.getHttpServer())
+        .get(`/api/v1/invoices/${invoiceId}/print`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .expect(200);
+      expect(print.text).toContain('How it was paid');
+      expect(print.text).toContain(verifier);
+    });
+
     it('an unknown token 404s', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/public/invoices/does-not-exist-at-all')

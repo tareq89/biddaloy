@@ -261,13 +261,15 @@ export class OtpLoginService {
    * Would code sign-in work for this user at all: ACTIVE, every school allows
    * it, there is an address a code can go to (an email, or a phone SMS is
    * allowed to), and a live school membership (`request` sends nothing
-   * without one). Same rules as `request`.
+   * without one), all under the #2463 verified-contact rule. Same rules as `request`.
    */
   async canReceiveCode(user: User): Promise<boolean> {
     const smsOk = !!user.phone && isSmsAllowed(user.phone, this.smsPrefixes());
+    const emailOk = !!user.email && !this.otherContactIsVerifiedButThisIsNot(user, true);
+    const phoneOk = smsOk && !this.otherContactIsVerifiedButThisIsNot(user, false);
     return (
       this.canSignInByCode(user) &&
-      (!!user.email || smsOk) &&
+      (emailOk || phoneOk) &&
       (await this.allowed(user.id)) &&
       (await this.authService.hasLiveMembership(user.id))
     );

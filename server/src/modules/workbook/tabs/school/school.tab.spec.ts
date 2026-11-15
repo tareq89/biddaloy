@@ -405,7 +405,10 @@ describe('diffFields', () => {
 // carries the nested D6 blob. Without lifting the stored side first, the merge keeps both shapes:
 // the resolver reads the nested block, never finds the stored token, and every send is REJECTED.
 describe('upsert: flat-stored messaging settings + a nested import', () => {
+  // upsert re-reads the school under a row lock (#4087); the stub hands back the stored row.
+  let stored: School;
   const manager = {
+    findOneOrFail: async () => stored,
     save: async (_entity: unknown, school: School) => school,
   } as unknown as Parameters<typeof schoolTab.upsert>[3];
 
@@ -423,6 +426,7 @@ describe('upsert: flat-stored messaging settings + a nested import', () => {
       settings: { communications: { whatsapp: { phoneNumberId: 'OLD', accessToken: SECRET } } },
     });
 
+    stored = existing;
     const saved = await schoolTab.upsert(nestedImport(existing), existing, SCHOOL_ID, manager);
 
     expect(saved.settings).toEqual({
@@ -530,5 +534,24 @@ describe('supportAccess is never imported or exported', () => {
       exportCtx,
     );
     expect(row.settings).toEqual({ region: { timezone: 'Asia/Dhaka' } });
+  });
+});
+
+// [3.1.03 D13/D47] A file cannot switch online payments on or fake a passing connection test.
+describe('payments online state is never imported', () => {
+  it('drops onlineEnabled, bkash.environment and lastTestOkAt, keeps the rest', () => {
+    const merged = mergeImportedSettings(
+      { payments: { onlineEnabled: false, bkash: { environment: 'SANDBOX' } } },
+      {
+        payments: {
+          onlineEnabled: true,
+          proofEnabled: true,
+          bkash: { environment: 'PRODUCTION', lastTestOkAt: '2026-01-01T00:00:00.000Z' },
+        },
+      },
+    );
+    expect(merged).toEqual({
+      payments: { onlineEnabled: false, proofEnabled: true, bkash: { environment: 'SANDBOX' } },
+    });
   });
 });

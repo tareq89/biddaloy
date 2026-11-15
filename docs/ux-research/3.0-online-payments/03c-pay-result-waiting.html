@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>পরিশোধের ফলাফল</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-3xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">পরিশোধের ফলাফল</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1"><div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-4 md:px-6 md:py-6"><div class="flex flex-col items-center gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-10 text-center shadow-e1"><span class="flex size-14 items-center justify-center rounded-full bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-7"></i></span><h2 class="text-h1">নিশ্চিত হচ্ছে, একটু অপেক্ষা করুন</h2><p class="max-w-md text-text-secondary">আমরা বিকাশের জবাবের অপেক্ষায়। পাতাটি নিজেই হালনাগাদ হবে। টাকা কেটে থাকলে চিন্তা নেই, নিশ্চিত হলেই বিল পরিশোধিত দেখাবে।</p><div class="flex w-full flex-col gap-2 md:w-auto md:flex-row"><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted "><i data-lucide="arrow-left"></i>ফি ও চালানে ফিরুন</button></div></div></div></main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface"><div class="mx-auto flex w-full max-w-3xl flex-col-reverse gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between md:px-6"><span></span><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted ">ফি ও চালানে ফিরুন</button></div></footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

@@ -820,7 +820,13 @@ export class StudyPlansService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) throw new NotFoundException('Study plan not found.');
-      const kept = await this.keepHiddenTopicLinks(locked, next, tenantId, section.class_id);
+      const kept = await this.keepHiddenTopicLinks(
+        manager,
+        locked,
+        next,
+        tenantId,
+        section.class_id,
+      );
       const keep = new Set(kept.map((l) => l.id));
       dropped = locked.exam_markers.filter((m) => !keep.has(m.up_to_lesson_id));
       const markers = locked.exam_markers.filter((m) => keep.has(m.up_to_lesson_id));
@@ -847,6 +853,7 @@ export class StudyPlansService {
    * A link to a live topic that the client left out is a real clear and is respected.
    */
   private async keepHiddenTopicLinks(
+    manager: EntityManager,
     stored: StudyPlan,
     next: StudyPlanLesson[],
     tenantId: string,
@@ -860,7 +867,7 @@ export class StudyPlansService {
     const ids = [...new Set(candidates.map((l) => storedTopic.get(l.id)!))];
     const live = new Set(
       (
-        await this.em.getRepository(SyllabusTopic).find({
+        await manager.getRepository(SyllabusTopic).find({
           where: {
             tenant_id: tenantId,
             class_id: classId,

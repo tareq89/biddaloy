@@ -363,9 +363,11 @@ jobs:
   # server/vitest.config.ts) were never enforced: no CI step ran with
   # --coverage. One nightly run of every server spec (unit + integration + e2e)
   # so the merged numbers are the ones the thresholds describe. Nightly, not
-  # PR-blocking, for the same wall-time reason as Lighthouse above.
+  # PR-blocking, for the same wall-time reason as Lighthouse above. Skipped in the merge queue
+  # (ci.yml's `quality` job calls this workflow there), like the two budgets above.
   server-coverage:
     name: Server coverage thresholds
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     services:
@@ -470,7 +472,8 @@ jobs:
       - name: Determine status
         id: status
         run: |
-          if [ "${{ needs.lighthouse.result }}" = "success" ] && [ "${{ needs.site-themes.result }}" = "success" ] && [ "${{ needs.server-coverage.result }}" = "success" ] \
+          if [ "${{ needs.lighthouse.result }}" = "success" ] && [ "${{ needs.site-themes.result }}" = "success" ] \
+             && { [ "${{ needs.server-coverage.result }}" = "success" ] || [ "${{ needs.server-coverage.result }}" = "skipped" ]; } \
              && { [ "${{ needs.site-budget.result }}" = "success" ] || [ "${{ needs.site-budget.result }}" = "skipped" ]; } \
              && { [ "${{ needs.landing-budget.result }}" = "success" ] || [ "${{ needs.landing-budget.result }}" = "skipped" ]; }; then
             echo "status=success" >> "$GITHUB_OUTPUT"

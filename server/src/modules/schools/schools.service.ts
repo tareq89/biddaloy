@@ -91,6 +91,10 @@ export interface SchoolStats {
 const STATS_CACHE_TTL_SECONDS = 60;
 const STATS_FAILED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** [3.1.03] The four encrypted bKash credentials. */
+const BKASH_SECRET_KEYS = ['appKey', 'appSecret', 'username', 'password'] as const;
+type PaymentsPatch = { onlineEnabled?: boolean; bkash?: Record<string, unknown> };
+
 @Injectable()
 export class SchoolsService {
   private readonly logger = new Logger(SchoolsService.name);
@@ -424,6 +428,43 @@ export class SchoolsService {
    * landed between this transaction committing and that re-read running,
    * rather than the caller's own.
    */
+  /**
+   * [3.1.03 D13/D47] Online payments may be on only after a successful test of the credentials
+   * now stored. Changing a credential or the environment voids that test, and online cannot stay
+   * on without a passing test and all four credentials. One fixed sentence, echoing no input
+   * (Rule 23). Mutates `merged.payments` (a fresh object from the merge) and the plain patch (so
+   * the audit shows a forced switch-off). Secrets count as changed when sent at all (stored
+   * encrypted, GET masks them); the environment only when it differs from the stored one (the
+   * test hit that host).
+   */
+  private applyPaymentsRules(
+    merged: Record<string, unknown>,
+    sent: PaymentsPatch | undefined,
+    storedEnvironment: unknown,
+  ): { forcedOff: boolean; testVoided: boolean } {
+    if (!sent) return { forcedOff: false, testVoided: false };
+    const payments = (merged.payments ?? {}) as Record<string, unknown>;
+    const bkash = (payments.bkash ?? {}) as Record<string, unknown>;
+    const sentBkash = sent.bkash;
+    const credentialsSent =
+      !!sentBkash &&
+      (BKASH_SECRET_KEYS.some((k) => Object.hasOwn(sentBkash, k)) ||
+        (Object.hasOwn(sentBkash, 'environment') && sentBkash.environment !== storedEnvironment));
+    const testVoided = credentialsSent && !!bkash.lastTestOkAt;
+    if (credentialsSent) delete bkash.lastTestOkAt;
+    const ready =
+      !!bkash.lastTestOkAt && BKASH_SECRET_KEYS.every((k) => typeof bkash[k] === 'string');
+    if (sent.onlineEnabled === true && !ready) {
+      throw new BadRequestException('Test the bKash connection before turning online payments on.');
+    }
+    const forcedOff = credentialsSent && payments.onlineEnabled === true && !ready;
+    if (forcedOff) {
+      payments.onlineEnabled = false;
+      sent.onlineEnabled = false;
+    }
+    return { forcedOff, testVoided };
+  }
+
   async updateSettings(
     schoolId: string,
     dto: TenantSettingsDto,
@@ -478,6 +519,15 @@ export class SchoolsService {
         delete (encryptedPatch.communications as { sms?: Record<string, unknown> }).sms?.metering;
       }
 
+      // [3.1.03 D13/D47] `lastTestOkAt` is the test-connection route's to write: never from a
+      // PATCH. Dropped from both copies before the audit snapshot is taken.
+      const sentBkash = (plainPatch.payments as { bkash?: Record<string, unknown> } | undefined)
+        ?.bkash;
+      if (sentBkash) {
+        delete sentBkash.lastTestOkAt;
+        delete (encryptedPatch.payments as { bkash?: Record<string, unknown> }).bkash?.lastTestOkAt;
+      }
+
       const oldSnapshot = pickPatchShape(
         (school.settings ?? {}) as Record<string, unknown>,
         plainPatch,
@@ -503,7 +553,31 @@ export class SchoolsService {
         );
       }
 
+      // Primitives read before the merge: the merged object may share nested objects with the row.
+      const storedPayments = (
+        school.settings as {
+          payments?: { onlineEnabled?: boolean; bkash?: Record<string, unknown> };
+        } | null
+      )?.payments;
+      const storedOnline = storedPayments?.onlineEnabled;
+      const storedTestOk = storedPayments?.bkash?.lastTestOkAt;
+      const storedEnvironment = storedPayments?.bkash?.environment;
       const mergedSettings = mergeTenantSettings(school.settings, encryptedPatch);
+      const sentPayments = plainPatch.payments as PaymentsPatch | undefined;
+      const { forcedOff, testVoided } = this.applyPaymentsRules(
+        mergedSettings,
+        sentPayments,
+        storedEnvironment,
+      );
+      // Audit-only: the rules' side effects show in both snapshots (old on/tested, new off/void).
+      if (forcedOff) {
+        ((oldSnapshot.payments ??= {}) as Record<string, unknown>).onlineEnabled = storedOnline;
+      }
+      if (testVoided && sentPayments?.bkash) {
+        const oldPayments = (oldSnapshot.payments ??= {}) as Record<string, unknown>;
+        ((oldPayments.bkash ??= {}) as Record<string, unknown>).lastTestOkAt = storedTestOk;
+        sentPayments.bkash.lastTestOkAt = null;
+      }
       // [77.1.02] `modules` / `labels`: deep merge per key, `null` removes a key. Each block
       // that actually changed gets its own audit row (D45) instead of riding SETTINGS_CHANGE.
       const blockAudits: Array<{ action: AuditAction; before: unknown; after: unknown }> = [];

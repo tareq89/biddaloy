@@ -13,6 +13,10 @@
       {
         "include": "scripts/seed-data/demo-avatars/*.jpg",
         "watchAssets": true
+      },
+      {
+        "include": "scripts/demo-seed/assets/*.png",
+        "watchAssets": true
       }
     ]
   }

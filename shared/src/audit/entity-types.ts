@@ -63,6 +63,8 @@ export const AUDIT_ENTITY_TYPES = [
   // [Epic 53] notice create/edit/publish/withdraw.
   'Notice',
   'Payment',
+  // [3.x/#3965] Guardian payment proof submit / withdraw.
+  'PaymentSubmission',
   'Plan',
   'PlatformAdmin',
   'PlatformAnnouncement',

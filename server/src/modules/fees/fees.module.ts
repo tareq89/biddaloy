@@ -42,6 +42,7 @@ import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { CheckoutCartService } from './checkout-cart.service';
 import { CheckoutService } from './checkout.service';
+import { PaymentSubmissionSettlement } from './payment-submission-settlement.service';
 import { CheckoutController } from './checkout.controller';
 import { PaymentReversalService } from './payment-reversal.service';
 import { FeesDailyScheduler } from './fees-daily.scheduler';
@@ -128,6 +129,7 @@ import { ReportExportModule } from '../reports/export/report-export.module';
     { provide: NoopDiscountResolver, useExisting: DiscountRulesService },
     CheckoutCartService,
     CheckoutService,
+    PaymentSubmissionSettlement,
     PaymentReversalService,
     // [16.7.4] Registering this provider is what fills the `@Optional()
     // lateFeeService?` seam `fees-daily.scheduler.ts` ([16.7.2]/#676) left
@@ -186,6 +188,8 @@ import { ReportExportModule } from '../reports/export/report-export.module';
     RecurringSchedulesService,
     WalletService,
     CheckoutCartService,
+    CheckoutService,
+    PaymentSubmissionSettlement,
     DiscountRulesService,
   ],
 })

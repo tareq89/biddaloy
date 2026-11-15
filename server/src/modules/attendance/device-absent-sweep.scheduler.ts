@@ -145,9 +145,18 @@ export class DeviceAbsentSweepScheduler extends WorkerHost implements OnModuleIn
         );
       }
       if (!workingByClass.get(section.class_id)) continue;
-      inserted += await this.dataSource.transaction((manager) =>
-        this.sweepSection(manager, tenantId, section.id, today),
-      );
+      inserted += await this.dataSource.transaction(async (manager) => {
+        // [#4067] The tenant-level check above ran outside this transaction: re-check inside it,
+        // FOR SHARE, so a year close cannot commit between the check and the marks. A closed year
+        // skips only this section.
+        try {
+          await assertDateNotInClosedYear(manager, tenantId, today);
+        } catch (err) {
+          if (!(err instanceof ConflictException)) throw err;
+          return 0;
+        }
+        return this.sweepSection(manager, tenantId, section.id, today);
+      });
     }
     if (inserted > 0) {
       this.logger.log(`Device-absent sweep marked ${inserted} absent for tenant ${tenantId}`);
