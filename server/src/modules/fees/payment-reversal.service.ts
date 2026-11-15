@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Not, Repository } from 'typeorm';
 import {
@@ -30,8 +31,23 @@ import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { SchoolsService } from '../schools/schools.service';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import {
+  PAYMENT_SUBMISSION_EVENTS,
+  paymentSubmissionEvents,
+} from '../payment-submissions/payment-submission.events';
+import { syncSubmissionsOnReversal } from '../payment-submissions/sync-submissions-on-reversal';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
+
+/** [3.x D45] In-process bus; emitted AFTER a reversal commits (same shape as `attentionEvents`). */
+export const PAYMENTS_REVERSED = 'payments.reversed';
+export const paymentEvents = new EventEmitter();
+export interface PaymentsReversedPayload {
+  paymentId: string;
+  tenantId: string;
+  actorUserId: string;
+  reason: string;
+}
 
 interface UndoneDebitAudit {
   debit_id: string;
@@ -125,6 +141,7 @@ export class PaymentReversalService {
     const preRemovedCredits = await this.removedBillCredits(this.paymentRepo.manager, payment.id);
     await this.assertAllWalletsInOrder(payment, preRemovedCredits);
 
+    let touchedSubmissions: string[] = [];
     const reversalPaymentId = await this.paymentRepo.manager.transaction(async (manager) => {
       const paymentRepo = manager.getRepository(Payment);
       const allocationRepo = manager.getRepository(PaymentAllocation);
@@ -461,18 +478,35 @@ export class PaymentReversalService {
         manager,
       );
 
+      // [3.x D45] Same transaction: a failed sync rolls the reversal back. Known gap: a reversal that
+      // lands between settle's per-student checkout commit and its bill write is not seen here (#4220).
+      touchedSubmissions = await syncSubmissionsOnReversal(manager, this.auditService, {
+        tenantId,
+        paymentId,
+        actorUserId,
+        reason,
+      });
+
       return reversal.id;
     });
 
-    const reversalPayment = await this.paymentRepo.findOneOrFail({
+    // Post-commit signals first: a failing read below must not swallow them.
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
+    const reversed: PaymentsReversedPayload = { paymentId, tenantId, actorUserId, reason };
+    paymentEvents.emit(PAYMENTS_REVERSED, reversed);
+    for (const submissionId of touchedSubmissions) {
+      paymentSubmissionEvents.emit(PAYMENT_SUBMISSION_EVENTS.REVERSED, {
+        tenantId,
+        submissionId,
+        actorUserId,
+      });
+    }
+
+    return this.paymentRepo.findOneOrFail({
       where: { id: reversalPaymentId },
       relations: ['allocations'],
     });
-
-    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId });
-    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
-
-    return reversalPayment;
   }
 
   /** [78 D1] Throws when the actor approved their own reversal but the school

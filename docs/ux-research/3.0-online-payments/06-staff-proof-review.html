@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>পেমেন্ট প্রমাণ যাচাই</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-3xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">পেমেন্টের প্রমাণ যাচাই</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1"><div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+<nav aria-label="পথ" class="mb-1 flex flex-wrap items-center gap-1 text-text-secondary"><a href="#" class="hover:text-text-primary">আর্থিক</a><i data-lucide="chevron-right" class="size-4"></i><a href="#" class="hover:text-text-primary">অনলাইন পেমেন্ট</a><i data-lucide="chevron-right" class="size-4"></i><a href="#" class="hover:text-text-primary">প্রমাণ</a></nav>
+<div class="grid gap-6 md:grid-cols-5">
+<div class="space-y-3 md:col-span-2"><div class="flex aspect-[3/4] w-full items-center justify-center rounded-md border border-border-subtle bg-muted text-center text-text-secondary"><span class="flex flex-col items-center gap-2 px-4"><i data-lucide="image" class="size-8"></i>স্ক্রিনশট ১ (জুম করা যায়)</span></div><div class="grid grid-cols-2 gap-3"><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted "><i data-lucide="zoom-in"></i>বড় করুন</button><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted "><i data-lucide="image"></i>ছবি ২</button></div></div>
+<div class="space-y-4 md:col-span-3">
+<section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 "><div class="flex items-start justify-between gap-3"><div><h2 class="text-h2">রহিম উদ্দিনের অভিভাবক</h2><p class="text-text-secondary">০১৭১১-০০০০০১ · ১৩ নভেম্বর ২০২৭, ১০:৪২ এ জমা</p></div><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>নিশ্চিত করা বাকি</span></div>
+<dl class="mt-4 grid gap-3 md:grid-cols-2"><div><dt class="text-label text-text-secondary">মাধ্যম</dt><dd>বিকাশ</dd></div><div><dt class="text-label text-text-secondary">লেনদেন নম্বর (TrxID)</dt><dd class="font-medium tabular-nums">8N7A6D5EFG</dd></div><div><dt class="text-label text-text-secondary">টাকা</dt><dd class="font-medium tabular-nums">৳২,৫০০.০০</dd></div><div><dt class="text-label text-text-secondary">কবে দিয়েছেন</dt><dd>১৩ নভেম্বর ২০২৭</dd></div></dl>
+<div class="mt-4"><div class="flex items-start gap-2 rounded-md bg-status-partial-bg p-3 text-status-partial-fg"><i data-lucide="triangle-alert" class="mt-0.5 shrink-0"></i><p>এই লেনদেন নম্বর আরেকটি অপেক্ষমাণ প্রমাণে আছে (করিম শেখের অভিভাবক, ৳১,৫০০)। মিলিয়ে দেখুন।</p></div></div></section>
+<section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 "><h2 class="text-h2">কোন বিল</h2><ul class="mt-2 divide-y divide-border-subtle"><li class="flex justify-between gap-3 py-2"><span><span class="font-medium">এপ্রিল ২০২৭ মাসিক ফি</span><span class="block text-text-secondary">রহিম উদ্দিন · সপ্তম ক</span></span><span class="tabular-nums font-medium">৳১,২০০.০০</span></li><li class="flex justify-between gap-3 py-2"><span><span class="font-medium">পরীক্ষার ফি (প্রথম সাময়িক)</span><span class="block text-text-secondary">রহিম উদ্দিন · সপ্তম ক</span></span><span class="tabular-nums font-medium">৳৩০০.০০</span></li><li class="flex justify-between gap-3 py-2"><span><span class="font-medium">এপ্রিল ২০২৭ মাসিক ফি</span><span class="block text-text-secondary">সুমি আক্তার · চতুর্থ খ</span></span><span class="tabular-nums font-medium">৳১,০০০.০০</span></li></ul><p class="mt-2 flex justify-between border-t border-border-subtle pt-2 text-h3"><span>মোট</span><span class="tabular-nums">৳২,৫০০.০০</span></p></section>
+<section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 "><h2 class="text-h2">বাতিল করতে চাইলে</h2><div class="mt-3 grid gap-4 md:grid-cols-2"><div class="flex flex-col gap-1.5 "><label for="r-reason" class="text-label text-text-primary">কারণ</label><button type="button" id="r-reason" aria-haspopup="listbox" class="flex h-11 w-full items-center justify-between gap-2 rounded-md border border-border-functional bg-surface px-3 text-left text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">লেনদেন নম্বর পাওয়া যায়নি</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div><div class="flex flex-col gap-1.5 "><label for="r-note" class="text-label text-text-primary">নোট (&ldquo;অন্য কারণ&rdquo; হলে আবশ্যক)</label><input id="r-note" type="text" value="" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary md:h-8 md:text-body"></div></div><p class="mt-2 text-text-secondary">অভিভাবক কারণটি পোর্টালে দেখবেন এবং বার্তা পাবেন।</p></section>
+<section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 "><h2 class="text-h2">ইতিহাস</h2><ol aria-label="ইতিহাস" class="divide-y divide-border-subtle"><li class="flex flex-col gap-1 py-3"><div class="flex flex-wrap items-center gap-2"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="send" class="size-3.5"></i>জমা</span><span class="font-medium">অভিভাবক</span></div><span class="text-text-secondary">১৩ নভেম্বর ২০২৭, ১০:৪২</span></li></ol></section>
+</div></div></div></main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface"><div class="mx-auto flex w-full max-w-5xl flex-col-reverse gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between md:px-6"><div class="flex flex-wrap gap-2"><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted "><i data-lucide="x"></i>বাতিল করুন</button><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted "><i data-lucide="phone"></i>ফোন করুন</button><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted "><i data-lucide="message-square"></i>SMS পাঠান</button></div><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium bg-primary text-primary-foreground w-full md:w-auto"><i data-lucide="check"></i>নিশ্চিত করুন, পরেরটি খুলুন</button></div></footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

@@ -13,9 +13,9 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 73 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(73);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(73);
+  it('has 74 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(74);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(74);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
     for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
   });
@@ -131,6 +131,13 @@ describe('alert rule catalogue', () => {
   it('both seat rules run ON_CHANGE: billing asks for a recheck, the scheduler drops it otherwise (Epic 49)', () => {
     for (const k of ['seats.expiring', 'seats.exhausted'] as const)
       expect(meta(k).cadence).toContain(AlertCadence.ON_CHANGE);
+  });
+
+  it('payment proofs rule goes to ADMIN and ACCOUNTANT and is pushable (Epic 3 D30)', () => {
+    expect(meta('fees.payment_proofs_waiting')).toMatchObject({
+      roles: [UserRole.ADMIN, UserRole.ACCOUNTANT],
+      pushable: true,
+    });
   });
 
   it('lookup returns the catalogue object; unknown key throws', () => {

@@ -467,6 +467,7 @@
       "INVOICE_SEND": "Send and share invoices",
       "INVOICE_DELETE": "Delete invoices",
       "PAYMENT_RECORD": "Record payments",
+      "PAYMENT_SUBMIT": "Submit payments (guardian)",
       "PAYMENT_READ": "View all payments",
       "PAYMENT_REFUND": "Refund payments",
       "PAYMENT_REVERSE": "Reverse payments",

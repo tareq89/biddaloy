@@ -89,6 +89,29 @@ describe('/reports/collections', () => {
     expect(screen.getAllByText(formatServerAmount(75, REGION_BD_BN))).toHaveLength(2);
   });
 
+  it('shows both counter-less buckets (Online, Guardian proof) as separate rows', async () => {
+    const bucket = (full_name: string) => ({
+      user_id: null,
+      full_name,
+      count: 1,
+      collected: 100,
+      reversed: 0,
+      net: 100,
+      paid_out: 0,
+    });
+    server.use(
+      http.get('/api/v1/reports/collections', () =>
+        HttpResponse.json(
+          reportResponse({ by_collector: [bucket('Online'), bucket('Guardian proof')] }),
+        ),
+      ),
+    );
+    renderReport();
+
+    expect((await screen.findAllByText('Online')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Guardian proof').length).toBeGreaterThan(0);
+  });
+
   it('shows the error state with a retry when the report fails to load', async () => {
     server.use(
       http.get('/api/v1/reports/collections', () => HttpResponse.json({}, { status: 500 })),

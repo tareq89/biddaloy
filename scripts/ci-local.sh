@@ -441,7 +441,8 @@ if should_run "e2e"; then
   section "e2e"
   fresh_stack
   yarn workspace @biddaloy/server migration:run
-  yarn workspace @biddaloy/server seed
+  # [98.5.09] mirrors ci.yml: e2e signs the platform owner in through the cockpit
+  SEED_COCKPIT_OWNER=true yarn workspace @biddaloy/server seed
   # CI=1 mirrors the pipeline and stops playwright.config.ts's
   # reuseExistingServer from grabbing an already-running dev server wired
   # to the dev database — that mismatch fails login against the freshly

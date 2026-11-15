@@ -1,6 +1,7 @@
 import { amountInWordsOrNull } from '@biddaloy/shared';
 import { Invoice } from './entities/invoice.entity';
 import { Payment } from '../fees/entities/payment.entity';
+import { PaymentOrigin, renderOriginBlockA4 } from './invoice-payment-origin';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import {
   escapeHtml,
@@ -59,6 +60,7 @@ export function renderInvoiceHtml(
   issuer: IssuerSnapshot,
   logoDataUrl: string | null,
   linkedStudentIds?: string[],
+  origin?: PaymentOrigin | null,
 ): string {
   const creditNote = isCreditNote(invoice);
   const snapshot = filterSnapshotForLinkedStudents(invoice.snapshot, linkedStudentIds);
@@ -219,6 +221,8 @@ export function renderInvoiceHtml(
     </table>
   </div>`
   }
+
+  ${creditNote ? '' : renderOriginBlockA4(origin, linkedStudentIds === undefined)}
 
   ${invoice.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</div>` : ''}
 </body>

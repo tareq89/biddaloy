@@ -77,6 +77,10 @@ export enum Permission {
 
   // Payment
   PAYMENT_RECORD = 'PAYMENT_RECORD',
+  // [3.x] Family-only: a guardian submits an online payment or a proof for
+  // their own child's invoice. PARENT only (D4, D34); the object scope is
+  // enforced by FamilyAccessService, not by this permission.
+  PAYMENT_SUBMIT = 'PAYMENT_SUBMIT',
   // The tenant-wide payment ledger — `GET /payments` (ADMIN, ACCOUNTANT
   // only) and the receipts surface the UI gates on it.
   //
@@ -594,6 +598,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.SYLLABUS_READ,
     // [34.1.1] D4 — PARENT/STUDENT get only PROGRAM_READ.
     Permission.PROGRAM_READ,
+    // [3.x] D4/D34 — guardians submit online payments / proofs; PARENT only.
+    Permission.PAYMENT_SUBMIT,
   ],
 
   [UserRole.STUDENT]: [
