@@ -30,6 +30,11 @@ export const Loading: Story = {
   args: { loading: true },
 };
 
+/** Hold the mouse down: the button sinks to 95% and springs back on release. */
+export const Pressed: Story = {
+  args: { children: 'Press and hold' },
+};
+
 export const Disabled: Story = {
   args: { disabled: true },
 };

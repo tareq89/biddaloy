@@ -24,6 +24,15 @@ import * as React from 'react';
 
 import { useTranslation } from '../i18n';
 import { Button as ButtonPrimitive, type buttonVariants } from '../primitives/button';
+import { cn } from '../primitives/lib/utils';
+
+// [3329.1.03] Press sinks to 95% and springs back. Tailwind v4 animates the
+// individual `scale` property, so it joins the primitive's transition list
+// (tailwind-merge swaps the whole `transition-[...]` class). `not-disabled`
+// covers loading too. Duration/ease tokens are the primitive's own, and
+// prefers-reduced-motion collapses them globally.
+const PRESS =
+  'transition-[color,background-color,border-color,box-shadow,opacity,scale] active:not-disabled:not-aria-[haspopup]:scale-95';
 
 type ButtonBaseProps = Omit<React.ComponentProps<typeof ButtonPrimitive>, 'aria-label'> &
   VariantProps<typeof buttonVariants> & {
@@ -36,7 +45,14 @@ export type ButtonProps =
   | (ButtonBaseProps & { iconOnly?: false; 'aria-label'?: string })
   | (ButtonBaseProps & { iconOnly: true; 'aria-label': string });
 
-export function Button({ loading = false, iconOnly, disabled, children, ...props }: ButtonProps) {
+export function Button({
+  loading = false,
+  iconOnly,
+  disabled,
+  children,
+  className,
+  ...props
+}: ButtonProps) {
   // `asChild` merges onto a single child element (Radix `Slot`, which
   // requires `React.Children.count(children) === 1` — a falsy expression
   // like `{loading && <Spinner />}` still counts as a child slot even when
@@ -65,6 +81,7 @@ export function Button({ loading = false, iconOnly, disabled, children, ...props
       aria-busy={loading || undefined}
       data-loading={loading || undefined}
       data-icon-only={iconOnly || undefined}
+      className={cn(PRESS, className)}
       {...props}
     >
       {content}
