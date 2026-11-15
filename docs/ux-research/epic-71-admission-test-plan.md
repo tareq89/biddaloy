@@ -1,6 +1,6 @@
 # Epic 71 usability test plan: admission pipeline
 
-Ticket #4169 (Epic #2204). Status: **mockups built, test NOT RUN**.
+Ticket #4169 (Epic #2204). Status: **mockups built; heuristic (simulated) walkthrough done, human test NOT RUN**.
 Run it with 2-3 office staff and 1-2 guardians. Fill
 [`epic-71-admission-findings.md`](epic-71-admission-findings.md). Words to use on screen:
 [`epic-71-admission-glossary.md`](epic-71-admission-glossary.md).
