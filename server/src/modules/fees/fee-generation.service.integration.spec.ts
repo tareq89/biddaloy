@@ -467,6 +467,40 @@ describe('FeeGenerationService (integration)', () => {
       expect(await studentFeeRepo.count({ where: { student_id: gone.id } })).toBe(0);
     });
 
+    it('answers 404 and writes no batch when every student vanished', async () => {
+      const [a, b] = await studentRepo.save([makeStudent(), makeStudent()]);
+      const [structure] = await structureRepo.save([makeStructure()]);
+      await dataSource.query(`UPDATE students SET deleted_at = NOW() WHERE id IN ($1, $2)`, [
+        a.id,
+        b.id,
+      ]);
+      const [{ before }] = await dataSource.query(
+        `SELECT count(*)::int AS before FROM fee_generations WHERE tenant_id = $1`,
+        [TENANT_ID],
+      );
+      const result = await service
+        .generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [a.id, b.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+          { skipMissingStudents: true },
+        )
+        .catch((e) => e);
+      expect(result).toBeInstanceOf(NotFoundException);
+      const [{ after }] = await dataSource.query(
+        `SELECT count(*)::int AS after FROM fee_generations WHERE tenant_id = $1`,
+        [TENANT_ID],
+      );
+      expect(after).toBe(before);
+    });
+
     it('still answers 404 for an explicit pick when the option is off', async () => {
       const { kept, result } = await runWithOneDeleted(false);
       expect(result).toBeInstanceOf(NotFoundException);
