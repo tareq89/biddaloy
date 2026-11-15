@@ -39965,6 +39965,8 @@ export interface operations {
             query?: {
                 source?: "ONLINE" | "PROOF";
                 status?: "PENDING" | "CONFIRMED" | "REJECTED" | "DISCARDED" | "WITHDRAWN" | "COMPLETED" | "FAILED" | "CANCELLED" | "EXPIRED" | "REVERSED";
+                /** @description true: only online payments that left money in the wallet. */
+                unmatched?: boolean;
                 limit?: number;
                 /** @description The nextCursor of the previous page. */
                 cursor?: string;
