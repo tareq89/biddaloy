@@ -360,4 +360,128 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
       expect(page2.body.data).toHaveLength(1);
     });
   });
+  describe('[#4252] desk filters and fields', () => {
+    const LIST = '/api/v1/admission/applicants';
+    let intakeId: string;
+    let ids: Record<string, string>;
+    const get = (q: Record<string, string | number>, tenant = SEED_TENANT_ID) =>
+      as(http().get(LIST).query(q), UserRole.ADMIN, tenant);
+    const names = (body: { data: { applicant_name: string }[] }) =>
+      body.data.map((a) => a.applicant_name);
+
+    beforeEach(async () => {
+      [{ id: intakeId }] = await ds.query(
+        `SELECT id FROM admission_intakes WHERE tenant_id = $1 LIMIT 1`,
+        [SEED_TENANT_ID],
+      );
+      ids = {};
+      const rows: [string, string, string, string, string, string | null][] = [
+        // name, source, fee_state, quota_tags, status, roll
+        ['Bravo', 'CLERK', 'CONFIRMED', '["FF"]', 'PENDING', 'R-0002'],
+        ['Alpha', 'ONLINE', 'AWAITING', '[]', 'PENDING', 'R-0001'],
+        ['Charlie', 'ONLINE', 'NONE', '["FF","POOR"]', 'FEE_PENDING', null],
+      ];
+      for (const [i, [name, source, fee, tags, status, roll]] of rows.entries()) {
+        const [{ id }] = await ds.query(
+          `INSERT INTO admission_applicants
+             (tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender,
+              guardian_name, guardian_phone, status, source, fee_state, quota_tags, roll_number)
+           VALUES ($1, $2, $3, $4, '2018-01-01', 'MALE', 'G', $5, $6, $7, $8, $9::jsonb, $10)
+           RETURNING id`,
+          [
+            SEED_TENANT_ID,
+            intakeId,
+            `ADM-DESK-${i}`,
+            name,
+            `880171000000${i}`,
+            status,
+            source,
+            fee,
+            tags,
+            roll,
+          ],
+        );
+        ids[name] = id;
+      }
+      await ds.query(
+        `INSERT INTO admission_fee_proofs (tenant_id, applicant_id, attachment_key, method, reference, state)
+         VALUES ($1, $2, 'k', 'BKASH', 'OLD', 'SENT_BACK'), ($1, $2, 'k2', 'NAGAD', 'NEW', 'AWAITING')`,
+        [SEED_TENANT_ID, ids.Alpha],
+      );
+      await ds.query(
+        `UPDATE admission_applicants SET sibling_student_id = (SELECT id FROM students WHERE tenant_id = $1 LIMIT 1) WHERE id = $2`,
+        [SEED_TENANT_ID, ids.Bravo],
+      );
+    });
+
+    it('filters by fee_state, source and quota_tag before paging', async () => {
+      expect(names((await get({ fee_state: 'AWAITING' }).expect(200)).body)).toEqual(['Alpha']);
+      expect(names((await get({ source: 'CLERK' }).expect(200)).body)).toEqual(['Bravo']);
+      const ff = await get({ quota_tag: 'FF', limit: 1 }).expect(200);
+      expect(ff.body.total).toBe(2);
+      expect(ff.body.data).toHaveLength(1);
+      expect((await get({ quota_tag: 'POOR' }).expect(200)).body.total).toBe(1);
+      await get({ fee_state: 'BOGUS' }).expect(400);
+      await get({ source: 'BOGUS' }).expect(400);
+    });
+
+    it('sort=roll orders by roll, unnumbered last; exposes roll, fee info and sibling flag', async () => {
+      const res = await get({ sort: 'roll', intakeId }).expect(200);
+      expect(names(res.body).slice(0, 3)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+      const alpha = res.body.data[0];
+      expect(alpha).toMatchObject({
+        roll_number: 'R-0001',
+        source: 'ONLINE',
+        quota_tags: [],
+        extra_fields: {},
+        fee_state: 'AWAITING',
+        fee_method: 'NAGAD',
+        fee_reference: 'NEW',
+        has_sibling: false,
+      });
+      const bravo = res.body.data[1];
+      expect(bravo).toMatchObject({ fee_method: null, fee_reference: null });
+      const detail = await as(http().get(`${LIST}/${ids.Alpha}`), UserRole.ADMIN).expect(200);
+      expect(detail.body.applicant).toMatchObject({ fee_method: 'NAGAD', fee_reference: 'NEW' });
+    });
+
+    it('stage_id lists only that stage roster (not FEE_PENDING; passed the earlier stage)', async () => {
+      const [first] = await ds.query(
+        `INSERT INTO admission_stages (tenant_id, intake_id, position, kind, config)
+         VALUES ($1, $2, 1, 'WRITTEN', '{"total_marks": 100}') RETURNING id`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      const [second] = await ds.query(
+        `INSERT INTO admission_stages (tenant_id, intake_id, position, kind, config)
+         VALUES ($1, $2, 2, 'VIVA', '{}') RETURNING id`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      expect((await get({ stage_id: first.id }).expect(200)).body.total).toBe(3);
+      await ds.query(
+        `INSERT INTO admission_stage_results (tenant_id, stage_id, applicant_id, score, passed)
+         VALUES ($1, $2, $3, 80, true), ($1, $2, $4, 20, false)`,
+        [SEED_TENANT_ID, first.id, ids.Alpha, ids.Bravo],
+      );
+      expect(names((await get({ stage_id: second.id }).expect(200)).body)).toEqual(['Alpha']);
+      await get({ stage_id: 'nope' }).expect(400);
+      await get({ stage_id: '00000000-0000-4000-8000-0000000000aa' }).expect(404);
+    });
+
+    it('tenant B sees none of tenant A, cannot use its stage; bad tenant header refused', async () => {
+      const [stage] = await ds.query(
+        `INSERT INTO admission_stages (tenant_id, intake_id, position, kind, config)
+         VALUES ($1, $2, 1, 'WRITTEN', '{}') RETURNING id`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      const b = await get({ fee_state: 'AWAITING' }, OTHER_TENANT_ID).expect(200);
+      expect(b.body.total).toBe(0);
+      await get({ stage_id: stage.id }, OTHER_TENANT_ID).expect(404);
+      await as(http().get(`${LIST}/${ids.Alpha}`), UserRole.ADMIN, OTHER_TENANT_ID).expect(404);
+      for (const t of [undefined, 'not-a-uuid']) {
+        const req = http().get(LIST).set('Authorization', `Bearer ${token}`).set('X-Role', 'ADMIN');
+        if (t) req.set('X-Tenant-ID', t);
+        expect([400, 401, 403]).toContain((await req).status);
+      }
+    });
+  });
 });
