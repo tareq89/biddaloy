@@ -1,8 +1,4 @@
-import {
-  TENANT_SETTINGS_SCHEMA_VERSION,
-  type SchoolLabels,
-  type SchoolModules,
-} from '@biddaloy/shared';
+import { TENANT_SETTINGS_SCHEMA_VERSION, type SchoolLabels, type SchoolModules } from '@biddaloy/shared';
 import type { APIRequestContext } from '@playwright/test';
 
 import { patch, type ApiSession } from '../api';
