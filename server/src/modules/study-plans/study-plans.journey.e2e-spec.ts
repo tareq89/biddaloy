@@ -333,7 +333,7 @@ describe('Study plans journey E2E (66.2.99/#2014)', () => {
 
     // ---- 9. fences
     await mark('U', mondayBack(0), LessonDeliveryStatus.TAUGHT).expect(403);
-    // Unlinked family callers get 401 today (FamilyAccessService), not 403.
+    // Unlinked family callers get 404 today (FamilyAccessService, #2466), not 401 or 403.
     await as('get', `/students/${studentId}/study-plans`, 'PARENT_OTHER').expect(404);
     const t2 = await as('get', '/study-plans', 'ADMIN2', TENANT_2).expect(200);
     expect(t2.body.data).toEqual([]);

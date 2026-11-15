@@ -224,7 +224,7 @@ describe('GET /routines/resolve family guard (e2e)', () => {
       expect(slotIds(res)).not.toContain(sectionBSlotId);
     });
 
-    it('P reading unlinked student B gets 401 (the regression)', async () => {
+    it('P reading unlinked student B gets 404 (the regression)', async () => {
       await get(`student_id=${studentB}`, tokens[UserRole.PARENT]).expect(404);
     });
 
@@ -232,12 +232,12 @@ describe('GET /routines/resolve family guard (e2e)', () => {
       await get(`teacher_id=${randomUUID()}`, tokens[UserRole.PARENT]).expect(403);
     });
 
-    it('S reads self 200, another student 401', async () => {
+    it('S reads self 200, another student 404', async () => {
       await get(`student_id=${studentA}`, tokens[UserRole.STUDENT]).expect(200);
       await get(`student_id=${studentB}`, tokens[UserRole.STUDENT]).expect(404);
     });
 
-    it('P with a nonexistent student id gets 401', async () => {
+    it('P with a nonexistent student id gets 404', async () => {
       await get(`student_id=${NONEXISTENT}`, tokens[UserRole.PARENT]).expect(404);
     });
 

@@ -156,12 +156,22 @@ describe('Platform trials E2E (13.3.4)', () => {
 
     await exportAsAdmin().expect(202);
     await setStatus('TRIAL_EXPIRED').expect(400);
-    await setStatus('Fraud / legal hold').expect(200);
-    // Suspend bumps tokens_valid_after (Rule 8): the old token is a 401, so sign in again.
-    adminToken = await login(SEED_ADMIN_EMAIL);
+    try {
+      await setStatus('Fraud / legal hold').expect(200);
 
-    const res = await exportAsAdmin().expect(403);
-    expect(res.body.details).toEqual({ code: 'TENANT_SUSPENDED' });
+      // Rule 8: suspending cuts every member's live tokens off (401). A fresh login after the
+      // cut-off gets in, then ContextGuard closes the export with TENANT_SUSPENDED.
+      await exportAsAdmin().expect(401);
+      await new Promise((r) => setTimeout(r, 20));
+      adminToken = await login(SEED_ADMIN_EMAIL);
+      const res = await exportAsAdmin().expect(403);
+      expect(res.body.details).toEqual({ code: 'TENANT_SUSPENDED' });
+    } finally {
+      // The seed admin is shared with other specs.
+      await ds.query(`UPDATE users SET tokens_valid_after = NULL WHERE id = $1`, [
+        SEED_ADMIN_USER_ID,
+      ]);
+    }
     const [school] = await ds.query(`SELECT status_reason FROM schools WHERE id = $1`, [id]);
     expect(school.status_reason).toBe('Fraud / legal hold');
   });

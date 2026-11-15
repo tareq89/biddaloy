@@ -296,6 +296,7 @@ GET /notices/:id/sms | NoticeSmsController | perm: NOTICE_SMS_APPROVE
 GET /notices/mine | NoticeReaderController | perm: NOTICE_READ
 GET /notices/mine/:id | NoticeReaderController | perm: NOTICE_READ
 GET /onboarding/status | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
+GET /online-payments/callback | OnlinePaymentsPublicController | allowlist: none
 GET /payment-submissions | ProofReviewController | perm: PAYMENT_RECORD
 GET /payment-submissions/:id | ProofReviewController | perm: PAYMENT_RECORD
 GET /payment-submissions/:id/files/:fileId | ProofReviewController | perm: PAYMENT_RECORD
@@ -354,6 +355,7 @@ GET /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('coc
 GET /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/users | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
+GET /portal/online-payments/:id | OnlinePaymentsController | perm: PAYMENT_SUBMIT
 GET /portal/payment-cart | PortalPaymentController | perm: PAYMENT_SUBMIT
 GET /portal/payment-options | PortalPaymentController | perm: PAYMENT_SUBMIT
 GET /portal/payment-proofs | ProofSubmissionsController | perm: PAYMENT_SUBMIT
@@ -822,6 +824,7 @@ POST /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('co
 POST /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/step-up | PlatformStepUpController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/users/:id/logout | PlatformUsersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
+POST /portal/online-payments | OnlinePaymentsController | perm: PAYMENT_SUBMIT
 POST /portal/payment-proofs | ProofSubmissionsController | perm: PAYMENT_SUBMIT
 POST /portal/payment-proofs/:id/withdraw | ProofSubmissionsController | perm: PAYMENT_SUBMIT
 POST /presets/apply | PresetApplyController | perm: CURRICULUM_PRESET_APPLY
@@ -876,6 +879,7 @@ POST /seat-plans/:id/publish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/rooms/:roomId/reshuffle | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/unpublish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/generate | SeatPlansController | perm: SEAT_PLAN_MANAGE
+POST /settings/payments/bkash/test | BkashTestController | perm: SETTINGS_MANAGE
 POST /sms-bundles/orders | SmsBundleOrdersController | perm: SETTINGS_MANAGE
 POST /sms-bundles/orders/:id/pay/bkash | SmsBundlePayController | perm: SETTINGS_MANAGE
 POST /staff-documents/:staffUserId/:documentType | StaffDocumentController | perm: STAFF_HR_MANAGE

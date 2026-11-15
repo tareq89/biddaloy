@@ -133,6 +133,8 @@ Nothing on this page is kept on the device while you are offline, so there is no
 2. To see only one state, choose it in **Status**, for example **Waiting for confirmation**, **Confirmed**, **Failed**, **Cancelled**, **Expired** or **Reversed**. To see all, choose **All statuses**.
 3. Press **Open payment** beside a row to open that payment. If the payment has not been made yet, **Open details** shows instead.
 
+The list shows 100 payments at a time. With more, it says **Showing the first 100 online payments.** Press **Next page** to see the next 100, and **First page** to go back.
+
 There is nothing for you to confirm here. When bKash answers, the bills show paid. If a row stays **Waiting for confirmation**, bKash has not answered yet; reload the page and look again.
 
 ### See unmatched receipts <a href="#task-unmatched" id="task-unmatched"></a>
@@ -142,6 +144,8 @@ Sometimes the bill is paid another way while the guardian is paying with bKash. 
 1. Press the **Unmatched receipts** tab.
 
    → Each row shows **Students**, **Paid**, **Put on bills**, **Put in wallet** and **Status**. If there are none, it says **No unmatched receipts**.
+
+The list shows 100 at a time. Use **Next page** and **First page** the same way as on the **Online** tab.
 
 2. To see the money, press **Open payment**. To see the student's wallet, press **Open wallet**; with more than one student, **Open wallet of …** with the name.
 
@@ -214,6 +218,7 @@ If you confirmed by mistake, open the proof (it is now **Confirmed**) and press 
 **Related pages**
 
 - [**Fees and invoices**](../portal/fees.md) — where the guardian pays and sees the state of a proof.
+- [**Payments**](payments.md) — find a confirmed payment and reverse it.
 - [**Invoices**](invoices.md) — the receipt and its **How it was paid** part.
 - [**Changing the school's settings**](../administration/settings.md#task-online-payments) — set up the bKash connection and the proof methods.
 

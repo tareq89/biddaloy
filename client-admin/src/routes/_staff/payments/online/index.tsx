@@ -15,19 +15,24 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDateTime, formatServerAmount } from '@biddaloy/ui/utils';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Inbox } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
+import { OnlineTab, PAGE_LIMIT } from './-online-tab';
+import { UnmatchedTab } from './-unmatched-tab';
+
 /**
- * `/payments/online` — [3.4.x] the accountant's list of payment proofs. Only the
- * "Waiting for confirmation" tab exists in this wave; the other tabs come with #3993.
+ * `/payments/online` — [3.4.x] the accountant's lists: payment proofs waiting, every online
+ * payment, and online payments that left money in the wallet (#3993).
  * The tab lives in the URL (`?tab=`), so a link can open a given tab.
  */
 const searchSchema = z.object({
-  tab: z.enum(['waiting']).optional().catch(undefined),
+  tab: z.enum(['waiting', 'online', 'unmatched']).optional().catch(undefined),
+  status: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/payments/online/')({
@@ -37,19 +42,39 @@ export const Route = createFileRoute('/_staff/payments/online/')({
   component: OnlinePaymentsPage,
 });
 
-// ponytail: one page of 100 (the API's cap); a note shows when more wait. Cursor paging if queues grow.
-const PAGE_LIMIT = 100;
-
 function OnlinePaymentsPage() {
   const regionConfig = useTenantRegionConfig();
+  const { tab = 'waiting' } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { t } = useTranslation('onlinePayments');
+  const tabs = (
+    <Tabs
+      value={tab}
+      onValueChange={(next) =>
+        void navigate({ search: { tab: next as 'waiting' | 'online' | 'unmatched' } })
+      }
+    >
+      <TabsList aria-label={t('tabsLabel')}>
+        <TabsTrigger value="waiting">{t('tabs.waiting')}</TabsTrigger>
+        <TabsTrigger value="online">{t('tabs.online')}</TabsTrigger>
+        <TabsTrigger value="unmatched">{t('tabs.unmatched')}</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
   return (
     <RegionConfigProvider value={regionConfig}>
-      <WaitingList />
+      {tab === 'online' ? (
+        <OnlineTab tabs={tabs} />
+      ) : tab === 'unmatched' ? (
+        <UnmatchedTab tabs={tabs} />
+      ) : (
+        <WaitingList tabs={tabs} />
+      )}
     </RegionConfigProvider>
   );
 }
 
-function WaitingList() {
+function WaitingList({ tabs }: { tabs: ReactNode }) {
   const { t } = useTranslation('onlinePayments');
   const { t: tPayments } = useTranslation('payments');
   const regionConfig = useRegionConfig();
@@ -110,13 +135,7 @@ function WaitingList() {
             : t('list.count', { count: items.length })
           : t('subtitle')
       }
-      tabs={
-        <Tabs value="waiting">
-          <TabsList aria-label={t('tabsLabel')}>
-            <TabsTrigger value="waiting">{t('tabs.waiting')}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      }
+      tabs={tabs}
       tableId="online-payments-waiting"
       caption={t('list.caption')}
       columns={columns}

@@ -230,14 +230,14 @@ describe('Family admit-card self-print E2E (48.2.09)', () => {
       await http().post(url(studentId, examId)).set(as('STUDENT')).expect(200);
     });
 
-    it('PARENT of another child in the same school is refused (401) and nothing is written', async () => {
+    it('PARENT of another child in the same school is refused (404) and nothing is written', async () => {
       await template('EXAM_ADMIT_CARD');
       await http().post(url(classmateId, examId)).set(as('PARENT')).expect(404);
       await http().post(url(studentId, examId)).set(as('OTHER_PARENT')).expect(404);
       expect(await itemCount()).toBe(0);
     });
 
-    it('STUDENT for a classmate is refused (401)', async () => {
+    it('STUDENT for a classmate is refused (404)', async () => {
       await template('EXAM_ADMIT_CARD');
       await http().post(url(classmateId, examId)).set(as('STUDENT')).expect(404);
       expect(await itemCount()).toBe(0);
@@ -350,7 +350,7 @@ describe('Family admit-card self-print E2E (48.2.09)', () => {
       }
     });
 
-    it('PARENT linked to another child is 401', async () => {
+    it('PARENT linked to another child is 404', async () => {
       const asset = await artwork(SEED_TENANT_ID, true);
       await http()
         .get(fileUrl(studentId, examId, asset))

@@ -36,7 +36,11 @@ let supportToken = '';
 test.beforeAll(async ({ browser, playwright }) => {
   schoolApi = await playwright.request.newContext({ baseURL: shells.app.baseURL });
   ownerApi = await playwright.request.newContext({ baseURL: COCKPIT_URL });
-  school = await registerTrialSchool(schoolApi);
+  // The sign-in form looks the person up by the trunk-0 number (01XXXXXXXXX) and the API stores a
+  // phone exactly as typed, so register with the trunk-0 form or the code request finds no one.
+  school = await registerTrialSchool(schoolApi, {
+    phone: `017${String(Math.floor(10_000_000 + Math.random() * 89_999_999))}`,
+  });
   // Signed out on purpose: the first-login page is only offered by a real sign-in.
   admin = await browser.newContext({
     baseURL: shells.app.baseURL,

@@ -166,10 +166,11 @@ export function PrintPanel({ summary }: PrintPanelProps) {
   const cardsReady = job === 'cards' && printed !== null;
   const tabReady = job === 'tabulation' && tab.isSuccess;
   const tabFailed = job === 'tabulation' && tab.isError;
+  // Bumped on cleanup: a continuation that outlives the panel must not call window.print().
+  const printRun = React.useRef(0);
   React.useEffect(() => {
     if (!cardsReady && !tabReady) return;
-    // Set on cleanup: a continuation that outlives the panel must not call window.print().
-    let cancelled = false;
+    const run = ++printRun.current;
     // One frame so the print area is in the DOM before the browser snapshots it.
     const id = requestAnimationFrame(() => {
       void (async () => {
@@ -185,7 +186,7 @@ export function PrintPanel({ summary }: PrintPanelProps) {
                 academic_year_id: summary.academic_year.id,
               }),
           );
-          if (cancelled) return;
+          if (printRun.current !== run) return;
           if (logged.some((r) => !('value' in r))) {
             toast.error(t('reportCard.logError'));
             setJob(null);
@@ -198,8 +199,10 @@ export function PrintPanel({ summary }: PrintPanelProps) {
         setPrinted(null);
       })();
     });
+    // The ref is a run counter, not a DOM node: bump the live value on cleanup to cancel the run.
+    const runCounter = printRun;
     return () => {
-      cancelled = true;
+      runCounter.current++;
       cancelAnimationFrame(id);
     };
   }, [cardsReady, tabReady]); // eslint-disable-line react-hooks/exhaustive-deps -- printed/summary only matter when a job becomes ready

@@ -9,6 +9,9 @@ const { assertSafe, fetchJson } = vi.hoisted(() => ({
 }));
 vi.mock('../../communications/providers/shared/outbound-destination-guard', () => ({
   assertSafeHttpDestination: assertSafe,
+  // Same rule as the real guard: only under NODE_ENV=test with the loopback flag.
+  testLoopbackAllowed: () =>
+    process.env.NODE_ENV === 'test' && process.env.OUTBOUND_TEST_ALLOW_LOOPBACK === 'true',
 }));
 vi.mock('../../communications/providers/shared/pinned-http', () => ({
   fetchPinnedJson: fetchJson,
@@ -170,6 +173,24 @@ describe('BkashClient', () => {
         app_key: 'k-A',
         app_secret: 'SECRET-A',
       });
+    });
+
+    it('the e2e stub host is used only under NODE_ENV=test AND the loopback flag (#3997)', async () => {
+      const last = () => (fetchJson.mock.calls.at(-1) as unknown[])[1];
+      // vi.stubEnv: unit-setup's unstubAllEnvs restores these (a raw assignment leaks across files).
+      vi.stubEnv('BKASH_TEST_BASE_URL', 'http://127.0.0.1:1/v1');
+      // Test env alone is not enough: the real fixed host is still used.
+      vi.stubEnv('OUTBOUND_TEST_ALLOW_LOOPBACK', undefined);
+      fetchJson.mockResolvedValue({ id_token: 't' });
+      await build().client.token(true, tenant('A'));
+      expect(last()).toContain('tokenized.sandbox.bka.sh');
+      vi.stubEnv('NODE_ENV', 'test');
+      vi.stubEnv('OUTBOUND_TEST_ALLOW_LOOPBACK', 'true');
+      await build().client.token(true, tenant('A'));
+      expect(last()).toBe('http://127.0.0.1:1/v1/tokenized/checkout/token/grant');
+      vi.stubEnv('NODE_ENV', 'production');
+      await build().client.token(true, tenant('A'));
+      expect(last()).toContain('tokenized.sandbox.bka.sh');
     });
 
     it('reads the cache by tenant key, never the env key', async () => {

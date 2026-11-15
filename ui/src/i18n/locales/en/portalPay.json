@@ -23,7 +23,9 @@
   "how": {
     "title": "2. How are you paying",
     "proofTitle": "Already paid — submit proof",
-    "proofNote": "Paid in any way? Give the transaction ID or a photo."
+    "proofNote": "Paid in any way? Give the transaction ID or a photo.",
+    "bkashTitle": "Pay with bKash",
+    "bkashNote": "Goes straight to the school's bKash account. Confirmed right away."
   },
   "proof": {
     "title": "3. Payment proof",
@@ -46,10 +48,35 @@
     "tooManyFiles": "You can add up to 2 photos.",
     "storageDown": "Proof cannot be saved right now. Please try again in a little while.",
     "busy": "One of these bills already has a payment waiting for confirmation. Reload and pick again.",
-    "generic": "Could not send your payment proof. Check the form and try again."
+    "generic": "Could not send your payment proof. Check the form and try again.",
+    "bkashDown": "bKash is not available right now. Pay at the school office, or submit payment proof if you already paid.",
+    "bkashGeneric": "Could not start the bKash payment. Please try again."
   },
   "done": {
     "title": "Payment proof sent",
     "body": "The school will confirm it soon. Your bills show Waiting for confirmation until then."
+  },
+  "bkash": {
+    "pay": "Pay {{amount}} with bKash",
+    "exactNote": "You pay exactly {{amount}}. No extra charge.",
+    "useProof": "Already paid — submit proof"
+  },
+  "result": {
+    "title": "Payment result",
+    "loading": "Checking your payment",
+    "loadError": "Could not load the payment result. Check your connection and try again.",
+    "paidTitle": "Payment done",
+    "paidBody": "The money reached the school. Your bills are now paid.",
+    "receipt": "View receipt",
+    "receiptLine": "Paid {{amount}}. Receipt {{no}}",
+    "printError": "Could not open the receipt. Allow pop-ups and try again.",
+    "unmatched": "Some bills were already paid, so the rest of the money went to your wallet. The school will adjust it for you.",
+    "waitingTitle": "Waiting for confirmation",
+    "waitingBody": "We are waiting for bKash to answer. This page updates by itself. If money was taken, do not worry: the bills show paid once it is confirmed.",
+    "failedTitle": "Payment not done",
+    "failedBody": "This payment did not complete. Your money may still have been taken, so do not pay again until the school confirms. If you already paid, submit payment proof.",
+    "tryAgain": "Try again",
+    "submitProof": "Submit payment proof",
+    "backToFees": "Back to fees"
   }
 }

@@ -1272,10 +1272,11 @@ export function uniqueRegistration(): Pick<
   };
 }
 
-export async function registerTrialSchool(request: APIRequestContext): Promise<RegisteredSchool> {
-  // The login UI normalises to trunk-0 (017…), and OTP login matches users.phone exactly.
-  const base = uniqueRegistration();
-  const who = { ...base, phone: base.phone.replace(/^\+880/, '0') };
+export async function registerTrialSchool(
+  request: APIRequestContext,
+  overrides: { phone?: string } = {},
+): Promise<RegisteredSchool> {
+  const who = { ...uniqueRegistration(), ...overrides };
   const started = await request.post('/api/v1/auth/register/start', {
     data: {
       admin_name: who.adminName,

@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
 import { OTP_REDIS } from '../../account-access/otp.service';
-import { assertSafeHttpDestination } from '../../communications/providers/shared/outbound-destination-guard';
+import {
+  assertSafeHttpDestination,
+  testLoopbackAllowed,
+} from '../../communications/providers/shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../../communications/providers/shared/pinned-http';
 import type { PaymentGatewayEnvironment } from '@biddaloy/shared';
 import type {
@@ -16,6 +19,16 @@ import { BKASH_HOSTS } from './bkash-hosts';
 const ENV_TOKEN_KEY = 'bkash:token';
 /** bKash tokens live 1 hour; refresh a little early. */
 const TOKEN_TTL_SEC = 50 * 60;
+
+/**
+ * Test-only seam (#3997): the e2e server talks to a fake bKash on 127.0.0.1. Fails closed like the
+ * loopback seam it rides on: the guard's own test-loopback switch (NODE_ENV=test plus the loopback flag), read each call.
+ * Boot refuses the loopback flag in production (`assertProductionConfig`), so this never exists
+ * there, and a tenant still never supplies a URL (D14). See 08-security.md Rule 7.
+ */
+function testStubBase(): string | undefined {
+  return (testLoopbackAllowed() && process.env.BKASH_TEST_BASE_URL) || undefined;
+}
 
 type Resolved = Omit<GatewayCreds, 'environment' | 'tenantId'> & { base: string; cacheKey: string };
 
@@ -79,9 +92,9 @@ export class BkashClient implements PaymentGatewayProvider {
       };
     }
     const env = String(creds.environment ?? '');
-    const base = Object.hasOwn(BKASH_HOSTS, env)
-      ? BKASH_HOSTS[env as PaymentGatewayEnvironment]
-      : undefined;
+    const base =
+      testStubBase() ??
+      (Object.hasOwn(BKASH_HOSTS, env) ? BKASH_HOSTS[env as PaymentGatewayEnvironment] : undefined);
     if (!base) throw new Error('bKash environment is not valid');
     if (!creds.tenantId) throw new Error('bKash tenant is required');
     return { ...creds, base, cacheKey: `${ENV_TOKEN_KEY}:${creds.tenantId}:${env}` };

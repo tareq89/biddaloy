@@ -112,6 +112,7 @@ import { SeatOrder } from './modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from './modules/billing/entities/platform-payment.entity';
 import { BillingModule } from './modules/billing/billing.module';
 import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gateways.module';
+import { OnlinePaymentsReconcilerModule } from './modules/payment-submissions/online-payments-reconciler.module';
 import { SmsBundlesModule } from './modules/sms-bundles/sms-bundles.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
@@ -582,6 +583,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     AccountAccessModule,
     WorkbookModule,
     PaymentSubmissionsModule,
+    OnlinePaymentsReconcilerModule,
     ExportModule,
     BackupScheduleModule,
     DigestModule,

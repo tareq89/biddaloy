@@ -30,12 +30,9 @@ describe('notice stories', () => {
     expect(Object.keys(modules).length).toBeGreaterThanOrEqual(7);
   });
 
-  // ExamPickerLoading's fetch never settles by design, so isFetching never reaches 0.
-  it.each(stories.filter(([n]) => !n.endsWith('› ExamPickerLoading')))(
-    '%s renders with no missing i18n key',
-    async (_name, Story) => {
-      server.use(...(Story.parameters?.msw?.handlers ?? []));
-      expect(await missingKeysOf(<Story />)).toEqual([]);
-    },
-  );
+  it.each(stories)('%s renders with no missing i18n key', async (name, Story) => {
+    server.use(...(Story.parameters?.msw?.handlers ?? []));
+    // A Loading story keeps its fetch pending on purpose, so there is nothing to wait out.
+    expect(await missingKeysOf(<Story />, undefined, !/Loading$/.test(name))).toEqual([]);
+  });
 });

@@ -100,6 +100,11 @@ describe('TenantSettingsDto', () => {
       expect(await run({ bkash: { environment: 'MOON' } })).not.toEqual([]);
     });
 
+    it('accepts null on a bKash secret (removal) and still rejects an empty one (#3997)', async () => {
+      expect(await run({ bkash: { appSecret: null } })).toEqual([]);
+      expect(await run({ bkash: { appSecret: '' } })).not.toEqual([]);
+    });
+
     it('accepts lastTestOkAt (the service ignores it) but rejects a base URL field', async () => {
       expect(await run({ bkash: { lastTestOkAt: '2026-01-01T00:00:00.000Z' } })).toEqual([]);
       expect(await run({ bkash: { baseUrl: 'https://evil.example' } })).not.toEqual([]);

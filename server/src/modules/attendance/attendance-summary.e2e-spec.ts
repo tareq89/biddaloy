@@ -177,7 +177,7 @@ describe('Attendance Summary E2E', () => {
         .expect(200);
     });
 
-    it("returns 401 for a PARENT not linked to this child (another family's child)", async () => {
+    it("returns 404 for a PARENT not linked to this child (another family's child)", async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/attendance/students/${studentId}/summary`)
         .query({ from: '2026-09-01', to: '2026-09-05' })
@@ -272,7 +272,7 @@ describe('Attendance Summary E2E', () => {
       expectMarkedAt(res.body);
     });
 
-    it("PARENT of another family's child still gets 401 (isolation unchanged)", async () => {
+    it("PARENT of another family's child still gets 404 (isolation unchanged)", async () => {
       await getDays(strangerToken, UserRole.PARENT).expect(404);
     });
 

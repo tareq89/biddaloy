@@ -288,7 +288,7 @@ describe('Family study plans E2E (66.2/#2013)', () => {
       ['STUDENT_OTHER', 404],
       ['ADMIN', 200],
       ['EXECUTIVE', 200],
-      // Unlinked family callers get 401 (what FamilyAccessService throws today, not 403).
+      // Unlinked family callers get 404 (FamilyAccessService, #2466; not 401 or 403).
       // assertLinked passes non-guardian roles straight through (staff).
       ['T', 200],
       ['COMMITTEE', 403],

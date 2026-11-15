@@ -442,7 +442,7 @@ describe('[19.9.1] Student results (portal + staff)', () => {
       await asTeacher(get(`/students/${studentId}/results/${unpublishedExamId}`)).expect(200);
     });
 
-    it('PARENT: linked child still 200, unlinked still rejected (401, as before)', async () => {
+    it('PARENT: linked child still 200, unlinked still rejected (404, as before)', async () => {
       await seedResultFixture();
       const unlinked = await insertStudent('Scope Unlinked', SEED_SECTION_1_ID);
       await get(`/students/${studentId}/results`)

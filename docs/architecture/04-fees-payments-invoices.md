@@ -536,6 +536,95 @@ late fee on top of it isn't a case anyone asked for.
 
   TO_WALLET siblings are refused, and reversal handles a stale bill. Cost: a race between two checkouts on one wallet. Rule candidate: in any money path, lock bills then wallet, and burn approval tokens last -> Rule 24-27 candidate.
 
+## Guardian payments: whose money is it?
+
+A guardian can pay a child's open bills from the portal (Epic #291). One rule sits above all the others.
+
+**D1: the money goes only to the school's own merchant account. Biddaloy never holds school money.**
+
+Each school brings its own bKash merchant account. Its credentials sit in the tenant settings under `payments.bkash.*` (encrypted, `@Secret()`). When a guardian pays online, bKash moves the money from the guardian to _that school's_ merchant wallet. Biddaloy only asks bKash "did this payment complete?" and then books it. The only bKash account Biddaloy owns is the platform's own, used for seat orders ([38-billing.md](38-billing.md)).
+
+Two ways to pay, one ending:
+
+```mermaid
+flowchart TD
+  G["Guardian picks open bills<br/>on the portal Pay page"] --> W{"How?"}
+  W -->|"Pay with bKash"| O["POST /portal/online-payments<br/>source = ONLINE, status PENDING"]
+  O --> BK["bKash page<br/>(school's merchant account)"]
+  BK --> CB["GET /online-payments/callback<br/>or the reconciler"]
+  CB -->|"bKash says Completed,<br/>same amount"| ST["settle: no staff step"]
+  W -->|"Upload a proof<br/>(TrxID and/or up to 2 files)"| P["POST /portal/payment-proofs<br/>source = PROOF, status PENDING"]
+  P --> RV["Staff review on<br/>Finance › Online payments"]
+  RV -->|"Confirm"| ST
+  ST --> CO["CheckoutService<br/>one call per student"]
+  CO --> PI["Payment + Invoice<br/>received_by = NULL"]
+```
+
+Both paths write one row in `payment_submissions` (`source` is `ONLINE` or `PROOF`; D35), with child tables `_bills`, `_files` and `_events`. `_events` is append-only: every move below adds one row. Only a guardian (`PARENT`, permission `PAYMENT_SUBMIT`, D34) can start either path. Staff confirm or reject with `PAYMENT_RECORD`.
+
+### The status machine
+
+Both sources share one `PaymentSubmissionStatus` enum (`shared/src/enums/index.ts`). Each source uses its own part of it.
+
+```mermaid
+stateDiagram-v2
+  state "PROOF (staff decide)" as proof {
+    [*] --> P_PENDING: guardian submits
+    P_PENDING --> WITHDRAWN: guardian withdraws
+    P_PENDING --> CONFIRMED: staff confirm, bills unchanged
+    P_PENDING --> DISCARDED: staff confirm, bill paid, changed or removed
+    P_PENDING --> REJECTED: staff reject with a reason code
+    REJECTED --> P_PENDING: staff reopen, bills still free
+    CONFIRMED --> P_REVERSED: staff reverse the Payment
+  }
+  state "ONLINE (bKash decides)" as online {
+    [*] --> O_PENDING: guardian starts payment
+    O_PENDING --> COMPLETED: bKash Completed, amounts match
+    O_PENDING --> FAILED: gateway error, callback: mismatch or TrxID reused, reconciler: bKash Failed or Cancelled
+    O_PENDING --> CANCELLED: callback: bKash says Cancelled
+    O_PENDING --> EXPIRED: never started at bKash, over 30 min
+    CANCELLED --> COMPLETED: guardian paid late
+    EXPIRED --> COMPLETED: guardian paid late
+    COMPLETED --> O_REVERSED: staff reverse the Payment
+  }
+```
+
+`P_PENDING` and `O_PENDING` are the same stored value `PENDING`, and `P_REVERSED` and `O_REVERSED` are the same `REVERSED`. The diagram splits them only so the two flows do not tangle.
+
+What the diagram hides:
+
+- **Reject is not "undo".** A CONFIRMED proof cannot be rejected (`409`, `details.code = PROOF_CONFIRMED_USE_REVERSAL`). The only way to undo money is the existing reversal (`PAYMENT_REVERSE` plus step-up). A listener then marks the submission REVERSED and writes one event per reversed payment (D9, D45).
+- **REJECTED to CONFIRMED goes through reopen.** `confirm` answers `409` on a REJECTED row. Staff reopen it (back to PENDING), then confirm it (D9). Reopen answers `409` if another proof is now waiting on one of its bills.
+- **DISCARDED means "no money moved".** At confirm, if a bill is already paid, was removed, or has a different balance (in whole paisa) than at submit time, the whole proof is DISCARDED and the guardian resubmits (D7, D11, D44). Once any payment exists for the proof it is never discarded: a crashed confirm is finished on retry.
+- **ONLINE never discards.** bKash already took the money, so `settle` runs in a lenient mode (`ONLINE_LENIENT`). It pays the bills still open, puts the rest in the student's wallet, and flags the row as an unmatched receipt (D12).
+- **CANCELLED and EXPIRED are not final for ONLINE.** A guardian can pay after the sweep. The callback asks bKash again about both (D28). The reconciler asks EXPIRED and CANCELLED rows that have a `paymentID` and are under 72 h old, with the same checks and `ONLINE_LENIENT` settle, so a lost callback on either is rescued. FAILED rows are not asked yet (#4234). COMPLETED, CONFIRMED and REVERSED are the settled states: a replay returns the same answer and writes nothing.
+- **FAILED is final in today's code.** A FAILED online row is never asked again. The callback closes a row as FAILED on an amount or invoice mismatch or a reused TrxID, so bKash may hold money nobody books (open as #4234). The reconciler does not close those rows: on a mismatch it only logs "needs a human" and leaves the row PENDING, so it is visible only in logs.
+
+### The rules that keep the money straight (D24 to D27)
+
+| Rule | What it says                                                                                                                                                                                                           |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D24  | A bill in a waiting proof, or in a PENDING online attempt, cannot be picked on the _other_ guardian path. Counter checkout still works, and the cashier's cart shows a "waiting" tag.                                  |
+| D25  | A TrxID is trimmed and upper-cased (`normaliseReference`). It is flagged, never refused, when it matches a confirmed payment or another waiting proof in the same school. A DISCARDED proof's TrxID can be used again. |
+| D26  | The proof amount must equal the total of the picked bills in whole paisa, or the submit is refused. Confirm writes exactly the bill amounts. A proof never credits the wallet.                                         |
+| D27  | Confirm runs once: a row lock on the submission, plus an idempotency key derived from the submission id and the student id. A double click returns the first answer.                                                   |
+
+**Example: ৳500 for two children.** Rahim pays for Anika (৳300 tuition) and Arif (৳200 tuition) in one go.
+
+- **By proof.** He sends a bKash proof for ৳500 with TrxID `8n7a5x` (stored as `8N7A5X`). The two bills total ৳500.00, so the submit passes. If he typed ৳450, it would be refused (D26). While the proof waits, he cannot start a bKash payment for the same two bills (D24). The accountant confirms: two Payments (৳300 on Anika, ৳200 on Arif, Epic 16 D12) and two invoices, both with `received_by = NULL` and "How it was paid: bKash, `8N7A5X`" (D8). A second click on Confirm returns the same two payments (D27).
+- **By bKash.** The same ৳500 goes through bKash to the school's merchant wallet. One `ONLINE` submission, one callback, the same two Payments. If the counter took ৳100 of Arif's bill while Rahim was at bKash, the ৳200 line pays the ৳100 still open and the other ৳100 lands in Arif's wallet. The row shows up in unmatched receipts (D12).
+
+Other epic rules: the school pays the gateway fee and the guardian pays exactly the bill total (D3). Refunds are manual: refund in the bKash merchant panel first, then reverse the Payment in Biddaloy (D18). Online start fails closed when Redis is down, and the callback does not (D19). The school never types a gateway URL; hosts come from a fixed list (D14, Rule 7 in [08-security.md](08-security.md)).
+
+Where the code lives:
+
+| Piece                               | Where                                                              |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| Start, callback, reconciler, result | `server/src/modules/payment-submissions/online-payments*.ts`       |
+| Proof submit, withdraw, review      | `server/src/modules/payment-submissions/proof-*.ts`                |
+| Settle (both sources)               | `server/src/modules/fees/payment-submission-settlement.service.ts` |
+| Shared bKash client                 | `server/src/modules/payment-gateways/bkash/`                       |
+
 ### Learnings (Epic #291, Wave 1, 2026-11-14)
 
 Wave 1 of guardian-initiated online payments laid the base: `PAYMENT_SUBMIT` permission, enums, the `payment_submissions` tables (+ `_bills`, `_files`, `_events`), the tenant `payments` settings block, and the shared `ImageViewer`. No guardian screen yet.
@@ -625,6 +714,89 @@ flowchart LR
 - **Surprise:** the sweep helper sends any `/payments/<id>` route to a real payment id, so `/payments/online/$id` would have been fed a payment id. Cost: a not-found card scanned instead of the review screen, silently. Fix: a branch for `/payments/online/$id` before it, using a fake UUID (same as `$requestId`). Rule candidate: when a new route shares a prefix with an old one, check the first-match resolvers.
 - **Surprise:** the portal cart returned a waiting proof's `id` for every linked guardian. Cost: a co-guardian received the id of a proof they did not send. Fix: `id` is returned only to the submitter; a co-guardian gets `source` and `id: null`. The Pay page only checks "is there a waiting proof", so nothing in the UI changed. Rule candidate: an id in a family-shared answer is a capability; return it only to its owner.
 - **Example:** guardian `Rahim` sends a bKash proof for ৳500 (TrxID `E2E41592653`, one photo). The accountant opens `/payments/online/<id>`, "Confirm & next" is focused, one press confirms it, and the invoice print shows "How it was paid: bKash, TrxID `E2E41592653`, verified by the accountant on the date". The second child's proof is rejected as `IMAGE_UNCLEAR`, and the guardian sees that reason in the proofs tab. Covered by `e2e/payment-proofs.spec.ts`.
+
+### Online payments: callback and reconciler (#3984, #3986)
+
+bKash sends the guardian's browser back to us with `?paymentID=...&status=...`. That URL only names a payment; we never trust its `status`. If the browser never comes back (phone dies, tab closed), the reconciler settles the payment within 10 minutes, but only when the bKash query reports `Completed`. A payment bKash still reports as `Initiated` is not executed by the reconciler; it stays `PENDING` until the 72-hour mark, then staff handle it.
+
+```mermaid
+flowchart TD
+  B["Guardian pays at bKash"] --> C{"Browser returns<br/>to /online-payments/callback?"}
+  C -->|yes| H["handleCallback asks bKash<br/>(execute or query)"]
+  C -->|"no, callback lost"| R["Reconciler, every 10 min,<br/>asks bKash about the row"]
+  H --> S{"Completed + same amount,<br/>invoice, tenant, BDT?"}
+  R --> S
+  S -->|yes| T["settle(..., 'ONLINE_LENIENT')<br/>one Payment, status COMPLETED"]
+  S -->|"amount or invoice differs"| M["Left for a human<br/>(callback marks FAILED, reconciler only warns)"]
+```
+
+Which rows the reconciler asks about:
+
+| Row                             | Age         | Asked?                                                      | If bKash says Completed |
+| ------------------------------- | ----------- | ----------------------------------------------------------- | ----------------------- |
+| PENDING with a paymentID        | under 72 h  | yes                                                         | settled                 |
+| PENDING, never started at bKash | over 30 min | no call; becomes EXPIRED (`NOT_STARTED`)                    | n/a                     |
+| EXPIRED with a paymentID        | under 72 h  | yes, a late payer is real money                             | settled (from EXPIRED)  |
+| FAILED                          | any         | never; a bad amount or a used TrxID needs a human           | n/a                     |
+| PENDING                         | over 72 h   | no; one warning with the count, only when the count changes | n/a                     |
+
+Both paths call the same `settle`, and settle returns `alreadySettled` for a row that is COMPLETED, CONFIRMED or REVERSED. Each path emits `COMPLETED` only when `alreadySettled` is false, so one settlement gives one event and one history row. A reversal of the Payment marks the ONLINE submission REVERSED through the same listener as a proof.
+
+**Example:** a guardian pays ৳500 and bKash takes it, but the phone loses signal before the redirect. No callback arrives. At the next 10-minute run the reconciler asks bKash for that `paymentID`, sees Completed for ৳500.00 with `merchantInvoiceNumber` equal to our submission id, stores the TrxID and calls `settle`. The bill is paid, the invoice exists, and the guardian's result page shows COMPLETED. If the guardian was slow and the row had already expired at 30 minutes, the same thing happens, because EXPIRED rows under 72 h are asked too.
+
+Logs: nginx logs the path without the query string (`$uri`), so `paymentID` never reaches the access log; `redactPii` also masks `paymentID` and `trxID` in app logs (Rule 13).
+
+### Learnings (Epic #291, Wave 6, 2026-11-15)
+
+Wave 6 added the gateway client with per-school credentials, the start, callback and result routes, the reconciler, and the demo rows.
+
+- **Surprise:** the callback settled a late payment on an EXPIRED row, but the reconciler only read PENDING. Cost: a lost callback on an expired row stayed unpaid forever while the guardian's money was at bKash. Fix: the reconciler also asks EXPIRED rows that have a paymentID and are under 72 h old. Rule candidate: when two paths settle the same state, give both the same set of source states and test each one.
+- **Surprise:** the reconciler warned about every stale row every 10 minutes, and it decrypted the credentials of schools that only had stale rows. Cost: log noise and needless secret handling. Fix: one grouped query counts rows per school; only schools with a live row are decrypted, and a stale count is logged when it changes. Rule candidate: decide who needs secrets from a cheap count first.
+- **Surprise:** building gateway credentials with `{ ...settings, tenantId }` passes along any extra stored field. Cost: a future settings field would flow into the gateway client and its cache key. Fix: pick the five bKash fields by name. Rule candidate: build a credentials object field by field, never by spread.
+- **Surprise:** `schema.d.ts` is regenerated only at integration, so a lane that adds a route cannot type its hooks until then. Cost: hooks were typed from the DTO names before the schema had them. Fix: regenerate once at integration (`yarn api:types`) and commit it with the hooks.
+- **Surprise:** the demo cannot reach an unmatched online payment without a counter payment first. Cost: ordering again. Fix: the `payment-submissions` slice makes the ONLINE row, takes half the bill at the counter, then settles it; the other half goes to the wallet. Five ONLINE rows (3 COMPLETED, one of them unmatched, 1 CANCELLED, 1 EXPIRED) need 12 open bills in all, so the slice spec runs at scale 0.5. `onlineEnabled` stays off and no gateway is ever called.
+
+### The result page and the end-to-end test (#3990, #3997)
+
+After bKash, the guardian lands on `/portal/fees/pay/result?id=<submission id>`. The The page asks `GET /portal/online-payments/:id` until the payment leaves PENDING.
+
+```mermaid
+flowchart LR
+  B["bKash"] -->|"browser returns"| C["/api/v1/online-payments/callback"]
+  C -->|"302"| R["/portal/fees/pay/result?id=..."]
+  R -->|"GET /portal/online-payments/:id"| S["result: status, amount, receipts, paidAt"]
+  S -->|COMPLETED| P["Paid ৳500. Receipt INV-0042 + View receipt"]
+  S -->|"FAILED / CANCELLED / EXPIRED"| F["Try again, or Submit payment proof (?how=proof)"]
+  S -->|PENDING| W["Waiting for confirmation (polls every 3 s)"]
+```
+
+- **Receipt (D22):** `receipts` lists `{ invoiceId, receiptNo }` for the caller's own children only (the invoice number is the receipt number); `paidAt` is the latest payment date, or `null` until booked. "View receipt" opens the existing family-scoped invoice print. There is no guardian share link: minting one needs `INVOICE_SEND` (staff) and a public link shows the whole invoice, siblings included.
+- **Example:** the guardian pays ৳700.50 for two children. The result says "Paid ৳700.50. Receipt INV-0041, INV-0042" with one "View receipt" button per child.
+- **Fake bKash in e2e:** `e2e/fixtures/bkash-stub.ts` listens on `127.0.0.1:38417`. The The server reaches it only when `NODE_ENV=test`, `OUTBOUND_TEST_ALLOW_LOOPBACK=true` and `BKASH_TEST_BASE_URL` are all set (`playwright.config.ts` sets them). Locally, run `yarn playwright test e2e/online-payments.spec.ts` against the running stack. Production boot refuses the loopback flag, so the seam cannot exist there. The test never opens bKash's page: it calls our callback URL itself.
+
+### Learnings (Epic #291, Wave 7, 2026-11-15)
+
+Wave 7 added the result page, the staff tabs, the settings section and the end-to-end journey.
+
+- 2026-11-15 **Surprise:** the result route existed but was missing from `routeTree.gen.ts`, the e2e route manifest, and the palette, breadcrumb and nav allow-lists. Cost: the palette-coverage test failed only at the close ticket. Fix: register the route in all four lists the moment the file is added. Rule candidate: a route-adding ticket lists every registry its route must join.
+- 2026-11-15 **Surprise:** turning online payment on is school-wide, so an e2e that does it on the seeded school hides the proof form for every spec running beside it. Cost: a flake that looks like a proof bug. Fix: the journey provisions its own school. Rule candidate: an e2e that flips a school-wide switch gets its own school.
+- 2026-11-15 **Surprise:** the switch refuses to turn on until the saved credentials passed "Test connection" (`Test the bKash connection before turning online payments on`). Cost: the first run of the journey got a 400. Fix: the journey saves the credentials, tests them against the fake, then turns it on. Rule candidate: set up a gated switch in the order a person would.
+- 2026-11-15 **Surprise:** the the result DTO had no receipt number or paid date, although D22 promised the receipt on this page. Cost: the page could only say "Payment done". Fix: `receipts` and `paidAt`, family-scoped. Rule candidate: when a decision names what a screen shows, check the DTO has it.
+- 2026-11-15 **Surprise:** the bKash URL went straight into `window.location.assign`. Cost: none yet, but a gateway answer is outside input. Fix: only `https://` is followed. Rule candidate: never navigate to a URL that came from an outside answer without checking its scheme.
+
+### Learnings (Epic #291, whole epic, 2026-11-15)
+
+Wave 8 close. These are the lessons that cut across waves. Each bullet is: surprise, cost, fix, rule candidate. Details marked "(lane report)" come from the wave lanes' reports and were not re-derived from code when this was written.
+
+- 2026-11-15 **Surprise:** an idempotency key built as `<submissionId>:<studentId>` is 73 characters, and `payments.idempotency_key` is `varchar(64)`. Cost: a key that would fail on insert. Fix: `settlementIdempotencyKey()` hashes the pair into a UUID-shaped string. Rule candidate: derive idempotency keys by hashing, and check the column width before choosing a key shape.
+- 2026-11-15 **Surprise:** `CheckoutService` opens its own transaction, so "settle all children atomically" cannot be done. Cost: a crash can leave child 1 paid and child 2 not. Fix: settle locks only the submission row, skips students that already have a payment under their key, and finishes the rest on retry. Rule candidate: a multi-step money flow must be re-runnable, not atomic.
+- 2026-11-15 **Surprise:** the guardian-side seams were missing when the client waves started (for example the Overview due card took `payOptions` but nothing fed it, so the Pay button never showed). Cost: the main entry point was dead while every unit test passed. Fix: `usePaymentOptions()` on the Overview plus a page-level test. Rule candidate: when a server wave adds an option, the client wave's first ticket checks that the page feeds it.
+- 2026-11-15 **Surprise:** several tickets' `## Files` lists were wrong (lane report: `queue-workers.ts`, the `fees/pay` path, and an `Outlet` in a layout file). Cost: lanes hit the territory rule or had to edit a file the plan did not name. Fix: the lane reported it and the plan was corrected before editing. Rule candidate: a planner checks that every path in `## Files` exists and is the right owner before the ticket is marked plan-grade.
+- 2026-11-15 **Surprise:** a smoke spec written before the online routes existed went stale (lane report; `601094fc9` later made it cover the callback fences). Cost: a post-deploy check that asserted old route behaviour. Fix: update the spec in the same ticket that adds the public route. Rule candidate: a new public route ticket lists the smoke spec in `## Files`.
+- 2026-11-15 **Surprise:** the e2e bKash stub (`e2e/fixtures/bkash-stub.ts`) talks to `127.0.0.1`, which the SSRF guard refuses. A first version read the loopback flag in a second place. Cost: two readers of one dangerous switch. Fix: the bKash client reuses the guard's own seam (`adf5fafe9`), so `OUTBOUND_TEST_ALLOW_LOOPBACK` is read in one place and production boot refuses it (Rule 7). Rule candidate: a test seam for a security guard lives inside the guard, never beside it.
+- 2026-11-15 **Surprise:** the staff cart needed the "waiting for confirmation" tag too (D46), but its `CartBill` type is shared by Record payment and the cart table. Cost: a new field on a widely used type. Fix: the cart answer carries `waiting_submission` (with the proof id for staff), and `cart-table.tsx` shows a tag that links to the proof; the bill stays selectable, because counter checkout is always allowed (D24). Rule candidate: add a field to a shared cart type in the same ticket that renders it, and say that staff and guardian answers differ in what they reveal.
+- 2026-11-15 **Surprise:** the callback settled a late payment on an EXPIRED row, but the reconciler read only PENDING. Cost: a lost callback on an expired row stayed unpaid while the money sat at bKash. Fix: the reconciler also asks EXPIRED rows that have a `paymentID` and are under 72 h old. Rule candidate: when two paths settle the same state, give both the same set of source states and test each one.
+- 2026-11-15 **Surprise:** FAILED online rows are never asked again, including the `MISMATCH` kind where bKash took money for something that is not this submission. Cost: nobody books or refunds that money, and no staff screen lists it. Fix: not fixed in this epic; open as #4234 (suggested: a "needs a human" list with a book-or-refund action, and a re-ask for `PERSIST` and `GATEWAY_CREATE` rows that have a `paymentID`). Rule candidate: every terminal failure state that can follow money leaving the guardian needs a human-facing list.
 
 ## Student statement
 

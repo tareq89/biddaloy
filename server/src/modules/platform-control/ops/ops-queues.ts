@@ -16,6 +16,7 @@ import { AT_RISK_QUEUE } from '../../dashboard/insights/at-risk.constants';
 import { FEES_DAILY_QUEUE } from '../../fees/fees.constants';
 import { HOMEWORK_DEFAULTER_SWEEP_QUEUE } from '../../homework/homework-defaulter.scheduler';
 import { INCIDENT_NOTIFY_QUEUE } from '../../incidents/incident-notify.listener';
+import { ONLINE_PAYMENTS_RECONCILE_QUEUE } from '../../payment-submissions/online-payments.reconciler';
 import { REPORT_SCHEDULE_QUEUE } from '../../reports/delivery/report-schedules.service';
 import {
   REPORT_EXPORT_CLEANUP_QUEUE,
@@ -52,6 +53,7 @@ export const OPS_QUEUES: readonly string[] = [
   IDLE_QUEUE,
   INCIDENT_NOTIFY_QUEUE,
   INVITATION_BATCH_QUEUE,
+  ONLINE_PAYMENTS_RECONCILE_QUEUE,
   REFRESH_TOKEN_CLEANUP_QUEUE,
   REPORT_EXPORT_CLEANUP_QUEUE,
   REPORT_EXPORT_QUEUE,

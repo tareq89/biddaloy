@@ -130,6 +130,9 @@ describe('renderInvoiceHtml "How it was paid" block [3.2.03]', () => {
   it('PROOF: shows method, TrxID, submitted on, verifier name (escaped) for staff', () => {
     const html = renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null, undefined, proof);
     expect(html).toContain('How it was paid');
+    expect(html).toContain('Transaction ID / লেনদেন নম্বর');
+    expect(html).toContain('Confirmed / নিশ্চিত');
+    expect(html).not.toContain('Verified');
     expect(html).toContain('TRX9A8B7C');
     expect(html).toContain('by Nasrin &lt;b&gt;Akter&lt;/b&gt; on');
     expect(html).not.toContain('<b>Akter</b>');
@@ -148,7 +151,7 @@ describe('renderInvoiceHtml "How it was paid" block [3.2.03]', () => {
     expect(html).toContain('by the school on');
   });
 
-  it('ONLINE: shows gateway, TrxID and paid at', () => {
+  it('ONLINE: shows a readable method, TrxID and paid at, with no gateway wording', () => {
     const html = renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null, undefined, {
       ...proof,
       source: 'ONLINE',
@@ -157,9 +160,11 @@ describe('renderInvoiceHtml "How it was paid" block [3.2.03]', () => {
       verified_at: null,
       paid_at: '2026-02-01T05:00:00.000Z',
     });
-    expect(html).toContain('Gateway');
+    expect(html).toContain('bKash / বিকাশ');
+    expect(html).not.toContain('BKASH');
     expect(html).toContain('Paid at');
-    expect(html).not.toContain('Verified');
+    expect(html).not.toContain('Gateway');
+    expect(html).not.toContain('Confirmed');
   });
 
   it('counter invoice has no block', () => {

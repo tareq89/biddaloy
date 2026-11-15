@@ -1,7 +1,7 @@
 /**
  * [3.4.01] Guardian "Pay fees" page, proof path: pick bills (all pre-ticked), say how they paid,
  * give the TrxID and/or photos. Money is summed in whole paisa; the amount is read-only (D26).
- * The bKash choice arrives in #3990.
+ * [3.x/#3990] The bKash choice sends the guardian to bKash; the result page is `pay/result`.
  */
 import type { PaymentMethod } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
@@ -19,7 +19,12 @@ import {
   StatusBadge,
   type FileUploadItem,
 } from '@biddaloy/ui/components';
-import { usePaymentCart, usePaymentOptions, useSubmitPaymentProof } from '@biddaloy/ui/hooks';
+import {
+  usePaymentCart,
+  usePaymentOptions,
+  useStartOnlinePayment,
+  useSubmitPaymentProof,
+} from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
 import {
@@ -30,20 +35,27 @@ import {
 } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
-export const Route = createFileRoute('/portal/fees_/pay')({
-  loader: () => loadRouteNamespaces('portalPay', 'common'),
-  component: PortalPayRoute,
-  // The child whose bills the pay link opens with; a bad value falls back to all bills.
-  validateSearch: (search: Record<string, unknown>): { student?: string } =>
-    typeof search.student === 'string' && UUID_RE.test(search.student)
-      ? { student: search.student }
-      : {},
+/** `?how=proof` opens the proof form (the result page links here after a failed online payment). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** `?student=<id>` scopes the page to one child's bills; a bad value falls back to all bills. */
+const searchSchema = z.object({
+  how: z.literal('proof').optional().catch(undefined),
+  student: z
+    .string()
+    .refine((v) => UUID_RE.test(v))
+    .optional()
+    .catch(undefined),
 });
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const Route = createFileRoute('/portal/fees_/pay')({
+  validateSearch: searchSchema,
+  loader: () => loadRouteNamespaces('portalPay', 'common'),
+  component: PortalPayRoute,
+});
 
 const MAX_FILES = 2;
 const ACCEPT = 'image/jpeg,image/png,application/pdf';
@@ -69,6 +81,7 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
   const optionsQuery = usePaymentOptions();
   const cartQuery = usePaymentCart();
   const submit = useSubmitPaymentProof();
+  const start = useStartOnlinePayment();
 
   // Pre-ticked: every open bill that is not already waiting. The guardian only un-ticks.
   // Explicit ticks only; a bill with no entry follows the scope (see `isOn`).
@@ -80,6 +93,8 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
   const [errors, setErrors] = React.useState<Partial<Record<ErrorKey | 'bills', true>>>({});
   const [submitError, setSubmitError] = React.useState<'storageDown' | 'busy' | 'generic'>();
   const [done, setDone] = React.useState(false);
+  const [how, setHow] = React.useState<'bkash' | 'proof' | undefined>(Route.useSearch().how);
+  const [bkashError, setBkashError] = React.useState<'down' | 'generic'>();
 
   const students = cartQuery.data?.students ?? [];
   const scopeValid = students.some((s) => s.studentId === scopeStudentId);
@@ -98,6 +113,30 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
   const chosen =
     methods.find((m) => m.method === method) ?? (methods.length === 1 ? methods[0] : undefined);
   const today = tenantTodayIso(config, new Date());
+  const onlineOn = options?.onlineEnabled === true;
+  const proofOn = options?.proofEnabled === true && methods.length > 0;
+  const mode = how === 'bkash' && onlineOn ? 'bkash' : how === 'proof' && proofOn ? 'proof' : onlineOn ? 'bkash' : 'proof';
+  const modeLocked = start.isPending || submit.isPending;
+
+  function onPayBkash() {
+    setBkashError(undefined);
+    setErrors(selected.length === 0 ? { bills: true } : {});
+    if (selected.length === 0) return;
+    start.mutate(
+      selected.map((b) => b.id),
+      {
+        onSuccess: (res) => {
+          // Only ever send the guardian to a secure page; anything else is treated as a failure.
+          if (!res.bkashUrl.startsWith('https://')) return setBkashError('generic');
+          window.location.assign(res.bkashUrl);
+        },
+        onError: (error) => {
+          // D19: Redis/bKash down answers 503 with a fixed sentence; offer proof instead.
+          setBkashError(error instanceof ApiError && error.statusCode === 503 ? 'down' : 'generic');
+        },
+      },
+    );
+  }
 
   function toggle(id: string, on: boolean) {
     setPicked((prev) => new Map(prev).set(id, on));
@@ -151,7 +190,6 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
   const loading = optionsQuery.isPending || cartQuery.isPending;
   const failed = optionsQuery.isError || cartQuery.isError;
   const hasBills = students.some((s) => s.bills.length > 0);
-  const proofOn = options?.proofEnabled === true && methods.length > 0;
 
   return (
     <FullPageShell
@@ -159,13 +197,16 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
       onClose={close}
       closeLabel={t('page.close')}
       dirty={files.length > 0 || trxId !== '' || paidOn !== ''}
-      {...(proofOn && hasBills
+      {...((onlineOn || proofOn) && hasBills
         ? {
-            primary: {
-              label: t('proof.submit'),
-              onClick: onSubmit,
-              busy: submit.isPending,
-            },
+            primary:
+              mode === 'bkash'
+                ? {
+                    label: t('bkash.pay', { amount: formatServerAmount(totalText, config) }),
+                    onClick: onPayBkash,
+                    busy: start.isPending,
+                  }
+                : { label: t('proof.submit'), onClick: onSubmit, busy: submit.isPending },
           }
         : {})}
     >
@@ -184,7 +225,7 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
             {t('page.retry')}
           </Button>
         </div>
-      ) : !proofOn ? (
+      ) : !onlineOn && !proofOn ? (
         <p>{t('page.officeOnly')}</p>
       ) : !hasBills ? (
         <p>{t('page.nothingToPay')}</p>
@@ -248,124 +289,160 @@ export function PortalPayPage({ scopeStudentId }: { scopeStudentId?: string | un
             <div className="mt-3">
               <ChoiceCards
                 labelledBy="pay-how"
-                value="proof"
-                onValueChange={() => undefined}
+                value={mode}
+                onValueChange={(v) => {
+                  if (modeLocked) return;
+                  setHow(v === 'bkash' ? 'bkash' : 'proof');
+                  setErrors({});
+                }}
                 columns={2}
                 options={[
-                  {
-                    value: 'proof',
-                    title: t('how.proofTitle'),
-                    description: t('how.proofNote'),
-                  },
+                  ...(onlineOn
+                    ? [
+                        {
+                          value: 'bkash',
+                          title: t('how.bkashTitle'),
+                          description: t('how.bkashNote'),
+                        },
+                      ]
+                    : []),
+                  ...(proofOn
+                    ? [
+                        {
+                          value: 'proof',
+                          title: t('how.proofTitle'),
+                          description: t('how.proofNote'),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             </div>
           </section>
 
-          <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
-            <h2 className="text-h2">{t('proof.title')}</h2>
-            <div className="mt-3 grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="proof-method" className="text-label text-text-primary">
-                  {t('proof.method')}
-                </label>
-                <Select value={chosen?.method ?? ''} onValueChange={setMethod}>
-                  <SelectTrigger id="proof-method" aria-invalid={errors.method === true}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {methods.map((m) => (
-                      <SelectItem key={m.method} value={m.method}>
-                        {tCommon(`enums.paymentMethod.${m.method}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.method && (
-                  <p role="alert" className="text-status-overdue-fg">
-                    {t('errors.method')}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="proof-amount" className="text-label text-text-primary">
-                  {t('proof.amount')}
-                </label>
-                <Input id="proof-amount" readOnly value={formatServerAmount(totalText, config)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="proof-trx" className="text-label text-text-primary">
-                  {t('proof.trxId')}
-                </label>
-                <Input
-                  id="proof-trx"
-                  value={trxId}
-                  maxLength={64}
-                  placeholder={t('proof.trxIdPlaceholder')}
-                  onChange={(e) => setTrxId(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="proof-date" className="text-label text-text-primary">
-                  {t('proof.paidOn')}
-                </label>
-                <Input
-                  id="proof-date"
-                  type="date"
-                  max={today}
-                  value={paidOn}
-                  aria-invalid={errors.date === true || errors.future === true}
-                  onChange={(e) => setPaidOn(e.target.value)}
-                />
-                {(errors.date || errors.future) && (
-                  <p role="alert" className="text-status-overdue-fg">
-                    {errors.future ? t('errors.future') : t('errors.date')}
-                  </p>
-                )}
-              </div>
-            </div>
-            {chosen && chosen.instructions !== '' && (
-              <p className="mt-2 text-text-secondary">
-                {t('proof.instructions', { text: chosen.instructions })}
-              </p>
-            )}
-            <div className="mt-4">
-              <p className="text-label text-text-primary">{t('proof.files')}</p>
-              <div className="mt-2">
-                <FileUpload
-                  aria-label={t('proof.filesLabel')}
-                  items={files}
-                  accept={ACCEPT}
-                  disabled={submit.isPending}
-                  onFilesSelected={(picked) =>
-                    setFiles((prev) => [
-                      ...prev,
-                      ...picked.map((file) => ({ id: crypto.randomUUID(), file })),
-                    ])
-                  }
-                  onRemove={(file) => setFiles((prev) => prev.filter((f) => f.file !== file))}
-                />
-              </div>
-              {errors.tooManyFiles && (
-                <p role="alert" className="mt-2 text-status-overdue-fg">
-                  {t('errors.tooManyFiles')}
-                </p>
+          {mode === 'bkash' && bkashError && (
+            <div role="alert" className="space-y-2 text-status-overdue-fg">
+              <p>{t(bkashError === 'down' ? 'errors.bkashDown' : 'errors.bkashGeneric')}</p>
+              {proofOn && (
+                <Button variant="outline" onClick={() => setHow('proof')}>
+                  {t('bkash.useProof')}
+                </Button>
               )}
             </div>
-            <p
-              className={
-                errors.evidence ? 'mt-3 text-status-overdue-fg' : 'mt-3 text-text-secondary'
-              }
-              role={errors.evidence ? 'alert' : undefined}
-            >
-              {errors.evidence ? t('errors.evidence') : t('proof.evidenceHint')}
+          )}
+
+          {mode === 'bkash' && (
+            <p className="text-text-secondary">
+              {t('bkash.exactNote', { amount: formatServerAmount(totalText, config) })}
             </p>
-            {submitError && (
-              <p role="alert" className="mt-3 text-status-overdue-fg">
-                {t(`errors.${submitError}`)}
+          )}
+
+          {mode === 'proof' && (
+            <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+              <h2 className="text-h2">{t('proof.title')}</h2>
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="proof-method" className="text-label text-text-primary">
+                    {t('proof.method')}
+                  </label>
+                  <Select value={chosen?.method ?? ''} onValueChange={setMethod}>
+                    <SelectTrigger id="proof-method" aria-invalid={errors.method === true}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {methods.map((m) => (
+                        <SelectItem key={m.method} value={m.method}>
+                          {tCommon(`enums.paymentMethod.${m.method}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.method && (
+                    <p role="alert" className="text-status-overdue-fg">
+                      {t('errors.method')}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="proof-amount" className="text-label text-text-primary">
+                    {t('proof.amount')}
+                  </label>
+                  <Input id="proof-amount" readOnly value={formatServerAmount(totalText, config)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="proof-trx" className="text-label text-text-primary">
+                    {t('proof.trxId')}
+                  </label>
+                  <Input
+                    id="proof-trx"
+                    value={trxId}
+                    maxLength={64}
+                    placeholder={t('proof.trxIdPlaceholder')}
+                    onChange={(e) => setTrxId(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="proof-date" className="text-label text-text-primary">
+                    {t('proof.paidOn')}
+                  </label>
+                  <Input
+                    id="proof-date"
+                    type="date"
+                    max={today}
+                    value={paidOn}
+                    aria-invalid={errors.date === true || errors.future === true}
+                    onChange={(e) => setPaidOn(e.target.value)}
+                  />
+                  {(errors.date || errors.future) && (
+                    <p role="alert" className="text-status-overdue-fg">
+                      {errors.future ? t('errors.future') : t('errors.date')}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {chosen && chosen.instructions !== '' && (
+                <p className="mt-2 text-text-secondary">
+                  {t('proof.instructions', { text: chosen.instructions })}
+                </p>
+              )}
+              <div className="mt-4">
+                <p className="text-label text-text-primary">{t('proof.files')}</p>
+                <div className="mt-2">
+                  <FileUpload
+                    aria-label={t('proof.filesLabel')}
+                    items={files}
+                    accept={ACCEPT}
+                    disabled={submit.isPending}
+                    onFilesSelected={(picked) =>
+                      setFiles((prev) => [
+                        ...prev,
+                        ...picked.map((file) => ({ id: crypto.randomUUID(), file })),
+                      ])
+                    }
+                    onRemove={(file) => setFiles((prev) => prev.filter((f) => f.file !== file))}
+                  />
+                </div>
+                {errors.tooManyFiles && (
+                  <p role="alert" className="mt-2 text-status-overdue-fg">
+                    {t('errors.tooManyFiles')}
+                  </p>
+                )}
+              </div>
+              <p
+                className={
+                  errors.evidence ? 'mt-3 text-status-overdue-fg' : 'mt-3 text-text-secondary'
+                }
+                role={errors.evidence ? 'alert' : undefined}
+              >
+                {errors.evidence ? t('errors.evidence') : t('proof.evidenceHint')}
               </p>
-            )}
-          </section>
+              {submitError && (
+                <p role="alert" className="mt-3 text-status-overdue-fg">
+                  {t(`errors.${submitError}`)}
+                </p>
+              )}
+            </section>
+          )}
         </div>
       )}
     </FullPageShell>

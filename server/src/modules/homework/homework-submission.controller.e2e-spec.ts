@@ -252,7 +252,7 @@ describe('Homework Submission E2E', () => {
         filename: 'answer.pdf',
         contentType: 'application/pdf',
       })
-      // FamilyAccessService.assertLinked throws UnauthorizedException (401)
+      // FamilyAccessService.assertLinked throws UnauthorizedException (404)
       // on purpose — same contract every other family route uses.
       .expect(404);
   });
