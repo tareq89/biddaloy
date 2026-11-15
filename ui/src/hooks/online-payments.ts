@@ -1,3 +1,4 @@
+import { PaymentSubmissionSource } from '@biddaloy/shared';
 /**
  * [3.x/#3988] bKash online payments: the guardian starts one and polls its result; staff list the
  * ONLINE rows; an admin tests the saved credentials. Rule 25: every mutation is `retry: false`
@@ -59,7 +60,7 @@ export function useOnlinePaymentSubmissions(
   filters: Omit<ProofReviewFilters, 'source'> = {},
   options: { enabled?: boolean } = {},
 ) {
-  return usePaymentSubmissions({ ...filters, source: 'ONLINE' }, options);
+  return usePaymentSubmissions({ ...filters, source: PaymentSubmissionSource.ONLINE }, options);
 }
 
 /** Admin: token-grant test of the saved bKash credentials. Not an idempotent write. */
