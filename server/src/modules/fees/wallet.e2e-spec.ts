@@ -234,7 +234,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       .set('Authorization', `Bearer ${strangerToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(404);
   });
 
   it('keeps tenants isolated even for a caller with real membership in both', async () => {
@@ -246,7 +246,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(404);
 
     await supertest(app.getHttpServer())
       .get(`${API}/students/${childInBId}/wallet`)

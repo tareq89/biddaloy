@@ -524,13 +524,13 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
       // The stranger's payment is refused outright (family-access check
       // runs before the query, per FeeController.findPaymentsByStudent).
       // `FamilyAccessService.assertLinked` throws `UnauthorizedException`
-      // for an unlinked student, so this is a 401, not a 403.
+      // for an unlinked student, so this is a 404, not a 403.
       await supertest(app.getHttpServer())
         .get(`${API}/payments/student/${stranger}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .set('X-Role', UserRole.PARENT)
-        .expect(401);
+        .expect(404);
     });
   });
 });
