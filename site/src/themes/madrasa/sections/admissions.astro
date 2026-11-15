@@ -12,7 +12,7 @@ const loc = lang === 'en' ? 'en-GB' : 'bn-BD';
 // Open intakes (never marked empty by the server: the text above still shows without them).
 const pre = Astro.locals.base ?? '';
 const intakes = feed.filter((i) => s(i.round_id));
-const href = (i: Record<string, unknown>) => `${pre}/${lang}/admission?round=${s(i.round_id)}`;
+const href = (i: Record<string, unknown>) => `${pre}/${lang}/admission?round=${encodeURIComponent(s(i.round_id))}`;
 const deadline = (i: Record<string, unknown>) => formatDay(s(i.deadline), loc, { dateStyle: 'long' });
 ---
 {(title || body || intakes.length > 0) && (

@@ -102,6 +102,14 @@ export async function mountLookup(root: HTMLElement, t: Dict, deps: Deps = {}) {
   }
 
   const form = root.querySelector<HTMLFormElement>('form')!;
+  // Prefill from the result widget's GET (`?round&roll&phone`); no auto-submit. ponytail: phone sits in the site-page URL only, never sent to the API URL.
+  if (typeof location !== 'undefined') {
+    const q = new URLSearchParams(location.search);
+    for (const n of ['roll', 'phone']) {
+      const i = form.elements.namedItem(n) as HTMLInputElement | null;
+      if (i && q.get(n)) i.value = q.get(n)!;
+    }
+  }
   const val = (n: string) => (form.elements.namedItem(n) as HTMLInputElement).value;
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); // never the browser's GET: a phone number must not reach the URL

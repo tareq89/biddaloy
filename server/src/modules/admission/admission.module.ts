@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { WebsiteModule } from '../website/website.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { AdmissionIntake } from './entities/admission-intake.entity';
@@ -88,6 +89,7 @@ import {
     StorageModule,
     AuditModule,
     DashboardModule,
+    forwardRef(() => WebsiteModule),
   ],
   controllers: [
     IntakeController,

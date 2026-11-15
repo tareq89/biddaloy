@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { School } from '../schools/entities/school.entity';
@@ -85,7 +85,7 @@ import { AdmissionApplicant } from '../admission/entities/admission-applicant.en
     SchoolsModule,
     ExamsModule,
     CommunicationsModule,
-    AdmissionModule,
+    forwardRef(() => AdmissionModule),
   ],
   controllers: [
     SiteConfigController,
