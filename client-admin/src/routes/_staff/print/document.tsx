@@ -14,7 +14,6 @@ import {
   BlankMarksSheet,
   Button,
   EmptyState,
-  ErrorState,
   ExamRoutineNotice,
   InvigilatorSheet,
   ReportCard,
@@ -52,6 +51,7 @@ import { z } from 'zod';
 
 import { copyPageLink, useIsWide } from '../../../components/print/desktop-only-gate';
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { QueryFailed } from '../fees/-query-failed';
 
 import {
   marksPages,
@@ -546,7 +546,8 @@ function ExamDocumentPage({ doc }: { doc: Doc }) {
     body = <EmptyState title={t('page.empty')} explanation={t('page.emptyHint')} />;
   } else if (failed) {
     body = (
-      <ErrorState
+      <QueryFailed
+        error={all.find((q) => q.isError)?.error}
         message={t('page.loadError')}
         onRetry={() => all.forEach((q) => q.isError && void q.refetch())}
       />

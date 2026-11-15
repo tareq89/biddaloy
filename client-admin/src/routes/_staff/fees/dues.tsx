@@ -46,6 +46,8 @@ import { ListReportHint } from '../../../components/list-report-hint';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
+import { QueryFailed } from './-query-failed';
+
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `QueryFeeDuesDto.sort_by`'s own allowlist, keyed by this page's column
  * ids. Only sortable when `flagged` is off — `QueryFlaggedDuesDto` has no
@@ -568,6 +570,16 @@ function DuesQueuePage() {
         DEFAULT_COLUMN_VISIBILITY,
       ),
     });
+  }
+
+  if (duesQuery.isError) {
+    return (
+      <QueryFailed
+        error={duesQuery.error}
+        message={t('dues.errorMessage')}
+        onRetry={() => void duesQuery.refetch()}
+      />
+    );
   }
 
   return (

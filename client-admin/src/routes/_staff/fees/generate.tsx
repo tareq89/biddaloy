@@ -23,6 +23,7 @@ import { GenerateFeesModal } from './-generate/generate-fees-modal';
 import { BatchBillsDrawer } from './-generations/batch-bills-drawer';
 import { useBatchFilterFields } from './-generations/batch-filters';
 import { BatchTable, type BatchTableProps } from './-generations/batch-table';
+import { QueryFailed } from './-query-failed';
 
 /**
  * `/fees/generate` — [16.3.5] rewrite. This route used to be [8.11.6]'s
@@ -175,6 +176,16 @@ function GeneratedFeesPage() {
     pageSizeLabel: t('pagination.rowsPerPage', { ns: 'common' }),
     onRowClick: setSelectedBatch,
   };
+
+  if (generationsQuery.isError) {
+    return (
+      <QueryFailed
+        error={generationsQuery.error}
+        message={t('generations.errorMessage')}
+        onRetry={() => void generationsQuery.refetch()}
+      />
+    );
+  }
 
   return (
     <>

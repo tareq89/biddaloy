@@ -37,6 +37,7 @@ import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { QueryFailed } from '../-query-failed';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 import { AudienceCell } from './-audience-cell';
@@ -233,6 +234,16 @@ function SchedulesListPage() {
       card: 'badge',
     },
   ];
+
+  if (schedulesQuery.isError) {
+    return (
+      <QueryFailed
+        error={schedulesQuery.error}
+        message={t('schedules.errorMessage')}
+        onRetry={() => void schedulesQuery.refetch()}
+      />
+    );
+  }
 
   return (
     <>
