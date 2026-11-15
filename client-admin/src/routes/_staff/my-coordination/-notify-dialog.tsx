@@ -17,12 +17,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
   Textarea,
   toast,
 } from '@biddaloy/ui/components';
 import { useNotifyCoordinatedTeachers, type CoordinationTeacher } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
 
 import { ErrorText } from '../classes/-dialog-kit';
 
@@ -40,13 +47,14 @@ export function NotifyTeachersDialog({
   const { t } = useTranslation('coordination');
   const notify = useNotifyCoordinatedTeachers();
   const [checked, setChecked] = React.useState<string[]>([]);
-  const [message, setMessage] = React.useState('');
+  const form = useForm<{ message: string }>({ defaultValues: { message: '' } });
+  const message = form.watch('message');
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     setChecked(teachers.map((teacher) => teacher.user_id));
-    setMessage('');
+    form.reset({ message: '' });
     setValidationError(null);
     notify.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the dialog opens
@@ -56,15 +64,10 @@ export function NotifyTeachersDialog({
     setChecked((prev) => (on ? [...prev, userId] : prev.filter((id) => id !== userId)));
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function handleSubmit({ message }: { message: string }) {
     if (notify.isPending) return;
     if (checked.length === 0) {
       setValidationError(t('notifyDialog.errorPickOne'));
-      return;
-    }
-    if (!message.trim()) {
-      setValidationError(t('notifyDialog.errorMessage'));
       return;
     }
     setValidationError(null);
@@ -85,75 +88,91 @@ export function NotifyTeachersDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => !notify.isPending && onOpenChange(next)}>
       <DialogContent size="md">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('notifyDialog.title')}</DialogTitle>
-            <DialogDescription>{t('notifyDialog.description')}</DialogDescription>
-          </DialogHeader>
+        <Form {...form}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit(handleSubmit, () => form.setFocus('message'))(event);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <DialogHeader>
+              <DialogTitle>{t('notifyDialog.title')}</DialogTitle>
+              <DialogDescription>{t('notifyDialog.description')}</DialogDescription>
+            </DialogHeader>
 
-          <fieldset className="flex flex-col gap-1">
-            <legend className="text-label text-text-primary">
-              {t('notifyDialog.teachersLabel')}
-            </legend>
-            <p className="text-caption text-text-secondary">{t('notifyDialog.allPreChecked')}</p>
-            <ul className="max-h-64 overflow-y-auto">
-              {teachers.map((teacher) => (
-                <li key={teacher.user_id}>
-                  <label className="flex min-h-11 items-center gap-3 md:min-h-8">
-                    <Checkbox
-                      checked={checked.includes(teacher.user_id)}
-                      onCheckedChange={(on) => toggle(teacher.user_id, on === true)}
-                    />
-                    <span>
-                      {teacher.full_name}
-                      <span className="ml-2 text-caption text-text-secondary">
-                        {teacher.section_names.join(', ')}
+            <fieldset className="flex flex-col gap-1">
+              <legend className="text-label text-text-primary">
+                {t('notifyDialog.teachersLabel')}
+              </legend>
+              <p className="text-caption text-text-secondary">{t('notifyDialog.allPreChecked')}</p>
+              <ul className="max-h-64 overflow-y-auto">
+                {teachers.map((teacher) => (
+                  <li key={teacher.user_id}>
+                    <label className="flex min-h-11 items-center gap-3 md:min-h-8">
+                      <Checkbox
+                        checked={checked.includes(teacher.user_id)}
+                        onCheckedChange={(on) => toggle(teacher.user_id, on === true)}
+                      />
+                      <span>
+                        {teacher.full_name}
+                        <span className="ml-2 text-caption text-text-secondary">
+                          {teacher.section_names.join(', ')}
+                        </span>
                       </span>
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="notify-message" className="text-label text-text-primary">
-              {t('notifyDialog.messageLabel')}
-            </label>
-            <Textarea
-              id="notify-message"
-              value={message}
-              maxLength={MESSAGE_MAX}
-              rows={4}
-              placeholder={t('notifyDialog.messagePlaceholder')}
-              onChange={(event) => setMessage(event.target.value)}
+            <FormField
+              control={form.control}
+              name="message"
+              rules={{
+                validate: (v) => v.trim().length > 0 || t('notifyDialog.errorMessage'),
+              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('notifyDialog.messageLabel')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      maxLength={MESSAGE_MAX}
+                      rows={4}
+                      placeholder={t('notifyDialog.messagePlaceholder')}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <span className="self-end text-caption text-text-secondary" aria-live="polite">
+                    {t('notifyDialog.counter', { count: message.length, max: MESSAGE_MAX })}
+                  </span>
+                </FormItem>
+              )}
             />
-            <span className="self-end text-caption text-text-secondary" aria-live="polite">
-              {t('notifyDialog.counter', { count: message.length, max: MESSAGE_MAX })}
-            </span>
-          </div>
 
-          {validationError && <ErrorText>{validationError}</ErrorText>}
-          {notify.isError && (
-            <ErrorText>
-              {nobody ? t('notifyDialog.errorNobody') : t('notifyDialog.errorGeneric')}
-            </ErrorText>
-          )}
+            {validationError && <ErrorText>{validationError}</ErrorText>}
+            {notify.isError && (
+              <ErrorText>
+                {nobody ? t('notifyDialog.errorNobody') : t('notifyDialog.errorGeneric')}
+              </ErrorText>
+            )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={notify.isPending}
-              onClick={() => onOpenChange(false)}
-            >
-              {t('notifyDialog.cancel')}
-            </Button>
-            <Button type="submit" loading={notify.isPending}>
-              {notify.isPending ? t('notifyDialog.sending') : t('notifyDialog.send')}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={notify.isPending}
+                onClick={() => onOpenChange(false)}
+              >
+                {t('notifyDialog.cancel')}
+              </Button>
+              <Button type="submit" loading={notify.isPending}>
+                {notify.isPending ? t('notifyDialog.sending') : t('notifyDialog.send')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

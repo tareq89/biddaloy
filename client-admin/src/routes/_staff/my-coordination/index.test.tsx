@@ -157,4 +157,22 @@ describe('/my-coordination', () => {
       ),
     ).toBeTruthy();
   });
+
+  it('an empty message shows its sentence beside the field and focuses it, nothing is sent', async () => {
+    mockOverview([classX]);
+    let posted = false;
+    server.use(
+      http.post('/api/v1/coordination/alerts', () => {
+        posted = true;
+        return HttpResponse.json({ recipient_count: 2 });
+      }),
+    );
+    const user = userEvent.setup();
+    render('/my-coordination?then=notify');
+    const dialog = await screen.findByRole('dialog', { name: 'Notify teachers' });
+    await user.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(await within(dialog).findByText('Write a message.')).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole('textbox')));
+    expect(posted).toBe(false);
+  });
 });

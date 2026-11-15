@@ -1,4 +1,4 @@
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -482,5 +482,26 @@ describe('/my-class/$sectionId', () => {
     mockAll();
     render('/my-class/someone-elses-section');
     expect(await screen.findByText(/not found|doesn.t exist|404/i)).toBeTruthy();
+  });
+
+  it('shows the empty state when the teacher has no section', async () => {
+    mockAll([http.get('/api/v1/my-class/sections', () => HttpResponse.json([]))]);
+    render('/my-class/section-1');
+    expect(await screen.findByText('No section yet')).toBeTruthy();
+    expect(screen.getByText(/not a class teacher of any section yet/i)).toBeTruthy();
+  });
+
+  it('shows the access-denied state when the sections list is refused', async () => {
+    mockAll([
+      http.get('/api/v1/my-class/sections', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/api/v1/my-class/sections'), {
+          status: 403,
+        }),
+      ),
+    ]);
+    render('/my-class/section-1');
+    expect(
+      await screen.findByRole('heading', { name: /permission|access/i }, { timeout: 8000 }),
+    ).toBeTruthy();
   });
 });
