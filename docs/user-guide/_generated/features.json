@@ -605,7 +605,7 @@
     "path": "portal/fees",
     "route": "/portal/fees",
     "roles": ["PARENT", "STUDENT"],
-    "routes": ["/portal/fees", "/portal/fees/pay"]
+    "routes": ["/portal/fees", "/portal/fees/pay", "/portal/fees/pay/result"]
   },
   {
     "id": "portal.statement",
