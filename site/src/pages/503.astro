@@ -17,6 +17,7 @@ Astro.response.headers.set('Retry-After', '60');
     <main class="err">
       <h1>{t('bn', 'err503.title')} / {t('en', 'err503.title')}</h1>
       <p class="muted">{t('bn', 'err503.body')}<br />{t('en', 'err503.body')}</p>
-    </main>
+    <button type="button" onclick="location.reload()">{t('bn', 'err503.retry')} / {t('en', 'err503.retry')}</button>
+</main>
   </body>
 </html>
