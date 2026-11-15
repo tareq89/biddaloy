@@ -158,6 +158,6 @@ describe('attendance-today widget', () => {
     });
     expect(marker.getAttribute('data-signal')).toBe('warn');
     expect(marker.querySelector('svg')!.getAttribute('aria-hidden')).toBe('true');
-    expect(marker.querySelector('.sr-only')!.textContent).toBe('Keep an eye on this');
+    expect([...marker.querySelectorAll('.sr-only')].at(-1)!.textContent).toBe('Keep an eye on this');
   });
 });

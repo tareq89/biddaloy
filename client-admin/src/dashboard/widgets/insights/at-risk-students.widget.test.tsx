@@ -200,6 +200,6 @@ describe('at-risk-students widget', () => {
     });
     expect(marker.getAttribute('data-signal')).toBe('critical');
     expect(marker.querySelector('svg')!.getAttribute('aria-hidden')).toBe('true');
-    expect(marker.querySelector('.sr-only')!.textContent).toBe('Needs action');
+    expect([...marker.querySelectorAll('.sr-only')].at(-1)!.textContent).toBe('Needs action');
   });
 });
