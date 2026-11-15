@@ -23,7 +23,7 @@ export type TemplateKind =
   /** [Epic 98] An owner account was locked or unlocked. `detail` names who did it. */
   | 'PLATFORM_OWNER_LOCKED'
   | 'PLATFORM_OWNER_UNLOCKED'
-  /** [Epic 99] Both owners are told at every Biddaloy support entry. No secret. */
+  /** [Epic 99] Both owners are told at every SchoolManager support entry. No secret. */
   | 'SUPPORT_SESSION_OWNER_NOTICE'
   /** [Epic 99] The school allowed the request. `link` opens the cockpit school page; never a code. */
   | 'SUPPORT_TICKET_READY'

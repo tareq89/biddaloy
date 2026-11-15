@@ -69,7 +69,7 @@ describe('/audit', () => {
   it('reads filters from the URL into the query, and caps the limit at 100', async () => {
     const audit = serve();
     render('/audit?tenantId=t1&action=UPDATE&sessionId=v1&from=2029-12-01&limit=500');
-    await screen.findAllByText('Biddaloy support (as Rahim)');
+    await screen.findAllByText('SchoolManager support (as Rahim)');
     const q = audit[0]!;
     expect(q.get('tenantId')).toBe('t1');
     expect(q.get('action')).toBe('UPDATE');
@@ -107,7 +107,7 @@ describe('/audit', () => {
       await screen.findAllByRole('button', { name: /See all activity of the visit as Rahim/ })
     )[0]!;
     await user.click(open);
-    await screen.findAllByText('Biddaloy support (as Rahim)');
+    await screen.findAllByText('SchoolManager support (as Rahim)');
     expect(audit.at(-1)!.get('sessionId')).toBe('v1');
   });
 

@@ -60,20 +60,6 @@ describe('runTasks', () => {
     expect(output).not.toContain('--- tests output ---');
   });
 
-  it('runs tasks concurrently, not sequentially', async () => {
-    const script = (ms) => `setTimeout(() => process.exit(0), ${ms})`;
-    const start = Date.now();
-    await runTasks(
-      [nodeTask('a', script(150)), nodeTask('b', script(150)), nodeTask('c', script(150))],
-      { log: () => {} },
-    );
-    const elapsed = Date.now() - start;
-
-    // Sequential can never beat the 450ms of sleeping alone; concurrent is ~150ms plus
-    // process start-up, which a loaded CI runner stretches past 350ms.
-    expect(elapsed).toBeLessThan(450);
-  });
-
   // Concurrency, not spawn speed: every task has started before any of them finishes. A
   // wall-clock bound on the start spread flaked on a loaded CI runner (104ms > 100ms).
   it('starts every task before any task finishes', async () => {

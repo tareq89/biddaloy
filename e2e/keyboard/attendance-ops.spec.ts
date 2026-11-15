@@ -59,22 +59,31 @@ async function tabUntilGridCell(page: import('@playwright/test').Page) {
  * press at a time, each waiting for focus to actually move. */
 async function arrowToOption(page: import('@playwright/test').Page, text: string) {
   const options = page.getByRole('option');
-  // The class/section lists load after the page does; arrow keys on an empty list do nothing.
-  await expect(options.first()).toBeVisible();
-  const labels = (await options.allTextContents()).map((label) => label.trim());
-  const target = labels.indexOf(text);
-  if (target < 0) throw new Error(`option "${text}" not in the list: ${labels.join(', ')}`);
-  const focused = () =>
-    options.evaluateAll((els) => els.indexOf(document.activeElement as HTMLElement));
-  // Wait for the list to place its first focus before pressing anything.
-  await expect.poll(focused).toBeGreaterThanOrEqual(0);
-  for (let i = 0; i < labels.length; i += 1) {
-    const current = await focused();
-    if (current === target) break;
-    await page.keyboard.press(current < target ? 'ArrowDown' : 'ArrowUp');
-    await expect.poll(focused).not.toBe(current);
+  // Position of the focused option and of the target, read in one browser turn from the
+  // live list. The class/section lists load (and can re-render) after the page does, so the
+  // target index is recomputed before every key press instead of cached.
+  const where = () =>
+    options.evaluateAll(
+      (els, label) => ({
+        active: els.indexOf(document.activeElement as HTMLElement),
+        target: els.findIndex((el) => el.textContent?.trim() === label),
+      }),
+      text,
+    );
+  // Wait for the target to be in the list and for the list to place its first focus.
+  await expect
+    .poll(async () => {
+      const { active, target } = await where();
+      return active >= 0 && target >= 0;
+    })
+    .toBe(true);
+  for (let i = 0; i < 50; i += 1) {
+    const { active, target } = await where();
+    if (active === target) break;
+    await page.keyboard.press(active < target ? 'ArrowDown' : 'ArrowUp');
+    await expect.poll(async () => (await where()).active).not.toBe(active);
   }
-  await expect(options.nth(target)).toBeFocused();
+  await expect(page.getByRole('option', { name: text, exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
 }
 

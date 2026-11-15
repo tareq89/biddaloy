@@ -60,7 +60,7 @@ describe('SupportBannerHost', () => {
     mockMe(false);
     enter();
     renderWithProviders(<SupportBannerHost />, { locale: 'en', tenantId: 't-1' });
-    await screen.findByText('Biddaloy support, as Rahim, Teacher');
+    await screen.findByText('SchoolManager support, as Rahim, Teacher');
     expect(screen.getByText('0:30')).toBeTruthy();
     expect(screen.queryByText('View only')).toBeNull();
   });

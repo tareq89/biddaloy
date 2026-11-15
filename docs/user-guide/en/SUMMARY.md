@@ -99,7 +99,7 @@
   - [Applications](applications/applications.md)
 - [Administration](administration/settings.md)
   - [Changing the school's settings](administration/settings.md)
-  - [Biddaloy support access](administration/support-access.md)
+  - [SchoolManager support access](administration/support-access.md)
   - [Modules and words](administration/modules-and-words.md)
   - [Buying an SMS package](administration/sms-packages.md)
   - [Using a coupon](administration/seat-coupon.md)

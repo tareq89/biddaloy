@@ -5140,10 +5140,10 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'administration.supportAccess': {
-    title: { bn: 'বিডডালয় সহায়তা প্রবেশ', en: 'Biddaloy support access' },
+    title: { bn: 'বিডডালয় সহায়তা প্রবেশ', en: 'SchoolManager support access' },
     summary: {
       bn: 'বিডডালয় সহায়তা আপনার স্কুলে ঢুকতে পারবে কি না ঠিক করুন, ৯০ দিনের তালিকা পড়ুন, অনুরোধে অনুমোদন দিন বা "এখন নয়" বলুন, আর চলতি প্রবেশ শেষ করুন।',
-      en: 'Decide whether Biddaloy support may log in to your school, read the 90-day list, approve or turn down a request, and end a login that is live.',
+      en: 'Decide whether SchoolManager support may log in to your school, read the 90-day list, approve or turn down a request, and end a login that is live.',
     },
     path: 'administration/support-access',
     anchor: '',

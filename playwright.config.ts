@@ -235,6 +235,14 @@ export default defineConfig({
           url: 'http://localhost:5174/',
           reuseExistingServer: !CI,
           timeout: 300_000,
+          // Without a handbook URL the page-help (?) and F1 render nothing, so help.spec fails
+          // on any run that is not CI (#3445, #4043). Same value ci.yml sets. A reused :5174 server
+          // keeps its own env; restart it if it lacks VITE_HANDBOOK_URL.
+          env: {
+            VITE_HANDBOOK_URL:
+              process.env.VITE_HANDBOOK_URL ??
+              'https://schoolmanagerp.gitbook.io/schoolmanagerp-docs',
+          },
         },
       ],
 });

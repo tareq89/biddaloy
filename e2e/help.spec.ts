@@ -20,7 +20,10 @@ test.describe('page help on /attendance', () => {
       }) as typeof window.open;
     });
     await page.goto('/attendance');
-    await expect(page.locator(PAGE_HELP)).toBeVisible();
+    await expect(
+      page.locator(PAGE_HELP),
+      'no page help (?): if running locally on a reused :5174 server, restart it with VITE_HANDBOOK_URL',
+    ).toBeVisible();
   });
 
   test('keyboard: Tab to the (?), Enter opens, Tab reaches the guide link, Esc returns focus', async ({
