@@ -1,6 +1,13 @@
 import type { Page, PlaywrightWorkerArgs } from '@playwright/test';
 
-import { adminApiSession, createClassSection, createStudent, patch, post } from '../api';
+import {
+  adminApiSession,
+  createClassSection,
+  createStudent,
+  createWalkInApplicant,
+  patch,
+  post,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { AppShellPage } from '../pages/app-shell';
@@ -63,19 +70,12 @@ test('reviews an admission applicant', async ({ page, playwright, baseURL }) => 
       close_date: '2099-12-31',
       required_document_types: [],
     });
-    // The public form is covered by `admission.spec.ts`; submit over the public API here.
-    const submit = await ctx.post('/api/v1/public/admission/default-school/applicants', {
-      multipart: {
-        intake_id: intake.id,
-        applicant_name: applicantName,
-        date_of_birth: '2018-06-01',
-        gender: 'MALE',
-        guardian_name: `Guardian of ${applicantName}`,
-        guardian_phone: `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`,
-        captcha_token: 'no-captcha',
-      },
+    // The public form lives on the school site (`site-admission.spec.ts`); enter the walk-in at the desk.
+    await createWalkInApplicant(ctx, session, {
+      intakeId: intake.id,
+      name: applicantName,
+      guardianPhone: `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`,
     });
-    expect(submit.ok()).toBe(true);
   } finally {
     await ctx.dispose();
   }

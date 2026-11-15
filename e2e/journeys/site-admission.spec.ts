@@ -116,6 +116,7 @@ test('guardian applies with a fee proof on a school host and a custom domain, th
             gender: 'MALE',
             guardian_name: 'E2E Guardian',
             guardian_phone: phone,
+            extra_fields: JSON.stringify({ father_name: 'E2E Father', mother_name: 'E2E Mother' }),
             captcha_token: 'no-captcha',
             fee_method: 'BKASH',
             fee_reference: `TX-${suffix}`,
