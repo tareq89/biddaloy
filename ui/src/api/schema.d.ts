@@ -8801,7 +8801,8 @@ export interface paths {
         /** List admission applicants, optionally filtered by intake and/or status. */
         get: operations["ApplicantReviewController_findAll_v1"];
         put?: never;
-        post?: never;
+        /** Create an application for a walk-in guardian (no captcha). Multipart: applicant fields, document files by type, and for a fee round fee_method plus one fee_proof file (fee_reference optional). A repeated fee reference is a warning, not an error. allow_after_close lets a late walk-in past the close date. */
+        post: operations["AdmissionApplicantStaffController_create_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20511,6 +20512,27 @@ export interface components {
             pending_total: number;
             /** @description Up to 5 newest, any status */
             latest: components["schemas"]["AdmissionLatestApplicantDto"][];
+        };
+        StaffCreateApplicantDto: {
+            extra_fields?: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            intake_id: string;
+            applicant_name: string;
+            date_of_birth: string;
+            /** @enum {string} */
+            gender: "MALE" | "FEMALE" | "OTHER";
+            guardian_name: string;
+            guardian_phone: string;
+            /** Format: email */
+            guardian_email?: string;
+            home_address?: string;
+            /** @enum {string} */
+            fee_method?: "BKASH" | "NAGAD" | "ROCKET" | "BANK";
+            fee_reference?: string;
+            /** @description Let a late walk-in past the close date. */
+            allow_after_close?: boolean;
         };
         GenerateSeatPlanDto: {
             name: string;
@@ -44691,6 +44713,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicantListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionApplicantStaffController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["StaffCreateApplicantDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitApplicantResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

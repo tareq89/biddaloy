@@ -605,6 +605,7 @@ POST /acr/assessments/:id/complete | AcrAssessmentsController | perm: ACR_WRITE
 POST /acr/assessments/:id/reopen | AcrAssessmentsController | perm: ACR_WRITE
 POST /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
 POST /admission-intakes/:id/stages | IntakeController | perm: ADMISSION_REVIEW
+POST /admission/applicants | AdmissionApplicantStaffController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/admit | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW

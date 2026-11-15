@@ -98,4 +98,6 @@ export class SubmitApplicantDto {
 export class SubmitApplicantResponseDto {
   @ApiProperty() reference_number: string;
   @ApiProperty() status: string;
+  /** Staff create only: `REFERENCE_SEEN` when the fee reference was used before (warn, never block). */
+  @ApiProperty({ required: false, type: [String] }) warnings?: string[];
 }
