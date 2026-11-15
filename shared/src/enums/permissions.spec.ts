@@ -152,14 +152,22 @@ describe('family read grants [5.1]', () => {
 
   for (const role of FAMILY_ROLES) {
     it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ, ROUTINE_READ, HOMEWORK_READ, SYLLABUS_READ and PROGRAM_READ`, () => {
-      expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
+      // [3.x] D34 — PARENT alone also holds PAYMENT_SUBMIT.
+      const expected =
+        role === UserRole.PARENT
+          ? [...FAMILY_PERMISSIONS, Permission.PAYMENT_SUBMIT]
+          : [...FAMILY_PERMISSIONS];
+      expect([...ROLE_PERMISSIONS[role]].sort()).toEqual(expected.sort());
     });
   }
 
-  // PARENT and STUDENT are byte-identical by design (see audiences.ts) —
-  // the portal is one route tree, not two.
-  it('gives PARENT and STUDENT the same permission set', () => {
-    expect(ROLE_PERMISSIONS[UserRole.PARENT]).toEqual(ROLE_PERMISSIONS[UserRole.STUDENT]);
+  // PARENT and STUDENT are identical by design (see audiences.ts) — the
+  // portal is one route tree, not two — except [3.x] D34's PAYMENT_SUBMIT,
+  // which only a guardian holds.
+  it('gives PARENT and STUDENT the same permission set, bar PAYMENT_SUBMIT', () => {
+    expect(
+      ROLE_PERMISSIONS[UserRole.PARENT].filter((p) => p !== Permission.PAYMENT_SUBMIT),
+    ).toEqual(ROLE_PERMISSIONS[UserRole.STUDENT]);
   });
 
   /**
@@ -1179,6 +1187,22 @@ describe('final results add no permission [70.1.1, D29]', () => {
     for (const [role, permissions] of Object.entries(ROLE_PERMISSIONS)) {
       const bad = permissions.filter((p) => /final[_.-]?result|report[_.-]?card/i.test(p));
       expect(bad, `${role} holds a final-result permission`).toEqual([]);
+    }
+  });
+});
+
+describe('PAYMENT_SUBMIT [3.x] D4/D34', () => {
+  it('PARENT holds it', () => {
+    expect(roleHasPermission(UserRole.PARENT, Permission.PAYMENT_SUBMIT)).toBe(true);
+  });
+
+  it('only PARENT and SUPER_ADMIN (all permissions) hold it; STUDENT, ADMIN, ACCOUNTANT do not', () => {
+    const holders = Object.values(UserRole).filter((r) =>
+      ROLE_PERMISSIONS[r].includes(Permission.PAYMENT_SUBMIT),
+    );
+    expect(holders.sort()).toEqual([UserRole.PARENT, UserRole.SUPER_ADMIN].sort());
+    for (const r of [UserRole.STUDENT, UserRole.ADMIN, UserRole.ACCOUNTANT]) {
+      expect(roleHasPermission(r, Permission.PAYMENT_SUBMIT)).toBe(false);
     }
   });
 });

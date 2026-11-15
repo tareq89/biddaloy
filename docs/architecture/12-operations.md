@@ -408,7 +408,7 @@ who is _not_ signed in cannot sign in to see it, since sign-in answers 503. The 
 Limit: while Redis is down, `GET /platform/alerts` itself answers `503`, even for an owner with a
 cockpit token already open. The cockpit session check lives in Redis and fails closed
 ([Rule 15](08-security.md#rule-15-redis-down-has-a-written-answer-per-route)); a revoked owner
-session must never be accepted because a cache is down. The banner shows its error state and the
+session must never be accepted because a cache is down. The banner keeps the last alert it loaded (nothing if the first load failed) and shows no error state; the
 SMS above is the channel. Decision (#4083): accept the 503; no fail-open exception for this route.
 
 Limit: with several API instances in a partial partition (one reaches Redis, another does not), the

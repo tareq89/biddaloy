@@ -7,6 +7,7 @@ import { GuardianService } from '../students/students.service';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
@@ -1631,6 +1632,24 @@ describe('PaymentService (integration)', () => {
           }),
         );
       }
+      // An invoice for the whole checkout: its snapshot names every paying student.
+      const invoice = await dataSource.getRepository(Invoice).save({
+        invoice_number: 'INV-2455-1',
+        tenant_id: TENANT_ID,
+        student_id: a.id,
+        payment_id: payment.id,
+        total_amount: 700,
+        status: 'ISSUED' as any,
+        issued_date: new Date('2026-01-05'),
+        due_date: new Date('2026-01-05'),
+        snapshot: {
+          students: [
+            { id: a.id, full_name: a.full_name },
+            { id: b.id, full_name: b.full_name },
+          ],
+        } as any,
+      });
+      await paymentRepo.update({ id: payment.id }, { invoice_id: invoice.id });
       return { a, b, payment };
     }
 
@@ -1659,6 +1678,13 @@ describe('PaymentService (integration)', () => {
       );
       const onlyB = await service.findByGuardian(guardian.id, TENANT_ID, [b.id]);
       expect(onlyB.map((p) => Number(p.total_amount))).toEqual([400]);
+      // [#2455] a shared payment never carries another student's record
+      expect(onlyB[0].student.id).toBe(b.id);
+      expect(onlyB[0].student_id).toBe(b.id);
+      expect(onlyB[0].invoice?.invoice_number).toBe('INV-2455-1');
+      const json = JSON.stringify(onlyB);
+      expect(json).not.toContain(a.id);
+      expect(json).not.toContain('Sibling 1');
       const all = await service.findByGuardian(guardian.id, TENANT_ID);
       expect(all.map((p) => Number(p.total_amount))).toEqual([700]);
     });

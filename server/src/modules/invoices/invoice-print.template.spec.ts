@@ -116,6 +116,59 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
   } as Payment;
 }
 
+describe('renderInvoiceHtml "How it was paid" block [3.2.03]', () => {
+  const proof = {
+    source: 'PROOF' as const,
+    method: 'BKASH',
+    trx_id: 'TRX9A8B7C',
+    submitted_at: '2026-02-01T05:00:00.000Z',
+    verified_by_name: 'Nasrin <b>Akter</b>',
+    verified_at: '2026-02-02T05:00:00.000Z',
+    paid_at: null,
+  };
+
+  it('PROOF: shows method, TrxID, submitted on, verifier name (escaped) for staff', () => {
+    const html = renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null, undefined, proof);
+    expect(html).toContain('How it was paid');
+    expect(html).toContain('TRX9A8B7C');
+    expect(html).toContain('by Nasrin &lt;b&gt;Akter&lt;/b&gt; on');
+    expect(html).not.toContain('<b>Akter</b>');
+  });
+
+  it('PROOF: a guardian view (linked students) never names the verifier', () => {
+    const html = renderInvoiceHtml(
+      makeInvoice(),
+      [makePayment()],
+      issuer,
+      null,
+      ['student-1'],
+      proof,
+    );
+    expect(html).not.toContain('Nasrin');
+    expect(html).toContain('by the school on');
+  });
+
+  it('ONLINE: shows gateway, TrxID and paid at', () => {
+    const html = renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null, undefined, {
+      ...proof,
+      source: 'ONLINE',
+      submitted_at: null,
+      verified_by_name: null,
+      verified_at: null,
+      paid_at: '2026-02-01T05:00:00.000Z',
+    });
+    expect(html).toContain('Gateway');
+    expect(html).toContain('Paid at');
+    expect(html).not.toContain('Verified');
+  });
+
+  it('counter invoice has no block', () => {
+    expect(renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null)).not.toContain(
+      'How it was paid',
+    );
+  });
+});
+
 describe('renderInvoiceHtml (A4)', () => {
   it('renders both students, escaped, with Bengali-numeral amounts', () => {
     const html = renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null);

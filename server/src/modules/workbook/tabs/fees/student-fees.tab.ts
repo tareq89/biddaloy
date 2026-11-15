@@ -175,7 +175,8 @@ const excluded: readonly string[] = [
 ];
 
 /** Postgres error code for a foreign-key violation. */
-const FK_VIOLATION = '23503';
+// 23503 = NO ACTION fk, 23001 = ON DELETE RESTRICT fk (payment_submission_bills).
+const FK_VIOLATIONS = ['23503', '23001'];
 
 const logger = new Logger('StudentFeesTab');
 
@@ -522,10 +523,26 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
 
   async remove(entity: StudentFee, m: EntityManager): Promise<void> {
     try {
+      // Bill rows of a closed-out proof (never paid) must not block the delete: drop them first.
+      // A live proof (PENDING, ONLINE in flight) and settled rows (payment_id set) keep their RESTRICT guard.
+      await m.query(
+        `DELETE FROM payment_submission_bills b
+          USING payment_submissions s
+          WHERE b.student_fee_id = $1 AND b.payment_id IS NULL
+            AND s.id = b.submission_id AND s.tenant_id = b.tenant_id
+            AND s.status IN ('REJECTED','WITHDRAWN','DISCARDED','EXPIRED','FAILED','CANCELLED')
+            AND b.tenant_id = (SELECT tenant_id FROM students WHERE id = $2)`,
+        [entity.id, entity.student_id],
+      );
       await m.delete(StudentFee, { id: entity.id });
     } catch (e) {
-      if (e instanceof QueryFailedError && (e as { code?: string }).code === FK_VIOLATION) {
-        throw new Error(`Cannot delete student fee ${entity.id}: it is referenced by a payment.`);
+      if (
+        e instanceof QueryFailedError &&
+        FK_VIOLATIONS.includes((e as { code?: string }).code ?? '')
+      ) {
+        throw new Error(
+          `Cannot delete student fee ${entity.id}: it is referenced by a payment or payment submission.`,
+        );
       }
       throw e;
     }

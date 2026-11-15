@@ -37,6 +37,11 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AttendanceImportModule } from './modules/attendance/import/attendance-import.module';
 import { RoutinesModule } from './modules/routines/routines.module';
 import { AccountAccessModule } from './modules/account-access/account-access.module';
+import { PaymentSubmission } from './modules/payment-submissions/entities/payment-submission.entity';
+import { PaymentSubmissionBill } from './modules/payment-submissions/entities/payment-submission-bill.entity';
+import { PaymentSubmissionFile } from './modules/payment-submissions/entities/payment-submission-file.entity';
+import { PaymentSubmissionEvent } from './modules/payment-submissions/entities/payment-submission-event.entity';
+import { PaymentSubmissionsModule } from './modules/payment-submissions/payment-submissions.module';
 import { WorkbookModule } from './modules/workbook/workbook.module';
 import { ExportModule } from './modules/workbook/export/export.module';
 import { BackupScheduleModule } from './modules/workbook/schedule/backup-schedule.module';
@@ -106,6 +111,7 @@ import { Alert } from './modules/attention/entities/alert.entity';
 import { SeatOrder } from './modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from './modules/billing/entities/platform-payment.entity';
 import { BillingModule } from './modules/billing/billing.module';
+import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gateways.module';
 import { SmsBundlesModule } from './modules/sms-bundles/sms-bundles.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
@@ -458,6 +464,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             PlatformAlert,
             SeatOrder,
             PlatformPayment,
+            PaymentSubmission,
+            PaymentSubmissionBill,
+            PaymentSubmissionFile,
+            PaymentSubmissionEvent,
             // [98.1.99] cockpit identity (Epic 98 wave 1).
             PlatformAdmin,
             PlatformAdminDevice,
@@ -559,6 +569,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     InvoicesModule,
     CommunicationsModule,
     BillingModule,
+    PaymentGatewaysModule,
     SmsBundlesModule,
     PlansModule,
     CouponsModule,
@@ -570,6 +581,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     RoutinesModule,
     AccountAccessModule,
     WorkbookModule,
+    PaymentSubmissionsModule,
     ExportModule,
     BackupScheduleModule,
     DigestModule,

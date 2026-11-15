@@ -81,6 +81,7 @@ import {
   WalletCardsIcon,
   UserSearchIcon,
   PiggyBankIcon,
+  SmartphoneIcon,
 } from 'lucide-react';
 
 import type { StaffNavItemId } from './nav-tree';
@@ -132,6 +133,7 @@ export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
   'finance.generateFees': FilePlus2Icon,
   'finance.recurringSchedules': RepeatIcon,
   'finance.fines': GavelIcon,
+  'finance.onlinePayments': SmartphoneIcon,
   'finance.payments': ReceiptTextIcon,
   'finance.invoices': ReceiptIcon,
   'reports.hub': FolderOpenIcon,

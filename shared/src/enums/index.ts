@@ -118,6 +118,44 @@ export enum PaymentStatus {
   REFUNDED = 'REFUNDED',
 }
 
+// [3.x] D35 — where a payment submission came from.
+export enum PaymentSubmissionSource {
+  ONLINE = 'ONLINE',
+  PROOF = 'PROOF',
+}
+
+// [3.x] D45 — union of online-attempt and proof-review states.
+export enum PaymentSubmissionStatus {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  REJECTED = 'REJECTED',
+  DISCARDED = 'DISCARDED',
+  WITHDRAWN = 'WITHDRAWN',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
+  REVERSED = 'REVERSED',
+}
+
+// [3.x] D42
+export enum PaymentProofRejectReason {
+  TRXID_NOT_FOUND = 'TRXID_NOT_FOUND',
+  AMOUNT_MISMATCH = 'AMOUNT_MISMATCH',
+  IMAGE_UNCLEAR = 'IMAGE_UNCLEAR',
+  DUPLICATE = 'DUPLICATE',
+  OTHER = 'OTHER',
+}
+
+export enum PaymentGatewayProvider {
+  BKASH = 'BKASH',
+}
+
+export enum PaymentGatewayEnvironment {
+  SANDBOX = 'SANDBOX',
+  PRODUCTION = 'PRODUCTION',
+}
+
 export enum PaymentAllocationType {
   DUE = 'DUE',
   CURRENT = 'CURRENT',

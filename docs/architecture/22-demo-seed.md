@@ -208,6 +208,33 @@ The upload row belongs to the admin, not the teacher: its past days are
 FINALIZED, and only a holder of `ATTENDANCE_CORRECT` could really upload over
 them. A teacher sees only their own uploads, so that card would see none.
 
+#### Payment proofs (Epic 3.0, #3973)
+
+The `payment-submissions` slice runs after `gallery`, before `attention`. Everything goes through the real services
+(`ProofSubmissionsService`, `ProofReviewService`, `CheckoutService`), so events, audit rows, payments and invoices are real.
+
+```mermaid
+flowchart LR
+  S[settings: proofEnabled + BKASH + CASH in all 3 branches] --> B[7 open bills of bmsc-high login guardians]
+  B --> P1[2 waiting, 2nd reuses the 1st TrxID = DUPLICATE_PENDING]
+  B --> C[2 confirmed: Payment + invoice]
+  B --> R[1 rejected IMAGE_UNCLEAR]
+  B --> D[1 discarded: counter payment first, then confirm]
+  B --> W[1 withdrawn]
+```
+
+| Login card   | Branch      | Sees                                                                                                         |
+| ------------ | ----------- | ------------------------------------------------------------------------------------------------------------ |
+| `accountant` | `bmsc-high` | Payments › Online › Waiting: 2 waiting proofs (one flagged duplicate), the other 5 under their status tabs   |
+| `guardian`   | `bmsc-high` | the card family's bills come first, so its High child carries the first proofs (waiting, then confirmed ...) |
+
+- The two waiting proofs are dated 3 and 1 days before the anchor (`created_at`), so the older one turns the
+  "payment proofs waiting" alert red. Real TrxIDs are `DM` + 8 characters from `ctx.rng`; proof files are one
+  generated 360x240 PNG (`demo-seed/assets/payment-proof-placeholder.png`), stored through `StorageService`.
+- The slice picks bills with `ORDER BY` name, so a rerun on one anchor gives the same families.
+  With `--scale 0.05` it may find fewer than 7 open bills and runs as many plans as it has bills (at least 1).
+- ONLINE proofs are added to this slice by #3988.
+
 #### Deep links
 
 `/login?role=<Card key>` on a demo host signs in as that card, once, then drops the param from the URL

@@ -1,0 +1,55 @@
+{
+  "dueCard": {
+    "pay": "Pay {{amount}}",
+    "officeOnly": "Pay at the school office"
+  },
+  "page": {
+    "title": "Pay fees",
+    "close": "Close",
+    "loading": "Loading your bills",
+    "loadError": "Could not load your bills. Check your connection and try again.",
+    "retry": "Try again",
+    "nothingToPay": "No bills to pay right now.",
+    "officeOnly": "Pay at the school office. Online payment is not turned on.",
+    "back": "Back to fees"
+  },
+  "bills": {
+    "title": "1. Which bills are you paying",
+    "hint": "All bills are ticked. Untick the ones you are not paying.",
+    "total": "Total",
+    "waiting": "Waiting for confirmation",
+    "noneSelected": "Tick at least one bill."
+  },
+  "how": {
+    "title": "2. How are you paying",
+    "proofTitle": "Already paid — submit proof",
+    "proofNote": "Paid in any way? Give the transaction ID or a photo."
+  },
+  "proof": {
+    "title": "3. Payment proof",
+    "method": "How did you pay",
+    "amount": "Amount",
+    "paidOn": "When did you pay",
+    "trxId": "Transaction ID (TrxID)",
+    "trxIdPlaceholder": "For example 8N7A6D5EFG",
+    "instructions": "School instructions: {{text}}",
+    "files": "Photos (up to 2: JPG, PNG or PDF)",
+    "filesLabel": "Payment proof photos",
+    "evidenceHint": "Give the transaction ID or a photo, at least one. Both is best.",
+    "submit": "Submit payment proof"
+  },
+  "errors": {
+    "method": "Choose how you paid.",
+    "date": "Choose the date you paid.",
+    "future": "The date cannot be in the future.",
+    "evidence": "Give the transaction ID or add a photo.",
+    "tooManyFiles": "You can add up to 2 photos.",
+    "storageDown": "Proof cannot be saved right now. Please try again in a little while.",
+    "busy": "One of these bills already has a payment waiting for confirmation. Reload and pick again.",
+    "generic": "Could not send your payment proof. Check the form and try again."
+  },
+  "done": {
+    "title": "Payment proof sent",
+    "body": "The school will confirm it soon. Your bills show Waiting for confirmation until then."
+  }
+}

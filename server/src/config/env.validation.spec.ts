@@ -258,6 +258,15 @@ describe('assertProductionConfig (via validate)', () => {
     expect(() => validate(rest)).toThrow(/API_BASE_URL is required in production/);
   });
 
+  it('rejects an API_BASE_URL that is not a bare https origin', () => {
+    for (const bad of ['http://api.school.org', 'api.school.org', 'https://api.school.org/']) {
+      expect(() => validate({ ...prodConfig, API_BASE_URL: bad })).toThrow(
+        /API_BASE_URL must be an https origin/,
+      );
+    }
+    expect(() => validate({ ...prodConfig, API_BASE_URL: 'https://api.school.org' })).not.toThrow();
+  });
+
   it('rejects a CORS_ORIGINS entry with a trailing slash', () => {
     expect(() => validate({ ...prodConfig, CORS_ORIGINS: 'https://a.school.org/' })).toThrow(
       /CORS_ORIGINS/,

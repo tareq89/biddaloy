@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
+import type { TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -26,21 +27,22 @@ describe('ChangeRequestsService.resolve (integration)', () => {
   let service: ChangeRequestsService;
   let audit: AuditService;
   let ds: DataSource;
+  let moduleRef: TestingModule;
   const CONTEXT = { ip: null, userAgent: null };
 
   beforeAll(async () => {
-    const module = await createTestModule(
+    moduleRef = await createTestModule(
       ALL_ENTITIES,
       [],
       [ConfigModule.forRoot({ isGlobal: true }), RoutinesModule, AuthModule],
     );
-    service = module.get(ChangeRequestsService);
-    audit = module.get(AuditService, { strict: false });
-    ds = module.get<DataSource>(getDataSourceToken());
+    service = moduleRef.get(ChangeRequestsService);
+    audit = moduleRef.get(AuditService, { strict: false });
+    ds = moduleRef.get<DataSource>(getDataSourceToken());
   }, 60000);
 
   afterAll(async () => {
-    if (ds) await ds.destroy();
+    await moduleRef?.close();
   });
 
   beforeEach(async () => {

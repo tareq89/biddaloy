@@ -893,6 +893,43 @@ describe('/portal/fees', () => {
     });
   });
 
+  describe('[3.x/#3975] tabs', () => {
+    it('opens the proofs tab from ?tab=proofs and the URL follows a tab click', async () => {
+      standardMocks();
+      server.use(http.get('/api/v1/portal/payment-proofs', () => HttpResponse.json([])));
+      const { router } = renderFees('/portal/fees?tab=proofs');
+
+      expect(await screen.findByText('No payment proofs yet')).toBeTruthy();
+      // The fee breakdown is the other tab, not rendered now.
+      expect(screen.queryByText('September 2025')).toBeNull();
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Fees and invoices' }));
+      expect(await screen.findByText('September 2025')).toBeTruthy();
+      await waitFor(() => expect(router.state.location.search).not.toHaveProperty('tab'));
+    });
+  });
+
+  describe('[3.x/#3975] proofs tab independence', () => {
+    it('is reachable and does not fetch the fee queries when they would fail', async () => {
+      standardMocks();
+      server.use(
+        http.get('/api/v1/invoices', () => {
+          invoiceRequests.push('called');
+          return HttpResponse.json(apiErrorBody(500, 'boom', '/api/v1/invoices'), {
+            status: 500,
+          });
+        }),
+        http.get('/api/v1/portal/payment-proofs', () => HttpResponse.json([])),
+      );
+      renderFees('/portal/fees?tab=proofs');
+
+      expect(await screen.findByText('No payment proofs yet')).toBeTruthy();
+      expect(invoiceRequests).toEqual([]);
+      // The proofs tab has no student picker or child subtitle.
+      expect(screen.queryByRole('navigation', { name: 'Choose a student' })).toBeNull();
+    });
+  });
+
   describe('states and contracts', () => {
     it('shows no h1 while loading', async () => {
       standardMocks();
@@ -943,6 +980,8 @@ describe('/portal/fees', () => {
       expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
       expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
       expect(document.body.textContent).not.toContain('9f1c3d20');
+      // The proofs tab stays reachable while the bills are down.
+      expect(screen.getByRole('tab', { name: 'My payment proofs' })).toBeTruthy();
     });
 
     it('shows the same error frame when the invoice list fails', async () => {

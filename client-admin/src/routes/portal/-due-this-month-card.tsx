@@ -1,7 +1,9 @@
 import { Card } from '@biddaloy/ui/components';
-import type { FeeDueEntry } from '@biddaloy/ui/hooks';
+import type { FeeDueEntry, PaymentOptions } from '@biddaloy/ui/hooks';
 import { useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
+
+import { PayLine } from './-pay-line';
 
 /**
  * [38.4.5] One child's "due this month" figures — rendered from the same
@@ -43,9 +45,12 @@ interface DueProps {
   dues: FeeDueEntry[];
   now: Date;
   config: RegionConfig;
+  studentId?: string | undefined;
+  /** [3.4.01] The school's guardian payment toggles. Absent (not loaded) = no pay line at all. */
+  payOptions?: Pick<PaymentOptions, 'onlineEnabled' | 'proofEnabled'> | undefined;
 }
 
-function DueBody({ dues, now, config }: DueProps) {
+function DueBody({ dues, now, config, payOptions, studentId }: DueProps) {
   const { t } = useTranslation('portal');
   const { thisMonth, carriedOver, carriedOverTotal, total } = splitDues(dues, now);
   return (
@@ -72,6 +77,7 @@ function DueBody({ dues, now, config }: DueProps) {
         <span>{t('fees.totalToPayThisMonth')}</span>
         <span className="tabular-nums">{formatServerAmount(total, config)}</span>
       </p>
+      <PayLine options={payOptions} total={total} config={config} studentId={studentId} />
     </>
   );
 }

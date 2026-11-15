@@ -59,6 +59,7 @@ export function lessonsCellError(value: unknown): string | null {
       isObject(l) &&
       typeof l.id === 'string' &&
       l.id !== '' &&
+      l.id.length <= L.lessonIdMax &&
       typeof l.title === 'string' &&
       l.title.length <= L.titleMax &&
       Number.isInteger(l.periods) &&
@@ -68,7 +69,7 @@ export function lessonsCellError(value: unknown): string | null {
       (l.topic_id === undefined || typeof l.topic_id === 'string'),
   );
   if (!ok) {
-    return `every lesson needs a text "id", a "title" of at most ${L.titleMax} characters, a whole-number "periods" from ${L.periodsMin} to ${L.periodsMax}, and "notes" of at most ${L.notesMax} characters.`;
+    return `every lesson needs a text "id" of at most ${L.lessonIdMax} characters, a "title" of at most ${L.titleMax} characters, a whole-number "periods" from ${L.periodsMin} to ${L.periodsMax}, and "notes" of at most ${L.notesMax} characters.`;
   }
   const ids = value.map((l) => (l as { id: string }).id);
   return new Set(ids).size === ids.length ? null : 'every lesson "id" must be unique.';

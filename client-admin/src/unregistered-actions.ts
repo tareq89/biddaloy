@@ -81,6 +81,20 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
       'opened from the My class card only; the palette action `arrival-notice.requests` lands on the card, so the dialog itself stays out of `Ctrl+K`',
   },
   {
+    file: `${R}_staff/payments/online/$id.tsx`,
+    reason:
+      'review of one waiting proof; the palette action `payments.waiting` lands on the list it is reached from',
+  },
+  {
+    file: `${R}_staff/payments/online/-reject-dialog.tsx`,
+    reason: 'rejects one proof, opened from its review page; the palette cannot name which proof',
+  },
+  {
+    file: `${R}portal/fees_/pay.tsx`,
+    reason:
+      'guardian portal page: the portal palette is pages-only, and Pay is an action on Fees & invoices reached from the due card',
+  },
+  {
     file: `${R}_platform/holiday-sets/$setId.tsx`,
     reason: 'Platform console: its palette is pages-only (31.3.3); `ACTIONS` is staff-scoped',
   },

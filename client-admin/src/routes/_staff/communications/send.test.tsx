@@ -572,4 +572,61 @@ describe('/communications/send', () => {
       expect(screen.queryByRole('link', { name: /Settings/ })).toBeNull();
     });
   });
+  // [3.4.x] Send SMS on the proof review: `?to=guardian:<id>` prefills one recipient, sends nothing.
+  it('prefills one guardian recipient from the `to` param and posts nothing', async () => {
+    let posted = false;
+    server.use(
+      http.get('/api/v1/guardians/guardian-1', () =>
+        HttpResponse.json({ ...GUARDIAN, students: [{ id: 'student-1' }] }),
+      ),
+      http.get('/api/v1/students/student-1', () => HttpResponse.json(STUDENT)),
+      http.post('/api/v1/communications/send', () => {
+        posted = true;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/communications/send?to=guardian:guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const radio = await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' });
+    await waitFor(() => expect(radio.getAttribute('aria-checked')).toBe('true'));
+    expect(
+      screen.getByRole('radio', { name: 'Karim Uddin (Father)' }).getAttribute('aria-checked'),
+    ).toBe('false');
+    expect(posted).toBe(false);
+  });
+
+  it('a slow prefill does not overwrite the guardian picked by hand', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      studentSearchHandler(),
+      http.get('/api/v1/guardians/guardian-1', async () => {
+        await gate;
+        return HttpResponse.json({ ...GUARDIAN, students: [{ id: 'student-1' }] });
+      }),
+      http.get('/api/v1/students/student-1', () => HttpResponse.json(STUDENT)),
+    );
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/communications/send?to=guardian:guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await pickGuardian(user, 'Karim Uddin (Father)');
+    release();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(
+      screen.getByRole('radio', { name: 'Karim Uddin (Father)' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(
+      screen.getByRole('radio', { name: 'Rahima Begum (Mother)' }).getAttribute('aria-checked'),
+    ).toBe('false');
+  });
 });

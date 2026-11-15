@@ -86,6 +86,15 @@ export interface Ctx {
   n(): number;
 }
 
+/*
+ * [3.x/#3961] Deliberately NOT parents here: `StudentFee` and `Payment`, though
+ * `payment_submission_bills.student_fee_id` and `.payment_id` point at them.
+ * `Payment` is never deleted (only reversed). `StudentFee` is soft-deleted by
+ * FeeGenerationBatchService and FeeGenerationService; since #3966 those paths call
+ * `assertNoWaitingSubmissionBills` (fees/submission-bill-guard.ts), which answers 409
+ * PAYMENT_SUBMISSION_WAITING while a PENDING submission covers the bill. Both FKs are also
+ * ON DELETE RESTRICT, so a hard delete fails in the database.
+ */
 export type ParentKind =
   | 'AcademicYear'
   | 'Class'

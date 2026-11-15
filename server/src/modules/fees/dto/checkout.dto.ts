@@ -14,8 +14,9 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { FeeType, PaymentMethod, PeriodType } from '@biddaloy/shared';
+import { FeeType, PaymentMethod, PaymentSubmissionSource, PeriodType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { MAX_CART_STUDENTS } from '../checkout-cart.service';
 import { Payment } from '../entities/payment.entity';
@@ -141,6 +142,13 @@ export class CheckoutResultDto {
   wallet_balance_after: number;
 }
 
+/** The proof or online attempt waiting on a cart bill. */
+export class CartWaitingSubmissionDto {
+  id: string;
+  @ApiProperty({ enum: PaymentSubmissionSource })
+  source: PaymentSubmissionSource;
+}
+
 /** One bill within `GET /payments/cart`'s response — mirrors
  * `checkout-cart.service.ts`'s `CartBill` interface. A plain class (rather
  * than importing that interface) so the `@nestjs/swagger` CLI plugin can
@@ -162,6 +170,8 @@ export class CartBillDto {
   is_late_fee: boolean;
   is_overdue: boolean;
   suggested_allocation: number;
+  @ApiProperty({ type: () => CartWaitingSubmissionDto, nullable: true })
+  waiting_submission: CartWaitingSubmissionDto | null;
 }
 
 /** One student within `GET /payments/cart`'s response — mirrors

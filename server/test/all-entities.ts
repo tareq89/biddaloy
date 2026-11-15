@@ -47,6 +47,10 @@ import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity'
 import { FineRule } from '../src/modules/fees/entities/fine-rule.entity';
 import { DiscountRule } from '../src/modules/fees/entities/discount-rule.entity';
 import { Payment } from '../src/modules/fees/entities/payment.entity';
+import { PaymentSubmission } from '../src/modules/payment-submissions/entities/payment-submission.entity';
+import { PaymentSubmissionBill } from '../src/modules/payment-submissions/entities/payment-submission-bill.entity';
+import { PaymentSubmissionFile } from '../src/modules/payment-submissions/entities/payment-submission-file.entity';
+import { PaymentSubmissionEvent } from '../src/modules/payment-submissions/entities/payment-submission-event.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
 import { StudentFee } from '../src/modules/fees/entities/student-fee.entity';
 import { FeeGeneration } from '../src/modules/fees/entities/fee-generation.entity';
@@ -229,6 +233,10 @@ export const ALL_ENTITIES = [
   FineRule,
   DiscountRule,
   Payment,
+  PaymentSubmission,
+  PaymentSubmissionBill,
+  PaymentSubmissionFile,
+  PaymentSubmissionEvent,
   PaymentAllocation,
   StudentFee,
   FeeGeneration,

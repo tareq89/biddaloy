@@ -1,4 +1,5 @@
 import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { assertNoWaitingSubmissionBills } from './submission-bill-guard';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { autoApply } from './wallet-auto-apply.util';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
@@ -454,6 +455,7 @@ export class FeeGenerationService {
           .orderBy('sf.id', 'ASC')
           .setLock('pessimistic_write')
           .getMany();
+        await assertNoWaitingSubmissionBills(manager, tenantId, bulkExistingIds);
         if (
           removedBillsToReturn.some((b) => Number(b.paid_amount) > 0) ||
           (await manager
@@ -937,7 +939,10 @@ export class FeeGenerationService {
       where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
       ...(opts.lockStudents ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
-    if (students.length !== new Set(studentIds).size && !opts.skipMissingStudents) {
+    // An unattended run bills the students that are left, but when every one of them vanished it
+    // fails (the caller rolls back): an empty batch must not be written and the period advanced.
+    const allowMissing = opts.skipMissingStudents && students.length > 0;
+    if (students.length !== new Set(studentIds).size && !allowMissing) {
       throw new NotFoundException('One or more student IDs not found');
     }
 

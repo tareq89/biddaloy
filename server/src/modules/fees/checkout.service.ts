@@ -113,6 +113,9 @@ export class CheckoutService {
     userId: string,
     request: RequestLike,
     meta?: CheckoutMeta,
+    /** `receivedByUserId: null` = nobody at the counter took it (a settled guardian payment, D39). */
+    /** `exactBalance` = each line must equal its bill's balance under the lock (a settlement). */
+    opts?: { receivedByUserId?: string | null; exactBalance?: boolean },
   ): Promise<CheckoutResultDto> {
     const existing = await this.findByIdempotencyKey(tenantId, dto.idempotency_key);
     if (existing) {
@@ -222,6 +225,12 @@ export class CheckoutService {
             throw new BadRequestException({
               message: 'The amount is more than the outstanding balance',
               details: { code: 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE' },
+            });
+          }
+          if (opts?.exactBalance && requestedPaisa !== balancePaisa) {
+            throw new ConflictException({
+              message: 'The balance changed',
+              details: { code: 'CHECKOUT_BALANCE_CHANGED' },
             });
           }
         }
@@ -359,7 +368,8 @@ export class CheckoutService {
           payment_status: PaymentStatus.SUCCESS,
           transaction_reference: dto.transaction_reference ?? null,
           remarks: dto.remarks ?? null,
-          received_by_user_id: userId,
+          received_by_user_id:
+            opts?.receivedByUserId !== undefined ? opts.receivedByUserId : userId,
           payment_date: now,
           tenant_id: tenantId,
           idempotency_key: dto.idempotency_key,
@@ -550,6 +560,16 @@ export class CheckoutService {
       change_amount: Number(payment.change_amount),
       wallet_balance_after: walletBalanceAfter,
     };
+  }
+
+  /**
+   * A payment found by its idempotency key without going through `checkout` (a crashed
+   * settlement): link its invoice and redo the after-commit work. Safe to repeat.
+   */
+  async finishRecovered(paymentId: string, tenantId: string, userId: string): Promise<Payment> {
+    const payment = await this.ensureInvoiceLinked(paymentId);
+    await this.afterCommit(payment, tenantId, userId);
+    return payment;
   }
 
   /** Receipt notice job + fee-alert rechecks, after the payment is committed. Safe to repeat. */

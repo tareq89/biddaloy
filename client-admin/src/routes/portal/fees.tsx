@@ -10,6 +10,10 @@ import {
   HelpHint,
   StatusBadge,
   StudentPicker,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -54,6 +58,8 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
+import { MyProofsTab } from './-my-proofs-tab';
+
 /**
  * [5.3] — the fee breakdown and invoice history behind [5.2]'s landing.
  * A parent or student picks one child and sees, for that child: what the
@@ -92,9 +98,11 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
  *   single-item list" rule as `portal/index.tsx`.
  * - **Zero discount renders as an em dash**, not "৳0.00", so a real zero
  *   is not read as a missing figure.
- * - **Read-only.** No mutation of any kind lives on this page, so
- *   `no-optimistic-financial-mutation` is satisfied by construction, and
- *   there is no "pay now" anywhere — self-service payment is #291.
+ * - **Two tabs, in the URL (`?tab=proofs`).** "Fees and invoices" is
+ *   read-only. "My payment proofs" ([3.x/#3975], `-my-proofs-tab.tsx`) lists
+ *   the guardian's proofs and offers one write: withdraw a waiting proof,
+ *   which is not optimistic (`no-optimistic-financial-mutation`): the card
+ *   changes only after the server answers.
  *
  * **Heading structure is load-bearing.** `useRouteFocus` focuses the
  * route's `<h1>` inside `<main>` after a navigation, so, per frame:
@@ -125,6 +133,8 @@ const feesSearchSchema = z.object({
    * the caller's own `/students/mine` list falls back to the first
    * student rather than being forwarded. */
   student: z.string().optional().catch(undefined),
+  /** Which tab is open; absent means the fee breakdown. */
+  tab: z.enum(['bills', 'proofs']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/portal/fees')({
@@ -185,6 +195,7 @@ function PortalFees() {
   const { t: tNav } = useTranslation('nav');
   const config = useRegionConfig();
   const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const studentMeta = useStudentMeta();
 
   const studentsQuery = useMyStudents();
@@ -226,7 +237,11 @@ function PortalFees() {
   const selected =
     students.find((student) => student.id === search.student) ?? students[0] ?? undefined;
 
-  const summaryQuery = useStudentFeeSummary(selected?.id);
+  // [3.x/#3975] On the proofs tab the five bills queries stay parked: that tab must not
+  // wait on, fail on, or fire them.
+  const onProofs = search.tab === 'proofs';
+  const billsId = onProofs ? undefined : selected?.id;
+  const summaryQuery = useStudentFeeSummary(billsId);
   // `GET /invoices` defaults to 10 per page, and a monthly fee schedule
   // issues twelve invoices a year — so the default silently hides part of
   // the first year and more of every year after. 100 is the server's own
@@ -244,19 +259,39 @@ function PortalFees() {
   // under the `invoiceKeys.list({})` key staff surfaces share.
   const invoicesQuery = useQuery({
     ...invoicesQueryOptions(
-      selected === undefined ? {} : { student_id: selected.id, limit: INVOICE_HISTORY_LIMIT },
+      billsId === undefined ? {} : { student_id: billsId, limit: INVOICE_HISTORY_LIMIT },
     ),
-    enabled: selected !== undefined,
+    enabled: billsId !== undefined,
   });
-  const walletQuery = useStudentWallet(selected?.id);
-  const schedulesQuery = useFamilyStudentSchedules(selected?.id);
+  const walletQuery = useStudentWallet(billsId);
+  const schedulesQuery = useFamilyStudentSchedules(billsId);
   // [38.4.5] `GET /fees/fines` narrows to the caller's own linked students
   // server-side (`FamilyAccessService`, same as every other query on this
   // page), so `student_id` here is just which child's fines to show, not
   // an access check.
-  const finesQuery = useFines(selected === undefined ? {} : { student_id: selected.id }, {
-    enabled: selected !== undefined,
+  const finesQuery = useFines(billsId === undefined ? {} : { student_id: billsId }, {
+    enabled: billsId !== undefined,
   });
+
+  function goTab(tab: string): void {
+    void navigate({
+      to: '/portal/fees',
+      search: (prev) => ({ ...prev, tab: tab === 'proofs' ? 'proofs' : undefined }),
+    });
+  }
+
+  if (onProofs) {
+    // No student subtitle or picker: the proofs tab lists every child's proofs, and it
+    // loads its own data, so nothing here gates it.
+    return (
+      <PageContainer>
+        <PageHeader title={tNav('items.portalFees')} />
+        <FeesTabs tab="proofs" onTab={goTab}>
+          <MyProofsTab />
+        </FeesTabs>
+      </PageContainer>
+    );
+  }
 
   if (studentsQuery.isPending) return <FeesSkeleton label={t('fees.loading')} />;
 
@@ -292,7 +327,11 @@ function PortalFees() {
     schedulesQuery.isPending ||
     finesQuery.isPending
   ) {
-    return <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />;
+    return (
+      <FeesTabs tab="bills" onTab={goTab}>
+        <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />
+      </FeesTabs>
+    );
   }
 
   if (
@@ -307,17 +346,19 @@ function PortalFees() {
     // imply the rest is complete. No `<h1>`, and never the server's own
     // message — a raw id must not reach a parent.
     return (
-      <ErrorState
-        message={t('fees.error.message')}
-        retryLabel={t('fees.error.retry')}
-        onRetry={() => {
-          void summaryQuery.refetch();
-          void invoicesQuery.refetch();
-          void walletQuery.refetch();
-          void schedulesQuery.refetch();
-          void finesQuery.refetch();
-        }}
-      />
+      <FeesTabs tab="bills" onTab={goTab}>
+        <ErrorState
+          message={t('fees.error.message')}
+          retryLabel={t('fees.error.retry')}
+          onRetry={() => {
+            void summaryQuery.refetch();
+            void invoicesQuery.refetch();
+            void walletQuery.refetch();
+            void schedulesQuery.refetch();
+            void finesQuery.refetch();
+          }}
+        />
+      </FeesTabs>
     );
   }
 
@@ -349,33 +390,61 @@ function PortalFees() {
           <HelpHint helpId="portal.fees.action.pickStudent" />
         </div>
       )}
-      <div className="grid gap-6 md:grid-cols-3 md:items-start">
-        <div className="min-w-0 space-y-6 md:col-span-2">
-          <FeesSummary summary={summaryQuery.data} config={config} />
-          <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
-          {finesQuery.data.items.length > 0 && (
-            <FinesCard fines={finesQuery.data.items} config={config} />
-          )}
-          <InvoicesCard
-            invoices={invoicesQuery.data.data}
-            total={invoicesQuery.data.total}
-            config={config}
-          />
-          {showPushOptIn && invoicesQuery.data.data.length > 0 && (
-            <PushOptInCard
-              onEnable={handlePushOptInEnable}
-              onDismiss={handlePushOptInDismiss}
-              enabling={push.loading}
+      <FeesTabs tab="bills" onTab={goTab}>
+        <div className="grid gap-6 md:grid-cols-3 md:items-start">
+          <div className="min-w-0 space-y-6 md:col-span-2">
+            <FeesSummary summary={summaryQuery.data} config={config} />
+            <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
+            {finesQuery.data.items.length > 0 && (
+              <FinesCard fines={finesQuery.data.items} config={config} />
+            )}
+            <InvoicesCard
+              invoices={invoicesQuery.data.data}
+              total={invoicesQuery.data.total}
+              config={config}
             />
-          )}
+            {showPushOptIn && invoicesQuery.data.data.length > 0 && (
+              <PushOptInCard
+                onEnable={handlePushOptInEnable}
+                onDismiss={handlePushOptInDismiss}
+                enabling={push.loading}
+              />
+            )}
+          </div>
+          {/* A div, not an aside: the app shell already has one aside landmark. */}
+          <div className="space-y-6">
+            {showWallet && <WalletCard wallet={wallet} config={config} />}
+            {showRecurring && <RecurringFeesCard schedules={schedulesQuery.data} config={config} />}
+          </div>
         </div>
-        {/* A div, not an aside: the app shell already has one aside landmark. */}
-        <div className="space-y-6">
-          {showWallet && <WalletCard wallet={wallet} config={config} />}
-          {showRecurring && <RecurringFeesCard schedules={schedulesQuery.data} config={config} />}
-        </div>
-      </div>
+      </FeesTabs>
     </PageContainer>
+  );
+}
+
+/** The two tabs; only the open tab's body is rendered, so the other costs nothing. */
+function FeesTabs({
+  tab,
+  onTab,
+  children,
+}: {
+  tab: 'bills' | 'proofs';
+  onTab: (tab: string) => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation('portal');
+  return (
+    <Tabs value={tab} onValueChange={onTab} className="gap-4">
+      <TabsList variant="line" aria-label={t('proofs.tabsLabel')}>
+        <TabsTrigger value="bills" className="h-11 flex-none px-3 md:h-10">
+          {t('proofs.tabBills')}
+        </TabsTrigger>
+        <TabsTrigger value="proofs" className="h-11 flex-none px-3 md:h-10">
+          {t('proofs.tabProofs')}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value={tab}>{children}</TabsContent>
+    </Tabs>
   );
 }
 

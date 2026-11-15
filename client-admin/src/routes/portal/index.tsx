@@ -13,6 +13,7 @@ import {
   myStudentsQueryOptions,
   useFeeDues,
   useMyStudents,
+  usePaymentOptions,
   usePaymentsByStudent,
 } from '@biddaloy/ui/hooks';
 import type { FeeDueEntry, FeeDueRow, Student } from '@biddaloy/ui/hooks';
@@ -124,6 +125,7 @@ export const Route = createFileRoute('/portal/')({
         'evaluations',
         'setupChecklist',
         'portalNotices',
+        'portalPay',
       ),
     ]),
   pendingComponent: PortalOverviewPending,
@@ -555,6 +557,7 @@ function ChildCard({
 }) {
   const { t } = useTranslation('portal');
   const feesOn = useModuleGate()('fees');
+  const payOptions = usePaymentOptions({ enabled: feesOn }).data;
 
   const dueParts: string[] = [];
   if (child.dueDate !== null) {
@@ -589,7 +592,15 @@ function ChildCard({
               <p className="text-caption text-text-secondary">{dueParts.join(' · ')}</p>
             )}
           </div>
-          {feesOn && <DueThisMonthSection dues={child.dues} now={now} config={config} />}
+          {feesOn && (
+            <DueThisMonthSection
+              dues={child.dues}
+              now={now}
+              config={config}
+              payOptions={payOptions}
+              studentId={child.id}
+            />
+          )}
         </div>
         <div className="flex items-center rounded-b-lg border-t border-border-subtle pr-3 md:pr-4">
           <Link
@@ -621,6 +632,7 @@ function SingleStudentView({
 }) {
   const { t } = useTranslation('portal');
   const feesOn = useModuleGate()('fees');
+  const payOptions = usePaymentOptions({ enabled: feesOn }).data;
   const paymentsQuery = usePaymentsByStudent(child.id);
 
   const metaParts: string[] = [];
@@ -658,7 +670,15 @@ function SingleStudentView({
         </div>
       </Card>
 
-      {feesOn && <DueThisMonthCard dues={child.dues} now={now} config={config} />}
+      {feesOn && (
+        <DueThisMonthCard
+          dues={child.dues}
+          now={now}
+          config={config}
+          payOptions={payOptions}
+          studentId={child.id}
+        />
+      )}
 
       {feesOn && <RecentPayments query={paymentsQuery} config={config} />}
     </PortalPage>

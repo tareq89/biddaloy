@@ -26,9 +26,17 @@ export class PromotionGroupEntryDto {
   @ApiProperty({ type: PromotionGroupResultDto }) result: PromotionGroupResultDto;
 }
 
+/** A source section of the run, for the section filter's options. */
+export class PromotionGroupSectionDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+}
+
 export class PromotionGroupEntriesPageDto {
   @ApiProperty({ type: [PromotionGroupEntryDto] }) data: PromotionGroupEntryDto[];
   @ApiProperty() total: number;
   @ApiProperty() page: number;
   @ApiProperty() limit: number;
+  /** Every source section of the run the caller can reach, ignoring the other filters. */
+  @ApiProperty({ type: [PromotionGroupSectionDto] }) sections: PromotionGroupSectionDto[];
 }

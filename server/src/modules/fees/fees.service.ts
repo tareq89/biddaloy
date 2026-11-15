@@ -4,6 +4,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { FeeStructure } from './entities/fee-structure.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -587,6 +588,7 @@ export class PaymentService {
       .leftJoinAndSelect('payment.allocations', 'allocation')
       .leftJoinAndSelect('allocation.student_fee', 'student_fee')
       .leftJoinAndSelect('student_fee.fee_structure', 'fee_structure')
+      .leftJoinAndSelect('student_fee.student', 'fee_student')
       .leftJoinAndSelect('payment.invoice', 'invoice')
       .where('payment.tenant_id = :tenantId', { tenantId })
       .andWhere('payment.deleted_at IS NULL')
@@ -605,6 +607,19 @@ export class PaymentService {
       const all = payment.allocations ?? [];
       const own = all.filter((a) => a.student_fee && mine.has(a.student_fee.student_id));
       if (all.length > 0 && own.length === 0) continue;
+      // [#2455] a shared payment never carries another student's record: re-point the row at the
+      // viewer's own student and cut the invoice (its snapshot names every payer) to its number.
+      const repointed = !mine.has(payment.student_id);
+      if (repointed) {
+        payment.student = own[0].student_fee.student;
+        payment.student_id = payment.student.id;
+      }
+      if ((repointed || own.length < all.length) && payment.invoice) {
+        payment.invoice = {
+          id: payment.invoice.id,
+          invoice_number: payment.invoice.invoice_number,
+        } as Invoice;
+      }
       if (own.length < all.length) {
         payment.allocations = own;
         payment.total_amount = own.reduce((sum, a) => sum + toPaisa(a.allocated_amount), 0) / 100;

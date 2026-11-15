@@ -14,6 +14,7 @@ import { User } from '../users/entities/user.entity';
 import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import {
   EnrollmentStatus,
@@ -324,7 +325,8 @@ describe('ClassService / SectionService (integration)', () => {
             TENANT_ID,
           )
           .catch((err: unknown) => err);
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // pg_stat_activity cuts long queries: match the start of the entity's column list.
+        await waitForLockWaiters(dataSource, '%"School_id"%', 1);
         await manager.update(
           School,
           { id: TENANT_ID },

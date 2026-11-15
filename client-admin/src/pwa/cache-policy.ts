@@ -48,7 +48,7 @@ const AUTH_PATH_PREFIX = '/api/v1/auth/';
  * verification and the admission form. Share links and verify tokens can be
  * revoked, so a cached copy would keep showing a receipt — or a `VALID`
  * verdict — after that. The admission form needs the network to submit
- * anyway, so caching it buys nothing. (The token ICS feed `/api/v1/calendar/feed/:token`
+ * anyway, so caching it buys nothing. (The token ICS feed `/api/v1/calendar/feed/:token.ics`
  * is outside this prefix and stays cacheable; calendar apps fetch it over `webcal://`.) */
 const PUBLIC_PATH_PREFIX = '/api/v1/public/';
 

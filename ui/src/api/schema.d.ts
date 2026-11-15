@@ -6668,6 +6668,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/payment-proofs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment proofs for the caller's linked children. */
+        get: operations["ProofSubmissionsController_list_v1"];
+        put?: never;
+        /** Submit a payment proof (TrxID and/or up to 2 JPG/PNG/PDF files). */
+        post: operations["ProofSubmissionsController_submit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-proofs/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a waiting proof (submitter only). */
+        post: operations["ProofSubmissionsController_withdraw_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-proofs/{id}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream one proof file. */
+        get: operations["ProofSubmissionsController_file_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment methods this school accepts (no credentials). */
+        get: operations["PortalPaymentController_options_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/payment-cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open bills of the caller's linked children, with any waiting payment. */
+        get: operations["PortalPaymentController_cart_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List payment proofs (oldest first, cursor paged, limit up to 100). */
+        get: operations["ProofReviewController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment-submissions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One proof with bills, files, history and duplicate flags. */
+        get: operations["ProofReviewController_detail_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment-submissions/{id}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream one proof file. */
+        get: operations["ProofReviewController_file_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment-submissions/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a proof: records the payment, or discards it if the bill moved. */
+        post: operations["ProofReviewController_confirm_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment-submissions/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a waiting proof with a reason (OTHER needs a note). */
+        post: operations["ProofReviewController_reject_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment-submissions/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen a rejected proof (back to waiting). */
+        post: operations["ProofReviewController_reopen_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backup/export": {
         parameters: {
             query?: never;
@@ -14325,7 +14513,13 @@ export interface components {
             wallet_balance: number;
             wallet_moves: components["schemas"]["WalletMoveDto"][];
         };
+        CartWaitingSubmissionDto: {
+            /** @enum {string} */
+            source: "ONLINE" | "PROOF";
+            id: string;
+        };
         CartBillDto: {
+            waiting_submission: components["schemas"]["CartWaitingSubmissionDto"] | null;
             student_fee_id: string;
             fee_name: string;
             /** @enum {string} */
@@ -15463,6 +15657,15 @@ export interface components {
             reference_last4: string | null;
             payment_date: string;
         };
+        PublicReceiptHowPaidDto: {
+            /** @enum {string} */
+            source: "PROOF" | "ONLINE";
+            method: string;
+            trx_id_last4: string | null;
+            /** @description ISO timestamp; the client shows only the date ("verified by the school on ..."). */
+            verified_on: string | null;
+            paid_at: string | null;
+        };
         PublicReceiptDto: {
             invoice_number: string;
             kind: string;
@@ -15471,6 +15674,7 @@ export interface components {
             students: components["schemas"]["PublicReceiptStudentDto"][];
             totals: components["schemas"]["PublicReceiptTotalsDto"];
             payment: components["schemas"]["PublicReceiptPaymentDto"];
+            how_paid: components["schemas"]["PublicReceiptHowPaidDto"] | null;
         };
         PushPublicKeyResponseDto: {
             enabled: boolean;
@@ -15731,6 +15935,26 @@ export interface components {
             fineDueDays?: number;
             requireSecondApprover?: boolean;
         };
+        ProofMethodDto: {
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            instructions: string;
+        };
+        BkashSettingsDto: {
+            /** @enum {string} */
+            environment?: "SANDBOX" | "PRODUCTION";
+            appKey?: string | null;
+            appSecret?: string | null;
+            username?: string | null;
+            password?: string | null;
+            lastTestOkAt?: string;
+        };
+        PaymentsSettingsDto: {
+            onlineEnabled?: boolean;
+            proofEnabled?: boolean;
+            proofMethods?: components["schemas"]["ProofMethodDto"][];
+            bkash?: components["schemas"]["BkashSettingsDto"];
+        };
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
         };
@@ -15816,6 +16040,7 @@ export interface components {
             auth?: components["schemas"]["AuthSettingsDto"];
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];
+            payments?: components["schemas"]["PaymentsSettingsDto"];
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
             applications?: components["schemas"]["ApplicationsSettingsDto"];
             homework?: components["schemas"]["HomeworkSettingsDto"];
@@ -18444,6 +18669,82 @@ export interface components {
             supersedes_import_id: string | null;
             created_at: string;
             rows: components["schemas"]["AttendanceImportDetailRowDto"][];
+        };
+        CreateProofSubmissionDto: {
+            billIds: string[];
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            amount: number;
+            /** @example 2026-11-14 */
+            paidOn: string;
+            reference?: string;
+        };
+        ProofSubmissionBillDto: {
+            studentFeeId: string;
+            studentId: string;
+            amount: string;
+        };
+        ProofSubmissionFileDto: {
+            id: string;
+            contentType: string;
+            sizeBytes: number;
+        };
+        ProofSubmissionResponseDto: {
+            id: string;
+            /** @enum {string} */
+            status: "PENDING" | "CONFIRMED" | "REJECTED" | "DISCARDED" | "WITHDRAWN" | "COMPLETED" | "FAILED" | "CANCELLED" | "EXPIRED" | "REVERSED";
+            /** @enum {string|null} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET" | null;
+            amount: string;
+            paidOn: string | null;
+            reference: string | null;
+            submittedByUserId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string|null} */
+            rejectReason: "TRXID_NOT_FOUND" | "AMOUNT_MISMATCH" | "IMAGE_UNCLEAR" | "DUPLICATE" | "OTHER" | null;
+            rejectNote: string | null;
+            discardReason: string | null;
+            bills: components["schemas"]["ProofSubmissionBillDto"][];
+            files: components["schemas"]["ProofSubmissionFileDto"][];
+        };
+        PaymentOptionsMethodDto: {
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            instructions: string;
+        };
+        PaymentOptionsResponseDto: {
+            onlineEnabled: boolean;
+            proofEnabled: boolean;
+            proofMethods: components["schemas"]["PaymentOptionsMethodDto"][];
+        };
+        WaitingSubmissionDto: {
+            id: string | null;
+            /** @enum {string} */
+            source: "ONLINE" | "PROOF";
+        };
+        PaymentCartBillDto: {
+            id: string;
+            name: string;
+            dueDate: string | null;
+            balance: string;
+            waitingSubmission: components["schemas"]["WaitingSubmissionDto"] | null;
+        };
+        PaymentCartStudentDto: {
+            studentId: string;
+            fullName: string;
+            bills: components["schemas"]["PaymentCartBillDto"][];
+        };
+        PaymentCartResponseDto: {
+            students: components["schemas"]["PaymentCartStudentDto"][];
+        };
+        RejectProofDto: {
+            /** @enum {string} */
+            reason: "TRXID_NOT_FOUND" | "AMOUNT_MISMATCH" | "IMAGE_UNCLEAR" | "DUPLICATE" | "OTHER";
+            note?: string;
+        };
+        ReopenProofDto: {
+            note: string;
         };
         RequestExportDto: {
             /**
@@ -21087,11 +21388,16 @@ export interface components {
             group_name: string | null;
             result: components["schemas"]["PromotionGroupResultDto"];
         };
+        PromotionGroupSectionDto: {
+            id: string;
+            name: string;
+        };
         PromotionGroupEntriesPageDto: {
             data: components["schemas"]["PromotionGroupEntryDto"][];
             total: number;
             page: number;
             limit: number;
+            sections: components["schemas"]["PromotionGroupSectionDto"][];
         };
         SetPromotionGroupsDto: {
             entry_ids: string[];
@@ -39358,6 +39664,404 @@ export interface operations {
             };
         };
     };
+    ProofSubmissionsController_list_v1: {
+        parameters: {
+            query?: {
+                studentId?: string;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofSubmissionResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_submit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CreateProofSubmissionDto"] & {
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofSubmissionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_withdraw_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofSubmissionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofSubmissionsController_file_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalPaymentController_options_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOptionsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalPaymentController_cart_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentCartResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofReviewController_list_v1: {
+        parameters: {
+            query?: {
+                source?: "ONLINE" | "PROOF";
+                status?: "PENDING" | "CONFIRMED" | "REJECTED" | "DISCARDED" | "WITHDRAWN" | "COMPLETED" | "FAILED" | "CANCELLED" | "EXPIRED" | "REVERSED";
+                limit?: number;
+                /** @description The nextCursor of the previous page. */
+                cursor?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofReviewController_detail_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofReviewController_file_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofReviewController_confirm_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description outcome SETTLED or DISCARDED, plus the proof detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofReviewController_reject_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectProofDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProofReviewController_reopen_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenProofDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WorkbookController_requestExport_v1: {
         parameters: {
             query?: never;
@@ -39907,7 +40611,7 @@ export interface operations {
             query: {
                 /** @description School-local month, within the last 12 months. */
                 month: string;
-                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due" | "platform.login_as_burst" | "support.access_request" | "sms.low" | "sms.expiring" | "platform.sms.stock_low" | "platform.sms.oversold";
+                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.payment_proofs_waiting" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due" | "platform.login_as_burst" | "support.access_request" | "sms.low" | "sms.expiring" | "platform.sms.stock_low" | "platform.sms.oversold";
                 sectionId?: string;
                 format?: "json" | "csv";
             };
