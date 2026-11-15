@@ -51,7 +51,10 @@ async function closeStaleAlerts(n: Notice, m: EntityManager): Promise<void> {
     await alerts.withdraw(m, n.tenant_id, n.alert_id);
     n.alert_id = null;
   }
-  if (n.sms_task_alert_id && n.sms_status !== NoticeSmsStatus.PENDING) {
+  if (
+    n.sms_task_alert_id &&
+    !(n.status === NoticeStatus.PUBLISHED && n.sms_status === NoticeSmsStatus.PENDING)
+  ) {
     await alerts.closeTask(m, n.tenant_id, n.sms_task_alert_id);
     n.sms_task_alert_id = null;
   }

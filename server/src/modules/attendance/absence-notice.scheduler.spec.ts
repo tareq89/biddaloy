@@ -162,7 +162,7 @@ describe('AbsenceNoticeScheduler', () => {
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive.mockResolvedValue([
       { id: 'tenant-broken', name: 'Broken' },
       { id: TENANT, name: 'Green Valley School' },
     ]);
@@ -173,6 +173,8 @@ describe('AbsenceNoticeScheduler', () => {
     sessionRepo.find = vi.fn(async () => [{ id: 'sess-1', section_id: 'sec-1' }]);
 
     await expect(scheduler.process()).resolves.not.toThrow();
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('tenant-broken');
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith(TENANT);
     expect(absenceNoticeService.sendAbsenceNotices).toHaveBeenCalledTimes(1);
   });
 

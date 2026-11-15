@@ -207,7 +207,8 @@ export class ImpersonationSessionService {
 
   /** #3799: the owner's write request was approved. */
   async grantWrite(sid: string): Promise<void> {
-    const notLive = () => fail(HttpStatus.CONFLICT, 'SESSION_NOT_LIVE', 'This session is not live.');
+    const notLive = () =>
+      fail(HttpStatus.CONFLICT, 'SESSION_NOT_LIVE', 'This session is not live.');
     const live = await this.repo.manager.transaction(async (m) => {
       const rows: ImpersonationSession[] = await this.rowsOf(
         m.query(
@@ -224,7 +225,9 @@ export class ImpersonationSessionService {
     // After COMMIT: a failed Redis write leaves the session locked (fails closed), never unlocked
     // in Redis with a locked row. XX: a key that ended meanwhile is never recreated (409).
     // KEEPTTL: the hard cap stays.
-    const set = await this.redisOp(() => this.redis.set(impKey(sid), liveJson(live), 'KEEPTTL', 'XX'));
+    const set = await this.redisOp(() =>
+      this.redis.set(impKey(sid), liveJson(live), 'KEEPTTL', 'XX'),
+    );
     if (set !== 'OK') {
       // Key gone: the session ended, so put the row back to locked (nothing is granted).
       await this.repo.manager.query(
@@ -465,7 +468,7 @@ export class ImpersonationSessionService {
   }
 
   /**
-   * D31: lazy expiry. ACTIVE rows past `expires_at`, and REQUESTED/APPROVED rows past `ticket_expires_at`, flip to EXPIRED and get their missing ENDED row,
+   * D31: lazy expiry. ACTIVE rows past `expires_at`, and APPROVED rows past `ticket_expires_at` (REQUESTED: 24h after `requested_at`, as SupportRequestsService), flip to EXPIRED and get their missing ENDED row,
    * once. The key already left Redis by TTL.
    * ponytail: no scheduler (D31). A row nobody lists, creates on or ends stays ACTIVE in the table;
    * `shownStatus` hides that from every reader. Add a repeatable job if a report needs it exact at rest.
@@ -477,7 +480,7 @@ export class ImpersonationSessionService {
     const params: unknown[] = [];
     // An unredeemed ticket (APPROVED) past `ticket_expires_at` expires too, so it stops counting as open.
     const conds = [
-      "((status = 'ACTIVE' AND expires_at <= now()) OR (status IN ('REQUESTED','APPROVED') AND ticket_expires_at <= now()))",
+      "((status = 'ACTIVE' AND expires_at <= now()) OR (status = 'APPROVED' AND ticket_expires_at <= now()) OR (status = 'REQUESTED' AND requested_at + interval '24 hours' <= now()))",
     ];
     for (const [col, v] of [
       ['id', scope.id],
@@ -492,7 +495,7 @@ export class ImpersonationSessionService {
     const rows: EndedRow[] = await this.rowsOf(
       m.query(
         `UPDATE impersonation_sessions
-            SET status = $1, ended_at = COALESCE(expires_at, ticket_expires_at), ended_by = $2
+            SET status = $1, ended_at = COALESCE(expires_at, ticket_expires_at, requested_at + interval '24 hours'), ended_by = $2
           WHERE id IN (
                 SELECT id FROM impersonation_sessions
                  WHERE ${conds.join(' AND ')} ORDER BY id FOR UPDATE)

@@ -206,6 +206,26 @@ describe('SearchService', () => {
     expect(result.staff?.some((r) => r.employee_id === `EMP-${seq}`)).toBe(true);
   });
 
+  it('staff branch: leaves out a teacher whose user is soft-deleted (#876)', async () => {
+    const user = await makeUser({ full_name: 'Departed Staff Member' });
+    seq += 1;
+    const teacher = await teacherRepo.save(
+      teacherRepo.create({
+        user_id: user.id,
+        employee_id: `EMP-${seq}`,
+        designations: [],
+        tenant_id: SEED_TENANT_ID,
+      } as Partial<Teacher>),
+    );
+    await userRepo.softRemove(user);
+
+    const result = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'Departed Staff Member',
+    });
+
+    expect(result.staff?.map((r) => r.id)).not.toContain(teacher.id);
+  });
+
   it('invoices branch: matches invoice number, tenant-scoped through the owning student', async () => {
     const student = await makeStudent();
     const invoice = await invoiceRepo.save(
