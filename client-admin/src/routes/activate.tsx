@@ -8,6 +8,7 @@ import {
 import {
   AuthLayout,
   Button,
+  ErrorState,
   Input,
   Label,
   SetPasswordForm,
@@ -22,7 +23,7 @@ import { detectLoginIdentifier } from '@biddaloy/ui/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
-import { CircleCheck, Link2Off, TriangleAlert, UserX } from 'lucide-react';
+import { CircleCheck, Link2Off, UserX } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -269,11 +270,11 @@ function ActivatePage() {
   if (verifyQuery.isError || !verifyQuery.data) {
     return (
       <AuthLayout>
-        <GuestStatus icon={TriangleAlert} tone="danger" title={t('errors.generic')}>
-          <Button variant="outline" className="w-full" onClick={() => void verifyQuery.refetch()}>
-            {t('actions.retry', { ns: 'common' })}
-          </Button>
-        </GuestStatus>
+        <ErrorState
+          message={t('errors.generic')}
+          retryLabel={t('actions.retry', { ns: 'common' })}
+          onRetry={() => void verifyQuery.refetch()}
+        />
       </AuthLayout>
     );
   }
