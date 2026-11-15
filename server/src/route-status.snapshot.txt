@@ -491,6 +491,7 @@ GET    /api/v1/notices/mine/:id                                                 
 POST   /api/v1/notices/mine/:id/acknowledge                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS notices
 PATCH  /api/v1/onboarding                                                        401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/onboarding/status                                                 401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
+GET    /api/v1/online-payments/callback                                          PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/payment-submissions                                               401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
 GET    /api/v1/payment-submissions/:id                                           401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
 POST   /api/v1/payment-submissions/:id/confirm                                   401 401 PASS PASS PASS PASS 403 403 403 403 403 403 403 fees
@@ -615,6 +616,8 @@ GET    /api/v1/platform/users                                                   
 POST   /api/v1/platform/users/:id/logout                                         401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/portal/arrival-subscriptions                                      401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 attendance
 PUT    /api/v1/portal/arrival-subscriptions/:studentId                           401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 attendance
+POST   /api/v1/portal/online-payments                                            401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
+GET    /api/v1/portal/online-payments/:id                                        401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
 GET    /api/v1/portal/payment-cart                                               401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
 GET    /api/v1/portal/payment-options                                            401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
 GET    /api/v1/portal/payment-proofs                                             401 401 PASS PASS 403 403 403 PASS 403 403 403 403 403 fees
@@ -777,6 +780,7 @@ PATCH  /api/v1/seat-plans/:id/rooms/:roomId/invigilator                         
 POST   /api/v1/seat-plans/:id/rooms/:roomId/reshuffle                            401 401 PASS PASS PASS 403 403 403 403 403 403 PASS 403 seatPlans
 POST   /api/v1/seat-plans/:id/unpublish                                          401 401 PASS PASS PASS 403 403 403 403 403 403 PASS 403 seatPlans
 POST   /api/v1/seat-plans/generate                                               401 401 PASS PASS PASS 403 403 403 403 403 403 PASS 403 seatPlans
+POST   /api/v1/settings/payments/bkash/test                                      401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/sms-bundles/catalog                                               401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/sms-bundles/orders                                                401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 POST   /api/v1/sms-bundles/orders                                                401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -

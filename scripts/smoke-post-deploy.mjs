@@ -402,6 +402,20 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       `/api/v1/billing/bkash/callback?paymentID=${bogus}&status=success`,
       (r) => r.status === 302 && loc(r).includes('payment=error') && !loc(r).includes(bogus),
     );
+    await money(
+      'online payment callback without params is 4xx',
+      'GET',
+      '/api/v1/online-payments/callback',
+      (r) => r.status >= 400 && r.status < 500,
+      true,
+    );
+    await money(
+      'online payment callback unknown paymentID is a generic redirect',
+      'GET',
+      `/api/v1/online-payments/callback?paymentID=${bogus}&status=success`,
+      (r) => r.status === 302 && !loc(r).includes(bogus),
+      true,
+    );
     await money('orders need a token', 'POST', '/api/v1/billing/orders', (r) => r.status === 401);
     await money(
       'sms bundle orders need a token',

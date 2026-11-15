@@ -26,6 +26,11 @@ import {
   PortalPaymentController,
   ProofSubmissionsController,
 } from '../../src/modules/payment-submissions/proof-submissions.controller';
+import {
+  BkashTestController,
+  OnlinePaymentsController,
+} from '../../src/modules/payment-submissions/online-payments.controller';
+import { OnlinePaymentsPublicController } from '../../src/modules/payment-submissions/online-payments-public.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
@@ -67,6 +72,9 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   ProofSubmissionsController,
   PortalPaymentController,
   ProofReviewController,
+  OnlinePaymentsController,
+  BkashTestController,
+  OnlinePaymentsPublicController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -126,6 +134,8 @@ export const FAIL_CLOSED = [
   'POST /sms-bundles/orders/:id/pay/bkash',
   // [Epic 100 #3875] Pay and both refunds move money: no Redis, no step-up or rate limit, no money moved.
   'POST /billing/orders/:id/pay/bkash',
+  // [3.x/#3984 D19] Guardian bKash start moves money: no Redis, no rate limit, no payment started.
+  'POST /portal/online-payments',
   'POST /platform/billing/orders/:id/refund',
   'POST /platform/billing/sms-bundle-orders/:id/refund',
   // The code is the credential; a missing rate limit would allow unlimited guessing.
@@ -144,6 +154,11 @@ export const FAIL_OPEN = [
   // [3.x/#3975 D12] Pay-page reads: no password, code or money moved.
   'GET /portal/payment-options',
   'GET /portal/payment-cart',
+  // [3.x/#3984] Result read; test-connection (token grant only); public callback must keep working
+  // while the rate limiter is down, bKash confirms every paymentID itself.
+  'GET /portal/online-payments/:id',
+  'POST /settings/payments/bkash/test',
+  'GET /online-payments/callback',
   // [3.x/#3970] Staff proof review: no password or code; Idempotency-Key fails open by design.
   'GET /payment-submissions',
   'GET /payment-submissions/:id',
