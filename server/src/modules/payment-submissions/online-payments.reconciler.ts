@@ -23,7 +23,7 @@ const BATCH = 100;
 
 interface Row {
   id: string;
-  status: 'PENDING' | 'EXPIRED';
+  status: 'PENDING' | 'EXPIRED' | 'CANCELLED';
   amount: string;
   provider_payment_id: string | null;
   submitted_by_user_id: string;
@@ -33,7 +33,7 @@ interface Row {
 /**
  * [3.6.02] Every 10 min, per school with online payments on: settle PENDING bKash submissions
  * whose callback was lost, FAIL the ones bKash rejected, EXPIRE the ones never started.
- * An EXPIRED row that has a paymentID and is under 72 h old is asked too: the guardian may have
+ * An EXPIRED or CANCELLED row (the callback settles both) that has a paymentID and is under 72 h old is asked too: the guardian may have
  * paid after the sweep, and `settle` accepts EXPIRED (same as the callback). Only a Completed
  * answer changes it; FAILED rows are never re-confirmed.
  * Logs carry ids only: never credentials or a raw bKash body (Rule 13).
@@ -78,7 +78,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
            FROM payment_submissions
           WHERE source = 'ONLINE' AND provider = 'BKASH'
             AND (status = 'PENDING'
-                 OR (status = 'EXPIRED' AND provider_payment_id IS NOT NULL AND created_at > $1))
+                 OR (status IN ('EXPIRED', 'CANCELLED') AND provider_payment_id IS NOT NULL AND created_at > $1))
           GROUP BY tenant_id`,
         [new Date(Date.now() - MAX_AGE_MS)],
       );
@@ -131,7 +131,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
       `SELECT id, status, amount, provider_payment_id, submitted_by_user_id, created_at
          FROM payment_submissions
         WHERE tenant_id = $1 AND source = 'ONLINE' AND provider = 'BKASH' AND created_at > $2
-          AND (status = 'PENDING' OR (status = 'EXPIRED' AND provider_payment_id IS NOT NULL))
+          AND (status = 'PENDING' OR (status IN ('EXPIRED', 'CANCELLED') AND provider_payment_id IS NOT NULL))
         ORDER BY (status = 'PENDING') DESC, created_at DESC LIMIT $3`, // PENDING first, newest first: stuck old rows must not starve fresh lost callbacks
       [tenantId, cutoff, BATCH],
     );
@@ -176,7 +176,7 @@ export class OnlinePaymentsReconciler extends WorkerHost implements OnModuleInit
       try {
         // settle() reads provider_trx_id for checkout, so it is set first.
         await this.dataSource.query(
-          `UPDATE payment_submissions SET provider_trx_id = $1 WHERE id = $2 AND tenant_id = $3 AND status IN ('PENDING', 'EXPIRED')`,
+          `UPDATE payment_submissions SET provider_trx_id = $1 WHERE id = $2 AND tenant_id = $3 AND status IN ('PENDING', 'EXPIRED', 'CANCELLED')`,
           [res.trxID, row.id, tenantId],
         );
       } catch (e) {

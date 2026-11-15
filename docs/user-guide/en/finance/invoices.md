@@ -152,11 +152,10 @@ When the money came from a guardian, either a payment proof you confirmed or a b
 
 | Line | What it shows |
 | ---- | ------------- |
-| **Method / মাধ্যম** | A proof only: how the guardian paid, written as a code, for example BKASH. |
-| **Gateway / গেটওয়ে** | A bKash payment only, as the first line instead of **Method / মাধ্যম**: the provider's name. This is the exact printed label. |
-| **TrxID** | The full transaction ID, when there is one. |
+| **Method / মাধ্যম** | How the guardian paid, by name, for example bKash / বিকাশ. |
+| **Transaction ID / লেনদেন নম্বর** | The full transaction ID, when there is one. |
 | **Submitted on / জমার তারিখ** | The day the guardian sent the proof. A proof only. |
-| **Verified / যাচাই** | A proof only. On your own print: "by" the name of the person who confirmed it, then "on" the date. On a print a guardian opens from the portal: "by the school on" the date, with no name. |
+| **Confirmed / নিশ্চিত** | A proof only. On your own print: "by" the name of the person who confirmed it, then "on" the date. On a print a guardian opens from the portal: "by the school on" the date, with no name. |
 | **Paid at / পরিশোধ** | A bKash payment only: the day bKash settled it. |
 
 The share link does not carry this part, and it hides most of the transaction ID: see [What the guardian sees when they open the link](#task-guardian).
