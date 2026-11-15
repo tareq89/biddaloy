@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository, IsNull, In } from 'typeorm';
 import {
   AuditAction,
-  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkGridState,
@@ -195,16 +194,13 @@ export class MarkGridService {
     if (pairs.length === 0) return out;
     const sectionIds = [...new Set(pairs.map((p) => p.sectionId))];
     const subjectIds = [...new Set(pairs.map((p) => p.subjectId))];
-    const enrollments = await manager.getRepository(Enrollment).find({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: exam.academic_year_id,
-        class_id: exam.class_id,
-        section_id: In(sectionIds),
-        enrollment_status: EnrollmentStatus.ACTIVE,
-      },
-      relations: { section: true },
-    });
+    // Same roster as getGrid: ACTIVE, or a leaver who already has a mark for this exam.
+    const enrollments = await gridEnrollments(
+      manager.getRepository(Enrollment),
+      exam,
+      tenantId,
+      sectionIds,
+    ).getMany();
     if (enrollments.length === 0) return out;
     const studentIds = enrollments.map((e) => e.student_id);
     const [students, components, marks, late, sitters] = await Promise.all([
@@ -242,10 +238,14 @@ export class MarkGridService {
       const takers = sitters.get(subjectId);
       const subjectComponents = components.filter((c) => c.subject_id === subjectId);
       const blank: { student_id: string; component_id: string }[] = [];
+      const seen = new Set<string>();
       for (const e of enrollments) {
         if (e.section_id !== sectionId || !live.has(e.student_id) || late.has(e.student_id)) {
           continue;
         }
+        // A student can hold an ACTIVE and an INACTIVE row in one section.
+        if (seen.has(e.student_id)) continue;
+        seen.add(e.student_id);
         if (takers && !takers.has(e.student_id)) continue;
         for (const c of subjectComponents) {
           if (!filled.has(`${e.student_id}:${c.id}`)) {

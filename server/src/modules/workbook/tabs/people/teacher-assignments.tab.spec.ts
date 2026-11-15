@@ -359,6 +359,15 @@ describe('role column (47.x)', () => {
     expect(teacherAssignmentsTab.secondaryKeyOf?.(asst)).toBeNull();
     expect(teacherAssignmentsTab.secondaryKeyOf?.(makeAssignment())).toBeNull();
   });
+
+  it('the secondary key ignores the advisory class/year columns: same section, different class cells collide', () => {
+    const cells = { ...toCells(makeAssignment(homeroom)), role: 'CLASS_TEACHER' };
+    const a = teacherAssignmentsTab.fromRow(cells, 2, importCtx()) as { row: TeacherAssignmentRow };
+    const b = { row: { ...a.row, class_key: 'Some other class' } };
+    expect(teacherAssignmentsTab.secondaryKeyOf?.(a.row)).toBe(
+      teacherAssignmentsTab.secondaryKeyOf?.(b.row),
+    );
+  });
 });
 
 describe('diffFields', () => {

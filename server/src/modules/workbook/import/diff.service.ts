@@ -81,9 +81,12 @@ export class DiffService {
 
       for (const row of validatedTab.rows) {
         const rowId = (row as { id?: unknown }).id;
+        // Same id-first rule as the apply: a revivable id is a row of its own, so it must not
+        // fall through to a natural-key match with an unrelated active row.
+        const reviving = typeof rowId === 'string' && revivable.has(rowId);
         const matched =
           (typeof rowId === 'string' && existingById.get(rowId)) ||
-          existingByKey.get(tabSpec.keyOf(row as any));
+          (reviving ? undefined : existingByKey.get(tabSpec.keyOf(row as any)));
 
         if (isActive(row) && (!matched || !isActive(matched))) newSeats++;
         if (!matched && typeof rowId === 'string' && revivable.has(rowId)) {
@@ -142,15 +145,16 @@ export class DiffService {
           const id: unknown = (entity as { id?: unknown }).id;
           if (typeof id === 'string' && !matchedIds.has(id)) {
             counts.deletes++;
-            if (isActive(entity)) newSeats--;
             if (samples.deletes.length < SAMPLE_SIZE) samples.deletes.push(tabSpec.keyOf(entity));
           }
         }
       }
 
       // [#1654] Net seats the file needs vs `seat_limit`, so an over-limit restore fails here, not
-      // mid-commit. Per-row `takeSeat()` stays as the race-safe backstop.
-      // ponytail: ignores soft-deleted students a restore revives (counted conservatively at commit).
+      // mid-commit. Per-row `takeSeat()` stays as the race-safe backstop. It takes every new seat before
+      // `deleteByAbsence` removals run and never releases one, so the preview credits nothing: counting
+      // what apply counts keeps an approved preview from failing mid-restore.
+      // Soft-deleted ACTIVE students a restore revives are checked by the apply (assertRevivedSeats).
       if (tabSpec.name === 'students' && newSeats > 0) {
         const { used, limit } = await getSeatUsage(manager, tenantId);
         if (limit !== null && used + newSeats > limit) {

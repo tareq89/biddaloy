@@ -4,7 +4,7 @@
  * Shown at the bottom of the page and, flat, inside the dialog a Buy press opens.
  */
 import { Button, Card, ConfirmDialog } from '@biddaloy/ui/components';
-import { usePutSmsSource } from '@biddaloy/ui/hooks';
+import { usePutSmsSource, useSmsSource } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -55,6 +55,9 @@ export function SmsSourceCard({ onSwitched, onCancel }: SmsSourceCardProps) {
 export function SmsSwitchBackCard() {
   const { t } = useTranslation('smsBundles');
   const put = usePutSmsSource();
+  const source = useSmsSource();
+  // Switching to OWN with no saved company block would leave nothing to send with.
+  const needsDetails = source.data?.ownProviderSaved === false;
   const [confirming, setConfirming] = React.useState(false);
   return (
     <Card padded className="mt-6">
@@ -65,8 +68,11 @@ export function SmsSwitchBackCard() {
           {t('source.failed')}
         </p>
       )}
+      {needsDetails && (
+        <p className="mt-2 text-sm text-text-secondary">{t('source.backNeedsDetails')}</p>
+      )}
       <div className="mt-3">
-        <Button variant="outline" onClick={() => setConfirming(true)}>
+        <Button variant="outline" disabled={needsDetails} onClick={() => setConfirming(true)}>
           {t('source.backAction')}
         </Button>
       </div>
