@@ -22,6 +22,7 @@ function RoundDesk() {
 
 export const Route = createFileRoute('/_staff/admissions/rounds/$roundId')({
   validateSearch: searchSchema,
-  loader: () => loadRouteNamespaces('admission-desk', 'admission-stages', 'common'),
+  loader: () =>
+    loadRouteNamespaces('admission-desk', 'admission-stages', 'admission-lists', 'common'),
   component: RoundDesk,
 });

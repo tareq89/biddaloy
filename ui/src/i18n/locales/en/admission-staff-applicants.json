@@ -102,7 +102,9 @@
     "choiceLegend": "This phone number already belongs to a guardian",
     "linkExisting": "Link this child to this family",
     "createNew": "Create a new guardian for this child",
-    "matchError": "Could not check for an existing guardian. Try again before admitting."
+    "matchError": "Could not check for an existing guardian. Try again before admitting.",
+    "section": "Section",
+    "sectionAuto": "Let the school choose"
   },
   "fields": {
     "notes": "Note",
