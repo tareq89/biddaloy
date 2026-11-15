@@ -25,6 +25,8 @@ export interface DeskStepperProps {
   /** Phone text, e.g. "Step 2 of 5". */
   progressLabel: string;
   pickLabel: string;
+  /** Text for the next-step marker in the phone select, e.g. "next". */
+  nextLabel: string;
 }
 
 /** Clickable stage stepper; arrow keys / Home / End move between steps (#2204 D11).
@@ -37,6 +39,7 @@ export function DeskStepper({
   label,
   progressLabel,
   pickLabel,
+  nextLabel,
 }: DeskStepperProps) {
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
   const index = Math.max(
@@ -80,7 +83,7 @@ export function DeskStepper({
             {steps.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.label}
-                {s.id === next ? ' •' : ''}
+                {s.id === next ? ` (${nextLabel})` : ''}
               </SelectItem>
             ))}
           </SelectContent>

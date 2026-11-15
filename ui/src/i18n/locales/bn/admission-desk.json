@@ -14,7 +14,8 @@
     "stepper": {
       "label": "ধাপ",
       "progress": "ধাপ {{current}}/{{total}}",
-      "pick": "ধাপ বাছাই করুন"
+      "pick": "ধাপ বাছাই করুন",
+      "next": "পরবর্তী"
     },
     "steps": {
       "applicants": "আবেদন",

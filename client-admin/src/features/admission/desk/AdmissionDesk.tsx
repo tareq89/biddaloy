@@ -123,6 +123,7 @@ export function AdmissionDesk() {
           onSelect={select}
           label={t('desk.stepper.label')}
           pickLabel={t('desk.stepper.pick')}
+          nextLabel={t('desk.stepper.next')}
           progressLabel={t('desk.stepper.progress', {
             current: formatNumber(index + 1, region),
             total: formatNumber(stepList.length, region),
