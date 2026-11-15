@@ -414,8 +414,8 @@ two Cloudflare values empty. Every refusal (off, malformed, platform name, taken
 - **2026-11-08 (process).** A green local gate did not mean CI passes: `site-themes` was not built in some CI jobs,
   `import/order` lint differs from lint-staged, the e2e route manifest was five routes short, and the Lighthouse
   `assertMatrix` is CI-only. Rule candidate: after a gate, run the CI job's own commands for the packages touched.
-- **2026-11-15 (Epic 71 W3).** Public admission on the site has its own by-host routes, next to the older
-  slug routes (`/public/admission/:slug`). The host name is the only tenant signal; no JWT, user or `X-Tenant-ID`.
+- **2026-11-15 (Epic 71 W3).** Public admission on the site has its own by-host routes; the older
+  slug routes (`/public/admission/:slug`) were removed in #4209. The host name is the only tenant signal; no JWT, user or `X-Tenant-ID`.
 
   ```mermaid
   flowchart LR

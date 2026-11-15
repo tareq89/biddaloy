@@ -309,8 +309,8 @@ flowchart LR
 
 - **Rule.** An unauthenticated route that writes data (registration, public admission submit) verifies a Cloudflare Turnstile token with `TurnstileService` before it writes anything. In production with no `TURNSTILE_SECRET_KEY` it fails closed (503).
 - **Why.** A public form is the cheapest target for automated abuse (75.16, #2324).
-- **Example.** `POST /api/v1/public/admission/:slug/applicants` without `captcha_token` → `400`.
-- **Test.** `public-admission.controller.e2e-spec.ts`, `registration.controller.e2e-spec.ts`.
+- **Example.** `POST /api/v1/public/site/by-host/:host/admission/applicants` without `captcha_token` → `400`.
+- **Test.** `public-admission-site.e2e-spec.ts`, `registration.controller.e2e-spec.ts`.
 - **Known exception (notices, D22).** `POST /api/v1/public/notices/:token/opened` has no Turnstile: it is a page beacon with no form. It needs a 256-bit token, creates no row, sets `link_opened_at` and `seen_at` once (`WHERE ... IS NULL`), writes nothing for a public token, and is throttled. Test: `notice-links.service.integration.spec.ts`.
 
 ### Rule 23: Errors never echo what was sent

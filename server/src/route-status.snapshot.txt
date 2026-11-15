@@ -715,9 +715,6 @@ GET    /api/v1/promotions/:id/groups                                            
 PATCH  /api/v1/promotions/:id/groups                                             401 401 PASS PASS PASS 403 PASS 403 403 403 403 403 403 exams
 POST   /api/v1/promotions/:id/refresh                                            401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 exams
 GET    /api/v1/promotions/suggest-target                                         401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 exams
-GET    /api/v1/public/admission/:slug                                            PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
-POST   /api/v1/public/admission/:slug/applicants                                 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
-POST   /api/v1/public/admission/:slug/status                                     PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/public/invoices/:token                                            PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/public/notices/:token                                             PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/public/notices/:token/files/:fileId                               PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
