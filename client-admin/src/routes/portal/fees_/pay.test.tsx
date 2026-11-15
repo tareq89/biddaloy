@@ -29,7 +29,7 @@ function render(
   options: Record<string, unknown> | null = null,
   submitStatus = 201,
   entry = '/portal/fees/pay',
-  cart: unknown = CART,
+  cart: { students: unknown[] } = CART,
 ) {
   const seen = { headers: [] as (string | null)[], forms: [] as FormData[] };
   server.use(
