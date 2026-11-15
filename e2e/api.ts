@@ -1376,6 +1376,17 @@ async function runSqlOnOneRow(sql: string, params: unknown[], what: string): Pro
   }
 }
 
+/** Points a school's site at an ACTIVE custom domain. Cloudflare for SaaS is not in the e2e stack, so
+ * the row is set directly (the same columns the custom-domain flow writes once the host is active).
+ * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears. */
+export async function setSiteCustomDomain(schoolId: string, host: string): Promise<void> {
+  await runSqlOnOneRow(
+    `UPDATE school_sites SET custom_domain = $2, custom_domain_status = 'ACTIVE', version = version + 1 WHERE tenant_id = $1`,
+    [schoolId, host],
+    `setSiteCustomDomain: school ${schoolId}`,
+  );
+}
+
 /** Opens a REDIS_DOWN platform alert. The e2e server runs with NODE_ENV=test,
  * so the live probe is off and cannot clear it behind the test's back. */
 export const openPlatformAlert = () =>

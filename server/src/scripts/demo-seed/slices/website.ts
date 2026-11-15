@@ -202,6 +202,16 @@ export const slice: DemoSlice = {
       videoId: DEMO_VIDEO_ID,
     });
 
+    // [71.3 #4193] The three admission widgets are on (the result and lists ones are off by default).
+    // The admission slice already opened rounds and published lists, so they have data to show.
+    for (const key of [
+      SiteSectionKey.ADMISSIONS,
+      SiteSectionKey.ADMISSION_RESULT,
+      SiteSectionKey.ADMISSION_LISTS,
+    ]) {
+      for (const p of draft.pages) for (const s of p.sections) if (s.key === key) s.enabled = true;
+    }
+
     await site.saveDraft(T, { config: draft as never, draft_revision: created.draft_revision });
     const saved = await site.get(T);
     await site.publish(T, saved.version, saved.draft_revision);

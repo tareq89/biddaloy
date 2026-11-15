@@ -5,6 +5,10 @@ title: School website
 summary: Set up your school website in a few steps, look at it first, publish it, and turn it on or off.
 roles: [ADMIN]
 sources:
+  - site/src/themes/basic/AdmissionRibbon.astro
+  - site/src/themes/basic/sections/admissions.astro
+  - site/src/themes/basic/sections/admission-result.astro
+  - site/src/themes/basic/sections/admission-lists.astro
   - client-admin/src/routes/_staff/website/index.tsx
   - client-admin/src/routes/_staff/website/-wizard.tsx
   - client-admin/src/routes/_staff/website/-theme-card.tsx
@@ -206,6 +210,27 @@ Do not put up photos of children's faces without a guardian's permission.
 The video loads only when a visitor presses play. It never starts by itself, and it does not use cookies. Press **Remove video** to take it away.
 
 ---
+
+## Admission on the website <a href="#task-admission" id="task-admission"></a>
+
+Three sections on the **Admissions** page let visitors apply and look things up. You switch each on or off like any other section ([Edit pages](#task-pages)).
+
+| Section | What visitors get | Default |
+| ------- | ----------------- | ------- |
+| **Admissions** | Your text, plus an **Apply** button for each open round, with its **Last date**. | On |
+| **Check admission result** | A box to see their result with roll number and phone. | Off |
+| **Admission lists** | The published merit, waiting and call lists, roll numbers only. | Off |
+
+1. Open **Administration → Website**, then the **Pages** tab, then the **Admissions** page.
+2. Switch on **Check admission result** and **Admission lists** when you are ready to publish results. Change the section title with **Edit** if you want.
+3. Press **Save draft**, then **Publish** on the **Overview** tab.
+
+   → The sections appear on the website's Admissions page.
+
+**The ribbon.** While an admission round is open, the home page shows a bar at the top: **Admission open — apply now** (**ভর্তি চলছে — আবেদন করুন** in Bangla). It opens the admission form. It goes away by itself when no round is open. There is nothing to switch on.
+
+> **Remember:** open a round first on [Admission rounds](../people/admission-intakes.md#task-site). Guardians' steps are written there.
+
 
 ## Publish changes <a href="#task-publish" id="task-publish"></a>
 

@@ -414,6 +414,40 @@ two Cloudflare values empty. Every refusal (off, malformed, platform name, taken
 - **2026-11-08 (process).** A green local gate did not mean CI passes: `site-themes` was not built in some CI jobs,
   `import/order` lint differs from lint-staged, the e2e route manifest was five routes short, and the Lighthouse
   `assertMatrix` is CI-only. Rule candidate: after a gate, run the CI job's own commands for the packages touched.
+- **2026-11-15 (Epic 71 W3).** Public admission on the site has its own by-host routes, next to the older
+  slug routes (`/public/admission/:slug`). The host name is the only tenant signal; no JWT, user or `X-Tenant-ID`.
+
+  ```mermaid
+  flowchart LR
+    G[Guardian on school host or custom domain] --> S[Site container]
+    S -->|"GET rounds, lists<br/>POST applicants, status, result, admit-card"| A["/public/site/by-host/:host/admission/*"]
+    A --> H[SiteHostService: host -> school]
+    H --> D[(Admission tables of that school)]
+  ```
+
+  Six routes: `GET rounds`, `GET lists`, `POST applicants` (Turnstile, strict rate limit), and `POST status | result |
+  admit-card` (reference or roll number plus guardian phone; every miss is the same 404). A switched-off site or an
+  unknown host answers one 404. All six sit in the permission snapshot as `allowlist: none` (Rule 20) and in
+  `redis-outage-routes.ts`.
+- **2026-11-15 (Epic 71 W3).** A fee round takes the fee proof on the same public submit. The form posts multipart:
+  `fee_method`, `fee_reference` and one `fee_proof` file (checked by signature, Rule 6). The answer is
+  `{ reference_number, status: FEE_PENDING, fee_status: AWAITING }`. A fee round without proof or method is a plain
+  400 and writes nothing. Example: `fee_method=BKASH`, `fee_reference=TX123`, `fee_proof=p.jpg`.
+- **2026-11-15 (Epic 71 W3).** Surprise: the site cached the admissions feed, so a new round or a published list did not
+  show until the cache expired. Fix: `IntakeService` and `AdmissionPublicationService` call
+  `SiteCacheService.invalidate(tenantId)` when a round changes or a list is published for the first time. The admission
+  module and the website module import each other, so the cache is injected with `forwardRef(() => SiteCacheService)`.
+  Rule candidate: a module that feeds a site section invalidates that school's site cache in the same ticket.
+- **2026-11-15 (Epic 71 W3).** Plain words: the site says "round" for what the staff screens call an intake, and "list"
+  for a merit or waiting list. The glossary keeps both words so a guardian and a staff member can find the same thing.
+  Rule candidate: public text uses the guardian's word, and the glossary maps it to the screen name.
+- **2026-11-15 (Epic 71 W3).** Gap: `POST applicants` reads `Idempotency-Key` but does not store it (Rule 25 asks send
+  and create routes to carry one). A retried submit is safe today only because the round's duplicate guard answers 409
+  or updates in place. Follow-up: store the key (as other create routes do) so a retry returns the first answer.
+- **2026-11-15 (Epic 71 W3 close).** Demo seed: the Basic demo site turns on the three admission sections
+  (`admissions`, `admission_result`, `admission_lists`); the result and lists ones are off by default in every theme.
+  The admission slice already opens a round per template and publishes a merit list, so the widgets show data. Spec
+  `website.integration.spec.ts` checks the three are on.
 - **Not verified:** the Playwright theme specs (`site/e2e/themes/*.spec.ts`) were never run; Lighthouse numbers are
   CI-only; the Results page and the gallery page were read through the public API, not rendered by the site container
   (the e2e stack has none).

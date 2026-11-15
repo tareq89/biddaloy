@@ -197,6 +197,15 @@ describe('website slice (integration, scale 0.05)', () => {
     });
   });
 
+  it('turns the three admission widgets on on the admissions page (#4193)', () => {
+    const pages = first.site.published.pages as { page: string; sections: any[] }[];
+    const on = pages
+      .find((p) => p.page === 'admissions')!
+      .sections.filter((s) => s.enabled)
+      .map((s) => s.key);
+    expect(on).toEqual(expect.arrayContaining(['admissions', 'admission_result', 'admission_lists']));
+  });
+
   it('has six teacher cards, three of them featured', () => {
     expect(first.profilePositions).toHaveLength(6);
     expect(first.featured).toBe(3);
