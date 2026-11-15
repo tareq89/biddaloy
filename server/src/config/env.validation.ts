@@ -570,6 +570,11 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
     if (!str(key)) problems.push(`${key} is required in production`);
   }
 
+  // Calendar feed links are built from it (#2459): a bare https origin, or a link leaks over http.
+  if (str('API_BASE_URL') && !/^https:\/\/[^\s/?#]+$/.test(str('API_BASE_URL'))) {
+    problems.push('API_BASE_URL must be an https origin (no path, query or trailing slash)');
+  }
+
   const origins = str('CORS_ORIGINS')
     .split(',')
     .map((o) => o.trim())
