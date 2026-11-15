@@ -55,7 +55,7 @@ test('first login: the box is ticked, unticking and saving blocks support', asyn
   test.setTimeout(120_000);
   const login = new LoginPage(page);
   await login.goto();
-  await login.loginWithOtp(school.email);
+  await login.loginWithOtp(school.phone);
   // A code sign-in makes a new admin set a password first; then sign in again with it, which is
   // the sign-in that offers the support access page.
   await page.getByLabel(tc('auth', 'setPassword.label'), { exact: true }).fill(E2E_PASSWORD);

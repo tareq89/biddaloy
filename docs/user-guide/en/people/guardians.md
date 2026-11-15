@@ -263,12 +263,12 @@ When a guardian pays, you can start recording the payment from the guardian's pa
 
 At the top of the guardian's page are the name, a **Primary** or **Secondary** mark, and four facts. Below are four tabs:
 
-| Tab                       | What is in it                                                                                                                             |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Information**           | **Contact details**: phone, alternate phone, email, occupation, preferred channel, address. An empty box shows "—"                        |
-| **Linked Students**       | The list of children. You change it from here: [Change the linked students](#task-students)                                               |
-| **Communication History** | Messages sent directly to this guardian: **Date**, **Medium**, **Recipient**, **Status**. For viewing only                                |
-| **Payment History**       | Payments for any of this guardian's children: **Date**, **Student**, **Amount**, **Method**, **Reference**. Each row has **View payment** |
+| Tab                       | What is in it                                                                                                                                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Information**           | **Contact details**: phone, alternate phone, email, occupation, preferred channel, address. An empty box shows "—"                                                                                                                  |
+| **Linked Students**       | The list of children. You change it from here: [Change the linked students](#task-students)                                                                                                                                         |
+| **Communication History** | Messages sent directly to this guardian: **Date**, **Medium**, **Recipient**, **Status**. For viewing only                                                                                                                          |
+| **Payment History**       | Payments for any of this guardian's children: **Date**, **Student**, **Amount**, **Method**, **Reference**. When one payment covers several children, each child's row shows only that child's share. Each row has **View payment** |
 
 The **Messages** button at the top (Admin, Accountant, Office staff) opens the [Message log](../communications/message-log.md#task-scoped) with this guardian's messages, where each one can be opened in full.
 
