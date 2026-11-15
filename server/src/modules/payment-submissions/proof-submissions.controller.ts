@@ -17,11 +17,14 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { ModuleKey, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -64,6 +67,24 @@ export class ProofSubmissionsController {
   @RequirePermissions(Permission.PAYMENT_SUBMIT)
   @ApiOperation({ summary: 'Submit a payment proof (TrxID and/or up to 2 JPG/PNG/PDF files).' })
   @ApiConsumes('multipart/form-data')
+  @ApiExtraModels(CreateProofSubmissionDto)
+  @ApiBody({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(CreateProofSubmissionDto) },
+        {
+          type: 'object',
+          properties: {
+            files: {
+              type: 'array',
+              maxItems: PROOF_MAX_FILES,
+              items: { type: 'string', format: 'binary' },
+            },
+          },
+        },
+      ],
+    },
+  })
   @ApiCreatedResponse({ type: ProofSubmissionResponseDto })
   submit(
     @Body() dto: CreateProofSubmissionDto,

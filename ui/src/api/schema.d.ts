@@ -14479,7 +14479,13 @@ export interface components {
             wallet_balance: number;
             wallet_moves: components["schemas"]["WalletMoveDto"][];
         };
+        CartWaitingSubmissionDto: {
+            /** @enum {string} */
+            source: "ONLINE" | "PROOF";
+            id: string;
+        };
         CartBillDto: {
+            waiting_submission: components["schemas"]["CartWaitingSubmissionDto"] | null;
             student_fee_id: string;
             fee_name: string;
             /** @enum {string} */
@@ -14499,11 +14505,6 @@ export interface components {
             is_late_fee: boolean;
             is_overdue: boolean;
             suggested_allocation: number;
-            waiting_submission: {
-                id: string;
-                /** @enum {string} */
-                source: "ONLINE" | "PROOF";
-            };
         };
         CartStudentDto: {
             id: string;
@@ -39611,7 +39612,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["CreateProofSubmissionDto"];
+                "multipart/form-data": components["schemas"]["CreateProofSubmissionDto"] & {
+                    files?: string[];
+                };
             };
         };
         responses: {

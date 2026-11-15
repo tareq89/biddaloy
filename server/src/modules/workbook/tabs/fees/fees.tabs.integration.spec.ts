@@ -999,7 +999,7 @@ describe('fees tabs (integration)', () => {
           tenant_id: TENANT_B,
           fee_type: FeeType.MONTHLY_TUITION,
           name: 'Tuition - January',
-          amount: '1500.00',
+          amount: '1500.00' as never,
           class_id: klass.id,
           academic_year_id: year.id,
         }),
