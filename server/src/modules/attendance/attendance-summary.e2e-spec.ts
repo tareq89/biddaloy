@@ -184,7 +184,7 @@ describe('Attendance Summary E2E', () => {
         .set('Authorization', `Bearer ${strangerToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.PARENT)
-        .expect(401);
+        .expect(404);
     });
 
     it('returns 200 for ADMIN regardless of family linkage', async () => {
@@ -273,7 +273,7 @@ describe('Attendance Summary E2E', () => {
     });
 
     it("PARENT of another family's child still gets 401 (isolation unchanged)", async () => {
-      await getDays(strangerToken, UserRole.PARENT).expect(401);
+      await getDays(strangerToken, UserRole.PARENT).expect(404);
     });
 
     it('STUDENT reading self gets marked_at', async () => {

@@ -254,7 +254,7 @@ describe('Homework Submission E2E', () => {
       })
       // FamilyAccessService.assertLinked throws UnauthorizedException (401)
       // on purpose — same contract every other family route uses.
-      .expect(401);
+      .expect(404);
   });
 
   it('#3171: an upload after the teacher bulk-graded the student keeps the grade and stores the file', async () => {

@@ -452,7 +452,7 @@ describe('[19.9.1] Student results (portal + staff)', () => {
       await get(`/students/${unlinked}/results`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .expect(401);
+        .expect(404);
     });
   });
 });

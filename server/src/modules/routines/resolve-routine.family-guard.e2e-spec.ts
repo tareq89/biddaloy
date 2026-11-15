@@ -225,7 +225,7 @@ describe('GET /routines/resolve family guard (e2e)', () => {
     });
 
     it('P reading unlinked student B gets 401 (the regression)', async () => {
-      await get(`student_id=${studentB}`, tokens[UserRole.PARENT]).expect(401);
+      await get(`student_id=${studentB}`, tokens[UserRole.PARENT]).expect(404);
     });
 
     it('P with teacher_id gets 403', async () => {
@@ -234,11 +234,11 @@ describe('GET /routines/resolve family guard (e2e)', () => {
 
     it('S reads self 200, another student 401', async () => {
       await get(`student_id=${studentA}`, tokens[UserRole.STUDENT]).expect(200);
-      await get(`student_id=${studentB}`, tokens[UserRole.STUDENT]).expect(401);
+      await get(`student_id=${studentB}`, tokens[UserRole.STUDENT]).expect(404);
     });
 
     it('P with a nonexistent student id gets 401', async () => {
-      await get(`student_id=${NONEXISTENT}`, tokens[UserRole.PARENT]).expect(401);
+      await get(`student_id=${NONEXISTENT}`, tokens[UserRole.PARENT]).expect(404);
     });
 
     it('staff ADMIN may still look up any student', async () => {

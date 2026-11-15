@@ -157,6 +157,8 @@ describe('Platform trials E2E (13.3.4)', () => {
     await exportAsAdmin().expect(202);
     await setStatus('TRIAL_EXPIRED').expect(400);
     await setStatus('Fraud / legal hold').expect(200);
+    // Suspend bumps tokens_valid_after (Rule 8): the old token is a 401, so sign in again.
+    adminToken = await login(SEED_ADMIN_EMAIL);
 
     const res = await exportAsAdmin().expect(403);
     expect(res.body.details).toEqual({ code: 'TENANT_SUSPENDED' });

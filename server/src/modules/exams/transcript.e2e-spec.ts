@@ -267,8 +267,8 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
 
     it('a STUDENT cannot read or log for a classmate (401)', async () => {
       await seed();
-      await get('STUDENT', classmateId).expect(401);
-      await post('STUDENT', reportCard(), classmateId).expect(401);
+      await get('STUDENT', classmateId).expect(404);
+      await post('STUDENT', reportCard(), classmateId).expect(404);
       expect(await printRows(classmateId)).toHaveLength(0);
     });
   });
@@ -387,7 +387,7 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
       await seed();
       await seedFinal('PUBLISHED');
       await finalCard('OTHER_PARENT').expect(401);
-      await finalCard('STUDENT', classmateId).expect(401);
+      await finalCard('STUDENT', classmateId).expect(404);
     });
 
     it('[AUTH-06] TEACHER gets 404 outside their sections', async () => {

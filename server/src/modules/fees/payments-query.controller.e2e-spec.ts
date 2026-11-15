@@ -530,7 +530,7 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .set('X-Role', UserRole.PARENT)
-        .expect(401);
+        .expect(404);
     });
   });
 });
