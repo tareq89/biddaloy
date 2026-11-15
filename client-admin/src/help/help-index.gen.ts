@@ -5342,6 +5342,7 @@ export const HELP_ROUTES = {
   '/portal': 'portal.overview',
   '/portal/fees': 'portal.fees',
   '/portal/fees/pay': 'portal.fees',
+  '/portal/fees/pay/result': 'portal.fees',
   '/portal/statement': 'portal.statement',
   '/portal/attendance': 'portal.attendance',
   '/portal/routine': 'portal.routine',
