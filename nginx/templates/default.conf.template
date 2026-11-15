@@ -9,10 +9,12 @@ map $uri $log_uri {
     # /i/<token> (invoice share) and /v/<token> (certificate verify), /n/<token> (notice link); Kuma /api/push/<token>.
     "~^(?<lg_keep>/[ivn]/|.*/(?:public/invoices|public/verify|public/notices|calendar/feed|api/push)/)" "${lg_keep}[REDACTED]";
 }
-# The error log writes the full request line (`request: "GET /reset-password?token=..."`) on a
-# 502/504 or client abort, and nginx cannot mask it. So only `crit` and above reach it here;
-# real upstream failures stay visible as 502/504 lines in the redacted access log.
-error_log /var/log/nginx/error.log crit;
+# The error log appends the full request line (`request: "GET /reset-password?token=..."`) to
+# request-scoped lines, and that includes `crit` and `alert` ones (fd exhaustion, worker_connections),
+# not only 502/504 and client aborts. nginx cannot mask it. So only `emerg` (config and startup
+# failures, no request context) reaches it. Resource exhaustion still shows as 5xx in the
+# redacted access log and in host monitoring.
+error_log /var/log/nginx/error.log emerg;
 log_format redacted '$remote_addr - [$time_local] "$request_method $log_uri" '
                     '$status $body_bytes_sent "$http_user_agent" $request_time';
 
