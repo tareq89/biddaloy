@@ -5,15 +5,30 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
-import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH, SEED_TENANT_ID } from '@test/constants';
+import {
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_PASSWORD,
+  SEED_ADMIN_PASSWORD_HASH,
+  SEED_TENANT_ID,
+} from '@test/constants';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { createProofFixture } from '@test/helpers/proof-submissions.fixture';
 import { AppModule } from '../../app.module';
+import { BkashClient } from '../payment-gateways/bkash/bkash.client';
+import { TENANT_SETTINGS_SCHEMA_VERSION } from '../schools/dto/tenant-settings.dto';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 
 const URL = '/api/v1/portal/online-payments';
 const TEST_URL = '/api/v1/settings/payments/bkash/test';
 const UUID = '00000000-0000-4000-8000-0000000fffff';
+
+/** No live bKash: the token test passes, so the school can switch online payments on. */
+class MockBkash {
+  isConfigured() {
+    return false;
+  }
+  async testConnection() {}
+}
 
 /** [3.x/#3984] Online payment routes over HTTP: tenant header, roles, family scope, ids. */
 describe('Online payments (E2E)', () => {
@@ -33,7 +48,10 @@ describe('Online payments (E2E)', () => {
   };
 
   beforeAll(async () => {
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const mod = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(BkashClient)
+      .useClass(MockBkash)
+      .compile();
     app = mod.createNestApplication();
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
@@ -84,12 +102,46 @@ describe('Online payments (E2E)', () => {
     await call('get', `${URL}/${UUID}`, fix.student.token).expect(403);
   });
 
-  it('another family bill is 404 (online enabled)', async () => {
-    // No creds saved, so the route stops at "not available" before touching bills: either way, no leak.
-    const theirs = await fix.bill(fix.fx.studentB, 200);
-    const res = await call('post', URL, fix.parent.token).send({ billIds: [theirs] });
-    expect([400, 404]).toContain(res.status);
-    expect(JSON.stringify(res.body)).not.toContain(theirs);
+  it('another family bill is 404 (online enabled, gateway available)', async () => {
+    const [{ settings: before }] = await ds.query(`SELECT settings FROM schools WHERE id=$1`, [
+      SEED_TENANT_ID,
+    ]);
+    const admin = (
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token as string;
+    const patch = (payments: object) =>
+      supertest(app.getHttpServer())
+        .patch(`/api/v1/schools/${SEED_TENANT_ID}/settings`)
+        .set('Authorization', `Bearer ${admin}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ version: TENANT_SETTINGS_SCHEMA_VERSION, payments });
+    try {
+      // Save creds, pass the connection test (mocked), then switch online payments on.
+      await patch({
+        bkash: {
+          environment: 'SANDBOX',
+          appKey: 'k',
+          appSecret: 's',
+          username: 'u',
+          password: 'p',
+        },
+      }).expect(200);
+      await call('post', TEST_URL, admin).expect(201);
+      await patch({ onlineEnabled: true }).expect(200);
+
+      const theirs = await fix.bill(fix.fx.studentB, 200);
+      const res = await call('post', URL, fix.parent.token).send({ billIds: [theirs] });
+      expect(res.status).toBe(404);
+      expect(JSON.stringify(res.body)).not.toContain(theirs);
+    } finally {
+      await ds.query(`UPDATE schools SET settings = $2::jsonb WHERE id = $1`, [
+        SEED_TENANT_ID,
+        JSON.stringify(before ?? {}),
+      ]);
+    }
   });
 
   it('non-UUID id is 400; non-UUID billIds is 400', async () => {
