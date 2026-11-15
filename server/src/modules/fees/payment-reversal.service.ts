@@ -478,8 +478,8 @@ export class PaymentReversalService {
         manager,
       );
 
-      // [3.x D45] Same transaction: a failed sync rolls the reversal back, so a settled
-      // submission can never be left PAID next to a reversed payment.
+      // [3.x D45] Same transaction: a failed sync rolls the reversal back. Known gap: a reversal that
+      // lands between settle's per-student checkout commit and its bill write is not seen here (#4220).
       touchedSubmissions = await syncSubmissionsOnReversal(manager, this.auditService, {
         tenantId,
         paymentId,

@@ -523,12 +523,15 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
 
   async remove(entity: StudentFee, m: EntityManager): Promise<void> {
     try {
-      // A waiting proof's bill row (not yet paid) must not block the delete: drop it first.
-      // Settled rows (payment_id set) keep their RESTRICT guard.
+      // Bill rows of a closed-out proof (never paid) must not block the delete: drop them first.
+      // A live proof (PENDING, ONLINE in flight) and settled rows (payment_id set) keep their RESTRICT guard.
       await m.query(
-        `DELETE FROM payment_submission_bills
-          WHERE student_fee_id = $1 AND payment_id IS NULL
-            AND tenant_id = (SELECT tenant_id FROM students WHERE id = $2)`,
+        `DELETE FROM payment_submission_bills b
+          USING payment_submissions s
+          WHERE b.student_fee_id = $1 AND b.payment_id IS NULL
+            AND s.id = b.submission_id AND s.tenant_id = b.tenant_id
+            AND s.status IN ('REJECTED','WITHDRAWN','DISCARDED','EXPIRED','FAILED','CANCELLED')
+            AND b.tenant_id = (SELECT tenant_id FROM students WHERE id = $2)`,
         [entity.id, entity.student_id],
       );
       await m.delete(StudentFee, { id: entity.id });

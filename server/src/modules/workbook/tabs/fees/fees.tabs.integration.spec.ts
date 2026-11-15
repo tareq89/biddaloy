@@ -572,15 +572,15 @@ describe('fees tabs (integration)', () => {
     });
 
     /** A proof for `feeId`; `paymentId` set means it was settled. Returns the user to clean up. */
-    async function insertProofBill(feeId: string, paymentId: string | null) {
+    async function insertProofBill(feeId: string, paymentId: string | null, status = 'PENDING') {
       const user = await dataSource.getRepository(User).save({
         full_name: 'Guardian Rm',
         email: 'guardian-fee-rm@example.com',
       });
       const [sub] = await dataSource.query(
         `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, method, amount, paid_on, reference_raw, reference_normalised, unmatched)
-         VALUES ($1, 'PROOF', 'PENDING', $2, 'BKASH', 1500.00, '2026-01-06', 'Trx-RM', 'TRXRM', false) RETURNING id`,
-        [TENANT_A, user.id],
+         VALUES ($1, 'PROOF', $3, $2, 'BKASH', 1500.00, '2026-01-06', 'Trx-RM', 'TRXRM', false) RETURNING id`,
+        [TENANT_A, user.id, status],
       );
       await dataSource.query(
         `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start, payment_id)
@@ -590,9 +590,9 @@ describe('fees tabs (integration)', () => {
       return user;
     }
 
-    it('remove drops the unpaid proof bill row of a waiting proof, then the fee', async () => {
+    it('remove drops the unpaid bill row of a REJECTED proof, then the fee', async () => {
       const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
-      const user = await insertProofBill(created.id, null);
+      const user = await insertProofBill(created.id, null, 'REJECTED');
 
       await studentFeesTab.remove(created, dataSource.manager);
 
@@ -602,6 +602,21 @@ describe('fees tabs (integration)', () => {
         [created.id],
       );
       expect(n).toBe(0);
+      await dataSource.query(`DELETE FROM payment_submissions WHERE submitted_by_user_id = $1`, [
+        user.id,
+      ]);
+      await dataSource.query(`DELETE FROM users WHERE id = $1`, [user.id]);
+    });
+
+    it('remove is refused while a PENDING proof still waits on the fee', async () => {
+      const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const user = await insertProofBill(created.id, null, 'PENDING');
+
+      await expect(studentFeesTab.remove(created, dataSource.manager)).rejects.toThrow(
+        /referenced by a payment or payment submission/,
+      );
+
+      expect(await studentFeeRepo.findOne({ where: { id: created.id } })).not.toBeNull();
       await dataSource.query(`DELETE FROM payment_submissions WHERE submitted_by_user_id = $1`, [
         user.id,
       ]);

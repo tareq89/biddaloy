@@ -129,6 +129,8 @@ export function useMyPaymentProofs(studentId?: string, { enabled = true } = {}) 
 }
 
 async function fileFingerprint(f: File): Promise<[string, number, string]> {
+  // crypto.subtle is missing outside a secure context (plain http): fall back to name + size + mtime.
+  if (!globalThis.crypto?.subtle) return [f.name, f.size, String(f.lastModified)];
   const digest = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
   const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
   return [f.name, f.size, hex];
