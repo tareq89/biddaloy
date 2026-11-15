@@ -158,6 +158,8 @@ describe('HomeworkBulkUploadService', () => {
         TENANT_ID,
         USER_ID,
         expect.objectContaining({ hardErrorCount: 0 }),
+        undefined,
+        'homework',
       );
     });
 

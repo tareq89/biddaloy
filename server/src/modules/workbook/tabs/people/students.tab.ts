@@ -766,6 +766,36 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
 };
 
 /**
+ * [#688] Soft-deleted ACTIVE students a restore revives take a seat the per-row `takeSeat` never
+ * sees (revival has already cleared `deleted_at`, so they look like ordinary live rows). Checked
+ * under the School lock BEFORE `reviveRows`, so the lock holds until the restore commits.
+ * Revived students that were not ACTIVE are handled by `takeSeat` when the row re-activates them.
+ */
+export async function assertRevivedSeats(
+  m: EntityManager,
+  tenantId: string,
+  revivable: ReadonlySet<string>,
+  rows: readonly unknown[],
+): Promise<void> {
+  const wanted = rows
+    .map((r) => r as { id?: unknown; enrollment_status?: unknown })
+    .filter(
+      (r): r is { id: string; enrollment_status: unknown } =>
+        typeof r.id === 'string' &&
+        revivable.has(r.id) &&
+        r.enrollment_status === EnrollmentStatus.ACTIVE,
+    )
+    .map((r) => r.id);
+  if (wanted.length === 0) return;
+  const [{ n }]: { n: number }[] = await m.query(
+    `SELECT count(*)::int AS n FROM students
+      WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NOT NULL AND enrollment_status = $3`,
+    [tenantId, wanted, EnrollmentStatus.ACTIVE],
+  );
+  await assertSeatsAvailable(m, tenantId, n);
+}
+
+/**
  * Running seat total per restore transaction: lock + count once on the first new seat, then count
  * up in memory (the School lock is held until commit, so nobody else can add). Outside a real
  * transaction there is no such lock, so every call re-checks.

@@ -87,6 +87,15 @@ describe('Card', () => {
     expect(screen.getByRole('region', { name: 'Digest' })).toBeTruthy();
   });
 
+  it('still defaults to region when role is explicitly undefined', () => {
+    render(
+      <Card aria-label="Summary" role={undefined}>
+        x
+      </Card>,
+    );
+    expect(screen.getByRole('region', { name: 'Summary' })).toBeTruthy();
+  });
+
   it('keeps an explicit role and adds none to an unnamed card', () => {
     render(
       <>

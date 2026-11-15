@@ -35,6 +35,9 @@ export async function syncLinkedGuardianContactsFromLogin(
   const user = await manager.getRepository(User).findOne({
     where: { id: userId },
     select: { id: true, phone: true, email: true },
+    // Same lock mode as contact-change approval, taken before the guardian rows: a concurrent phone
+    // change finishes (login + guardian rows) first, so this never copies a stale login value back.
+    lock: { mode: 'for_no_key_update' },
   });
   if (!user) return;
   await syncLinkedGuardianContacts(manager, userId, {

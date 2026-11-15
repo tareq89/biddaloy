@@ -15,6 +15,7 @@ import { dropStaleRelations } from '../codec/stale-relations';
 import { reviveRows, softDeletedRowIds } from '../codec/soft-deleted';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import { joinRequestedUsers } from '../tabs/people/users.tab';
+import { assertRevivedSeats } from '../tabs/people/students.tab';
 import type { User } from '../../users/entities/user.entity';
 import { KeyIndex } from '../codec/key-index';
 import { ValidationService } from '../import/validation.service';
@@ -272,6 +273,9 @@ export class RestoreProcessor extends WorkerHost {
           // [#688] Rows an earlier restore removed by soft delete come back when the file names
           // them again, so they match as existing below instead of inserting a duplicate.
           const revivable = await softDeletedRowIds(tab, tabResult.rows, tenantId, m);
+          if (tab.name === 'students') {
+            await assertRevivedSeats(m, tenantId, revivable, tabResult.rows);
+          }
           await reviveRows(tab, revivable, tenantId, m);
           const existingEntities = await tab.load(tenantId, m);
           const index = KeyIndex.fromEntities(tab, existingEntities);

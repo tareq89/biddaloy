@@ -467,7 +467,7 @@ export class AttendanceImportService {
         const rows = staged.history.map((h, i) => {
           const sid = staged.studentIds[i];
           const recordId = sid ? (recordIds.get(`${h.sectionId}|${h.date}|${sid}`) ?? null) : null;
-          return { ...h, recordId };
+          return { ...h, recordId, ...(sid ? { studentId: sid } : {}) };
         });
         const c = counts(rows);
         await manager.getRepository(AttendanceImport).insert({
@@ -610,16 +610,21 @@ export class AttendanceImportService {
         })
       : [];
     const current = new Map(recs.map((r) => [r.id, r.status]));
-    const studentIdOf = new Map(recs.map((r) => [r.id, r.student_id]));
-    const students = recs.length
+    // Name by the matched student when the row kept it, else by the written record (older uploads).
+    const recStudent = new Map(recs.map((r) => [r.id, r.student_id]));
+    const studentOf = (r: (typeof e.rows)[number]) =>
+      r.studentId ?? (r.recordId ? recStudent.get(r.recordId) : undefined);
+    const studentIds = [...new Set(e.rows.map(studentOf).filter((x): x is string => !!x))];
+    const students = studentIds.length
       ? await this.studentRepo.find({
-          where: { tenant_id: caller.tenantId, id: In([...new Set(studentIdOf.values())]) },
+          where: { tenant_id: caller.tenantId, id: In(studentIds) },
           select: { id: true, full_name: true },
           withDeleted: true,
         })
       : [];
     const studentName = new Map(students.map((st) => [st.id, st.full_name]));
-    const sectionIds = [...new Set(e.rows.map((r) => r.sectionId))];
+    // A rejected SECTION_NOT_FOUND row stores '' (not a UUID): keep it out of the uuid lookup.
+    const sectionIds = [...new Set(e.rows.map((r) => r.sectionId).filter((id) => id !== ''))];
     const sections = sectionIds.length
       ? await this.sectionRepo.find({
           where: { tenant_id: caller.tenantId, id: In(sectionIds) },
@@ -637,7 +642,7 @@ export class AttendanceImportService {
         class_name: sectionOf.get(r.sectionId)?.class?.name ?? null,
         section_name: sectionOf.get(r.sectionId)?.section_name ?? null,
         roll: r.roll,
-        student_name: (r.recordId && studentName.get(studentIdOf.get(r.recordId) ?? '')) || null,
+        student_name: studentName.get(studentOf(r) ?? '') ?? null,
         before: r.before,
         after: r.after,
         outcome: r.outcome,

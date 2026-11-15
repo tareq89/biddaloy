@@ -109,6 +109,7 @@
     "impact_other": "{{n}} students' results will be recalculated against the new grades.",
     "noImpact": "This scale isn't used in any result yet — nothing will be recalculated.",
     "errorMessage": "Couldn't save the grade change. Please try again.",
+    "finalsBlocking": "Reopen or fix these finals first: {{names}}.",
     "confirm": "Save",
     "saving": "Saving…",
     "approvalHint": "You may be asked for extra approval before saving."

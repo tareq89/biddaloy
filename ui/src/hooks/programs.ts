@@ -299,7 +299,8 @@ export function useEnrolStudents(programId: string) {
       }
       return total;
     },
-    onSuccess: (_data, variables) => {
+    // onSettled: a later chunk failing still leaves the earlier chunks enrolled, so refresh either way.
+    onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: programKeys.all });
       for (const studentId of variables.student_ids) {
         void queryClient.invalidateQueries({ queryKey: studentProgramKeys(studentId) });
