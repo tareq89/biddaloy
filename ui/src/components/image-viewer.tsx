@@ -94,7 +94,7 @@ export function ImageViewer({ files, labels, className }: ImageViewerProps) {
               <img
                 src={current.url}
                 alt={current.label}
-                className={zoomed ? 'max-w-none' : 'w-full'}
+                className={zoomed ? 'w-[200%] max-w-none' : 'w-full'}
               />
             </div>
           )}

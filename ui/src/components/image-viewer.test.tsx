@@ -77,4 +77,14 @@ describe('ImageViewer', () => {
     rerender(<ImageViewer files={[a]} labels={labels} />);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  it('zoom renders the image at twice the frame width', async () => {
+    const user = userEvent.setup();
+    await setup();
+    await user.click(screen.getByRole('button', { name: 'Receipt A' }));
+    const img = await screen.findByRole('img', { name: 'Receipt A' });
+    expect(img.className).toBe('w-full');
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(img.className).toBe('w-[200%] max-w-none');
+  });
 });
