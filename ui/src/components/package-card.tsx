@@ -14,7 +14,7 @@ export interface PackageCardProps {
   priceLabel: string;
   validityLabel: string;
   buyLabel: string;
-  onBuy: () => void;
+  onBuy: (trigger: HTMLElement) => void;
   busy?: boolean;
   disabledReason?: string;
   className?: string;
@@ -48,7 +48,7 @@ export function PackageCard({
       <p className="text-caption text-text-secondary">{validityLabel}</p>
       <Button
         className="mt-4 min-h-11 md:min-h-0"
-        onClick={onBuy}
+        onClick={(e) => onBuy(e.currentTarget)}
         loading={busy}
         disabled={Boolean(disabledReason)}
         aria-describedby={disabledReason ? reasonId : undefined}
