@@ -7,6 +7,10 @@ import { describe, expect, it } from 'vitest';
 import basic from './basic';
 import highSchool from './high-school';
 import primary from './primary';
+import college from './college';
+import international from './international';
+import madrasa from './madrasa';
+import premium from './premium';
 
 // Astro bundles every theme's CSS into every page, so a rule that is not scoped to its theme's wrapper
 // class (`<div class="t-<theme>">` in the theme's Layout.astro) leaks into the other themes. This spec holds
@@ -135,17 +139,24 @@ describe('accent as text only sits on a dark ground', () => {
 });
 
 describe('admission sections (Epic 71)', () => {
-  it.each(Object.entries({ basic, 'high-school': highSchool, primary }))(
-    '%s renders result and lists',
-    (_n, theme) => {
-      expect(theme.sections[SiteSectionKey.ADMISSION_RESULT]).toBeDefined();
-      expect(theme.sections[SiteSectionKey.ADMISSION_LISTS]).toBeDefined();
-    },
-  );
+  it.each(
+    Object.entries({
+      basic,
+      'high-school': highSchool,
+      primary,
+      college,
+      international,
+      madrasa,
+      premium,
+    }),
+  )('%s renders result and lists', (_n, theme) => {
+    expect(theme.sections[SiteSectionKey.ADMISSION_RESULT]).toBeDefined();
+    expect(theme.sections[SiteSectionKey.ADMISSION_LISTS]).toBeDefined();
+  });
 });
 
 describe('admission ribbon text (#fff on --primary) reads in every palette (WCAG AA)', () => {
-  it.each([SiteTheme.BASIC, SiteTheme.HIGH_SCHOOL, SiteTheme.PRIMARY])('%s', (id) => {
+  it.each(Object.values(SiteTheme))('%s', (id) => {
     for (const p of THEMES[id].palettes) {
       const v = p.vars as Record<string, string>;
       expect(ratio(hex('#ffffff'), hex(v.primary)), p.id).toBeGreaterThanOrEqual(4.5);
