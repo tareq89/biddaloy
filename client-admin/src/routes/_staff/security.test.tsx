@@ -1,4 +1,4 @@
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -98,6 +98,18 @@ describe('/security', () => {
 
     expect((await screen.findByRole('alert')).textContent).toBe('Something went wrong');
     expect(screen.getByText('Unknown device')).toBeTruthy();
+  });
+
+  it('says access is refused (not a load error) when the sessions list answers 403', async () => {
+    server.use(
+      http.get('/api/v1/auth/sessions', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/api/v1/auth/sessions'), { status: 403 }),
+      ),
+    );
+    renderSecurityPage();
+
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
 
   it('revokes a non-current session and refreshes the list', async () => {
