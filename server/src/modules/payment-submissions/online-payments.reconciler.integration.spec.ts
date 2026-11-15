@@ -11,6 +11,7 @@ import { BkashClient } from '../payment-gateways/bkash/bkash.client';
 import { SchoolsService } from '../schools/schools.service';
 import { StorageService } from '../storage/storage.service';
 import { OnlinePaymentsReconciler } from './online-payments.reconciler';
+import { PAYMENT_SUBMISSION_EVENTS, paymentSubmissionEvents } from './payment-submission.events';
 
 class FakeStorage {
   async put() {}
@@ -45,7 +46,12 @@ describe('OnlinePaymentsReconciler (integration)', () => {
 
   /** One ONLINE PENDING submission for a fresh bill. `ageMin` = minutes since created. */
   const online = async (
-    opts: { ageMin?: number; paymentId?: string | null; amount?: number } = {},
+    opts: {
+      ageMin?: number;
+      paymentId?: string | null;
+      amount?: number;
+      status?: 'PENDING' | 'EXPIRED';
+    } = {},
   ) => {
     const amount = opts.amount ?? 500;
     const bill = await fix.bill(fix.fx.studentA, amount);
@@ -53,9 +59,16 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     const [s] = await ds.query(
       `INSERT INTO payment_submissions (tenant_id, source, status, submitted_by_user_id, amount,
          provider, environment, provider_payment_id, created_at, updated_at)
-       VALUES ($1,'ONLINE','PENDING',$2,$3,'BKASH','SANDBOX',$4, now() - ($5 || ' minutes')::interval, now())
+       VALUES ($1,'ONLINE',$6,$2,$3,'BKASH','SANDBOX',$4, now() - ($5 || ' minutes')::interval, now())
        RETURNING id`,
-      [SEED_TENANT_ID, fix.parent.id, amount, paymentId, String(opts.ageMin ?? 5)],
+      [
+        SEED_TENANT_ID,
+        fix.parent.id,
+        amount,
+        paymentId,
+        String(opts.ageMin ?? 5),
+        opts.status ?? 'PENDING',
+      ],
     );
     await ds.query(
       `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
@@ -71,11 +84,16 @@ describe('OnlinePaymentsReconciler (integration)', () => {
   const payments = async () =>
     (await ds.query(`SELECT COUNT(*)::int n FROM payments WHERE tenant_id=$1`, [SEED_TENANT_ID]))[0]
       .n as number;
-  const completed = (id: string, amount = '500.00') => ({
+  const completed = async (id: string, amount = '500.00', over: Record<string, unknown> = {}) => ({
     transactionStatus: 'Completed',
+    paymentID: (
+      await ds.query(`SELECT provider_payment_id p FROM payment_submissions WHERE id=$1`, [id])
+    )[0].p,
+    currency: 'BDT',
     amount,
     merchantInvoiceNumber: id,
     trxID: `TRX${id.slice(0, 8)}`,
+    ...over,
   });
 
   const scrub = async () => {
@@ -140,7 +158,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
 
   it('lost callback: Completed with matching amount and invoice is settled once', async () => {
     const id = await online();
-    query.mockResolvedValue(completed(id));
+    query.mockResolvedValue(await completed(id));
     await rec.process();
     expect((await row(id)).status).toBe('COMPLETED');
     expect((await row(id)).provider_trx_id).toBe(`TRX${id.slice(0, 8)}`);
@@ -164,12 +182,84 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     expect(query).not.toHaveBeenCalled();
   });
 
-  it('73-h submission is left alone, logged by id, and bKash is not called', async () => {
+  it('73-h submission is left alone, counted once in the log, and nothing is decrypted or called', async () => {
     const id = await online({ ageMin: 73 * 60 });
     await rec.process();
+    await rec.process(); // the same count is not warned about again
     expect((await row(id)).status).toBe('PENDING');
     expect(query).not.toHaveBeenCalled();
-    expect(logs.some((l) => l.includes(id) && l.includes('72 h'))).toBe(true);
+    expect(settings).not.toHaveBeenCalled();
+    expect(
+      logs.filter((l) => l.includes('1 online submissions') && l.includes('72 h')),
+    ).toHaveLength(1);
+  });
+
+  it.each(['PENDING', 'EXPIRED'] as const)(
+    '%s row: wrong currency or wrong paymentID is not settled',
+    async (status) => {
+      const id = await online({ status, ageMin: status === 'PENDING' ? 5 : 60 });
+      query.mockResolvedValue(await completed(id, '500.00', { currency: 'USD' }));
+      await rec.process();
+      query.mockResolvedValue(await completed(id, '500.00', { paymentID: 'OTHER' }));
+      await rec.process();
+      expect((await row(id)).status).toBe(status);
+      expect(await payments()).toBe(0);
+    },
+  );
+
+  it('late payment: EXPIRED row with a paymentID, under 72 h, is settled once (settle accepts EXPIRED)', async () => {
+    const id = await online({ status: 'EXPIRED', ageMin: 60 });
+    query.mockResolvedValue(await completed(id));
+    const emitted: string[] = [];
+    const on = (p: { submissionId: string }) => emitted.push(p.submissionId);
+    paymentSubmissionEvents.on(PAYMENT_SUBMISSION_EVENTS.COMPLETED, on);
+    try {
+      await rec.process();
+      await rec.process();
+    } finally {
+      paymentSubmissionEvents.off(PAYMENT_SUBMISSION_EVENTS.COMPLETED, on);
+    }
+    expect((await row(id)).status).toBe('COMPLETED');
+    expect(await payments()).toBe(1);
+    expect(emitted).toEqual([id]); // one COMPLETED for one settlement
+    const ev = await ds.query(
+      `SELECT from_status, to_status FROM payment_submission_events WHERE submission_id=$1`,
+      [id],
+    );
+    expect(ev).toEqual([{ from_status: 'EXPIRED', to_status: 'COMPLETED' }]);
+  });
+
+  it('EXPIRED rows stay put when bKash did not complete, or the payment is old or never started', async () => {
+    const failed = await online({ status: 'EXPIRED', ageMin: 60 });
+    const old = await online({ status: 'EXPIRED', ageMin: 73 * 60 });
+    const unstarted = await online({ status: 'EXPIRED', ageMin: 60, paymentId: null });
+    query.mockImplementation(async (pid: string) =>
+      pid === (await pidOf(failed)) ? { transactionStatus: 'Failed' } : completed(old),
+    );
+    await rec.process();
+    for (const id of [failed, old, unstarted]) expect((await row(id)).status).toBe('EXPIRED');
+    expect(query).toHaveBeenCalledTimes(1); // only the young one with a paymentID
+    expect(await payments()).toBe(0);
+  });
+
+  it('late EXPIRED payment with a wrong amount is not settled', async () => {
+    const id = await online({ status: 'EXPIRED', ageMin: 60 });
+    query.mockResolvedValue(await completed(id, '499.99'));
+    await rec.process();
+    expect((await row(id)).status).toBe('EXPIRED');
+    expect(await payments()).toBe(0);
+  });
+
+  it('gateway creds hold exactly the five bKash fields plus the tenant id', async () => {
+    const id = await online();
+    settings.mockImplementation(async () => ({
+      payments: { ...goodSettings.payments, bkash: { ...goodSettings.payments.bkash, extra: 'x' } },
+    }));
+    query.mockResolvedValue(await completed(id));
+    await rec.process();
+    expect(Object.keys(query.mock.calls[0][1]).sort()).toEqual(
+      ['appKey', 'appSecret', 'environment', 'password', 'tenantId', 'username'].sort(),
+    );
   });
 
   it('tenant A error does not block tenant B; query gets B own tenantId; A rows untouched', async () => {
@@ -183,7 +273,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
       return goodSettings;
     });
     const id = await online();
-    query.mockResolvedValue(completed(id));
+    query.mockResolvedValue(await completed(id));
     await rec.process();
     expect((await row(id)).status).toBe('COMPLETED');
     expect(query).toHaveBeenCalledTimes(1);
@@ -221,7 +311,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     query.mockRejectedValueOnce(new Error('network'));
     await rec.process();
     expect((await row(id)).status).toBe('PENDING');
-    query.mockResolvedValue(completed(id));
+    query.mockResolvedValue(await completed(id));
     await rec.process();
     expect((await row(id)).status).toBe('COMPLETED');
   });
@@ -246,7 +336,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
     query.mockImplementation(async (pid: string) =>
       pid === (await pidOf(a))
         ? completed(a, '499.99')
-        : { ...completed(b), merchantInvoiceNumber: randomUUID() },
+        : { ...(await completed(b)), merchantInvoiceNumber: randomUUID() },
     );
     await rec.process();
     expect((await row(a)).status).toBe('PENDING');
@@ -268,7 +358,7 @@ describe('OnlinePaymentsReconciler (integration)', () => {
 
   it('logs carry no credentials and no raw bKash body', async () => {
     const id = await online();
-    query.mockResolvedValue({ ...completed(id, '1.00'), raw: 'RAW-BKASH-BODY' });
+    query.mockResolvedValue({ ...(await completed(id, '1.00')), raw: 'RAW-BKASH-BODY' });
     await rec.process(); // mismatch path logs a warning
     query.mockRejectedValue(new Error(`${SECRET} RAW-BKASH-BODY`));
     await rec.process();

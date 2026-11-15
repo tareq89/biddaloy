@@ -11,6 +11,7 @@ import { PaymentSubmissionBill } from '../../../modules/payment-submissions/enti
 import { PaymentSubmissionFile } from '../../../modules/payment-submissions/entities/payment-submission-file.entity';
 import { PaymentSubmissionEvent } from '../../../modules/payment-submissions/entities/payment-submission-event.entity';
 import { ProofSubmissionsService } from '../../../modules/payment-submissions/proof-submissions.service';
+import { PaymentSubmissionSettlement } from '../../../modules/fees/payment-submission-settlement.service';
 import { ProofReviewService } from '../../../modules/payment-submissions/proof-review.service';
 import { CheckoutService } from '../../../modules/fees/checkout.service';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
@@ -21,8 +22,11 @@ import { staffByCardKey } from './staff';
 import { studentIds } from './students';
 
 /**
- * [3.x/#3973] Guardian payment proofs in every state, all through the real services. Only the PROOF
- * rows live here; #3988 adds the ONLINE ones to this same slice.
+ * [3.x/#3973] Guardian payment proofs in every state, all through the real services.
+ * [3.x/#3988] Plus five ONLINE (bKash) rows: no network and no credentials, so `onlineEnabled`
+ * stays off. They are made as the start step leaves them (PENDING + bills + one event); the
+ * outcome is then booked by the real `PaymentSubmissionSettlement` (COMPLETED) or by a plain
+ * status change (CANCELLED, EXPIRED), which is all the callback and reconciler do too.
  *
  * All seven sit in `bmsc-high`, so the `accountant` card sees the two waiting ones (and the alert
  * "2 payment proofs are waiting"). The `guardian` card's High child carries the first proofs.
@@ -66,6 +70,16 @@ const PLANS: Plan[] = [
   { fate: 'REJECTED', method: PaymentMethod.BKASH, withRef: false, withFile: true, daysAgo: 2 },
   { fate: 'DISCARDED', method: PaymentMethod.BKASH, withRef: true, withFile: false, daysAgo: 6 },
   { fate: 'WITHDRAWN', method: PaymentMethod.CASH, withRef: false, withFile: true, daysAgo: 1 },
+];
+
+/** What happens to each ONLINE attempt. UNMATCHED: half the bill was paid at the counter first. */
+type OnlineFate = 'COMPLETED' | 'UNMATCHED' | 'CANCELLED' | 'EXPIRED';
+const ONLINE_PLANS: { fate: OnlineFate; daysAgo: number }[] = [
+  { fate: 'COMPLETED', daysAgo: 2 },
+  { fate: 'COMPLETED', daysAgo: 3 },
+  { fate: 'UNMATCHED', daysAgo: 1 },
+  { fate: 'CANCELLED', daysAgo: 2 },
+  { fate: 'EXPIRED', daysAgo: 4 },
 ];
 
 export const slice: DemoSlice = {
@@ -116,7 +130,7 @@ export const slice: DemoSlice = {
               AND sf.total_amount - sf.discount_amount - sf.paid_amount > 0
             ORDER BY sf.id
          ) x ORDER BY ("user" = $2) DESC, fname, sid, bill LIMIT $3`,
-        [high.id, cardUser, PLANS.length],
+        [high.id, cardUser, PLANS.length + ONLINE_PLANS.length],
       );
     // A tiny CI run (--scale 0.05) has few login families: run as many plans as there are bills.
     // The first one alone covers every entity (bill, file, event), so one bill is enough.
@@ -186,8 +200,86 @@ export const slice: DemoSlice = {
         rows += 1;
       }
     }
+
+    // ONLINE rows use the bills the proofs left alone. A tiny CI run may have none left.
+    const settlement = ctx.app.get(PaymentSubmissionSettlement);
+    for (const [i, plan] of ONLINE_PLANS.entries()) {
+      const b = bills[PLANS.length + i];
+      if (!b) break;
+      const arrived = new Date(Date.parse(`${ctx.anchor}T04:00:00Z`) - plan.daysAgo * 86_400_000);
+      const [made] = await ctx.ds.query(
+        `INSERT INTO payment_submissions
+           (tenant_id, source, status, submitted_by_user_id, amount, provider, environment,
+            provider_payment_id, started_at, expires_at, created_at, updated_at)
+         VALUES ($1,'ONLINE','PENDING',$2,$3,'BKASH','SANDBOX',$4,$5,$6,$5,$5) RETURNING id`,
+        [
+          high.id,
+          b.user,
+          b.balance,
+          plan.fate === 'EXPIRED' ? null : `DEMOPAY${ctx.rng.string.alphanumeric({ length: 12 })}`,
+          arrived,
+          new Date(arrived.getTime() + 30 * 60_000),
+        ],
+      );
+      await ctx.ds.query(
+        `INSERT INTO payment_submission_bills (tenant_id, submission_id, student_fee_id, student_id, amount_at_start)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [high.id, made.id, b.bill, b.student, b.balance],
+      );
+      await ctx.ds.query(
+        `INSERT INTO payment_submission_events (tenant_id, submission_id, from_status, to_status, actor_user_id, created_at)
+         VALUES ($1,$2,NULL,'PENDING',$3,$4)`,
+        [high.id, made.id, b.user, arrived],
+      );
+      rows += 3;
+
+      if (plan.fate === 'COMPLETED' || plan.fate === 'UNMATCHED') {
+        if (plan.fate === 'UNMATCHED') {
+          // The family paid half at the counter while bKash was open: the rest cannot find a bill.
+          const half = Math.floor(Number(b.balance) / 2);
+          if (half < 1) throw new Error('payment-submissions: bill too small to split');
+          await checkout.checkout(
+            {
+              idempotency_key: ctx.rng.string.uuid(),
+              lines: [{ student_fee_id: b.bill, amount: half }],
+              payment_method: PaymentMethod.CASH,
+            },
+            high.id,
+            org.adminUserId,
+            { headers: {} },
+            { replayed: false, notify: false },
+          );
+        }
+        // The TrxID is stored before settling, as the callback does.
+        await ctx.ds.query(`UPDATE payment_submissions SET provider_trx_id = $2 WHERE id = $1`, [
+          made.id,
+          `DMO${ctx.rng.string.alphanumeric({ length: 9, casing: 'upper' })}`,
+        ]);
+        const out = await settlement.settle(made.id, high.id, b.user, 'ONLINE_LENIENT');
+        if (out.outcome !== 'SETTLED') throw new Error('payment-submissions: online not settled');
+        rows += plan.fate === 'UNMATCHED' ? 6 : 3;
+      } else {
+        const to = plan.fate;
+        await ctx.ds.query(`UPDATE payment_submissions SET status = $2 WHERE id = $1`, [
+          made.id,
+          to,
+        ]);
+        await ctx.ds.query(
+          `INSERT INTO payment_submission_events (tenant_id, submission_id, from_status, to_status, actor_user_id, reason_code)
+           VALUES ($1,$2,'PENDING',$3,$4,$5)`,
+          [high.id, made.id, to, b.user, to === 'CANCELLED' ? 'BKASH_CANCELLED' : 'NOT_STARTED'],
+        );
+        rows += 1;
+      }
+    }
     return rows;
   },
+};
+
+export const ONLINE_STATUS_COUNTS: Record<string, number> = {
+  [PaymentSubmissionStatus.COMPLETED]: 3,
+  [PaymentSubmissionStatus.CANCELLED]: 1,
+  [PaymentSubmissionStatus.EXPIRED]: 1,
 };
 
 export const PROOF_STATUS_COUNTS: Record<string, number> = {

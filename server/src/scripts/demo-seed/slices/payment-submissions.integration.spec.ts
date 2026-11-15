@@ -55,7 +55,7 @@ import { slice as staff } from './staff';
 import { slice as students } from './students';
 import { slice as attendance } from './attendance';
 import { slice as fees } from './fees';
-import { slice, PROOF_STATUS_COUNTS } from './payment-submissions';
+import { slice, PROOF_STATUS_COUNTS, ONLINE_STATUS_COUNTS } from './payment-submissions';
 import { ProofSubmissionsService } from '../../../modules/payment-submissions/proof-submissions.service';
 import { ProofReviewService } from '../../../modules/payment-submissions/proof-review.service';
 import { PaymentSubmissionSettlement } from '../../../modules/fees/payment-submission-settlement.service';
@@ -64,13 +64,13 @@ import { FamilyAccessService } from '../../../modules/students/family-access.ser
 const ANCHOR = '2026-10-10';
 const PREV_START = '2026-09-01'; // first day of the month before the anchor
 const FAKE_NOW = `${ANCHOR}T06:00:00Z`; // the clock the slice runs under
-const SCALE = 0.25; // login guardians are 5% of families: 0.1 leaves fewer than 7 open bills
+const SCALE = 0.5; // login guardians are 5% of families: 7 proofs + 5 online need 12 open bills
 const YEARS = 2;
 const JWT_SECRET = 'fees-slice-spec-secret-0123456789abcdef';
 const DEMO = `s.slug LIKE 'bmsc-%'`;
 const DEMO_STUDENT = `s.tenant_id IN (SELECT id FROM schools WHERE slug LIKE 'bmsc-%')`;
 
-describe('payment-submissions slice (integration, 2 years, scale 0.25)', () => {
+describe('payment-submissions slice (integration, 2 years, scale 0.5)', () => {
   let ds: DataSource;
   let ctx: DemoSeedContext;
   let app: TestingModule;
@@ -214,6 +214,25 @@ describe('payment-submissions slice (integration, 2 years, scale 0.25)', () => {
       `SELECT count(*)::int AS n FROM payment_submissions WHERE status = 'CONFIRMED' AND settled_at IS NOT NULL`,
     );
     expect(settled).toBe(2);
+
+    // Five ONLINE attempts: 2 + 1 unmatched completed, 1 cancelled, 1 expired. Gateway stays off.
+    const online = await q(
+      `SELECT status, count(*)::int AS n FROM payment_submissions WHERE source = 'ONLINE' GROUP BY status`,
+    );
+    expect(Object.fromEntries(online.map((r) => [r.status, r.n]))).toEqual(ONLINE_STATUS_COUNTS);
+    const [{ n: unmatched }] = await q(
+      `SELECT count(*)::int AS n FROM payment_submissions
+        WHERE source = 'ONLINE' AND status = 'COMPLETED' AND unmatched`,
+    );
+    expect(unmatched).toBe(1);
+    const [{ n: wallet }] = await q(
+      `SELECT count(*)::int AS n FROM wallet_transactions WHERE kind = 'CREDIT_OVERPAYMENT'`,
+    );
+    expect(wallet).toBeGreaterThanOrEqual(1);
+    const [{ n: gatewayOn }] = await q(
+      `SELECT count(*)::int AS n FROM schools WHERE settings->'payments'->>'onlineEnabled' = 'true'`,
+    );
+    expect(gatewayOn).toBe(0);
 
     // Proofs are on in all three branches, and every proof is in bmsc-high.
     const [{ n: off }] = await q(

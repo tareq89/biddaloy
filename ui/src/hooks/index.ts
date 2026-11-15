@@ -1959,3 +1959,4 @@ export * from './platform-school-control';
 export * from './platform-console';
 export * from './platform-modules';
 export * from './support-access';
+export * from './online-payments';
