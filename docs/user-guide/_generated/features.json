@@ -812,6 +812,24 @@
     "routes": []
   },
   {
+    "id": "start.ifSomethingGoesWrong",
+    "kind": "start",
+    "path": "start/if-something-goes-wrong",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
     "id": "admin.howItWorks",
     "kind": "admin",
     "path": "admin/how-it-works",
