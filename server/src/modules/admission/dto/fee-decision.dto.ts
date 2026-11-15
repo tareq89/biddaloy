@@ -22,7 +22,20 @@ export class ListFeeProofsDto {
   @IsUUID()
   intakeId?: string;
 
-  @ApiPropertyOptional({ enum: FEE_STATES, enumName: 'AdmissionFeeState', default: 'AWAITING' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: "One applicant's proofs. Without `state`, every state is listed (their history).",
+  })
+  @IsOptional()
+  @IsUUID()
+  applicantId?: string;
+
+  @ApiPropertyOptional({
+    enum: FEE_STATES,
+    enumName: 'AdmissionFeeState',
+    default: 'AWAITING',
+    description: 'Default AWAITING, except when `applicantId` is given (then all states).',
+  })
   @IsOptional()
   @IsEnum(FEE_STATES)
   state?: AdmissionFeeState;
@@ -62,6 +75,12 @@ export class FeeProofRowDto {
   applicant_status: AdmissionApplicantStatus;
   @ApiProperty() method: string;
   @ApiProperty({ type: String, nullable: true }) reference: string | null;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Application fee of the round, whole paisa; null = the round has no fee.',
+  })
+  amount_paisa: number | null;
   @ApiProperty({ enum: FEE_STATES, enumName: 'AdmissionFeeState' }) state: AdmissionFeeState;
   @ApiProperty({ type: String, nullable: true }) reason: string | null;
   @ApiProperty({ type: String, format: 'date-time' }) created_at: string;

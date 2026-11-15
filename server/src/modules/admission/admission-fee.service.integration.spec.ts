@@ -128,4 +128,14 @@ describe('AdmissionFeeService (integration)', () => {
     expect(by.get(solo.proof)).toBe(0);
     expect(res.data.every((r) => r.state === 'AWAITING')).toBe(true);
   });
+
+  it('[#4253] filters by applicant and carries the round fee in paisa', async () => {
+    await ds.query(`UPDATE admission_intakes SET fee_amount_paisa = 25050 WHERE id = $1`, [intake]);
+    const a = await proofRow('X1');
+    await proofRow('X2');
+    await ds.query(`UPDATE admission_fee_proofs SET state = 'CONFIRMED' WHERE id = $1`, [a.proof]);
+    const res = await service.list(tenant, { applicantId: a.applicant, limit: 100 });
+    expect(res.total).toBe(1);
+    expect(res.data[0]).toMatchObject({ id: a.proof, amount_paisa: 25050, state: 'CONFIRMED' });
+  });
 });

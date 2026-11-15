@@ -43,8 +43,11 @@ export class AdmissionFeeService {
       .innerJoinAndSelect('p.applicant', 'a')
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('a.tenant_id = :tenantId', { tenantId })
-      .andWhere('a.deleted_at IS NULL')
-      .andWhere('p.state = :state', { state: filters.state ?? AdmissionFeeState.AWAITING });
+      .andWhere('a.deleted_at IS NULL');
+    const state = filters.state ?? (filters.applicantId ? undefined : AdmissionFeeState.AWAITING);
+    if (state) qb.andWhere('p.state = :state', { state });
+    if (filters.applicantId)
+      qb.andWhere('p.applicant_id = :applicantId', { applicantId: filters.applicantId });
     if (filters.intakeId) qb.andWhere('a.intake_id = :intakeId', { intakeId: filters.intakeId });
     // `id` breaks created_at ties so a page boundary never repeats or skips a row.
     const [rows, total] = await qb
@@ -68,6 +71,18 @@ export class AdmissionFeeService {
       for (const g of grouped) counts.set(g.reference, Number(g.c));
     }
 
+    const amounts = new Map<string, number | null>();
+    const intakeIds = [...new Set(rows.map((r) => r.applicant.intake_id))];
+    if (intakeIds.length > 0) {
+      const found = (await this.proofs.manager.query(
+        `SELECT id, fee_amount_paisa FROM admission_intakes
+          WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+        [tenantId, intakeIds],
+      )) as { id: string; fee_amount_paisa: number | null }[];
+      for (const i of found)
+        amounts.set(i.id, i.fee_amount_paisa === null ? null : Number(i.fee_amount_paisa));
+    }
+
     return {
       data: rows.map((r) => ({
         id: r.id,
@@ -78,6 +93,7 @@ export class AdmissionFeeService {
         applicant_status: r.applicant.status,
         method: r.method,
         reference: r.reference,
+        amount_paisa: amounts.get(r.applicant.intake_id) ?? null,
         state: r.state,
         reason: r.reason,
         created_at: r.created_at.toISOString(),
