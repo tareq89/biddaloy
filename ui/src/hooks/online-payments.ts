@@ -9,7 +9,7 @@ import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
 import { useIdempotencyKey } from './idempotency-key';
-import { paymentSubmissionKeys, usePaymentSubmissions } from './payment-submissions';
+import { type ProofReviewFilters, usePaymentSubmissions } from './payment-submissions';
 import { shouldRetryQuery } from './retry';
 
 type Schemas = components['schemas'];
@@ -56,21 +56,17 @@ export function useOnlinePaymentResult(id: string | undefined, { enabled = true 
 
 /** Staff: the ONLINE rows of the shared payment-submissions list. */
 export function useOnlinePaymentSubmissions(
-  filters: { status?: string; limit?: number; cursor?: string } = {},
+  filters: Omit<ProofReviewFilters, 'source'> = {},
   options: { enabled?: boolean } = {},
 ) {
-  return usePaymentSubmissions({ ...(filters as object), source: 'ONLINE' as never }, options);
+  return usePaymentSubmissions({ ...filters, source: 'ONLINE' }, options);
 }
 
 /** Admin: token-grant test of the saved bKash credentials. Not an idempotent write. */
 export function useTestBkashConnection() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () =>
       (await apiClient.post<BkashTestResponse>('/settings/payments/bkash/test')).data,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: paymentSubmissionKeys.all });
-    },
     retry: false,
   });
 }

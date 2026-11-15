@@ -6856,6 +6856,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/online-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a bKash payment for picked bills; returns the bKash URL. */
+        post: operations["OnlinePaymentsController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/online-payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How an online payment ended (family-scoped). */
+        get: operations["OnlinePaymentsController_result_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/payments/bkash/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test the saved bKash credentials; stamps lastTestOkAt on success. */
+        post: operations["BkashTestController_test_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/online-payments/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** bKash redirect target: verifies the payment, then shows the result. */
+        get: operations["OnlinePaymentsPublicController_callback_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backup/export": {
         parameters: {
             query?: never;
@@ -18745,6 +18813,36 @@ export interface components {
         };
         ReopenProofDto: {
             note: string;
+        };
+        StartOnlinePaymentDto: {
+            billIds: string[];
+        };
+        StartOnlinePaymentResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description The bKash checkout page to send the guardian to. */
+            bkashUrl: string;
+        };
+        OnlinePaymentBillDto: {
+            studentFeeId: string;
+            studentId: string;
+            amount: string;
+        };
+        OnlinePaymentResultDto: {
+            id: string;
+            /** @enum {string} */
+            status: "PENDING" | "CONFIRMED" | "REJECTED" | "DISCARDED" | "WITHDRAWN" | "COMPLETED" | "FAILED" | "CANCELLED" | "EXPIRED" | "REVERSED";
+            /** @description Sum of the bills of the children the caller is linked to. */
+            amount: string;
+            /** @description Paid at bKash but no bill could take it; it went to the wallet. */
+            unmatched: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            bills: components["schemas"]["OnlinePaymentBillDto"][];
+        };
+        BkashTestResponseDto: {
+            ok: boolean;
+            lastTestOkAt: string;
         };
         RequestExportDto: {
             /**
@@ -40055,6 +40153,122 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OnlinePaymentsController_start_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartOnlinePaymentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartOnlinePaymentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OnlinePaymentsController_result_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnlinePaymentResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BkashTestController_test_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BkashTestResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OnlinePaymentsPublicController_callback_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
