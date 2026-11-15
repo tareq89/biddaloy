@@ -26,6 +26,7 @@ function build(
   opts: { downstream?: boolean; kind?: string } = {},
 ) {
   const saved: Record<string, unknown>[] = [];
+  const stageSaves: { config: Record<string, unknown> }[] = [];
   const updates: unknown[][] = [];
   const audits: unknown[] = [];
   const manager = {
@@ -50,7 +51,7 @@ function build(
       findOne: async () => ({ ...stage, config, kind: opts.kind ?? 'WRITTEN' }),
       create: (v: object) => ({ ...v }),
       save: async (v: Record<string, unknown>[] | Record<string, unknown>) =>
-        Array.isArray(v) ? saved.push(...v) : v,
+        Array.isArray(v) ? saved.push(...v) : (stageSaves.push(v as never), v),
       createQueryBuilder: () => {
         const qb = { where: () => qb, getMany: async () => [] };
         return qb;
@@ -65,7 +66,7 @@ function build(
     { lockIntake } as never,
     { record: auditRecord } as never,
   );
-  return { service, saved, updates, audits, lockIntake };
+  return { service, saved, stageSaves, updates, audits, lockIntake };
 }
 
 const row = (id: string, score: string | null, recorded = true): Row => ({
@@ -157,6 +158,25 @@ describe('AdmissionStageResultService.putResults', () => {
     await expect(ctx.service.putResults('s1', body([r, r]), TENANT, actor)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('a score change clears the stale cut-off commit marker; pass/fail stages keep it', async () => {
+    const sc = build([row('a1', null, false)], { total_marks: 100, cutoff_committed_at: 'X' });
+    await sc.service.putResults(
+      's1',
+      body([{ applicant_id: 'a1', attended: true, score: 50 }]),
+      TENANT,
+      actor,
+    );
+    expect(sc.stageSaves[0].config).toEqual({ total_marks: 100 });
+    const pf = build([row('a1', null, false)], { cutoff_committed_at: 'X' });
+    await pf.service.putResults(
+      's1',
+      body([{ applicant_id: 'a1', attended: true, passed: true }]),
+      TENANT,
+      actor,
+    );
+    expect(pf.stageSaves).toHaveLength(0);
   });
 
   it('a pass/fail stage takes passed, not a score', async () => {

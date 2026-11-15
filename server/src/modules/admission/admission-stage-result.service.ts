@@ -248,6 +248,12 @@ export class AdmissionStageResultService {
             WHERE tenant_id = $1 AND stage_id = $2 AND deleted_at IS NULL AND passed IS NOT NULL`,
           [tenantId, stage.id],
         );
+      // The score change voided `passed` above, so a stored cut-off commit is stale: clear its marker.
+      if (total !== null && stage.config?.cutoff_committed_at !== undefined) {
+        const { cutoff_committed_at: _stale, ...rest } = stage.config;
+        stage.config = rest;
+        await manager.getRepository(AdmissionStage).save(stage);
+      }
       await this.audit(manager, tenantId, actor, {
         op: 'STAGE_RESULTS_PUT',
         stage_id: stage.id,
