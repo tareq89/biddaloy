@@ -150,8 +150,9 @@ export class SchoolSettingsLock {
     let names: string[] = [];
     try {
       names = readdirSync(this.readersDir);
-    } catch {
-      return 0;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return 0;
+      throw e;
     }
     for (const name of names) {
       const file = join(this.readersDir, name);

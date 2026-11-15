@@ -15,6 +15,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { seedPeriodRoutine } from './attendance-periods.fixture';
+import { todayInSchoolTz } from '../../common/time';
 import { AttendanceService } from './attendance.service';
 import { AttendanceModule } from './attendance.module';
 import { AuthModule } from '../auth/auth.module';
@@ -177,7 +178,8 @@ describe('AttendanceService (integration)', () => {
   });
 
   beforeEach(async () => {
-    testNow = new Date();
+    // School-local day (the service's own clock), as a UTC-midnight anchor for addDays.
+    testNow = new Date(`${todayInSchoolTz()}T00:00:00Z`);
     // Baseline policy for most tests: no weekly-off collision, a 2-day
     // correction window, future dates refused by default.
     await setTenantSettings(TENANT_ID, {

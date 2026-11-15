@@ -255,7 +255,7 @@ describe('Program Enrollments E2E', () => {
       await req('get', `${API}/students/${studentId}/programs`, parentToken, TENANT_ID).expect(404);
     });
 
-    it("PARENT of tenant A can't reach a student via a spoofed tenant header", async () => {
+    it('PARENT not linked to the child gets 404 on a same-tenant request', async () => {
       const studentId = await createStudentWithParent(PARENT_USER_ID);
       await req('get', `${API}/students/${studentId}/programs`, otherParentToken, TENANT_ID).expect(
         404,
