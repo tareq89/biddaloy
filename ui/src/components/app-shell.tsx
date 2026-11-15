@@ -56,6 +56,7 @@ import { cn } from '../primitives/lib/utils';
 
 import { Wordmark } from './brand-mark';
 import { Button } from './button';
+import { ConnectionBanner } from './connection-banner';
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from './dialog';
 import { SkipLink } from './skip-link';
 
@@ -642,6 +643,7 @@ export function AppShell({
         )}
       >
         <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
+        <ConnectionBanner />
         {hasStickyHeader && (
           <div ref={headerRef} data-app-header className="sticky top-0 z-30">
             {useNewMobileBar && (
