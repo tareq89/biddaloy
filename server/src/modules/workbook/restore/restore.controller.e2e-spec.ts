@@ -667,9 +667,10 @@ describe('POST /backup/restore E2E', () => {
 
   // M3: the join-requested account must not leak into later tabs. A `teachers` row
   // that refs it would otherwise copy the stranger's id into this school before they
-  // accepted (their name, phone and email then show in GET /teachers).
-  it('a later tab cannot reference a join-requested account; the restore fails instead of linking it', async () => {
-    expect(await restoreJoinWorkbook(true)).toBe('FAILED');
+  // accepted (their name, phone and email then show in GET /teachers). Since #2344 the
+  // dependent row is skipped with a warning and the restore still finishes.
+  it('a later tab skips a row that references a join-requested account; it neither fails nor links it', async () => {
+    expect(await restoreJoinWorkbook(true)).toBe('DONE');
 
     const teachers = await dataSource.query(
       `SELECT 1 FROM teachers WHERE user_id = $1 AND tenant_id = $2`,
