@@ -119,7 +119,8 @@ function PublishRow({
 
 export function PublicationPanel() {
   const { t } = useTranslation('admission-lists');
-  const ds = useTranslation('admission-desk');
+  // Loads the desk namespace; keys from it are read with an explicit `{ ns }` (check:i18n resolves one namespace per file).
+  useTranslation('admission-desk');
   const region = useRegionConfig();
   const { roundId = '' } = useParams({ strict: false });
   const round = useAdmissionRound(roundId);
@@ -148,7 +149,7 @@ export function PublicationPanel() {
   const common = { roundId, defaultSms, channels };
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">{ds.t('panels.publication')}</h2>
+      <h2 className="text-lg font-semibold">{t('panels.publication', { ns: 'admission-desk' })}</h2>
       <section className="flex flex-col gap-2 rounded-lg border border-border-functional bg-surface p-4">
         <label className="flex items-center gap-2 text-sm font-medium">
           <Switch
@@ -176,7 +177,7 @@ export function PublicationPanel() {
           {...common}
           what="STAGE"
           refId={s.id}
-          label={s.title || ds.t(`desk.steps.kind.${s.kind}`)}
+          label={s.title || t(`desk.steps.kind.${s.kind}`, { ns: 'admission-desk' })}
         />
       ))}
       {ordered.map((l) => (

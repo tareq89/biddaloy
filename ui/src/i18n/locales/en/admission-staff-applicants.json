@@ -133,7 +133,7 @@
     "linkExisting": "Link this child to this family",
     "createNew": "Create a new guardian for this child",
     "matchError": "Could not check for an existing guardian. Try again before admitting.",
-    "section": "Section",
+    "section": "$t(common:entities.section_one)",
     "sectionAuto": "Let the school choose"
   },
   "fields": {
