@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
 import { OTP_REDIS } from '../../account-access/otp.service';
-import { assertSafeHttpDestination } from '../../communications/providers/shared/outbound-destination-guard';
+import {
+  assertSafeHttpDestination,
+  testLoopbackAllowed,
+} from '../../communications/providers/shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../../communications/providers/shared/pinned-http';
 import type { PaymentGatewayEnvironment } from '@biddaloy/shared';
 import type {
@@ -19,13 +22,12 @@ const TOKEN_TTL_SEC = 50 * 60;
 
 /**
  * Test-only seam (#3997): the e2e server talks to a fake bKash on 127.0.0.1. Fails closed like the
- * loopback seam it rides on: NODE_ENV=test AND OUTBOUND_TEST_ALLOW_LOOPBACK=true, read each call.
+ * loopback seam it rides on: the guard's own test-loopback switch (NODE_ENV=test plus the loopback flag), read each call.
  * Boot refuses the loopback flag in production (`assertProductionConfig`), so this never exists
  * there, and a tenant still never supplies a URL (D14). See 08-security.md Rule 7.
  */
 function testStubBase(): string | undefined {
-  const on = process.env.NODE_ENV === 'test' && process.env.OUTBOUND_TEST_ALLOW_LOOPBACK === 'true';
-  return (on && process.env.BKASH_TEST_BASE_URL) || undefined;
+  return (testLoopbackAllowed() && process.env.BKASH_TEST_BASE_URL) || undefined;
 }
 
 type Resolved = Omit<GatewayCreds, 'environment' | 'tenantId'> & { base: string; cacheKey: string };

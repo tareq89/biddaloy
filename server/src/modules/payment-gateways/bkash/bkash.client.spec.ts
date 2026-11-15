@@ -9,6 +9,9 @@ const { assertSafe, fetchJson } = vi.hoisted(() => ({
 }));
 vi.mock('../../communications/providers/shared/outbound-destination-guard', () => ({
   assertSafeHttpDestination: assertSafe,
+  // Same rule as the real guard: only under NODE_ENV=test with the loopback flag.
+  testLoopbackAllowed: () =>
+    process.env.NODE_ENV === 'test' && process.env.OUTBOUND_TEST_ALLOW_LOOPBACK === 'true',
 }));
 vi.mock('../../communications/providers/shared/pinned-http', () => ({
   fetchPinnedJson: fetchJson,
