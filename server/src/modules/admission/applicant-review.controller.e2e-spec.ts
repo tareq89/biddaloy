@@ -404,8 +404,8 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
         ids[name] = id;
       }
       await ds.query(
-        `INSERT INTO admission_fee_proofs (tenant_id, applicant_id, attachment_key, method, reference, state)
-         VALUES ($1, $2, 'k', 'BKASH', 'OLD', 'SENT_BACK'), ($1, $2, 'k2', 'NAGAD', 'NEW', 'AWAITING')`,
+        `INSERT INTO admission_fee_proofs (tenant_id, applicant_id, attachment_key, method, reference, state, created_at)
+         VALUES ($1, $2, 'k', 'BKASH', 'OLD', 'SENT_BACK', now() - interval '1 hour'), ($1, $2, 'k2', 'NAGAD', 'NEW', 'AWAITING', now())`,
         [SEED_TENANT_ID, ids.Alpha],
       );
       await ds.query(
