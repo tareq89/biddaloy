@@ -91,6 +91,33 @@ describe('DiffService', () => {
   const manager = {} as EntityManager;
   const service = new DiffService();
 
+  it('[688] a revivable id is matched by id, not by the natural key of an unrelated active row', async () => {
+    // Two rows share a key: one is a live row, the other names a soft-deleted row to revive.
+    const tab = makeTab('a', { existing: [{ id: '11111111-1111-4111-8111-111111111111', key: 'k1', value: 'v' }] });
+    const fakeManager = {
+      connection: {
+        hasMetadata: () => true,
+        getMetadata: () => ({
+          tableName: 'a',
+          deleteDateColumn: { databaseName: 'deleted_at' },
+          findColumnWithPropertyName: (n: string) => ({ databaseName: n }),
+        }),
+      },
+      query: async () => [{ id: '22222222-2222-4222-8222-222222222222' }],
+    } as unknown as EntityManager;
+    const validated = validatedFor({
+      a: {
+        present: true,
+        rows: [
+          { id: '11111111-1111-4111-8111-111111111111', key: 'k1', value: 'v' },
+          { id: '22222222-2222-4222-8222-222222222222', key: 'k1', value: 'v' },
+        ],
+      },
+    });
+    const report = await service.diff(validated, 'tenant', fakeManager, [tab]);
+    expect(report.tabs[0]).toMatchObject({ updates: 1, unchanged: 1 });
+  });
+
   it('buckets rows into creates, updates, unchanged, and deletes', async () => {
     const tab = makeTab('a', {
       existing: [
@@ -225,7 +252,9 @@ describe('DiffService', () => {
     it('passes at exactly the limit, and when the limit is null', async () => {
       const tab = makeTab('students');
       const validated = validatedFor({ students: { present: true, rows: studentRows(5) } });
-      expect((await service.diff(validated, 't', seatManager(50, 45), [tab])).hardErrorCount).toBe(0);
+      expect((await service.diff(validated, 't', seatManager(50, 45), [tab])).hardErrorCount).toBe(
+        0,
+      );
       const big = validatedFor({ students: { present: true, rows: studentRows(500) } });
       expect((await service.diff(big, 't', seatManager(null, 45), [tab])).hardErrorCount).toBe(0);
     });

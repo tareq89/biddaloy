@@ -51,6 +51,16 @@ export async function reviveRows(
 ): Promise<number> {
   const target = softDeleteTarget(tab, m);
   if (!target || ids.size === 0) return 0;
+  // A deleted year may still hold is_current while another live year holds it too; the live-current
+  // unique index would refuse the revival before the file's own value is applied. The tab's
+  // upsert writes the imported is_current right after.
+  if (tab.name === 'academic_years') {
+    await m.query(
+      `UPDATE academic_years SET is_current = false
+        WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NOT NULL`,
+      [tenantId, [...ids]],
+    );
+  }
   const [, count]: [unknown, number] = await m.query(
     `UPDATE "${target.table}" SET "${target.deleted}" = NULL
       WHERE "${target.tenant}" = $1 AND id = ANY($2::uuid[]) AND "${target.deleted}" IS NOT NULL`,
