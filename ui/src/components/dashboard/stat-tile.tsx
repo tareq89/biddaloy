@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { cn } from '../../primitives/lib/utils';
 import { Card } from '../card';
+import { RollingNumber } from '../rolling-number';
 
 import { SIGNAL, type SignalProps } from './signal';
 
@@ -52,7 +53,7 @@ export function StatTile({
         className={cn('text-h1 tabular-nums', sig && 'flex items-center gap-2', sig?.text)}
       >
         {sig ? <sig.Icon aria-hidden="true" className="size-5 shrink-0" /> : null}
-        {value}
+        <RollingNumber value={value} />
         {sig ? <span className="sr-only">{signalLabel}</span> : null}
       </span>
       {trend && Icon ? (
