@@ -233,7 +233,15 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
       response.url().includes('/payments/cart') &&
       new URL(response.url()).searchParams.get('amount') === '500.00',
   );
-  await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
+  // The bill list seeds (and resets "Amount received") when the first cart lands, so a fill that
+  // races it is lost (CI trace: box empty, no `amount=500.00` request). Wait for the row, then
+  // retry until the value sticks.
+  await expect(page.getByLabel(t('payments.record.cart.columnPay'))).toBeVisible();
+  const amountReceived = page.getByLabel(t('payments.record.amountReceived.label'));
+  await expect(async () => {
+    await amountReceived.fill('500');
+    await expect(amountReceived).toHaveValue(/[5৫][0০][0০]/, { timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
   await cartForAmount;
   await expect(page.getByLabel(t('payments.record.cart.columnPay'))).toHaveValue(/[1-9১-৯]/);
   await page.getByRole('button', { name: t('payments.record.discount.give') }).click();
