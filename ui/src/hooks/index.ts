@@ -1274,6 +1274,7 @@ export {
   useAdmissionRounds,
   useAdmissionStages,
   useCreateAdmissionRound,
+  useUpdateAdmissionRound,
   type AdmissionRound,
   type CreateAdmissionRoundInput,
 } from './admission-rounds';
@@ -1293,6 +1294,8 @@ export {
   useDrawLottery,
   useExpirePendingList,
   useFeeProofs,
+  usePublish,
+  usePublishEstimate,
   usePutStageResults,
   useSendBackFeeProof,
   useSetCalled,
@@ -1305,6 +1308,7 @@ export {
   type CutoffPreview,
   type FeeProofList,
   type LotteryImportValidation,
+  type PublishWhat,
   type StageResultRow,
 } from './admission-pipeline';
 export {

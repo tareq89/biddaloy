@@ -111,5 +111,29 @@
     "callLink": "Call {{name}}",
     "saveError": "Could not save. Try again.",
     "close": "Close"
+  },
+  "publish": {
+    "loading": "Loading…",
+    "loadError": "Could not load this page. Try again.",
+    "published": "Published",
+    "notPublished": "Not published",
+    "channelSite": "Site",
+    "channelPhone": "Phone",
+    "channelSms": "Send SMS",
+    "includeNotSelected": "Also text applicants who were not selected",
+    "action": "Publish",
+    "confirmTitle": "Publish {{name}}?",
+    "estimate": "{{count}} SMS ≈ {{credits}} credits",
+    "estimateLoading": "Counting SMS…",
+    "lowCredit": "Not enough credits: this needs {{credits}} but only {{available}} are left.",
+    "noSms": "No SMS will be sent.",
+    "names": "List with names",
+    "namesWarning": "These are children's names. Anyone who opens the public site will see them. Turn this on only if the school really wants it.",
+    "preview": "How it looks on the site",
+    "previewUnavailable": "The public lists page is not ready yet.",
+    "toast": {
+      "done": "Published. {{count}} SMS sent.",
+      "error": "Could not publish. Try again."
+    }
   }
 }
