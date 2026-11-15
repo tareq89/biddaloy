@@ -249,7 +249,9 @@ UPDATE lesson_deliveries SET note = NULL;
 UPDATE milestone_achievements SET remark = NULL;
 UPDATE payment_allocations SET notes = NULL;
 -- CHK_payment_submissions_reject_note: reject reason OTHER needs a note.
+-- provider_payment_id / provider_trx_id are gateway handles (like platform_payments.gateway_ref).
 UPDATE payment_submissions SET reference_raw = NULL, reference_normalised = NULL, discard_reason = NULL,
+  provider_payment_id = NULL, provider_trx_id = NULL,
   reject_note = CASE WHEN reject_reason = 'OTHER' THEN '[scrubbed]' END;
 UPDATE payment_submission_events SET note = NULL;
 UPDATE payments SET remarks = NULL, reversal_reason = NULL, issuer_snapshot = NULL, transaction_reference = NULL;

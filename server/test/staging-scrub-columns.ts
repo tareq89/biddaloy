@@ -189,7 +189,14 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   payment_allocations: { null: ['notes'] },
   // [3.1.99] Guardian payment submissions (Epic 3.0): TrxIDs and free text go; codes and hashes stay.
   payment_submissions: {
-    null: ['reference_raw', 'reference_normalised', 'reject_note', 'discard_reason'],
+    null: [
+      'reference_raw',
+      'reference_normalised',
+      'reject_note',
+      'discard_reason',
+      'provider_payment_id',
+      'provider_trx_id',
+    ],
   },
   payment_submission_files: { 'kept-public': ['original_name_hash'] },
   payment_submission_events: { null: ['note'], 'kept-public': ['reason_code'] },
