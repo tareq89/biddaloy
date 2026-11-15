@@ -157,5 +157,71 @@
   "video": {
     "play": "Play video",
     "title": "Video"
+  },
+  "admission": {
+    "title": "Admission application",
+    "none": "There is no admission round yet",
+    "unavailable": "Applications cannot be taken right now. Please try again in a moment.",
+    "dates": "Last date to apply: {date}",
+    "pickRound": "Choose the admission round you are applying for.",
+    "pick": "Choose",
+    "send": "Submit application",
+    "sending": "Submitting…",
+    "fixFields": "Fix the red notes and submit again.",
+    "feeTitle": "Fee",
+    "feeLine": "The fee is {n} taka. Send it, then fill in the details below. The school will do the fee check.",
+    "feeMethod": "How you sent it",
+    "feeReference": "The number or transaction ID you sent from",
+    "feeProof": "Screenshot or slip (photo or PDF, up to 5 MB)",
+    "preview": "Chosen file",
+    "method": {
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket",
+      "BANK": "Bank"
+    },
+    "opt": {
+      "MALE": "Boy",
+      "FEMALE": "Girl",
+      "OTHER": "Other",
+      "ISLAM": "Islam",
+      "HINDUISM": "Hinduism",
+      "BUDDHISM": "Buddhism",
+      "CHRISTIANITY": "Christianity",
+      "SCIENCE": "Science",
+      "COMMERCE": "Commerce",
+      "HUMANITIES": "Humanities"
+    },
+    "doc": {
+      "PHOTO": "Photo",
+      "BIRTH_CERTIFICATE": "Birth certificate",
+      "TRANSCRIPT": "Last class result sheet",
+      "SSC_MARKSHEET": "SSC mark sheet",
+      "TRANSFER_CERTIFICATE": "Transfer certificate",
+      "QUOTA_CERTIFICATE": "Quota certificate"
+    },
+    "err": {
+      "missing": "This is needed",
+      "invalid": "This is not right",
+      "phone": "The mobile number is not right (for example 017…)",
+      "number": "Write numbers only",
+      "tooBig": "The file is too big. Keep it within 5 MB.",
+      "badType": "Give a photo or a PDF file"
+    },
+    "res": {
+      "captcha": "We could not confirm you are a person. Tick the box and submit again.",
+      "feeProof": "Give how you sent the fee, and a screenshot or slip.",
+      "tooBig": "The file is too big. Keep it within 5 MB.",
+      "duplicate": "We could not take this application. If you applied before, contact the school with your reference number.",
+      "closed": "Applications are not being taken right now.",
+      "rate": "Too many tries. Please try again in a minute.",
+      "down": "Submissions cannot be taken right now, please try again shortly",
+      "error": "The application was not submitted. Please try again in a moment.",
+      "unavailable": "Applications cannot be taken right now. Please try again in a moment."
+    },
+    "thanks": "Your application is in. Your reference number:",
+    "writeItDown": "Write this down. You need this number and your phone number to see the status.",
+    "feePending": "The school will do the fee check. You will be told when it is done.",
+    "statusLink": "See your application status"
   }
 }
