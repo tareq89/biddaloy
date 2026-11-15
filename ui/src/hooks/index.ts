@@ -1271,11 +1271,21 @@ export {
 } from './fee-generations';
 export {
   useAdmissionRound,
+  useAdmissionRounds,
   useAdmissionStages,
   useCreateAdmissionRound,
+  type AdmissionRound,
   type CreateAdmissionRoundInput,
 } from './admission-rounds';
-export { useAdmissionApplicants, useAdmissionLists, useFeeProofs } from './admission-pipeline';
+export { useIdempotencyKey } from './idempotency-key';
+export {
+  useAdmissionApplicants,
+  useAdmissionLists,
+  useConfirmFeeProof,
+  useFeeProofs,
+  useSendBackFeeProof,
+  type FeeProofList,
+} from './admission-pipeline';
 export {
   admissionReportKeys,
   useAdmissionLifecycleReport,
