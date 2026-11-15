@@ -50,6 +50,17 @@ const TEMPLATE_BY_STATUS: Record<
   },
 };
 
+// [#4178] Staff-typed reason is inserted as typed, like the names above.
+const FEE_SENT_BACK: Record<
+  TemplateLocale,
+  (name: string, intake: string, reason: string) => string
+> = {
+  en: (name, intake, reason) =>
+    `We could not verify the fee payment for ${name}'s application to ${intake}: ${reason}. Please contact the school office.`,
+  bn: (name, intake, reason) =>
+    `${intake}-এ ${name}-এর আবেদনের ফি পেমেন্ট যাচাই করা যায়নি: ${reason}। অনুগ্রহ করে স্কুল অফিসে যোগাযোগ করুন।`,
+};
+
 /**
  * [27.7] Thin producer for admission status-change notifications — reuses
  * the same `CommunicationLog` + `COMMUNICATIONS_QUEUE` mechanism every
@@ -84,7 +95,20 @@ export class AdmissionNotificationService {
   ): Promise<void> {
     // PENDING or any other status — nothing to notify about
     if (!TEMPLATE_BY_STATUS.en[applicant.status]) return;
+    await this.sendSms(
+      applicant,
+      (locale) =>
+        TEMPLATE_BY_STATUS[locale][applicant.status]!(applicant.applicant_name, intakeTitle),
+      { applicant_id: applicant.id, admission_status: applicant.status },
+    );
+  }
 
+  /** One SMS to the guardian: locale, log row, credit reserve, enqueue. Never rejects on delivery. */
+  private async sendSms(
+    applicant: NotifyApplicant,
+    body: (locale: TemplateLocale) => string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
     // No module change: read the school through the log repo's manager.
     const school = await this.logRepo.manager.findOne(School, {
       where: { id: applicant.tenant_id },
@@ -92,7 +116,6 @@ export class AdmissionNotificationService {
     });
     // No stored locale resolves to the bn-BD default (#3136).
     const locale = resolveTemplateLocale(school?.settings?.region?.locale);
-    const template = TEMPLATE_BY_STATUS[locale][applicant.status]!;
 
     const log = await this.logRepo.save(
       this.logRepo.create({
@@ -100,11 +123,11 @@ export class AdmissionNotificationService {
         medium: CommunicationMedium.SMS,
         recipient_address: applicant.guardian_phone,
         recipient_name: applicant.guardian_name,
-        message_body: template(applicant.applicant_name, intakeTitle),
+        message_body: body(locale),
         status: CommunicationStatus.QUEUED,
         trigger: CommunicationTrigger.AUTOMATED,
         sent_by_user_id: null,
-        metadata: { applicant_id: applicant.id, admission_status: applicant.status },
+        metadata,
       }),
     );
 
@@ -147,10 +170,16 @@ export class AdmissionNotificationService {
   // #4178 fills notifyFeeSentBack; #4182/#4183 notifyListOffer; #4179 notifyStageSchedule;
   // #4180/#4184 notifyResult.
   async notifyFeeSentBack(
-    _applicant: NotifyApplicant,
-    _intakeTitle: string,
-    _reason: string,
-  ): Promise<void> {}
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    reason: string,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) => FEE_SENT_BACK[locale](applicant.applicant_name, intakeTitle, reason),
+      { applicant_id: applicant.id, admission_event: 'FEE_SENT_BACK' },
+    );
+  }
 
   async notifyListOffer(
     _applicant: NotifyApplicant,

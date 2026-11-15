@@ -85,6 +85,8 @@ GET /admission/applicants | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id/documents/:type | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id/guardian-match | ApplicantReviewController | perm: ADMISSION_REVIEW
+GET /admission/fee-proofs | AdmissionFeeController | perm: ADMISSION_REVIEW
+GET /admission/fee-proofs/:id/attachment | AdmissionFeeController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 GET /applications/:id | ApplicationsController | perm: APPLICATION_SUBMIT
@@ -609,6 +611,8 @@ POST /admission/applicants | AdmissionApplicantStaffController | perm: ADMISSION
 POST /admission/applicants/:id/admit | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMISSION_REVIEW
 POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW
+POST /admission/fee-proofs/:id/confirm | AdmissionFeeController | perm: ADMISSION_REVIEW
+POST /admission/fee-proofs/:id/send-back | AdmissionFeeController | perm: ADMISSION_REVIEW
 POST /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
 POST /applications/:id/attachments | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
