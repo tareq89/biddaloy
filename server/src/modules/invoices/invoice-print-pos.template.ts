@@ -143,6 +143,7 @@ export function renderInvoicePosHtml(
   .row { display: flex; justify-content: space-between; gap: 4px; }
   .row-left { flex: 1; word-break: break-word; }
   .row-right { white-space: nowrap; }
+  .payment-origin .row-right { white-space: normal; word-break: break-word; text-align: right; }
   .row-emphasis { font-weight: bold; }
   .in-words { margin-top: 4px; font-size: 11px; }
   .totals { margin-top: 4px; page-break-inside: avoid; }

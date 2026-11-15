@@ -102,6 +102,14 @@ describe('renderInvoicePosHtml "How it was paid" block [3.2.03]', () => {
     expect(html).toContain('by Nasrin &lt;i&gt;Akter&lt;/i&gt; on');
   });
 
+  it('PROOF: a long origin line wraps on paper while amount rows stay on one line', () => {
+    const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos58', undefined, null, proof);
+    expect(html).toContain('.row-right { white-space: nowrap; }');
+    expect(html).toContain(
+      '.payment-origin .row-right { white-space: normal; word-break: break-word; text-align: right; }',
+    );
+  });
+
   it('PROOF: guardian view hides the verifier name', () => {
     const html = renderInvoicePosHtml(
       makeInvoice(),
