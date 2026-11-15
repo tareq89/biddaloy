@@ -138,6 +138,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // the intakes screen above.
   '/_staff/admissions/applicants/': Permission.ADMISSION_REVIEW,
   '/_staff/admissions/applicants/$applicantId': Permission.ADMISSION_REVIEW,
+  // [71.4.2] Round desk, new-round wizard, clerk entry — same blanket gate.
+  '/_staff/admissions/rounds/$roundId': Permission.ADMISSION_REVIEW,
+  '/_staff/admissions/intakes/new': Permission.ADMISSION_REVIEW,
+  '/_staff/admissions/applicants/new': Permission.ADMISSION_REVIEW,
   // [39.4.2] Lifecycle report — `STUDENT_LIFECYCLE_MANAGE` (ADMIN, EXECUTIVE; D22).
   '/_staff/admissions/reports/': Permission.STUDENT_LIFECYCLE_MANAGE,
   // [19.6.1] `EXAM_MANAGE` — the management page; see `nav-tree.ts`'s

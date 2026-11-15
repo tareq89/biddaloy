@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import * as React from 'react';
 
-import { FieldPicker, type FieldPickerProps } from './field-picker';
+import { AdmissionFieldPicker, type AdmissionFieldPickerProps } from './field-picker';
 
 const GROUPS_EN = {
   child: 'The child',
@@ -22,13 +22,15 @@ const GROUPS_BN = {
   other: 'অন্যান্য',
 };
 
-function Controlled(props: Omit<FieldPickerProps, 'value' | 'onChange'> & { initial?: string[] }) {
+function Controlled(
+  props: Omit<AdmissionFieldPickerProps, 'value' | 'onChange'> & { initial?: string[] },
+) {
   const [value, setValue] = React.useState<string[]>(props.initial ?? ['name', 'dob']);
-  return <FieldPicker {...props} value={value} onChange={setValue} />;
+  return <AdmissionFieldPicker {...props} value={value} onChange={setValue} />;
 }
 
 const meta: Meta<typeof Controlled> = {
-  title: 'Components/FieldPicker',
+  title: 'Components/AdmissionFieldPicker',
   component: Controlled,
   tags: ['autodocs'],
   args: {

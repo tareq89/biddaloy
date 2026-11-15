@@ -26,6 +26,8 @@
     "admissionIntakes": "Admission rounds",
     "admissionIntakeDetail": "Admission round",
     "admissionApplicants": "Admission applicants",
+    "admissionRoundNew": "New admission round",
+    "admissionApplicantNew": "New application",
     "admissionApplicantDetail": "Applicant",
     "admissionReports": "Admission reports",
     "teachingAssignments": "Teacher assignments",

@@ -166,9 +166,12 @@ import { Route as StaffAcademicsStudyPlansPlanIdRouteImport } from './routes/_st
 import { Route as StaffAcademicsSyllabusIndexRouteImport } from './routes/_staff/academics/syllabus/index'
 import { Route as StaffAdmissionsApplicantsIndexRouteImport } from './routes/_staff/admissions/applicants/index'
 import { Route as StaffAdmissionsApplicantsApplicantIdRouteImport } from './routes/_staff/admissions/applicants/$applicantId'
+import { Route as StaffAdmissionsApplicantsNewRouteImport } from './routes/_staff/admissions/applicants/new'
 import { Route as StaffAdmissionsIntakesIndexRouteImport } from './routes/_staff/admissions/intakes/index'
 import { Route as StaffAdmissionsIntakesIntakeIdRouteImport } from './routes/_staff/admissions/intakes/$intakeId'
+import { Route as StaffAdmissionsIntakesNewRouteImport } from './routes/_staff/admissions/intakes/new'
 import { Route as StaffAdmissionsReportsIndexRouteImport } from './routes/_staff/admissions/reports/index'
+import { Route as StaffAdmissionsRoundsRoundIdRouteImport } from './routes/_staff/admissions/rounds/$roundId'
 import { Route as StaffAttendanceImportsIndexRouteImport } from './routes/_staff/attendance/imports/index'
 import { Route as StaffAttendanceImportsImportIdRouteImport } from './routes/_staff/attendance/imports/$importId'
 import { Route as StaffAttendanceStaffIndexRouteImport } from './routes/_staff/attendance/staff/index'
@@ -1018,6 +1021,12 @@ const StaffAdmissionsApplicantsApplicantIdRoute =
     path: '/admissions/applicants/$applicantId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAdmissionsApplicantsNewRoute =
+  StaffAdmissionsApplicantsNewRouteImport.update({
+    id: '/admissions/applicants/new',
+    path: '/admissions/applicants/new',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffAdmissionsIntakesIndexRoute =
   StaffAdmissionsIntakesIndexRouteImport.update({
     id: '/admissions/intakes/',
@@ -1030,10 +1039,22 @@ const StaffAdmissionsIntakesIntakeIdRoute =
     path: '/admissions/intakes/$intakeId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAdmissionsIntakesNewRoute =
+  StaffAdmissionsIntakesNewRouteImport.update({
+    id: '/admissions/intakes/new',
+    path: '/admissions/intakes/new',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffAdmissionsReportsIndexRoute =
   StaffAdmissionsReportsIndexRouteImport.update({
     id: '/admissions/reports/',
     path: '/admissions/reports/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAdmissionsRoundsRoundIdRoute =
+  StaffAdmissionsRoundsRoundIdRouteImport.update({
+    id: '/admissions/rounds/$roundId',
+    path: '/admissions/rounds/$roundId',
     getParentRoute: () => StaffRoute,
   } as any)
 const StaffAttendanceImportsIndexRoute =
@@ -1392,7 +1413,10 @@ export interface FileRoutesByFullPath {
   '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
+  '/admissions/applicants/new': typeof StaffAdmissionsApplicantsNewRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/admissions/intakes/new': typeof StaffAdmissionsIntakesNewRoute
+  '/admissions/rounds/$roundId': typeof StaffAdmissionsRoundsRoundIdRoute
   '/attendance/imports/$importId': typeof StaffAttendanceImportsImportIdRoute
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -1583,7 +1607,10 @@ export interface FileRoutesByTo {
   '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
+  '/admissions/applicants/new': typeof StaffAdmissionsApplicantsNewRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/admissions/intakes/new': typeof StaffAdmissionsIntakesNewRoute
+  '/admissions/rounds/$roundId': typeof StaffAdmissionsRoundsRoundIdRoute
   '/attendance/imports/$importId': typeof StaffAttendanceImportsImportIdRoute
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -1781,7 +1808,10 @@ export interface FileRoutesById {
   '/_staff/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/_staff/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/_staff/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
+  '/_staff/admissions/applicants/new': typeof StaffAdmissionsApplicantsNewRoute
   '/_staff/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/_staff/admissions/intakes/new': typeof StaffAdmissionsIntakesNewRoute
+  '/_staff/admissions/rounds/$roundId': typeof StaffAdmissionsRoundsRoundIdRoute
   '/_staff/attendance/imports/$importId': typeof StaffAttendanceImportsImportIdRoute
   '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -1978,7 +2008,10 @@ export interface FileRouteTypes {
     | '/academics/homework/new'
     | '/academics/study-plans/$planId'
     | '/admissions/applicants/$applicantId'
+    | '/admissions/applicants/new'
     | '/admissions/intakes/$intakeId'
+    | '/admissions/intakes/new'
+    | '/admissions/rounds/$roundId'
     | '/attendance/imports/$importId'
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
@@ -2169,7 +2202,10 @@ export interface FileRouteTypes {
     | '/academics/homework/new'
     | '/academics/study-plans/$planId'
     | '/admissions/applicants/$applicantId'
+    | '/admissions/applicants/new'
     | '/admissions/intakes/$intakeId'
+    | '/admissions/intakes/new'
+    | '/admissions/rounds/$roundId'
     | '/attendance/imports/$importId'
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
@@ -2366,7 +2402,10 @@ export interface FileRouteTypes {
     | '/_staff/academics/homework/new'
     | '/_staff/academics/study-plans/$planId'
     | '/_staff/admissions/applicants/$applicantId'
+    | '/_staff/admissions/applicants/new'
     | '/_staff/admissions/intakes/$intakeId'
+    | '/_staff/admissions/intakes/new'
+    | '/_staff/admissions/rounds/$roundId'
     | '/_staff/attendance/imports/$importId'
     | '/_staff/attendance/staff/leave'
     | '/_staff/communications/batches/$batchId'
@@ -3534,6 +3573,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAdmissionsApplicantsApplicantIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/admissions/applicants/new': {
+      id: '/_staff/admissions/applicants/new'
+      path: '/admissions/applicants/new'
+      fullPath: '/admissions/applicants/new'
+      preLoaderRoute: typeof StaffAdmissionsApplicantsNewRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/admissions/intakes/': {
       id: '/_staff/admissions/intakes/'
       path: '/admissions/intakes'
@@ -3548,11 +3594,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAdmissionsIntakesIntakeIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/admissions/intakes/new': {
+      id: '/_staff/admissions/intakes/new'
+      path: '/admissions/intakes/new'
+      fullPath: '/admissions/intakes/new'
+      preLoaderRoute: typeof StaffAdmissionsIntakesNewRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/admissions/reports/': {
       id: '/_staff/admissions/reports/'
       path: '/admissions/reports'
       fullPath: '/admissions/reports/'
       preLoaderRoute: typeof StaffAdmissionsReportsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/admissions/rounds/$roundId': {
+      id: '/_staff/admissions/rounds/$roundId'
+      path: '/admissions/rounds/$roundId'
+      fullPath: '/admissions/rounds/$roundId'
+      preLoaderRoute: typeof StaffAdmissionsRoundsRoundIdRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/attendance/imports/': {
@@ -3996,7 +4056,10 @@ interface StaffRouteChildren {
   StaffAcademicsHomeworkNewRoute: typeof StaffAcademicsHomeworkNewRoute
   StaffAcademicsStudyPlansPlanIdRoute: typeof StaffAcademicsStudyPlansPlanIdRoute
   StaffAdmissionsApplicantsApplicantIdRoute: typeof StaffAdmissionsApplicantsApplicantIdRoute
+  StaffAdmissionsApplicantsNewRoute: typeof StaffAdmissionsApplicantsNewRoute
   StaffAdmissionsIntakesIntakeIdRoute: typeof StaffAdmissionsIntakesIntakeIdRoute
+  StaffAdmissionsIntakesNewRoute: typeof StaffAdmissionsIntakesNewRoute
+  StaffAdmissionsRoundsRoundIdRoute: typeof StaffAdmissionsRoundsRoundIdRoute
   StaffAttendanceImportsImportIdRoute: typeof StaffAttendanceImportsImportIdRoute
   StaffAttendanceStaffLeaveRoute: typeof StaffAttendanceStaffLeaveRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
@@ -4119,7 +4182,10 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAcademicsStudyPlansPlanIdRoute: StaffAcademicsStudyPlansPlanIdRoute,
   StaffAdmissionsApplicantsApplicantIdRoute:
     StaffAdmissionsApplicantsApplicantIdRoute,
+  StaffAdmissionsApplicantsNewRoute: StaffAdmissionsApplicantsNewRoute,
   StaffAdmissionsIntakesIntakeIdRoute: StaffAdmissionsIntakesIntakeIdRoute,
+  StaffAdmissionsIntakesNewRoute: StaffAdmissionsIntakesNewRoute,
+  StaffAdmissionsRoundsRoundIdRoute: StaffAdmissionsRoundsRoundIdRoute,
   StaffAttendanceImportsImportIdRoute: StaffAttendanceImportsImportIdRoute,
   StaffAttendanceStaffLeaveRoute: StaffAttendanceStaffLeaveRoute,
   StaffCommunicationsBatchesBatchIdRoute:

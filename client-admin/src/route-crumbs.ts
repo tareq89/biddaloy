@@ -405,6 +405,20 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'admissionIntakes' } },
     { label: { key: 'admissionIntakeDetail' }, dynamic: 'entity' },
   ],
+  // [71.4.2] Desk: ভর্তি রাউন্ড › <round title>; the stage crumb joins with the desk screen ticket.
+  '/_staff/admissions/rounds/$roundId': [
+    { label: { key: 'admissionIntakes' }, to: '/admissions/intakes' },
+    { label: { key: 'admissionIntakeDetail' }, dynamic: 'entity' },
+  ],
+  // Chromeless wizard: the trail only sets the tab title.
+  '/_staff/admissions/intakes/new': [
+    { label: { key: 'admissionIntakes' } },
+    { label: { key: 'admissionRoundNew' } },
+  ],
+  '/_staff/admissions/applicants/new': [
+    { label: { key: 'admissionApplicants' } },
+    { label: { key: 'admissionApplicantNew' } },
+  ],
   '/_staff/admissions/applicants/$applicantId': [
     { label: { key: 'admissionApplicants' } },
     { label: { key: 'admissionApplicantDetail' }, dynamic: 'entity' },

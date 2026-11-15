@@ -9,7 +9,7 @@ import * as React from 'react';
 import { Checkbox } from './checkbox';
 import { Input } from './input';
 
-export interface FieldPickerProps {
+export interface AdmissionFieldPickerProps {
   /** Ticked field keys. */
   value: readonly string[];
   onChange: (keys: string[]) => void;
@@ -25,7 +25,7 @@ export interface FieldPickerProps {
   fields?: readonly AdmissionFieldDef[];
 }
 
-export function FieldPicker({
+export function AdmissionFieldPicker({
   value,
   onChange,
   recommended = [],
@@ -36,7 +36,7 @@ export function FieldPicker({
   noMatchText,
   countLabel,
   fields = ADMISSION_FIELD_CATALOGUE,
-}: FieldPickerProps) {
+}: AdmissionFieldPickerProps) {
   const [query, setQuery] = React.useState('');
   const ticked = new Set(value);
   const rec = new Set(recommended);

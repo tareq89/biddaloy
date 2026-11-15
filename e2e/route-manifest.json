@@ -423,6 +423,24 @@
       "archetype": "detail"
     },
     {
+      "path": "/admissions/intakes/new",
+      "role": "admin",
+      "archetype": "wizard"
+    },
+    {
+      "path": "/admissions/rounds/$roundId",
+      "params": {
+        "roundId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/admissions/applicants/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
       "path": "/admissions/applicants",
       "role": "admin",
       "archetype": "list"

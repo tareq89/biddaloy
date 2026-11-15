@@ -736,6 +736,57 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/results/final' }),
   },
+  // [71.4.2] Desk palette actions. `run()` knows no round id, so each lands on the rounds list
+  // (21-ui-patterns §12 "no record id"); the new-* ones go straight to their full page.
+  ...(
+    [
+      [
+        'admissions.newRound',
+        'New admission round',
+        'নতুন ভর্তি রাউন্ড',
+        'navigate',
+        '/admissions/intakes/new',
+      ],
+      [
+        'admissions.newApplication',
+        'New application',
+        'নতুন আবেদন তুলুন',
+        'navigate',
+        '/admissions/applicants/new',
+      ],
+      ['admissions.enterScores', 'Enter marks', 'নম্বর তুলুন', 'modal', '/admissions/intakes'],
+      [
+        'admissions.buildMeritList',
+        'Build merit list',
+        'মেরিট তালিকা বানান',
+        'modal',
+        '/admissions/intakes',
+      ],
+      [
+        'admissions.activateWaitingList',
+        'Activate next waiting list',
+        'পরের অপেক্ষা-তালিকা চালু করুন',
+        'modal',
+        '/admissions/intakes',
+      ],
+      [
+        'admissions.copyPublicLink',
+        'Copy public link',
+        'অনলাইন আবেদনের লিংক কপি করুন',
+        'modal',
+        '/admissions/intakes',
+      ],
+      ['admissions.verifyFees', 'Fee check', 'ফি যাচাই', 'modal', '/admissions/applicants'],
+    ] as const
+  ).map(([id, en, bn, kind, to]): PaletteAction => ({
+    id,
+    module: ModuleKey.admission,
+    label: { en, bn },
+    permission: Permission.ADMISSION_REVIEW,
+    kind,
+    group: 'people',
+    run: (ctx) => ctx.navigate({ to }),
+  })),
   {
     id: 'admissions.reviewApplicant',
     module: ModuleKey.admission,

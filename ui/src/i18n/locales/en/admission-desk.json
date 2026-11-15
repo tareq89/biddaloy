@@ -1,1 +1,19 @@
-{}
+{
+  "desk": {
+    "title": "Admission desk"
+  },
+  "clerk": {
+    "title": "New application"
+  },
+  "wizard": {
+    "title": "New admission round"
+  },
+  "panels": {
+    "applicants": "Applicants",
+    "stage": "Stage",
+    "lottery": "Draw lottery",
+    "lists": "Merit and waiting lists",
+    "publication": "Publish online",
+    "print": "Print"
+  }
+}
