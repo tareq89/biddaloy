@@ -61,6 +61,14 @@ function handleMutationError(
     });
     return;
   }
+  // [60.3.4007] The upload scanner's two refusals (D13): plain words, never the server's text.
+  if (code === 'FILE_HARMFUL' || code === 'FILE_CHECK_UNAVAILABLE') {
+    const key = code === 'FILE_HARMFUL' ? 'fileHarmful' : 'fileCheckUnavailable';
+    void i18n.loadNamespaces('errors').then(() => {
+      toast.error(i18n.t(key, { ns: 'errors' }));
+    });
+    return;
+  }
   if (code === 'DEMO_UPLOAD_LIMIT' || (code === 'DEMO_DISABLED' && !forbiddenHandled)) {
     void i18n.loadNamespaces('demo').then(() => {
       toast.error(
