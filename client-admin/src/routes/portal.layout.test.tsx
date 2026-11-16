@@ -129,6 +129,14 @@ describe('portal layout shell', () => {
   });
 
   // [99.G4.02]
+  it('shows the privacy and terms footer links (D19)', async () => {
+    render('/portal/fees');
+    expect((await screen.findByRole('link', { name: 'Privacy policy' })).getAttribute('href')).toBe(
+      '/legal/privacy',
+    );
+    expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/legal/terms');
+  });
+
   it('shows the red bar in a support tab and not in a normal tab', async () => {
     const first = render('/portal/fees');
     await screen.findAllByRole('navigation', { name: /main|menu|navigation/i });

@@ -25,10 +25,10 @@ describe('LegalDocumentsDialog', () => {
     const user = userEvent.setup();
     const { localeReady } = renderWithProviders(<Harness />, { locale: 'en' });
     await localeReady;
-    await user.click(screen.getByText(OPENER));
+    await user.click(await screen.findByText(OPENER));
     expect(screen.getAllByRole('tab')).toHaveLength(3);
     expect(screen.getByRole('heading', { name: 'Terms of Service' })).toBeTruthy();
-    await user.click(screen.getByRole('tab', { name: 'Privacy' }));
+    await user.click(screen.getByRole('tab', { name: 'Privacy policy' }));
     expect(screen.queryByRole('heading', { name: 'Terms of Service' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'বাংলা' }));
     expect(screen.getByRole('tab', { name: 'গোপনীয়তা নীতি' })).toBeTruthy();
@@ -39,7 +39,7 @@ describe('LegalDocumentsDialog', () => {
     const onAgree = vi.fn();
     const { localeReady } = renderWithProviders(<Harness onAgree={onAgree} />, { locale: 'en' });
     await localeReady;
-    await user.click(screen.getByText(OPENER));
+    await user.click(await screen.findByText(OPENER));
     await user.click(screen.getByRole('button', { name: 'Agree' }));
     expect(onAgree).toHaveBeenCalledOnce();
   });
@@ -48,9 +48,41 @@ describe('LegalDocumentsDialog', () => {
     const user = userEvent.setup();
     const { localeReady } = renderWithProviders(<Harness />, { locale: 'en' });
     await localeReady;
-    await user.click(screen.getByText(OPENER));
+    await user.click(await screen.findByText(OPENER));
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(screen.getByText(OPENER)));
+  });
+
+  it('each tab starts with the three-line summary, in the page language', async () => {
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(<Harness />, { locale: 'en' });
+    await localeReady;
+    await user.click(await screen.findByText(OPENER));
+    for (const [tab, first] of [
+      ['Terms', 'The school owns its data. We never sell it.'],
+      ['Privacy policy', "We keep data only to run the school's work and keep the service safe."],
+      ['Data agreement', 'All student, guardian and staff data belongs to the school.'],
+    ] as const) {
+      await user.click(screen.getByRole('tab', { name: tab }));
+      const panel = screen.getByRole('tabpanel');
+      expect(panel.firstElementChild?.tagName).toBe('UL');
+      expect(panel.firstElementChild?.children).toHaveLength(3);
+      expect(panel.firstElementChild?.firstElementChild?.textContent).toBe(first);
+    }
+    // The Markdown's own "In short" list is not repeated.
+    expect(screen.queryByText('In short')).toBeNull();
+  });
+
+  it('switching language translates the dialog strings and summary too', async () => {
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(<Harness />, { locale: 'en' });
+    await localeReady;
+    await user.click(await screen.findByText(OPENER));
+    await user.click(screen.getByRole('button', { name: 'বাংলা' }));
+    expect(await screen.findByText('আইনি নথি')).toBeTruthy();
+    expect(
+      await screen.findByText('আপনার স্কুলের তথ্যের মালিক স্কুল। আমরা তা বিক্রি করি না।'),
+    ).toBeTruthy();
   });
 });
