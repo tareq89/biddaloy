@@ -705,6 +705,10 @@ Then add one line to `SLICES` in `slices.ts` (a new file) and run the guard.
 
 ### Known gaps recorded here
 
+- `legal_acceptances` (new table), `students.photo_consent`, `photo_consent_recorded_at`,
+  `photo_consent_recorded_by` and `admission_applicants.photo_consent` (Epic 59, migration
+  `1792500000001`) are not seeded yet. Gap owner: ticket 59.2.99, which adds a demo slice with
+  a few accepted legal versions and a mix of GIVEN / REFUSED / UNKNOWN photo consent.
 - `school_sites.custom_domain`, `custom_domain_status`, `custom_domain_external_id`, `umami_website_id` and (40.4.08)
   `custom_domain_records`, `custom_domain_since`, `custom_domain_checked_at` are exempt: they only mean something
   with a live Cloudflare / Umami account, and the demo has neither. The staging `SITE_TEST_HOST` row sets only
