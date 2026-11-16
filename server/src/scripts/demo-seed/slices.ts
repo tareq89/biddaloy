@@ -10,6 +10,7 @@ import { slice as exams } from './slices/exams';
 import { slice as learning } from './slices/learning';
 import { slice as peopleOps } from './slices/people-ops';
 import { slice as admission } from './slices/admission';
+import { slice as legal } from './slices/legal';
 import { slice as commsPrint } from './slices/comms-print';
 import { slice as applications } from './slices/applications';
 import { slice as smsBundles } from './slices/sms-bundles';
@@ -34,6 +35,7 @@ export const SLICES: DemoSlice[] = [
   learning,
   peopleOps,
   admission,
+  legal,
   commsPrint,
   smsBundles,
   applications,
