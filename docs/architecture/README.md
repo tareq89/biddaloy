@@ -57,7 +57,6 @@ at hand instead of loading the whole set.
 | [43-admission-pipeline.md](43-admission-pipeline.md) | Working on admission: rounds, stages, applicant statuses, merit and waiting lists, fee proofs, lottery, roll numbers, the public by-host API, the admission widgets, or what fails closed when Redis or Turnstile is down |
 | [44-incident-response.md](44-incident-response.md) | A bad day: data leak, hacked account, ransomware or long outage. Severity levels, the first-hour SEV1 checklist, bn + en messages to schools, the 7-day blameless write-up, and the security calendar of yearly, quarterly and monthly chores |
 
-> **Two "43" docs.** `43-admission-pipeline.md` and `43-incident-response.md` share a number because two epics took it at the same time. Both names are linked from other docs, so they stay as they are. Say the full file name when you talk about one. The next new doc takes the next free number.
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
