@@ -63,13 +63,9 @@ export function BulkPhotoDialog({ open, onOpenChange }: BulkPhotoDialogProps) {
     upload.mutate({ files, onProgress: setPercent }, { onSuccess: (report) => setResult(report) });
   }
 
-  // The server marks a REFUSED skip with `code`; the hook's type doesn't carry it.
+  // The server marks a REFUSED skip with `code`.
   const isRefused = (i: { code?: string }) => i.code === 'PHOTO_CONSENT_REFUSED';
-  const invalidAll = (result?.invalid ?? []) as Array<{
-    file: string;
-    reason: string;
-    code?: string;
-  }>;
+  const invalidAll = result?.invalid ?? [];
   const refused = invalidAll.filter(isRefused);
 
   const rows: Record<ReportTab, string[]> = {
