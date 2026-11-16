@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
+import { VirusScanService } from './virus-scan.service';
 import { StorageService, buildStorageConfig } from './storage.service';
 
 /** The `StorageService` provider's `useFactory`, pulled out and exported so
@@ -12,7 +14,9 @@ export function storageServiceFactory(): StorageService {
 }
 
 @Module({
+  imports: [AuditModule],
   providers: [
+    VirusScanService,
     {
       provide: StorageService,
       // Eagerly instantiated as part of module setup — a boot with a
@@ -21,6 +25,6 @@ export function storageServiceFactory(): StorageService {
       useFactory: storageServiceFactory,
     },
   ],
-  exports: [StorageService],
+  exports: [StorageService, VirusScanService],
 })
 export class StorageModule {}
