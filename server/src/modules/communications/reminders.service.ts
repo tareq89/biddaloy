@@ -903,12 +903,11 @@ export class BulkReminderService {
         }),
       );
 
-      // [15.6.5/#548] `segments` is only meaningful for SMS — every other
-      // medium never touches the credit ledger, so its job data carries
-      // none. Settlement (peeling this off the batch's RESERVE) is #549;
-      // this just plumbs the number the worker will eventually need.
+      // [15.6.5/#548] `segments` is only meaningful for a metered school's
+      // SMS: every other case has no RESERVE to settle against, and the
+      // worker's settlePart would throw on it (log UNSETTLED + Sentry).
       const segments =
-        recipient.medium === CommunicationMedium.SMS
+        metered && recipient.medium === CommunicationMedium.SMS
           ? countSmsSegments(renderedBody).segments
           : undefined;
 
