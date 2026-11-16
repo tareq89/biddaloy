@@ -1741,7 +1741,7 @@ Raw notes from the QA audit, same format as the
 - Proof the guard bites: renaming every `assertClean(` call in `notice-files.service.ts` turned the spec red with "call virusScan.assertClean(...) in: notices/access/notice-files.service.ts"; restored, green.
 - Rule 33 was taken as "next number after the last rule". Epic 96 had reserved 33 and up; its note now starts at 34. Rule candidate: reserve numbers in a table in this doc, not in an epic body.
 
-## Lessons (Epic 60, close, 2026-11-16)
+## Lessons (Epic 60, Wave 6 close, 2026-11-16)
 
 - **Surprise:** `guide:impact` matches a page's `sources` by file, not by meaning. A comment-only edit in `contact-change.service.ts` (a ticket number in a comment) failed `portal.account`, and a new card on the school page failed `platformOwner.loginAs` although only `school-control` changed. Cost: two pages that cannot honestly be edited. Fix: the PR body carries `User guide: not affected — <reason>` for exactly those two. Rule candidate: keep a comment-only fix out of a file a guide page lists as a source.
 - **Surprise:** running `prettier --write` on a guide page rewrites its generated `guide:gen` blocks, and `guide:check` then fails with "differs from what guide:gen writes". Cost: a 240-line diff for a 12-line change. Fix: revert, add the table row by hand. Rule candidate: never run prettier on `docs/user-guide` pages; run `yarn guide:gen` instead.
