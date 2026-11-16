@@ -123,7 +123,13 @@ test('admission desk: round wizard -> clerk entry -> fees -> marks -> cut-off ->
 
   await test.step('the wizard creates a written-exam round with a fee and 2 seats', async () => {
     await page.goto('/admissions/intakes/new');
-    // Kind step: the class is pre-filled with the first class, so pick the fresh one by name.
+    // Kind step: the class list follows the chosen year, and the wizard starts on the current
+    // year, not the fresh one `createClassSection` made. Pick that year first (this clears the
+    // class), then the fresh class by name.
+    await page.getByRole('combobox', { name: t('admission-desk.wizard.year') }).click();
+    await page
+      .getByRole('option', { name: section.className.replace(/^E2E /, 'E2E Year '), exact: true })
+      .click();
     await page.getByRole('combobox', { name: t('admission-desk.wizard.class') }).click();
     await page.getByRole('option', { name: section.className, exact: true }).click();
     const next = page.getByRole('button', { name: t('common.wizard.next') });
@@ -169,7 +175,7 @@ test('admission desk: round wizard -> clerk entry -> fees -> marks -> cut-off ->
     );
     await page.getByRole('button', { name: t('admission-desk.clerk.save') }).click();
     const response = await saved;
-    expect(response.ok()).toBe(true);
+    expect(response.ok(), await response.text()).toBe(true);
     const { reference_number: ref } = (await response.json()) as { reference_number: string };
     await expect(page.getByText(t('admission-desk.clerk.done', { ref }))).toBeVisible();
   });

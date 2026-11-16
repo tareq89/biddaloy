@@ -1,0 +1,130 @@
+import { expect, loggedIn } from './fixtures/test';
+import { test } from './fixtures/settings-lock';
+
+/**
+ * [3329.2.99] The ten UX states, proven on the five key pages in a real browser
+ * (jsdom has no `navigator.onLine` events and no real network). Bangla text, as in
+ * the other specs: the default locale renders when no locale is stored. The words
+ * come from `ui/src/i18n/locales/bn/states.json` (the `states` namespace is not in
+ * `e2e/i18n.ts`, so they are written out here).
+ *
+ * - offline: the banner says "ইন্টারনেট নেই", and is gone when the net returns.
+ * - expired: a 401 that cannot refresh opens the sign-in dialog and nothing is sent again (Rule 25).
+ * - denied / error / empty: read from the students list with mocked answers.
+ *
+ * `serviceWorkers: 'block'` so `page.route()` and `setOffline` see every request.
+ */
+const OFFLINE_TITLE = 'ইন্টারনেট নেই';
+const EXPIRED_TITLE = 'আবার লগইন করুন';
+const DENIED_TITLE = 'আপনার অনুমতি নেই';
+const ERROR_TITLE = 'কিছু একটা ঠিক হয়নি';
+const ERROR_RETRY = 'আবার চেষ্টা করুন';
+
+const PAGES = [
+  { name: 'dashboard', role: 'admin', path: '/dashboard' },
+  { name: 'students list', role: 'admin', path: '/students' },
+  { name: 'fees collection', role: 'accountant', path: '/fees' },
+  { name: 'attendance mark', role: 'teacher', path: '/attendance' },
+  { name: 'portal home', role: 'parent', path: '/portal' },
+] as const;
+
+/**
+ * The SPA turns an error reply into an `ApiError` only when the body carries `requestId`
+ * (`toApiError`). Without it the reply is a plain Error: 4xx gets retried with backoff and
+ * the 401 / 403 paths never run.
+ */
+const apiError = (statusCode: number, message: string) => ({
+  statusCode,
+  message,
+  requestId: 'e2e-ux-states',
+  path: '/e2e',
+  timestamp: '2026-01-01T00:00:00.000Z',
+});
+
+for (const p of PAGES) {
+  test.describe(p.name, () => {
+    test.use(loggedIn(p.role));
+    test.use({ serviceWorkers: 'block' });
+
+    test('offline banner shows, then goes when the net returns', async ({ page, context }) => {
+      await page.goto(p.path);
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByText(OFFLINE_TITLE)).toHaveCount(0);
+
+      await context.setOffline(true);
+      await expect(page.getByRole('status').filter({ hasText: OFFLINE_TITLE })).toBeVisible();
+
+      await context.setOffline(false);
+      await expect(page.getByText(OFFLINE_TITLE)).toHaveCount(0);
+    });
+
+    test('session end opens the dialog; nothing is replayed', async ({ page }) => {
+      await page.clock.install();
+      await page.goto(p.path);
+      await page.waitForLoadState('networkidle');
+      // Queries are fresh for 30s (`staleTime`), and a tab return only refetches stale ones.
+      await page.clock.fastForward(31_000);
+
+      const sent: string[] = [];
+      const gone = apiError(401, 'Unauthorized');
+      await page.route('**/api/v1/auth/refresh', (route) =>
+        route.fulfill({ status: 401, json: gone }),
+      );
+      await page.route(/\/api\/v1\/(?!auth\/)/, (route) => {
+        sent.push(route.request().method() + ' ' + route.request().url());
+        return route.fulfill({ status: 401, json: gone });
+      });
+      // TanStack's focus manager listens to `visibilitychange`, not `focus`: returning to the
+      // tab refetches active queries, and that read gets the 401. It listens on `window`, so
+      // the event must bubble from `document`, as the browser's own does.
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event('visibilitychange', { bubbles: true })),
+      );
+
+      await expect(page.getByRole('dialog').getByText(EXPIRED_TITLE)).toBeVisible();
+      await page.waitForTimeout(1500);
+      expect(new Set(sent).size).toBe(sent.length); // a failed request is never sent again
+    });
+  });
+}
+
+test.describe('students list: denied, error, empty', () => {
+  test.use(loggedIn('admin'));
+  test.use({ serviceWorkers: 'block' });
+  const LIST = /\/api\/v1\/students(\?|$)/;
+
+  test('403 shows the denied state', async ({ page }) => {
+    await page.route(LIST, (route) =>
+      route.fulfill({ status: 403, json: apiError(403, 'Forbidden') }),
+    );
+    await page.goto('/students');
+    await expect(page.getByText(DENIED_TITLE)).toBeVisible();
+  });
+
+  test('500 shows the error state and Retry reloads', async ({ page }) => {
+    let fail = true;
+    await page.route(LIST, (route) =>
+      fail ? route.fulfill({ status: 500, json: apiError(500, 'Server error') }) : route.continue(),
+    );
+    await page.goto('/students');
+    // A 5xx is retried twice with backoff (~3s) before the error state shows.
+    await expect(page.getByText(ERROR_TITLE)).toBeVisible({ timeout: 15_000 });
+    fail = false;
+    const retried = page.waitForResponse((res) => LIST.test(res.url()) && res.status() === 200);
+    await page.getByRole('button', { name: ERROR_RETRY }).click();
+    await retried;
+    await expect(page.getByText(ERROR_TITLE)).toHaveCount(0);
+    await expect(page.getByRole('table')).toBeVisible();
+  });
+
+  test('an empty school shows the empty state', async ({ page }) => {
+    await page.route(LIST, (route) =>
+      route.fulfill({
+        status: 200,
+        json: { data: [], items: [], total: 0, page: 1, limit: 20, next_cursor: null },
+      }),
+    );
+    await page.goto('/students');
+    await expect(page.locator('[data-slot="empty-state"]')).toBeVisible();
+  });
+});

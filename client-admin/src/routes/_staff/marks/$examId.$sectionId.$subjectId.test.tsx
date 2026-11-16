@@ -708,7 +708,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       locale: 'en',
     });
 
-    await screen.findByText("Couldn't load marks lists.");
+    await screen.findByText('Nothing was lost. Try again in a moment.');
     expect(screen.queryByRole('heading', { name: 'Marks list' })).toBeNull();
   });
 

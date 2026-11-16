@@ -4,9 +4,11 @@
  * panel cannot carry a second page header. `usePlansHeader` gives the page
  * header its subtitle and "Progress CSV" action from the same URL state.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   DataTable,
   ConfirmDialog,
+  AccessDeniedState,
   ErrorState,
   NoticeBar,
   ProgressBar,
@@ -157,6 +159,7 @@ function usePlansHeader(): {
 export function PlansTab({ onCreate }: { onCreate?: (() => void) | undefined }) {
   const { t, i18n } = useTranslation('studyPlans');
   const { t: tCommon } = useTranslation('common');
+  const { t: tStates } = useTranslation('states');
   const regionConfig = useTenantRegionConfig();
   const role = useActiveRole();
   const schoolId = useActiveTenant();
@@ -354,11 +357,15 @@ export function PlansTab({ onCreate }: { onCreate?: (() => void) | undefined }) 
       />
       {deleteFailed && <NoticeBar tone="danger">{t('list.deleteFailed')}</NoticeBar>}
       {query.isError ? (
-        <ErrorState
-          message={t('list.error')}
-          retryLabel={tCommon('actions.retry')}
-          onRetry={() => void query.refetch()}
-        />
+        query.error instanceof ApiError && query.error.statusCode === 403 ? (
+          <AccessDeniedState title={tStates('denied.title')} explanation={tStates('denied.body')} />
+        ) : (
+          <ErrorState
+            message={t('list.error')}
+            retryLabel={tCommon('actions.retry')}
+            onRetry={() => void query.refetch()}
+          />
+        )
       ) : (
         <>
           <DataTable

@@ -18,6 +18,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Checkbox,
   ConfirmDialog,
+  EmptyState,
   Label,
   RadioGroup,
   RadioGroupItem,
@@ -48,13 +49,14 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { QueryFailure } from '../exams/-query-failure';
 
 const searchSchema = z.object({ classId: z.string().uuid().optional().catch(undefined) });
 
 export const Route = createFileRoute('/_staff/promotions/new')({
   validateSearch: searchSchema,
   staticData: { chromeless: true },
-  loader: () => loadRouteNamespaces('promotions', 'common'),
+  loader: () => loadRouteNamespaces('promotions', 'common', 'states'),
   pendingComponent: NewPromotionRunPending,
   component: NewPromotionRunPage,
 });
@@ -73,6 +75,7 @@ function isBlockingReason(code: unknown): code is BlockingReason {
 
 function NewPromotionRunPage() {
   const { t } = useTranslation('promotions');
+  const { t: tStates } = useTranslation('states');
   const navigate = Route.useNavigate();
   const { classId } = Route.useSearch();
 
@@ -256,6 +259,13 @@ function NewPromotionRunPage() {
     </span>
   );
 
+  // The two lists the form is built from: a failed load (or no permission) replaces it.
+  const loadFailure = classesQuery.isError ? classesQuery : yearsQuery.isError ? yearsQuery : null;
+  if (loadFailure) {
+    return <QueryFailure error={loadFailure.error} onRetry={() => void loadFailure.refetch()} />;
+  }
+  const noClasses = classesQuery.isSuccess && classes.length === 0;
+
   return (
     <FullPageShell
       title={t('newRunForm.title')}
@@ -274,254 +284,267 @@ function NewPromotionRunPage() {
         busy: mutation.isPending,
       }}
     >
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-        <section className={cardClass}>
-          <h2 className="text-h2">{t('newRunForm.classesTitle')}</h2>
-          <p className="mt-0.5 text-text-secondary">{t('newRunForm.classesHelp')}</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="promotion-source-class">
-                {t('newRunForm.sourceClassLabel')}
-                {required}
-              </Label>
-              <Select value={sourceClassId ?? ''} onValueChange={changeSource}>
-                <SelectTrigger
-                  id="promotion-source-class"
-                  aria-label={t('newRunForm.sourceClassLabel')}
-                  className="w-full"
-                >
-                  <SelectValue placeholder={placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((cls) => {
-                    const yearName = years.find((year) => year.id === cls.academic_year_id)?.name;
-                    return (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {yearName ? `${cls.name} (${yearName})` : cls.name}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="promotion-target-year">
-                {t('newRunForm.targetYearLabel')}
-                {required}
-              </Label>
-              <Select value={targetYearId ?? ''} onValueChange={changeTargetYear}>
-                <SelectTrigger
-                  id="promotion-target-year"
-                  aria-label={t('newRunForm.targetYearLabel')}
-                  className="w-full"
-                >
-                  <SelectValue placeholder={placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map((year) => (
-                    <SelectItem key={year.id} value={year.id}>
-                      {year.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-caption text-text-secondary">{t('newRunForm.suggestedHelp')}</p>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              {showGraduateReadOnly ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="text-sm font-medium">{t('newRunForm.targetClassLabel')}</span>
-                  <HelpHint
-                    helpId="examsResults.promotion.field.targetClass"
-                    label={t('newRunForm.targetClassLabel')}
-                  />
-                </span>
-              ) : (
-                <Label
-                  htmlFor="promotion-target-class"
-                  helpId="examsResults.promotion.field.targetClass"
-                >
-                  {t('newRunForm.targetClassLabel')}
+      {noClasses ? (
+        <EmptyState
+          title={tStates('empty.title')}
+          explanation={tStates('empty.body')}
+          action={{ label: t('newRunForm.cancel'), onClick: close }}
+        />
+      ) : (
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+          <section className={cardClass}>
+            <h2 className="text-h2">{t('newRunForm.classesTitle')}</h2>
+            <p className="mt-0.5 text-text-secondary">{t('newRunForm.classesHelp')}</p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promotion-source-class">
+                  {t('newRunForm.sourceClassLabel')}
+                  {required}
                 </Label>
-              )}
-              {showGraduateReadOnly ? (
-                <p className="text-text-secondary">{t('newRunForm.graduateOption')}</p>
-              ) : (
-                <Select
-                  value={targetClassId ?? ''}
-                  onValueChange={changeTargetClass}
-                  disabled={!targetYearId}
-                >
+                <Select value={sourceClassId ?? ''} onValueChange={changeSource}>
                   <SelectTrigger
-                    id="promotion-target-class"
-                    aria-label={t('newRunForm.targetClassLabel')}
+                    id="promotion-source-class"
+                    aria-label={t('newRunForm.sourceClassLabel')}
                     className="w-full"
                   >
                     <SelectValue placeholder={placeholder} />
                   </SelectTrigger>
                   <SelectContent>
-                    {targetClasses.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name}
+                    {classes.map((cls) => {
+                      const yearName = years.find((year) => year.id === cls.academic_year_id)?.name;
+                      return (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {yearName ? `${cls.name} (${yearName})` : cls.name}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promotion-target-year">
+                  {t('newRunForm.targetYearLabel')}
+                  {required}
+                </Label>
+                <Select value={targetYearId ?? ''} onValueChange={changeTargetYear}>
+                  <SelectTrigger
+                    id="promotion-target-year"
+                    aria-label={t('newRunForm.targetYearLabel')}
+                    className="w-full"
+                  >
+                    <SelectValue placeholder={placeholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map((year) => (
+                      <SelectItem key={year.id} value={year.id}>
+                        {year.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
-              {!showGraduateReadOnly && (
                 <p className="text-caption text-text-secondary">{t('newRunForm.suggestedHelp')}</p>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {reason !== undefined && (
-            <div
-              role="alert"
-              className="mt-4 flex items-start gap-2 rounded-md bg-status-overdue-bg p-3 text-status-overdue-fg"
-            >
-              <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p>{t(BLOCKING_KEY[reason])}</p>
-                {targetYearId && (
-                  <Link
-                    to="/classes"
-                    search={{ academic_year_id: targetYearId }}
-                    className="font-medium underline underline-offset-2"
+              <div className="flex flex-col gap-1.5">
+                {showGraduateReadOnly ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="text-sm font-medium">{t('newRunForm.targetClassLabel')}</span>
+                    <HelpHint
+                      helpId="examsResults.promotion.field.targetClass"
+                      label={t('newRunForm.targetClassLabel')}
+                    />
+                  </span>
+                ) : (
+                  <Label
+                    htmlFor="promotion-target-class"
+                    helpId="examsResults.promotion.field.targetClass"
                   >
-                    {t('newRunForm.openClasses', { year: targetYearName ?? '' })}
-                  </Link>
+                    {t('newRunForm.targetClassLabel')}
+                  </Label>
+                )}
+                {showGraduateReadOnly ? (
+                  <p className="text-text-secondary">{t('newRunForm.graduateOption')}</p>
+                ) : (
+                  <Select
+                    value={targetClassId ?? ''}
+                    onValueChange={changeTargetClass}
+                    disabled={!targetYearId}
+                  >
+                    <SelectTrigger
+                      id="promotion-target-class"
+                      aria-label={t('newRunForm.targetClassLabel')}
+                      className="w-full"
+                    >
+                      <SelectValue placeholder={placeholder} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {targetClasses.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!showGraduateReadOnly && (
+                  <p className="text-caption text-text-secondary">
+                    {t('newRunForm.suggestedHelp')}
+                  </p>
                 )}
               </div>
             </div>
-          )}
-          {otherErrorKey !== undefined && (
-            <p role="alert" className="mt-4 text-status-overdue-fg">
-              {t(otherErrorKey)}
-            </p>
-          )}
-        </section>
 
-        <section className={cardClass}>
-          <fieldset>
-            <legend className="text-h2">{t('source.legend')}</legend>
-            <RadioGroup
-              aria-label={t('source.legend')}
-              value={sourceKind}
-              onValueChange={(value) => {
-                mutation.reset();
-                setSourceKindPick(value as 'final' | 'exams');
-              }}
-              className="mt-4 grid gap-3 md:grid-cols-2"
-            >
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
-              <label className={optionClass}>
-                <RadioGroupItem value="final" className="mt-1" />
-                <span>
-                  <span className="block font-medium">{t('source.final')}</span>
-                  <span className="block text-text-secondary">{t('source.finalHelp')}</span>
-                </span>
-              </label>
-              <label className={optionClass}>
-                <RadioGroupItem value="exams" className="mt-1" />
-                <span className="block font-medium">{t('source.exams')}</span>
-              </label>
-            </RadioGroup>
-            {sourceKind === 'final' &&
-              sourceClass &&
-              !publishedFinalId &&
-              !finalsQuery.isLoading &&
-              (finalsQuery.isError ? (
-                <p role="alert" className="mt-3 text-status-overdue-fg">
-                  {t('source.finalLoadError')}
-                </p>
-              ) : (
-                <p role="alert" className="mt-3 text-status-overdue-fg">
-                  {t('source.finalNone')}{' '}
-                  <Link to="/results/final" className="font-medium underline underline-offset-2">
-                    {t('source.finalLink')}
-                  </Link>
-                </p>
-              ))}
-          </fieldset>
-        </section>
+            {reason !== undefined && (
+              <div
+                role="alert"
+                className="mt-4 flex items-start gap-2 rounded-md bg-status-overdue-bg p-3 text-status-overdue-fg"
+              >
+                <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                <div>
+                  <p>{t(BLOCKING_KEY[reason])}</p>
+                  {targetYearId && (
+                    <Link
+                      to="/classes"
+                      search={{ academic_year_id: targetYearId }}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      {t('newRunForm.openClasses', { year: targetYearName ?? '' })}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+            {otherErrorKey !== undefined && (
+              <p role="alert" className="mt-4 text-status-overdue-fg">
+                {t(otherErrorKey)}
+              </p>
+            )}
+          </section>
 
-        {sourceKind === 'exams' && (
           <section className={cardClass}>
             <fieldset>
-              <legend className="text-h2">{t('newRunForm.examsLabel')}</legend>
-              <p className="mt-0.5 text-text-secondary">
-                {t('newRunForm.examsHelp')}{' '}
-                <HelpHint
-                  helpId="examsResults.promotion.field.exams"
-                  label={t('newRunForm.examsLabel')}
-                />
-              </p>
-              {published.length === 0 ? (
-                <p className="mt-3 text-text-secondary">{t('newRunForm.noPublishedExams')}</p>
-              ) : (
-                <div className="mt-3 divide-y divide-border-subtle">
-                  {published.map((exam) => (
-                    <label key={exam.id} className="flex min-h-11 items-center gap-3">
-                      <Checkbox
-                        checked={!deselectedExamIds.has(exam.id)}
-                        onCheckedChange={(checked) => toggleExam(exam.id, checked === true)}
-                      />
-                      {exam.name}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {published.length > 0 && selectedExamIds.length === 0 && (
-                <p role="alert" className="mt-2 text-status-overdue-fg">
-                  {t('newRunForm.examsRequired')}
-                </p>
-              )}
+              <legend className="text-h2">{t('source.legend')}</legend>
+              <RadioGroup
+                aria-label={t('source.legend')}
+                value={sourceKind}
+                onValueChange={(value) => {
+                  mutation.reset();
+                  setSourceKindPick(value as 'final' | 'exams');
+                }}
+                className="mt-4 grid gap-3 md:grid-cols-2"
+              >
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
+                <label className={optionClass}>
+                  <RadioGroupItem value="final" className="mt-1" />
+                  <span>
+                    <span className="block font-medium">{t('source.final')}</span>
+                    <span className="block text-text-secondary">{t('source.finalHelp')}</span>
+                  </span>
+                </label>
+                <label className={optionClass}>
+                  <RadioGroupItem value="exams" className="mt-1" />
+                  <span className="block font-medium">{t('source.exams')}</span>
+                </label>
+              </RadioGroup>
+              {sourceKind === 'final' &&
+                sourceClass &&
+                !publishedFinalId &&
+                !finalsQuery.isLoading &&
+                (finalsQuery.isError ? (
+                  <p role="alert" className="mt-3 text-status-overdue-fg">
+                    {t('source.finalLoadError')}
+                  </p>
+                ) : (
+                  <p role="alert" className="mt-3 text-status-overdue-fg">
+                    {t('source.finalNone')}{' '}
+                    <Link to="/results/final" className="font-medium underline underline-offset-2">
+                      {t('source.finalLink')}
+                    </Link>
+                  </p>
+                ))}
             </fieldset>
           </section>
-        )}
 
-        <section className={cardClass}>
-          <fieldset>
-            <legend className="text-h2">{t('newRunForm.algorithmLabel')}</legend>
-            <p className="mt-0.5 text-text-secondary">
-              {t('newRunForm.algorithmHelp')}{' '}
-              <HelpHint
-                helpId="examsResults.promotion.field.algorithm"
-                label={t('newRunForm.algorithmLabel')}
-              />
-            </p>
-            <RadioGroup
-              aria-label={t('newRunForm.algorithmLabel')}
-              value={algorithm}
-              onValueChange={(value) => setAlgorithm(value as PlacementAlgorithm)}
-              className="mt-4 grid gap-3 md:grid-cols-2"
-            >
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
-              <label className={optionClass}>
-                <RadioGroupItem value={PlacementAlgorithm.BLOCK} className="mt-1" />
-                <span>
-                  <span className="block font-medium">{t('newRunForm.algorithmBlock')}</span>
-                  <span className="block text-text-secondary">
-                    {t('newRunForm.algorithmBlockHelp')}
+          {sourceKind === 'exams' && (
+            <section className={cardClass}>
+              <fieldset>
+                <legend className="text-h2">{t('newRunForm.examsLabel')}</legend>
+                <p className="mt-0.5 text-text-secondary">
+                  {t('newRunForm.examsHelp')}{' '}
+                  <HelpHint
+                    helpId="examsResults.promotion.field.exams"
+                    label={t('newRunForm.examsLabel')}
+                  />
+                </p>
+                {published.length === 0 ? (
+                  <EmptyState
+                    title={t('newRunForm.examsLabel')}
+                    explanation={t('newRunForm.noPublishedExams')}
+                  />
+                ) : (
+                  <div className="mt-3 divide-y divide-border-subtle">
+                    {published.map((exam) => (
+                      <label key={exam.id} className="flex min-h-11 items-center gap-3">
+                        <Checkbox
+                          checked={!deselectedExamIds.has(exam.id)}
+                          onCheckedChange={(checked) => toggleExam(exam.id, checked === true)}
+                        />
+                        {exam.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {published.length > 0 && selectedExamIds.length === 0 && (
+                  <p role="alert" className="mt-2 text-status-overdue-fg">
+                    {t('newRunForm.examsRequired')}
+                  </p>
+                )}
+              </fieldset>
+            </section>
+          )}
+
+          <section className={cardClass}>
+            <fieldset>
+              <legend className="text-h2">{t('newRunForm.algorithmLabel')}</legend>
+              <p className="mt-0.5 text-text-secondary">
+                {t('newRunForm.algorithmHelp')}{' '}
+                <HelpHint
+                  helpId="examsResults.promotion.field.algorithm"
+                  label={t('newRunForm.algorithmLabel')}
+                />
+              </p>
+              <RadioGroup
+                aria-label={t('newRunForm.algorithmLabel')}
+                value={algorithm}
+                onValueChange={(value) => setAlgorithm(value as PlacementAlgorithm)}
+                className="mt-4 grid gap-3 md:grid-cols-2"
+              >
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
+                <label className={optionClass}>
+                  <RadioGroupItem value={PlacementAlgorithm.BLOCK} className="mt-1" />
+                  <span>
+                    <span className="block font-medium">{t('newRunForm.algorithmBlock')}</span>
+                    <span className="block text-text-secondary">
+                      {t('newRunForm.algorithmBlockHelp')}
+                    </span>
                   </span>
-                </span>
-              </label>
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
-              <label className={optionClass}>
-                <RadioGroupItem value={PlacementAlgorithm.SNAKE} className="mt-1" />
-                <span>
-                  <span className="block font-medium">{t('newRunForm.algorithmSnake')}</span>
-                  <span className="block text-text-secondary">
-                    {t('newRunForm.algorithmSnakeHelp')}
+                </label>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
+                <label className={optionClass}>
+                  <RadioGroupItem value={PlacementAlgorithm.SNAKE} className="mt-1" />
+                  <span>
+                    <span className="block font-medium">{t('newRunForm.algorithmSnake')}</span>
+                    <span className="block text-text-secondary">
+                      {t('newRunForm.algorithmSnakeHelp')}
+                    </span>
                   </span>
-                </span>
-              </label>
-            </RadioGroup>
-          </fieldset>
-        </section>
-      </form>
+                </label>
+              </RadioGroup>
+            </fieldset>
+          </section>
+        </form>
+      )}
       <ConfirmDialog
         open={discardOpen}
         onOpenChange={setDiscardOpen}

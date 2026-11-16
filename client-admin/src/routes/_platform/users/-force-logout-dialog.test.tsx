@@ -1,5 +1,6 @@
 import '@biddaloy/ui/test';
 
+import { toast } from '@biddaloy/ui/components';
 import { ApprovalModalHostProvider } from '@biddaloy/ui/hooks';
 import { i18n } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
@@ -43,6 +44,7 @@ afterEach(async () => {
 });
 
 describe('ForceLogoutDialog', () => {
+  const toastSuccess = vi.spyOn(toast, 'success');
   it('asks the authenticator code, then signs the person out and closes', async () => {
     let token: string | null = null;
     server.use(
@@ -58,6 +60,7 @@ describe('ForceLogoutDialog', () => {
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(token).toBe('tok-1');
+    expect(toastSuccess).toHaveBeenCalledWith('Done');
   });
 
   it('shows a fixed error when the server refuses', async () => {

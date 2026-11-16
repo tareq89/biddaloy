@@ -18,7 +18,8 @@
  * "not found for your role" page with a way back to All reports. The old `?academic_year_id=` is
  * dropped: the runner asks for the year itself.
  */
-import { EmptyState, ErrorState, RoutePending } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import { AccessDeniedState, EmptyState, ErrorState, RoutePending } from '@biddaloy/ui/components';
 import { reportCatalogueQueryOptions, useReportCatalogue } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
@@ -69,6 +70,14 @@ function StudentCountRedirect() {
             onClick: () => void navigate({ to: '/reports' }),
           }}
         />
+      </PageContainer>
+    );
+  }
+
+  if (catalogue.error instanceof ApiError && catalogue.error.statusCode === 403) {
+    return (
+      <PageContainer>
+        <AccessDeniedState />
       </PageContainer>
     );
   }

@@ -50,6 +50,7 @@ export {
   FormItem,
   FormLabel,
   FormMessage,
+  focusFirstError,
   useFormField,
 } from './form-field';
 export { Field, FieldGrid, type FieldProps, type FieldGridProps } from './field-grid';
@@ -406,6 +407,7 @@ export {
   type ClosedYearNoticeProps,
 } from './closed-year-notice';
 export { SyncStatus, SyncStatusIndicator, type SyncStatusProps } from './sync-status';
+export { SessionExpiredDialog, openSessionExpiredDialog } from './session-expired-dialog';
 export {
   ProfileForm,
   type ProfileFormProps,
@@ -550,3 +552,11 @@ export { AttendanceMarkBadges, type AttendanceMarkBadgesProps } from './attendan
 
 export { NextActionCard, type NextActionCardProps, type NextActionLink } from './next-action-card';
 export { AdmissionFieldPicker, type AdmissionFieldPickerProps } from './field-picker';
+export { SuccessTick, type SuccessTickProps } from './success-tick';
+export { RollingNumber } from './rolling-number';
+export {
+  ConnectionBanner,
+  ConnectionBannerView,
+  type ConnectionBannerViewProps,
+} from './connection-banner';
+export { PullToRefresh, type PullToRefreshProps } from './pull-to-refresh';

@@ -7,8 +7,15 @@
  * caller's own session history, not tenant data.
  */
 import type { UserRole } from '@biddaloy/shared';
-import { decodeAccessTokenMemberships } from '@biddaloy/ui/api';
-import { ErrorState, HelpHint, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
+import { ApiError, decodeAccessTokenMemberships } from '@biddaloy/ui/api';
+import {
+  AccessDeniedState,
+  ErrorState,
+  HelpHint,
+  RoutePending,
+  SessionList,
+  toast,
+} from '@biddaloy/ui/components';
 import {
   logoutAll,
   sessionsQueryOptions,
@@ -114,7 +121,9 @@ function SecurityPage() {
           </h2>
           <p className="mt-1 text-text-secondary">{t('sessions.description')}</p>
         </div>
-        {sessionsQuery.isError ? (
+        {sessionsQuery.error instanceof ApiError && sessionsQuery.error.statusCode === 403 ? (
+          <AccessDeniedState />
+        ) : sessionsQuery.isError ? (
           <ErrorState
             message={t('sessions.error')}
             retryLabel={t('sessions.retry')}

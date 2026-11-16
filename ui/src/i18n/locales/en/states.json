@@ -1,0 +1,41 @@
+{
+  "offline": {
+    "title": "No internet",
+    "body": "Check your connection. What you typed is kept on this page.",
+    "retry": "Try again"
+  },
+  "slow": {
+    "title": "Slow internet",
+    "body": "This is taking longer than usual. Please wait a little."
+  },
+  "expired": {
+    "title": "Sign in again",
+    "body": "For your safety you were signed out. Sign in again and carry on where you left off.",
+    "kept": "What you typed is still on the page.",
+    "signIn": "Sign in"
+  },
+  "empty": {
+    "title": "Nothing here yet",
+    "body": "Add the first one to see it here."
+  },
+  "noResult": {
+    "title": "Nothing matches your search",
+    "body": "Try different words or remove a filter.",
+    "clear": "Clear search"
+  },
+  "denied": {
+    "title": "You do not have permission",
+    "body": "Ask your school admin to give you access."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "Nothing was lost. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "success": {
+    "title": "Done"
+  },
+  "validation": {
+    "fixFields": "Fix the marked fields and try again."
+  }
+}

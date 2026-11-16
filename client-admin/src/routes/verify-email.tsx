@@ -6,11 +6,11 @@
  * and `reset-password.tsx` document for their own `?token=` search param.
  */
 import { ApiError, postAuthVerifyEmail, RateLimitedError } from '@biddaloy/ui/api';
-import { AuthLayout, Button, OtpInput, Skeleton } from '@biddaloy/ui/components';
+import { AuthLayout, Button, ErrorState, OtpInput, Skeleton, SuccessTick } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { CircleCheck, Link2Off, ShieldQuestion, TriangleAlert } from 'lucide-react';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { CircleCheck, Link2Off, ShieldQuestion } from 'lucide-react';
 import { useState } from 'react';
 import { z } from 'zod';
 
@@ -50,6 +50,7 @@ export const Route = createFileRoute('/verify-email')({
 function VerifyEmailPage() {
   const { t } = useTranslation('auth');
   const { token } = Route.useSearch();
+  const navigate = useNavigate();
 
   const verifyQuery = useQuery({
     queryKey: ['verify-email', token],
@@ -116,14 +117,13 @@ function VerifyEmailPage() {
   if (verifyQuery.isError || !verifyQuery.data) {
     return (
       <AuthLayout>
-        <GuestStatus icon={TriangleAlert} tone="danger" title={t('errors.generic')}>
-          <Button variant="outline" className="w-full" onClick={() => void verifyQuery.refetch()}>
-            {t('actions.retry', { ns: 'common' })}
-          </Button>
-          <Button asChild variant="ghost" className="w-full text-primary">
-            <Link to="/login">{t('toSignIn')}</Link>
-          </Button>
-        </GuestStatus>
+        <ErrorState
+          message={t('errors.generic')}
+          retryLabel={t('actions.retry', { ns: 'common' })}
+          onRetry={() => void verifyQuery.refetch()}
+          onHome={() => void navigate({ to: '/login' })}
+          homeLabel={t('toSignIn')}
+        />
       </AuthLayout>
     );
   }
@@ -282,6 +282,7 @@ function VerifyEmailPage() {
 
   return (
     <AuthLayout>
+      <SuccessTick className="mx-auto mb-2" />
       <GuestStatus
         icon={CircleCheck}
         tone="success"

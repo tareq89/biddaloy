@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   EmptyState,
-  ErrorState,
   HelpHint,
   RoutePending,
   Skeleton,
@@ -47,6 +46,7 @@ import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
 import { HomeworkCard } from './-homework-card';
 import { LatestResultCard } from './-latest-result-card';
 import { NextHolidayCard } from './-next-holiday-card';
+import { PortalQueryError } from './-portal-query-error';
 import { PortalSurveysCard } from './-surveys-card';
 import { TodayStrip } from './-today-strip';
 
@@ -314,7 +314,8 @@ function PortalOverview() {
 
   if (studentsQuery.isError || duesQuery.isError) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={studentsQuery.error ?? duesQuery.error}
         message={t('error.message')}
         retryLabel={t('error.retry')}
         onRetry={() => {
@@ -750,7 +751,8 @@ function RecentPayments({
         </div>
       ) : query.isError ? (
         <div className="p-4 md:px-5">
-          <ErrorState
+          <PortalQueryError
+            error={query.error}
             message={t('payments.loadError')}
             retryLabel={t('payments.retry')}
             onRetry={() => void query.refetch()}

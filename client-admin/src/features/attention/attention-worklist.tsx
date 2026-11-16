@@ -6,18 +6,22 @@
  */
 import { AlertCategory, AlertRecipientState, AlertSeverity, UserRole } from '@biddaloy/shared';
 import type { AlertItem } from '@biddaloy/shared';
-import { markAllNotificationsRead, markNotificationRead } from '@biddaloy/ui/api';
+import { ApiError, markAllNotificationsRead, markNotificationRead } from '@biddaloy/ui/api';
 import {
+  AccessDeniedState,
   AlertSeverityBadge,
   AlertSnoozeMenu,
   AttentionNoticeItem,
   Button,
   Card,
   DataTable,
+  EmptyState,
+  ErrorState,
   NOTICE_IMPORTANT,
   NOTICE_SMS_APPROVAL,
   NotificationList,
   RowActions,
+  SkeletonTable,
   StatusBadge,
   Tabs,
   TabsContent,
@@ -63,10 +67,17 @@ export interface AttentionWorklistProps {
   onTabChange: (tab: WorklistTab) => void;
 }
 
+// `apiClient` rejects with a raw AxiosError here (no `toApiError`), so read both shapes.
+const isForbidden = (e: unknown) =>
+  e instanceof ApiError
+    ? e.statusCode === 403
+    : (e as { response?: { status?: number } } | null)?.response?.status === 403;
+
 const CATEGORIES = Object.values(AlertCategory);
 
 export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklistProps) {
   const { t } = useTranslation('attention');
+  const { t: ts } = useTranslation('states');
   const config = useTenantRegionConfig();
   const role = useActiveRole();
   const [state, actions] = useListShellState();
@@ -79,6 +90,7 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
   const queryClient = useQueryClient();
 
   const { category: categoryRaw, class_id, section_id, student_id } = state.filters;
+  const filtered = Boolean(categoryRaw || class_id || section_id || student_id);
   const category = CATEGORIES.find((c) => c === categoryRaw);
   const classesQuery = useAllClasses({ enabled: scope === 'staff' });
   const sectionsQuery = useClassSections(scope === 'staff' ? class_id : undefined);
@@ -322,38 +334,62 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
               {t('item.actionFailed')}
             </p>
           )}
-          <DataTable
-            tableId={`attention-worklist-${tab}`}
-            caption={t('worklist.title')}
-            columns={columns}
-            data={items}
-            getRowId={(item) => item.recipientId}
-            sorting={null}
-            onSortingChange={() => undefined}
-            page={state.page}
-            pageSize={state.limit}
-            totalCount={total}
-            onPageChange={actions.setPage}
-            onPageSizeChange={actions.setLimit}
-            loading={query.isLoading}
-            isFetching={query.isFetching}
-            {...(query.isError ? { error: t('worklist.loadError') } : {})}
-            emptyState={
-              tab === 'active'
-                ? {
-                    title: t('worklist.emptyActiveTitle'),
-                    explanation: t('worklist.emptyActiveBody'),
-                  }
-                : {
-                    title: t('worklist.emptyHistoryTitle'),
-                    explanation: t('worklist.emptyHistoryBody'),
-                  }
-            }
-          />
-          {query.isError && (
-            <Button variant="outline" onClick={() => void query.refetch()}>
-              {t('modal.retry')}
-            </Button>
+          {query.isError ? (
+            isForbidden(query.error) ? (
+              <AccessDeniedState title={ts('denied.title')} explanation={ts('denied.body')} />
+            ) : (
+              <ErrorState
+                message={t('worklist.loadError')}
+                onRetry={() => void query.refetch()}
+                retryLabel={t('modal.retry')}
+              />
+            )
+          ) : query.isLoading ? (
+            <div role="status" aria-busy="true">
+              <SkeletonTable rows={5} columns={5} />
+            </div>
+          ) : items.length === 0 && filtered ? (
+            // states.noResult copy (D11): filters hide everything.
+            <EmptyState
+              kind="no-results"
+              title={ts('noResult.title')}
+              explanation={ts('noResult.body')}
+              action={{
+                label: ts('noResult.clear'),
+                onClick: () =>
+                  actions.setFilters({
+                    category: null,
+                    class_id: null,
+                    section_id: null,
+                    student_id: null,
+                  }),
+              }}
+            />
+          ) : items.length === 0 && total === 0 ? (
+            <EmptyState
+              title={t(
+                tab === 'active' ? 'worklist.emptyActiveTitle' : 'worklist.emptyHistoryTitle',
+              )}
+              explanation={t(
+                tab === 'active' ? 'worklist.emptyActiveBody' : 'worklist.emptyHistoryBody',
+              )}
+            />
+          ) : (
+            <DataTable
+              tableId={`attention-worklist-${tab}`}
+              caption={t('worklist.title')}
+              columns={columns}
+              data={items}
+              getRowId={(item) => item.recipientId}
+              sorting={null}
+              onSortingChange={() => undefined}
+              page={state.page}
+              pageSize={state.limit}
+              totalCount={total}
+              onPageChange={actions.setPage}
+              onPageSizeChange={actions.setLimit}
+              isFetching={query.isFetching}
+            />
           )}
           {tab === 'history' && (
             <Card className="space-y-3 p-4">

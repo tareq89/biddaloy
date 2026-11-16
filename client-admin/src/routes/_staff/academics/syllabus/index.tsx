@@ -51,7 +51,7 @@ const syllabusSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/academics/syllabus/')({
   validateSearch: syllabusSearchSchema,
-  loader: () => loadRouteNamespaces('syllabus', 'studyPlans'),
+  loader: () => loadRouteNamespaces('syllabus', 'studyPlans', 'states'),
   pendingComponent: SyllabusListPending,
   component: SyllabusPage,
 });

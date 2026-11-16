@@ -7,6 +7,7 @@
   - [ভাষা বদলানো](start/language.md)
   - [নিজের অ্যাকাউন্ট](start/account.md)
   - [যেকোনো পাতা খুঁজে পাওয়া](start/find-anything.md)
+  - [কিছু ঠিকমতো না চললে](start/if-something-goes-wrong.md)
 - [প্রশাসকের জন্য](admin-setup/README.md)
   - [স্কুলের সব কিছু কীভাবে জোড়া লাগে](admin/how-it-works.md)
   - [স্কুল সাজানোর ক্রম](admin/setup-order.md)

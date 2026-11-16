@@ -10,13 +10,13 @@
  * sentences, a leave guard for unsaved rows and a detail-shaped skeleton.
  */
 import { Permission } from '@biddaloy/shared';
-import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import { isNotFoundError } from '@biddaloy/ui/api';
 import {
   ConfirmDialog,
   EmptyState,
-  ErrorState,
   RecordNotFoundState,
   RoutePending,
+  toast,
   Skeleton,
 } from '@biddaloy/ui/components';
 import {
@@ -37,6 +37,7 @@ import * as React from 'react';
 
 import { PresetWarningBanner } from '../../../components/PresetWarningBanner';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+import { QueryFailure } from '../exams/-query-failure';
 
 import { BandEditor, emptyBandAfter } from './-band-editor';
 import { CopyScaleDialog } from './-copy-scale-dialog';
@@ -49,7 +50,7 @@ export const Route = createFileRoute('/_staff/grading-scales/$scaleId')({
       queryClient
         .ensureQueryData(gradingScaleQueryOptions(params.scaleId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('grading', 'common'),
+      loadRouteNamespaces('grading', 'common', 'states'),
     ]),
   pendingComponent: ScaleEditorPending,
   component: ScaleEditorPage,
@@ -152,6 +153,7 @@ function ScaleEditorPage() {
   const navigate = useNavigate();
   const { scaleId } = Route.useParams();
   const { t } = useTranslation('grading');
+  const { t: tStates } = useTranslation('states');
   const config = useRegionConfig();
   const scaleQuery = useGradingScale(scaleId);
   const canManage = useHasPermission(Permission.GRADING_SCALE_MANAGE);
@@ -203,13 +205,9 @@ function ScaleEditorPage() {
   }
 
   if (scaleQuery.isError) {
-    const forbidden = scaleQuery.error instanceof ApiError && scaleQuery.error.statusCode === 403;
     return (
       <PageContainer>
-        <ErrorState
-          message={forbidden ? t('detail.forbidden') : t('detail.errorMessage')}
-          onRetry={() => void scaleQuery.refetch()}
-        />
+        <QueryFailure error={scaleQuery.error} onRetry={() => void scaleQuery.refetch()} />
       </PageContainer>
     );
   }
@@ -386,6 +384,7 @@ function ScaleEditorPage() {
           onConfirmed={() => {
             savedRef.current = true;
             setPreviewOpen(false);
+            toast.success(tStates('success.title'));
             // Reseed from what the server stored (it may reorder or normalise
             // bands), so `dirty` compares like with like. Skipped if the user
             // edited again meanwhile.

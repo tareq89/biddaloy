@@ -1283,6 +1283,7 @@ export { useIdempotencyKey } from './idempotency-key';
 export {
   useAdmissionApplicants,
   useActivateList,
+  admissionListKeys,
   useAdmissionLists,
   useAssignRolls,
   useCallList,

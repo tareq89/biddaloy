@@ -3,7 +3,6 @@ import {
   Card,
   DataTable,
   EmptyState,
-  ErrorState,
   PushOptInCard,
   RoutePending,
   Skeleton,
@@ -60,6 +59,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 import { MyProofsTab } from './-my-proofs-tab';
+import { PortalQueryError } from './-portal-query-error';
 
 /**
  * [5.3] — the fee breakdown and invoice history behind [5.2]'s landing.
@@ -301,7 +301,8 @@ function PortalFees() {
 
   if (studentsQuery.isError) {
     return (
-      <ErrorState
+      <PortalQueryError
+        error={studentsQuery.error}
         message={t('fees.error.message')}
         retryLabel={t('fees.error.retry')}
         onRetry={() => void studentsQuery.refetch()}
@@ -351,7 +352,14 @@ function PortalFees() {
     // message — a raw id must not reach a parent.
     return (
       <FeesTabs tab="bills" onTab={goTab} showProofs={canSeeProofs}>
-        <ErrorState
+        <PortalQueryError
+          error={
+            summaryQuery.error ??
+            invoicesQuery.error ??
+            walletQuery.error ??
+            schedulesQuery.error ??
+            finesQuery.error
+          }
           message={t('fees.error.message')}
           retryLabel={t('fees.error.retry')}
           onRetry={() => {

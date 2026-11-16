@@ -5,7 +5,7 @@
  * rule form over this page through `?edit=1` (D22).
  */
 import { Permission } from '@biddaloy/shared';
-import { DataTable, ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
+import { DataTable, RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import {
   recurringScheduleQueryOptions,
   useAcademicYears,
@@ -31,6 +31,7 @@ import { z } from 'zod';
 
 import { BatchBillsDrawer } from '../-generations/batch-bills-drawer';
 import { useBatchColumns } from '../-generations/batch-table';
+import { QueryFailed } from '../-query-failed';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 import { AudienceCell } from './-audience-cell';
@@ -146,7 +147,8 @@ function ScheduleDetailPage() {
   if (scheduleQuery.isLoading) return <ScheduleDetailPending />;
   if (scheduleQuery.isError || !schedule) {
     return (
-      <ErrorState
+      <QueryFailed
+        error={scheduleQuery.error}
         message={t('schedules.errorMessage')}
         onRetry={() => void scheduleQuery.refetch()}
       />

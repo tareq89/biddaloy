@@ -1,8 +1,11 @@
+import { ApiError, isTenantSuspendedError } from '@biddaloy/ui/api';
+import { AccessDeniedState, ErrorState } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { DashboardPage, DashboardSkeleton } from '../../dashboard/layout/dashboard-page';
+import { RouteErrorFallbackWithUpdate } from '../../route-error-fallback';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /** `?customize=1` opens customise mode (2-11). */
@@ -30,6 +33,7 @@ export const Route = createFileRoute('/_staff/dashboard')({
       'reportView',
     ),
   pendingComponent: DashboardPending,
+  errorComponent: DashboardError,
   component: DashboardRoute,
 });
 
@@ -45,5 +49,23 @@ function DashboardPending() {
       <span className="sr-only">{t('routePending.label')}</span>
       <DashboardSkeleton />
     </>
+  );
+}
+
+/** A failed load says so with a retry; a refusal (403) says that instead. */
+function DashboardError(props: ErrorComponentProps) {
+  const { error } = props;
+  const { t: tDashboard } = useTranslation('dashboard');
+  const router = useRouter();
+  // A suspended or trial-ended school has its own screen: the router's default error component.
+  // Render it here; rethrowing left the route stuck on its pending skeleton.
+  if (isTenantSuspendedError(error)) return <RouteErrorFallbackWithUpdate {...props} />;
+  if (error instanceof ApiError && error.statusCode === 403) return <AccessDeniedState />;
+  return (
+    <ErrorState
+      message={tDashboard('states.error')}
+      retryLabel={tDashboard('states.retry')}
+      onRetry={() => void router.invalidate()}
+    />
   );
 }

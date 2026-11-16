@@ -153,6 +153,7 @@ describe('collection-month widget', () => {
     });
     expect(marker.getAttribute('data-signal')).toBe('warn');
     expect(marker.querySelector('svg')!.getAttribute('aria-hidden')).toBe('true');
-    expect(marker.querySelector('.sr-only')!.textContent).toBe('Behind');
+    // RollingNumber adds its own sr-only value span first; the signal label is last.
+    expect([...marker.querySelectorAll('.sr-only')].at(-1)!.textContent).toBe('Behind');
   });
 });
