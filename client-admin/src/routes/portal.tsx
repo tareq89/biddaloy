@@ -29,6 +29,7 @@ import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
+import { LegalFooterLinks } from '../features/legal/legal-footer-links';
 import { SupportBannerHost } from '../features/support-access/support-banner-host';
 import { AppHelpProvider } from '../help/help-provider';
 import { useModuleGate, type Gated } from '../module-gate';
@@ -69,7 +70,7 @@ export const Route = createFileRoute('/portal')({
   // [8.14.5]: same reasoning as `_staff.tsx`'s own loader — this
   // layout's chrome renders `nav` strings on every navigation, and
   // `portal` covers the guardian-facing leaf routes underneath it.
-  loader: () => loadRouteNamespaces('nav', 'portal', 'attention'),
+  loader: () => loadRouteNamespaces('nav', 'portal', 'attention', 'legal'),
   component: PortalLayout,
 });
 
@@ -353,6 +354,9 @@ function PortalLayout() {
             )}
             <SchoolInvitesCard {...schoolInvites.cardProps} />
             {offModule ? <ModuleOffState isAdmin={false} portal /> : <Outlet />}
+            <footer className="py-6">
+              <LegalFooterLinks />
+            </footer>
           </AppShell>
         </RequireRole>
       </DemoCornerFrame>

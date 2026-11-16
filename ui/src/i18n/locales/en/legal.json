@@ -21,6 +21,29 @@
   "footer": "Privacy policy · Terms",
   "dialog": {
     "agree": "Agree",
-    "close": "Close"
+    "close": "Close",
+    "title": "Legal documents",
+    "switchTo": "বাংলা"
+  },
+  "summary": {
+    "terms": {
+      "1": "The school owns its data. We never sell it.",
+      "2": "Fees guardians pay go straight to the school's account; we never hold the school's money.",
+      "3": "You can leave at any time and download all your data to Excel first."
+    },
+    "privacy": {
+      "1": "We keep data only to run the school's work and keep the service safe.",
+      "2": "One school can never see another school's data.",
+      "3": "We never sell data or use it for ads."
+    },
+    "dpa": {
+      "1": "All student, guardian and staff data belongs to the school.",
+      "2": "We use it only on the school's instructions, and our staff keep it confidential.",
+      "3": "If you leave, you get your data back, and we tell you about any breach."
+    }
+  },
+  "footerLinks": {
+    "privacy": "Privacy policy",
+    "terms": "Terms"
   }
 }

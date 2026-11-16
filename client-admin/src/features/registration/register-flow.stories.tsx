@@ -116,3 +116,19 @@ export const PasswordStep: StoryObj<typeof RegisterPasswordStep> = {
 export const PasswordStepSkippable: StoryObj<typeof RegisterPasswordStep> = {
   render: () => <RegisterPasswordStep onSubmit={fn()} onSkip={fn()} />,
 };
+
+/** [59.1.06] Phone: the documents open as a full-height sheet; the body scrolls, Agree stays in view. */
+export const DocumentsDialogPhone: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole('button', { name: /Terms|শর্তাবলি/ }));
+    const body = within(document.body);
+    const agree = await body.findByRole('button', { name: /^(Agree|সম্মত)$/ });
+    const panel = await body.findByRole('tabpanel');
+    await expect(panel.scrollHeight).toBeGreaterThan(panel.clientHeight);
+    panel.scrollTo({ top: panel.scrollHeight });
+    const r = agree.getBoundingClientRect();
+    await expect(r.bottom).toBeLessThanOrEqual(window.innerHeight);
+  },
+};

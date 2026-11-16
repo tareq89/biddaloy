@@ -1,4 +1,5 @@
 /** Step 1 of the register card: the seven fields (phone first, email optional) + captcha. Presentational: no network. */
+import { LegalDocument } from '@biddaloy/shared';
 import {
   Button,
   Checkbox,
@@ -23,8 +24,14 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { LegalDocumentsDialog } from '../legal/legal-documents-dialog';
+
 import { COUNTRY_CODES, countryName, defaultCountry } from './country-options';
 import { NO_CAPTCHA_TOKEN, TURNSTILE_SITE_KEY, Turnstile } from './turnstile';
+
+/** D31: sign-up shows these three; the service agreement is a section inside Terms. */
+const SIGNUP_DOCS = [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.DPA] as const;
+const MARK = '\u0001';
 
 export interface RegisterDetailsValues {
   adminName: string;
@@ -57,7 +64,8 @@ export function RegisterDetailsForm({
   captchaResetKey = 0,
   onCaptchaMissing,
 }: RegisterDetailsFormProps) {
-  const { t } = useTranslation('register');
+  const { t } = useTranslation(['register', 'legal']);
+  const [legalDoc, setLegalDoc] = React.useState<LegalDocument | null>(null);
   const { locale } = useLocale();
   const regionConfig = useRegionConfig();
   const [captcha, setCaptcha] = React.useState<string | null>(null);
@@ -231,12 +239,49 @@ export function RegisterDetailsForm({
                   htmlFor="register-terms"
                   className="flex flex-1 items-center self-stretch font-normal"
                 >
-                  {t('terms')}
+                  <span>
+                    {t('terms', {
+                      terms: `${MARK}terms${MARK}`,
+                      privacy: `${MARK}privacy${MARK}`,
+                      dpa: `${MARK}dpa${MARK}`,
+                      interpolation: { escapeValue: false },
+                    })
+                      .split(new RegExp(`${MARK}(\\w+)${MARK}`))
+                      .map((part, i) =>
+                        i % 2 === 0 ? (
+                          part
+                        ) : (
+                          <button
+                            key={part}
+                            type="button"
+                            className="text-primary underline underline-offset-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setLegalDoc(part as LegalDocument);
+                            }}
+                          >
+                            {t(`legal:docs.${part}`)}
+                          </button>
+                        ),
+                      )}
+                  </span>
                 </FormLabel>
               </div>
               <FormMessage />
             </FormItem>
           )}
+        />
+        <LegalDocumentsDialog
+          open={legalDoc !== null}
+          onOpenChange={(o) => !o && setLegalDoc(null)}
+          docs={SIGNUP_DOCS}
+          initialDoc={legalDoc ?? undefined}
+          returnFocusTo={() => document.getElementById('register-terms')}
+          onAgree={() => {
+            form.setValue('terms', true, { shouldValidate: true });
+            setLegalDoc(null);
+          }}
         />
         <Turnstile key={captchaResetKey} onToken={setCaptcha} />
         <Button type="submit" loading={loading} className="w-full">
