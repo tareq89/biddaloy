@@ -338,6 +338,21 @@
       "archetype": "form"
     },
     {
+      "path": "/marks/$examId/$sectionId/$subjectId/sms",
+      "params": {
+        "examId": "seeded",
+        "sectionId": "seeded",
+        "subjectId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/communications/staff-message",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
       "path": "/results",
       "role": "admin",
       "archetype": "list"
