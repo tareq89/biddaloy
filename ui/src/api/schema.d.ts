@@ -21572,6 +21572,18 @@ export interface components {
             /** @description The draft_revision the publisher is looking at (409 site.stale if it changed). */
             draft_revision: number;
         };
+        AdmissionPublishDto: {
+            /** @enum {string} */
+            what: "STAGE" | "MERIT" | "WAITING";
+            /**
+             * Format: uuid
+             * @description Stage id (STAGE) or list id (MERIT, WAITING).
+             */
+            ref_id: string;
+            send_sms: boolean;
+            /** @description Also SMS not-passed / rejected applicants (D26: off). */
+            include_not_selected?: boolean;
+        };
         PublishResponseDto: {
             published_at: string;
             already_published: boolean;
@@ -47469,7 +47481,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PublishDto"];
+                "application/json": components["schemas"]["AdmissionPublishDto"];
             };
         };
         responses: {
