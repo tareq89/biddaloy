@@ -48,6 +48,7 @@ import { MarksService } from './marks.service';
 import { MarksImportService } from './marks-import.service';
 import { MarkGridService } from './mark-grid.service';
 import { MarksController } from './marks.controller';
+import { MarksSmsController } from './marks-sms.controller';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
@@ -136,6 +137,7 @@ import {
     ExamTemplatesController,
     SubjectChoicesController,
     MarksController,
+    MarksSmsController,
     ResultsController,
     StudentResultsController,
     WebsiteResultsController,

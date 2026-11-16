@@ -352,6 +352,8 @@ GET    /api/v1/exams/:examId/documents/merit-candidates                         
 GET    /api/v1/exams/:examId/documents/tabulation                                401 401 PASS PASS PASS PASS 403 403 403 403 PASS PASS 403 -
 GET    /api/v1/exams/:examId/marks                                               401 401 PASS PASS PASS 403 PASS 403 403 PASS 403 PASS 403 exams
 PATCH  /api/v1/exams/:examId/marks                                               401 401 PASS PASS PASS 403 PASS 403 403 403 403 PASS 403 exams
+POST   /api/v1/exams/:examId/marks/:sectionId/:subjectId/sms                     401 401 PASS PASS PASS 403 PASS 403 403 403 403 PASS 403 exams
+POST   /api/v1/exams/:examId/marks/:sectionId/:subjectId/sms/preview             401 401 PASS PASS PASS 403 PASS 403 403 403 403 PASS 403 exams
 GET    /api/v1/exams/:examId/marks/progress                                      401 401 PASS PASS PASS 403 PASS 403 403 PASS 403 PASS 403 exams
 POST   /api/v1/exams/:examId/marks/reopen                                        401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 exams
 GET    /api/v1/exams/:examId/marks/sheet                                         401 401 PASS PASS PASS 403 PASS 403 403 PASS 403 PASS 403 exams

@@ -122,6 +122,21 @@ export class MarksSmsService {
     private readonly auditService: AuditService,
   ) {}
 
+  /** The URL carries exam/section/subject; the grid is the unique triple (tenant-scoped). */
+  async resolveGridId(
+    examId: string,
+    sectionId: string,
+    subjectId: string,
+    tenantId: string,
+  ): Promise<string> {
+    const grid = await this.gridRepo.findOne({
+      where: { exam_id: examId, section_id: sectionId, subject_id: subjectId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!grid) throw new NotFoundException('Marks list not found');
+    return grid.id;
+  }
+
   async preview(gridId: string, tenantId: string): Promise<MarksSmsPreview> {
     const { jobs, skipped, alreadySentAt } = await this.plan(gridId, tenantId, '');
     return {
