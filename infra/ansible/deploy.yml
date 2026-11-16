@@ -101,6 +101,16 @@
     # The rollback runs the previous version with the compose file(s) its own ok deploy kept
     # (<stack>/compose.stack.yml, edge/release/compose.edge*.yml), not the failing commit's; the checkout's
     # only when no copy exists yet.
+    legacy_compose_names:
+      compose.stack.yml: stack.yml
+      compose.edge.yml: edge.yml
+      compose.edge-direct.yml: edge.direct.yml
+      compose.ops.yml: ops.yml
+    legacy_compose_names:
+      compose.stack.yml: stack.yml
+      compose.edge.yml: edge.yml
+      compose.edge-direct.yml: edge.direct.yml
+      compose.ops.yml: ops.yml
     prev_compose_dir: "{{ project_dir ~ '/release' if stack == 'edge' else project_dir }}"
     # Overwritten by write-env; each is copied to <file>.prev first and put back by the rescue.
     rollback_files:
@@ -525,11 +535,23 @@
               ansible.builtin.stat:
                 path: '{{ prev_compose_dir }}/{{ compose_names[stack][0] }}'
               register: prev_compose
+            # A deploy from before the #2811 rename kept the old names (stack.yml, edge.yml, ...).
+            - name: Or one kept under the pre-rename name?
+              ansible.builtin.stat:
+                path: '{{ prev_compose_dir }}/{{ legacy_compose_names[compose_names[stack][0]] }}'
+              register: prev_compose_legacy
+              when: not prev_compose.stat.exists
             - name: Compose command for the previous version
               ansible.builtin.set_fact:
                 dc_rollback: >-
-                  {{ (dc_hint | replace(repo_root ~ '/deploy/', prev_compose_dir ~ '/'))
-                     if prev_compose.stat.exists else dc_hint }}
+                  {%- set use_legacy = not prev_compose.stat.exists and (prev_compose_legacy.stat.exists | default(false)) -%}
+                  {%- set ns = namespace(cmd=dc_hint | replace(repo_root ~ '/deploy/', prev_compose_dir ~ '/')) -%}
+                  {%- if use_legacy -%}
+                  {%- for new, old in legacy_compose_names.items() -%}
+                  {%- set ns.cmd = ns.cmd | replace(prev_compose_dir ~ '/' ~ new, prev_compose_dir ~ '/' ~ old) -%}
+                  {%- endfor -%}
+                  {%- endif -%}
+                  {{ ns.cmd if (prev_compose.stat.exists or use_legacy) else dc_hint }}
             - name: Pin the previous version
               ansible.builtin.lineinfile:
                 path: '{{ project_dir }}/.env'

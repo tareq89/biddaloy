@@ -6,7 +6,7 @@ Report it **privately**: on this repository open **Security**, then **Report a v
 (GitHub private vulnerability reporting).
 
 Or email **security@schoolmanagerp.com**. The same address is published at
-`/.well-known/security.txt` on every host.
+`/.well-known/security.txt` on the public hosts. Staging and ops hosts sit behind Cloudflare Access in tunnel mode, so they do not serve it anonymously.
 
 Please do not open a public issue or pull request for a security problem.
 

@@ -12,7 +12,6 @@ paths = [
   '''.*\.e2e-spec\.ts$''',
   '''^e2e/''',
   '''^docs/''',
-  '''^server/src/scripts/''',
   # Throwaway SETTINGS_ENCRYPTION_KEY the CI jobs give their own empty database.
   '''^\.github/workflows/ci\.yml$''',
   '''^\.github/workflows/nightly-quality\.yml$''',

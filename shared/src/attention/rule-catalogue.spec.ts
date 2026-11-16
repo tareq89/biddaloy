@@ -88,7 +88,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 20 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 21 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -115,6 +115,7 @@ describe('alert rule catalogue', () => {
         'platform.sms.stock_low',
         'platform.sms.oversold',
         'admission.list_deadline',
+        'comms.daily_limit_reached', // rule class lands in #3991
       ].sort(),
     );
   });

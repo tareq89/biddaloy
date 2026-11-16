@@ -202,7 +202,7 @@ expect "tunnel: app host over plain HTTP -> 200" "200 0" "$(curl_as $(http examp
 for h in example.test kuma.example.test; do
   # shellcheck disable=SC2046
   expect "tunnel: security.txt on $h -> 200 with Contact:" "200 0 Contact:" \
-    "$(curl_as $(http "$h" /.well-known/security.txt)) $(curl -s --resolve "$h:80:$EDGE_IP" "http://$h/.well-known/security.txt" | head -c 8)"
+    "$(curl_as $(http "$h" /.well-known/security.txt)) $(body_as $(http "$h" /.well-known/security.txt) | head -c 8)"
 done
 expect "tunnel: unknown Host -> 444" "000 52" "$(curl_as $(http evil.test /))"
 # shellcheck disable=SC2046
@@ -269,7 +269,7 @@ done
 for h in example.test kuma.example.test staging.example.test; do
   # shellcheck disable=SC2046
   expect "direct: security.txt on $h -> 200 with Contact:, no login" "200 0 Contact:" \
-    "$(curl_as $(https "$h" /.well-known/security.txt)) $(curl -sk --resolve "$h:443:$EDGE_IP" "https://$h/.well-known/security.txt" | head -c 8)"
+    "$(curl_as $(https "$h" /.well-known/security.txt)) $(body_as $(https "$h" /.well-known/security.txt) | head -c 8)"
 done
 # Only a plain /api/push/<token> skips the outer login; path tricks must not reach Kuma unauthenticated.
 # shellcheck disable=SC2046

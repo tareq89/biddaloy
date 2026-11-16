@@ -1,6 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { type CommunicationMedium, DAILY_LIMIT_REACHED } from '@biddaloy/shared';
 import type { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
+import { isMessageSink } from '../providers/sink/message-sink';
 import type { SendLimitService } from './send-limit.service';
 
 export interface SendLimitPrecheckDeps {
@@ -25,7 +26,8 @@ export async function assertRoomForBatch(
   medium: CommunicationMedium,
   recipientCount: number,
 ): Promise<void> {
-  if (!deps || recipientCount <= 0) return;
+  // MESSAGE_SINK=mailpit: the registry bypasses config and limits, so the precheck does too.
+  if (!deps || recipientCount <= 0 || isMessageSink()) return;
   let source: string;
   try {
     source = (await deps.registry.resolveFor(medium, tenantId)).source;

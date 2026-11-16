@@ -23,11 +23,11 @@ flowchart TD
 
 ## Severity
 
-| Level | Meaning | Example |
-| ----- | ------- | ------- |
-| **SEV1** | A school's data is exposed or lost, **or** every school is down | A database dump is found on a public link. The prod VM is gone. |
-| **SEV2** | One school is down, **or** one feature is broken for everyone | One school's site returns 500. Fee payments fail for all schools. |
-| **SEV3** | Minor. Nobody is blocked | A report page shows a wrong label. |
+| Level    | Meaning                                                         | Example                                                           |
+| -------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **SEV1** | A school's data is exposed or lost, **or** every school is down | A database dump is found on a public link. The prod VM is gone.   |
+| **SEV2** | One school is down, **or** one feature is broken for everyone   | One school's site returns 500. Fee payments fail for all schools. |
+| **SEV3** | Minor. Nobody is blocked                                        | A report page shows a wrong label.                                |
 
 When unsure, pick the higher level. You can lower it later.
 
@@ -50,14 +50,14 @@ flowchart LR
 2. **Rotate the leaked key or secret.** Follow
    [28-platform-runbook.md, Part 16 "Rotate a secret, lose a key"](28-platform-runbook.md#part-16-rotate-a-secret-lose-a-key).
 3. **Sign people out.**
-   - One person: `POST /auth/logout-all`.
+   - One person: suspend or reset that user. Either sets `users.tokens_valid_after`, so their access tokens are refused on the next request ([08-security.md, Rule 8](08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after)). `POST /auth/logout-all` only signs out the caller, so do not use it here.
    - A whole school: bump `users.tokens_valid_after` for its users
      ([08-security.md, Rule 8](08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after)).
 
 **b. Keep evidence**
 
 1. **Do not delete logs.** Do not restart containers just to "clean up", unless step (a) needs it.
-2. **Take a database dump before you change data.** The backup container already writes an
+2. **Take a fresh database dump before you change data.** The hourly backup can be up to an hour old and would miss changes made during the intrusion, so take a new dump now, and keep the newest hourly one separately. The backup container writes an
    encrypted dump every hour. Copy the newest one and note its name. How backups work and how to
    open one: [13-backup-restore.md](13-backup-restore.md).
 3. Write down the time you started, in a shared note. Add every action with its time.
@@ -86,7 +86,7 @@ with the words. We do not message guardians ourselves unless a school asks us to
 > On {date} we found that some of your school's data may have been seen by someone who should
 > not have seen it. The data involved: {what data, for example "student names and phone numbers"}.
 > We have {what we did, for example "stopped the access and changed all keys"}.
-> You do not need to do anything right now. Please do not share your password with anyone.
+> What you need to do: {the action for this incident, for example "reset your password now", or "nothing right now"}. Please do not share your password with anyone.
 > We will write again by {time} with more detail. Questions: {support channel}.
 
 **বাংলা**
@@ -95,7 +95,7 @@ with the words. We do not message guardians ourselves unless a school asks us to
 > {তারিখ} তারিখে আমরা জানতে পেরেছি, আপনার স্কুলের কিছু তথ্য এমন কেউ দেখে ফেলতে পারেন, যাঁর দেখার কথা নয়।
 > যে তথ্য জড়িত: {কোন তথ্য, যেমন "ছাত্রছাত্রীর নাম ও ফোন নম্বর"}।
 > আমরা {কী করেছি, যেমন "প্রবেশ বন্ধ করেছি এবং সব চাবি বদলেছি"}।
-> আপনাকে এখনই কিছু করতে হবে না। অনুগ্রহ করে আপনার পাসওয়ার্ড কাউকে দেবেন না।
+> আপনার করণীয়: {এই ঘটনার জন্য করণীয়, যেমন "এখনই পাসওয়ার্ড বদলান", অথবা "এখন কিছু করতে হবে না"}। অনুগ্রহ করে আপনার পাসওয়ার্ড কাউকে দেবেন না।
 > আমরা {সময়}-এর মধ্যে আবার বিস্তারিত জানাব। প্রশ্ন থাকলে: {সাপোর্ট মাধ্যম}।
 
 ### Template B: long outage
@@ -150,15 +150,15 @@ password manager, in the incident-contacts note
 
 Chores that must repeat. If a row is missed, the next one is late.
 
-| Every | What | Where it is described |
-| ----- | ---- | --------------------- |
-| Year | Outside penetration test | [#1747](https://github.com/tareq89/biddaloy/issues/1747) |
-| Year | Renew the `Expires` date in `security.txt` | [#1761](https://github.com/tareq89/biddaloy/issues/1761) |
-| Year | Review who is platform owner, GitHub admin, and who has server SSH access | This page |
-| Quarter | Review the restore drill results | [13-backup-restore.md](13-backup-restore.md), `.github/workflows/restore-drill.yml` |
-| Quarter | Read the support access log | Epic 99, [#3726](https://github.com/tareq89/biddaloy/issues/3726) |
-| 6 months | Rotate S3, SMTP and SMS provider keys | [28-platform-runbook.md, Part 16](28-platform-runbook.md#part-16-rotate-a-secret-lose-a-key) |
-| Month | Triage Dependabot PRs and the weekly image scan | [#1757](https://github.com/tareq89/biddaloy/issues/1757) |
+| Every    | What                                                                      | Where it is described                                                                        |
+| -------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Year     | Outside penetration test                                                  | [#1747](https://github.com/tareq89/biddaloy/issues/1747)                                     |
+| Year     | Renew the `Expires` date in `security.txt`                                | [#1761](https://github.com/tareq89/biddaloy/issues/1761)                                     |
+| Year     | Review who is platform owner, GitHub admin, and who has server SSH access | This page                                                                                    |
+| Quarter  | Review the restore drill results                                          | [13-backup-restore.md](13-backup-restore.md), `.github/workflows/restore-drill.yml`          |
+| Quarter  | Read the support access log                                               | Epic 99, [#3726](https://github.com/tareq89/biddaloy/issues/3726)                            |
+| 6 months | Rotate S3, SMTP and SMS provider keys                                     | [28-platform-runbook.md, Part 16](28-platform-runbook.md#part-16-rotate-a-secret-lose-a-key) |
+| Month    | Triage Dependabot PRs and the weekly image scan                           | [#1757](https://github.com/tareq89/biddaloy/issues/1757)                                     |
 
 ## Practice
 

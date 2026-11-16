@@ -1195,6 +1195,7 @@ flowchart LR
 6. Deploy `staging`, `prod` and `demo` on the new VM.
 7. **The domain does not change in tunnel mode.** Both VMs connect to the same tunnel, so stop the
    old one's: `ssh deploy@<OLD_IP> 'docker compose -p edge --project-directory /opt/biddaloy/edge -f /opt/biddaloy/repo/deploy/compose.edge.yml stop cloudflared'`.
+   If the old VM still runs a revision from before #2811, its file is `edge.yml` (no `compose.` prefix): use `-f /opt/biddaloy/repo/deploy/edge.yml` instead.
    Keep the old VM 7 days, then delete it.
 
 ## Part 18. A new domain or a second environment

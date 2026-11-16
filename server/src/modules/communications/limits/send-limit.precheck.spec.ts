@@ -43,4 +43,15 @@ describe('assertRoomForBatch', () => {
       assertRoomForBatch(deps, 't', CommunicationMedium.SMS, 500),
     ).resolves.toBeUndefined();
   });
+  it('skips everything in message-sink mode', async () => {
+    vi.stubEnv('MESSAGE_SINK', 'mailpit');
+    try {
+      const { deps, remainingFn, resolveFor } = mk('platform', 0);
+      await assertRoomForBatch(deps, 't', CommunicationMedium.SMS, 500);
+      expect(resolveFor).not.toHaveBeenCalled();
+      expect(remainingFn).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

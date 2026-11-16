@@ -95,7 +95,16 @@ export interface AlertRuleMeta {
   guardianSmsFallback: boolean;
   staffSmsFallback: boolean;
   ownerEpic?:
-    '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725' | '#3727' | '#2204';
+    | '#1828'
+    | '#1752'
+    | '#1726'
+    | '#1373'
+    | '#1649'
+    | '#169'
+    | '#3725'
+    | '#3727'
+    | '#2204'
+    | '#3991';
 }
 
 const C = AlertCategory;
@@ -129,7 +138,7 @@ const ROWS: Row[] = [
 
   ['promotion.groups_pending', C.STRUCTURE, S.REMINDER, [K.DAILY, K.ON_CHANGE], [R.TEACHER, R.ADMIN], true, true, false],
   ['comms.sms_credit_low', C.SYSTEM, S.WARNING, [K.HOURLY], [R.ADMIN], true, true, false],
-  ['comms.daily_limit_reached', C.SYSTEM, S.WARNING, [K.HOURLY], [R.ADMIN], true, true, false],
+  ['comms.daily_limit_reached', C.SYSTEM, S.WARNING, [K.HOURLY], [R.ADMIN], true, true, false, '#3991'],
   ['comms.failed_messages', C.SYSTEM, S.WARNING, [K.HOURLY], [R.ADMIN], true, true, false],
   ['system.backup_failed', C.SYSTEM, S.CRITICAL, [K.HOURLY], [R.ADMIN], true, false, false],
   ['routine.not_published', C.STRUCTURE, S.WARNING, [K.DAILY, K.ON_CHANGE], [R.ADMIN], true, true, false],

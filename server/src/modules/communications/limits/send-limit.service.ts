@@ -48,6 +48,8 @@ const chan = (m: CommunicationMedium) => m.toLowerCase() as DailyLimitChannel;
 export class SendLimitService {
   private readonly logger = new Logger(SendLimitService.name);
   private platformCache: { at: number; value: Partial<Limits> } | null = null;
+  /** Bumped on invalidation: a load that started before it must not refill the cache. */
+  private platformGen = 0;
 
   constructor(
     @Inject(OTP_REDIS) private readonly redis: Redis,
@@ -58,15 +60,17 @@ export class SendLimitService {
 
   /** The platform default changed: the next read is fresh. */
   invalidateDefaults(): void {
+    this.platformGen++;
     this.platformCache = null;
   }
 
   private async platformDefaults(): Promise<Partial<Limits>> {
     const c = this.platformCache;
     if (c && Date.now() - c.at < PLATFORM_DEFAULT_TTL_MS) return c.value;
+    const gen = this.platformGen;
     const raw = await this.platform.get(DAILY_LIMITS_PLATFORM_KEY);
     const value = (sanitiseDailyLimits(raw) ?? {}) as Partial<Limits>;
-    this.platformCache = { at: Date.now(), value };
+    if (gen === this.platformGen) this.platformCache = { at: Date.now(), value };
     return value;
   }
 
@@ -124,8 +128,8 @@ export class SendLimitService {
       return { limit, remaining: Math.max(0, limit - used) };
     } catch (err) {
       this.failOpen(err);
-      const limit = DEFAULT_DAILY_SEND_LIMITS[chan(medium)];
-      return { limit, remaining: limit };
+      // Unknown usage: report room for any batch (fail open), the registry stays the hard gate.
+      return { limit: DEFAULT_DAILY_SEND_LIMITS[chan(medium)], remaining: Number.MAX_SAFE_INTEGER };
     }
   }
 

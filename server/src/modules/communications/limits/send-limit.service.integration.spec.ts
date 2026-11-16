@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 import { CommunicationMedium } from '@biddaloy/shared';
@@ -12,6 +12,15 @@ describe('SendLimitService (integration)', () => {
   });
   afterAll(() => {
     redis.disconnect();
+  });
+  // Fixed instant: a run across midnight Asia/Dhaka must not split the daily counter. Only Date is
+  // faked, so ioredis timers stay real.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-10T06:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   const service = (limit: number) =>

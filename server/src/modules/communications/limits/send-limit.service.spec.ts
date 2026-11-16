@@ -89,6 +89,26 @@ describe('SendLimitService', () => {
       const { svc } = make({ school: { sms: 5 }, get: vi.fn().mockResolvedValue('3') });
       expect(await svc.remaining('t', CommunicationMedium.SMS)).toEqual({ limit: 5, remaining: 2 });
     });
+    it('remaining on a Redis failure fails open: room for any batch', async () => {
+      const { svc } = make({ get: vi.fn().mockRejectedValue(new Error('down')) });
+      const r = await svc.remaining('t', CommunicationMedium.SMS);
+      expect(r.remaining).toBeGreaterThan(r.limit);
+    });
+    it('a platform-default load that predates invalidateDefaults does not refill the cache', async () => {
+      let release!: (v: unknown) => void;
+      const platformGet = vi
+        .fn()
+        .mockImplementationOnce(() => new Promise((r) => (release = r)))
+        .mockResolvedValue({ sms: 7 });
+      const { svc } = make();
+      (svc as any).platform = { get: platformGet };
+      const stale = svc.effectiveLimits('t');
+      await Promise.resolve();
+      svc.invalidateDefaults();
+      release({ sms: 1 });
+      await stale;
+      expect((await svc.effectiveLimits('t')).sms).toBe(7);
+    });
     it('hitToday lists channels whose flag exists', async () => {
       const { svc, redis } = make();
       redis.exists.mockImplementation(async (k: string) => (k.includes(':email:') ? 1 : 0));
