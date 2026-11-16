@@ -844,8 +844,8 @@ export async function seedAccounts(
     );
   }
   // Mocked repositories (unit tests) have no manager; real ones always do.
-  const manager = repos.userRepository.manager as EntityManager | undefined;
-  if (manager) await acceptCurrentLegalForAdmins(manager);
+  const legalManager = repos.userRepository.manager as EntityManager | undefined;
+  if (legalManager) await acceptCurrentLegalForAdmins(legalManager);
 }
 
 /**
