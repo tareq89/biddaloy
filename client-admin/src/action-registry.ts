@@ -701,6 +701,26 @@ export const ACTIONS: readonly PaletteAction[] = [
       });
     },
   },
+  // [80.3.03] D3: marks SMS for one grid. Off a grid it falls back to the marks list.
+  {
+    id: 'marks-sms.send',
+    module: ModuleKey.exams,
+    label: { en: 'Send marks SMS', bn: 'নম্বরের এসএমএস পাঠান' },
+    synonyms: ['marks sms', 'sms guardians marks', 'নম্বর এসএমএস'],
+    permission: Permission.MARKS_SMS_SEND,
+    kind: 'navigate',
+    context: ['exam'],
+    group: 'examsResults',
+    run: (ctx) => {
+      const { examId, sectionId, subjectId } = ctx.params ?? {};
+      ctx.navigate({
+        to:
+          examId && sectionId && subjectId
+            ? `/marks/${examId}/${sectionId}/${subjectId}/sms`
+            : '/marks',
+      });
+    },
+  },
   {
     id: 'results.process',
     module: ModuleKey.exams,
