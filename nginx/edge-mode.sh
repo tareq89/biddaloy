@@ -119,7 +119,7 @@ fi
 #      domain, e.g. www.school.edu.bd; the site container answers 404 unless it is an ACTIVE
 #      custom domain). IP literals, empty and malformed hosts are 0.
 # Rule 3 escapes the dots, so `rumsc.schoolsXtest` is NOT under the root (it is a plain name, rule 4).
-# Unset ROOT_DOMAIN, or the compose default `root.invalid` (deploy/edge.yml), means an edge with no
+# Unset ROOT_DOMAIN, or the compose default `root.invalid` (deploy/compose.edge.yml), means an edge with no
 # school sites: every host 0, no custom path. $host is already lower-cased and
 # port-free. nginx tries map regexes in file order, exact names first.
 # Example: ROOT_DOMAIN=schools.test -> rumsc.schools.test 1, www.school.edu.bd 1, app host 0, a.b.schools.test 0.

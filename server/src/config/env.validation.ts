@@ -48,7 +48,7 @@ class EnvironmentVariables {
   @IsString()
   HEALTH_TOKEN?: string;
 
-  // Deploy stack name (prod | staging | demo); set by deploy/stack.yml. Free text here:
+  // Deploy stack name (prod | staging | demo); set by deploy/compose.stack.yml. Free text here:
   // config-check --env judges the value, assertMessageSinkAllowed reads it.
   @IsOptional()
   @IsString()

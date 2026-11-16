@@ -79,7 +79,7 @@ run_step() {
 
 # dc <stack> <compose args...>: always the same project, project directory and file (the copy the
 # stack's last ok deploy kept, lib.sh).
-dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" stack.yml deploy/stack.yml)" "$@"; }
+dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" compose.stack.yml deploy/compose.stack.yml)" "$@"; }
 
 wait_ready() { # <stack>: /api/health, 24 tries x 5 s (the compose healthcheck's own URL)
   local i

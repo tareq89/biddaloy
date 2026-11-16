@@ -17,7 +17,7 @@ export APP_VERSION=test POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SE
 docker compose config -q && pass "dev compose config is valid" || fail "dev compose config is invalid"
 
 # [79.0] The stack is one file started once per env; every env must merge.
-STACK=(-f deploy/stack.yml)
+STACK=(-f deploy/compose.stack.yml)
 ENV_NAME=prod COMPOSE_PROFILES=replica,backup docker compose "${STACK[@]}" config -q \
   && pass "stack (prod) config is valid" || fail "stack (prod) config is invalid"
 ENV_NAME=staging docker compose "${STACK[@]}" config -q \
@@ -26,11 +26,11 @@ ENV_NAME=demo DEMO_MODE=true docker compose "${STACK[@]}" config -q \
   && pass "stack (demo) config is valid" || fail "stack (demo) config is invalid"
 ENV_NAME=local docker compose "${STACK[@]}" -f docker-compose.build.yml config -q \
   && pass "build overlay config is valid" || fail "build overlay config is invalid"
-docker compose -f deploy/edge.yml config -q \
+docker compose -f deploy/compose.edge.yml config -q \
   && pass "edge (tunnel) config is valid" || fail "edge (tunnel) config is invalid"
-EDGE_MODE=direct docker compose -f deploy/edge.yml -f deploy/edge.direct.yml config -q \
+EDGE_MODE=direct docker compose -f deploy/compose.edge.yml -f deploy/compose.edge-direct.yml config -q \
   && pass "edge (direct) config is valid" || fail "edge (direct) config is invalid"
-docker compose -f deploy/ops.yml config -q \
+docker compose -f deploy/compose.ops.yml config -q \
   && pass "ops config is valid" || fail "ops config is invalid"
 
 # Only app / app2 and the test inbox (mailpit, Epic 87) join the edge network; no host ports on
@@ -56,9 +56,9 @@ jq -e '[.services | to_entries[] | select(.value.container_name)] | length == 0'
 # images must carry exactly the APP_VERSION tag (the commit SHA in prod), or
 # LANDING_VERSION for the landing site, so a mutable `:main` / `:latest` fails here too (Rule 21).
 unpinned="$( { ENV_NAME=prod docker compose "${STACK[@]}" --profile '*' config --images
-  docker compose -f deploy/edge.yml --profile '*' config --images
-  docker compose -f deploy/edge.yml -f deploy/edge.direct.yml --profile '*' config --images
-  docker compose -f deploy/ops.yml config --images
+  docker compose -f deploy/compose.edge.yml --profile '*' config --images
+  docker compose -f deploy/compose.edge.yml -f deploy/compose.edge-direct.yml --profile '*' config --images
+  docker compose -f deploy/compose.ops.yml config --images
   docker compose config --images; } | sort -u \
   | grep -v -E "^ghcr\.io/tareq89/biddaloy-[a-z-]+:(${APP_VERSION}|${LANDING_VERSION})\$" | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
 [ -z "$unpinned" ] || fail "compose images not digest-pinned: $unpinned"

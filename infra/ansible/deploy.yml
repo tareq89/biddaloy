@@ -14,13 +14,13 @@
 #
 # Order, app stacks: preflight -> networks -> env + pg-tls -> pull -> backup (prod) -> migrate
 #   -> db redis seaweedfs -> first rebuild (demo, fresh host only) -> app (prod: app, then app2)
-#   -> the rest -> smoke -> keep stack.yml -> log.
+#   -> the rest -> smoke -> keep compose.stack.yml -> log.
 # Order, edge: preflight -> networks -> env -> copy nginx/ to edge/release.new -> nginx -t on it
 #   -> pull -> release.new becomes edge/release (what nginx mounts) -> up -> nginx recreate
 #   -> cloudflared recreate (tunnel mode, only when its config or credentials changed).
 # Order, ops: preflight -> networks -> env -> pull -> up.
 # Host scripts never read the live checkout for a running stack: edge nginx mounts edge/release,
-# and nightly / doctor / restore-prod use <stack>/stack.yml, both copied only by an ok deploy.
+# and nightly / doctor / restore-prod use <stack>/compose.stack.yml, both copied only by an ok deploy.
 # Every failure prints FAILED at / Why / Next (tasks/report.yml), is appended to
 # /opt/biddaloy/<stack>/deploys.log and sent to Telegram.
 # On failure after pre-flight: the previous version is brought back. Migrations are NOT
@@ -47,11 +47,11 @@
     # only from here in tunnel mode (EDGE_TRUSTED_CIDR, Rule 11).
     edge_subnet: 172.30.0.0/24
     compose_names:
-      prod: [stack.yml]
-      staging: [stack.yml]
-      demo: [stack.yml]
-      ops: [ops.yml]
-      edge: "{{ ['edge.yml'] + (['edge.direct.yml'] if edge_mode == 'direct' else []) }}"
+      prod: [compose.stack.yml]
+      staging: [compose.stack.yml]
+      demo: [compose.stack.yml]
+      ops: [compose.ops.yml]
+      edge: "{{ ['compose.edge.yml'] + (['compose.edge-direct.yml'] if edge_mode == 'direct' else []) }}"
     compose_files: "{{ compose_names[stack] | map('regex_replace', '^', repo_root ~ '/deploy/') | list }}"
     dc: >-
       docker compose --project-directory {{ project_dir }} -p {{ project_name }}
@@ -99,7 +99,7 @@
     # Same, on the maintenance db (staging: the active db may not exist yet).
     psql_admin_sh: 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -tAc "$1"'
     # The rollback runs the previous version with the compose file(s) its own ok deploy kept
-    # (<stack>/stack.yml, edge/release/edge*.yml), not the failing commit's; the checkout's
+    # (<stack>/compose.stack.yml, edge/release/compose.edge*.yml), not the failing commit's; the checkout's
     # only when no copy exists yet.
     prev_compose_dir: "{{ project_dir ~ '/release' if stack == 'edge' else project_dir }}"
     # Overwritten by write-env; each is copied to <file>.prev first and put back by the rescue.
@@ -207,8 +207,8 @@
             rm -rf release.new
             mkdir release.new
             cp -a {{ repo_root }}/nginx release.new/nginx
-            cp -p {{ repo_root }}/deploy/edge.yml {{ repo_root }}/deploy/edge.direct.yml release.new/
-            # The school-site maintenance page edge.yml mounts (a missing file would become a directory).
+            cp -p {{ repo_root }}/deploy/compose.edge.yml {{ repo_root }}/deploy/compose.edge-direct.yml release.new/
+            # The school-site maintenance page compose.edge.yml mounts (a missing file would become a directory).
             mkdir -p release.new/site/public
             cp -p {{ repo_root }}/site/public/maintenance.html release.new/site/public/
           args:
@@ -353,7 +353,7 @@
           when: stack == 'staging' and not ansible_check_mode and other_bucket_there.rc != 0
 
         # The demo app refuses to start until a rebuild has written default-school's id to the
-        # demo-state volume (stack.yml). On a fresh host the deploy runs that first rebuild; after
+        # demo-state volume (compose.stack.yml). On a fresh host the deploy runs that first rebuild; after
         # that the nightly demo-rebuild owns it. reset.sh exit 3 = swapped, cleanup failed: live.
         - name: Step is the first demo rebuild
           ansible.builtin.set_fact:
@@ -468,7 +468,7 @@
             owner: root
             group: '{{ deploy_user }}'
             mode: '0640'
-          loop: [deploy/stack.yml, scripts/smoke-post-deploy.mjs]
+          loop: [deploy/compose.stack.yml, scripts/smoke-post-deploy.mjs]
           when: stack in app_stacks and not ansible_check_mode
 
         - name: Deploy ok

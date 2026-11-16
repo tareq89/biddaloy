@@ -14,7 +14,7 @@
 #
 # Three site containers (#3711): a label ending -demo or -staging goes to `demo-site` or
 # `staging-site`, everything else to `prod-site` ($site_upstream_name, conf.d/01-site-host.conf).
-# The names are the `<env>-site` aliases (deploy/stack.yml). No cookie ever reaches the site container (it is anonymous), and
+# The names are the `<env>-site` aliases (deploy/compose.stack.yml). No cookie ever reaches the site container (it is anonymous), and
 # X-Site-Preview is dropped on every public request (the site container trusts that header,
 # only the app-host preview route in default.conf.template may set it).
 
@@ -122,7 +122,7 @@ server {
         error_page 500 502 503 504 =503 /maintenance.html;
     }
 
-    # File shipped in the site image (site/public/maintenance.html) and mounted by deploy/edge.yml.
+    # File shipped in the site image (site/public/maintenance.html) and mounted by deploy/compose.edge.yml.
     location = /maintenance.html {
         internal;
         add_header Retry-After 30 always;

@@ -128,7 +128,7 @@ describe('runStackConfigCheck', () => {
     // the bucket and database name differ per stack
     S3_BUCKET: 'biddaloy-STACK',
     POSTGRES_DB: 'biddaloy_STACK',
-    // deploy/stack.yml passes an unset rate as "", which env.validation rejects: always fill it
+    // deploy/compose.stack.yml passes an unset rate as "", which env.validation rejects: always fill it
     SENTRY_TRACES_SAMPLE_RATE: '0.1',
     // a stack that holds a Turnstile pair in its example keeps it; prod gets a matching pair
     TURNSTILE_SITE_KEY: '0x4AAAAAAAsite',
@@ -274,8 +274,8 @@ describe('runStackConfigCheck', () => {
     expect(onDemo.output).toContain('ALLOW_REAL_PROVIDERS_ON_STAGING must not be set on demo');
   });
 
-  // The part of deploy/stack.yml that makes the app container: x-s3, x-db-url and x-app.
-  const stackYml = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
+  // The part of deploy/compose.stack.yml that makes the app container: x-s3, x-db-url and x-app.
+  const stackYml = readFileSync(join(repoRoot, 'deploy/compose.stack.yml'), 'utf8');
   const appBlock = stackYml.slice(stackYml.indexOf('\nx-s3:'), stackYml.indexOf('\nx-jobs-env:'));
 
   it('COMMON_REQUIRED equals the `:?` variables of the app container (both ways)', async () => {
@@ -297,10 +297,10 @@ describe('runStackConfigCheck', () => {
     expect(block).not.toMatch(/^\s+MESSAGE_SINK_SMTP_URL:/m);
   });
 
-  // What really keeps a provider key out of the staging app is that stack.yml passes an explicit
+  // What really keeps a provider key out of the staging app is that compose.stack.yml passes an explicit
   // list. A new key there must be classified on purpose: listed here as not a provider, or
   // refused by the staging check when set.
-  it('every key stack.yml passes to the app is a known non-provider or refused on staging', async () => {
+  it('every key compose.stack.yml passes to the app is a known non-provider or refused on staging', async () => {
     const env = appBlock.slice(appBlock.indexOf('  environment:'), appBlock.indexOf('  volumes:'));
     const keys = [...env.matchAll(/^ {4}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]);
     const s3 = appBlock.slice(appBlock.indexOf('x-s3:'), appBlock.indexOf('x-db-url:'));
@@ -312,7 +312,7 @@ describe('runStackConfigCheck', () => {
       'ENV_BADGE_DATE',
       'MESSAGE_SINK',
       'MESSAGE_SINK_PUBLIC_URL',
-      'MESSAGE_SINK_SMTP_URL', // fixed to this stack's mailpit by stack.yml, not an operator value
+      'MESSAGE_SINK_SMTP_URL', // fixed to this stack's mailpit by compose.stack.yml, not an operator value
       'ALLOW_REAL_PROVIDERS_ON_STAGING',
       'DATABASE_URL',
       'NODE_EXTRA_CA_CERTS',
@@ -488,7 +488,7 @@ describe('runStackConfigCheck', () => {
     expect(result.output).toContain('BACKUP_S3_BUCKET must be empty on demo');
   });
 
-  it('SENTRY_TRACES_SAMPLE_RATE defaults to 0.1 as in stack.yml; an invalid value fails', async () => {
+  it('SENTRY_TRACES_SAMPLE_RATE defaults to 0.1 as in compose.stack.yml; an invalid value fails', async () => {
     expect((await runStackConfigCheck('prod', { ...prod, SENTRY_TRACES_SAMPLE_RATE: '' })).ok).toBe(
       true,
     );

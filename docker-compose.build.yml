@@ -1,7 +1,7 @@
-# Local build of deploy/stack.yml: builds the images instead of pulling them from GHCR.
+# Local build of deploy/compose.stack.yml: builds the images instead of pulling them from GHCR.
 # Paths are relative to deploy/ (the directory of the first -f file).
 #
-#   ENV_NAME=local APP_VERSION=local docker compose -p local -f deploy/stack.yml -f docker-compose.build.yml build
+#   ENV_NAME=local APP_VERSION=local docker compose -p local -f deploy/compose.stack.yml -f docker-compose.build.yml build
 #
 # Needs a current Docker Compose for `service:` contexts: 2.20.2 reads them as a folder path.
 services:

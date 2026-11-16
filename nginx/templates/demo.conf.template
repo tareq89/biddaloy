@@ -1,5 +1,5 @@
 # demo.<domain> (Epic 79.0). DEMO_DOMAIN comes from the edge .env (`*.invalid` when unset,
-# so nothing matches). `demo-app` is the alias deploy/stack.yml gives the demo app on the
+# so nothing matches). `demo-app` is the alias deploy/compose.stack.yml gives the demo app on the
 # `biddaloy-edge` network. The demo is public (no outer login) but never indexed.
 
 upstream demo_upstream {

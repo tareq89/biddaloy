@@ -1,13 +1,13 @@
 # Edge: nginx + landing + cloudflared (Epic 79.0, docs/architecture/30-deployment-target.md).
 # Tunnel mode by default: no published web ports, cloudflared dials out.
 #
-#   docker compose --project-directory /opt/biddaloy/edge -p edge -f deploy/edge.yml --profile tunnel up -d
+#   docker compose --project-directory /opt/biddaloy/edge -p edge -f deploy/compose.edge.yml --profile tunnel up -d
 #
 # deploy.yml runs it that way; /opt/biddaloy/edge/.env sets EDGE_DIR and REPO_DIR (the nginx/ copy
 # of the last edge deploy that passed nginx -t, /opt/biddaloy/edge/release).
 #
-# Direct mode (BDIX host, no Cloudflare) adds the overlay, see edge.direct.yml:
-#   docker compose -p edge -f deploy/edge.yml -f deploy/edge.direct.yml ...
+# Direct mode (BDIX host, no Cloudflare) adds the overlay, see compose.edge-direct.yml:
+#   docker compose -p edge -f deploy/compose.edge.yml -f deploy/compose.edge-direct.yml ...
 x-logging: &logging
   driver: json-file
   options:
@@ -47,7 +47,7 @@ services:
       # biddaloy-edge` and EDGE_TRUSTED_CIDR=172.30.0.0/24. Only cloudflared's CF-Connecting-IP
       # from there is trusted. Empty = nginx refuses to start in tunnel mode (no guessing).
       EDGE_TRUSTED_CIDR: ${EDGE_TRUSTED_CIDR:-}
-      # Direct mode: certbot touches this file after a renewal (edge.direct.yml mounts it).
+      # Direct mode: certbot touches this file after a renewal (compose.edge-direct.yml mounts it).
       RELOAD_FLAG: /var/www/acme/.reload
     volumes:
       - ${REPO_DIR:-..}/nginx/templates:/etc/nginx/templates:ro
@@ -79,7 +79,7 @@ services:
 
   # Host and container metrics reporter; runs on every app host. Key is the hub's public key.
   # Host network (Beszel's documented setup: real host network stats). It listens on a unix
-  # socket, not a port, so nothing is exposed; the hub in deploy/ops.yml mounts the same host
+  # socket, not a port, so nothing is exposed; the hub in deploy/compose.ops.yml mounts the same host
   # dir and is pointed at /beszel_socket/beszel.sock ("Add system").
   beszel-agent:
     logging: *logging

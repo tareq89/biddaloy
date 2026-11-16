@@ -183,7 +183,7 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
   /** Deprecated `PLATFORM_SMS_*` keys: one boot warning, key names only (Rule 13). */
   private warnDeprecatedKeys(): void {
     const get = (k: string) => this.config.get<string>(k);
-    // stack.yml defaults PLATFORM_SMS_PROVIDER, so it alone is never a signal.
+    // compose.stack.yml defaults PLATFORM_SMS_PROVIDER, so it alone is never a signal.
     const names = ['PLATFORM_SMS_API_KEY', 'PLATFORM_SMS_SENDER_ID', 'PLATFORM_SMS_API_URL'];
     const setNames = names.filter((k) => get(k));
     if (setNames.length === 0) return;

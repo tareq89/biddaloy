@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # [75.4, 79.0] Behaviour test for nginx/edge-mode.sh: runs the real edge nginx (same image,
-# templates and mounts as deploy/edge.yml's `nginx` service) in front of a fake upstream
+# templates and mounts as deploy/compose.edge.yml's `nginx` service) in front of a fake upstream
 # that echoes X-Real-IP / X-Forwarded-For, and checks:
 #   1. tunnel mode: a request from the edge subnet with CF-Connecting-IP is seen by the
 #      upstream and written to the access log under that address
