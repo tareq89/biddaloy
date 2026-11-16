@@ -17,7 +17,7 @@ Version 1.0 · Effective: [date]
 5. **Where it is kept.** [country / provider]. Backups are encrypted, in Cloudflare R2.
 6. **How long.** As long as the school uses the service. After it leaves and asks us in writing, data is deleted; older backup copies drop away as our backups are rotated.
 7. **Security.** Encrypted connections (HTTPS), encrypted backups, passwords never stored as plain text, accounts lock after repeated wrong sign-ins.
-8. **Children's data.** Students are children. The school keeps their data and photos with guardian consent. If a guardian refuses photo consent, the photo is not stored or printed.
+8. **Children's data.** Students are children. The school keeps their data and photos with guardian consent. If a guardian refuses photo consent, the school's photo upload is turned off and the photo is no longer shown. Copies already in backups or print records may remain until they are rotated out.
 9. **Your rights.** See your data, correct it, ask for it to be deleted. Guardians and students ask their school first; the school tells us.
 10. **If something goes wrong.** If data leaks, or we suspect it did, we tell the school within [72 hours].
 11. **Cookies.** Only the cookies needed to keep you signed in. No advertising cookies.

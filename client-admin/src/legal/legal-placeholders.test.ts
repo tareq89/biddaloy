@@ -4,10 +4,11 @@ import { describe, expect, it } from 'vitest';
 // Today this only WARNS (lists them). Flip to true at launch to make it fail.
 const FAIL_ON_PLACEHOLDERS = false;
 
-const files = import.meta.glob('./**/*.md', { query: '?raw', import: 'default', eager: true }) as Record<
-  string,
-  string
->;
+const files = import.meta.glob('./{bn,en}/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 function findPlaceholders(texts: Record<string, string>): string[] {
   const found: string[] = [];

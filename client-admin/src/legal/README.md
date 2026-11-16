@@ -13,7 +13,7 @@ flowchart TD
   E --> F[Every admin accepts the new version again]
 ```
 
-Example: the first line `<!-- version: 1.0 -->` becomes `<!-- version: 1.1 -->`, and the matching `LEGAL_DOCS` entry becomes `1.1`. A test checks they match.
+Example: the first line `<!-- version: 1.0 -->` becomes `<!-- version: 1.1 -->`, and the matching `LEGAL_DOCS` entry becomes `1.1`. Also change the visible version on line 3 of each document, in both languages, so readers see `1.1`. A test checks the comment and `LEGAL_DOCS` match.
 
 ## Rules
 

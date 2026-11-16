@@ -2047,6 +2047,7 @@ Once per environment, before the first deploy of a version that carries migratio
 
 ```bash
 PW=$(openssl rand -hex 32)          # hex only: it goes into a URL
+export APP_DB_USER=biddaloy_app APP_DB_PASSWORD="$PW"   # Compose refuses any command without both
 docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
   -c "CREATE ROLE biddaloy_app LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT PASSWORD '$PW'"
 echo "$PW"                          # into the env's sops file: APP_DB_PASSWORD (APP_DB_USER=biddaloy_app)
