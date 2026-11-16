@@ -183,6 +183,40 @@ describe('IntakeService', () => {
     });
   });
 
+  it('[#4315] mark-scored stages are born with total_marks 100 so the cut-off works; others are not', async () => {
+    const run = async (key: AdmissionTemplateKey) => {
+      stageRepo.save.mockClear();
+      await service.create(
+        {
+          title: 'T',
+          class_id: 'class-1',
+          template_key: key,
+          seat_count: 40,
+          open_date: '2020-01-01',
+          close_date: '2099-01-01',
+          required_document_types: [],
+        },
+        TENANT_A,
+      );
+      return (stageRepo.save.mock.calls[0][0] as Array<{ kind: string; config: object }>).map(
+        (s) => [s.kind, s.config],
+      );
+    };
+    expect(await run(AdmissionTemplateKey.WRITTEN_VIVA)).toEqual([
+      ['WRITTEN', { list_order: 'MERIT', total_marks: 100 }],
+      ['VIVA', { list_order: 'MERIT', total_marks: 100 }],
+    ]);
+    expect((await run(AdmissionTemplateKey.GPA_MERIT))[0][1]).toMatchObject({ total_marks: 100 });
+    // the lottery writes its own scale; first-come and apply-only have no marks
+    for (const key of [
+      AdmissionTemplateKey.LOTTERY,
+      AdmissionTemplateKey.FIRST_COME,
+      AdmissionTemplateKey.APPLY_ONLY,
+    ]) {
+      expect((await run(key))[0][1]).not.toHaveProperty('total_marks');
+    }
+  });
+
   it('create in a closed year is a 409 and writes nothing', async () => {
     yearClosed = true;
     await expect(

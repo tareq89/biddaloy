@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, DataSource, EntityManager } from 'typeorm';
 import { ADMISSION_TEMPLATES, AdmissionTemplateKey } from '@biddaloy/shared';
@@ -46,6 +52,9 @@ function withStatus(intake: AdmissionIntake, today: string): IntakeWithStatus {
 }
 
 /** [27.3] Tenant-scoped CRUD for `admission_intakes`. */
+const DEFAULT_TOTAL_MARKS = 100;
+const SCORED_STAGE_KINDS: ReadonlySet<string> = new Set(['WRITTEN', 'VIVA', 'GPA']);
+
 @Injectable()
 export class IntakeService {
   constructor(
@@ -114,7 +123,12 @@ export class IntakeService {
             position: i + 1,
             kind: st.kind,
             title: null,
-            config: { list_order: st.order },
+            config: {
+              list_order: st.order,
+              // [#4315] no screen sets full marks, and without it the stage reads PASS_FAIL: no
+              // cut-off, and the desk's "Enter marks" never completes. The lottery sets its own.
+              ...(SCORED_STAGE_KINDS.has(st.kind) ? { total_marks: DEFAULT_TOTAL_MARKS } : {}),
+            },
           }),
         ),
       );

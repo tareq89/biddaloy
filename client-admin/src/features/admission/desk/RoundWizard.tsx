@@ -19,10 +19,10 @@ import {
   SelectValue,
   Switch,
 } from '@biddaloy/ui/components';
-import { useAcademicYears, useClasses, useCreateAdmissionRound } from '@biddaloy/ui/hooks';
+import { useAcademicYears, useAllClasses, useCreateAdmissionRound } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { WizardShell } from '@biddaloy/ui/shells';
-import { parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import { parseServerDate, tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 
@@ -144,12 +144,15 @@ export function RoundWizard() {
   const years = useAcademicYears();
   const create = useCreateAdmissionRound();
   const [step, setStep] = React.useState<string>(STEP_IDS[0]);
-  const [s, setS] = React.useState<WizardState>(() => initialWizardState(toIsoDate(new Date())));
+  const [s, setS] = React.useState<WizardState>(() =>
+    initialWizardState(tenantTodayIso(regionConfig)),
+  );
   // The server takes the round's year from the class, so the class list follows the chosen year.
-  const classes = useClasses({ academic_year_id: s.yearId }, { enabled: s.yearId !== '' });
+  // Every page: a plain useClasses() stops at 100.
+  const classes = useAllClasses({ enabled: s.yearId !== '', academicYearId: s.yearId });
   const patch = (p: Partial<WizardState>) => setS((prev) => ({ ...prev, ...p }));
 
-  const classList = React.useMemo(() => classes.data?.data ?? [], [classes.data]);
+  const classList = React.useMemo(() => classes.data ?? [], [classes.data]);
   const yearList = React.useMemo(() => years.data?.data ?? [], [years.data]);
   // Pre-fill: the first class and the current year, so Next works without typing.
   React.useEffect(() => {
