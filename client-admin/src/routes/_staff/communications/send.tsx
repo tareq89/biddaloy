@@ -1,3 +1,4 @@
+import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
@@ -26,6 +27,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useCommunicationLog,
+  useHasPermission,
   useGuardian,
   useSendCommunication,
   useStudent,
@@ -41,7 +43,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
@@ -54,6 +56,7 @@ import { useSmsReadiness } from './-shared/sms-readiness';
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
 import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-template-fields';
+import { SendAudienceSwitch } from './-staff-message-form';
 
 /**
  * `/communications/send` — [8.11.9]'s Send Message page: one
@@ -120,6 +123,17 @@ function SendMessageBody() {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
   const sendMessage = useSendCommunication();
+  // [80.2.02] D27: only people who may message staff see the Guardians | Staff switch.
+  const canMessageStaff = useHasPermission(Permission.STAFF_MESSAGE_SEND);
+  const navigate = useNavigate();
+  const staffSwitch = canMessageStaff ? (
+    <SendAudienceSwitch
+      value="guardians"
+      onChange={(next) => {
+        if (next === 'staff') void navigate({ to: '/communications/staff-message' });
+      }}
+    />
+  ) : null;
 
   const [medium, setMedium] = React.useState<SendableMedium>('SMS');
   const [subject, setSubject] = React.useState('');
@@ -253,6 +267,7 @@ function SendMessageBody() {
     const failureKey = deliveryErrorKey(sentLog.data?.error ?? null);
     return (
       <PageContainer size="narrow">
+        {staffSwitch}
         <PageHeader title={t('send.title')} subtitle={t('send.description')} />
         <Card padded aria-labelledby="send-result-title">
           <h2 id="send-result-title" className="text-h2">
@@ -301,6 +316,7 @@ function SendMessageBody() {
 
   return (
     <PageContainer size="narrow">
+      {staffSwitch}
       <PageHeader title={t('send.title')} subtitle={t('send.description')} />
 
       <form onSubmit={handleSubmit} className="space-y-6">

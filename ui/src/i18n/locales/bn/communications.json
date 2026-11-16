@@ -382,7 +382,7 @@
   },
   "staffMessage": {
     "title": "কর্মীদের বার্তা পাঠান",
-    "description": "শিক্ষক বা অফিস কর্মীদের একটি এসএমএস পাঠান। পাঠানোর আগে দেখবেন কতজন পাবেন আর কত খরচ হবে।",
+    "description": "$t(common:entities.teacher_other) বা অফিস কর্মীদের একটি এসএমএস পাঠান। পাঠানোর আগে দেখবেন কতজন পাবেন আর কত খরচ হবে।",
     "documentTitle": "কর্মীদের বার্তা পাঠান",
     "breadcrumb": {
       "communications": "যোগাযোগ",
@@ -392,12 +392,12 @@
     },
     "switch": {
       "label": "কাদের পাঠাবেন",
-      "guardians": "অভিভাবক",
+      "guardians": "$t(common:entities.guardian_other)",
       "staff": "কর্মী"
     },
     "audience": {
       "title": "কারা পাবেন",
-      "allTeachers": "সব শিক্ষক",
+      "allTeachers": "সব $t(common:entities.teacher_other)",
       "allOffice": "সব অফিস কর্মী",
       "chooseMore": "আরও বাছুন",
       "chooseLess": "কম বিকল্প দেখান",
@@ -407,6 +407,7 @@
       "designationPlaceholder": "এক বা একাধিক পদবি বাছুন",
       "people": "নাম ধরে বাছুন",
       "peoplePlaceholder": "নাম লিখে খুঁজুন",
+      "unnamedPerson": "কর্মী",
       "peopleNoResults": "কোনো কর্মী মেলেনি।",
       "coordinated": "আপনার সমন্বয়ের শিক্ষকেরা",
       "empty": "কেউ মেলেনি। অন্য কাউকে বাছুন।"

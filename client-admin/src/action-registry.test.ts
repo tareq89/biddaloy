@@ -73,6 +73,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/communications/notices/new': '/_staff/communications/notices/new',
   '/communications/send': '/_staff/communications/send',
   '/communications/send-alert': '/_staff/communications/send-alert',
+  '/communications/staff-message': '/_staff/communications/staff-message',
   '/reports/alerts': '/_staff/reports/alerts',
   '/reports/student-count': '/_staff/reports/student-count',
   '/reports/new': '/_staff/reports/new',
@@ -163,6 +164,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'seatPlans.generate':
     'client-admin/src/routes/_staff/exams/seat-plans/-generate-seat-plan-modal.tsx',
   'communications.sendMessage': 'client-admin/src/routes/_staff/communications/send.tsx',
+  'staff-message.send': 'client-admin/src/routes/_staff/communications/-staff-message-form.tsx',
   'communications.sendFeeReminder': 'client-admin/src/routes/_staff/communications/reminders.tsx',
   'attendance.take': 'client-admin/src/routes/_staff/attendance/index.tsx',
   'attendance.import': 'client-admin/src/routes/_staff/attendance/import.tsx',
