@@ -18,7 +18,13 @@ const ctx = (refs: Record<string, string> = {}): ImportContext => ({
   tenantId: TENANT,
   ref: (tab, key) => (refs[`${tab}/${key}`] ? ID : undefined),
   warn: vi.fn<(e: RowError) => void>(),
+  // applicants sheet of the same file: reference_number -> intake key
+  sheetCell: (tab, matchCell, value, cell) =>
+    tab === 'admission_applicants' && matchCell === 'reference_number' && cell === 'intake'
+      ? applicantRounds[value]
+      : undefined,
 });
+let applicantRounds: Record<string, string> = {};
 
 describe('admission pipeline tabs', () => {
   it('apply order puts every parent before its child', () => {
@@ -93,5 +99,39 @@ describe('admission pipeline tabs', () => {
     if (!('errors' in r)) return;
     expect(r.errors[0]).toMatchObject({ column: 'attachment_key' });
     expect(r.errors[0].message).not.toContain(SECRET);
+  });
+
+  it('stage results and list members: an applicant of another round is a row error', () => {
+    const refs = {
+      'admission_stages/ROUND-A|1': ID,
+      'admission_lists/ROUND-A|MERIT|1': ID,
+      'admission_applicants/A': ID,
+    };
+    applicantRounds = { A: 'ROUND-B' };
+    const result = admissionStageResultsTab.fromRow(
+      { id: ID, stage: 'ROUND-A|1', applicant: 'A', score: '', passed: '', remarks: '' },
+      2,
+      ctx(refs),
+    );
+    expect('errors' in result && result.errors[0].column).toBe('applicant');
+    const member = admissionListMembersTab.fromRow(
+      { id: ID, list: 'ROUND-A|MERIT|1', applicant: 'A', position: '1' },
+      2,
+      ctx(refs),
+    );
+    expect('errors' in member && member.errors[0].column).toBe('applicant');
+    applicantRounds = { A: 'ROUND-A' };
+    expect(
+      admissionStageResultsTab.fromRow(
+        { id: ID, stage: 'ROUND-A|1', applicant: 'A', score: '', passed: '', remarks: '' },
+        2,
+        ctx(refs),
+      ),
+    ).toHaveProperty('row');
+    applicantRounds = {};
+  });
+
+  it('fee proofs: two proofs may share the (applicant, file key) pair', () => {
+    expect(admissionFeeProofsTab.allowDuplicateKeys).toBe(true);
   });
 });

@@ -100,6 +100,9 @@ export interface ImportContext {
   tenantId: string;
   ref(tab: string, key: string): string | undefined;
   warn(e: RowError): void;
+  /** Cell `cell` of the row in this workbook's sheet `tab` whose `matchCell` equals `matchValue`;
+   * undefined when the sheet or row is not in the file (the row may already be in the school). */
+  sheetCell?(tab: string, matchCell: string, matchValue: string, cell: string): string | undefined;
 }
 
 /**

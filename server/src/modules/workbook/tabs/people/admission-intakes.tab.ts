@@ -10,7 +10,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { sectionsTab } from '../academics';
+import { sectionsTab, classesTab } from '../academics';
 
 /**
  * The `admission_intakes` tab (Epic 27.0): an admission window opened for one
@@ -24,6 +24,8 @@ export interface AdmissionIntakeRow {
   class_section_id: string | null;
   class_section_key: string;
   class_id: string | null;
+  class_key: string;
+  academic_year_key: string;
   academic_year_id: string | null;
   template_key: string;
   roll_prefix: string | null;
@@ -141,13 +143,21 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
   // intake with the same section+title (e.g. re-running the same admission
   // window next year), and a natural key on section+title alone would
   // collide the two, making a workbook with both unrestorable.
-  naturalKey: ['class_section', 'title', 'open_date', 'close_date'],
+  // class + academic_year keep two section-less rounds of different classes apart.
+  naturalKey: ['class_section', 'class', 'academic_year', 'title', 'open_date', 'close_date'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<AdmissionIntake[]> {
     return m.find(AdmissionIntake, {
       where: { tenant_id: tenantId },
-      relations: ['class_section', 'class_section.class', 'class_section.class.academic_year'],
+      relations: [
+        'class_section',
+        'class_section.class',
+        'class_section.class.academic_year',
+        'class',
+        'class.academic_year',
+        'academic_year',
+      ],
     });
   },
 
@@ -309,6 +319,14 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
     };
     const classId = refId('class', 'classes');
     const academicYearId = refId('academic_year', 'academic_years');
+    const classKey = (values.class as string | null) ?? '';
+    const academicYearKey = (values.academic_year as string | null) ?? '';
+    // The class key embeds its year (`name|year|shift|version`); a blank year is no contradiction.
+    if (classKey && academicYearKey && (classKey.split('|')[1] ?? '') !== academicYearKey)
+      bad(
+        'academic_year',
+        'Column "academic_year": does not match the academic year of the class.',
+      );
     const lists: Record<string, string[]> = {};
     for (const [key] of JSON_LISTS) {
       const v = values[key];
@@ -335,6 +353,8 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
         class_section_id: classSectionId,
         class_section_key: classSectionKey,
         class_id: classId,
+        class_key: classKey,
+        academic_year_key: academicYearKey,
         academic_year_id: academicYearId,
         template_key: values.template_key as string,
         roll_prefix: (values.roll_prefix as string | null) ?? null,
@@ -359,9 +379,11 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
   keyOf(x: AdmissionIntakeRow | AdmissionIntake): string {
     if (x instanceof AdmissionIntake) {
       const classSectionKey = x.class_section ? sectionsTab.keyOf(x.class_section) : '';
-      return `${classSectionKey}|${x.title}|${formatDateOnly(x.open_date)}|${formatDateOnly(x.close_date)}`;
+      const classKey = x.class ? classesTab.keyOf(x.class) : '';
+      const yearKey = x.academic_year?.name ?? '';
+      return `${classSectionKey}|${classKey}|${yearKey}|${x.title}|${formatDateOnly(x.open_date)}|${formatDateOnly(x.close_date)}`;
     }
-    return `${x.class_section_key}|${x.title}|${x.open_date}|${x.close_date}`;
+    return `${x.class_section_key}|${x.class_key}|${x.academic_year_key}|${x.title}|${x.open_date}|${x.close_date}`;
   },
 
   diffFields(row: AdmissionIntakeRow, existing: AdmissionIntake): string[] {

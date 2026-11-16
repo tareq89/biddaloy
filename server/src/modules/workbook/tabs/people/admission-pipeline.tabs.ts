@@ -57,6 +57,7 @@ interface Def {
   columns: ColumnSpec[]; // after id + parents
   scalars: string[]; // entity props copied as-is (same as the cell key)
   ints?: string[]; // checked against int4 range
+  allowDuplicateKeys?: boolean;
   keyCells: string[]; // cells joined with `|`; parent cells use the parent key
   /** Extra per-row checks and cell rewrites. Push to `bad`; mutate `v` to normalise. */
   check?: (
@@ -89,6 +90,7 @@ function makeTab(d: Def): TabSpec<any, Rec> {
     dependsOn: d.parents.map((p) => p.tab),
     columns,
     naturalKey: d.keyCells,
+    allowDuplicateKeys: d.allowDuplicateKeys,
     deleteByAbsence: true,
 
     load: (tenantId: string, m: EntityManager) =>
@@ -188,7 +190,34 @@ const intakeRels = (prefix: string) => [
   `${prefix}.class_section`,
   `${prefix}.class_section.class`,
   `${prefix}.class_section.class.academic_year`,
+  `${prefix}.class`,
+  `${prefix}.class.academic_year`,
+  `${prefix}.academic_year`,
 ];
+
+/** Rejects a row whose applicant sits in another round than its stage/list. `parentKey` is
+ * `<intake key>|<tail segments>`; the applicant's round comes from the applicants sheet when the
+ * file carries it (an applicant already in the school cannot be seen from here). */
+const sameRound =
+  (
+    parentCell: 'stage' | 'list',
+    tailSegments: number,
+    message: string,
+  ): NonNullable<Def['check']> =>
+  (v, bad, ctx) => {
+    const parentKey = (v[parentCell] as string | null) ?? '';
+    const applicantKey = ((v.applicant as string | null) ?? '').trim();
+    if (!parentKey || !applicantKey) return;
+    const applicantRound = ctx.sheetCell?.(
+      'admission_applicants',
+      'reference_number',
+      applicantKey,
+      'intake',
+    );
+    if (applicantRound === undefined) return;
+    const parentRound = parentKey.split('|').slice(0, -tailSegments).join('|');
+    if (applicantRound !== parentRound) bad('applicant', message);
+  };
 const intakeParent: Parent = {
   cell: 'intake',
   tab: 'admission_intakes',
@@ -262,7 +291,12 @@ export const admissionStageResultsTab = makeTab({
   ],
   scalars: ['score', 'passed', 'remarks'],
   keyCells: ['stage', 'applicant'],
-  check: (v, bad) => {
+  check: (v, bad, ctx, rowNo) => {
+    sameRound(
+      'stage',
+      1,
+      'Column "applicant": belongs to a different admission round than the stage.',
+    )(v, bad, ctx, rowNo);
     // numeric(8,2): at most 999999.99, so a bigger score is a row error, not a failed save.
     if (typeof v.score === 'string' && Number(v.score) >= 1_000_000)
       bad('score', 'Column "score": is out of range.');
@@ -316,6 +350,11 @@ export const admissionListMembersTab = makeTab({
   scalars: ['position'],
   ints: ['position'],
   keyCells: ['list', 'applicant'],
+  check: sameRound(
+    'list',
+    2,
+    'Column "applicant": belongs to a different admission round than the list.',
+  ),
 });
 
 export const admissionFeeProofsTab = makeTab({
@@ -353,6 +392,8 @@ export const admissionFeeProofsTab = makeTab({
   ],
   scalars: ['attachment_key', 'method', 'reference', 'state', 'reason'],
   keyCells: ['applicant', 'attachment_key'],
+  // no unique index on (applicant, attachment_key), so two proofs may share the pair
+  allowDuplicateKeys: true,
   check: (v, bad, ctx, rowNo) => {
     if (typeof v.reference === 'string' && v.reference.length > 100)
       bad('reference', 'Column "reference": is longer than 100 characters.');
