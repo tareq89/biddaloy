@@ -164,7 +164,8 @@ Finance
   Online payments [3.0] · Unmatched receipts [16.0]                 A Ac
 
 Communications
-  Send message [have] (+ to staff, role-wise [partial])             A E T
+  Send message [have] · Message staff [have] (Staff list row menu + palette `staff-message.send`; ADMIN/EXECUTIVE school-wide, TEACHER only own coordinated classes)   A E T
+  Marks SMS [partial] — server routes live (Epic 80); the Marks screen entry and its palette action are a later Wave-4 ticket
   Send an alert [67.0] — one-off bar alert to a chosen audience      A E
   Fee reminders [have] · Reminder history [have]                    A Ac (+ office)
   Message log [have] (97.0) — every message sent, Check status      A Ac (+ office)
