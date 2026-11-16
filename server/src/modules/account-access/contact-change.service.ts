@@ -153,7 +153,7 @@ export class ContactChangeService {
     }
 
     // A user in no school must not get platform-paid SMS/email to an
-    // address they choose (per-school/global OTP caps are #1759). A shared
+    // address they choose (the platform SMS ceiling is OtpSmsCapsService, #3992). A shared
     // user still passes: their messages are platform-sent by design (D28).
     if (!(await this.authService.hasLiveMembership(userId))) {
       throw new ForbiddenException('no_school');
