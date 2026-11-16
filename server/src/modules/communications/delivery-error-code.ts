@@ -6,7 +6,12 @@
  *
  * Example: `'SMS (Greenweb) is not configured for this tenant, …'` → `'NOT_CONFIGURED'`.
  */
-export const DELIVERY_ERROR_CODES = ['NOT_CONFIGURED', 'NO_PROVIDER', 'FAILED'] as const;
+export const DELIVERY_ERROR_CODES = [
+  'NOT_CONFIGURED',
+  'NO_PROVIDER',
+  'DAILY_LIMIT_REACHED',
+  'FAILED',
+] as const;
 export type DeliveryErrorCode = (typeof DELIVERY_ERROR_CODES)[number];
 
 export function deliveryErrorCode(metadata: unknown): DeliveryErrorCode | null {
@@ -20,5 +25,6 @@ export function deliveryErrorCode(metadata: unknown): DeliveryErrorCode | null {
   // Sentences from provider-not-configured.error.ts and communications.processor.ts.
   if (/is not configured for this tenant/i.test(raw)) return 'NOT_CONFIGURED';
   if (/^No provider registered/i.test(raw)) return 'NO_PROVIDER';
+  if (/^Daily limit reached/i.test(raw)) return 'DAILY_LIMIT_REACHED';
   return 'FAILED';
 }

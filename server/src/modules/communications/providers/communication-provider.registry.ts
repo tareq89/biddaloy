@@ -7,9 +7,10 @@ import {
   ResolvedMessaging,
 } from '../config/messaging-config.resolver';
 import { MailpitSinkProvider } from './sink/mailpit-sink.provider';
+import { SendLimitService } from '../limits/send-limit.service';
 import { isMessageSink } from './sink/message-sink';
 import { messagingDescriptors } from '../../schools/settings/messaging-descriptors';
-import { failedResult, sendThroughProvider } from './send-through-provider';
+import { failedResult, segmentsFor, sendThroughProvider } from './send-through-provider';
 
 /**
  * CommunicationMedium -> the provider the tenant chose for it. Resolution is per send, per tenant,
@@ -17,7 +18,10 @@ import { failedResult, sendThroughProvider } from './send-through-provider';
  */
 @Injectable()
 export class CommunicationProviderRegistryService {
-  constructor(private readonly resolver: MessagingConfigResolver) {}
+  constructor(
+    private readonly resolver: MessagingConfigResolver,
+    private readonly limits: SendLimitService,
+  ) {}
 
   /** The tenant's chosen provider and its resolved config (connection test, readiness). */
   resolveFor(
@@ -43,6 +47,21 @@ export class CommunicationProviderRegistryService {
           });
         } catch (err) {
           return failedResult(err, medium, params);
+        }
+        // [60.0 D7, D16, D22] The daily cap counts sends on the platform account only; account
+        // access and platform alerts (allowPlatformSms) and a school's own gateway are not counted.
+        if (tenantId && resolved.source === 'platform' && params.allowPlatformSms !== true) {
+          const counted = await this.limits.tryCount(tenantId, medium);
+          if (counted !== 'OK') {
+            return {
+              success: false,
+              providerMessageId: null,
+              error: 'Daily limit reached.',
+              segments: segmentsFor(medium, params),
+              retryable: false,
+              outcome: 'REJECTED',
+            };
+          }
         }
         return sendThroughProvider(resolved.provider, params, resolved.config, resolved.source);
       },

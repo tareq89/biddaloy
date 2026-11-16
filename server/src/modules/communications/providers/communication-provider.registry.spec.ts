@@ -26,7 +26,7 @@ function registryFor(settingsByTenant: Record<string, unknown>) {
     { get: () => undefined } as any,
     providers,
   );
-  return new CommunicationProviderRegistryService(resolver);
+  return new CommunicationProviderRegistryService(resolver, { tryCount: async () => 'OK' } as any);
 }
 
 const sms = (provider: string, block: object) => ({
@@ -88,7 +88,7 @@ describe('CommunicationProviderRegistryService', () => {
     it('any other error while resolving config is REJECTED (credit released) but still retryable', async () => {
       // A settings-read failure never reached the network: never AMBIGUOUS (that leaves credit held).
       const resolver = { resolve: vi.fn().mockRejectedValue(new Error('db down')) };
-      const result = await new CommunicationProviderRegistryService(resolver as any)
+      const result = await new CommunicationProviderRegistryService(resolver as any, {} as any)
         .resolve(CommunicationMedium.SMS)!
         .send({ to: '01712345678', body: 'hello' }, 'tenant-a');
 
@@ -117,7 +117,7 @@ describe('CommunicationProviderRegistryService', () => {
       const resolver = {
         resolve: vi.fn().mockRejectedValue(new ProviderNotConfiguredError('SMS', 'x')),
       };
-      const r = new CommunicationProviderRegistryService(resolver as any);
+      const r = new CommunicationProviderRegistryService(resolver as any, {} as any);
 
       await r
         .resolve(CommunicationMedium.SMS)!
@@ -126,6 +126,64 @@ describe('CommunicationProviderRegistryService', () => {
       expect(resolver.resolve).toHaveBeenCalledWith(CommunicationMedium.SMS, 't', {
         allowPlatformKeys: true,
       });
+    });
+  });
+
+  // [60.0 D7, D16, D22] Daily cap: counted only for sends on the platform account.
+  describe('daily send limit', () => {
+    const params = { to: '01712345678', body: 'hi' };
+    function limited(source: string, answer: unknown) {
+      const send = vi.fn();
+      const resolver = {
+        resolve: vi.fn().mockResolvedValue({
+          provider: { send, descriptor: { medium: 'SMS', name: 'fake' } },
+          config: {},
+          source,
+        }),
+      };
+      const limits = { tryCount: vi.fn().mockResolvedValue(answer) };
+      const r = new CommunicationProviderRegistryService(resolver as any, limits as any);
+      return { r, send, limits };
+    }
+
+    it('platform source over the limit is REJECTED and never reaches the provider', async () => {
+      const { r, send, limits } = limited('platform', { remaining: 0, limit: 5 });
+      const result = await r.resolve(CommunicationMedium.SMS)!.send(params, 't1');
+      expect(limits.tryCount).toHaveBeenCalledWith('t1', CommunicationMedium.SMS);
+      expect(send).not.toHaveBeenCalled();
+      // REJECTED so a reserved SMS credit is released by the settle path.
+      expect(result).toMatchObject({
+        success: false,
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'Daily limit reached.',
+        segments: 1,
+      });
+    });
+
+    it.each(['tenant', 'override'])('source %s is never counted', async (source) => {
+      const { r, limits } = limited(source, { remaining: 0, limit: 5 });
+      await r.resolve(CommunicationMedium.SMS)!.send(params, 't1');
+      expect(limits.tryCount).not.toHaveBeenCalled();
+    });
+
+    it('allowPlatformSms (account access, platform alerts) is never counted', async () => {
+      const { r, limits } = limited('platform', { remaining: 0, limit: 5 });
+      await r.resolve(CommunicationMedium.SMS)!.send({ ...params, allowPlatformSms: true }, 't1');
+      expect(limits.tryCount).not.toHaveBeenCalled();
+    });
+
+    it('a null tenant is never counted', async () => {
+      const { r, limits } = limited('platform', { remaining: 0, limit: 5 });
+      await r.resolve(CommunicationMedium.SMS)!.send(params, null);
+      expect(limits.tryCount).not.toHaveBeenCalled();
+    });
+
+    it('sink mode is never counted', () => {
+      vi.stubEnv('MESSAGE_SINK', 'mailpit');
+      const { r, limits } = limited('platform', { remaining: 0, limit: 5 });
+      expect(r.resolve(CommunicationMedium.SMS)).toBeInstanceOf(MailpitSinkProvider);
+      expect(limits.tryCount).not.toHaveBeenCalled();
     });
   });
 
@@ -157,7 +215,7 @@ describe('CommunicationProviderRegistryService', () => {
   it('with MESSAGE_SINK=mailpit, every medium resolves to the sink and no config is read', () => {
     vi.stubEnv('MESSAGE_SINK', 'mailpit');
     const resolver = { resolve: vi.fn() };
-    const sink = new CommunicationProviderRegistryService(resolver as any);
+    const sink = new CommunicationProviderRegistryService(resolver as any, {} as any);
     for (const medium of [
       CommunicationMedium.SMS,
       CommunicationMedium.WHATSAPP,
