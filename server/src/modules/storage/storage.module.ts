@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuditLog } from '../audit/entities/audit-log.entity';
+import { ModuleRef } from '@nestjs/core';
 import { AuditService } from '../audit/audit.service';
 import { VirusScanService } from './virus-scan.service';
 import { StorageService, buildStorageConfig } from './storage.service';
@@ -16,13 +15,19 @@ export function storageServiceFactory(): StorageService {
 }
 
 @Module({
-  // AuditService is stateless (one repository). It is provided here, not via AuditModule, because
-  // AuditModule pulls in controllers, DashboardModule and the guards, and every module that stores a
-  // file imports StorageModule (VirusScanService writes the refusal audit row).
-  imports: [TypeOrmModule.forFeature([AuditLog])],
+  // No AuditModule import: it pulls controllers, DashboardModule and guards into every module (and
+  // integration spec) that stores a file, and a second AuditService instance breaks specs that spy on
+  // the app's one. VirusScanService needs AuditService only on the refusal path, so it looks it up then.
   providers: [
-    AuditService,
-    VirusScanService,
+    {
+      provide: VirusScanService,
+      inject: [ModuleRef],
+      useFactory: (ref: ModuleRef) =>
+        new VirusScanService({
+          record: (...args: Parameters<AuditService['record']>) =>
+            ref.get(AuditService, { strict: false }).record(...args),
+        } as AuditService),
+    },
     {
       provide: StorageService,
       // Eagerly instantiated as part of module setup — a boot with a
