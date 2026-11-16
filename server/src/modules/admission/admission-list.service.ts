@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 import {
   AdmissionApplicantStatus as Status,
@@ -121,6 +126,8 @@ export class AdmissionListService {
   }
 
   /**
+   * (Candidate rows are locked FOR UPDATE: a concurrent reject waits, or is skipped by the status
+   * filter, so a list build never overwrites it.)
    * Applicants who can go on a list: PENDING or SHORTLISTED (so never FEE_PENDING, rejected, expired,
    * offered or waiting), not already a member of a list of this round, and, when the round has a real
    * stage, passed the last one. A LOTTERY last stage has no cut-off, so a drawn score is enough.
@@ -147,7 +154,8 @@ export class AdmissionListService {
           AND NOT EXISTS (
                 SELECT 1 FROM admission_list_members m
                   JOIN admission_lists l ON l.id = m.list_id AND l.deleted_at IS NULL
-                 WHERE m.applicant_id = a.id AND m.deleted_at IS NULL AND l.intake_id = $2)`,
+                 WHERE m.applicant_id = a.id AND m.deleted_at IS NULL AND l.intake_id = $2)
+        FOR UPDATE OF a`,
       [
         intake.tenant_id,
         intake.id,
@@ -446,10 +454,14 @@ export class AdmissionListService {
     listId: string,
     tenantId: string,
     actor: ResultActor,
+    opts: { onlyIfAuto?: boolean } = {},
   ): Promise<ListActionResponseDto> {
     const today = await this.schools.todayFor(tenantId);
     return this.dataSource.transaction(async (manager) => {
       const { list, intake } = await this.lockedList(manager, listId, tenantId);
+      // The job passes onlyIfAuto: the flag is checked here, under this write lock.
+      if (opts.onlyIfAuto && !intake.auto_activate_lists)
+        throw new ConflictException('Automatic activation is off for this round');
       if (list.activated_at) throw admissionListConflict('LIST_ALREADY_ACTIVATED');
 
       const all = await manager.getRepository(AdmissionList).find({

@@ -20,12 +20,17 @@ type Row = {
   at?: string;
 };
 
-function build(rows: Row[], config: Record<string, unknown> = stage.config) {
+function build(
+  rows: Row[],
+  config: Record<string, unknown> = stage.config,
+  opts: { downstream?: boolean; kind?: string } = {},
+) {
   const saved: Record<string, unknown>[] = [];
   const updates: unknown[][] = [];
   const audits: unknown[] = [];
   const manager = {
     query: vi.fn(async (sql: string, params: unknown[]) => {
+      if (sql.includes('s.position >')) return opts.downstream ? [{ '?column?': 1 }] : [];
       if (sql.includes('FROM admission_stages')) return [];
       if (sql.startsWith('UPDATE')) {
         updates.push(params);
@@ -40,7 +45,7 @@ function build(rows: Row[], config: Record<string, unknown> = stage.config) {
       }));
     }),
     getRepository: () => ({
-      findOne: async () => ({ ...stage, config }),
+      findOne: async () => ({ ...stage, config, kind: opts.kind ?? 'WRITTEN' }),
       create: (v: object) => ({ ...v }),
       save: async (v: Record<string, unknown>[]) => saved.push(...v),
       createQueryBuilder: () => {
@@ -103,6 +108,45 @@ describe('AdmissionStageResultService.putResults', () => {
       BadRequestException,
     );
     expect(ctx.saved).toHaveLength(0);
+  });
+
+  it('refuses ordinary result writes on a LOTTERY stage', async () => {
+    const lot = build([row('a1', null, false)], stage.config, { kind: 'LOTTERY' });
+    await expect(
+      lot.service.putResults(
+        's1',
+        body([{ applicant_id: 'a1', attended: true, score: 5 }]),
+        TENANT,
+        actor,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(lot.saved).toHaveLength(0);
+  });
+
+  it('a changed score voids the whole stage cut-off', async () => {
+    await ctx.service.putResults(
+      's1',
+      body([{ applicant_id: 'a1', attended: true, score: 72.5 }]),
+      TENANT,
+      actor,
+    );
+    expect(ctx.updates).toHaveLength(1);
+    expect(ctx.updates[0]).toEqual([TENANT, 's1']);
+  });
+
+  it('refuses result edits and recommit while a later stage has results', async () => {
+    const dn = build([row('a1', null, false)], stage.config, { downstream: true });
+    await expect(
+      dn.service.putResults(
+        's1',
+        body([{ applicant_id: 'a1', attended: true, score: 5 }]),
+        TENANT,
+        actor,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      dn.service.commit('s1', { mode: 'TOP_N', value: 1 } as never, TENANT, actor),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('refuses the same applicant twice', async () => {

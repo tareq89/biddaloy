@@ -41,9 +41,23 @@ describe('AdmissionListAutoJob', () => {
       dataSource as never,
       { todayFor: vi.fn().mockResolvedValue('2043-03-02') } as never,
       lists as never,
-      { lockIntake: vi.fn() } as never,
+      { lockIntake: vi.fn().mockResolvedValue({ auto_activate_lists: true }) } as never,
       {} as never,
     );
+  });
+
+  it('does nothing when staff turned auto-activation off after the round was selected', async () => {
+    const off = new AdmissionListAutoJob(
+      {} as never,
+      { transaction: (fn: (m: unknown) => unknown) => fn({}), query: vi.fn() } as never,
+      { todayFor: vi.fn().mockResolvedValue('2043-03-02') } as never,
+      lists as never,
+      { lockIntake: vi.fn().mockResolvedValue({ auto_activate_lists: false }) } as never,
+      {} as never,
+    );
+    await off.runRound('I1', 'T1');
+    expect(lists.expireLapsedForIntake).not.toHaveBeenCalled();
+    expect(lists.activate).not.toHaveBeenCalled();
   });
 
   it('only selects rounds with auto_activate_lists on (auto off does nothing)', async () => {

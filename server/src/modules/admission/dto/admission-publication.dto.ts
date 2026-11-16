@@ -8,7 +8,7 @@ export type PublishWhat = (typeof PUBLISH_WHAT)[number];
 const toBool = ({ value }: { value: unknown }) =>
   value === 'true' ? true : value === 'false' ? false : value;
 
-export class PublishDto {
+export class AdmissionPublishDto {
   @ApiProperty({ enum: PUBLISH_WHAT })
   @IsIn(PUBLISH_WHAT)
   what: PublishWhat;

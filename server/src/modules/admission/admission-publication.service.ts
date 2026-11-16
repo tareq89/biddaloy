@@ -12,7 +12,7 @@ import {
 } from './admission-notification.service';
 import type {
   CallListRowDto,
-  PublishDto,
+  AdmissionPublishDto,
   PublishEstimateResponseDto,
   PublishResponseDto,
   PublishWhat,
@@ -56,9 +56,10 @@ export class AdmissionPublicationService {
     private readonly audit: AuditService,
   ) {}
 
-  private async intake(manager: EntityManager, id: string, tenantId: string) {
+  private async intake(manager: EntityManager, id: string, tenantId: string, lock = false) {
     const intake = await manager.getRepository(AdmissionIntake).findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+      ...(lock ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
     if (!intake) throw new NotFoundException('Admission intake not found');
     return intake;
@@ -103,7 +104,15 @@ export class AdmissionPublicationService {
           ORDER BY a.id`,
         [tenantId, refId, includeNotSelected],
       )) as (Omit<Recipient, 'outcome'> & { passed: boolean })[];
-      return rows.map((r) => ({ ...r, outcome: r.passed ? 'PASSED' : 'NOT_PASSED' }));
+      return rows.map((r) => ({
+        ...r,
+        outcome:
+          r.status === AdmissionApplicantStatus.REJECTED
+            ? 'REJECTED'
+            : r.passed
+              ? 'PASSED'
+              : 'NOT_PASSED',
+      }));
     }
     const rows = (await manager.query(
       `SELECT ${APPLICANT_COLS} FROM admission_list_members m
@@ -112,8 +121,11 @@ export class AdmissionPublicationService {
         ORDER BY m.position`,
       [tenantId, refId, includeNotSelected],
     )) as Omit<Recipient, 'outcome'>[];
-    const outcome = what === 'MERIT' ? 'SELECTED' : 'WAITING';
-    return rows.map((r) => ({ ...r, outcome }));
+    const listed = what === 'MERIT' ? 'SELECTED' : 'WAITING';
+    return rows.map((r) => ({
+      ...r,
+      outcome: r.status === AdmissionApplicantStatus.REJECTED ? 'REJECTED' : listed,
+    }));
   }
 
   async estimate(
@@ -144,17 +156,18 @@ export class AdmissionPublicationService {
 
   async publish(
     intakeId: string,
-    dto: PublishDto,
+    dto: AdmissionPublishDto,
     tenantId: string,
     actor: PublishActor,
   ): Promise<PublishResponseDto> {
     const include = dto.include_not_selected ?? false;
     const { intake, firstTime, publishedAt, rows } = await this.dataSource.transaction(
       async (manager) => {
-        const intake = await this.intake(manager, intakeId, tenantId);
+        // Intake lock: the same one stage updates take, so a config save cannot drop published_at.
+        const intake = await this.intake(manager, intakeId, tenantId, true);
         await this.target(manager, intakeId, dto.what, dto.ref_id, tenantId);
         // The flag flips once; the row it matched is the proof this call is the first.
-        const [flip] = (await manager.query(
+        const [flipRows] = (await manager.query(
           dto.what === 'STAGE'
             ? `UPDATE admission_stages
                   SET config = config || jsonb_build_object('published_at', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
@@ -164,7 +177,9 @@ export class AdmissionPublicationService {
                 WHERE id = $1 AND tenant_id = $2 AND published_at IS NULL
                 RETURNING to_char(published_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at`,
           [dto.ref_id, tenantId],
-        )) as { at: string }[];
+        )) as [{ at: string }[], number];
+        // pg returns [rows, affectedCount] for UPDATE ... RETURNING.
+        const flip = flipRows[0];
         let publishedAt = flip?.at;
         if (!publishedAt) {
           const [cur] = (await manager.query(

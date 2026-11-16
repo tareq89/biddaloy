@@ -434,8 +434,18 @@ export class ApplicantReviewService {
     tenantId: string,
     actor: { userId: string; ip?: string | null; userAgent?: string | null },
   ): Promise<AdmissionApplicant> {
-    await this.findOne(id, tenantId);
+    const applicant = await this.findOne(id, tenantId);
     await this.applicants.manager.transaction(async (manager: EntityManager) => {
+      // Same intake lock admit() holds, so expiry and admission cannot interleave (intake first).
+      await manager
+        .getRepository(AdmissionIntake)
+        .createQueryBuilder('intake')
+        .setLock('pessimistic_write')
+        .where('intake.id = :intakeId AND intake.tenant_id = :tenantId', {
+          intakeId: applicant.intake_id,
+          tenantId,
+        })
+        .getOne();
       const result = await manager
         .getRepository(AdmissionApplicant)
         .update(

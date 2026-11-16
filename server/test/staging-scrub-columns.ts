@@ -238,6 +238,8 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   academic_terms: { 'kept-public': ['name'] },
   designations: { 'kept-public': ['title_bn', 'title_en'] },
   admission_intakes: { 'kept-public': ['required_document_types', 'title'] },
+  // filter holds list-building criteria (class / section / quota ids), no personal data.
+  admission_lists: { 'kept-public': ['filter'] },
   rooms: { 'kept-public': ['room_no'] },
   surveys: { 'kept-public': ['title'] },
   survey_questions: { 'kept-public': ['text'] },

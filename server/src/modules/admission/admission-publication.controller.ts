@@ -31,7 +31,7 @@ import { AdmissionPublicationService } from './admission-publication.service';
 import {
   CallListQueryDto,
   CallListRowDto,
-  PublishDto,
+  AdmissionPublishDto,
   PublishEstimateQueryDto,
   PublishEstimateResponseDto,
   PublishResponseDto,
@@ -64,7 +64,7 @@ export class AdmissionPublicationController {
   @ApiOkResponse({ type: PublishResponseDto })
   publish(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: PublishDto,
+    @Body() dto: AdmissionPublishDto,
     @CurrentTenant() tenant: { id: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,

@@ -16,7 +16,8 @@ function build(recipients: R[], opts: { published?: boolean; smsFails?: boolean 
     query: vi.fn(async (sql: string) => {
       queries.push(sql);
       if (sql.includes('AS published')) return [{ published }];
-      if (sql.startsWith('UPDATE')) return published ? [] : [{ at: '2026-01-01T00:00:00.000Z' }];
+      if (sql.startsWith('UPDATE'))
+        return [published ? [] : [{ at: '2026-01-01T00:00:00.000Z' }], published ? 0 : 1];
       if (sql.includes('AS at')) return [{ at: '2026-01-01T00:00:00.000Z' }];
       return recipients.map((r) => ({
         id: r.id,
@@ -69,6 +70,16 @@ describe('AdmissionPublicationService', () => {
     );
     expect(audits).toHaveLength(1);
     expect(JSON.stringify(audits[0])).not.toMatch(/01711|Na/);
+  });
+
+  it('an included rejected applicant gets the REJECTED outcome, not SELECTED', async () => {
+    const { service, notify } = build([{ id: 'a', status: 'REJECTED' }]);
+    await service.publish('i1', { ...dto, include_not_selected: true }, TENANT, actor);
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'a' }),
+      'Class One',
+      'REJECTED',
+    );
   });
 
   it('the estimate equals what the publish sends', async () => {

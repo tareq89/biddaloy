@@ -71,10 +71,14 @@ export class AdmissionListAutoJob extends WorkerHost implements OnModuleInit {
     if (!(await isModuleOnForSchool(this.moduleState, tenantId, ModuleKey.admission))) return;
     const today = await this.schools.todayFor(tenantId);
 
-    await this.dataSource.transaction(async (manager) => {
-      await this.stageService.lockIntake(manager, intakeId, tenantId);
+    // The flag is re-read under the intake lock: staff may have turned it off since process() ran.
+    const stillOn = await this.dataSource.transaction(async (manager) => {
+      const intake = await this.stageService.lockIntake(manager, intakeId, tenantId);
+      if (!intake.auto_activate_lists) return false;
       await this.lists.expireLapsedForIntake(manager, intakeId, tenantId, SYSTEM_ACTOR, today);
+      return true;
     });
+    if (!stillOn) return;
 
     const [next]: { id: string }[] = await this.dataSource.query(
       `SELECT id FROM admission_lists
@@ -84,7 +88,7 @@ export class AdmissionListAutoJob extends WorkerHost implements OnModuleInit {
     );
     if (!next) return;
     try {
-      await this.lists.activate(next.id, tenantId, SYSTEM_ACTOR);
+      await this.lists.activate(next.id, tenantId, SYSTEM_ACTOR, { onlyIfAuto: true });
     } catch (error) {
       // 409 = not yet due, already open or no seats: nothing to do this run.
       if (error instanceof HttpException && error.getStatus() === 409) return;

@@ -39,7 +39,7 @@ export class AdmissionApplicantStaffController {
 
   @Post()
   @UseInterceptors(
-    AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 3 } }),
+    AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 4 } }),
     IdempotencyInterceptor,
   )
   @ApiOperation({

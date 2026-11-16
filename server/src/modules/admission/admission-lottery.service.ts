@@ -178,9 +178,11 @@ export class AdmissionLotteryService {
         'Missing required columns: rank and reference_number or roll_number',
       );
     const rows: { row: number; ref: string; roll: string; rank: string }[] = [];
-    for (let r = 2; r <= sheet.rowCount; r++) {
-      const get = (h: string) =>
-        col.has(h) ? cell(sheet.getRow(r).getCell(col.get(h)!).value) : '';
+    // eachRow visits only rows that exist: a sparse sheet (one cell at row 1,048,576) must not
+    // allocate every row in between.
+    sheet.eachRow({ includeEmpty: false }, (sheetRow, r) => {
+      if (r < 2) return;
+      const get = (h: string) => (col.has(h) ? cell(sheetRow.getCell(col.get(h)!).value) : '');
       const row = {
         row: r,
         ref: get('reference_number'),
@@ -188,7 +190,9 @@ export class AdmissionLotteryService {
         rank: get('rank'),
       };
       if (row.ref || row.roll || row.rank) rows.push(row);
-    }
+      if (rows.length > MAX_ROWS)
+        throw new ImportFileError(ImportFileErrorCode.TOO_MANY_ROWS, 'File has too many rows');
+    });
     if (rows.length === 0)
       throw new ImportFileError(ImportFileErrorCode.NO_ROWS, 'File contains no data rows');
     if (rows.length > MAX_ROWS)

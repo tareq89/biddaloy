@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
-import { AdmissionApplicantStatus, AuditAction } from '@biddaloy/shared';
+import { AdmissionApplicantStatus, AdmissionStageKind, AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AdmissionStage } from './entities/admission-stage.entity';
 import { AdmissionStageResult } from './entities/admission-stage-result.entity';
@@ -146,6 +151,26 @@ export class AdmissionStageResultService {
     );
   }
 
+  /**
+   * A later stage's results rest on this stage's pass decisions, so while any exist this stage's
+   * results and cut-off are frozen (409). Staff clear the later results first.
+   */
+  private async assertNoDownstream(
+    manager: EntityManager,
+    stage: AdmissionStage,
+    tenantId: string,
+  ) {
+    const [row] = (await manager.query(
+      `SELECT 1 FROM admission_stage_results r
+         JOIN admission_stages s ON s.id = r.stage_id AND s.deleted_at IS NULL
+        WHERE r.tenant_id = $1 AND r.deleted_at IS NULL
+          AND s.intake_id = $2 AND s.position > $3
+        LIMIT 1`,
+      [tenantId, stage.intake_id, stage.position],
+    )) as unknown[];
+    if (row) throw new ConflictException('A later stage already has results built on this stage');
+  }
+
   /** Bulk upsert, last write wins. Cap 200 rows is the DTO's. */
   async putResults(
     stageId: string,
@@ -155,6 +180,9 @@ export class AdmissionStageResultService {
   ): Promise<PutStageResultsResponseDto> {
     return this.dataSource.transaction(async (manager) => {
       const stage = await this.lockStage(manager, stageId, tenantId);
+      if (stage.kind === AdmissionStageKind.LOTTERY)
+        throw new BadRequestException('LOTTERY stage results are set only by the draw or import');
+      await this.assertNoDownstream(manager, stage, tenantId);
       const total = this.totalHundredths(stage);
       const inStage = new Set(
         (await this.eligible(manager, stage, tenantId)).map((c) => c.applicant_id),
@@ -199,6 +227,13 @@ export class AdmissionStageResultService {
         return entity;
       });
       await repo.save(toSave);
+      // A changed score voids the stage-wide cut-off, not just the edited rows' pass flags.
+      if (total !== null)
+        await manager.query(
+          `UPDATE admission_stage_results SET passed = NULL, updated_at = now()
+            WHERE tenant_id = $1 AND stage_id = $2 AND deleted_at IS NULL AND passed IS NOT NULL`,
+          [tenantId, stage.id],
+        );
       await this.audit(manager, tenantId, actor, {
         op: 'STAGE_RESULTS_PUT',
         stage_id: stage.id,
@@ -277,6 +312,7 @@ export class AdmissionStageResultService {
   ): Promise<CutoffCommitResponseDto> {
     return this.dataSource.transaction(async (manager) => {
       const stage = await this.lockStage(manager, stageId, tenantId);
+      await this.assertNoDownstream(manager, stage, tenantId);
       const candidates = await this.eligible(manager, stage, tenantId);
       const plan = this.cutoff(stage, candidates, dto.mode, dto.value);
       if (candidates.some((c) => !c.recorded)) throw admissionResultsIncomplete();
