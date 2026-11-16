@@ -28,7 +28,7 @@ export class RegisterPage {
     if (d.email) await page.getByLabel(t('register.fields.email')).fill(d.email);
     await page.getByLabel(t('register.fields.schoolName')).fill(d.schoolName);
     await page.getByLabel(t('register.fields.address')).fill(d.address);
-    await page.getByRole('checkbox', { name: t('register.terms') }).check();
+    await page.getByRole('checkbox', { name: t('register.terms', { terms: t('register.termsLink'), privacy: t('register.privacyLink') }) }).check();
     const [response] = await Promise.all([
       page.waitForResponse((res) => res.url().includes('/auth/register/start')),
       page.getByRole('button', { name: t('register.continue') }).click(),

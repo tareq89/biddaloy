@@ -125,6 +125,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       loadRouteNamespaces(
         'students',
         'common',
+        'states',
         // [69.4.05] ClosedYearNotice (Enrollment tab) reads its copy from this namespace.
         'academicYears',
         'attention',

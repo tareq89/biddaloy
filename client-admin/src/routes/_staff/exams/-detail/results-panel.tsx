@@ -20,6 +20,7 @@ import {
   MenuTrigger,
   Skeleton,
   StatusBadge,
+  type EmptyStateProps,
 } from '@biddaloy/ui/components';
 import { useResults } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -42,6 +43,7 @@ const SORT_COLUMNS: readonly string[] = ['position', 'total_marks', 'gpa', 'grad
 export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
   const { t } = useTranslation('exams');
   const { t: tCommon } = useTranslation('common');
+  const { t: tStates } = useTranslation('states');
   const config = useRegionConfig();
   const resultsQuery = useResults(examId);
   const { actions, dialogs } = useResultActions(examId, examStatus);
@@ -69,6 +71,19 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
   });
 
   const pageRows = sorted.slice((page - 1) * pageSize, page * pageSize);
+
+  const clearFilter = () => {
+    setFailOnly(false);
+    setPage(1);
+  };
+  const emptyState: EmptyStateProps = failOnly
+    ? {
+        kind: 'no-results',
+        title: tStates('noResult.title'),
+        explanation: tStates('noResult.body'),
+        action: { label: tStates('noResult.clear'), onClick: clearFilter },
+      }
+    : { title: t('resultsPanel.emptyTitle'), explanation: t('resultsPanel.empty') };
 
   if (resultsQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (resultsQuery.isError)
@@ -246,10 +261,7 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
           setPageSize(size);
           setPage(1);
         }}
-        emptyState={{
-          title: t('resultsPanel.emptyTitle'),
-          explanation: t('resultsPanel.empty'),
-        }}
+        emptyState={emptyState}
       />
 
       {dialogs}

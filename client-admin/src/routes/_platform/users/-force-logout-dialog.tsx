@@ -1,4 +1,4 @@
-import { ConfirmDialog } from '@biddaloy/ui/components';
+import { ConfirmDialog, toast } from '@biddaloy/ui/components';
 import { useLogoutPlatformUser } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -14,6 +14,7 @@ export interface ForceLogoutDialogProps {
 
 export function ForceLogoutDialog({ open, onOpenChange, person }: ForceLogoutDialogProps) {
   const { t } = useTranslation('platformUsers');
+  const { t: tStates } = useTranslation('states');
   const logout = useLogoutPlatformUser();
 
   return (
@@ -31,7 +32,15 @@ export function ForceLogoutDialog({ open, onOpenChange, person }: ForceLogoutDia
       confirmLabel={t('logout')}
       busy={logout.isPending}
       onConfirm={() =>
-        logout.mutate({ id: person.userId }, { onSuccess: () => onOpenChange(false) })
+        logout.mutate(
+          { id: person.userId },
+          {
+            onSuccess: () => {
+              toast.success(tStates('success.title'));
+              onOpenChange(false);
+            },
+          },
+        )
       }
     />
   );

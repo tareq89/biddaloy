@@ -111,4 +111,17 @@ describe('classes dialogs', () => {
     await user.keyboard('Zoo');
     expect(await screen.findByRole('option', { name: 'Zoology (ZOO)' })).toBeTruthy();
   });
+
+  it('create form shows inline errors for a blank name and a missing year, and saves nothing', async () => {
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <ClassFormDialog open onOpenChange={vi.fn()} mode="create" onSaved={onSaved} />,
+      { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' },
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Name is required')).toBeTruthy();
+    expect(screen.getByText('Academic year is required')).toBeTruthy();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
 });

@@ -5,7 +5,8 @@
  * `MyNoticePage` is the full page (`/portal/notices/<id>`): there the title is the page `h1` (#3438);
  * in the list's dialog it stays the detail's own `h2`.
  */
-import { Button } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import { AccessDeniedState, Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
@@ -128,19 +129,35 @@ export function MyNoticeDetailView({
   );
 }
 
+// `apiClient` rejects with a raw AxiosError, so read both shapes.
+const isForbidden = (e: unknown) =>
+  e instanceof ApiError
+    ? e.statusCode === 403
+    : (e as { response?: { status?: number } } | null)?.response?.status === 403;
+
 export function MyNoticeDetail({ id, inPage = false }: { id: string; inPage?: boolean }) {
   const { t } = useTranslation('portalNotices');
+  const { t: ts } = useTranslation('states');
   const query = useMyNotice(id);
   const acknowledge = useAcknowledgeNotice();
-  if (query.isPending) return <p role="status">{t('detail.loading')}</p>;
-  if (query.isError || !query.data) {
+  if (query.isPending) {
     return (
-      <div role="alert" className="flex flex-col items-start gap-2">
-        <p>{t('error.message')}</p>
-        <Button type="button" variant="outline" onClick={() => void query.refetch()}>
-          {t('error.retry')}
-        </Button>
+      <div role="status" aria-busy="true" className="flex flex-col gap-3">
+        <span className="sr-only">{t('detail.loading')}</span>
+        <Skeleton className="h-6 w-1/2" />
+        <Skeleton className="h-24 w-full" />
       </div>
+    );
+  }
+  if (query.isError || !query.data) {
+    return isForbidden(query.error) ? (
+      <AccessDeniedState title={ts('denied.title')} explanation={ts('denied.body')} />
+    ) : (
+      <ErrorState
+        message={t('error.message')}
+        onRetry={() => void query.refetch()}
+        retryLabel={t('error.retry')}
+      />
     );
   }
   return (

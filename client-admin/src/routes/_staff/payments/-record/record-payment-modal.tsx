@@ -29,6 +29,7 @@ import {
   RadioGroup,
   RadioGroupItem,
   Skeleton,
+  SuccessTick,
   Textarea,
 } from '@biddaloy/ui/components';
 import {
@@ -551,7 +552,12 @@ export function RecordPaymentModal({
           },
         }}
       >
-        <CheckoutSuccess result={success} studentIds={selectedStudentIds} />
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-center">
+            <SuccessTick />
+          </div>
+          <CheckoutSuccess result={success} studentIds={selectedStudentIds} />
+        </div>
       </FullPageShell>
     );
   }

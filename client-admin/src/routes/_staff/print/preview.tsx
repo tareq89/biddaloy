@@ -22,6 +22,7 @@ import { PrintPreview } from '../../../components/print/preview/print-preview';
 import { previewIdsNav } from '../../../components/print/preview-ids';
 import { PrintIdCardModal } from '../../../components/print/print-id-card-modal';
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { QueryFailed } from '../fees/-query-failed';
 
 const searchSchema = z.object({
   // A bad or missing value falls back rather than breaking the page.
@@ -76,6 +77,7 @@ function PrintPreviewPage() {
       },
     });
   };
+  const { t: tStates } = useTranslation('states');
   const wide = useIsWide();
   // `from` is an in-app path checked by the schema, not a typed route.
   const close = useCloseFullPage(() => router.history.push(search.from ?? '/'));
@@ -166,6 +168,17 @@ function PrintPreviewPage() {
     );
   }
 
+  if (search.class_section_id !== undefined && bySection.isError) {
+    return (
+      <FullPageShell title={t('title')} size="wide" onClose={close}>
+        <QueryFailed
+          error={bySection.error}
+          message={tStates('error.body')}
+          onRetry={() => void bySection.refetch()}
+        />
+      </FullPageShell>
+    );
+  }
   if (search.class_section_id !== undefined && bySection.isPending) {
     return (
       <FullPageShell

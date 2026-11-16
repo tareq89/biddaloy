@@ -46,6 +46,8 @@ describe('/activate', () => {
     });
     const user = userEvent.setup();
 
+    // [3329.2.10] kit ErrorState: one alert sentence, one Retry action.
+    expect((await screen.findByRole('alert')).querySelectorAll('button')).toHaveLength(1);
     await user.click(await screen.findByRole('button', { name: 'Retry' }));
 
     await waitFor(() => expect(calls).toBe(2));

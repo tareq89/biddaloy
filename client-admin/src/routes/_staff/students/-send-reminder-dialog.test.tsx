@@ -214,3 +214,18 @@ describe('SendReminderDialog 500-student cap', () => {
     expect(alert.textContent).not.toContain('Nothing was sent');
   });
 });
+
+describe('SendReminderDialog validation state', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('an empty message shows one inline sentence and sends nothing', async () => {
+    mockPost();
+    mount(ids(2));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('Fix the marked fields and try again.')).toBeTruthy();
+    expect(posted).toHaveLength(0);
+  });
+});

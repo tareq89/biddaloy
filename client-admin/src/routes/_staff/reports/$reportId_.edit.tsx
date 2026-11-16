@@ -12,7 +12,14 @@
  * unchanged until its draft is switched on again ("সবার জন্য চালু"). Admin only (`REPORTS_DESIGN`).
  */
 import type { ReportDefinitionJson } from '@biddaloy/shared';
-import { Button, EmptyState, ErrorState, RoutePending } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import {
+  AccessDeniedState,
+  Button,
+  EmptyState,
+  ErrorState,
+  RoutePending,
+} from '@biddaloy/ui/components';
 import {
   reportDefinitionQueryOptions,
   reportMetaQueryOptions,
@@ -65,6 +72,10 @@ function EditReport({ reportId }: { reportId: string }) {
   const inFlight = React.useRef(false);
 
   if (definition.isError || meta.isError) {
+    const denied = [definition.error, meta.error].some(
+      (e) => e instanceof ApiError && e.statusCode === 403,
+    );
+    if (denied) return <AccessDeniedState />;
     return (
       <ErrorState
         message={t('loadError')}

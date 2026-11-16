@@ -7,6 +7,7 @@
   - [Changing the language](start/language.md)
   - [Your account](start/account.md)
   - [Finding any page](start/find-anything.md)
+  - [If something goes wrong](start/if-something-goes-wrong.md)
 - [For the admin](admin-setup/README.md)
   - [How everything in your school fits together](admin/how-it-works.md)
   - [The order to set up your school](admin/setup-order.md)

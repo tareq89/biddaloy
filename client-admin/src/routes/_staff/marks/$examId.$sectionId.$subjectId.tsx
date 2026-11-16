@@ -15,7 +15,7 @@ import {
   cellKey,
   ClosedYearNotice,
   ConfirmDialog,
-  ErrorState,
+  EmptyState,
   HelpHint,
   MarksGrid,
   MarksStepper,
@@ -61,6 +61,7 @@ import {
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { QueryFailure } from '../exams/-query-failure';
 
 import { SubmitDialog } from './-submit-dialog';
 
@@ -72,7 +73,7 @@ export const Route = createFileRoute('/_staff/marks/$examId/$sectionId/$subjectI
   // depends on `examId`+`sectionId`+`subjectId` together, and this loader
   // has nothing cheaper to prefetch than that same request, so it only
   // needs to warm the i18n namespace before the component renders.
-  loader: () => loadRouteNamespaces('exams', 'grading', 'common', 'academicYears'),
+  loader: () => loadRouteNamespaces('exams', 'grading', 'common', 'academicYears', 'states'),
   pendingComponent: MarksGridPending,
   component: MarksEntryPage,
 });
@@ -107,6 +108,7 @@ function MarksEntryContent() {
   const { t } = useTranslation('exams');
   const { t: tg, i18n } = useTranslation('grading');
   const { t: tCommon } = useTranslation('common');
+  const { t: tStates } = useTranslation('states');
   const { t: tYears } = useTranslation('academicYears');
   const config = useRegionConfig();
   const isMobile = useIsMobile();
@@ -232,12 +234,19 @@ function MarksEntryContent() {
   if (gridQuery.isError) {
     return (
       <PageContainer>
-        <ErrorState message={t('marksList.loadError')} onRetry={() => void gridQuery.refetch()} />
+        <QueryFailure error={gridQuery.error} onRetry={() => void gridQuery.refetch()} />
       </PageContainer>
     );
   }
 
   const grid = gridQuery.data;
+  if (grid.students.length === 0) {
+    return (
+      <PageContainer>
+        <EmptyState title={tStates('empty.title')} explanation={tg('marksSheet.empty')} />
+      </PageContainer>
+    );
+  }
   const readOnly = submitted || !canEnter || yearClosed;
   const canReopen = submitted && role === UserRole.ADMIN && !yearClosed;
 

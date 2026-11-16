@@ -775,3 +775,44 @@ describe('/students', () => {
     });
   });
 });
+
+describe('/students load failure states', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  const mount = () =>
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+  it('a failed load shows the error state with one Try again action that refetches', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/students', () => {
+        calls += 1;
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    mount();
+    expect(await screen.findByText('Something went wrong')).toBeTruthy();
+    expect(screen.getByText('Nothing was lost. Try again in a moment.')).toBeTruthy();
+    const before = calls;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(calls).toBeGreaterThan(before));
+  });
+
+  it('a refused load (403) shows the permission state, not a retry', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ message: 'Forbidden' }, { status: 403 }),
+      ),
+    );
+    mount();
+    expect(await screen.findByText('You do not have permission')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+});
