@@ -10,6 +10,7 @@ import {
   type AdmissionFieldDef,
 } from '@biddaloy/shared';
 import {
+  Button,
   Checkbox,
   Input,
   Label,
@@ -48,7 +49,8 @@ export function ClerkEntryPage() {
 
   const [values, setValues] = React.useState<Record<string, Value>>({});
   const [docs, setDocs] = React.useState<Record<string, File>>({});
-  const [docsLater, setDocsLater] = React.useState(false);
+  // Bumped to remount the (uncontrolled) file inputs so their shown names follow the cleared state.
+  const [fileEpoch, setFileEpoch] = React.useState(0);
   const [feeMethod, setFeeMethod] = React.useState('');
   const [feeRef, setFeeRef] = React.useState('');
   const [feeProof, setFeeProof] = React.useState<File | undefined>();
@@ -74,7 +76,7 @@ export function ClerkEntryPage() {
     ...CORE.map((k) => ADMISSION_FIELD_CATALOGUE.find((f) => f.key === k)!),
     ...extras,
   ];
-  const docTypes = docsLater ? [] : (data?.required_document_types ?? []);
+  const docTypes = data?.required_document_types ?? [];
 
   const set = (key: string, v: Value) => setValues((prev) => ({ ...prev, [key]: v }));
   const text = (key: string) => (typeof values[key] === 'string' ? values[key] : '');
@@ -124,7 +126,7 @@ export function ClerkEntryPage() {
         extra_fields: extraValues,
         ...(closed && afterClose ? { allow_after_close: true } : {}),
         ...(feeRound ? { fee_method: feeMethod, fee_reference: feeRef.trim() } : {}),
-        documents: docsLater ? {} : docs,
+        documents: docs,
         ...(feeRound && feeProof ? { fee_proof: feeProof } : {}),
       },
       { onSuccess: setResult, onError: () => setFailed(true) },
@@ -150,6 +152,7 @@ export function ClerkEntryPage() {
     setFeeMethod('');
     setFeeRef('');
     setFeeProof(undefined);
+    setFileEpoch((n) => n + 1);
     setShowErrors(false);
     setResult(null);
   }
@@ -207,7 +210,12 @@ export function ClerkEntryPage() {
   const file = (key: string, label: string, onPick: (f: File | undefined) => void) => (
     <div key={key} className="flex flex-col gap-1">
       <Label htmlFor={`clerk-file-${key}`}>{label}</Label>
-      <Input id={`clerk-file-${key}`} type="file" onChange={(e) => onPick(e.target.files?.[0])} />
+      <Input
+        key={`${roundId}:${fileEpoch}`}
+        id={`clerk-file-${key}`}
+        type="file"
+        onChange={(e) => onPick(e.target.files?.[0])}
+      />
       {err(key)}
     </div>
   );
@@ -257,6 +265,7 @@ export function ClerkEntryPage() {
                 setFeeMethod('');
                 setFeeProof(undefined);
                 setDocs({});
+                setFileEpoch((n) => n + 1);
                 setAfterClose(false);
               }}
             >
@@ -273,6 +282,20 @@ export function ClerkEntryPage() {
             </Select>
           </div>
 
+          {rounds.isError || round.isError ? (
+            <div role="alert" className="flex items-center justify-between gap-2 text-sm">
+              <span>{t(rounds.isError ? 'clerk.errors.roundsLoad' : 'clerk.errors.roundLoad')}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void (rounds.isError ? rounds.refetch() : round.refetch())}
+              >
+                {t('clerk.retry')}
+              </Button>
+            </div>
+          ) : null}
+
           {data ? (
             <>
               {shown.map((f) => (
@@ -287,16 +310,6 @@ export function ClerkEntryPage() {
                 </div>
               ))}
 
-              {(data.required_document_types ?? []).length > 0 ? (
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="clerk-docs-later"
-                    checked={docsLater}
-                    onCheckedChange={(c) => setDocsLater(c === true)}
-                  />
-                  <Label htmlFor="clerk-docs-later">{t('clerk.docsLater')}</Label>
-                </div>
-              ) : null}
               {docTypes.map((type) =>
                 file(`_doc_${type}`, t(`clerk.docs.${type}`), (f) =>
                   setDocs((prev) => {

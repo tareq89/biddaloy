@@ -141,11 +141,12 @@ export function RoundWizard() {
   const { t, i18n } = useTranslation('admission-desk');
   const regionConfig = useRegionConfig();
   const navigate = useNavigate();
-  const classes = useClasses();
   const years = useAcademicYears();
   const create = useCreateAdmissionRound();
   const [step, setStep] = React.useState<string>(STEP_IDS[0]);
   const [s, setS] = React.useState<WizardState>(() => initialWizardState(toIsoDate(new Date())));
+  // The server takes the round's year from the class, so the class list follows the chosen year.
+  const classes = useClasses({ academic_year_id: s.yearId }, { enabled: s.yearId !== '' });
   const patch = (p: Partial<WizardState>) => setS((prev) => ({ ...prev, ...p }));
 
   const classList = React.useMemo(() => classes.data?.data ?? [], [classes.data]);
@@ -154,7 +155,7 @@ export function RoundWizard() {
   React.useEffect(() => {
     setS((prev) => ({
       ...prev,
-      classId: prev.classId || classList[0]?.id || '',
+      classId: prev.yearId && !prev.classId ? (classList[0]?.id ?? '') : prev.classId,
       yearId: prev.yearId || (yearList.find((y) => y.is_current) ?? yearList[0])?.id || '',
     }));
   }, [classList, yearList]);
@@ -223,7 +224,7 @@ export function RoundWizard() {
               </Select>
             </FieldBox>
             <FieldBox id="wz-year" label={t('wizard.year')}>
-              <Select value={s.yearId} onValueChange={(v) => patch({ yearId: v })}>
+              <Select value={s.yearId} onValueChange={(v) => patch({ yearId: v, classId: '' })}>
                 <SelectTrigger id="wz-year">
                   <SelectValue placeholder={t('wizard.pick')} />
                 </SelectTrigger>
@@ -399,7 +400,9 @@ export function RoundWizard() {
             onChange={(on) => patch({ alwaysShow: on })}
           />
           <Button asChild variant="link" className="self-start">
-            <Link to="/website">{t('wizard.siteEditor')}</Link>
+            <Link to="/website" target="_blank" rel="noopener noreferrer">
+              {t('wizard.siteEditor')}
+            </Link>
           </Button>
           {create.isError ? (
             <p role="alert" className="text-destructive">

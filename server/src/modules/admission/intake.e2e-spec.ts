@@ -125,6 +125,20 @@ describe('IntakeController rounds and stages (e2e)', () => {
     await as(http().patch(one), UserRole.ADMIN).send({ config: null }).expect(400);
   });
 
+  it('the same Idempotency-Key on create replays one round', async () => {
+    const key = `round-${Date.now()}`;
+    const send = () =>
+      as(http().post(BASE), UserRole.ADMIN).set('Idempotency-Key', key).send(body({ title: 'Idem' }));
+    const first = await send().expect(201);
+    const second = await send().expect(201);
+    expect(second.body.id).toBe(first.body.id);
+    const [{ n }] = await ds.query(
+      `SELECT count(*)::int AS n FROM admission_intakes WHERE tenant_id = $1 AND title = 'Idem'`,
+      [SEED_TENANT_ID],
+    );
+    expect(n).toBe(1);
+  });
+
   it('a non-UUID id is a 400, never a 500', async () => {
     await as(http().get(`${BASE}/nope/stages`), UserRole.ADMIN).expect(400);
     const round = await createRound();

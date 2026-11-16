@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { IntakeService } from './intake.service';
 import { AdmissionStageService } from './admission-stage.service';
 import { CreateStageDto, UpdateStageDto } from './dto/stage.dto';
@@ -40,6 +42,7 @@ export class IntakeController {
   ) {}
 
   @Post()
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({ summary: 'Open a new admission intake window for a class section.' })
   create(@Body() dto: CreateIntakeDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.intakes.create(dto, tenant.id);

@@ -75,7 +75,6 @@
     "another": "Enter another",
     "done": "Application saved. Reference: {{ref}}",
     "referenceSeen": "This payment reference was used before. The application is saved; check the fee file carefully.",
-    "docsLater": "Add documents later",
     "docs": {
       "PHOTO": "Photo",
       "BIRTH_CERTIFICATE": "Birth certificate",
@@ -89,6 +88,7 @@
     "feeReference": "Payment reference (optional)",
     "feeProof": "Proof of payment (photo or PDF)",
     "afterClose": "The last date has passed. Take this application anyway.",
+    "retry": "Try again",
     "shortcut": "Press Ctrl and Enter to save.",
     "options": {
       "MALE": "Boy",
@@ -106,7 +106,9 @@
       "REQUIRED": "This box must be filled.",
       "INVALID": "This box is not right. Check it.",
       "UNKNOWN_FIELD": "This box is not part of the round.",
-      "create": "Could not save the application. Try again."
+      "create": "Could not save the application. Try again.",
+      "roundsLoad": "Could not load the rounds.",
+      "roundLoad": "Could not load this round."
     }
   },
   "wizard": {
@@ -216,7 +218,10 @@
     "check": "Check",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page {{current}} of {{total}}"
+    "page": "Page {{current}} of {{total}}",
+    "retry": "Try again",
+    "queueLoading": "Loading…",
+    "queueError": "Could not load the fees waiting to be checked."
   },
   "fee": {
     "title": "Fee of {{name}}",

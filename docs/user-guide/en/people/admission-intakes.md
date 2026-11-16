@@ -154,7 +154,7 @@ A round is saved only while you are online; it cannot be kept on the device and 
 
 ### See the applicants of one round <a href="#task-applicants" id="task-applicants"></a>
 
-At the end of the row in the list press **View applicants** (the same button is at the top of the round's page). → The [Admission applicants](admission-applicants.md) page opens with this round already chosen in the **Admission round** filter.
+At the end of the round's row in the list press **Edit**, then press **View applicants** at the top of the round's page. (The desk's **Applicants** step also lists this round's applicants.) → The [Admission applicants](admission-applicants.md) page opens with this round already chosen in the **Admission round** filter.
 
 ### How a guardian applies from a phone <a href="#task-public" id="task-public"></a>
 
@@ -310,7 +310,7 @@ The school's public website has four pages for admission. None needs a sign-in. 
 
 1. **Admission rounds** — the heading and the short text under it.
 2. **Add admission round** — the button at the top of the page.
-3. **The list** — **Title**, **Class / Section**, **Seats**, **Application window**, **Status**; at the end of each row, **View applicants** and **Edit**.
+3. **The list** — **Title**, **Class / Section**, **Seats**, **Application window**, **Status**; at the end of each row, **Open desk** and **Edit**.
 
 ![the three parts of the admission rounds list](img/admission-intakes-06.png)
 

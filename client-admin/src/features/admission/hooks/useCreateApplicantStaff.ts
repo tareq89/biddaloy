@@ -25,13 +25,28 @@ export interface StaffApplicantResult {
   warnings?: string[];
 }
 
-/** Everything except the files; this is what makes one attempt (the Idempotency-Key body). */
-function attemptBody(input: StaffApplicantInput) {
+/** SHA-256 of the file's bytes; falls back to name + size where the platform cannot digest. */
+async function digest(f: File): Promise<string> {
+  try {
+    const hash = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+    return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return `${f.name}:${f.size}`;
+  }
+}
+
+/**
+ * Everything including the files' bytes; this is what makes one attempt (the Idempotency-Key
+ * body). A replaced file with the same name and size must not replay the earlier success.
+ */
+async function attemptBody(input: StaffApplicantInput) {
   const { documents, fee_proof, ...rest } = input;
   return {
     ...rest,
-    documents: Object.entries(documents).map(([k, f]) => [k, f.name, f.size]),
-    fee_proof: fee_proof ? [fee_proof.name, fee_proof.size] : null,
+    documents: await Promise.all(
+      Object.entries(documents).map(async ([k, f]) => [k, f.name, f.size, await digest(f)]),
+    ),
+    fee_proof: fee_proof ? [fee_proof.name, fee_proof.size, await digest(fee_proof)] : null,
   };
 }
 
@@ -55,7 +70,7 @@ export function useCreateApplicantStaff() {
       for (const [field, file] of Object.entries(input.documents)) form.append(field, file);
       if (input.fee_proof) form.append('fee_proof', input.fee_proof);
       const res = await apiClient.post<StaffApplicantResult>('/admission/applicants', form, {
-        headers: { 'Idempotency-Key': keyFor(attemptBody(input)) },
+        headers: { 'Idempotency-Key': keyFor(await attemptBody(input)) },
       });
       return res.data;
     },

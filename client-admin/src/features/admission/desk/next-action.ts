@@ -37,7 +37,8 @@ const listBefore = (lists: DeskList[], l: DeskList) =>
     l.sequence === 1 ? x.kind === 'MERIT' : x.kind === 'WAITING' && x.sequence === l.sequence - 1,
   );
 
-export function nextAction(c: DeskCounts, now: Date): NextAction {
+/** `today` is the school's calendar date (YYYY-MM-DD); offers stay open through `act_by_date`. */
+export function nextAction(c: DeskCounts, today: string): NextAction {
   if (c.applicants === 0) return { key: 'empty', step: 'applicants' };
   if (c.feePending > 0) return { key: 'feePending', step: 'applicants', count: c.feePending };
   const hasMerit = c.lists.some((l) => l.kind === 'MERIT');
@@ -57,7 +58,7 @@ export function nextAction(c: DeskCounts, now: Date): NextAction {
       .filter((l) => l.kind === 'WAITING' && !l.activated_at)
       .sort((a, b) => a.sequence - b.sequence)[0];
     const prev = waiting && listBefore(c.lists, waiting);
-    if (waiting && prev?.activated_at && prev.act_by_date && new Date(prev.act_by_date) < now) {
+    if (waiting && prev?.activated_at && prev.act_by_date && prev.act_by_date < today) {
       return { key: 'startWaiting', step: 'waiting', n: waiting.sequence };
     }
   }

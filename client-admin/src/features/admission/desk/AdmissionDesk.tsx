@@ -8,7 +8,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer } from '@biddaloy/ui/shells';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatNumber, tenantTodayIso } from '@biddaloy/ui/utils';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 
 import { ApplicantsPanel } from './ApplicantsPanel';
@@ -61,7 +61,7 @@ export function AdmissionDesk() {
     stages: stages.map((s) => ({ id: s.id, kind: s.kind as DeskStageKind })),
     lists,
   };
-  const action = nextAction(counts, new Date());
+  const action = nextAction(counts, tenantTodayIso(region));
 
   const stepList: DeskStep[] = [
     { id: 'applicants', label: t('desk.steps.applicants') },
@@ -88,10 +88,11 @@ export function AdmissionDesk() {
   ) : (
     <ListsPanel />
   );
-  const stageName = stage
-    ? stage.title || t(`desk.steps.kind.${stage.kind}`)
-    : (stages.find((s) => s.id === action.stageId)?.title ??
-      t(`desk.steps.kind.${stages.find((s) => s.id === action.stageId)?.kind ?? 'WRITTEN'}`));
+  // The card names the stage its button opens, not the panel the user happens to be viewing.
+  const actionStage = stages.find((s) => s.id === action.stageId);
+  const stageName = actionStage
+    ? actionStage.title || t(`desk.steps.kind.${actionStage.kind}`)
+    : t('desk.steps.kind.WRITTEN');
   const open = round.data.status === 'OPEN';
 
   return (

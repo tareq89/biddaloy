@@ -131,15 +131,25 @@ describe('ClerkEntryPage', () => {
     expect(await screen.findByText(/used before/)).toBeTruthy();
   });
 
-  it('"Add documents later" sends no document file', async () => {
-    const sent = setup();
+  it('has no "Add documents later" option: the server needs the required documents', async () => {
+    setup();
     await fill();
-    await fee();
-    await userEvent.click(screen.getByLabelText('Add documents later'));
-    expect(screen.queryByLabelText('Photo')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Save application' }));
-    await waitFor(() => expect(sent.body).toBeDefined());
-    expect(sent.body).not.toContain('name="photo"');
+    expect(screen.queryByLabelText('Add documents later')).toBeNull();
+    expect(screen.getByLabelText('Photo')).toBeTruthy();
+  });
+
+  it('shows a round-loading failure with a retry button', async () => {
+    server.use(
+      http.get('/api/v1/admission-intakes', () => HttpResponse.json([ROUND])),
+      http.get('/api/v1/admission-intakes/r1', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderWithRouter(createRootRoute({ component: ClerkEntryPage }), {
+      initialEntries: ['/?round=r1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 });
 

@@ -30,10 +30,12 @@ export function ApplicantsPanel() {
   );
   const waiting = count.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil((queue.data?.total ?? 0) / QUEUE_PAGE));
-  // The last proof of a page was decided: step back instead of showing an empty page.
+  // The last proof of a page was decided: step back instead of showing an empty page. Only once
+  // this page's response is in: while an uncached page loads, `queue.data` is undefined.
+  const queueLoaded = queue.isSuccess && !queue.isPlaceholderData;
   React.useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+    if (queueLoaded && page > totalPages) setPage(totalPages);
+  }, [queueLoaded, page, totalPages]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -57,6 +59,16 @@ export function ApplicantsPanel() {
 
       {queueOpen && waiting > 0 ? (
         <section aria-label={t('applicantsPanel.queueLabel')} className="rounded-md border p-3">
+          {queue.isError ? (
+            <div role="alert" className="flex items-center justify-between gap-2 py-2 text-sm">
+              <span>{t('applicantsPanel.queueError')}</span>
+              <Button size="sm" variant="outline" onClick={() => void queue.refetch()}>
+                {t('applicantsPanel.retry')}
+              </Button>
+            </div>
+          ) : queue.isPending ? (
+            <p className="py-2 text-sm text-muted-foreground">{t('applicantsPanel.queueLoading')}</p>
+          ) : null}
           <ul className="flex flex-col divide-y">
             {(queue.data?.data ?? []).map((row) => (
               <li key={row.id} className="flex items-center justify-between gap-2 py-2">

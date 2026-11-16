@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { nextAction, type DeskCounts } from './next-action';
 
-const now = new Date('2027-02-10T00:00:00Z');
+const now = '2027-02-10';
 const base: DeskCounts = { applicants: 5, feePending: 0, seatsLeft: 2, stages: [], lists: [] };
 const merit = {
   kind: 'MERIT' as const,
@@ -44,8 +44,10 @@ describe('nextAction', () => {
   });
   it('no seats left or time not over: publish', () => {
     expect(nextAction({ ...base, seatsLeft: 0, lists: [merit, wait1] }, now).key).toBe('publish');
-    expect(nextAction({ ...base, lists: [merit, wait1] }, new Date('2027-01-30')).key).toBe(
+    expect(nextAction({ ...base, lists: [merit, wait1] }, '2027-01-30').key).toBe(
       'publish',
     );
+    // The act-by day itself is still open (server: act_by_date < today).
+    expect(nextAction({ ...base, lists: [merit, wait1] }, merit.act_by_date).key).toBe('publish');
   });
 });

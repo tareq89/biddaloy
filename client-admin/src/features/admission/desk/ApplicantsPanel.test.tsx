@@ -85,4 +85,18 @@ describe('ApplicantsPanel', () => {
     await expect.poll(() => queries.length).toBeGreaterThan(0);
     expect(queries[0]!.get('intakeId')).toBe('r1');
   });
+
+  it('a failed queue request shows an error with a retry, not an empty queue', async () => {
+    setup(3);
+    server.use(
+      http.get('/api/v1/admission/fee-proofs', ({ request }) => {
+        const limit = Number(new URL(request.url).searchParams.get('limit'));
+        return limit > 1
+          ? new HttpResponse(null, { status: 500 })
+          : HttpResponse.json({ data: [], total: 3, page: 1, limit, totalPages: 1 });
+      }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: /Check fees|ফি দেখুন/ }));
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
 });

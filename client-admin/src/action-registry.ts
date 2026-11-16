@@ -797,7 +797,7 @@ export const ACTIONS: readonly PaletteAction[] = [
         'modal',
         '/admissions/intakes',
       ],
-      ['admissions.verifyFees', 'Fee check', 'ফি যাচাই', 'modal', '/admissions/applicants'],
+      ['admissions.verifyFees', 'Fee check', 'ফি যাচাই', 'modal', '/admissions/intakes'],
     ] as const
   ).map(([id, en, bn, kind, to]): PaletteAction => ({
     id,
