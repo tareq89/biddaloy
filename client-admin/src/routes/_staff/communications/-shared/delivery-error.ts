@@ -7,5 +7,6 @@ export function deliveryErrorKey(error: string | null | undefined): string | nul
   if (!error) return null;
   if (error === 'NOT_CONFIGURED') return 'deliveryErrors.notConfigured';
   if (error === 'NO_PROVIDER') return 'deliveryErrors.noProvider';
+  if (error === 'DAILY_LIMIT_REACHED') return 'deliveryErrors.dailyLimit';
   return 'deliveryErrors.generic';
 }

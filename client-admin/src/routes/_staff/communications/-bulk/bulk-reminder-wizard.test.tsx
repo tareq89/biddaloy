@@ -447,6 +447,38 @@ describe('bulk reminder wizard', () => {
     });
   });
 
+  it('[#3994] shows the daily limit with numbers on a 409 DAILY_LIMIT_REACHED send, and Send stays usable', async () => {
+    server.use(
+      duesHandler(),
+      http.post('/api/v1/communications/reminder/bulk', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'x', '/api/v1/communications/reminder/bulk'),
+            details: { code: 'DAILY_LIMIT_REACHED', requested: 500, remaining: 300, limit: 2000 },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
+    await selectBothStudents(user);
+    await fillMessageStep(user);
+    await user.click(wizardNext());
+    await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
+    await user.click(screen.getByRole('button', { name: SEND_NAME }));
+
+    expect(
+      await screen.findByText(
+        `You can send ${n(300)} more today. You are trying to send ${n(500)}. Send to fewer people, or try again tomorrow.`,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: SEND_NAME }).disabled).toBe(false);
+  });
+
   it('is axe clean with the preview on screen', async () => {
     server.use(duesHandler());
     const user = userEvent.setup();

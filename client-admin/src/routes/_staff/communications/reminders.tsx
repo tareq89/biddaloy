@@ -40,6 +40,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { BulkReminderWizard } from './-bulk/bulk-reminder-wizard';
+import { LeftTodayLine, useDailyLimitMessage, useRefreshLeftToday } from './-shared/daily-limit';
 import { PlaceholderButtons } from './-shared/placeholder-buttons';
 import { RecipientList } from './-shared/recipient-list';
 import { SelectedStudentRow } from './-shared/selected-student-row';
@@ -148,6 +149,8 @@ function SingleReminderForm() {
 
   const preview = useSingleReminderPreview();
   const send = useSendSingleReminder();
+  const dailyLimitMessage = useDailyLimitMessage();
+  const refreshLeftToday = useRefreshLeftToday();
 
   const student = studentQuery.data;
 
@@ -260,7 +263,7 @@ function SingleReminderForm() {
 
   function handleSend() {
     if (studentId === null) return;
-    send.mutate({ studentId, input: buildInput() });
+    send.mutate({ studentId, input: buildInput() }, { onSuccess: refreshLeftToday });
   }
 
   function handleSelectStudent(selected: Student) {
@@ -650,7 +653,20 @@ function SingleReminderForm() {
                 recipients={acceptedPreview.result.recipients}
                 skipped={acceptedPreview.result.skipped}
               />
-              <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:items-center md:justify-between">
+              <div className="mt-5">
+                <LeftTodayLine
+                  channel={
+                    mediumOverride === 'SMS'
+                      ? 'sms'
+                      : mediumOverride === 'EMAIL'
+                        ? 'email'
+                        : mediumOverride === 'WHATSAPP'
+                          ? 'whatsapp'
+                          : undefined
+                  }
+                />
+              </div>
+              <div className="mt-2 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:items-center md:justify-between">
                 <p className="text-text-secondary">{t('reminders.irreversibleNote')}</p>
                 {acceptedPreview.result.recipients.length > 0 && (
                   <span className="inline-flex items-center gap-1">
@@ -679,16 +695,17 @@ function SingleReminderForm() {
                   className="mt-3 flex items-center gap-1 text-caption text-destructive"
                 >
                   <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-                  {send.error instanceof ApiError &&
-                  send.error.statusCode === 409 &&
-                  send.error.details?.['code'] === 'INSUFFICIENT_SMS_CREDIT'
-                    ? t('bulk.review.projection.insufficientCredit', {
-                        required: formatNumber(Number(send.error.details['required']), config),
-                        available: formatNumber(Number(send.error.details['available']), config),
-                      })
-                    : send.error instanceof ApiError && send.error.statusCode === 400
-                      ? t('reminders.sendInvalid')
-                      : t('reminders.errorMessage')}
+                  {dailyLimitMessage(send.error) ??
+                    (send.error instanceof ApiError &&
+                    send.error.statusCode === 409 &&
+                    send.error.details?.['code'] === 'INSUFFICIENT_SMS_CREDIT'
+                      ? t('bulk.review.projection.insufficientCredit', {
+                          required: formatNumber(Number(send.error.details['required']), config),
+                          available: formatNumber(Number(send.error.details['available']), config),
+                        })
+                      : send.error instanceof ApiError && send.error.statusCode === 400
+                        ? t('reminders.sendInvalid')
+                        : t('reminders.errorMessage'))}
                 </p>
               )}
             </Card>

@@ -48,6 +48,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { LeftTodayLine, useDailyLimitMessage, useRefreshLeftToday } from './-shared/daily-limit';
 import { deliveryErrorKey } from './-shared/delivery-error';
 import { SelectedStudentRow } from './-shared/selected-student-row';
 import { useSmsReadiness } from './-shared/sms-readiness';
@@ -188,7 +189,12 @@ function SendMessageBody() {
     };
   }
 
+  const dailyLimitMessage = useDailyLimitMessage();
+  const refreshLeftToday = useRefreshLeftToday();
+
   function errorText(error: unknown): string {
+    const limited = dailyLimitMessage(error);
+    if (limited !== undefined) return limited;
     if (
       error instanceof ApiError &&
       error.statusCode === 409 &&
@@ -225,7 +231,10 @@ function SendMessageBody() {
 
   function handleConfirm() {
     sendMessage.mutate(buildPayload(), {
-      onSuccess: () => setConfirmOpen(false),
+      onSuccess: () => {
+        setConfirmOpen(false);
+        refreshLeftToday();
+      },
     });
   }
 
@@ -472,7 +481,12 @@ function SendMessageBody() {
             )}
           </div>
 
-          <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
+          <div className="mt-5">
+            <LeftTodayLine
+              channel={medium === 'SMS' ? 'sms' : medium === 'EMAIL' ? 'email' : 'whatsapp'}
+            />
+          </div>
+          <div className="mt-2 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
             <span className="inline-flex items-center gap-1">
               <Button type="submit" className="flex-1 md:flex-none" disabled={!canSend}>
                 <SendIcon aria-hidden />
