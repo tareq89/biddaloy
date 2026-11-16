@@ -394,6 +394,24 @@ at the now-pushed SHA, not a code change) through step 11, batching whatever
 is newly found the same way as the first pass, including a fresh
 pause-before-push confirmation.
 
+## Unattended mode (`/pr-fix <n> --unattended`)
+
+Used by `scripts/epic-pr-watcher.sh` (see the `watch-epic` skill). Nobody is
+awake to answer, so the pauses change; everything else stays.
+
+- **Skip the plan-show (3c) and the push pause (10).** Push with
+  `--force-with-lease` as soon as tests and step 8 are green.
+- **Rebase conflicts (4):** resolve them by reading both sides and keeping the
+  intent of each. Never blind `--ours`/`--theirs`. If the PR comment or caller
+  gives a `git rebase --onto <base> <old-base-sha>` line, use that instead of a
+  plain rebase (the base's old commits are duplicates).
+- **Scope:** review threads and conflicts only; ignore CI-only failures.
+- **Bail on doubt:** tests still red after the step 7 loop, an ambiguous
+  conflict, or a push rejected because someone else moved the branch → push
+  nothing, comment on the PR with what blocked you, and exit non-zero. The
+  watcher counts attempts and labels the PR `needs-human` after 3.
+- Reply to threads (9) as usual; never resolve them.
+
 ## Scope notes
 
 - This skill is generic (not SchoolManager-specific) — safe to copy to
