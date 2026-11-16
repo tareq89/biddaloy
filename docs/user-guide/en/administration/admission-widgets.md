@@ -63,7 +63,7 @@ The school website has three admission sections. You choose which ones show, and
 
 ## How to tell it worked <a href="#confirm" id="confirm"></a>
 
-Open the website's `/admission` page. The **Apply** button of each open round is there.
+Open the website's `/en/admissions/` page. The **Apply** button of each open round is there. Also check that the sections you switched on in the earlier steps (apply, result, lists) show on the page.
 
 ---
 

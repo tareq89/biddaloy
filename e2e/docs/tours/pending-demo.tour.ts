@@ -131,6 +131,9 @@ test('admin: walk-in application form and its saved message', async ({ page }, i
   ]);
 
   await form.fill(name);
+  await page.locator('#clerk-dob').fill('2015-03-10');
+  await page.locator('#clerk-gender').click();
+  await page.getByRole('option').first().click();
   await page
     .locator('#clerk-guardian_name')
     .fill(lang === 'bn' ? 'মিজানুর রহমান' : 'Mizanur Rahman');

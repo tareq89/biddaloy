@@ -6,7 +6,7 @@ roles: [ADMIN, OFFICE_STAFF]
 sources:
   - client-admin/src/features/admission/desk/FeeVerifyDialog.tsx
   - client-admin/src/features/admission/desk/ApplicantsPanel.tsx
-  - client-admin/src/features/admission/desk/useFeeProofAttachment.ts
+  - client-admin/src/features/admission/hooks/useFeeProofAttachment.ts
 labels: [admission-desk:fee.*, admission-desk:applicantsPanel.*, admission-desk:desk.facts.feePending]
 helpIds: [people.admissionFeeVerify]
 devices: [desktop]

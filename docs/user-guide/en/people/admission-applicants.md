@@ -247,7 +247,7 @@ You should not keep a child's birth certificate or photo you no longer need. Whe
 | **Reject**                | The application was not successful this time                                         | **Not accepted**                          |
 | **Add note**              | None                                                                                 | No change                                 |
 
-If the school has no SMS balance, the message does not go, but the decision is still saved. How a guardian checks their status: [How a guardian checks the application status](admission-intakes.md#task-status).
+If the school has no SMS balance, the message does not go, but the decision is still saved. How a guardian checks their status: [How a guardian checks the application status](admission-intakes.md#task-site).
 
 <!-- unverified: whether staff can see a failed/unsent SMS for an admission decision anywhere in the communications log UI -->
 

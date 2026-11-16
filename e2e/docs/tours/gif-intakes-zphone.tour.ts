@@ -23,6 +23,9 @@ gifTour(
     await p.getByRole('option').first().click();
     await beat(p, 600);
     await p.locator('#clerk-name').pressSequentially('Tanisha Rahman', { delay: 40 });
+    await p.locator('#clerk-dob').fill('2015-03-10');
+    await p.locator('#clerk-gender').click();
+    await p.getByRole('option').first().click();
     await p.locator('#clerk-guardian_name').pressSequentially('Mizanur Rahman', { delay: 40 });
     await p.locator('#clerk-guardian_phone').pressSequentially('01700000123', { delay: 50 });
     await beat(p, 600);
