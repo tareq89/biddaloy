@@ -56,7 +56,7 @@ export class StaffAudienceDto {
   @ids('Named people of this school.')
   @IsOptional()
   @IsUUID('4', { each: true })
-  @ArrayMaxSize(200)
+  @ArrayMaxSize(500)
   @ArrayUnique()
   userIds?: string[];
 }

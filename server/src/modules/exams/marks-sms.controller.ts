@@ -8,7 +8,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -22,6 +22,26 @@ import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.int
 import { JwtPayload, ModuleKey, Permission } from '@biddaloy/shared';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { MarksSmsService } from './marks-sms.service';
+
+class MarksSmsSkippedDto {
+  @ApiProperty({ format: 'uuid' }) student_id!: string;
+  @ApiProperty({ enum: ['no_reachable_guardian', 'notifications_off', 'no_marks'] })
+  reason!: 'no_reachable_guardian' | 'notifications_off' | 'no_marks';
+}
+
+class MarksSmsPreviewDto {
+  @ApiProperty() count!: number;
+  @ApiProperty() segments!: number;
+  @ApiProperty({ type: [MarksSmsSkippedDto] }) skipped!: MarksSmsSkippedDto[];
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) already_sent_at!: Date | null;
+}
+
+class MarksSmsOutcomeDto {
+  @ApiProperty() queued!: number;
+  @ApiProperty() segments!: number;
+  @ApiProperty({ type: [MarksSmsSkippedDto] }) skipped!: MarksSmsSkippedDto[];
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) already_sent_at!: Date | null;
+}
 
 type Tenant = { id: string; role: string };
 
@@ -62,6 +82,7 @@ export class MarksSmsController {
   @Post('preview')
   @RequirePermissions(Permission.MARKS_SMS_SEND)
   @ApiOperation({ summary: 'Count the marks SMS a send would queue. Writes nothing.' })
+  @ApiResponse({ status: 201, type: MarksSmsPreviewDto })
   async preview(
     @Param('examId', ParseUUIDPipe) examId: string,
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
@@ -77,6 +98,7 @@ export class MarksSmsController {
   @RequirePermissions(Permission.MARKS_SMS_SEND)
   @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({ summary: 'Send marks SMS to guardians of a SUBMITTED grid.' })
+  @ApiResponse({ status: 201, type: MarksSmsOutcomeDto })
   async send(
     @Param('examId', ParseUUIDPipe) examId: string,
     @Param('sectionId', ParseUUIDPipe) sectionId: string,

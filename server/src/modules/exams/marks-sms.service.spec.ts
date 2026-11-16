@@ -82,6 +82,7 @@ function build(
   };
   const logRepo: any = {
     find: vi.fn(async () => existing),
+    update: vi.fn(async () => ({ affected: 0 })),
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: 'log-1', ...v })),
   };

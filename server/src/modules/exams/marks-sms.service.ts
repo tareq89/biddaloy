@@ -205,6 +205,17 @@ export class MarksSmsService {
       }
     }
 
+    // A worker-FAILED row keeps its reference_key and would trip the unique index on retry;
+    // plan() already treats it as retryable, so free the key here.
+    await this.logRepo.update(
+      {
+        tenant_id: tenantId,
+        reference_key: In(jobs.map((j) => j.log.reference_key!)),
+        status: CommunicationStatus.FAILED,
+      },
+      { reference_key: null },
+    );
+
     let queued = 0;
     let queuedSegments = 0;
     for (const job of jobs) {

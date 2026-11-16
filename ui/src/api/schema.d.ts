@@ -17902,6 +17902,26 @@ export interface components {
         MarksSheetCommitResultDto: {
             saved: number;
         };
+        MarksSmsSkippedDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            reason: "no_reachable_guardian" | "notifications_off" | "no_marks";
+        };
+        MarksSmsPreviewDto: {
+            count: number;
+            segments: number;
+            skipped: components["schemas"]["MarksSmsSkippedDto"][];
+            /** Format: date-time */
+            already_sent_at: string | null;
+        };
+        MarksSmsOutcomeDto: {
+            queued: number;
+            segments: number;
+            skipped: components["schemas"]["MarksSmsSkippedDto"][];
+            /** Format: date-time */
+            already_sent_at: string | null;
+        };
         ProcessExamDto: {
             force?: boolean;
         };
@@ -34710,7 +34730,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["MarksSmsPreviewDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -34745,7 +34765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["MarksSmsOutcomeDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

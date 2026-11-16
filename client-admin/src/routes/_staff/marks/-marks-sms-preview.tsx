@@ -134,7 +134,12 @@ export function MarksSmsPreviewPanel({ grid, studentNames, examPublished }: Mark
             type="button"
             className="min-h-11 w-full md:w-auto"
             loading={send.isPending}
-            disabled={!result || result.count === 0 || send.isPending || send.data?.queued === 0}
+            disabled={
+              !result ||
+              result.count === 0 ||
+              send.isPending ||
+              (send.data?.queued === 0 && !!send.data.already_sent_at)
+            }
             onClick={() => send.mutate()}
           >
             {t('send')}
