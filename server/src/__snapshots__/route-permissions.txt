@@ -166,6 +166,7 @@ GET /classes/:classId/subjects | ClassSubjectController | perm: ACADEMIC_STRUCTU
 GET /classes/:id | ClassController | perm: ACADEMIC_STRUCTURE_READ
 GET /classes/vocabulary | ClassController | perm: ACADEMIC_STRUCTURE_READ
 GET /communications/:id | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /communications/daily-limits/today | DailyLimitsTodayController | perm: COMMUNICATION_SEND
 GET /communications/guardian/:guardianId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /communications/last-reminders | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /communications/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
