@@ -28,6 +28,6 @@ import { CommunicationsModule } from '../communications/communications.module';
   ],
   controllers: [HealthController, PlatformAlertsController],
   providers: [HealthService, PlatformAlertsService],
-  exports: [HealthService],
+  exports: [HealthService, PlatformAlertsService],
 })
 export class HealthModule {}

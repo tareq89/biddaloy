@@ -283,6 +283,76 @@ describe('AccountAccessDeliveryService platform sender (tenantId null, D28)', ()
   });
 });
 
+describe('AccountAccessDeliveryService OTP SMS caps (#3992)', () => {
+  const sms = (tenantId: string | null, ip?: string | null) => ({
+    tenantId,
+    medium: CommunicationMedium.SMS,
+    to: '+8801700000000',
+    recipientName: 'Jane',
+    kind: 'OTP' as const,
+    vars: { code: '123456' },
+    ip,
+  });
+  function build(caps: Partial<Record<'allowForIp' | 'allowPlatform' | 'countUsage', any>> = {}) {
+    const logRepo = fakeLogRepo();
+    const provider = { send: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'p' }) };
+    const fullCaps = {
+      allowForIp: vi.fn().mockResolvedValue(true),
+      allowPlatform: vi.fn().mockResolvedValue(true),
+      countUsage: vi.fn().mockResolvedValue(undefined),
+      ...caps,
+    };
+    const service = new AccountAccessDeliveryService(
+      logRepo as any,
+      { resolve: vi.fn().mockReturnValue(provider) } as any,
+      {
+        getResolvedSettings: vi.fn().mockResolvedValue({ region: { locale: 'en-US' } }),
+        findById: vi.fn().mockResolvedValue({ id: 't1', name: 'School' }),
+      } as any,
+      { get: () => undefined } as any,
+      fullCaps as any,
+    );
+    return { service, provider, fullCaps };
+  }
+
+  it('per-IP refusal: provider not called, result equals an ordinary failed send (platform)', async () => {
+    const { service, provider, fullCaps } = build({
+      allowForIp: vi.fn().mockResolvedValue(false),
+    });
+    const result = await service.deliver(sms(null, '1.2.3.4'));
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(fullCaps.allowForIp).toHaveBeenCalledWith('1.2.3.4', '+8801700000000');
+    expect(fullCaps.allowPlatform).not.toHaveBeenCalled();
+    expect(result).toEqual({ logId: null, status: CommunicationStatus.FAILED });
+  });
+
+  it('platform refusal on a school send: provider not called, same shape as a failed send', async () => {
+    const { service, provider } = build({ allowPlatform: vi.fn().mockResolvedValue(false) });
+    const result = await service.deliver(sms('t1', null));
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(result).toEqual({ logId: 'log-1', status: CommunicationStatus.FAILED });
+  });
+
+  it('counts usage only for an SMS that reached the provider', async () => {
+    const ok = build();
+    await ok.service.deliver(sms(null, '1.2.3.4'));
+    expect(ok.fullCaps.countUsage).toHaveBeenCalledTimes(1);
+
+    const capped = build({ allowPlatform: vi.fn().mockResolvedValue(false) });
+    await capped.service.deliver(sms(null, '1.2.3.4'));
+    expect(capped.fullCaps.countUsage).not.toHaveBeenCalled();
+  });
+
+  it('email never consults the caps', async () => {
+    const { service, provider, fullCaps } = build();
+    await service.deliver({ ...sms('t1', '1.2.3.4'), medium: CommunicationMedium.EMAIL });
+    expect(provider.send).toHaveBeenCalledTimes(1);
+    expect(fullCaps.allowForIp).not.toHaveBeenCalled();
+    expect(fullCaps.allowPlatform).not.toHaveBeenCalled();
+    expect(fullCaps.countUsage).not.toHaveBeenCalled();
+  });
+});
+
 describe('pickChannel', () => {
   it('prefers EMAIL when the user has one', () => {
     expect(pickChannel({ email: 'a@b.com', phone: '01700000000' })).toEqual({
