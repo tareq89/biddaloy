@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AdmissionApplicantStatus } from '@biddaloy/shared';
+import { AdmissionApplicantStatus, PhotoConsent } from '@biddaloy/shared';
 import type { ImportContext, RowError } from '../../codec/tab-spec';
 import { admissionApplicantsTab } from './admission-applicants.tab';
 
@@ -84,5 +84,20 @@ describe('admissionApplicantsTab documents[].storage_key (DATA-02)', () => {
     const result = admissionApplicantsTab.fromRow(cells([]), 2, ctx());
     if ('errors' in result) throw new Error(JSON.stringify(result.errors));
     expect(result.row.documents).toEqual([]);
+  });
+});
+
+describe('admissionApplicantsTab photo_consent', () => {
+  it('round-trips each value, and a blank cell stays null', () => {
+    for (const v of [...Object.values(PhotoConsent), '']) {
+      const result = admissionApplicantsTab.fromRow({ ...cells([]), photo_consent: v }, 2, ctx());
+      if ('errors' in result) throw new Error(JSON.stringify(result.errors));
+      expect(result.row.photo_consent).toBe(v === '' ? null : v);
+    }
+  });
+
+  it('rejects an invalid value', () => {
+    const result = admissionApplicantsTab.fromRow({ ...cells([]), photo_consent: 'NO' }, 2, ctx());
+    expect('errors' in result).toBe(true);
   });
 });
