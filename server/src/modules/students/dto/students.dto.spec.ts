@@ -4,6 +4,7 @@ import { validate } from 'class-validator';
 import {
   CreateStudentDto,
   QueryGuardianDto,
+  QueryStudentDto,
   QueryStudentIdsDto,
   UpdateStudentDto,
 } from './students.dto';
