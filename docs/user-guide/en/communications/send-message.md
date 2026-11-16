@@ -66,6 +66,7 @@ You can send to only one person at a time. To remind many guardians about dues t
   - [See before sending how many SMS it needs](#sms-count)
   - [Send by email](#task-email)
   - [Send by WhatsApp](#task-whatsapp)
+  - [Daily limit](#daily-limit)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -153,6 +154,16 @@ Choose **Email** in **Send by**. A **Subject** box appears. Under the guardian's
 Choose **WhatsApp** in **Send by**. The message goes to the guardian's phone number, or the alternate number if there is none.
 
 If the guardian has not replied to the school on WhatsApp in the last 24 hours, a normal message does not arrive. Then fill in an approved template in the **Template name**, **Template language** and **Template parameters (comma separated)** boxes.
+
+### Daily limit <a href="#daily-limit" id="daily-limit"></a>
+
+When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. A school that uses its own SMS gateway has no daily limit.
+
+If you try to send more than is left, the whole send is refused and nothing goes. You see: **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** When the day's number is used up: **Today's daily limit (2,000) is used up. Try again tomorrow.**
+
+What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When the limit is reached, the school's admins also get an alert, once a day for that channel.
+
+If the platform team has switched it on, a line above **Send** shows what is left: **1,700 of today's 2,000 left.**
 
 ---
 
