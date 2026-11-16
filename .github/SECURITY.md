@@ -5,6 +5,9 @@
 Report it **privately**: on this repository open **Security**, then **Report a vulnerability**
 (GitHub private vulnerability reporting).
 
+Or email **security@schoolmanagerp.com**. The same address is published at
+`/.well-known/security.txt` on every host.
+
 Please do not open a public issue or pull request for a security problem.
 
 ## Supported versions

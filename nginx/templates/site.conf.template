@@ -103,6 +103,13 @@ server {
     # or a 5xx), an expired page is served stale for as long as that lasts; nginx has no max-stale age. The only bound is eviction:
     # an entry nobody asked for in 2 hours (inactive=2h) is gone, and then the visitor gets the
     # maintenance page (503).
+    # Disclosure contact (Epic 60, D37): the platform runs the site, so a report comes to us.
+    # Same text as SECURITY_TXT in edge-mode.sh: change both together.
+    location = /.well-known/security.txt {
+        default_type text/plain;
+        return 200 "Contact: mailto:security@schoolmanagerp.com\nExpires: 2027-11-16T00:00:00Z\nPreferred-Languages: en, bn\nPolicy: https://github.com/tareq89/biddaloy/security/policy\n";
+    }
+
     location / {
         proxy_pass http://$site_upstream_name;
         proxy_cache site_cache;
