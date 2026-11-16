@@ -1,5 +1,5 @@
 import { STAFF_ROLES, UserRole } from '@biddaloy/shared';
-import { getFirstPasswordGate } from '@biddaloy/ui/api';
+import { getActiveRole, getFirstPasswordGate, isSupportSession } from '@biddaloy/ui/api';
 import {
   AccessDeniedState,
   AppHeader,
@@ -47,6 +47,7 @@ import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
+import { legalStatusQuery } from '../features/legal/use-legal-status';
 import { TrialDetailsLanding } from '../features/onboarding/trial-details-landing';
 import { useWelcomeGate } from '../features/onboarding/welcome-gate';
 import { SupportBannerHost } from '../features/support-access/support-banner-host';
@@ -99,10 +100,19 @@ export const Route = createFileRoute('/_staff')({
   // already holds a session; a reload or a new tab must land back on the
   // "set a password" card, not in the app. Client-side only — see
   // `first-password-gate.ts`.
-  beforeLoad: ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     if (getFirstPasswordGate()) {
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw redirect({ to: '/login', search: { step: 'password', redirect: location.href } });
+    }
+    // [59.3.G1.01] An ADMIN who owes a current legal version accepts it first (D6, D32).
+    // Not in a "Login as" session (D36); a failed lookup lets the page load (fail open).
+    if (getActiveRole() === UserRole.ADMIN && !isSupportSession()) {
+      const status = await context.queryClient.ensureQueryData(legalStatusQuery).catch(() => null);
+      if (status && status.pending.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw redirect({ to: '/legal/accept', search: { redirect: location.href } });
+      }
     }
   },
   // [8.14.5]: this pathless layout renders the sidebar/header chrome
