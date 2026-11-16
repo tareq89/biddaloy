@@ -322,6 +322,8 @@
       "MANUAL": "Sent by staff",
       "SINGLE_REMINDER": "Reminder (one)",
       "BULK_REMINDER": "Reminder round",
+      "STAFF_MESSAGE": "Staff message",
+      "MARKS_SMS": "Marks SMS",
       "AUTOMATED": "Automatic",
       "ACCOUNT_ACCESS": "Sign-in codes",
       "RESULT_SMS": "Exam result",

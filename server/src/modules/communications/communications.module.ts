@@ -48,6 +48,7 @@ import { DailyLimitsTodayController } from './limits/daily-limits-today.controll
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { StaffAudienceService } from './staff-audience.service';
+import { StaffMessagesService } from './staff-messages.service';
 
 @Module({
   imports: [
@@ -123,6 +124,7 @@ import { StaffAudienceService } from './staff-audience.service';
     SendLimitService,
     PlatformDailyLimitsService,
     StaffAudienceService,
+    StaffMessagesService,
   ],
   // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
   // matches routes in registration order and `CommunicationsController` has
