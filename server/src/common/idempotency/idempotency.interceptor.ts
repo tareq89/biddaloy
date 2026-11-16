@@ -35,6 +35,7 @@ import { TENANT_STATUS_REDIS } from '../../modules/schools/tenant-status.service
  * `communications/logs/:id/check-status` (a double click asks the vendor once),
  * `final-results/:id/sms` (the key is required; [70.2.1] D8),
  * `exams/:examId/marks/sheet/commit` ([81.2.1]; also single-use staging id),
+ * `exams/:examId/marks/:sectionId/:subjectId/sms` ([80.3.x]; marks SMS send; `.../sms/preview` writes nothing),
  * `admission/applicants` (clerk create, [71.G1.02]),
  * `website/gallery/albums` (create) and `website/gallery/albums/:id/photos` (upload) ([40.6.03]),
  * `academic-years/:id/next` (create the next year, [69.2.02]) and `PATCH promotions/:id/groups`

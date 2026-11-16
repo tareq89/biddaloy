@@ -69,13 +69,15 @@ shipped instead:
   one `CommunicationLog` row per recipient as each send completes —
   `GET communications/reminder/bulk/:id` polls that batch's status.
 
-## Free-form send: guardians only
+## Free-form send: one guardian at a time
 
 `POST communications/send` does not take a phone number or email. The
 caller sends a `guardian_id`; the server loads that guardian (404 if it is
 another school's) and reads the address from the guardian's own record.
 Only ADMIN, ACCOUNTANT and OFFICE_STAFF hold `COMMUNICATION_SEND`; teachers
 do not.
+
+Staff and marks messages use their own routes, see [Staff messages and marks SMS](#staff-messages-and-marks-sms-epic-80).
 
 ```mermaid
 flowchart LR
@@ -842,7 +844,6 @@ flowchart LR
 update ran on another connection and waited for a lock its own transaction held. Production code
 was correct; the fix was in the spec (#4130).
 
-
 ## Learning: school SMS screen (Epic 100, Wave 4)
 
 ```mermaid
@@ -927,3 +928,100 @@ saved `source` behaves as before.
 
 **One writer.** Only `SmsCreditService` writes the balance, ledger, lots and draws. The rule and
 its enforcing test are in [08-security.md, Money-table writers](08-security.md#candidate-rule-money-tier-tables-have-one-writer).
+
+## Staff messages and marks SMS (Epic 80)
+
+Two routes send in bulk without a `guardian_id` in the body. Both reuse the same parts as
+`POST communications/reminder/bulk`: a `reminder_batches` row, one `communication_logs` row per
+person, the `batch:<id>` credit reserve, and the `COMMUNICATIONS_QUEUE`.
+
+```mermaid
+flowchart TD
+  A["preview: who, segments, credits, skipped (writes nothing)"] --> B[send]
+  B --> C{"who is allowed?"}
+  C -- no --> X403[403]
+  C -- yes --> D["resolve people (staff audience or marks grid)"]
+  D --> E{"same sender + text + audience in last 60 s?"}
+  E -- yes --> X409[409 duplicate]
+  E -- no --> F["batch header, filters_applied.kind"]
+  F --> G{"school metered?"}
+  G -- yes --> H["reserve credits as batch:id"]
+  H -- refused --> R["delete batch, 409 INSUFFICIENT_SMS_CREDIT"]
+  H -- ok --> I
+  G -- no --> I["one log per person, queue one job each"]
+```
+
+### The two routes
+
+|                        | Staff message                                                    | Marks SMS                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Routes                 | `POST communications/staff/preview`, `POST communications/staff` | `POST exams/:examId/marks/:sectionId/:subjectId/sms/preview`, `POST .../sms`                                    |
+| Who gets it            | staff with a phone (`recipient_user_id`)                         | each reachable guardian of each student in one SUBMITTED grid                                                   |
+| Who may send           | see below                                                        | `MARKS_SMS_SEND`: ADMIN, TEACHER, EXAM_CONTROLLER (a teacher only for their own grid)                           |
+| `filters_applied.kind` | `STAFF_MESSAGE`                                                  | `MARKS_SMS` (no `kind` column, D31)                                                                             |
+| Log `trigger`          | `STAFF_MESSAGE`                                                  | `MARKS_SMS`                                                                                                     |
+| Repeat guard           | 60-second hash of sender + text + audience (D32), 409            | `reference_key = marks-sms:<gridId>:<studentId>:<guardianId>` per message (D30), already-sent pairs are skipped |
+| Text                   | typed by the sender, sent as typed                               | built by `buildMarksBody`: `Rina Akter — Half-Yearly, Math: 18/25`                                              |
+
+Example, staff message to all teachers:
+
+```http
+POST /api/v1/communications/staff
+{ "medium": "SMS", "message": "Meeting at 2pm.", "audience": { "roles": ["TEACHER"] } }
+
+200 { "batch_id": "…", "total_recipients": 14, "queued": 14, "failed": 0,
+      "skipped": [ { "user_id": "…", "reason": "no_phone" } ] }
+```
+
+The preview takes the same body and returns `people`, `with_phone`, `skipped`,
+`segments_each`, `credits_needed`, `balance` (null if the school is not metered) and `shortfall`.
+An audience is the union of `roles`, `designationIds`, `teaching` and `userIds` (D18).
+
+### Who may send a staff message (D2, D25)
+
+`PermissionsGuard` needs every listed permission, so "A or B" cannot go in
+`@RequirePermissions`. The staff routes use `@AuthenticatedOnly()` and `@Roles(ADMIN, EXECUTIVE, TEACHER)`.
+`StaffMessagesService.callerScope` then decides:
+
+```mermaid
+flowchart LR
+  R[role] --> S{"has STAFF_MESSAGE_SEND?"}
+  S -- yes --> School["school: any audience (ADMIN, EXECUTIVE)"]
+  S -- no --> C{"has STAFF_MESSAGE_COORDINATED?"}
+  C -- yes --> Co["coordinated: only teachers of the caller's coordinated classes (TEACHER)"]
+  C -- no --> F[403]
+```
+
+A coordinator whose audience resolves to nobody gets 400 `No staff to message in your classes.`
+Every failure is one fixed sentence; none repeats a name, id, phone or the typed text (Rule 23).
+Marks SMS does the opposite: `@RequirePermissions(MARKS_SMS_SEND)` is the coarse gate and
+`MarksAuthorizationService.assertCanWrite` is the object-level one (a teacher outside the grid
+gets the section 404 first, so existence never leaks).
+
+### Where users find it
+
+- Staff list row menu, "Message staff" (needs `STAFF_MESSAGE_SEND`) and the page
+  `/communications/staff-message`; palette action `staff-message.send`.
+- Coordinator "Notify teachers" dialog, with "Send as SMS" (`/my-coordination?then=notify`).
+- Marks SMS: server routes are live; the screen entry is a later Wave-4 ticket.
+
+### Learning (2026-11-16)
+
+- **Surprise:** `sendBulk` (`reminders.service.ts`) put SMS `segments` on every queued job, even for
+  a school that is not metered, so the worker had nothing to settle against. **Fixed in #4346**
+  (verified on this branch before that fix: the job data is built from the medium alone, while the
+  reserve is gated by `isMetered`). The staff and marks routes already do it right: segments go on
+  the job only when the school is metered. **Rule candidate:** any send path asks `isMetered`
+  before it puts segments on a job.
+- **Surprise:** `PermissionsGuard` is all-of (403 if the role lacks any listed permission), so an
+  any-of rule cannot sit in `@RequirePermissions`. **Fix:** `@Roles` + `@AuthenticatedOnly` +
+  `callerScope`. **Rule candidate:** an any-of rule lives in the service, with a test per role.
+- **Surprise:** `route-status.snapshot.txt` has a `#` header but no per-line comment syntax, so a
+  changed line cannot be explained inside it. **Fix:** server/CLAUDE.md already asks for each
+  changed line to be listed in the PR body. **Rule candidate:** none needed.
+- **Surprise:** a slice-only seed spec has no staff users, so the staff batches silently seeded
+  nothing. **Fix:** the spec runs the `staff` slice first and asserts at least 3 batches.
+  **Rule candidate:** a seed that depends on another slice's rows has a test that fails when they
+  are missing.
+
+Demo data: see [22-demo-seed.md](22-demo-seed.md) (`comms-print` slice).

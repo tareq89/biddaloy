@@ -372,6 +372,10 @@ export class BulkReminderService {
     const qb = this.batchRepo
       .createQueryBuilder('batch')
       .where('batch.tenant_id = :tenantId', { tenantId })
+      // [80.4.01] D31: staff-message and marks-SMS rounds live in the message log, not here.
+      .andWhere(
+        `COALESCE(batch.filters_applied ->> 'kind', '') NOT IN ('STAFF_MESSAGE', 'MARKS_SMS')`,
+      )
       // Exactly the columns toListItemDto maps. Without this, every row on
       // the page also drags back `message_template` (up to 2000 chars) and
       // the `filters_applied` jsonb — which holds the batch's whole
@@ -631,6 +635,11 @@ export class BulkReminderService {
     }
     if (query.status) qb.andWhere('log.status = :status', { status: query.status });
     if (query.trigger) qb.andWhere('log.trigger = :trigger', { trigger: query.trigger });
+    if (query.recipient_user_id) {
+      qb.andWhere('log.recipient_user_id = :recipientUserId', {
+        recipientUserId: query.recipient_user_id,
+      });
+    }
     if (query.sent_by) qb.andWhere('log.sent_by_user_id = :sentBy', { sentBy: query.sent_by });
     if (query.provider) {
       qb.andWhere(`log.metadata ->> 'provider' = :provider`, { provider: query.provider });
@@ -903,12 +912,11 @@ export class BulkReminderService {
         }),
       );
 
-      // [15.6.5/#548] `segments` is only meaningful for SMS — every other
-      // medium never touches the credit ledger, so its job data carries
-      // none. Settlement (peeling this off the batch's RESERVE) is #549;
-      // this just plumbs the number the worker will eventually need.
+      // [15.6.5/#548] `segments` is only meaningful for a metered school's
+      // SMS: every other case has no RESERVE to settle against, and the
+      // worker's settlePart would throw on it (log UNSETTLED + Sentry).
       const segments =
-        recipient.medium === CommunicationMedium.SMS
+        metered && recipient.medium === CommunicationMedium.SMS
           ? countSmsSegments(renderedBody).segments
           : undefined;
 

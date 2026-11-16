@@ -731,6 +731,8 @@ POST /communications/reminder/bulk/preview | CommunicationsController | perm: CO
 POST /communications/reminder/single/:studentId | CommunicationsController | perm: COMMUNICATION_SEND
 POST /communications/reminder/single/:studentId/preview | CommunicationsController | perm: COMMUNICATION_SEND
 POST /communications/send | CommunicationsController | perm: COMMUNICATION_SEND
+POST /communications/staff | CommunicationsController | identity | roles: ADMIN,EXECUTIVE,TEACHER
+POST /communications/staff/preview | CommunicationsController | identity | roles: ADMIN,EXECUTIVE,TEACHER
 POST /coordination/alerts | CoordinationController | perm: COORDINATION_VIEW
 POST /coordinators | CoordinatorsController | perm: CLASS_MANAGE
 POST /designations | DesignationController | perm: STAFF_HR_MANAGE
@@ -740,6 +742,8 @@ POST /exam-templates | ExamTemplatesController | perm: EXAM_MANAGE
 POST /exams | ExamsController | perm: EXAM_MANAGE
 POST /exams/:examId/components | ExamComponentsController | perm: EXAM_MANAGE
 POST /exams/:examId/components/copy | ExamComponentsController | perm: EXAM_MANAGE
+POST /exams/:examId/marks/:sectionId/:subjectId/sms | MarksSmsController | perm: MARKS_SMS_SEND
+POST /exams/:examId/marks/:sectionId/:subjectId/sms/preview | MarksSmsController | perm: MARKS_SMS_SEND
 POST /exams/:examId/marks/reopen | MarksController | perm: MARK_ENTER | roles: ADMIN
 POST /exams/:examId/marks/sheet/commit | MarksController | perm: MARK_ENTER
 POST /exams/:examId/marks/sheet/validate | MarksController | perm: MARK_ENTER

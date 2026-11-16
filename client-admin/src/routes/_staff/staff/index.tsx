@@ -14,6 +14,7 @@ import {
   RoutePending,
   StatusBadge,
   statusLabelKey,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -35,7 +36,7 @@ import {
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { IdCardIcon, PlusIcon, UserRoundCheckIcon, XIcon } from 'lucide-react';
+import { IdCardIcon, MessageSquareIcon, PlusIcon, UserRoundCheckIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -164,7 +165,7 @@ export const Route = createFileRoute('/_staff/staff/')({
           }),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff'),
+      loadRouteNamespaces('staff', 'communications'),
     ]);
   },
   pendingComponent: StaffListPending,
@@ -186,6 +187,7 @@ function StaffListPage() {
   const canPrintDocuments = useHasPermission(Permission.DOCUMENT_PRINT);
   const canReadHr = useHasPermission(Permission.STAFF_HR_READ);
   const canPrint = canPrintDocuments && canReadHr;
+  const canMessage = useHasPermission(Permission.STAFF_MESSAGE_SEND);
   const navigate = useNavigate();
 
   const [addUserOpen, setAddUserOpen] = useLandingFlag('new', canCreate);
@@ -400,32 +402,53 @@ function StaffListPage() {
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
         pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
-        {...(canPrint && !isFormer
+        {...((canPrint || canMessage) && !isFormer
           ? {
               selectedIds: state.selectedIds,
               onSelectedIdsChange: actions.setSelectedIds,
               bulkActions: (
                 <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      const nav = previewIdsNav(Array.from(state.selectedIds));
-                      void navigate({
-                        to: '/print/preview',
-                        state: nav.state,
-                        search: {
-                          kind: 'STAFF_ID_CARD',
-                          subject_type: 'STAFF',
-                          ...nav.search,
-                          from: '/staff',
-                        },
-                      });
-                    }}
-                  >
-                    <IdCardIcon aria-hidden="true" />
-                    {t('list.printIdCards', { count: state.selectedIds.size })}
-                  </Button>
+                  {canPrint && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const nav = previewIdsNav(Array.from(state.selectedIds));
+                        void navigate({
+                          to: '/print/preview',
+                          state: nav.state,
+                          search: {
+                            kind: 'STAFF_ID_CARD',
+                            subject_type: 'STAFF',
+                            ...nav.search,
+                            from: '/staff',
+                          },
+                        });
+                      }}
+                    >
+                      <IdCardIcon aria-hidden="true" />
+                      {t('list.printIdCards', { count: state.selectedIds.size })}
+                    </Button>
+                  )}
+                  {canMessage && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (state.selectedIds.size > 500) {
+                          toast.error(t('staffMessage.entry.tooMany', { ns: 'communications' }));
+                          return;
+                        }
+                        void navigate({
+                          to: '/communications/staff-message',
+                          search: { people: Array.from(state.selectedIds).join(',') },
+                        });
+                      }}
+                    >
+                      <MessageSquareIcon aria-hidden="true" />
+                      {t('staffMessage.entry.bulkAction', { ns: 'communications' })}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"

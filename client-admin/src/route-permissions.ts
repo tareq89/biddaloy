@@ -104,6 +104,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/communications/notices/$noticeId/': Permission.NOTICE_READ,
   '/_staff/communications/notices/$noticeId/edit': Permission.NOTICE_POST,
   '/_staff/communications/send': Permission.COMMUNICATION_SEND,
+  // [80.2.02] Message staff (D12, D27).
+  '/_staff/communications/staff-message': Permission.STAFF_MESSAGE_SEND,
   // [67.5.09] Manual alerts and their report (D32, D33).
   '/_staff/communications/send-alert': Permission.ALERT_SEND,
   '/_staff/reports/alerts': Permission.ALERT_REPORT_READ,
@@ -166,6 +168,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/marks/': Permission.MARK_VIEW,
   '/_staff/marks/$examId/$sectionId/$subjectId': Permission.MARK_VIEW,
   '/_staff/marks/$examId/$sectionId/$subjectId_/import': Permission.MARK_ENTER,
+  // [80.3.03] The send routes enforce MARKS_SMS_SEND + grid scope themselves.
+  '/_staff/marks/$examId/$sectionId/$subjectId_/sms': Permission.MARKS_SMS_SEND,
   // [19.8.1] `RESULT_PROCESS` — the whole `/results` route is the
   // process/publish/reopen/SMS console, ADMIN-only the same way
   // `EXAM_MANAGE` gates `/exams` above (both `RESULT_PROCESS` and
@@ -306,6 +310,7 @@ const ROUTE_MODULE_PREFIXES: readonly (readonly [string, ModuleKey])[] = [
   ['/_staff/communications/reminders', ModuleKey.fees],
   ['/_staff/communications/notices', ModuleKey.notices],
   ['/_staff/communications/send', ModuleKey.messaging],
+  ['/_staff/communications/staff-message', ModuleKey.messaging],
   ['/_staff/communications/batches', ModuleKey.messaging],
   ['/_staff/communications/message-log', ModuleKey.messaging],
   ['/_staff/applications', ModuleKey.applications],

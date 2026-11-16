@@ -132,6 +132,8 @@ export const NOT_IN_NAV: Record<string, string> = {
     'detail route reached from /marks or the exam Progress tab',
   '/_staff/marks/$examId/$sectionId/$subjectId_/import':
     'upload page reached from the marks list toolbar',
+  '/_staff/marks/$examId/$sectionId/$subjectId_/sms':
+    '[80.3.03] marks SMS page reached from the submitted marks list',
   '/_staff/results/$examId/$studentId':
     'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/results/final/$finalResultId': 'detail route reached from the final results list',
@@ -172,6 +174,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/students/new': 'action reached from the students list, not its own nav item',
   '/_staff/promotions/new':
     'action reached from the promotions list or the palette, not its own nav item',
+  '/_staff/communications/staff-message':
+    'action reached from the staff list or the palette, not its own nav item',
   '/_staff/communications/notices/new': 'action reached from the notices list or the palette',
   '/_staff/communications/notices/$noticeId/': 'detail route reached from the notices list',
   '/_staff/communications/notices/$noticeId/edit': 'edit form reached from the notice detail',

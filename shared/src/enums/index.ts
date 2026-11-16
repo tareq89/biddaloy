@@ -193,6 +193,10 @@ export enum CommunicationTrigger {
   RESULT_SMS = 'RESULT_SMS',
   /** [84.1.1] An arrival notice: guardian told when the child is marked in. */
   ARRIVAL_NOTICE = 'ARRIVAL_NOTICE',
+  /** [80.1.02] A staff-to-staff message (SMS and in-app) sent by an admin, executive or coordinated teacher. */
+  STAFF_MESSAGE = 'STAFF_MESSAGE',
+  /** [80.1.02] A marks SMS sent to a guardian from the marks screens. */
+  MARKS_SMS = 'MARKS_SMS',
 }
 
 /** Purpose of a row in `auth_tokens` (12.1's D2). */
