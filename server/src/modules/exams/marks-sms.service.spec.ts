@@ -95,10 +95,9 @@ function build(
     isMetered: vi.fn(async () => false),
     reserve: vi.fn(async () => ({ ok: true })),
   };
-  const service = new MarksSmsService(gridRepo, logRepo, batchRepo, queue, credit, {
-    record: vi.fn(),
-  } as any);
-  return { service, queue, credit, batchRepo, logRepo };
+  const audit: any = { record: vi.fn() };
+  const service = new MarksSmsService(gridRepo, logRepo, batchRepo, queue, credit, audit);
+  return { service, queue, credit, batchRepo, logRepo, audit };
 }
 
 describe('MarksSmsService', () => {
@@ -117,6 +116,15 @@ describe('MarksSmsService', () => {
     expect(o.segments).toBe(p.segments);
     expect(logRepo.save.mock.calls[0][0].message_body).toBe('Rafi — Term 1, Math: 18/25');
     expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' }); // unmetered: no segments
+  });
+
+  it('a failed audit write after queueing does not fail the send', async () => {
+    const { service, queue, audit } = build();
+    audit.record.mockRejectedValueOnce(new Error('audit down'));
+    // The message is already queued, so the caller still gets the real outcome.
+    const o = await service.send(GRID, T, 'u');
+    expect(o.queued).toBe(1);
+    expect(queue.add).toHaveBeenCalledTimes(1);
   });
 
   it('adds the grade when a result_subjects row exists', async () => {
