@@ -31,6 +31,7 @@ import {
   UserRole,
   roleHasPermission,
   WalletTransactionKind,
+  PhotoConsent,
 } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -1780,6 +1781,99 @@ describe('StudentService (integration)', () => {
       await service.remove(gone.id, TENANT_ID, null, NO_CTX);
       const next = await mk('Next', 'REUSE-1');
       expect(next.card_no).toBe('REUSE-1');
+    });
+  });
+
+  describe('photo consent [59.2.01]', () => {
+    const CONSENT_USER = '00000000-0000-4000-8000-0000000c0a01';
+    const mk = (name: string) =>
+      service.create({ full_name: name, class_section_id: SEED_SECTION_1_ID }, TENANT_ID);
+    const auditRows = (id: string) =>
+      dataSource.query(
+        `SELECT old_values, new_values FROM audit_logs WHERE entity_id = $1 AND action = 'UPDATE'`,
+        [id],
+      );
+
+    beforeAll(async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
+         VALUES ($1, 'consent-user@example.com', 'Consent Fixture', 'ACTIVE', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [CONSENT_USER],
+      );
+    });
+
+    it('a consent change stamps who and when, and audits old to new', async () => {
+      const s = await mk('Consent Stamp');
+      const updated = await service.update(
+        s.id,
+        { photo_consent: PhotoConsent.GIVEN },
+        TENANT_ID,
+        CONSENT_USER,
+        NO_CTX,
+      );
+      expect(updated.photo_consent).toBe(PhotoConsent.GIVEN);
+      expect(updated.photo_consent_recorded_by).toBe(CONSENT_USER);
+      expect(updated.photo_consent_recorded_at).toBeInstanceOf(Date);
+      const [log] = await auditRows(s.id);
+      expect(log.old_values.photo_consent).toBe('UNKNOWN');
+      expect(log.new_values.photo_consent).toBe('GIVEN');
+    });
+
+    it('re-sending the same consent does not restamp', async () => {
+      const s = await mk('Consent Same');
+      await service.update(s.id, { photo_consent: PhotoConsent.GIVEN }, TENANT_ID, CONSENT_USER);
+      const first = await studentRepo.findOneByOrFail({ id: s.id });
+      await service.update(s.id, { photo_consent: PhotoConsent.GIVEN }, TENANT_ID, CONSENT_USER);
+      const second = await studentRepo.findOneByOrFail({ id: s.id });
+      expect(second.photo_consent_recorded_at?.getTime()).toBe(
+        first.photo_consent_recorded_at?.getTime(),
+      );
+      expect(await auditRows(s.id)).toHaveLength(1);
+    });
+
+    it('REFUSED with a photo clears photo_key and the audit says so', async () => {
+      const s = await mk('Consent Refuse');
+      await studentRepo.update({ id: s.id }, { photo_key: 'k/old.jpg' });
+      await service.update(
+        s.id,
+        { photo_consent: PhotoConsent.REFUSED },
+        TENANT_ID,
+        CONSENT_USER,
+        NO_CTX,
+      );
+      expect((await studentRepo.findOneByOrFail({ id: s.id })).photo_key).toBeNull();
+      const [log] = await auditRows(s.id);
+      expect(log.old_values.photo_key).toBe('k/old.jpg');
+      expect(log.new_values.photo_removed).toBe(true);
+    });
+
+    it('re-sending REFUSED on a student that has a photo key clears it again', async () => {
+      const s = await mk('Consent Resend');
+      await service.update(s.id, { photo_consent: PhotoConsent.REFUSED }, TENANT_ID, CONSENT_USER);
+      await studentRepo.update({ id: s.id }, { photo_key: 'k/restored.jpg' });
+      await service.update(s.id, { photo_consent: PhotoConsent.REFUSED }, TENANT_ID, CONSENT_USER);
+      expect((await studentRepo.findOneByOrFail({ id: s.id })).photo_key).toBeNull();
+      const logs = await auditRows(s.id);
+      expect(logs[logs.length - 1].old_values.photo_key).toBe('k/restored.jpg');
+    });
+
+    it('GIVEN to UNKNOWN keeps the photo', async () => {
+      const s = await mk('Consent Keep');
+      await service.update(s.id, { photo_consent: PhotoConsent.GIVEN }, TENANT_ID, CONSENT_USER);
+      await studentRepo.update({ id: s.id }, { photo_key: 'k/keep.jpg' });
+      await service.update(s.id, { photo_consent: PhotoConsent.UNKNOWN }, TENANT_ID, CONSENT_USER);
+      expect((await studentRepo.findOneByOrFail({ id: s.id })).photo_key).toBe('k/keep.jpg');
+    });
+
+    it('the photo_consent filter returns only matching students', async () => {
+      const a = await mk('Filter A');
+      const b = await mk('Filter B');
+      await service.update(a.id, { photo_consent: PhotoConsent.REFUSED }, TENANT_ID, CONSENT_USER);
+      const res = await service.findAll({ photo_consent: PhotoConsent.UNKNOWN } as any, TENANT_ID);
+      const ids = res.data.map((r: Student) => r.id);
+      expect(ids).toContain(b.id);
+      expect(ids).not.toContain(a.id);
     });
   });
 

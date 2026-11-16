@@ -1,13 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import sharp from 'sharp';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, PhotoConsent } from '@biddaloy/shared';
 import { StudentPhotoService } from './student-photo.service';
 
 const TENANT = 'aaaaaaaa-0000-4000-8000-000000000001';
 const USER = 'bbbbbbbb-0000-4000-8000-000000000002';
 
-type Row = { id: string; full_name: string; registration_number: string; photo_key: string | null };
+type Row = {
+  id: string;
+  full_name: string;
+  registration_number: string;
+  photo_key: string | null;
+  photo_consent?: PhotoConsent;
+};
 
 function setup(students: Row[]) {
   const txRepo = {
@@ -162,6 +168,42 @@ describe('StudentPhotoService', () => {
     expect(repo.findOne.mock.calls[0][0].where).toMatchObject({
       registration_number: 'REG-1',
       tenant_id: TENANT,
+    });
+  });
+
+  describe('[59.2.01] photo consent', () => {
+    it('upload for a REFUSED student gives 409 PHOTO_CONSENT_REFUSED and stores nothing', async () => {
+      const { service, storage, audit } = setup([{ ...s1, photo_consent: PhotoConsent.REFUSED }]);
+      const err = await service.upload('s1', await png(), TENANT, USER).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details).toEqual({ code: 'PHOTO_CONSENT_REFUSED' });
+      expect(storage.put).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('bulk upload skips the REFUSED student with the code; the others are stored', async () => {
+      const s2 = { ...student('s2', 'REG-2'), photo_consent: PhotoConsent.REFUSED };
+      const { service, storage } = setup([s1, s2]);
+      const buffer = await png();
+      const res = await service.bulkUpload(
+        [
+          { originalname: 'REG-1.png', buffer },
+          { originalname: 'REG-2.png', buffer },
+        ],
+        TENANT,
+        USER,
+      );
+      expect(res.matched.map((m) => m.student_id)).toEqual(['s1']);
+      expect(res.invalid).toEqual([
+        expect.objectContaining({ file: 'REG-2.png', code: 'PHOTO_CONSENT_REFUSED' }),
+      ]);
+      expect(storage.put).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([PhotoConsent.UNKNOWN, PhotoConsent.GIVEN])('%s is allowed', async (consent) => {
+      const { service, storage } = setup([{ ...s1, photo_consent: consent }]);
+      await service.upload('s1', await png(), TENANT, USER);
+      expect(storage.put).toHaveBeenCalledTimes(1);
     });
   });
 });
