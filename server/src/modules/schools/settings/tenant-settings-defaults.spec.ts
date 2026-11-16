@@ -101,3 +101,10 @@ describe('DEFAULT_SUPPORT_ACCESS_SETTINGS [99.1.04]', () => {
     });
   });
 });
+describe('communications defaults [60.0 D31]', () => {
+  it('carries no dailyLimits default (SendLimitService owns the fallback chain)', () => {
+    // Non-vacuous: scan the whole defaults object, so a default added anywhere fails.
+    expect(Object.keys(DEFAULT_TENANT_SETTINGS).length).toBeGreaterThan(0);
+    expect(JSON.stringify(DEFAULT_TENANT_SETTINGS)).not.toContain('dailyLimits');
+  });
+});

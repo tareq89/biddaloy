@@ -17,6 +17,7 @@ import {
 import {
   alertRuleMeta,
   ApprovalMode,
+  DAILY_LIMIT_MAX,
   DailyAttendanceSource,
   isAlertRuleKey,
   SERIAL_PREFIX_PATTERN,
@@ -33,6 +34,18 @@ import type {
   StudyPlansSettings,
   TenantSettings,
 } from '@biddaloy/shared';
+
+/** [60.0 D31] Only the school's own valid stored values; no defaults filled here (SendLimitService does the chain). */
+export function sanitiseDailyLimits(raw: unknown): Record<string, unknown> | undefined {
+  if (!isPlainObject(raw)) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const k of ['sms', 'email', 'whatsapp']) {
+    const v = raw[k];
+    if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= DAILY_LIMIT_MAX) out[k] = v;
+  }
+  if (typeof raw.showRemaining === 'boolean') out.showRemaining = raw.showRemaining;
+  return out;
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -328,7 +341,12 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     ? overlaidBackup
     : { ...overlaidBackup, schedule: DEFAULT_BACKUP_SETTINGS.schedule };
   const communications = isPlainObject(stored?.communications)
-    ? (stored.communications as TenantSettings['communications'])
+    ? ({
+        ...stored.communications,
+        ...(Object.hasOwn(stored.communications, 'dailyLimits')
+          ? { dailyLimits: sanitiseDailyLimits(stored.communications.dailyLimits) }
+          : {}),
+      } as TenantSettings['communications'])
     : undefined;
   // Same read-side guard as `backup.schedule` above — `FeesSettingsDto`'s
   // `@IsIn` rejects a bad `approvalMode` on write; this covers a row that
