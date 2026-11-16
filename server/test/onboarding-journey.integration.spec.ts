@@ -58,6 +58,7 @@ describe('Onboarding journey (server)', () => {
         phone: `0171${suffix}`,
         email: `journey-${suffix}@example.com`,
         terms_accepted: true,
+        terms_version: '1.0',
         captcha_token: 'ok',
       })
       .expect(202);
