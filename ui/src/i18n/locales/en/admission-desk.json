@@ -304,7 +304,8 @@
       "status": "Status"
     },
     "listTitle": "{{list}}",
+    "listCut": "Only the first {{shown}} of {{total}} names are on this sheet. The rest are not printed.",
     "listEmpty": "This list has no one on it.",
-    "capped": "Printing the first {{max}} of {{total}} admit cards (the most one job takes). Print again after confirming these."
+    "capped": "Printing all {{total}} admit cards in batches of {{max}} (the most one job takes). Confirm each batch in the preview."
   }
 }

@@ -146,6 +146,7 @@ function ListCard({
           roundId={roundId}
           title={isMerit ? t('card.merit') : t('card.waiting', { n: n(list.sequence) })}
           members={list.members}
+          total={Object.values(list.counts).reduce((a, b) => a + b, 0)}
         />
       </div>
       {activateReason ? (

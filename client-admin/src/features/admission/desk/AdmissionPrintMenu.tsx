@@ -11,6 +11,7 @@ import { renderDigits } from '@biddaloy/ui/utils';
 import { useRouter } from '@tanstack/react-router';
 import * as React from 'react';
 
+import { previewIdsNav } from '../../../components/print/preview-ids';
 import { PrintSheet, type PrintSheetData } from './PrintSheet';
 
 export interface PrintStage {
@@ -55,20 +56,19 @@ export function AdmissionPrintMenu({ roundId, stage }: { roundId: string; stage:
   async function admitCards() {
     const rows = await load();
     if (!rows) return;
+    // The preview batches by PRINT_BATCH_CEILING itself; never drop applicants here.
     if (rows.length > PRINT_BATCH_CEILING)
       toast.info(t('print.capped', { max: PRINT_BATCH_CEILING, total: rows.length }));
+    const nav = previewIdsNav(rows.map((r) => r.id));
     const search = new URLSearchParams({
       kind: 'ADMISSION_ADMIT_CARD',
       subject_type: 'APPLICANT',
       context_type: 'ADMISSION_STAGE',
       context_id: stage.id,
-      ids: rows
-        .slice(0, PRINT_BATCH_CEILING)
-        .map((r) => r.id)
-        .join(','),
+      ...(nav.search.ids ? { ids: nav.search.ids } : {}),
       from: `/admissions/rounds/${roundId}?step=${stage.id}`,
     });
-    router.history.push(`/print/preview?${search.toString()}`);
+    router.history.push(`/print/preview?${search.toString()}`, nav.state);
   }
 
   async function attendance() {
@@ -112,15 +112,18 @@ export function AdmissionPrintMenu({ roundId, stage }: { roundId: string; stage:
   );
 }
 
-/** [71.5.01] Prints a merit or waiting list (its first 500 members, the most the desk loads). */
+/** [71.5.01] Prints a merit or waiting list (the members the desk loaded; warns when the list is longer). */
 export function PrintListButton({
   roundId,
   title,
   members,
+  total,
 }: {
   roundId: string;
   title: string;
   members: { position: number; applicant_name: string }[];
+  /** The list's full size; when above `members.length` the sheet is cut and the user is told. */
+  total?: number;
 }) {
   const { t } = useTranslation('admission-desk');
   const region = useRegionConfig();
@@ -133,6 +136,8 @@ export function PrintListButton({
         variant="outline"
         onClick={() => {
           if (members.length === 0) return void toast.error(t('print.listEmpty'));
+          if (total !== undefined && total > members.length)
+            toast.info(t('print.listCut', { shown: members.length, total }));
           setSheet({
             school: school.data?.name ?? '',
             title,
