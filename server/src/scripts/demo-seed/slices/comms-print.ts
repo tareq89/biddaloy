@@ -675,7 +675,7 @@ async function staffMessages(
         units: debits.length,
         reference_type: 'manual',
         reference_id: null,
-        idempotency_key: 'demo-grant:staff-messages',
+        idempotency_key: `demo-grant:staff-messages:${tenant.slug}`,
         reason: 'ডেমো টপ-আপ',
         actor_user_id: adminId,
         created_at: first,
