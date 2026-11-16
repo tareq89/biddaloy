@@ -41,12 +41,12 @@ import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
 import { useModuleGate } from '../../module-gate';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
-import { PortalQueryError } from './-portal-query-error';
 import { AttendanceHeatmapCard } from './-attendance-heatmap-card';
 import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
 import { HomeworkCard } from './-homework-card';
 import { LatestResultCard } from './-latest-result-card';
 import { NextHolidayCard } from './-next-holiday-card';
+import { PortalQueryError } from './-portal-query-error';
 import { PortalSurveysCard } from './-surveys-card';
 import { TodayStrip } from './-today-strip';
 

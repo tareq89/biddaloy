@@ -33,8 +33,8 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
-import { PortalQueryError } from './-portal-query-error';
 import { ArrivalNoticeCard } from './-arrival-notice-card';
+import { PortalQueryError } from './-portal-query-error';
 
 /**
  * [9.9] — one guardian, one child, one month: the portal's per-child

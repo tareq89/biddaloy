@@ -58,8 +58,8 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
-import { PortalQueryError } from './-portal-query-error';
 import { MyProofsTab } from './-my-proofs-tab';
+import { PortalQueryError } from './-portal-query-error';
 
 /**
  * [5.3] — the fee breakdown and invoice history behind [5.2]'s landing.
