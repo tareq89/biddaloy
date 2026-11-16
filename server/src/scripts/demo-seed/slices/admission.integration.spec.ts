@@ -149,7 +149,12 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
     const statuses = await q<{ status: string }>(
       `SELECT DISTINCT status FROM admission_applicants ORDER BY status`,
     );
-    expect(statuses.map((r) => r.status)).toEqual(['ADMITTED', 'PENDING', 'REJECTED', 'SHORTLISTED']);
+    expect(statuses.map((r) => r.status)).toEqual([
+      'ADMITTED',
+      'PENDING',
+      'REJECTED',
+      'SHORTLISTED',
+    ]);
     const [{ n: bare }] = await q<{ n: string }>(
       `SELECT count(*) AS n FROM admission_applicants a WHERE a.status = 'SHORTLISTED'
           AND NOT EXISTS (SELECT 1 FROM admission_evaluations e WHERE e.applicant_id = a.id)`,
@@ -167,6 +172,25 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
          WHERE p.state <> a.fee_state`,
     );
     expect(Number(mismatched)).toBe(0);
+    // The full pipeline shows: scored results, merit + waiting list 1 with a deadline, both fee
+    // states a clerk must act on (awaiting) or the guardian must fix (sent back, with a reason).
+    const [{ n: scored }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_stage_results WHERE score IS NOT NULL`,
+    );
+    expect(Number(scored)).toBeGreaterThan(0);
+    const lists = await q<{ kind: string; sequence: number; act_by_date: string | null }>(
+      `SELECT kind, sequence, act_by_date::text FROM admission_lists`,
+    );
+    expect(lists.some((l) => l.kind === 'MERIT')).toBe(true);
+    expect(lists.some((l) => l.kind === 'WAITING' && l.sequence === 1 && l.act_by_date)).toBe(true);
+    const [{ n: awaiting }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_fee_proofs WHERE state = 'AWAITING'`,
+    );
+    expect(Number(awaiting)).toBeGreaterThan(0);
+    const [{ n: sentBack }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_fee_proofs WHERE state = 'SENT_BACK' AND reason IS NOT NULL`,
+    );
+    expect(Number(sentBack)).toBeGreaterThan(0);
     expect(await validate(ds)).toEqual([]);
   }, 120_000);
 });

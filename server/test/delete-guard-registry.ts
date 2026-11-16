@@ -680,6 +680,8 @@ export const GUARDED: Guarded[] = [
     },
   },
   auto('AdmissionIntake.class_section -> ClassSection', 'ClassSection'),
+  auto('AdmissionIntake.class -> Class', 'Class'),
+  auto('AdmissionIntake.academic_year -> AcademicYear', 'AcademicYear'),
   auto('Application.academic_year -> AcademicYear', 'AcademicYear'),
   auto('AttendanceDevice.section -> ClassSection', 'ClassSection'),
   auto('AttendanceSession.section -> ClassSection', 'ClassSection'),

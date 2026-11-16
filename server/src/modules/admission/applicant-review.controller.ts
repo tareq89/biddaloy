@@ -100,6 +100,22 @@ export class ApplicantReviewController {
     return this.review.admit(id, dto, tenant.id, user.sub);
   }
 
+  @Post(':id/expire')
+  @ApiOperation({ summary: 'Mark an OFFERED applicant EXPIRED (offer deadline missed).' })
+  expire(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    const ctx = requestContext(request);
+    return this.review.expire(id, tenant.id, {
+      userId: user.sub,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+  }
+
   @Post(':id/reject')
   @ApiOperation({ summary: 'Reject an applicant. No student record is created.' })
   reject(

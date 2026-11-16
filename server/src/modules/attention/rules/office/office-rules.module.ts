@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AcrIncompleteRule } from './acr-incomplete.rule';
 import { AdmissionApplicationsPendingRule } from './admission-applications-pending.rule';
+import { AdmissionListDeadlineRule } from './admission-list-deadline.rule';
 import { AdmissionIntakeWindowRule } from './admission-intake-window.rule';
 import { LeaveMyRequestDecidedRule } from './leave-my-request-decided.rule';
 import { LeaveStaffPendingRule } from './leave-staff-pending.rule';
@@ -11,6 +12,7 @@ import { StudentsRecordsIncompleteRule } from './students-records-incomplete.rul
   providers: [
     AdmissionApplicationsPendingRule,
     AdmissionIntakeWindowRule,
+    AdmissionListDeadlineRule,
     StudentsRecordsIncompleteRule,
     LeaveStaffPendingRule,
     LeaveMyRequestDecidedRule,

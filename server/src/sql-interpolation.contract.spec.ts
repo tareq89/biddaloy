@@ -48,6 +48,15 @@ const JOIN_COND = new RegExp(
 /** Per file (path relative to server/src): the sorted `${...}` expressions that
  * appear in direct query arguments. Audited 2026-10-13: none is request input. */
 const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
+  // [71.4184] APPLICANT_COLS is a module constant; FEE_PENDING is an enum constant; `common` is a fixed
+  // fragment built from them. Every value (tenant, list, flags) is bound as $n.
+  'modules/admission/admission-publication.service.ts': [
+    'APPLICANT_COLS',
+    'APPLICANT_COLS',
+    'AdmissionApplicantStatus.FEE_PENDING',
+    'common',
+    'common',
+  ],
   // [Epic 100] module-level SQL column/select constants and fixed fragments; every value is bound as $n
   'modules/billing/orders.service.ts': ['ORDER_SELECT', 'ORDER_SELECT'],
   'modules/coupons/coupon-redemption.service.ts': ['COUPON_COLUMNS'],

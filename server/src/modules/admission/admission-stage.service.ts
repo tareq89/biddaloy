@@ -6,7 +6,10 @@ import { AdmissionStage } from './entities/admission-stage.entity';
 import { AdmissionStageResult } from './entities/admission-stage-result.entity';
 import { CreateStageDto, UpdateStageDto } from './dto/stage.dto';
 import { assertYearOpen } from '../../common/utils/year-open.guard';
-import { admissionStageHasResults } from '../../common/filters/known-errors';
+import {
+  admissionStageHasResults,
+  admissionStageKindLocked,
+} from '../../common/filters/known-errors';
 
 const MAX_CONFIG_CHARS = 2000;
 
@@ -26,7 +29,7 @@ export class AdmissionStageService {
   ) {}
 
   /** Locks the round row for the write; 404 when it is not this tenant's. */
-  private async lockIntake(
+  async lockIntake(
     manager: EntityManager,
     intakeId: string,
     tenantId: string,
@@ -109,9 +112,21 @@ export class AdmissionStageService {
     return this.dataSource.transaction(async (manager) => {
       await this.lockIntake(manager, intakeId, tenantId);
       const stage = await this.getStage(manager, id, intakeId, tenantId);
-      if (dto.kind !== undefined) stage.kind = dto.kind;
+      if (dto.kind !== undefined && dto.kind !== stage.kind) {
+        // Results are written under this same intake lock, so none can slip in after this count.
+        const results = await manager
+          .getRepository(AdmissionStageResult)
+          .count({ where: { stage_id: stage.id, tenant_id: tenantId } });
+        if (results > 0) throw admissionStageKindLocked();
+        stage.kind = dto.kind;
+      }
       if (dto.title !== undefined) stage.title = dto.title;
-      if (dto.config !== undefined) stage.config = dto.config;
+      if (dto.config !== undefined) {
+        // [#4184] The publish flag is owned by the publish route: keep it as stored.
+        const { published_at: _drop, ...rest } = dto.config as Record<string, unknown>;
+        const keep = stage.config?.published_at;
+        stage.config = keep === undefined ? rest : { ...rest, published_at: keep };
+      }
       return manager.getRepository(AdmissionStage).save(stage);
     });
   }

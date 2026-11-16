@@ -4,6 +4,13 @@ title: Admission rounds and the online admission form
 summary: Decide which class takes how many seats, and from when to when applications are open online; guardians fill in the form on their phone, get a reference number and check their application status later.
 roles: [ADMIN, OFFICE_STAFF]
 sources:
+  - site/src/pages/[lang]/admission.astro
+  - site/src/pages/[lang]/admission-status.astro
+  - site/src/pages/[lang]/admission-result.astro
+  - site/src/pages/[lang]/admission-lists.astro
+  - site/src/islands/admission-form.ts
+  - site/src/islands/admission-result.ts
+  - site/src/themes/basic/AdmissionRibbon.astro
   - client-admin/src/routes/_staff/admissions/intakes/index.tsx
   - client-admin/src/routes/_staff/admissions/intakes/$intakeId.tsx
   - client-admin/src/routes/admission/$slug/index.tsx
@@ -70,6 +77,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
   - [See the applicants of one round](#task-applicants)
   - [How a guardian applies from a phone](#task-public)
   - [How a guardian checks the application status](#task-status)
+  - [On the school's website: apply, status, result and lists](#task-site)
   - [From application to admitted student](#task-flow)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
@@ -217,6 +225,47 @@ This part is written from the guardian's side, so the office can talk them throu
 <img src="img/admission-intakes-05.png" alt="the status card on a guardian's phone: 1 the Being reviewed badge, 2 the what-to-do-next text, guest" width="300">
 
 Guardians do not see staff notes or the reason for a rejection on this page.
+
+### On the school's website: apply, status, result and lists <a href="#task-site" id="task-site"></a>
+
+The school's public website has four pages for admission. None needs a sign-in. Each works in Bangla and English (`/bn/…` and `/en/…`).
+
+| Page | Address ends with | Who uses it | What it does |
+| ---- | ----------------- | ----------- | ------------ |
+| Admission application | `/admission` | Guardian | Shows the open **admission rounds**. The guardian picks one, fills the form and submits. |
+| Application status | `/admission-status` | Guardian | **Reference number** + **Phone given in the application** → **See status**. |
+| See your admission result | `/admission-result` | Guardian | **Roll number** + **Phone given in the application** → **See result**. |
+| Admission lists | `/admission-lists` | Anyone | Shows the published lists. **Roll numbers** are always shown. Names are shown too when the round's **show names publicly** setting is on. |
+
+1. The guardian opens `/admission` and, if more than one round is open, presses **Choose** under the round they want.
+
+   → The form for that round opens. The boxes are the ones this round asks for, so two rounds can show different forms. A box marked required must be filled; a wrong one shows a red note such as **This is needed** or **The mobile number is not right (for example 017…)**.
+
+2. If the round has a fee, a **Fee** box says "The fee is … taka. Send it, then fill in the details below. The school will do the fee check." The guardian chooses **How you sent it** (bKash, Nagad, Rocket or Bank), enters **The number or transaction ID you sent from**, and adds a **Screenshot or slip** (photo or PDF, up to 5 MB).
+
+   → Without the way you sent it and the screenshot or slip, the form says **Give how you sent the fee, and a screenshot or slip.**
+
+3. They press **Submit application**.
+
+   → The page says **Your application is in. Your reference number:** and shows the number large. **Write this down. You need this number and your phone number to see the status.** A link **See your application status** opens `/admission-status`. If the round has a fee: **The school will do the fee check. You will be told when it is done.**
+
+4. Later, on `/admission-status`, the guardian enters the reference number and phone, then presses **See status**.
+
+   → One line: "<name>, your application status: …". The words are: **Being checked**, **Picked**, **Admitted**, **Application not accepted**, **Fee check pending**, **A seat has been offered**, **On a waiting list**, **The admission date has passed**.
+
+5. When the school has published results, on `/admission-result` the guardian enters **Roll number** and **Phone given in the application**, then presses **See result**.
+
+   → They see **Stage results** (**Passed** or **Not passed** for each stage), and "You are number … in the merit list." or "You are number … in waiting list …", with **Last date to take admission**. If nothing is published yet: **No stage result has been published yet.**
+
+6. Under the result, **Print admit card** opens the print view and the browser's print box.
+
+   → The **Admit card** shows **Name**, **Guardian**, **Date of birth**, **Admission round**, the **Date**, **Time** and **Place** of each stage, and an empty **Photo** box. If the school has not set an exam time: **The exam time has not been told yet.**
+
+7. On `/admission-lists` anyone sees the published **Merit list**, **Waiting list 1/2/3** and **Call list** of each round, with **Last date to take admission**. Each place shows the roll number only. If none is published: **No list has been published yet**. A link **Give your roll and phone to see the name** goes to `/admission-result`.
+
+> **Remember:** a wrong roll number or phone gets the same answer, **It does not match. Please look again.**, so nobody can guess. If a round has been closed or no round exists: **There is no admission round yet**. These pages need the website to be [published](../administration/website.md#task-publish) first.
+
+<!-- unverified: not run in the app; written from the site pages and their texts -->
 
 ### From application to admitted student <a href="#task-flow" id="task-flow"></a>
 

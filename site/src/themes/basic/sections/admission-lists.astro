@@ -1,0 +1,32 @@
+---
+import { formatDay } from '../../../lib/day';
+import { field } from '../../../lib/pick';
+import type { SectionProps } from '../../../lib/types';
+
+const { data, lang, feed } = Astro.props as SectionProps;
+const title = field(data.title, lang) ?? (lang === 'en' ? 'Admission lists' : 'ভর্তির তালিকা');
+const loc = lang === 'en' ? 'en-GB' : 'bn-BD';
+const bn = lang !== 'en';
+const L = bn
+  ? { merit: 'মেধা তালিকা', waiting: 'অপেক্ষা-তালিকা', last: 'ভর্তির শেষ তারিখ' }
+  : { merit: 'Merit list', waiting: 'Waiting list', last: 'Last date to take admission' };
+const label = (kind: unknown, seq: unknown) => (kind === 'WAITING' ? `${L.waiting} ${seq}` : L.merit);
+type Member = { roll?: string; name?: string };
+const lists = feed.filter((l) => Array.isArray(l.members) && l.members.length > 0);
+---
+{lists.length > 0 && (
+  <section class="sec" id="admission-lists"><div class="wrap">
+    <div class="sec-head"><h2>{title}</h2></div>
+    {lists.map((l) => (
+      <div class="adm-list card">
+        <h3>{String(l.round_title)} — {label(l.kind, l.sequence)}</h3>
+        {typeof l.act_by_date === 'string' && (
+          <p class="small muted">{L.last}: {formatDay(l.act_by_date, loc, { dateStyle: 'long' })}</p>
+        )}
+        <ul class="adm-rolls">
+          {(l.members as Member[]).map((m) => <li><b>{m.roll}</b>{m.name && <span class="small">{m.name}</span>}</li>)}
+        </ul>
+      </div>
+    ))}
+  </div></section>
+)}

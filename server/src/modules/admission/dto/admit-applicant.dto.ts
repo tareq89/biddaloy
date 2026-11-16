@@ -24,4 +24,10 @@ export class AdmitApplicantDto {
   @ValidateIf((o: AdmitApplicantDto) => o.guardian_choice === 'LINK_EXISTING')
   @IsUUID()
   guardian_id?: string;
+
+  /** The section to admit into; omitted uses the round's fixed section. */
+  @ApiProperty({ required: false, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  class_section_id?: string;
 }

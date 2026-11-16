@@ -91,6 +91,53 @@ export function admissionStageHasResults(): ConflictException {
   });
 }
 
+// [#4180] Fixed texts for admission stage results. No ids, no echoed input.
+export function admissionStageKindLocked(): ConflictException {
+  return new ConflictException({
+    message: 'This stage has results, so its kind cannot be changed',
+    details: { code: 'ADMISSION_STAGE_KIND_LOCKED' },
+  });
+}
+
+export function admissionResultsIncomplete(): ConflictException {
+  return new ConflictException({
+    message: 'Some applicants in this stage have no result yet',
+    details: { code: 'ADMISSION_RESULTS_INCOMPLETE' },
+  });
+}
+
+export function admissionStageNotScored(): ConflictException {
+  return new ConflictException({
+    message: 'This stage has no total marks, so it has no cut-off',
+    details: { code: 'ADMISSION_STAGE_NOT_SCORED' },
+  });
+}
+
+// [#4181] A lottery stage is filled once, by draw or by import. Fixed text, no ids.
+export function lotteryAlreadyDrawn(): ConflictException {
+  return new ConflictException({
+    message: 'This lottery has already been drawn',
+    details: { code: 'LOTTERY_ALREADY_DRAWN' },
+  });
+}
+
+// [#4182] Fixed texts for admission lists. No ids, no echoed input.
+const ADMISSION_LIST_CONFLICTS = {
+  MERIT_LIST_EXISTS: 'This round already has a merit list',
+  MERIT_LIST_MISSING: 'Create the merit list first',
+  LIST_ALREADY_ACTIVATED: 'This list has already been activated',
+  PREVIOUS_LIST_NOT_ACTIVATED: 'The previous list has not been activated yet',
+  PREVIOUS_DEADLINE_NOT_PASSED: 'The previous list is still within its act-by date',
+  NO_SEATS_LEFT: 'This round has no vacant seats',
+  DEADLINE_NOT_PASSED: 'The act-by date of this list has not passed',
+  LIST_NOT_ACTIVATED: 'This list has not been activated yet',
+  LIST_LOCKED: 'An activated list cannot be edited',
+} as const;
+export type AdmissionListConflictCode = keyof typeof ADMISSION_LIST_CONFLICTS;
+export function admissionListConflict(code: AdmissionListConflictCode): ConflictException {
+  return new ConflictException({ message: ADMISSION_LIST_CONFLICTS[code], details: { code } });
+}
+
 function mapHomeworkActiveUnique(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;
   const { code, constraint } = exception.driverError as { code?: string; constraint?: string };

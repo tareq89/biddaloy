@@ -25,6 +25,8 @@ const FEED_KEYS = [
   'blog',
   'fees',
   'admissions',
+  'admission_result',
+  'admission_lists',
   'gallery',
 ];
 /** At most one error log per this window, so a Redis outage does not flood the log. */
