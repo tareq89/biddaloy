@@ -97,6 +97,10 @@ export enum Permission {
 
   // Communication
   COMMUNICATION_SEND = 'COMMUNICATION_SEND',
+  // [80.1.02] Epic 80 D1/D25/D28: staff messaging and marks SMS.
+  STAFF_MESSAGE_SEND = 'STAFF_MESSAGE_SEND',
+  STAFF_MESSAGE_COORDINATED = 'STAFF_MESSAGE_COORDINATED',
+  MARKS_SMS_SEND = 'MARKS_SMS_SEND',
   COMMUNICATION_BULK_SEND = 'COMMUNICATION_BULK_SEND',
   COMMUNICATION_LOG_READ = 'COMMUNICATION_LOG_READ',
   // [15.6.7] `GET /communications/sms-credits` — a tenant's own SMS credit
@@ -302,6 +306,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.SUPER_ADMIN]: Object.values(Permission),
 
   [UserRole.ADMIN]: [
+    Permission.STAFF_MESSAGE_SEND,
+    Permission.MARKS_SMS_SEND,
     Permission.NOTICE_POST,
     Permission.NOTICE_MANAGE,
     Permission.NOTICE_READ,
@@ -512,6 +518,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.TEACHER]: [
+    Permission.STAFF_MESSAGE_COORDINATED,
+    Permission.MARKS_SMS_SEND,
     // [8.15.24] D9 — teachers run reports, narrowed to their own sections; they cannot export or design.
     Permission.REPORTS_VIEW,
     Permission.NOTICE_POST,
@@ -624,6 +632,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.EXECUTIVE]: [
+    Permission.STAFF_MESSAGE_SEND,
     Permission.NOTICE_POST,
     Permission.NOTICE_MANAGE,
     Permission.NOTICE_READ,
@@ -736,6 +745,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // #1358 exam controller: runs exams, seat plans and results; reads marks
   // and (81 D5b) enters them as backup for an absent teacher; prints documents but never edits templates.
   [UserRole.EXAM_CONTROLLER]: [
+    Permission.MARKS_SMS_SEND,
     Permission.NOTICE_READ,
     Permission.STEP_UP_REQUEST,
     // [52.1.1] Applications (D22/D45)

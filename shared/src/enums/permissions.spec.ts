@@ -978,6 +978,7 @@ describe('new role grants [#1358]', () => {
       Permission.SEAT_PLAN_MANAGE,
       Permission.MARK_VIEW,
       Permission.MARK_ENTER, // [81.0.1] D5b
+      Permission.MARKS_SMS_SEND, // [80.1.02] D28
       Permission.RESULT_PROCESS,
       Permission.RESULT_PUBLISH,
       Permission.RESULT_READ,
@@ -1204,5 +1205,27 @@ describe('PAYMENT_SUBMIT [3.x] D4/D34', () => {
     for (const r of [UserRole.STUDENT, UserRole.ADMIN, UserRole.ACCOUNTANT]) {
       expect(roleHasPermission(r, Permission.PAYMENT_SUBMIT)).toBe(false);
     }
+  });
+});
+
+describe('[80.1.02] staff messaging + marks SMS grants', () => {
+  const holders = (p: Permission) =>
+    Object.values(UserRole)
+      .filter((r) => ROLE_PERMISSIONS[r].includes(p))
+      .sort();
+  it('STAFF_MESSAGE_SEND: ADMIN, EXECUTIVE (+ SUPER_ADMIN)', () => {
+    expect(holders(Permission.STAFF_MESSAGE_SEND)).toEqual(
+      [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.SUPER_ADMIN].sort(),
+    );
+  });
+  it('STAFF_MESSAGE_COORDINATED: TEACHER (+ SUPER_ADMIN)', () => {
+    expect(holders(Permission.STAFF_MESSAGE_COORDINATED)).toEqual(
+      [UserRole.TEACHER, UserRole.SUPER_ADMIN].sort(),
+    );
+  });
+  it('MARKS_SMS_SEND: TEACHER, EXAM_CONTROLLER, ADMIN (+ SUPER_ADMIN)', () => {
+    expect(holders(Permission.MARKS_SMS_SEND)).toEqual(
+      [UserRole.TEACHER, UserRole.EXAM_CONTROLLER, UserRole.ADMIN, UserRole.SUPER_ADMIN].sort(),
+    );
   });
 });
