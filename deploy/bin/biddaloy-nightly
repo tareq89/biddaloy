@@ -101,7 +101,7 @@ flock -w 3600 9 || { say "swap lock busy for an hour"; fail "swap lock"; }
 # smokes a one-off app on it and always drops it (88 U2, U3, D1, D5, D8, D19). The live staging
 # db and app are never touched: nothing here stops, swaps or renames anything.
 DRILL_DB=biddaloy_staging_drill
-migrate_db() { POSTGRES_DB="$1" dc staging run --rm -T --no-deps app node server/dist/scripts/migrate.js run; }
+migrate_db() { POSTGRES_DB="$1" dc staging run --rm -T --no-deps migrate node server/dist/scripts/migrate.js run; }
 # psql in the db container over its local socket (no password on a command line).
 drill_psql() { dc staging exec -T db psql -U "$POSTGRES_USER" -v ON_ERROR_STOP=1 -tAq "$@"; }
 drill_drop() { drill_psql -d postgres -c "DROP DATABASE IF EXISTS \"$DRILL_DB\" WITH (FORCE)" >/dev/null 2>&1 || { say "could not drop $DRILL_DB: drop it by hand"; return 1; }; }

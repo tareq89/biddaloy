@@ -32,6 +32,9 @@ import * as Sentry from '@sentry/node';
 import { initSentry } from './common/sentry';
 import { assertMessageSinkAllowed } from './config/env.validation';
 
+import { DataSource } from 'typeorm';
+import { assertAppRoleIsNotOwner } from './app-role-check';
+
 async function bootstrap() {
   assertSecretEchoAllowed(process.env.NODE_ENV, process.env.ACCOUNT_ACCESS_ECHO_SECRETS);
   assertMessageSinkAllowed(
@@ -58,6 +61,13 @@ async function bootstrap() {
   // Every Nest-internal log line (framework startup, module init) from
   // this point on goes through pino too — buffered above so nothing before
   // this call is lost to the default console logger.
+  // [#3949, D14] Right after the DataSource is up: production must not run as the owner/superuser.
+  await assertAppRoleIsNotOwner(
+    app.get(DataSource),
+    process.env.NODE_ENV,
+    process.env.ALLOW_OWNER_DB_ROLE,
+    process.env.DEMO_MODE,
+  );
   app.useLogger(app.get(PinoLogger));
   const logger = new Logger('Bootstrap');
   configureBodyParser(app);
