@@ -56,7 +56,7 @@ at hand instead of loading the whole set.
 | [42-school-website.md](42-school-website.md) | Working on the public school website: `modules/website`, the `site/` container, `site-themes/`, host to school lookup, the Redis cache, publish, or how the site fails when Redis, the API, the database or storage is down |
 | [43-admission-pipeline.md](43-admission-pipeline.md) | Working on admission: rounds, stages, applicant statuses, merit and waiting lists, fee proofs, lottery, roll numbers, the public by-host API, the admission widgets, or what fails closed when Redis or Turnstile is down |
 | [44-incident-response.md](44-incident-response.md) | A bad day: data leak, hacked account, ransomware or long outage. Severity levels, the first-hour SEV1 checklist, bn + en messages to schools, the 7-day blameless write-up, and the security calendar of yearly, quarterly and monthly chores |
-
+| [44-continuity.md](44-continuity.md) | Handing the system to a stand-in, or an outage with the founder away: who can do what, the first hour, the school messages in Bangla and English, and what never to do |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the

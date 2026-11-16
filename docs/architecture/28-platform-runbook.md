@@ -112,7 +112,7 @@ flowchart LR
 The recovery age key is kept offline, away from the founder's laptop
 ([Part 2b](#2b-recovery-age-key-not-on-the-same-laptop)). The two cockpit owners are set
 in [Part 11a](#11a-platform-owners-the-cockpit). The stand-in steps are in
-`44-continuity.md` (the first 24 hours without the founder).
+[`44-continuity.md`](44-continuity.md) (the first 24 hours without the founder).
 
 ### Hostnames
 
