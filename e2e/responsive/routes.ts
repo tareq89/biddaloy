@@ -410,7 +410,11 @@ export async function resolvePath(
     });
     return route.path.replace('$homeworkId', homework.id);
   }
-  if (route.path.includes('$intakeId') || route.path.includes('$applicantId')) {
+  if (
+    route.path.includes('$intakeId') ||
+    route.path.includes('$roundId') ||
+    route.path.includes('$applicantId')
+  ) {
     const chain = await createClassSection(request, session);
     const intake = await post<{ id: string }>(request, session, '/admission-intakes', {
       title: `Reflow Intake ${stamp}`,
@@ -421,6 +425,7 @@ export async function resolvePath(
       required_document_types: [],
     });
     if (route.path.includes('$intakeId')) return route.path.replace('$intakeId', intake.id);
+    if (route.path.includes('$roundId')) return route.path.replace('$roundId', intake.id);
     await createWalkInApplicant(request, session, {
       intakeId: intake.id,
       name: `Reflow Applicant ${stamp}`,

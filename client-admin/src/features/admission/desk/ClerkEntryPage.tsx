@@ -1,7 +1,6 @@
 /**
  * [71.4.05] A clerk enters an application for a walk-in guardian. The boxes come from the round's
- * ticked fields; five of them are real columns, the rest ride in `extra_fields`. Words follow
- * `docs/ux-research/epic-71-admission-glossary.md`.
+ * ticked fields; five of them are real columns, the rest ride in `extra_fields`.
  */
 import {
   ADMISSION_FIELD_CATALOGUE,

@@ -47,7 +47,6 @@ const KNOWN: Record<Kind, Record<string, string>> = {
     '/academic-years': 'non-table list links under 44px at 360px',
     '/classes': 'non-table list links under 44px at 360px',
     '/programs': 'non-table list links under 44px at 360px',
-    '/admission/$slug': 'public form input 175x24 at 360px',
     '/exams': 'non-table list links under 44px at 360px',
     '/exams/seat-plans': 'non-table list links under 44px at 360px',
     '/print-templates/$templateId/edit': 'back link 54x20 at 360px',
