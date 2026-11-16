@@ -32,6 +32,8 @@ import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
 import { Route as StaffWebsiteRouteImport } from './routes/_staff/website'
 import { Route as StaffWelcomeRouteImport } from './routes/_staff/welcome'
 import { Route as ITokenRouteImport } from './routes/i/$token'
+import { Route as LegalDocRouteImport } from './routes/legal.$doc'
+import { Route as LegalAcceptRouteImport } from './routes/legal.accept'
 import { Route as NTokenRouteImport } from './routes/n.$token'
 import { Route as OwnerSecurityTwoStepRouteImport } from './routes/owner-security.two-step'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
@@ -323,6 +325,16 @@ const StaffWelcomeRoute = StaffWelcomeRouteImport.update({
 const ITokenRoute = ITokenRouteImport.update({
   id: '/i/$token',
   path: '/i/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalDocRoute = LegalDocRouteImport.update({
+  id: '/legal/$doc',
+  path: '/legal/$doc',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalAcceptRoute = LegalAcceptRouteImport.update({
+  id: '/legal/accept',
+  path: '/legal/accept',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NTokenRoute = NTokenRouteImport.update({
@@ -1307,6 +1319,8 @@ export interface FileRoutesByFullPath {
   '/website': typeof StaffWebsiteRouteWithChildren
   '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
+  '/legal/$doc': typeof LegalDocRoute
+  '/legal/accept': typeof LegalAcceptRoute
   '/n/$token': typeof NTokenRoute
   '/owner-security/two-step': typeof OwnerSecurityTwoStepRoute
   '/portal/account': typeof PortalAccountRoute
@@ -1505,6 +1519,8 @@ export interface FileRoutesByTo {
   '/settings': typeof StaffSettingsRoute
   '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
+  '/legal/$doc': typeof LegalDocRoute
+  '/legal/accept': typeof LegalAcceptRoute
   '/n/$token': typeof NTokenRoute
   '/owner-security/two-step': typeof OwnerSecurityTwoStepRoute
   '/portal/account': typeof PortalAccountRoute
@@ -1710,6 +1726,8 @@ export interface FileRoutesById {
   '/_staff/website': typeof StaffWebsiteRouteWithChildren
   '/_staff/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
+  '/legal/$doc': typeof LegalDocRoute
+  '/legal/accept': typeof LegalAcceptRoute
   '/n/$token': typeof NTokenRoute
   '/owner-security/two-step': typeof OwnerSecurityTwoStepRoute
   '/portal/account': typeof PortalAccountRoute
@@ -1914,6 +1932,8 @@ export interface FileRouteTypes {
     | '/website'
     | '/welcome'
     | '/i/$token'
+    | '/legal/$doc'
+    | '/legal/accept'
     | '/n/$token'
     | '/owner-security/two-step'
     | '/portal/account'
@@ -2112,6 +2132,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/welcome'
     | '/i/$token'
+    | '/legal/$doc'
+    | '/legal/accept'
     | '/n/$token'
     | '/owner-security/two-step'
     | '/portal/account'
@@ -2316,6 +2338,8 @@ export interface FileRouteTypes {
     | '/_staff/website'
     | '/_staff/welcome'
     | '/i/$token'
+    | '/legal/$doc'
+    | '/legal/accept'
     | '/n/$token'
     | '/owner-security/two-step'
     | '/portal/account'
@@ -2511,6 +2535,8 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRouteWithChildren
   VerifyEmailRoute: typeof VerifyEmailRoute
   ITokenRoute: typeof ITokenRoute
+  LegalDocRoute: typeof LegalDocRoute
+  LegalAcceptRoute: typeof LegalAcceptRoute
   NTokenRoute: typeof NTokenRoute
   OwnerSecurityTwoStepRoute: typeof OwnerSecurityTwoStepRoute
   SupportEnterRoute: typeof SupportEnterRoute
@@ -2682,6 +2708,20 @@ declare module '@tanstack/react-router' {
       path: '/i/$token'
       fullPath: '/i/$token'
       preLoaderRoute: typeof ITokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/$doc': {
+      id: '/legal/$doc'
+      path: '/legal/$doc'
+      fullPath: '/legal/$doc'
+      preLoaderRoute: typeof LegalDocRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/accept': {
+      id: '/legal/accept'
+      path: '/legal/accept'
+      fullPath: '/legal/accept'
+      preLoaderRoute: typeof LegalAcceptRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/n/$token': {
@@ -4392,6 +4432,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRouteWithChildren,
   VerifyEmailRoute: VerifyEmailRoute,
   ITokenRoute: ITokenRoute,
+  LegalDocRoute: LegalDocRoute,
+  LegalAcceptRoute: LegalAcceptRoute,
   NTokenRoute: NTokenRoute,
   OwnerSecurityTwoStepRoute: OwnerSecurityTwoStepRoute,
   SupportEnterRoute: SupportEnterRoute,
