@@ -1089,4 +1089,20 @@ gets the section 404 first, so existence never leaks).
   permission for every grid). The teacher path stays covered by the server and web unit tests.
   **Rule candidate:** add a `assignSubjectTeacher` e2e helper when a second journey needs it.
 
+- **Epic-level learning (2026-11-16, #4349):**
+  - **Surprise:** the route manifest (`e2e/route-manifest.json`) drift guard was already red on the
+    epic branch: the staff-message and marks SMS routes were never added, and `guide:gen` was stale.
+    **Cost:** a red `route-manifest` unit test and `guide-gen` test discovered only at the close.
+    **Fix:** manifest entries and a regeneration in the guide ticket. **Rule candidate:** a ticket
+    that adds a route lists `e2e/route-manifest.json` in its `## Files`.
+  - **Surprise:** `guide:impact` compares the whole epic branch to the base, so an epic that touches
+    `route-permissions.ts` and `permissions.ts` flags dozens of unrelated pages. **Fix:** the epic PR
+    body carries `User guide: not affected: <reason>` for the pages this epic did not change.
+    **Rule candidate:** none; document the PR body line in the epic's close ticket.
+  - **Surprise:** `MarksSmsService.send` let a failed audit write turn an already-queued batch into a
+    500, which would make a teacher send twice. **Fix:** log and continue. **Rule candidate:** any
+    send path writes its audit row after the queue and never lets it fail the response.
+  - **Not verified by a person:** the usability tasks (see `docs/ux-research/epic-80-staff-messaging.md`),
+    and both new journeys, which were written without a running stack.
+
 Demo data: see [22-demo-seed.md](22-demo-seed.md) (`comms-print` slice).
