@@ -67,15 +67,50 @@ needs every value.
 
 ### Accounts you will have at the end
 
-| Account                 | What it is for                                                       | Part |
-| ----------------------- | -------------------------------------------------------------------- | ---- |
-| Cloudflare              | DNS, tunnel, Access login for staging and ops, Turnstile, R2 backups | 4    |
-| VM provider             | The one server (6 vCPU, 12 GB, 100 GB NVMe)                          | 3    |
-| GitHub                  | Code, image registry (GHCR), deploy button, deploy keys              | 5    |
-| Sentry                  | Error reports (one browser project, one server project)              | 6    |
-| Telegram                | Alerts and deploy messages (a bot and a group)                       | 6    |
-| SMS gateway             | The app's own SMS and critical alerts                                | 6    |
-| Google, Facebook (Meta) | "Sign in with" buttons (prod only, optional)                         | 6    |
+Every login lives in the **Biddaloy vault** (the team password manager). No password,
+code, email or phone number is written in this repo (it is public). The last column says
+whether a second person can get in if the founder cannot.
+
+| Account                 | What it is for                                                       | Part | Where kept     | Second person can reach it |
+| ----------------------- | -------------------------------------------------------------------- | ---- | -------------- | -------------------------- |
+| Cloudflare              | DNS, tunnel, Access login for staging and ops, Turnstile, R2 backups | 4    | Biddaloy vault | yes                        |
+| R2 (inside Cloudflare)  | Backup and archived-log buckets, with their own API token            | 4    | Biddaloy vault | yes                        |
+| Cloudflare Access login | The login in front of staging, Kuma, Beszel and Dozzle               | 4    | Biddaloy vault | yes                        |
+| Domain registrar        | The domain name and its renewal                                      | 3    | Biddaloy vault | via emergency access       |
+| VM provider             | The one server (6 vCPU, 12 GB, 100 GB NVMe)                          | 3    | Biddaloy vault | via emergency access       |
+| GitHub                  | Code, image registry (GHCR), deploy button, deploy keys              | 5    | Biddaloy vault | yes                        |
+| GHCR token              | The VM pulls images with it                                          | 5    | Biddaloy vault | yes                        |
+| Sentry                  | Error reports (one browser project, one server project)              | 6    | Biddaloy vault | yes                        |
+| Telegram                | Alerts and deploy messages (a bot and a group)                       | 6    | Biddaloy vault | yes                        |
+| SMS gateway             | The app's own SMS and critical alerts                                | 6    | Biddaloy vault | via emergency access       |
+| Uptime Kuma             | Status checks and the public status page                             | 11   | Biddaloy vault | yes                        |
+| Beszel                  | Server graphs (CPU, memory, disk)                                    | 11   | Biddaloy vault | yes                        |
+| Dozzle                  | Live container logs                                                  | 12   | Biddaloy vault | yes                        |
+| Google, Facebook (Meta) | "Sign in with" buttons (prod only, optional)                         | 6    | Biddaloy vault | no                         |
+
+Example row, read left to right: **Cloudflare** is used for DNS, the tunnel, Access,
+Turnstile and R2; it is kept in the **Biddaloy vault**; a **second person can reach it**.
+
+**Who reaches what.** One arrow per way in.
+
+```mermaid
+flowchart LR
+  F["Founder"] -->|vault login| V[("Biddaloy vault")]
+  O2["Second cockpit owner<br/>(COCKPIT_OWNER_2)"] -->|vault login| V
+  E["Emergency contact"] -->|emergency access request,<br/>after a waiting period| V
+  F -->|operator age key| S["sops files<br/>(secrets in the repo)"]
+  O2 -.->|recovery age key,<br/>offline copy, last resort| S
+  F -->|cockpit login + codes| C["Cockpit"]
+  O2 -->|cockpit login + codes| C
+  F -->|org membership| G["GitHub org"]
+  O2 -->|org membership| G
+  V --> A["Every account in the table"]
+```
+
+The recovery age key is kept offline, away from the founder's laptop
+([Part 2b](#2b-recovery-age-key-not-on-the-same-laptop)). The two cockpit owners are set
+in [Part 11a](#11a-platform-owners-the-cockpit). The stand-in steps are in
+`44-continuity.md` (the first 24 hours without the founder).
 
 ### Hostnames
 
