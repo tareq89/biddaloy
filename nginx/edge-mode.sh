@@ -49,6 +49,11 @@ RESOLVER='resolver 127.0.0.11 valid=10s ipv6=off;
 # 64-byte bucket and fail `nginx -t`. It must come before the FIRST map block, hence it lives here.
 map_hash_bucket_size 128;'
 
+# RFC 9116 disclosure contact on every host (Epic 60, D37). auth_basic off: protected hosts serve it
+# too (Rule 12). Static text, so no no-store. Expires is renewed yearly (08-security.md, "Vulnerability
+# disclosure"). The same text is in site.conf.template: change both together.
+SECURITY_TXT='location = /.well-known/security.txt { auth_basic off; default_type text/plain; return 200 "Contact: mailto:security@schoolmanagerp.com\nExpires: 2027-11-16T00:00:00Z\nPreferred-Languages: en, bn\nPolicy: https://github.com/tareq89/biddaloy/security/policy\n"; }'
+
 if [ "$MODE" = tunnel ]; then
   # Required, never detected (Rule 11): cloudflared starts after nginx is healthy, so it cannot
   # be looked up here, and guessing an interface could trust the wrong network. A wrong subnet
@@ -71,7 +76,7 @@ map \$host \$edge_redirect { default 0; }
 map \$host \$edge_proto { default https; }
 map \$host \$edge_hsts { default ""; }
 EOF
-  echo "# EDGE_MODE=tunnel: plain HTTP on :80, nothing to add." >"$SERVER"
+  printf '# EDGE_MODE=tunnel: plain HTTP on :80.\n%s\n' "$SECURITY_TXT" >"$SERVER"
   echo "# EDGE_MODE=tunnel: nothing to add." >"$DEFAULT"
 else
   domain="${APP_DOMAIN:-}"
@@ -99,6 +104,7 @@ ssl_certificate     /etc/letsencrypt/live/$domain/fullchain.pem;
 ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;
 # auth_basic off: the challenge must work on protected hosts too (certbot has no login).
 location ^~ /.well-known/acme-challenge/ { auth_basic off; root /var/www/acme; }
+$SECURITY_TXT
 if (\$edge_redirect) { return 301 https://\$host\$request_uri; }
 EOF
   cat >"$DEFAULT" <<EOF

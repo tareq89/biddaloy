@@ -1391,6 +1391,12 @@ aborts, and `crit`/`alert` ones such as fd exhaustion), so `error_log ... emerg`
 they carry no request. A failed upstream still shows as a 502/504 line in the masked access log.
 `access-log.infra.test.sh` stops the upstream and checks no secret reaches the log.
 
+## Vulnerability disclosure
+
+- `/.well-known/security.txt` is static text served by edge nginx on every host (`SECURITY_TXT` in `nginx/edge-mode.sh`, both modes, `auth_basic off` so protected hosts serve it; and in `nginx/templates/site.conf.template` for a school's own domain).
+- Its `Expires` date is renewed yearly (calendar row in the incident-response doc, once that doc lands).
+- Reports go to `security@schoolmanagerp.com` or GitHub private reporting ([`.github/SECURITY.md`](../../.github/SECURITY.md)).
+
 ## Repository and GitHub settings
 
 Some protection lives in GitHub settings, not in code. Reporters are sent to
