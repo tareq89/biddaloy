@@ -56,9 +56,14 @@ export interface DeliverResult {
  * `communication_logs.message_body` (12.1's D4). The real, secret-bearing
  * body is a local variable only: it goes to the provider and nowhere else.
  */
-/** Only sign-in code messages count against the OTP SMS caps (#3992); invitations never do. */
+/** Only sign-in code messages (incl. cockpit codes) count against the OTP SMS caps (#3992); invitations never do. */
+const CAPPED_OTP_KINDS: ReadonlySet<TemplateKind> = new Set([
+  'OTP',
+  'COCKPIT_DEVICE_CODE',
+  'COCKPIT_ENROL_CODE',
+]);
 const isCappedOtpSms = (input: DeliverInput): boolean =>
-  input.medium === CommunicationMedium.SMS && input.kind === 'OTP';
+  input.medium === CommunicationMedium.SMS && CAPPED_OTP_KINDS.has(input.kind);
 
 @Injectable()
 export class AccountAccessDeliveryService {

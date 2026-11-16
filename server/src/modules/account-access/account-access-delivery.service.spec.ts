@@ -343,6 +343,24 @@ describe('AccountAccessDeliveryService OTP SMS caps (#3992)', () => {
     expect(capped.fullCaps.countUsage).not.toHaveBeenCalled();
   });
 
+  it.each(['COCKPIT_DEVICE_CODE', 'COCKPIT_ENROL_CODE'] as const)(
+    '%s SMS is capped and counted like an OTP',
+    async (kind) => {
+      const { service, fullCaps } = build();
+      await service.deliver({ ...sms(null, null), kind });
+      expect(fullCaps.allowPlatform).toHaveBeenCalled();
+      expect(fullCaps.countUsage).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('an SMS invitation is never capped or counted', async () => {
+    const { service, fullCaps } = build();
+    await service.deliver({ ...sms('t1', '1.2.3.4'), kind: 'INVITATION' });
+    expect(fullCaps.allowForIp).not.toHaveBeenCalled();
+    expect(fullCaps.allowPlatform).not.toHaveBeenCalled();
+    expect(fullCaps.countUsage).not.toHaveBeenCalled();
+  });
+
   it('email never consults the caps', async () => {
     const { service, provider, fullCaps } = build();
     await service.deliver({ ...sms('t1', '1.2.3.4'), medium: CommunicationMedium.EMAIL });

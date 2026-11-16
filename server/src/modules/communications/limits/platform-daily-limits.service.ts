@@ -52,17 +52,14 @@ export class PlatformDailyLimitsService {
     };
   }
 
-  // ponytail: in-process queue serialises PUTs on one API instance (single-VM deploy); use a DB lock if the API ever runs multi-instance.
-  private putChain: Promise<unknown> = Promise.resolve();
-
   async putPlatform(dto: UpdateDailyLimitsDto, actorId: string): Promise<DailyLimitsView> {
-    const run = this.putChain.then(async () => {
-      const next = PlatformDailyLimitsService.patch(await this.platformStored(), dto);
-      await this.platform.set(DAILY_LIMITS_PLATFORM_KEY, next, actorId);
-      this.limits.invalidateDefaults();
-    });
-    this.putChain = run.catch(() => undefined);
-    await run;
+    await this.platform.update<unknown>(
+      DAILY_LIMITS_PLATFORM_KEY,
+      (old) =>
+        PlatformDailyLimitsService.patch((sanitiseDailyLimits(old) ?? {}) as DailySendLimits, dto),
+      actorId,
+    );
+    this.limits.invalidateDefaults();
     return this.getPlatform();
   }
 

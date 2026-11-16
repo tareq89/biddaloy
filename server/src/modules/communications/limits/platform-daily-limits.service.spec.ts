@@ -12,7 +12,13 @@ function make(opts: { school?: unknown; platform?: unknown } = {}) {
     updateSettings: vi.fn().mockResolvedValue({}),
   };
   const cache = { getOrLoad: (_id: string, load: () => Promise<unknown>) => load() };
-  const platform = { get: vi.fn().mockResolvedValue(opts.platform), set: vi.fn() };
+  const platform = {
+    get: vi.fn().mockResolvedValue(opts.platform),
+    set: vi.fn(),
+    update: vi.fn(async (key: string, fn: (o: unknown) => unknown, actor: string) =>
+      platform.set(key, fn(opts.platform), actor),
+    ),
+  };
   const limits = new SendLimitService(redis as any, schools as any, cache as any, platform as any);
   const svc = new PlatformDailyLimitsService(platform as any, schools as any, limits);
   return { svc, platform, schools };
@@ -33,7 +39,6 @@ describe('PlatformDailyLimitsService', () => {
       { whatsapp: 9, showRemaining: true },
       'a',
     );
-    expect(platform.get).toHaveBeenCalledTimes(3); // read stored, then GET reads stored + defaults
   });
 
   it('effective chain: school, then platform, then code default', async () => {
