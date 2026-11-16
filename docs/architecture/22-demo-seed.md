@@ -80,6 +80,12 @@ flowchart LR
   org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> sms-bundles --> applications --> billing --> reports --> notices --> website --> attention
 ```
 
+The `comms-print` slice also seeds **staff messages** (Epic 80): three batches per branch (all teachers, office staff,
+one designation), header `filters_applied.kind = 'STAFF_MESSAGE'`, logs with `trigger = STAFF_MESSAGE` and
+`recipient_user_id`, every fourth log FAILED. Code: `staffMessages` in `slices/comms-print.ts`. **Marks SMS has no demo
+batch yet** (no table or column changed, so the coverage guard is not tripped; a `MARKS_SMS` batch would need a SUBMITTED
+grid from the `exams` slice).
+
 The `website` slice (Epic 40, #3621) gives the demo school (`bmsc-high`) a published, switched-on Basic
 site at the subdomain `bmsc-high`. It goes through `SiteConfigService` (draft, publish, switch on), stores two
 1920x1080 WebP hero pictures and a logo through `StorageService`, and adds six teacher cards (three featured)
