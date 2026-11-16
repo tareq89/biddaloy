@@ -266,7 +266,8 @@ async function init(root: HTMLElement) {
   const setToken = (t: string) => {
     token = t;
     button.disabled = t === '';
-    for (const b of out.querySelectorAll<HTMLButtonElement>('button')) b.disabled = t === '';
+    // Only the retry button follows the token; pager buttons keep their own boundary state.
+    for (const b of out.querySelectorAll<HTMLButtonElement>('button.js-retry')) b.disabled = t === '';
   };
   // First thing, before any await: a click while the Turnstile script is still loading (or is
   // blocked) must never fall through to the browser's own GET submit, which would put the roll in
@@ -312,7 +313,7 @@ async function init(root: HTMLElement) {
       say(d[`m${r.failure[0].toUpperCase()}${r.failure.slice(1)}`] ?? '');
       // One sentence + one button: a dropped connection or a server hiccup can be tried again.
       if (r.failure === 'error' || r.failure === 'offline')
-        out.append(build('button', { type: 'button', className: 'btn btn-ghost btn-sm', textContent: d.retry ?? '', onclick: () => void run(pageNo) }, []));
+        out.append(build('button', { type: 'button', className: 'btn btn-ghost btn-sm js-retry', textContent: d.retry ?? '', disabled: !token, onclick: () => void run(pageNo) }, []));
       return;
     }
     if (r.page.rows.length === 0) return say(d.mEmpty ?? '');
