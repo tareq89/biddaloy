@@ -29,15 +29,19 @@ x-s3: &s3-env
 
 x-db-url: &db-url postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}?sslmode=require
 
+# The app connects as biddaloy_app (not the owner), so the database tenant wall applies (#3949).
+# Migrations, backup, restore drill, staging refresh and demo-reset keep the owner `x-db-url`.
+x-app-db-url: &app-db-url postgres://${APP_DB_USER:?APP_DB_USER must be set}:${APP_DB_PASSWORD:?APP_DB_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}?sslmode=require
+
 x-app: &app
   logging: *logging
   image: ghcr.io/tareq89/biddaloy-app:${APP_VERSION:?APP_VERSION must be set}
   restart: unless-stopped
-  environment:
+  environment: &app-env
     <<: *s3-env
     NODE_ENV: production
     ENV_NAME: ${ENV_NAME:?ENV_NAME must be set}
-    DATABASE_URL: *db-url
+    DATABASE_URL: *app-db-url
     # Self-signed server cert (D3): trust the env's own CA, keep verification on.
     NODE_EXTRA_CA_CERTS: /etc/postgresql/tls/ca.crt
     DB_SSL: 'true'
@@ -239,6 +243,16 @@ services:
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-app2']
 
+  # One-off migrations (`run --rm migrate node server/dist/scripts/migrate.js run|pending`): the app
+  # image on the OWNER url, because biddaloy_app cannot create tables or roles (#3949). Never `up`:
+  # the `tools` profile keeps it out of every stack; `run` starts it by name.
+  migrate:
+    <<: *app
+    profiles: [tools]
+    environment:
+      <<: *app-env
+      DATABASE_URL: *db-url
+
   # Test inbox (Epic 87): catches every email/SMS the app sends while MESSAGE_SINK=mailpit.
   # Non-prod only: the `sink` profile (COMPOSE_PROFILES=sink in staging/demo .env), prod omits it.
   # In memory on purpose (D12): the demo rebuild restarts it, which empties the inbox.
@@ -433,6 +447,8 @@ services:
       # The LIVE demo database, the one app reads (reset.sh refuses a name not biddaloy_demo*).
       # reset.sh builds <name>_next beside it and swaps by rename.
       DATABASE_URL: *db-url
+      # Its temporary :3999 app connects as the owner (it swaps databases): the boot check is skipped here only.
+      ALLOW_OWNER_DB_ROLE: 'true'
       PGSSLMODE: require
       NODE_EXTRA_CA_CERTS: /etc/postgresql/tls/ca.crt
       REDIS_URL: redis://redis:6379

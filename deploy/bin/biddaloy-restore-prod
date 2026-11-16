@@ -242,11 +242,11 @@ fi
 
 echo "step: migrate"
 rc=0
-dc run --rm -T --no-deps app node server/dist/scripts/migrate.js pending || rc=$?
+dc run --rm -T --no-deps migrate node server/dist/scripts/migrate.js pending || rc=$?
 case "$rc" in
   0) echo "no pending migrations" ;;
-  2) dc run --rm -T --no-deps app node server/dist/scripts/migrate.js run \
-       || fail migrate "migrations failed on the restored data" "fix the cause, then: docker compose -p prod --project-directory $ROOT/prod -f $STACK_YML run --rm -T --no-deps app node server/dist/scripts/migrate.js run (do not re-run this restore: the database is no longer empty)" ;;
+  2) dc run --rm -T --no-deps migrate node server/dist/scripts/migrate.js run \
+       || fail migrate "migrations failed on the restored data" "fix the cause, then: docker compose -p prod --project-directory $ROOT/prod -f $STACK_YML run --rm -T --no-deps migrate node server/dist/scripts/migrate.js run (do not re-run this restore: the database is no longer empty)" ;;
   *) fail migrate "listing pending migrations failed (exit $rc)" "fix the cause, then run migrate.js run by hand (do not re-run this restore)" ;;
 esac
 

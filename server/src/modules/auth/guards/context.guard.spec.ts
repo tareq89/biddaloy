@@ -3,6 +3,7 @@ import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { QueryFailedError } from 'typeorm';
 import { ContextGuard, RolesGuard } from './context.guard';
+import { TenantContext } from '../../../database/tenant-context';
 import { UserRole, SchoolStatus } from '@biddaloy/shared';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
@@ -158,6 +159,46 @@ describe('ContextGuard', () => {
       expect(result).toBe(true);
       // Explicit X-Role overrides priority
       expect(req.currentTenant.role).toBe(UserRole.STUDENT);
+    });
+  });
+
+  describe('Database tenant wall (#3949)', () => {
+    const user = {
+      sub: 'user-1',
+      email: 'test@test.com',
+      phone: null,
+      memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+    };
+
+    it('puts the resolved school into the request tenant store', async () => {
+      await TenantContext.run(async () => {
+        await guard.canActivate(
+          createMockContext({ user, headers: { 'x-tenant-id': 'tenant-1' } }),
+        );
+        // What the DB hook reads for the rest of this request.
+        expect(TenantContext.current()).toBe('tenant-1');
+      });
+    });
+
+    it('leaves the store empty when the request is refused (missing or foreign X-Tenant-ID)', async () => {
+      await TenantContext.run(async () => {
+        await expect(guard.canActivate(createMockContext({ user, headers: {} }))).rejects.toThrow(
+          UnauthorizedException,
+        );
+        await expect(
+          guard.canActivate(
+            createMockContext({ user, headers: { 'x-tenant-id': 'other-tenant' } }),
+          ),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(TenantContext.current()).toBeUndefined();
+      });
+    });
+
+    it('does not throw outside a request store (queue worker, script)', async () => {
+      await expect(
+        guard.canActivate(createMockContext({ user, headers: { 'x-tenant-id': 'tenant-1' } })),
+      ).resolves.toBe(true);
+      expect(TenantContext.current()).toBeUndefined();
     });
   });
 
