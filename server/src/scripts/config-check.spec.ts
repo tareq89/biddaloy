@@ -18,6 +18,7 @@ const repoRoot = join(__dirname, '..', '..', '..');
 
 const valid = {
   NODE_ENV: 'production',
+  CLAMAV_HOST: 'clamav',
   DATABASE_URL: 'postgres://app:Zq8vR2mXw4Lp@db:5432/biddaloy',
   JWT_SECRET: 'k9Zr2Qv7Lm4Xw8Tb3Nc6Hy1Pd5Sf0Ja2Ug',
   // base64 of 32 bytes, as `randomBytes(32).toString('base64')` prints
@@ -347,6 +348,8 @@ describe('runStackConfigCheck', () => {
       'SENTRY_ENVIRONMENT',
       'SENTRY_TRACES_SAMPLE_RATE',
       'SENTRY_RELEASE',
+      'CLAMAV_HOST',
+      'CLAMAV_PORT',
       'APP_VERSION',
       'SUPPORT_CONTACT_URL',
       'OTP_SMS_ALLOWED_PREFIXES',

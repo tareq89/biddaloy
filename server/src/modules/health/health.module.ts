@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
@@ -20,7 +20,7 @@ import { CommunicationsModule } from '../communications/communications.module';
   // options so a job added here behaves like every other producer's.
   imports: [
     TypeOrmModule.forFeature([PlatformAlert]),
-    CommunicationsModule,
+    forwardRef(() => CommunicationsModule),
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,

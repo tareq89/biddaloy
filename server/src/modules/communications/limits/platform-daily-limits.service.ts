@@ -52,11 +52,17 @@ export class PlatformDailyLimitsService {
     };
   }
 
-  // ponytail: read-modify-write, two concurrent owner PUTs can lose one patch; add a lock if owners ever race.
+  // ponytail: in-process queue serialises PUTs on one API instance (single-VM deploy); use a DB lock if the API ever runs multi-instance.
+  private putChain: Promise<unknown> = Promise.resolve();
+
   async putPlatform(dto: UpdateDailyLimitsDto, actorId: string): Promise<DailyLimitsView> {
-    const next = PlatformDailyLimitsService.patch(await this.platformStored(), dto);
-    await this.platform.set(DAILY_LIMITS_PLATFORM_KEY, next, actorId);
-    this.limits.invalidateDefaults();
+    const run = this.putChain.then(async () => {
+      const next = PlatformDailyLimitsService.patch(await this.platformStored(), dto);
+      await this.platform.set(DAILY_LIMITS_PLATFORM_KEY, next, actorId);
+      this.limits.invalidateDefaults();
+    });
+    this.putChain = run.catch(() => undefined);
+    await run;
     return this.getPlatform();
   }
 

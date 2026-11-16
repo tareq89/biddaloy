@@ -57,7 +57,7 @@ export function DailyLimitsCard({ schoolId }: { schoolId?: string }) {
       ) : (
         <LimitsForm
           // Remount on a fresh server value so the boxes show what is stored.
-          key={JSON.stringify(query.data.stored)}
+          key={`${schoolId ?? 'platform'}:${JSON.stringify(query.data.stored)}`}
           view={query.data}
           isSchool={!!schoolId}
           saving={save.isPending}

@@ -38,14 +38,22 @@ export class OtpSmsCapsService {
   async allowForIp(ip: string | null, destination: string): Promise<boolean> {
     if (!ip) return true;
     const key = `otp-ip:${ip}:${hourKey()}`;
-    const res = await this.redis
-      .multi()
-      .sadd(key, sha256(destination))
-      .expire(key, TTL_SECONDS)
-      .scard(key)
-      .exec();
-    const size = Number(res?.[2]?.[1] ?? 0);
-    return size <= this.perIpLimit;
+    // Atomic: a number joins the set only while room is left, so refused numbers never
+    // take a slot and numbers already admitted keep working.
+    const ok = await this.redis.eval(
+      `local d = ARGV[1]
+if redis.call('SISMEMBER', KEYS[1], d) == 1 then return 1 end
+if redis.call('SCARD', KEYS[1]) >= tonumber(ARGV[2]) then return 0 end
+redis.call('SADD', KEYS[1], d)
+redis.call('EXPIRE', KEYS[1], ARGV[3])
+return 1`,
+      1,
+      key,
+      sha256(destination),
+      this.perIpLimit,
+      TTL_SECONDS,
+    );
+    return Number(ok) === 1;
   }
 
   async allowPlatform(): Promise<boolean> {

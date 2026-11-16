@@ -40,6 +40,16 @@ function fakeRedis() {
       };
       return chain;
     },
+    // Emulates the admit script: member passes, else admit only while under the limit.
+    eval: vi.fn(async (_script: string, _n: number, k: string, d: string, limit: number) => {
+      log('eval', k, d);
+      const s = sets.get(k) ?? new Set<string>();
+      if (s.has(d)) return 1;
+      if (s.size >= Number(limit)) return 0;
+      s.add(d);
+      sets.set(k, s);
+      return 1;
+    }),
     set: vi.fn(async (k: string, v: string, ...rest: unknown[]) => {
       log('set', k, v, ...rest);
       if (strings.has(k)) return null;
@@ -110,7 +120,7 @@ describe('OtpSmsCapsService', () => {
     const { svc, args } = make();
     const phone = '+8801712345678';
     await svc.allowForIp('1.1.1.1', phone);
-    expect(args.find((a) => a[0] === 'sadd')?.[2]).toBe(sha(phone));
+    expect(args.find((a) => a[0] === 'eval')?.[2]).toBe(sha(phone));
     expect(JSON.stringify(args)).not.toContain('1712345678');
   });
 
@@ -119,5 +129,13 @@ describe('OtpSmsCapsService', () => {
     await svc.countUsage();
     expect(args.find((a) => a[0] === 'incr')?.[1]).toMatch(/^usage:otp-sms:\d{8}$/);
     expect(args.find((a) => a[0] === 'expire')?.[2]).toBe(40 * 24 * 60 * 60);
+  });
+
+  it('a refused number takes no slot, and admitted numbers keep working', async () => {
+    const { svc } = make();
+    svc.perIpLimit = 2;
+    const r = [];
+    for (const n of ['a', 'b', 'c', 'a']) r.push(await svc.allowForIp('9.9.9.9', n));
+    expect(r).toEqual([true, true, false, true]);
   });
 });

@@ -56,6 +56,10 @@ export interface DeliverResult {
  * `communication_logs.message_body` (12.1's D4). The real, secret-bearing
  * body is a local variable only: it goes to the provider and nowhere else.
  */
+/** Only sign-in code messages count against the OTP SMS caps (#3992); invitations never do. */
+const isCappedOtpSms = (input: DeliverInput): boolean =>
+  input.medium === CommunicationMedium.SMS && input.kind === 'OTP';
+
 @Injectable()
 export class AccountAccessDeliveryService {
   private readonly logger = new Logger(AccountAccessDeliveryService.name);
@@ -78,12 +82,12 @@ export class AccountAccessDeliveryService {
    */
   private async smsAllowed(input: DeliverInput): Promise<boolean> {
     const caps = this.smsCaps;
-    if (!caps || input.medium !== CommunicationMedium.SMS) return true;
+    if (!caps || !isCappedOtpSms(input)) return true;
     return (await caps.allowForIp(input.ip ?? null, input.to)) && (await caps.allowPlatform());
   }
 
   private async countSms(input: DeliverInput): Promise<void> {
-    if (!this.smsCaps || input.medium !== CommunicationMedium.SMS) return;
+    if (!this.smsCaps || !isCappedOtpSms(input)) return;
     try {
       await this.smsCaps.countUsage();
     } catch {
