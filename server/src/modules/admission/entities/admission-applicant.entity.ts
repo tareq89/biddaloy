@@ -14,12 +14,9 @@ import { AdmissionIntake } from './admission-intake.entity';
 import type {
   AdmissionApplicantStatus,
   AdmissionApplicantDocument,
-<<<<<<< HEAD
   AdmissionSource,
   AdmissionFeeState,
-=======
   PhotoConsent,
->>>>>>> ab346ce1a (feat(server): legal_acceptances table and photo consent columns (#3939))
 } from '@biddaloy/shared';
 
 // Dynamic require, not `import { AdmissionApplicantStatus } from '@biddaloy/shared'`:
