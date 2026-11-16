@@ -7,6 +7,7 @@
  * component owns and revokes. A student with no photo gets an initials
  * placeholder (and no request at all).
  */
+import { ApiError } from '@biddaloy/ui/api';
 import { Card, FileUpload } from '@biddaloy/ui/components';
 import { studentPhotoUrl, useStudent, useUploadStudentPhoto } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -68,6 +69,12 @@ export function StudentPhotoCard({ studentId, canEdit }: StudentPhotoCardProps) 
     upload.mutate(file);
   }
 
+  // Fixed sentence, never the server's text (rule 23).
+  const consentRefused =
+    upload.error instanceof ApiError &&
+    upload.error.statusCode === 409 &&
+    upload.error.details?.code === 'PHOTO_CONSENT_REFUSED';
+
   const name = student?.full_name ?? '';
 
   return (
@@ -111,7 +118,7 @@ export function StudentPhotoCard({ studentId, canEdit }: StudentPhotoCardProps) 
         ) : null}
         {upload.isError || rejected ? (
           <p role="alert" className="text-xs text-destructive">
-            {t('photo.uploadFailed')}
+            {consentRefused ? t('photoConsent.uploadError') : t('photo.uploadFailed')}
           </p>
         ) : null}
         {photoQuery.isError ? (

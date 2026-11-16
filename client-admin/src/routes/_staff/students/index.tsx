@@ -49,7 +49,7 @@ import { isSameAppRedirect } from '../../../same-app-redirect';
 import { BulkPhotoDialog } from './-bulk-photo-dialog';
 import { DEFAULT_PAGE_SIZE } from './-constants';
 import { SendReminderDialog } from './-send-reminder-dialog';
-import { GENDER_VALUES } from './-student-form-schema';
+import { GENDER_VALUES, PHOTO_CONSENT_VALUES } from './-student-form-schema';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `StudentSortField`'s own allowlist, keyed by this page's column ids
@@ -78,6 +78,7 @@ interface StudentFilters {
   religion?: string | undefined;
   date_of_birth_from?: string | undefined;
   date_of_birth_to?: string | undefined;
+  photo_consent?: string | undefined;
 }
 
 /** What the table shows until a person changes it with the Columns menu. */
@@ -105,6 +106,7 @@ const studentsSearchSchema = z.object({
   religion: z.coerce.string().optional().catch(undefined),
   date_of_birth_from: z.string().optional().catch(undefined),
   date_of_birth_to: z.string().optional().catch(undefined),
+  photo_consent: z.enum(PHOTO_CONSENT_VALUES).optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores the row selection
   // under (comma-joined ids) — must be declared here or TanStack
   // Router's `validateSearch` strips it from the URL on every navigation,
@@ -116,6 +118,9 @@ const studentsSearchSchema = z.object({
   // [8.15.42] Opened from a report's count: the address of that report, for "ফিরে যান".
   from: z.string().optional().catch(undefined),
 });
+
+const isPhotoConsent = (v: string): v is (typeof PHOTO_CONSENT_VALUES)[number] =>
+  (PHOTO_CONSENT_VALUES as readonly string[]).includes(v);
 
 function toStudentListFilters(filters: StudentFilters, sortColumnId: string | undefined) {
   const sortField = sortColumnId ? SORT_FIELD_BY_COLUMN[sortColumnId] : undefined;
@@ -135,6 +140,9 @@ function toStudentListFilters(filters: StudentFilters, sortColumnId: string | un
       : {}),
     ...(filters.date_of_birth_to !== undefined
       ? { date_of_birth_to: filters.date_of_birth_to }
+      : {}),
+    ...(filters.photo_consent !== undefined && isPhotoConsent(filters.photo_consent)
+      ? { photo_consent: filters.photo_consent }
       : {}),
     ...(sortField !== undefined ? { sort: sortField } : {}),
   };
@@ -161,6 +169,7 @@ export const Route = createFileRoute('/_staff/students/')({
     religion: search.religion,
     dateOfBirthFrom: search.date_of_birth_from,
     dateOfBirthTo: search.date_of_birth_to,
+    photoConsent: search.photo_consent,
   }),
   loader: ({ context: { queryClient }, deps }) =>
     Promise.all([
@@ -183,6 +192,7 @@ export const Route = createFileRoute('/_staff/students/')({
                 religion: deps.religion,
                 date_of_birth_from: deps.dateOfBirthFrom,
                 date_of_birth_to: deps.dateOfBirthTo,
+                photo_consent: deps.photoConsent,
               },
               deps.sort,
             ),
@@ -394,6 +404,16 @@ function StudentsListPage() {
       label: t('list.dateOfBirthRangeLabel'),
       fromLabel: t('list.dateOfBirthFromLabel'),
       toLabel: t('list.dateOfBirthToLabel'),
+    },
+    {
+      kind: 'select',
+      key: 'photo_consent',
+      label: t('photoConsent.filter'),
+      allLabel: t('list.allStatuses'),
+      options: PHOTO_CONSENT_VALUES.map((value) => ({
+        value,
+        label: t(`photoConsent.values.${value}`),
+      })),
     },
   ];
 
@@ -640,7 +660,11 @@ function StudentsListPage() {
         isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={{
-          title: t('list.emptyMessage'),
+          // A filtered-empty list is shared with ListShell's "No matches"; this page keeps
+          // its own words for "not recorded" by declaring the no-results kind.
+          ...(filters.photo_consent === 'UNKNOWN' ? { kind: 'no-results' as const } : {}),
+          title:
+            filters.photo_consent === 'UNKNOWN' ? t('photoConsent.empty') : t('list.emptyMessage'),
           explanation:
             isTeacher && !hasActiveFilter
               ? t('list.emptyTeacherExplanation')
