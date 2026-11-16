@@ -2,7 +2,7 @@
 # alerts), Dozzle (live logs, behind its own login). Nothing is published on the host;
 # edge nginx reaches the three UIs over `biddaloy-ops-edge`.
 #
-#   OPS_DIR=/opt/biddaloy/ops docker compose -p ops -f deploy/ops.yml --env-file /opt/biddaloy/ops/.env up -d
+#   OPS_DIR=/opt/biddaloy/ops docker compose -p ops -f deploy/compose.ops.yml --env-file /opt/biddaloy/ops/.env up -d
 #
 # First-run steps done by hand in the UIs: docs/architecture/12-operations.md section 1.
 x-logging: &logging
@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     volumes:
       - beszel_data:/beszel_data
-      # The edge beszel-agent's unix socket (deploy/edge.yml); same host only.
+      # The edge beszel-agent's unix socket (deploy/compose.edge.yml); same host only.
       - /run/beszel:/beszel_socket
     networks: [default, ops-edge]
     deploy:

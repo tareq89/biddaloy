@@ -2,7 +2,7 @@
 # [Epic 40, #3715] Staging school sites need an Access rule that cloudflared really matches.
 # cloudflared only understands a leading "*." wildcard, so "*-staging.<root>" matched nothing and
 # the host fell to the catch-all with no Access check. This renders the real template (ansible) and
-# asks the PINNED cloudflared image (the one deploy/edge.yml runs) which rule a host hits:
+# asks the PINNED cloudflared image (the one deploy/compose.edge.yml runs) which rule a host hits:
 #   - a host on STAGING_SITE_HOSTS must hit a rule naming exactly that host
 #   - a -staging host NOT on the list must hit the catch-all (no hostname); nginx then answers 444
 #     (nginx/test/site.infra.test.sh)
@@ -22,8 +22,8 @@ command -v docker >/dev/null || missing docker
 py=python3
 python3 -c 'import yaml' 2>/dev/null || py=$(head -1 "$(command -v ansible-playbook)" | sed 's/^#! *//')
 "$py" -c 'import yaml' 2>/dev/null || missing "python3 with PyYAML"
-img=$(grep -oE 'cloudflare/cloudflared:[^[:space:]]+' "$repo/deploy/edge.yml" | head -1)
-[ -n "$img" ] || { echo "FAIL no cloudflared image found in deploy/edge.yml"; exit 1; }
+img=$(grep -oE 'cloudflare/cloudflared:[^[:space:]]+' "$repo/deploy/compose.edge.yml" | head -1)
+[ -n "$img" ] || { echo "FAIL no cloudflared image found in deploy/compose.edge.yml"; exit 1; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fails=0

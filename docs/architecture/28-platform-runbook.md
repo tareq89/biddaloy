@@ -784,13 +784,13 @@ Every key of the five example files. "From" says which part gives you the value.
 | `BACKUP_PUSH_URL`                    | `prod.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `LOG_ARCHIVE_PUSH_URL`               | `prod.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `SENTRY_CRON_MONITOR_URL`            | `prod.enc.env`    | part 6               | Sentry cron monitor check-in URL (optional)                                             |
-| `BACKUP_SCHEDULE`                    | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_RETENTION_DAYS`              | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_HOURLY_KEEP`                 | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_DAILY_KEEP`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_TRASH_DAYS`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_FILES_MAX_DELETE`            | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_NET_WAIT_SECS`               | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
+| `BACKUP_SCHEDULE`                    | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_RETENTION_DAYS`              | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_HOURLY_KEEP`                 | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_DAILY_KEEP`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_TRASH_DAYS`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_FILES_MAX_DELETE`            | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_NET_WAIT_SECS`               | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
 | `BACKUP_MEM`                         | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `BACKUP_CPUS`                        | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `JOBS_MEM`                           | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
@@ -863,13 +863,13 @@ Every key of the five example files. "From" says which part gives you the value.
 | `BACKUP_PUSH_URL`                    | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `RESTORE_DRILL_PUSH_URL`             | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `SENTRY_CRON_MONITOR_URL`            | `staging.enc.env` | part 6               | Sentry cron monitor check-in URL (optional)                                             |
-| `BACKUP_SCHEDULE`                    | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_RETENTION_DAYS`              | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_HOURLY_KEEP`                 | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_DAILY_KEEP`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_TRASH_DAYS`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_FILES_MAX_DELETE`            | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `BACKUP_NET_WAIT_SECS`               | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
+| `BACKUP_SCHEDULE`                    | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_RETENTION_DAYS`              | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_HOURLY_KEEP`                 | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_DAILY_KEEP`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_TRASH_DAYS`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_FILES_MAX_DELETE`            | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_NET_WAIT_SECS`               | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
 | `BACKUP_MEM`                         | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                  |
 | `BACKUP_CPUS`                        | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                  |
 | `JOBS_MEM`                           | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                  |
@@ -941,10 +941,10 @@ Every key of the five example files. "From" says which part gives you the value.
 | `SENTRY_CRONS_URL`                   | `demo.enc.env`    | part 6               | Sentry crons check-in URL (optional)                                                    |
 | `DEMO_SWEEP_CMD`                     | `demo.enc.env`    | part 8               | set this or `DEMO_SKIP_SWEEP`; start with `DEMO_SKIP_SWEEP=true`                        |
 | `DEMO_SKIP_SWEEP`                    | `demo.enc.env`    | part 8               | `true`                                                                                  |
-| `DEMO_SWEEP_URL`                     | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `DEMO_SWEEP_TIMEOUT`                 | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `DEMO_SCALE`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
-| `DEMO_YEARS`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                             |
+| `DEMO_SWEEP_URL`                     | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `DEMO_SWEEP_TIMEOUT`                 | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `DEMO_SCALE`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `DEMO_YEARS`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
 | `DEMO_RESET_MEM`                     | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `DEMO_RESET_CPUS`                    | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `TURNSTILE_SITE_KEY`                 | `demo.enc.env`    | part 4               | prod/demo: widget site key; staging/demo example already holds the test pair            |
@@ -1334,7 +1334,7 @@ sequenceDiagram
 
 ```bash
 ssh deploy@203.0.113.10
-dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/compose.stack.yml "${@:2}"; }
 dcp prod run --rm -T --no-deps app node server/dist/scripts/cockpit-replace-owner.js \
   --old-email old.owner@example.com --new-email new.owner@example.com --new-phone +8801700000000
 # prints user ids only, never an email or phone
@@ -1370,7 +1370,7 @@ flowchart TD
 
 ```bash
 ssh deploy@203.0.113.10
-dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/compose.stack.yml "${@:2}"; }
 dcp prod run --rm -T --no-deps app node server/dist/scripts/platform-cutover.js --dry-run
 # DRY RUN: nothing was changed
 # memberships removed: 1
@@ -1394,7 +1394,7 @@ dcp prod run --rm -T --no-deps app node server/dist/scripts/platform-cutover.js
 
 ```bash
 ssh deploy@203.0.113.10
-dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/compose.stack.yml "${@:2}"; }
 dcp prod exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -c "SELECT id, slug FROM schools"'
 # 6f1c2a9e-0b7d-4c1e-9a55-2f3d8e4b7c10|default-school
 ```
@@ -2000,7 +2000,7 @@ Kuma dies with it.
 3. **Deploy ops there:** `biddaloy-deploy ops <sha>` on the new VM.
 4. **Remove ops from the first VM:** set `OPS_UPSTREAM_HOST=` (empty) in the first VM's
    `edge.enc.env` so nginx stops serving the ops names, redeploy `edge`, then on the first
-   VM `docker compose -p ops --project-directory /opt/biddaloy/ops -f /opt/biddaloy/repo/deploy/ops.yml down`.
+   VM `docker compose -p ops --project-directory /opt/biddaloy/ops -f /opt/biddaloy/repo/deploy/compose.ops.yml down`.
 5. **Push URLs stay the same.** They point at `https://kuma.schoolmanagerp.com/api/push/<token>`,
    a hostname, so after the tunnel or DNS sends `kuma.` to the new VM nothing in the
    secret files changes. Restore Kuma's settings (monitors, notifications) from its
@@ -2153,7 +2153,7 @@ docker run --rm -v /opt/biddaloy/edge/cloudflared:/etc/cloudflared:ro cloudflare
 # service: http://nginx:80         <- stop, report it: a rule leaks the name to the fixed hosts
 ```
 
-Use the image tag pinned in `deploy/edge.yml`. The command needs no credentials and changes
+Use the image tag pinned in `deploy/compose.edge.yml`. The command needs no credentials and changes
 nothing. The curl below only checks the **edge**: Cloudflare's Access app answers `302` before
 the request reaches cloudflared, so it passes even when a cloudflared rule leaks. Keep it as a
 second check:
@@ -2307,14 +2307,14 @@ checks. The owner steps for Cloudflare for SaaS, Umami and Turnstile are in [17e
   leaks nothing. Direct mode (D5) publishes no `:8081` and no :80 / :443 server serves a school host, so
   school websites are **lost entirely** there (subdomain and custom domain alike). Do not add a `*.schoolmanagerp.com` rule that points at `nginx:80`.
 
-- **`ROOT_DOMAIN` (#3620, done).** One name, read by the nginx site template (`deploy/edge.yml`),
+- **`ROOT_DOMAIN` (#3620, done).** One name, read by the nginx site template (`deploy/compose.edge.yml`),
   the preflight lists in `infra/ansible/tasks/preflight.yml` (`edge_domain_keys` for edge,
   `required_by_stack` for prod, staging and demo, so a missing key fails with the file to fix), and
   `config-check` (`COMMON_REQUIRED`), and the `site` and
-  `app` services (`deploy/stack.yml`, as `SITE_ROOT_DOMAIN`). **Owner:** add `ROOT_DOMAIN=<apex>`
+  `app` services (`deploy/compose.stack.yml`, as `SITE_ROOT_DOMAIN`). **Owner:** add `ROOT_DOMAIN=<apex>`
   (same value as `LANDING_DOMAIN`, for example `schoolmanagerp.com`) to
   `infra/secrets/{edge,prod,staging,demo}.enc.env` with `sops` **before** the deploy of #3620:
-  `stack.yml` refuses to start without it. `scripts/bootstrap-secrets.sh` writes it for new setups.
+  `compose.stack.yml` refuses to start without it. `scripts/bootstrap-secrets.sh` writes it for new setups.
 - **Media and pages cache.** nginx keeps pages in the `site_cache` volume of the edge stack.
   Example: `rumsc.schoolmanagerp.com/bn/` is fresh for 30 s. When `site` or the API behind it is
   down (no answer or a `5xx`), nginx keeps serving the old page for as long as that lasts. nginx
@@ -2600,7 +2600,7 @@ needs a code or owner decision. Gap 1 (no command created the first platform own
 
 | #   | Gap                                                                                                                                                                                                 | Where                                          | Effect                                                                                                                       |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 2   | Ops on its own VM: `edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`                                          | `deploy/edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed                                                                           |
+| 2   | Ops on its own VM: `compose.edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`                                          | `deploy/compose.edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed                                                                           |
 | 3   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open                                      | `biddaloy-deploy:219-223`                      | harmless; not needed                                                                                                         |
 | 4   | Turnstile only lists hostnames you add: a school's own domain fails the widget check, and a free widget holds at most 10 hostnames                                                                  | 17e step 6                                     | forms on custom domains fail until each ACTIVE domain is added by hand, or the hostname check is dropped (decide with #3649) |
 | 5   | The 100-hostname free cap of Cloudflare for SaaS: what the API and the Address tab show at hostname 101 is not known                                                                                | 17e step 2, `custom-domain.service.ts`         | TO CONFIRM on the real account; expect the claim to FAIL with a Cloudflare error                                             |

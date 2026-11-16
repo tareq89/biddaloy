@@ -342,7 +342,7 @@ is only a label today).
 
 ## Running the demo site
 
-The demo is the `demo` project on the one VM (`deploy/stack.yml` with
+The demo is the `demo` project on the one VM (`deploy/compose.stack.yml` with
 `ENV_NAME=demo`, its own database, Redis and bucket), served at
 `demo.<domain>` by the shared edge nginx. It rebuilds itself every night from
 a **host systemd timer**, not from a cron inside a container (D11). The design
@@ -426,7 +426,7 @@ journalctl -u biddaloy-nightly@demo-rebuild.service -n 100 --no-pager
 or only the script, without the restart and the Kuma push (you then restart the app yourself):
 
 ```bash
-docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/stack.yml \
+docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/compose.stack.yml \
   run --rm demo-reset /app/reset.sh --now
 ```
 
@@ -464,7 +464,7 @@ The tests are `scripts/demo/reset.infra.test.sh`. CI runs them in the infra job 
 
 Set these in `infra/secrets/demo.enc.env` (`sops`); the deploy writes them to
 `/opt/biddaloy/demo/.env` and compose passes them to `demo-reset`. Rows marked
-"set by compose" are fixed in `deploy/stack.yml`: a value in the file does nothing for them.
+"set by compose" are fixed in `deploy/compose.stack.yml`: a value in the file does nothing for them.
 
 | Variable                                      | Default                                                        | Example                                            | Notes                                                                                                                                                                                                                                                           |
 | --------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -563,7 +563,7 @@ Bugs the sweep found:
 Yesterday's database is still there as `biddaloy_demo_prev`, with its S3 objects. Run this on the VM.
 
 ```bash
-C="docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/stack.yml"
+C="docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/compose.stack.yml"
 SQL='psql -U "$POSTGRES_USER" -d postgres -c'
 
 # 1. Stop the app. Make sure no rebuild is running (systemctl status biddaloy-nightly@demo-rebuild.service).

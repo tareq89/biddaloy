@@ -876,7 +876,7 @@ A fresh prod database has one school, `default-school`, made by the first migrat
 # laptop
 ssh deploy@<VPS_IP>
 # VPS
-dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/compose.stack.yml "${@:2}"; }
 dcp prod exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -c "SELECT id, slug FROM schools"'
 # 1b71ca19-b3d4-4f28-a09e-2b8c2b0a524d|default-school
 ```
@@ -1124,7 +1124,7 @@ ssh deploy@<VPS_IP> biddaloy-doctor            # one table: OK / WARN / FAIL, ea
 ssh deploy@<VPS_IP> biddaloy-doctor prod       # only prod
 ssh deploy@<VPS_IP> 'tail -5 /opt/biddaloy/prod/deploys.log'
 ssh deploy@<VPS_IP> 'less /opt/biddaloy/logs/prod-last-deploy.log'
-ssh deploy@<VPS_IP> 'docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml logs --tail 200 app'
+ssh deploy@<VPS_IP> 'docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/compose.stack.yml logs --tail 200 app'
 ```
 
 Recent logs are also in Dozzle (`logs.<DOMAIN>`). Older days are encrypted in R2 under `logs/`
@@ -1194,7 +1194,7 @@ flowchart LR
 
 6. Deploy `staging`, `prod` and `demo` on the new VM.
 7. **The domain does not change in tunnel mode.** Both VMs connect to the same tunnel, so stop the
-   old one's: `ssh deploy@<OLD_IP> 'docker compose -p edge --project-directory /opt/biddaloy/edge -f /opt/biddaloy/repo/deploy/edge.yml stop cloudflared'`.
+   old one's: `ssh deploy@<OLD_IP> 'docker compose -p edge --project-directory /opt/biddaloy/edge -f /opt/biddaloy/repo/deploy/compose.edge.yml stop cloudflared'`.
    Keep the old VM 7 days, then delete it.
 
 ## Part 18. A new domain or a second environment
@@ -1250,9 +1250,9 @@ has every step):
 
 | Path                                        | What                                                                              |
 | ------------------------------------------- | --------------------------------------------------------------------------------- |
-| `deploy/stack.yml`                          | one environment (run three times: prod, staging, demo)                            |
-| `deploy/edge.yml`, `deploy/edge.direct.yml` | nginx, tunnel, landing, Beszel agent                                              |
-| `deploy/ops.yml`                            | Kuma, Beszel, Dozzle                                                              |
+| `deploy/compose.stack.yml`                          | one environment (run three times: prod, staging, demo)                            |
+| `deploy/compose.edge.yml`, `deploy/compose.edge-direct.yml` | nginx, tunnel, landing, Beszel agent                                              |
+| `deploy/compose.ops.yml`                            | Kuma, Beszel, Dozzle                                                              |
 | `deploy/bin/`                               | `biddaloy-deploy`, `biddaloy-doctor`, `biddaloy-nightly`, `biddaloy-restore-prod` |
 | `infra/ansible/`                            | `provision.yml`, `deploy.yml`, inventory, group vars                              |
 | `infra/secrets/*.enc.env`                   | encrypted secrets; `*.example.env` lists every key with a comment                 |

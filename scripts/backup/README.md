@@ -147,7 +147,7 @@ staging-refresh.sh --target biddaloy_staging_drill --from db/daily/2026-10-28.du
 - `--from` is `latest-daily` (default, the only one that waits for the deadline), `latest-hourly`, or an exact key.
 - The scrub always runs. `db-swap.sh` also accepts `biddaloy_staging_dev` (guard only; dev is never renamed).
 
-Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
+Needs (all passed by `deploy/compose.stack.yml`, from `infra/secrets/staging.enc.env`):
 
 - `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - `BACKUP_S3_ENDPOINT` (https), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`: the **read-only** R2 token

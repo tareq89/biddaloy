@@ -1,5 +1,5 @@
 # LOCAL DEV ONLY: db, redis, seaweedfs and mailpit on loopback ports. The production stack lives in
-# deploy/ (stack.yml, edge.yml, ops.yml); docker-compose.build.yml builds it locally.
+# deploy/ (compose.stack.yml, compose.edge.yml, compose.ops.yml); docker-compose.build.yml builds it locally.
 # Rotate container logs: 3 x 10 MB per service.
 x-logging: &logging
   driver: json-file

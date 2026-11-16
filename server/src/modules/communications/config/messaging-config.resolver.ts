@@ -164,7 +164,7 @@ export class MessagingConfigResolver {
       tenantMedium.metering === 'PLATFORM' ||
       opts.allowPlatformKeys === true ||
       platformOnly;
-    // An empty/blank env value (deploy/stack.yml `${X:-}`) is unset, so the registry default applies.
+    // An empty/blank env value (deploy/compose.stack.yml `${X:-}`) is unset, so the registry default applies.
     const env = (name: string) => {
       const v = platformOk ? this.config.get<string>(name) : undefined;
       return typeof v === 'string' && v.trim() === '' ? undefined : v;

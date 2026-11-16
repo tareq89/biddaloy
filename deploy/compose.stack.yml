@@ -1,9 +1,9 @@
 # One environment of the app (Epic 79.0, docs/architecture/30-deployment-target.md).
 # Started three times on one host, each with its own .env:
 #
-#   ENV_NAME=prod    docker compose -p prod    -f deploy/stack.yml --env-file /opt/biddaloy/prod/.env up -d
-#   ENV_NAME=staging docker compose -p staging -f deploy/stack.yml --env-file /opt/biddaloy/staging/.env up -d
-#   ENV_NAME=demo    docker compose -p demo    -f deploy/stack.yml --env-file /opt/biddaloy/demo/.env up -d
+#   ENV_NAME=prod    docker compose -p prod    -f deploy/compose.stack.yml --env-file /opt/biddaloy/prod/.env up -d
+#   ENV_NAME=staging docker compose -p staging -f deploy/compose.stack.yml --env-file /opt/biddaloy/staging/.env up -d
+#   ENV_NAME=demo    docker compose -p demo    -f deploy/compose.stack.yml --env-file /opt/biddaloy/demo/.env up -d
 #
 # No container_name and no host ports: the project name scopes every name, and
 # data stores are reached with `docker compose -p <env> exec`. Only app / app2 and

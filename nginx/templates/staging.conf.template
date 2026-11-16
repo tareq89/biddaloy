@@ -1,5 +1,5 @@
 # staging.<domain> (Epic 79.0). STAGING_DOMAIN comes from the edge .env (`*.invalid` when unset,
-# so nothing matches). `staging-app` is the alias deploy/stack.yml gives staging's app on
+# so nothing matches). `staging-app` is the alias deploy/compose.stack.yml gives staging's app on
 # the `biddaloy-edge` network. `resolve` keeps nginx booting while staging is down (a 502
 # until it is up), the same way as the app upstream.
 #
@@ -72,7 +72,7 @@ server {
 }
 
 # [Epic 98, D17] Staging cockpit host: same app, own host name, same two login layers as staging.
-# COCKPIT_STAGING_DOMAIN is `cockpit-staging.invalid` when unset in deploy/edge.yml.
+# COCKPIT_STAGING_DOMAIN is `cockpit-staging.invalid` when unset in deploy/compose.edge.yml.
 server {
     listen 80;
     include /etc/nginx/snippets/edge-server.conf;

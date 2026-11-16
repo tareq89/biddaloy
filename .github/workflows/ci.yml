@@ -76,7 +76,7 @@ jobs:
               - 'e2e/landing/**'
               - 'nginx/templates/landing.conf.template'
               - 'nginx/test/landing.infra.test.sh'
-              - 'deploy/edge.yml'
+              - 'deploy/compose.edge.yml'
               - 'ui/src/styles/globals.css'
               - 'yarn.lock'
               - 'package.json'
@@ -174,7 +174,7 @@ jobs:
       # `${VAR:?...}`), so a deploy with a forgotten .env fails loudly.
       - name: Compose refuses an empty env
         run: |
-          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose -f deploy/stack.yml config -q 2>&1) && {
+          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose -f deploy/compose.stack.yml config -q 2>&1) && {
             echo "docker compose accepted an empty environment" >&2
             exit 1
           }
