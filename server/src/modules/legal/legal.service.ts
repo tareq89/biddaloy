@@ -65,12 +65,12 @@ export class LegalService {
     await this.audit.record(
       {
         action: AuditAction.CREATE,
-        entity_type: 'LegalAcceptance',
+        entity_type: 'User', // ponytail: no LegalAcceptance in shared AuditEntityType (outside lane); add it there later
         entity_id: userId,
         tenant_id: tenantId,
         performed_by_user_id: userId,
         ip_address: ip,
-        new_values: { versions },
+        new_values: { legal_accepted: versions },
       },
       manager,
     );
