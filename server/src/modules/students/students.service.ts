@@ -29,7 +29,13 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { CommunicationMedium, AuditAction, EnrollmentStatus, UserRole } from '@biddaloy/shared';
+import {
+  CommunicationMedium,
+  AuditAction,
+  EnrollmentStatus,
+  PhotoConsent,
+  UserRole,
+} from '@biddaloy/shared';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { nextRollNumber } from './roll-number.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
@@ -311,6 +317,7 @@ export class StudentService {
     query: Pick<
       QueryStudentDto,
       | 'class_id'
+      | 'photo_consent'
       | 'section_id'
       | 'shift'
       | 'version'
@@ -340,6 +347,9 @@ export class StudentService {
         });
     }
 
+    if (query.photo_consent) {
+      qb.andWhere('student.photo_consent = :photoConsent', { photoConsent: query.photo_consent });
+    }
     if (query.class_id) {
       qb.andWhere('class_section.class_id = :classId', { classId: query.class_id });
     }
@@ -638,6 +648,37 @@ export class StudentService {
         updateData.roll_number = await nextRollNumber(manager, dto.class_section_id!, tenantId);
       }
 
+      // [59.2.01] Consent is decided on a locked re-read: a concurrent photo upload cannot slip a
+      // key in between. Stamp who/when only on a real change. REFUSED always nulls `photo_key`
+      // (even when re-sent); the storage object stays (D48: print snapshots may reference it).
+      let before: Student = existingStudent;
+      let photoRemoved = false;
+      if (dto.photo_consent !== undefined) {
+        const locked = await txStudentRepo.findOne({
+          where: { id, tenant_id: tenantId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!locked) throw new NotFoundException('Student not found');
+        before = Object.assign(
+          Object.create(Object.getPrototypeOf(existingStudent)),
+          existingStudent,
+          {
+            photo_consent: locked.photo_consent,
+            photo_key: locked.photo_key,
+          },
+        );
+        if (dto.photo_consent !== locked.photo_consent) {
+          updateData.photo_consent_recorded_at = new Date();
+          updateData.photo_consent_recorded_by = userId;
+        } else {
+          delete updateData.photo_consent;
+        }
+        if (dto.photo_consent === PhotoConsent.REFUSED) {
+          updateData.photo_key = null;
+          photoRemoved = !!locked.photo_key;
+        }
+      }
+
       const supplied = Object.keys(updateData).filter((k) => updateData[k] !== undefined);
 
       // An empty body (`{}`) would make TypeORM throw UpdateValuesMissingError, a 500.
@@ -664,9 +705,8 @@ export class StudentService {
           : value;
       const changed = supplied.filter(
         (k) =>
-          JSON.stringify(
-            comparable(k, (existingStudent as unknown as Record<string, unknown>)[k]),
-          ) !== JSON.stringify(comparable(k, updateData[k])),
+          JSON.stringify(comparable(k, (before as unknown as Record<string, unknown>)[k])) !==
+          JSON.stringify(comparable(k, updateData[k])),
       );
       if (changed.length > 0) {
         await this.auditService.record(
@@ -679,12 +719,12 @@ export class StudentService {
             ip_address: context.ip,
             user_agent: context.userAgent,
             old_values: Object.fromEntries(
-              changed.map((k) => [
-                k,
-                masked(k, (existingStudent as unknown as Record<string, unknown>)[k]),
-              ]),
+              changed.map((k) => [k, masked(k, (before as unknown as Record<string, unknown>)[k])]),
             ),
-            new_values: Object.fromEntries(changed.map((k) => [k, masked(k, updateData[k])])),
+            new_values: {
+              ...Object.fromEntries(changed.map((k) => [k, masked(k, updateData[k])])),
+              ...(photoRemoved ? { photo_removed: true } : {}),
+            },
           },
           manager,
         );
