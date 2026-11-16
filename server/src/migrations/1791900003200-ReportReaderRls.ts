@@ -6,10 +6,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * length of each report transaction and names the school in `app.report_tenant`; under that role
  * Postgres itself returns only that school's rows, even for SQL that forgot its `tenant_id`.
  *
- * What it does NOT touch: the app's own role. The app connects as the table owner (in the
- * compose stack, the bootstrap `POSTGRES_USER`, a superuser), and owners and superusers skip RLS,
- * so no other query changes. Policies are `TO report_reader` only, never PUBLIC (PUBLIC includes
- * the report role and would cancel the wall).
+ * What it does NOT touch: the app's own role. When this ran, the app connected as the table owner
+ * (a superuser) and skipped RLS; since #3949 deploys connect as `biddaloy_app` (see
+ * AppRoleTenantRls1792500000100), and this migration still changes no query for that role.
+ * Policies are `TO report_reader` only, never PUBLIC (PUBLIC includes the report role and would
+ * cancel the wall).
  *
  * - The role is cluster-wide, not per database: created once, tolerant of two databases migrating
  *   at the same moment (`duplicate_object` / `unique_violation`). `down()` never drops it, because

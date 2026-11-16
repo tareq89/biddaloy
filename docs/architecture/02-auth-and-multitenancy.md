@@ -1257,56 +1257,83 @@ Deferred, and where each item is tracked (nothing here is silently dropped):
 
 ## Database tenant wall (RLS)
 
-Epic 59.0 adds a second tenant wall inside Postgres (D12): the app connects as a plain role
-(`biddaloy_app`, not a superuser, not the table owner), `FORCE ROW LEVEL SECURITY` is on, and a
-policy says `tenant_id = app.tenant_id`. If `app.tenant_id` is unset or `''`, every row passes
-(D22), so jobs and platform paths are untouched.
+Epic 59 adds a second tenant wall inside Postgres (D12). The app connects as `biddaloy_app` (not a
+superuser, not `BYPASSRLS`, not the table owner). Five tables carry the policy `app_tenant_wall`
+with `FORCE ROW LEVEL SECURITY`: `students`, `guardians`, `payments`, `invoices`, `student_fees`.
+The policy says `tenant_id = app.tenant_id`. If `app.tenant_id` is unset or `''`, every row passes
+(D22), so jobs, platform routes and the cockpit's cross-school reads are untouched.
 
-**Spike #3942 verdict: D13 holds.** The mechanism works on pooled connections with no leak.
-Proof: `server/src/database/tenant-context.spike.integration.spec.ts` (6 cases, all green; pool
-of 2 connections, so the same physical connection is reused). So 59.2.04 builds the real hook; it
-does not shrink to a doc.
+**Spike #3942 verdict: D13 holds.** The mechanism works on pooled connections with no leak. #3949
+promoted it: `server/src/database/tenant-context.ts` (store, middleware, hook) and
+`server/src/database/tenant-context.integration.spec.ts`, which connects AS `biddaloy_app` to the
+real tables. The spike's cases a to f moved there (f split in two, below).
 
 ```mermaid
 sequenceDiagram
   participant R as Request
+  participant M as tenantContextMiddleware
   participant G as ContextGuard
-  participant A as AsyncLocalStorage
+  participant A as AsyncLocalStorage store
   participant H as Query-runner hook
   participant P as Postgres (pooled connection)
-  R->>G: X-Tenant-ID + token
-  G->>A: run({ tenantId }) around the handler
+  R->>M: any route
+  M->>A: run({}) around the whole request
+  G->>A: setTenant(id) once the school is resolved (platform routes never reach this)
   H->>A: before each query, read tenantId
   H->>P: SELECT set_config('app.tenant_id', tenantId, false) (only if the connection's value differs)
   P-->>H: rows of that school only
   H->>P: on release: set_config('app.tenant_id', '', false)
+  alt the reset fails (aborted transaction, dead socket)
+    H->>P: release(err): pg destroys the connection, never pools it
+    H-->>R: error is logged and rethrown
+  end
 ```
 
-| Case | What was proven | Result |
-| --- | --- | --- |
-| a | In tenant A's context, `SELECT * FROM spike_rows` (no WHERE) returns only A's rows | pass |
-| b | No context: all rows come back (D22) | pass |
-| c | After a tenant A request releases its connection, the next context-free query on the **same** `pg_backend_pid()` sees all rows, and the raw setting is `''` | pass |
-| d | `dataSource.transaction` inside the context is walled, and `WITH CHECK` blocks writing another school's row | pass |
-| e | A job (plain async function, no ALS store) is not walled and never inherits A, even while a request is in flight | pass |
-| f | As the superuser/owner the wall does not apply, which is why D14's boot check (refuse production when connected as superuser or owner) is required | pass (expected) |
+A Nest guard cannot wrap the handler in `run(...)`, so the middleware opens an empty store and the
+guard fills it, the same shape as `RequestActorContext`. Never use `enterWith`.
 
-No case failed.
+| Case | What is proven                                                                                                                                                        | Result          |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| a    | In tenant A's context, `SELECT * FROM <table>` with no WHERE returns only A's rows, on all five tables                                                                | pass            |
+| b    | No context: all rows come back (D22), e.g. the cockpit "school 360" read                                                                                              | pass            |
+| c    | After a request releases its connection, the next context-free query on the **same** `pg_backend_pid()` sees all rows, and the raw setting is exactly `''` (not null) | pass            |
+| d    | `dataSource.transaction` inside the context is walled, and `WITH CHECK` blocks writing another school's row                                                           | pass            |
+| e    | A job (no store) is not walled and never inherits A, even while a request is in flight                                                                                | pass            |
+| f1   | A **superuser** skips the wall                                                                                                                                        | pass (expected) |
+| f2   | A plain **table owner** is subject to the policy under `FORCE`, and skips it without `FORCE`                                                                          | pass (expected) |
+| g    | Two requests (A and B) at once on a pool of 2: each sees only its own school                                                                                          | pass            |
+| h    | A rolled-back transaction does not leave a stale remembered tenant (re-set on the next query)                                                                         | pass            |
+| i    | A failed reset destroys the connection, calls the failure callback and rethrows                                                                                       | pass            |
 
-**Where the hook goes.** Wrap `DataSource.createQueryRunner` once at `DataSource` init (the spec
-does exactly this): the returned runner's `query` first syncs the setting, and its `release`
-resets it to `''`. Every path (`ds.query`, `ds.transaction`, repositories, `EntityManager`) creates
-runners through it, so one patch covers all of them. The pg driver option alone cannot see the
-ALS store, so it is not enough.
+**Owner versus superuser.** With `FORCE ROW LEVEL SECURITY` the owner IS walled; only a superuser
+or a `BYPASSRLS` role skips the policy. The boot check (D14, `server/src/app-role-check.ts`)
+refuses production when the app is a superuser or `BYPASSRLS` (hard: the wall would not exist), and
+also when it owns `students` (defensible: an owner can `ALTER TABLE ... NO FORCE ROW LEVEL SECURITY`
+on its own table). The policy names `biddaloy_app` only, so migrations, backups and jobs must run as
+the superuser owner, as the stack does. **Jobs are not walled**: the migrate one-off, backup, restore
+drill, staging refresh, demo reset and `x-jobs-env` connect as the owner, so no tenant is set and
+the policy passes every row. Only `app` / `app2` run as `biddaloy_app`.
+
+**Where the hook goes.** `TypeOrmModule.forRootAsync`'s `dataSourceFactory` in `app.module.ts`
+wraps `DataSource.createQueryRunner` once: the returned runner's `query` first syncs the setting,
+its `rollbackTransaction` forgets what it remembered, and its `release` resets to `''`. Every path
+(`ds.query`, `ds.transaction`, repositories, `EntityManager`) creates runners through it.
+
+**Limits**
+
+- `remembered` is inferred per runner. A rollback can undo a `set_config(..., false)` made inside the
+  transaction, so the hook forgets after one and re-sets on the next query (case h).
+- `runner.stream()` does not go through `query`, so the hook does not wall it. Do not stream a walled table.
+- The hook only walls the app's own DataSource. A second DataSource in the same process is not walled.
 
 **Rules the spike confirmed**
+
 - Use `set_config(..., false)` (session level) plus the reset on release. A `SET LOCAL` would not
   survive between the statements of a non-transaction request.
 - The reset must run before the connection goes back to the pool; a failed reset must fail loudly.
 - The policy reads `NULLIF(current_setting('app.tenant_id', true), '')`, never a bare cast
   (`''::uuid` throws).
 
-**Caveat.** The spec ran on a plain local Postgres 16 with a throwaway role (the shared Docker
-stack was hung when this was written). The spec only needs `DATABASE_URL`; re-run it with
-`yarn test-env run -- yarn workspace @biddaloy/server test:file src/database/tenant-context.spike.integration.spec.ts`
-when the stack is healthy.
+**CI note.** The spec changes `biddaloy_app`'s password in the worker database and creates throwaway
+roles, so it runs in the shared integration stack like the other `*.integration.spec.ts` files; the
+role itself is cluster-wide and created by the migration, never by the spec.

@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { tenantContextMiddleware } from '../../database/tenant-context';
 import { requestActorContextMiddleware } from '../../common/request-actor-context';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
@@ -69,8 +70,8 @@ import { School } from '../schools/entities/school.entity';
   exports: [ImpersonationSessionService],
 })
 export class SupportAccessModule implements NestModule {
-  // One request-actor store per request, filled by JwtStrategy when the token is a Login as token.
+  // One request-actor store and one tenant store (#3949) per request, filled by JwtStrategy when the token is a Login as token.
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(requestActorContextMiddleware).forRoutes('*');
+    consumer.apply(requestActorContextMiddleware, tenantContextMiddleware).forRoutes('*');
   }
 }

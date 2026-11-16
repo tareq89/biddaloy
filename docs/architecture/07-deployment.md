@@ -324,7 +324,7 @@ you need to look (the project name is the stack name):
 
 ```bash
 docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml \
-  run --rm app node server/dist/scripts/migrate.js pending
+  run --rm migrate node server/dist/scripts/migrate.js pending
 ```
 
 ## Rolling restart
@@ -448,7 +448,7 @@ Telegram message. A failure always prints the same three lines:
 ```text
 FAILED at: migrate (prod, 3f9c2ab4e1d0)
 Why:       migration 1797… failed: relation "fee_items" does not exist
-Next:      docker compose -p prod run --rm app node server/dist/scripts/migrate.js pending; biddaloy-doctor prod
+Next:      docker compose -p prod run --rm migrate node server/dist/scripts/migrate.js pending; biddaloy-doctor prod
 ```
 
 If anything fails after pre-flight, the playbook puts the previous `.env`
