@@ -257,6 +257,44 @@ describe('createAppQueryClient', () => {
     );
   });
 
+  it.each([
+    ['en', 422, 'FILE_HARMFUL', 'This file looks harmful. Choose another file.'],
+    ['bn', 422, 'FILE_HARMFUL', 'ফাইলে ক্ষতিকর কিছু পাওয়া গেছে, অন্য ফাইল দিন।'],
+    ['en', 503, 'FILE_CHECK_UNAVAILABLE', "We can't check files right now. Try again shortly."],
+    [
+      'bn',
+      503,
+      'FILE_CHECK_UNAVAILABLE',
+      'এখন ফাইল পরীক্ষা করা যাচ্ছে না, একটু পরে আবার চেষ্টা করুন।',
+    ],
+  ])(
+    'toasts the plain %s sentence for %s %s, not the server text',
+    async (lang, statusCode, code, text) => {
+      await i18n.changeLanguage(lang);
+      const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const queryClient = createAppQueryClient();
+      await expect(
+        queryClient
+          .getMutationCache()
+          .build(queryClient, {
+            mutationFn: () => {
+              throw new ApiError({
+                statusCode,
+                message: 'ClamAV scanner down 503 malware infected',
+                timestamp: new Date().toISOString(),
+                path: '/x',
+                requestId: 'r1',
+                details: { code },
+              });
+            },
+          })
+          .execute(undefined),
+      ).rejects.toThrow();
+      await vi.waitFor(() => expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith(text));
+      await i18n.changeLanguage(DEFAULT_LOCALE);
+    },
+  );
+
   it('does not toast for a non-403 ApiError or a plain Error', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();
