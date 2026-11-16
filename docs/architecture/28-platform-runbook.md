@@ -38,6 +38,7 @@ Why the setup looks like this: [30-deployment-target.md](30-deployment-target.md
 - [Part 17. School websites](#part-17-school-websites)
 - [Part 18. Login as and school control](#part-18-login-as-and-school-control-owners)
 - [Part 19. Money: SMS stock, packages, coupons, refunds](#part-19-money-sms-stock-packages-coupons-refunds-owners)
+- [Part 20. The virus scanner](#part-20-the-virus-scanner-owners)
 - [Known gaps](#known-gaps)
 
 ## Part 0. The picture and the order
@@ -784,13 +785,13 @@ Every key of the five example files. "From" says which part gives you the value.
 | `BACKUP_PUSH_URL`                    | `prod.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `LOG_ARCHIVE_PUSH_URL`               | `prod.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `SENTRY_CRON_MONITOR_URL`            | `prod.enc.env`    | part 6               | Sentry cron monitor check-in URL (optional)                                             |
-| `BACKUP_SCHEDULE`                    | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_RETENTION_DAYS`              | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_HOURLY_KEEP`                 | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_DAILY_KEEP`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_TRASH_DAYS`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_FILES_MAX_DELETE`            | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_NET_WAIT_SECS`               | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_SCHEDULE`                    | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_RETENTION_DAYS`              | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_HOURLY_KEEP`                 | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_DAILY_KEEP`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_TRASH_DAYS`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_FILES_MAX_DELETE`            | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_NET_WAIT_SECS`               | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
 | `BACKUP_MEM`                         | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `BACKUP_CPUS`                        | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `JOBS_MEM`                           | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
@@ -863,13 +864,13 @@ Every key of the five example files. "From" says which part gives you the value.
 | `BACKUP_PUSH_URL`                    | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `RESTORE_DRILL_PUSH_URL`             | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                      |
 | `SENTRY_CRON_MONITOR_URL`            | `staging.enc.env` | part 6               | Sentry cron monitor check-in URL (optional)                                             |
-| `BACKUP_SCHEDULE`                    | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_RETENTION_DAYS`              | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_HOURLY_KEEP`                 | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_DAILY_KEEP`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_TRASH_DAYS`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_FILES_MAX_DELETE`            | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `BACKUP_NET_WAIT_SECS`               | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `BACKUP_SCHEDULE`                    | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_RETENTION_DAYS`              | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_HOURLY_KEEP`                 | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_DAILY_KEEP`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_TRASH_DAYS`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_FILES_MAX_DELETE`            | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `BACKUP_NET_WAIT_SECS`               | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
 | `BACKUP_MEM`                         | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                  |
 | `BACKUP_CPUS`                        | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                  |
 | `JOBS_MEM`                           | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                  |
@@ -941,10 +942,10 @@ Every key of the five example files. "From" says which part gives you the value.
 | `SENTRY_CRONS_URL`                   | `demo.enc.env`    | part 6               | Sentry crons check-in URL (optional)                                                    |
 | `DEMO_SWEEP_CMD`                     | `demo.enc.env`    | part 8               | set this or `DEMO_SKIP_SWEEP`; start with `DEMO_SKIP_SWEEP=true`                        |
 | `DEMO_SKIP_SWEEP`                    | `demo.enc.env`    | part 8               | `true`                                                                                  |
-| `DEMO_SWEEP_URL`                     | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `DEMO_SWEEP_TIMEOUT`                 | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `DEMO_SCALE`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
-| `DEMO_YEARS`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                             |
+| `DEMO_SWEEP_URL`                     | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `DEMO_SWEEP_TIMEOUT`                 | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `DEMO_SCALE`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
+| `DEMO_YEARS`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/compose.stack.yml`)                                     |
 | `DEMO_RESET_MEM`                     | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `DEMO_RESET_CPUS`                    | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                  |
 | `TURNSTILE_SITE_KEY`                 | `demo.enc.env`    | part 4               | prod/demo: widget site key; staging/demo example already holds the test pair            |
@@ -2593,17 +2594,41 @@ flowchart TD
 
 **Oversold example.** Stock recorded: 10000 SMS. Schools hold 10500 unused. The red "Oversold" line shows and a new package buy by Greenview answers `409 SMS_SALES_PAUSED`. You record a new 5000 SMS purchase: promised 10500 is below stock 15000, so the line clears.
 
+## Part 20. The virus scanner (owners)
+
+Every file a school or the public uploads is checked by ClamAV, one container (`clamav`) in the `ops` stack shared by prod, staging and demo. Design: [30-deployment-target.md](30-deployment-target.md#the-virus-scanner-epic-60-4004).
+
+```mermaid
+flowchart TD
+  A[Upload] --> B{clamav answers?}
+  B -->|yes, clean| C[File saved]
+  B -->|yes, harmful| D["422 'This file looks harmful. Choose another file.'"]
+  B -->|no| E{Which upload?}
+  E -->|"admission, application, homework, payment proof"| F["Refused: 'We can't check files right now. Try again shortly.'"]
+  E -->|"notice files, staff documents, site media"| G["Saved anyway, Sentry alert"]
+```
+
+| Question                         | Answer                                                                                                                                                                                                                                          |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Is it healthy?**               | On the VM: `docker ps --filter name=clamav` shows `(healthy)`. Or `docker exec ops-clamav-1 /usr/local/bin/clamdcheck.sh`. In Uptime Kuma, add a **Docker Container** monitor named `clamav` (container `ops-clamav-1`); Kuma is set in its UI. |
+| **What do users see when down?** | Admission, application attachments, homework and payment proofs stop (the "can't check files right now" sentence). Notice files, staff documents and site media keep working and Sentry gets an alert (D19). Nothing else is affected.          |
+| **How do I restart it?**         | `docker restart ops-clamav-1`. It is `unhealthy` for a few minutes while it loads signatures; the signature volume is kept, so it is not a full download. A full restart of the ops stack also works: `biddaloy-deploy ops <sha>`.              |
+| **First start / new VM?**        | It downloads signatures from `database.clamav.net`: the VM needs outbound HTTPS to it. Expect up to a few minutes `unhealthy`. If it stays so, check `docker logs ops-clamav-1` for freshclam errors (blocked outbound, rate limit).            |
+| **Memory?**                      | About 1.2 GB resident, limit 2 GB (`CLAMAV_MEM` in the ops `.env`). Watch it in Beszel; raise the limit if it is killed (`docker inspect` shows `OOMKilled`).                                                                                   |
+
+**Staging smoke.** After every staging deploy the smoke test uploads the standard EICAR test string (harmless) as a staff document and expects `422 FILE_HARMFUL`. A red `eicar` line there means the app cannot reach `clamav:3310` or clamd has no signatures yet. Production never sends it.
+
 ## Known gaps
 
 Places where the code and a first-time setup disagree. None is fixed by this page; each
 needs a code or owner decision. Gap 1 (no command created the first platform owner) is closed by Epic 98: see [11a](#11a-platform-owners-the-cockpit). The other numbers are kept so links stay valid.
 
-| #   | Gap                                                                                                                                                                                                 | Where                                          | Effect                                                                                                                       |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 2   | Ops on its own VM: `compose.edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`                                          | `deploy/compose.edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed                                                                           |
-| 3   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open                                      | `biddaloy-deploy:219-223`                      | harmless; not needed                                                                                                         |
-| 4   | Turnstile only lists hostnames you add: a school's own domain fails the widget check, and a free widget holds at most 10 hostnames                                                                  | 17e step 6                                     | forms on custom domains fail until each ACTIVE domain is added by hand, or the hostname check is dropped (decide with #3649) |
-| 5   | The 100-hostname free cap of Cloudflare for SaaS: what the API and the Address tab show at hostname 101 is not known                                                                                | 17e step 2, `custom-domain.service.ts`         | TO CONFIRM on the real account; expect the claim to FAIL with a Cloudflare error                                             |
-| 6   | Does Cloudflare auto-validate a hostname when the school's CNAME already points at the fallback origin? If yes, a school that detaches but leaves its CNAME could let another school claim the host | 17e step 4, #3646                              | TO CONFIRM against the Cloudflare docs or a test hostname; nothing was guessed                                               |
-| 7   | The custom host path (`$site_host_ok`) and every 17e step ran only in Docker (`nginx/test/site.infra.test.sh`), never behind real Cloudflare for SaaS                                               | 17e                                            | the staging acceptance of #3646 (ACTIVE within 20 minutes) is still owed                                                     |
-| 8   | Minimum TLS for a school's own hostname: the zone-wide setting is documented; whether Cloudflare for SaaS applies it or has its own per-hostname setting is not                                     | 17e step 2                                     | TO CONFIRM on the real account (SSL/TLS > Custom Hostnames, hostname settings); nothing was guessed                          |
+| #   | Gap                                                                                                                                                                                                 | Where                                                  | Effect                                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 2   | Ops on its own VM: `compose.edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`                                  | `deploy/compose.edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed                                                                           |
+| 3   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open                                      | `biddaloy-deploy:219-223`                              | harmless; not needed                                                                                                         |
+| 4   | Turnstile only lists hostnames you add: a school's own domain fails the widget check, and a free widget holds at most 10 hostnames                                                                  | 17e step 6                                             | forms on custom domains fail until each ACTIVE domain is added by hand, or the hostname check is dropped (decide with #3649) |
+| 5   | The 100-hostname free cap of Cloudflare for SaaS: what the API and the Address tab show at hostname 101 is not known                                                                                | 17e step 2, `custom-domain.service.ts`                 | TO CONFIRM on the real account; expect the claim to FAIL with a Cloudflare error                                             |
+| 6   | Does Cloudflare auto-validate a hostname when the school's CNAME already points at the fallback origin? If yes, a school that detaches but leaves its CNAME could let another school claim the host | 17e step 4, #3646                                      | TO CONFIRM against the Cloudflare docs or a test hostname; nothing was guessed                                               |
+| 7   | The custom host path (`$site_host_ok`) and every 17e step ran only in Docker (`nginx/test/site.infra.test.sh`), never behind real Cloudflare for SaaS                                               | 17e                                                    | the staging acceptance of #3646 (ACTIVE within 20 minutes) is still owed                                                     |
+| 8   | Minimum TLS for a school's own hostname: the zone-wide setting is documented; whether Cloudflare for SaaS applies it or has its own per-hostname setting is not                                     | 17e step 2                                             | TO CONFIRM on the real account (SSL/TLS > Custom Hostnames, hostname settings); nothing was guessed                          |
