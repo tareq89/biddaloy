@@ -82,9 +82,10 @@ flowchart LR
 
 The `comms-print` slice also seeds **staff messages** (Epic 80): three batches per branch (all teachers, office staff,
 one designation), header `filters_applied.kind = 'STAFF_MESSAGE'`, logs with `trigger = STAFF_MESSAGE` and
-`recipient_user_id`, every fourth log FAILED. Code: `staffMessages` in `slices/comms-print.ts`. **Marks SMS has no demo
-batch yet** (no table or column changed, so the coverage guard is not tripped; a `MARKS_SMS` batch would need a SUBMITTED
-grid from the `exams` slice).
+`recipient_user_id`, every fourth log FAILED. Code: `staffMessages` in `slices/comms-print.ts`. **Marks SMS** has two batches per branch (Epic 80, #4345): each on a SUBMITTED grid
+from the `exams` slice, header `filters_applied.kind = 'MARKS_SMS'` with the `mark_grid_id`, logs with
+`trigger = MARKS_SMS` and the service's own `reference_key`, so the grid screen answers "already sent". The second
+batch has FAILED rows. Code: `marksSmsBatches` in `slices/comms-print.ts`.
 
 The `website` slice (Epic 40, #3621) gives the demo school (`bmsc-high`) a published, switched-on Basic
 site at the subdomain `bmsc-high`. It goes through `SiteConfigService` (draft, publish, switch on), stores two
