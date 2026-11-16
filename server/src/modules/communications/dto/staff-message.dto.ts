@@ -14,6 +14,7 @@ import {
   MaxLength,
   ValidateIf,
   ValidateNested,
+  IsDefined,
 } from 'class-validator';
 import { CommunicationMedium, UserRole } from '@biddaloy/shared';
 
@@ -72,6 +73,7 @@ export const STAFF_MESSAGE_MEDIUMS = [
  */
 export class StaffMessageDto {
   @ApiProperty({ type: StaffAudienceDto })
+  @IsDefined()
   @ValidateNested()
   @Type(() => StaffAudienceDto)
   audience: StaffAudienceDto;
@@ -120,6 +122,12 @@ export class StaffSkippedDto {
   reason: string;
 }
 
+export class StaffWhatsAppTemplateDto {
+  name: string;
+  language: string;
+  params: string[];
+}
+
 export class StaffMessagePreviewResponseDto {
   people: number;
   with_phone: number;
@@ -130,7 +138,8 @@ export class StaffMessagePreviewResponseDto {
   balance: number | null;
   shortfall: number;
   /** The template WhatsApp will deliver; null for SMS. */
-  whatsapp_template: { name: string; language: string; params: string[] } | null;
+  @ApiProperty({ type: StaffWhatsAppTemplateDto, nullable: true })
+  whatsapp_template: StaffWhatsAppTemplateDto | null;
 }
 
 export class StaffMessageSendResponseDto {

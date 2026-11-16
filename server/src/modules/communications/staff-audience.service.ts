@@ -82,7 +82,9 @@ export class StaffAudienceService {
               AND d.deleted_at IS NULL
             WHERE h.tenant_id = $1 AND h.end_date IS NULL AND h.status <> 'RESIGNED'
               AND d.is_teaching = $4::boolean
-           UNION SELECT unnest($5::uuid[])
+           UNION SELECT ut.user_id FROM user_tenants ut
+            WHERE ut.tenant_id = $1 AND ut.deleted_at IS NULL
+              AND ut.user_id = ANY($5::uuid[]) AND ut.role::text <> ALL($7::text[])
          ) x
          JOIN users u ON u.id = x.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
          WHERE EXISTS (SELECT 1 FROM user_tenants m
@@ -95,7 +97,7 @@ export class StaffAudienceService {
                   WHERE t.tenant_id = $1 AND t.deleted_at IS NULL
                     AND cs.class_id = ANY($6::uuid[])))
          ORDER BY u.full_name, x.user_id`,
-        [tenantId, roles, designations, teaching, users, coordinatedClassIds],
+        [tenantId, roles, designations, teaching, users, coordinatedClassIds, NOT_STAFF_ROLES],
       );
 
     if (rows.length > STAFF_AUDIENCE_MAX) throw new BadRequestException(STAFF_AUDIENCE_TOO_MANY);

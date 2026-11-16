@@ -475,6 +475,7 @@
       "alreadySent": "একই মানুষদের এই বার্তা এইমাত্র পাঠানো হয়েছে। আবার পাঠাতে এক মিনিট অপেক্ষা করুন।"
     },
     "coordinator": {
+      "sentWithFailures": "{{count}} জনের এসএমএস কিউতে গেছে; {{failed}} জনেরটি ব্যর্থ। বার্তার তালিকা দেখুন।",
       "sentToast": "{{count}} জন $t(common:entities.teacher_other)-এর জন্য এসএমএস পাঠানো হয়েছে।",
       "sendAsSms": "এসএমএস হিসেবে পাঠান",
       "dialogTitle": "এসএমএস হিসেবে পাঠান",
@@ -483,6 +484,7 @@
       "cancel": "ফিরে যান"
     },
     "entry": {
+      "tooMany": "একসাথে সর্বোচ্চ ৫০০ জন বেছে নিতে পারবেন।",
       "bulkAction": "এসএমএস পাঠান",
       "paletteTitle": "কর্মীদের বার্তা পাঠান",
       "prefillBanner": "যাঁদের: {{names}}",

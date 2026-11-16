@@ -475,6 +475,7 @@
       "alreadySent": "This message was just sent to the same people. Wait a minute before sending it again."
     },
     "coordinator": {
+      "sentWithFailures": "SMS queued for {{count}}; {{failed}} failed. Open the message log.",
       "sentToast": "SMS queued for {{count}} $t(common:entities.teacher_other).",
       "sendAsSms": "Send as SMS",
       "dialogTitle": "Send as SMS",
@@ -483,6 +484,7 @@
       "cancel": "Go back"
     },
     "entry": {
+      "tooMany": "You can pick up to 500 people at a time.",
       "bulkAction": "Send SMS",
       "paletteTitle": "Message staff",
       "prefillBanner": "To: {{names}}",

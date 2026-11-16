@@ -37,6 +37,7 @@ import {
   type StaffAudienceInput,
   type StaffMessageInput,
 } from '@biddaloy/ui/hooks';
+import { useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { useQueries } from '@tanstack/react-query';
@@ -142,6 +143,8 @@ export function StaffMessageForm({
   const [templateParams, setTemplateParams] = React.useState('');
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [needMessage, setNeedMessage] = React.useState(false);
+  // A typed, unsent message is lost when the user leaves (e.g. switches to Guardians).
+  useWarnUnsavedChanges(message.trim().length > 0 && !send.isSuccess);
 
   // Names for the prefill banner and the chips.
   const lookupIds = prefillIds.slice(0, PREFILL_NAMES_MAX);
@@ -490,7 +493,7 @@ export function StaffMessageForm({
               <section aria-label={t('staffMessage.whatsapp.deliveredTitle')}>
                 <h2 className="text-label">{t('staffMessage.whatsapp.deliveredTitle')}</h2>
                 <p className="text-text-secondary">
-                  {fresh
+                  {fresh && result.whatsapp_template
                     ? [result.whatsapp_template.name, ...result.whatsapp_template.params].join(' ')
                     : t('staffMessage.whatsapp.deliveredEmpty')}
                 </p>

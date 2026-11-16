@@ -14,6 +14,7 @@ import {
   RoutePending,
   StatusBadge,
   statusLabelKey,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -433,12 +434,16 @@ function StaffListPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() =>
+                      onClick={() => {
+                        if (state.selectedIds.size > 500) {
+                          toast.error(t('staffMessage.entry.tooMany', { ns: 'communications' }));
+                          return;
+                        }
                         void navigate({
                           to: '/communications/staff-message',
                           search: { people: Array.from(state.selectedIds).join(',') },
-                        })
-                      }
+                        });
+                      }}
                     >
                       <MessageSquareIcon aria-hidden="true" />
                       {t('staffMessage.entry.bulkAction', { ns: 'communications' })}
