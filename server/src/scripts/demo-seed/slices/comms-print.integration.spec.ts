@@ -33,6 +33,12 @@ import { MarksAuthorizationService } from '../../../modules/exams/marks-authoriz
 import { SeatPlansService } from '../../../modules/seat-plans/seat-plans.service';
 import { TeacherBusyService } from '../../../modules/routines/teacher-busy.service';
 import { ResolveRoutineService } from '../../../modules/routines/resolve-routine.service';
+import { TeacherService, UserService } from '../../../modules/users/users.service';
+import { AccessTokenDenylistService } from '../../../modules/auth/access-token-denylist.service';
+import { SessionCutoffService } from '../../../modules/auth/session-cutoff.service';
+import { RefreshTokenService } from '../../../modules/auth/refresh-token.service';
+import { ACCESS_TOKEN_TTL_MS } from '../../../modules/auth/auth-tokens';
+import { slice as staff } from './staff';
 import { createContext } from '../context';
 import { slice as org } from './org';
 import { slice as students } from './students';
@@ -104,6 +110,13 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
       { provide: AttendanceComponentService, useValue: {} },
       { provide: MarksAuthorizationService, useValue: {} },
       { provide: ResolveRoutineService, useValue: { resolveTenantDay: async () => [] } },
+      // The staff slice gives the staff-message batches their recipients (users with phones).
+      UserService,
+      TeacherService,
+      { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
+      { provide: AccessTokenDenylistService, useValue: { revokeUserTokensIssuedBefore: vi.fn() } },
+      { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },
+      { provide: RefreshTokenService, useValue: {} },
       { provide: ApprovalService, useValue: { consume: vi.fn() } },
       { provide: TenantSettingsCache, useValue: { invalidate: vi.fn() } },
       { provide: StorageService, useValue: { put: vi.fn(), exists: vi.fn(), get: vi.fn() } },
@@ -121,6 +134,7 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
       password: 'unit-test-password',
     });
     await org.run(ctx);
+    await staff.run(ctx);
     await students.run(ctx);
     await extras.run(ctx);
     await exams.run(ctx);
@@ -174,6 +188,18 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
     facts.sentSms = await q(
       `SELECT status, medium, provider_message_id, metadata FROM communication_logs
         WHERE medium = 'SMS' AND status = 'SENT' AND metadata->>'provider' = 'onecodesoft' LIMIT 1`,
+    );
+    facts.staffBatches = await q(
+      `SELECT b.tenant_id, b.total_recipients, b.failed_count, b.initiated_by_user_id,
+              (SELECT count(*)::int FROM communication_logs l WHERE l.reminder_batch_id = b.id
+                  AND l.trigger = 'STAFF_MESSAGE' AND l.tenant_id = b.tenant_id
+                  AND l.recipient_user_id IS NOT NULL AND l.student_id IS NULL) AS logs,
+              (SELECT count(*)::int FROM communication_logs l WHERE l.reminder_batch_id = b.id
+                  AND l.status = 'FAILED') AS failed_logs,
+              (SELECT count(*)::int FROM communication_logs l
+                 JOIN users u ON u.id = l.recipient_user_id
+                WHERE l.reminder_batch_id = b.id AND u.phone IS DISTINCT FROM l.recipient_address) AS foreign_phones
+         FROM reminder_batches b WHERE b.filters_applied->>'kind' = 'STAFF_MESSAGE'`,
     );
     facts.batches = await q(
       `SELECT b.total_recipients,
@@ -315,6 +341,16 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
   it('links each reminder batch to exactly its logs', () => {
     expect(facts.batches.length).toBeGreaterThan(0);
     for (const b of facts.batches) expect(b.logs).toBe(b.total_recipients);
+  });
+
+  it('has staff-message batches: tenant-scoped, user-linked, demo phones only, some FAILED', () => {
+    expect(facts.staffBatches.length).toBeGreaterThanOrEqual(3);
+    for (const b of facts.staffBatches) {
+      expect(b.logs).toBe(b.total_recipients);
+      expect(b.failed_logs).toBe(b.failed_count);
+      expect(b.foreign_phones).toBe(0);
+    }
+    expect(facts.staffBatches.some((b: any) => b.failed_count > 0)).toBe(true);
   });
 
   it('issues an ID card to every current student', () => {
