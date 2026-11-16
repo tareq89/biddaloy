@@ -399,6 +399,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'marksEntry' } },
     { label: { key: 'marksEntryGrid' } },
   ],
+  // [80.3.03] Exams & Results › Marks entry › Marks SMS.
+  '/_staff/marks/$examId/$sectionId/$subjectId_/sms': [
+    { label: { key: 'marksEntry' } },
+    { label: { key: 'marksSms' } },
+  ],
   '/_staff/results/$examId/$studentId': [
     { label: { key: 'results' } },
     { label: { key: 'reportCard' }, dynamic: 'entity' },
