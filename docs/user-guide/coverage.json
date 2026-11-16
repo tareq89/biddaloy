@@ -50,6 +50,7 @@
   "reports.collectionsReport": "done",
   "reports.studentCount": "done",
   "communications.sendMessage": "done",
+  "communications.staffMessage": "done",
   "communications.sendAlert": "done",
   "communications.notices": "done",
   "portal.notices": "done",
