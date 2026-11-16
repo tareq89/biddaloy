@@ -213,3 +213,29 @@ describe('[76.5.07] card_no', () => {
     expect(buildCreatePayload({ ...valid, card_no: ' A1 ' })).toMatchObject({ card_no: 'A1' });
   });
 });
+
+describe('[59.G3] photo_consent', () => {
+  const schema = buildStudentFormSchema(messages);
+  const valid = {
+    ...defaultStudentFormValues(),
+    full_name: 'Rahim Uddin',
+    class_section_id: 'section-1',
+  };
+
+  it('accepts the three values and rejects anything else', () => {
+    for (const photo_consent of ['GIVEN', 'REFUSED', 'UNKNOWN']) {
+      expect(schema.safeParse({ ...valid, photo_consent }).success).toBe(true);
+    }
+    expect(schema.safeParse({ ...valid, photo_consent: 'MAYBE' }).success).toBe(false);
+  });
+
+  it('is sent on update only when changed, and never on create', () => {
+    expect(buildCreatePayload({ ...valid, photo_consent: 'REFUSED' })).not.toHaveProperty(
+      'photo_consent',
+    );
+    expect(buildUpdatePayload(valid, valid)).toEqual({});
+    expect(buildUpdatePayload({ ...valid, photo_consent: 'REFUSED' }, valid)).toEqual({
+      photo_consent: 'REFUSED',
+    });
+  });
+});
