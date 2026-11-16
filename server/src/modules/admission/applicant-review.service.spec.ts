@@ -72,8 +72,10 @@ describe('ApplicantReviewService', () => {
   let setLockMock: ReturnType<typeof vi.fn>;
   let getOneMock: ReturnType<typeof vi.fn>;
   let guardianRepo: { findOne: ReturnType<typeof vi.fn> };
+  let queryMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    queryMock = vi.fn(async () => [{ ok: 1 }]);
     applicantRepo = {
       findOne: vi.fn(),
       update: vi.fn(async () => ({ affected: 1 })),
@@ -83,6 +85,7 @@ describe('ApplicantReviewService', () => {
       manager: {
         transaction: vi.fn(async (cb: (manager: unknown) => Promise<unknown>) =>
           cb({
+            query: queryMock,
             getRepository: (entity: unknown) => {
               if (entity === AdmissionEvaluation) return evaluationRepo;
               if (entity === AdmissionApplicant) return applicantRepo;
@@ -430,6 +433,153 @@ describe('ApplicantReviewService', () => {
       );
       expect(studentService.create).not.toHaveBeenCalled();
       expect(guardianService.findByPhoneAnyFormat).not.toHaveBeenCalled();
+    });
+
+    describe('class-level rounds', () => {
+      const admitOk = (status: AdmissionApplicantStatus) => {
+        applicantRepo.findOne.mockReset();
+        guardianService.create.mockResolvedValue({ id: 'guardian-new' });
+        applicantRepo.findOne
+          .mockResolvedValueOnce(makeApplicant({ status }))
+          .mockResolvedValueOnce(makeApplicant({ status }))
+          .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
+      };
+
+      it('uses the picked section when it belongs to the round', async () => {
+        getOneMock.mockResolvedValueOnce({
+          id: 'intake-1',
+          class_section_id: null,
+          class_id: 'class-1',
+          academic_year_id: 'year-1',
+          title: 'T',
+          seat_count: 2,
+        });
+        queryMock.mockResolvedValue([{ ok: 1 }]);
+        admitOk(AdmissionApplicantStatus.PENDING);
+        await service.admit('applicant-1', { class_section_id: 'section-9' }, TENANT_A, REVIEWER);
+        expect(studentService.create).toHaveBeenCalledWith(
+          expect.objectContaining({ class_section_id: 'section-9' }),
+          TENANT_A,
+          expect.anything(),
+          { userId: REVIEWER },
+        );
+      });
+
+      it('refuses a section from another class (400)', async () => {
+        getOneMock.mockResolvedValueOnce({
+          id: 'intake-1',
+          class_section_id: null,
+          class_id: 'class-1',
+          academic_year_id: null,
+          title: 'T',
+          seat_count: 2,
+        });
+        queryMock.mockResolvedValue([]);
+        admitOk(AdmissionApplicantStatus.PENDING);
+        await expect(
+          service.admit('applicant-1', { class_section_id: 'section-x' }, TENANT_A, REVIEWER),
+        ).rejects.toThrow(BadRequestException);
+        expect(studentService.create).not.toHaveBeenCalled();
+      });
+
+      it('refuses a section differing from the fixed one (400)', async () => {
+        admitOk(AdmissionApplicantStatus.PENDING);
+        await expect(
+          service.admit('applicant-1', { class_section_id: 'section-2' }, TENANT_A, REVIEWER),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('refuses with 409 ACADEMIC_YEAR_CLOSED when the round year is closed', async () => {
+        getOneMock.mockResolvedValueOnce({
+          id: 'intake-1',
+          class_section_id: 'section-1',
+          class_id: null,
+          academic_year_id: 'year-1',
+          title: 'T',
+          seat_count: 2,
+        });
+        queryMock.mockResolvedValue([{ closed_at: new Date() }]);
+        admitOk(AdmissionApplicantStatus.PENDING);
+        await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+          ConflictException,
+        );
+        expect(studentService.create).not.toHaveBeenCalled();
+      });
+
+      it.each([AdmissionApplicantStatus.FEE_PENDING, AdmissionApplicantStatus.EXPIRED])(
+        'refuses admit from %s (409)',
+        async (status) => {
+          applicantRepo.findOne.mockResolvedValueOnce(makeApplicant({ status }));
+          await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+            ConflictException,
+          );
+        },
+      );
+
+      it('admits an OFFERED applicant at full capacity (self excluded from the count)', async () => {
+        admitOk(AdmissionApplicantStatus.OFFERED);
+        applicantRepo.count.mockImplementationOnce(
+          async ({ where }: { where: { id?: unknown } }) => (where.id ? 1 : 2),
+        );
+        await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
+        expect(studentService.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('refuses a PENDING applicant when ADMITTED+OFFERED fill the seats', async () => {
+        admitOk(AdmissionApplicantStatus.PENDING);
+        applicantRepo.count.mockImplementationOnce(
+          async ({ where }: { where: { id?: unknown } }) => (where.id ? 1 : 2),
+        );
+        await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+          'no seats left',
+        );
+      });
+
+      it('admits WAITING only when its list is active', async () => {
+        admitOk(AdmissionApplicantStatus.WAITING);
+        queryMock.mockResolvedValueOnce([]);
+        await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+          ConflictException,
+        );
+        admitOk(AdmissionApplicantStatus.WAITING);
+        queryMock.mockResolvedValueOnce([{ '?column?': 1 }]);
+        await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
+        expect(studentService.create).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  describe('expire', () => {
+    const actor = { userId: REVIEWER, ip: '1.1.1.1', userAgent: 'ua' };
+
+    it('expires an OFFERED applicant and audits without PII', async () => {
+      applicantRepo.findOne.mockResolvedValue(
+        makeApplicant({ status: AdmissionApplicantStatus.OFFERED }),
+      );
+      await service.expire('applicant-1', TENANT_A, actor);
+      expect(applicantRepo.update).toHaveBeenCalledWith(
+        { id: 'applicant-1', tenant_id: TENANT_A, status: AdmissionApplicantStatus.OFFERED },
+        { status: AdmissionApplicantStatus.EXPIRED },
+      );
+      const rec = audit.record.mock.calls[0][0];
+      expect(rec.tenant_id).toBe(TENANT_A);
+      expect(JSON.stringify(rec)).not.toContain('Rahim');
+    });
+
+    it('409s when not OFFERED (also the repeat call)', async () => {
+      applicantRepo.findOne.mockResolvedValue(makeApplicant());
+      applicantRepo.update.mockResolvedValueOnce({ affected: 0 });
+      await expect(service.expire('applicant-1', TENANT_A, actor)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('404s across tenants', async () => {
+      applicantRepo.findOne.mockResolvedValue(null);
+      await expect(service.expire('applicant-1', TENANT_B, actor)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

@@ -13,9 +13,9 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 74 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(74);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(74);
+  it('has 75 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(75);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(75);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
     for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
   });
@@ -88,7 +88,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 19 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 20 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -114,6 +114,7 @@ describe('alert rule catalogue', () => {
         'sms.expiring',
         'platform.sms.stock_low',
         'platform.sms.oversold',
+        'admission.list_deadline',
       ].sort(),
     );
   });

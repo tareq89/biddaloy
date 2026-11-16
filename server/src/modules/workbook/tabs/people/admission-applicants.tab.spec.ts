@@ -27,6 +27,8 @@ function cells(documents: unknown[]): Record<string, string> {
     guardian_phone: '01700000001',
     documents: JSON.stringify(documents),
     status: AdmissionApplicantStatus.PENDING,
+    source: 'ONLINE',
+    fee_state: 'NONE',
   };
 }
 

@@ -159,6 +159,10 @@ describe('Admission flow (integration)', () => {
       vi.setSystemTime(new Date('2026-03-15T17:00:00Z')); // 15 Mar 23:00 Dhaka
       const stillOpen = await applicantService.listOpenIntakes(SEED_SLUG);
       expect(stillOpen.map((i) => i.id)).toContain(intakeId);
+      expect(stillOpen.find((i) => i.id === intakeId)?.form_schema).toMatchObject({
+        fields: expect.any(Array),
+        documents: expect.any(Array),
+      });
     } finally {
       vi.useRealTimers();
     }

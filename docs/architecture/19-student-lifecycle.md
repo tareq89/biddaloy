@@ -301,3 +301,147 @@ The workbook has three new tabs (`student_lifecycle_events`, `student_notes`,
   as marked but the student is not in `student_count`.
 - Low-attendance flags read `students.enrollment_status`, not enrollments, because older-year
   enrollments can stay ACTIVE after a leave (#1217, unchanged).
+
+## 10. Epic 71 wave 1 learnings (admission pipeline foundation, 2026-11-15)
+
+Each bullet: **surprise**, what it **cost**, the **fix**, and a **rule candidate**.
+
+```mermaid
+flowchart LR
+  round[Round: admission_intakes] --> stage[admission_stages]
+  stage --> result[admission_stage_results]
+  round --> list[admission_lists] --> member[admission_list_members]
+  round --> app[admission_applicants] --> proof[admission_fee_proofs]
+```
+
+- **Stage delete races with result writes.** Surprise: stage delete checks "no results yet" under
+  the round lock, but nothing that writes `admission_stage_results` takes that lock, so a
+  concurrent write can slip in. Cost: a stage could vanish under a fresh result. Fix (owed): the
+  ticket that writes results locks the round (or stage) first, or an FK guard blocks the delete.
+  Rule candidate: a check made under a lock only holds if every writer takes the same lock.
+- **Stage kind can change after results exist.** Surprise: the update path does not refuse it.
+  Cost: a score recorded for a written test could end up under a lottery stage. Fix (owed):
+  refuse a kind change once results exist. Rule candidate: a column that gives rows meaning is
+  frozen once rows depend on it.
+- **`publish_channels` and `tie_break` accept any short string.** Surprise: only a length cap
+  guards them. Cost: a typo is stored silently. Fix (owed): pin the allowed values in a later
+  ticket (shared enum + DTO `@IsIn`). Rule candidate: no free-text column that code later
+  compares against fixed values.
+- **No DB upper bound on `fee_amount_paisa`.** Surprise: the CHECK only forbids negatives; the DTO
+  enforces `MONEY_MAX`. Cost: a direct insert can store an absurd fee. Fix: none yet, the DTO is
+  the only guard. Rule candidate: Rule 26 asks for DB CHECKs behind money; add an upper bound
+  when the column is next touched.
+- **Migration `down()` deletes section-less rounds.** Surprise: rolling back removes rounds with
+  no class section, together with their applicants and evaluations. Cost: data loss on rollback
+  once pipeline rounds exist. Fix: none (the old schema cannot hold them); take a backup first.
+  Rule candidate: say so in the migration header when `down()` is lossy.
+- **Excel inline dropdown is capped at 255 characters.** Surprise: when `DocumentKind` grew, the
+  print-templates tab of backup/restore broke. Cost: a red dropdown on a base branch. Fix:
+  templates skip the dropdown for long enums (`hasInlineDropdown`); a dropdown fed from a hidden
+  sheet would bring it back. Rule candidate: a growing enum must never be an inline list.
+- **Five new entities were missing from the `app.module.ts` entity list.** Cost: tables existed
+  in tests but not in the running app. Fix: added. Rule candidate: the entity-list guard should
+  fail on any entity file not registered.
+- **`AdmissionIntake` was missing from `YEAR_SCOPED_TABLES` (the `YEAR_SCOPED_WRITES` entry already existed).** Cost: a closed year's round could
+  still be edited (Rule 28). Fix: added. Rule candidate: a new `academic_year_id` column joins
+  the registry in the same PR.
+- **Client-admin has an exhaustive `Record<AdmissionDocumentType>`.** Cost: adding a document
+  type breaks the client build until the record is extended. Fix: extended. Rule candidate:
+  prefer `Partial<Record<...>>` with a fallback label for enums that grow.
+- **Demo seed:** the admission tables moved from the `people-ops` slice to their own `admission`
+  slice, one open round per template (six), so every new table has demo rows.
+
+## 11. Epic 71 wave 2 learnings (admission pipeline: scoring, lists, fees, 2026-11-15)
+
+Same format as section 10. The wave built this flow; the bullets below are what it left open.
+
+```mermaid
+flowchart LR
+  stage[Stage with scores] --> merit[Merit list]
+  merit --> offer[Offer, act-by date]
+  offer -->|activate| admit[Admitted]
+  offer -->|lapses| waiting[Waiting list 1]
+  waiting -->|activate| admit
+  app[Applicant] --> proof[Fee proof]
+  proof -->|clerk confirms| ok[CONFIRMED]
+  proof -->|clerk sends back| stuck[SENT_BACK: dead end today]
+```
+
+**Sent-back fee and `admit()`**
+
+- **A sent-back fee applicant is stuck.** Surprise: there is no route to upload a new fee proof
+  after a send-back. Cost: the applicant can never reach CONFIRMED. Fix (owed, follow-up
+  ticket): a re-submit route for the guardian and for the clerk. Rule candidate: every state a
+  user is pushed into needs a route out of it.
+- **`admit()` self-exclusion race.** Surprise: the seat count excludes the applicant using a
+  status read before the lock. Cost: a concurrent activate can cause a spurious 409 (it fails
+  safe, no extra seat is given). Fix (owed): read the status after taking the lock. Rule
+  candidate: read what a decision depends on after the lock, not before.
+
+**Closed year (Rule 28)**
+
+- **Three gaps.** Surprise: clerk create has no `assertYearOpen`; `YEAR_SCOPED_WRITES` lacks
+  applicants; `admit()` skips the check when `intake.academic_year_id` is null. Cost: a closed
+  year can still gain or admit applicants. Fix (owed): add all three. Rule candidate: a new
+  table that hangs off a year joins the registry in the ticket that creates it.
+
+**Scoring (#4180)**
+
+- **Only `kind` is locked once results exist.** Surprise: `config.total_marks` can still change
+  after scores. Cost: stored scores no longer match the total. Fix (owed): refuse a
+  `total_marks` change when results exist. Rule candidate: freeze every field a stored value is
+  measured against.
+- **A new PUT on a scored stage clears `passed`.** Surprise: this voids a prior commit and nothing
+  rechecks downstream; no test covers it. Cost: a list built from the old pass flags can go
+  stale. Fix (owed): re-run or refuse, plus a test.
+
+**Lists (#4182)**
+
+- **`createWaiting` truncates MANUAL ids to capacity silently.** Cost: the admin thinks all
+  were added. Fix (owed): a 400 naming the overflow.
+- **A failed activate with `NO_SEATS_LEFT` rolls back the lapsed-offer expiry and its audit
+  row.** Cost: the lapse is retried and re-audited next time. Fix (owed): record the expiry
+  outside the activate transaction.
+- **`patchMembers` removal returns the applicant to PENDING.** Cost: SHORTLISTED is lost. Fix
+  (owed): restore the previous status.
+
+**Money and numbering**
+
+- **No UNIQUE index on `(tenant_id, intake_id, roll_number)`.** Cost: the roll lock is the only
+  guard. Fix (owed): add the partial unique index.
+- **No DB CHECK upper bound on `fee_amount_paisa`** (same gap as section 10). Rule 26 asks for one.
+
+**Auto-activate job (#4185)**
+
+- **The job swallows any 409 from activate.** Fix (owed): swallow only the four known codes.
+- **The job spec mocks the list service,** so no real-database "activates once" test exists.
+- **The system actor is `userId: null`** through an `as unknown as ResultActor` cast. Fix (owed):
+  a real system-actor type.
+
+**Notifications (#4184)**
+
+- **SMS after commit is not durable.** Surprise: a crash between commit and send loses the SMS.
+  Fix (owed): an outbox row written in the same transaction.
+- **No unit test for the three new notification templates.**
+- **`[CALL]` evaluation rows leak** into the applicant review history and the workbook
+  `admission_evaluations` tab. Fix (owed): filter them out of both.
+- **`setCalled` does not require the applicant to be on a list.**
+- **The stage-PATCH-preserves-`published_at` fix has no regression test.**
+
+**Import (#4181)**
+
+- **The staging id is consumed before the transaction,** so a failed commit burns it. This is
+  intentional (an id is never reused).
+- **`matchesDeclaredType` has no xlsx case** (Rule 6). Fix (owed): add one in `file-signature.ts`.
+
+**Wave 2 surprises**
+
+- **Stage results had no `attended` column.** ABSENT is stored in `remarks`.
+- **The stage `published` flag lives in the `config` JSON,** not a column.
+- **The list schema gap needed an extra migration** (`1792310000000`).
+- **Hand-copied snapshot rows were padded inconsistently** in 8 old rows; the `-u` regeneration
+  at wave close is the only safe way to write them.
+- **The git-grep based ops-queues spec cannot see untracked files.** Cost: a new file passes
+  locally and fails after `git add`. Rule candidate: `git add -N` first.
+- **Demo seed:** the `admission` slice now also builds waiting list 1 (not activated, act-by 10
+  days after the anchor) and always shows one fee proof awaiting and one sent back.

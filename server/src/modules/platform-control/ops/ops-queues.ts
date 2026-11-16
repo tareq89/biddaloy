@@ -1,3 +1,4 @@
+import { ADMISSION_LIST_AUTO_QUEUE } from '../../admission/admission-list-auto.job';
 import { ABSENCE_NOTICE_SWEEP_QUEUE } from '../../attendance/absence-notice.scheduler';
 import { ATTENDANCE_SERIES_QUEUE } from '../../attendance/attendance-series.scheduler';
 import { DEVICE_ABSENT_SWEEP_QUEUE } from '../../attendance/device-absent-sweep.scheduler';
@@ -36,6 +37,7 @@ import { BACKUP_SCHEDULE_QUEUE } from '../../workbook/schedule/backup-schedule.c
  */
 export const OPS_QUEUES: readonly string[] = [
   ABSENCE_NOTICE_SWEEP_QUEUE,
+  ADMISSION_LIST_AUTO_QUEUE,
   ATTENDANCE_SERIES_QUEUE,
   ATTENTION_DELIVERY_QUEUE,
   ATTENTION_QUEUE,

@@ -7,22 +7,33 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, QueryFailedError, Repository } from 'typeorm';
+import type { EntityManager } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AdmissionApplicantStatus,
   AdmissionApplicantDocument,
   AdmissionDocumentType,
+  AdmissionFeeState,
+  AdmissionPayMethod,
+  AdmissionSource,
+  AuditAction,
   ModuleKey,
   resolveModuleState,
 } from '@biddaloy/shared';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
+import { AdmissionFeeProof } from './entities/admission-fee-proof.entity';
+import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
+import { GuardianService } from '../students/students.service';
+import { AdmissionFormSchemaService, type AdmissionFormSchema } from './admission-form-schema.service';
+import { ADMISSION_FIELD_CATALOGUE, validateExtraFields } from '@biddaloy/shared';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
+import type { StaffCreateApplicantDto } from './dto/staff-create-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
 
@@ -48,6 +59,8 @@ export interface PublicIntakeDto {
   open_date: string;
   close_date: string;
   required_document_types: AdmissionDocumentType[];
+  /** Ticked extra fields and document slots, so the form can render them. */
+  form_schema: AdmissionFormSchema;
 }
 
 /** One message for every duplicate, so status isn't leaked (PUB-09). */
@@ -60,10 +73,36 @@ const DUPLICATE_MESSAGE =
  * public; every duplicate path shares one code, PUB-09).
  */
 type PublicRefusalCode =
-  'INTAKE_NOT_OPEN' | 'INTAKE_CLOSED' | 'INTAKE_FULL' | 'DUPLICATE_APPLICATION';
+  | 'INTAKE_NOT_OPEN'
+  | 'INTAKE_CLOSED'
+  | 'INTAKE_FULL'
+  | 'DUPLICATE_APPLICATION'
+  | 'FEE_NOT_REQUIRED'
+  | 'FEE_PROOF_REQUIRED';
 const refusalBody = (message: string, code: PublicRefusalCode) => ({ message, details: { code } });
 const duplicateRefusal = () =>
   new ConflictException(refusalBody(DUPLICATE_MESSAGE, 'DUPLICATE_APPLICATION'));
+
+/** What the shared create path reads: the public form minus the bot fields. */
+type ApplicantInput = Omit<SubmitApplicantDto, 'captcha_token' | 'middle_name_confirm'>;
+
+export interface CreateApplicantOptions {
+  source: AdmissionSource;
+  /** Staff only: the signed-in user, stamped on the audit row. */
+  actor?: { userId: string; ip: string | null; userAgent: string | null };
+  /** Staff only: let a late walk-in past the round's close date. */
+  allowAfterClose?: boolean;
+  /** The fee payment proof (method + one file, reference optional). Staff always; the site form opts in by passing it. */
+  fee?: { method?: string; reference?: string; file?: Express.Multer.File };
+}
+
+export interface CreateApplicantResult {
+  reference_number: string;
+  status: string;
+  warnings?: string[];
+  /** Site form only: NONE, or AWAITING while the school checks the proof. */
+  fee_status?: string;
+}
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
@@ -90,6 +129,9 @@ export class AdmissionApplicantService {
     @InjectRepository(AdmissionApplicant)
     private readonly applicantRepo: Repository<AdmissionApplicant>,
     private readonly moduleState: ModuleStateReader,
+    private readonly formSchema: AdmissionFormSchemaService,
+    private readonly guardianService: GuardianService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -139,6 +181,7 @@ export class AdmissionApplicantService {
         open_date: intake.open_date,
         close_date: intake.close_date,
         required_document_types: intake.required_document_types,
+        form_schema: this.formSchema.forRound(intake),
       }));
   }
 
@@ -196,7 +239,8 @@ export class AdmissionApplicantService {
     slug: string,
     dto: SubmitApplicantDto,
     files: Express.Multer.File[],
-  ): Promise<{ reference_number: string; status: string }> {
+    fee?: CreateApplicantOptions['fee'],
+  ): Promise<CreateApplicantResult> {
     const school = await this.schoolOrNotFound(slug, 'School not found');
 
     // Honeypot: return a plausible-looking success without persisting
@@ -213,10 +257,59 @@ export class AdmissionApplicantService {
       };
     }
 
+    return this.createApplicant(school, dto, files, { source: AdmissionSource.ONLINE, fee });
+  }
+
+  /**
+   * `POST /admission/applicants` (staff). The tenant comes from the signed-in context, never the
+   * body; no captcha and no honeypot (those belong to the public form only).
+   */
+  async createByStaff(
+    tenantId: string,
+    dto: StaffCreateApplicantDto,
+    files: Express.Multer.File[],
+    actor: NonNullable<CreateApplicantOptions['actor']>,
+  ): Promise<CreateApplicantResult> {
+    const proof = files.find((f) => f.fieldname === 'fee_proof');
+    return this.createApplicant(
+      { id: tenantId },
+      dto,
+      files.filter((f) => f !== proof),
+      {
+        source: AdmissionSource.CLERK,
+        actor,
+        allowAfterClose: dto.allow_after_close === true,
+        fee: { method: dto.fee_method, reference: dto.fee_reference?.trim(), file: proof },
+      },
+    );
+  }
+
+  /** The one create path behind both the public form and the clerk route. */
+  private async createApplicant(
+    school: { id: string },
+    dto: ApplicantInput,
+    files: Express.Multer.File[],
+    opts: CreateApplicantOptions,
+  ): Promise<CreateApplicantResult> {
     const uploadedKeys: string[] = [];
     let replacedKeys: string[] = [];
+    let strayKeys: string[] = [];
     try {
       const documents = await this.uploadDocuments(school.id, files, uploadedKeys);
+      // Check the proof's bytes before anything is stored (Rule 6), then store it with the rest.
+      const proofFile = opts.fee?.file;
+      let proofKey: string | null = null;
+      if (proofFile) {
+        const ext = EXT_BY_MIME[proofFile.mimetype];
+        if (!ext || !matchesDeclaredType(proofFile.buffer, proofFile.mimetype)) {
+          throw new BadRequestException(
+            'fee_proof: file must be a PNG, JPEG, WEBP or PDF whose contents match its type',
+          );
+        }
+        proofKey = tenantObjectKey(school.id, 'admission-fee-proofs', ext);
+        await this.storage.put(proofKey, proofFile.buffer, proofFile.mimetype);
+        uploadedKeys.push(proofKey);
+      }
 
       // Seat-count check-then-write is a race under concurrent submissions
       // (D14 requires it hold) — a pessimistic row lock on the intake for the
@@ -240,7 +333,7 @@ export class AdmissionApplicantService {
             refusalBody('This admission intake is not open yet', 'INTAKE_NOT_OPEN'),
           );
         }
-        if (intake.close_date < today) {
+        if (intake.close_date < today && !opts.allowAfterClose) {
           throw new BadRequestException(
             refusalBody('This admission intake is closed', 'INTAKE_CLOSED'),
           );
@@ -298,6 +391,28 @@ export class AdmissionApplicantService {
           throw duplicateRefusal();
         }
 
+        // D5: only the round's ticked fields are accepted. Errors are field-keyed codes and
+        // never carry a submitted value (Rule 23); one sentence for the whole operation.
+        const extra = dto.extra_fields ?? {};
+        const fieldErrors = validateExtraFields(this.formSchema.extraKeys(intake), extra);
+        if (Object.keys(fieldErrors).length > 0) {
+          throw new BadRequestException({
+            message: 'Some application fields are missing or not valid',
+            details: { code: 'INVALID_FORM_FIELDS', fields: fieldErrors },
+          });
+        }
+        // D10: quota is a tag. Only catalogue quota keys ticked for the round and set to true.
+        const quotaTags = ADMISSION_FIELD_CATALOGUE.filter(
+          (d) => d.group === 'quota' && extra[d.key] === true,
+        ).map((d) => d.key);
+        // D18: sibling tag when the guardian phone already belongs to a family with a student.
+        const guardian = await this.guardianService.findByPhoneAnyFormat(
+          dto.guardian_phone,
+          school.id,
+          manager,
+        );
+        const sibling = (guardian?.students ?? []).find((s) => !s.deleted_at);
+
         // Merge by document type rather than replacing the whole list — a
         // resubmission that only re-uploads a photo must not drop an
         // earlier birth certificate.
@@ -309,6 +424,37 @@ export class AdmissionApplicantService {
         );
         if (missing.length > 0) {
           throw new BadRequestException(`Missing required documents: ${missing.join(', ')}`);
+        }
+
+        const isClerk = opts.source === AdmissionSource.CLERK;
+        // The old public route passes no `fee`, so it keeps ignoring fees; the site form passes one.
+        const feeAware = isClerk || opts.fee !== undefined;
+        const feeRound = feeAware && (intake.fee_amount_paisa ?? 0) > 0;
+        const warnings: string[] = [];
+        if (isClerk && !feeRound && (proofKey || opts.fee?.method)) {
+          throw new BadRequestException(
+            refusalBody('This admission round takes no fee', 'FEE_NOT_REQUIRED'),
+          );
+        }
+        // Site form on a free round: ignore the proof, drop the file we already stored.
+        if (!isClerk && !feeRound && proofKey) strayKeys = [proofKey];
+        if (feeRound) {
+          // admission_fee_proofs.attachment_key is NOT NULL: a proof needs a file (D9).
+          if (!opts.fee?.method || !proofKey) {
+            throw new BadRequestException(
+              refusalBody('A fee payment method and proof file are required', 'FEE_PROOF_REQUIRED'),
+            );
+          }
+          if (opts.fee.reference) {
+            const seen = await manager
+              .getRepository(AdmissionFeeProof)
+              .createQueryBuilder('p')
+              .where('p.tenant_id = :tenantId', { tenantId: school.id })
+              .andWhere('LOWER(TRIM(p.reference)) = LOWER(:ref)', { ref: opts.fee.reference })
+              .getCount();
+            // Staff only: telling an anonymous caller a reference was used before is a lookup oracle.
+            if (seen > 0 && isClerk) warnings.push('REFERENCE_SEEN');
+          }
         }
 
         if (existing) {
@@ -325,6 +471,9 @@ export class AdmissionApplicantService {
           existing.guardian_email = dto.guardian_email ?? null;
           existing.home_address = dto.home_address ?? null;
           existing.documents = merged;
+          existing.extra_fields = extra;
+          existing.quota_tags = quotaTags;
+          existing.sibling_student_id = sibling?.id ?? null;
           const saved = await applicantRepo.save(existing);
           return { reference_number: saved.reference_number, status: saved.status };
         }
@@ -363,17 +512,42 @@ export class AdmissionApplicantService {
             guardian_email: dto.guardian_email ?? null,
             home_address: dto.home_address ?? null,
             documents: merged,
-            status: AdmissionApplicantStatus.PENDING,
+            extra_fields: extra,
+            quota_tags: quotaTags,
+            sibling_student_id: sibling?.id ?? null,
+            source: opts.source,
+            status: feeRound
+              ? AdmissionApplicantStatus.FEE_PENDING
+              : AdmissionApplicantStatus.PENDING,
+            fee_state: feeRound ? AdmissionFeeState.AWAITING : AdmissionFeeState.NONE,
           }),
         );
-        return { reference_number: saved.reference_number, status: saved.status };
+        if (feeRound && proofKey) {
+          const proofRepo = manager.getRepository(AdmissionFeeProof);
+          await proofRepo.save(
+            proofRepo.create({
+              tenant_id: school.id,
+              applicant_id: saved.id,
+              attachment_key: proofKey,
+              method: opts.fee!.method as AdmissionPayMethod,
+              reference: opts.fee!.reference || null,
+            }),
+          );
+        }
+        if (opts.actor) await this.recordClerkCreate(manager, school.id, saved.id, opts.actor);
+        return {
+          reference_number: saved.reference_number,
+          status: saved.status,
+          ...(warnings.length > 0 ? { warnings } : {}),
+          ...(opts.fee !== undefined && !isClerk ? { fee_status: saved.fee_state } : {}),
+        };
       });
 
       // DATA-02: a stored key may come from a restored workbook, and this route
       // needs no login, so only ever delete inside this school's own prefix.
-      if (replacedKeys.length > 0) {
+      if (replacedKeys.length + strayKeys.length > 0) {
         await Promise.allSettled(
-          replacedKeys.map((key) => this.storage.deleteForTenant(key, school.id)),
+          [...replacedKeys, ...strayKeys].map((key) => this.storage.deleteForTenant(key, school.id)),
         );
       }
       return result;
@@ -395,6 +569,29 @@ export class AdmissionApplicantService {
       }
       throw err;
     }
+  }
+
+  /** Ids and types only: no name, phone or file key in the audit row. */
+  private async recordClerkCreate(
+    manager: EntityManager,
+    tenantId: string,
+    applicantId: string,
+    actor: NonNullable<CreateApplicantOptions['actor']>,
+  ) {
+    await this.auditService.record(
+      {
+        action: AuditAction.CREATE,
+        entity_type: 'AdmissionApplicant',
+        entity_id: applicantId,
+        tenant_id: tenantId,
+        performed_by_user_id: actor.userId,
+        ip_address: actor.ip,
+        user_agent: actor.userAgent,
+        old_values: null,
+        new_values: { source: AdmissionSource.CLERK },
+      },
+      manager,
+    );
   }
 
   private static readonly REFERENCE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford base32, no I/L/O/U

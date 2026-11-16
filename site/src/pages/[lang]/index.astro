@@ -17,6 +17,6 @@ if (!page) {
 }
 const { Layout } = themes[site.theme] ?? themes.basic;
 ---
-<Layout manifest={site} lang={lang}>
+<Layout manifest={site} lang={lang} admissionsOpenLink={page.admissions_open_link}>
   <SectionRenderer manifest={site} page={page} lang={lang} />
 </Layout>

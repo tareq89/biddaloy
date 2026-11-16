@@ -85,6 +85,7 @@ export const YEAR_SCOPED_WRITES: ReadonlyArray<YearScopedWrite> = [
   entry('AcrAssessment', 'AcrAssessmentsService', ['update']),
   entry('Application', 'ApplicationsService', ['submit', 'withdraw']),
   entry('FinalResult', 'FinalResultsService', ['create', 'update', 'remove', 'publish']),
+  entry('AdmissionIntake', 'IntakeService', ['create', 'update', 'close']),
   entry('AttendanceRecord', 'AttendanceService', [
     'putRegister',
     'putRegisterMatrix',

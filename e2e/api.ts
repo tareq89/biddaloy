@@ -232,6 +232,45 @@ export async function postMultipart<T>(
   return (await response.json()) as T;
 }
 
+/**
+ * A walk-in application typed in by staff (`POST /admission/applicants`, no captcha). The old public
+ * route `/public/admission/:slug/applicants` is gone (#4209); the public form lives on the school
+ * site and is covered by `journeys/site-admission.spec.ts`.
+ */
+export async function createWalkInApplicant(
+  request: APIRequestContext,
+  session: ApiSession,
+  fields: { intakeId: string; name: string; guardianPhone: string; photo?: Buffer },
+): Promise<{ reference_number: string }> {
+  const response = await request.post('/api/v1/admission/applicants', {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      ...tenantHeader(session),
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+    multipart: {
+      intake_id: fields.intakeId,
+      applicant_name: fields.name,
+      date_of_birth: '2018-06-01',
+      gender: 'MALE',
+      guardian_name: `Guardian of ${fields.name}`,
+      guardian_phone: fields.guardianPhone,
+      // The default round ticks father and mother as required catalogue fields.
+      extra_fields: JSON.stringify({ father_name: 'E2E Father', mother_name: 'E2E Mother' }),
+      // Rounds here require a PHOTO; the server checks the JPEG signature, not the mimetype.
+      PHOTO: {
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        buffer: fields.photo ?? Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]),
+      },
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`walk-in applicant failed: ${response.status()} ${await response.text()}`);
+  }
+  return (await response.json()) as { reference_number: string };
+}
+
 /** `PATCH <path>` — same shape as `post` above. `journeys/backup-restore.spec.ts`
  * (#614) uses this to rename its seeded student between two restores, so the
  * second restore's diff shows exactly one update. */
@@ -1374,6 +1413,17 @@ async function runSqlOnOneRow(sql: string, params: unknown[], what: string): Pro
   if ((await runSql(sql, params)) !== 1) {
     throw new Error(`${what} not found in ${new URL(process.env.DATABASE_URL!).pathname}`);
   }
+}
+
+/** Points a school's site at an ACTIVE custom domain. Cloudflare for SaaS is not in the e2e stack, so
+ * the row is set directly (the same columns the custom-domain flow writes once the host is active).
+ * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears. */
+export async function setSiteCustomDomain(schoolId: string, host: string): Promise<void> {
+  await runSqlOnOneRow(
+    `UPDATE school_sites SET custom_domain = $2, custom_domain_status = 'ACTIVE', version = version + 1 WHERE tenant_id = $1`,
+    [schoolId, host],
+    `setSiteCustomDomain: school ${schoolId}`,
+  );
 }
 
 /** Opens a REDIS_DOWN platform alert. The e2e server runs with NODE_ENV=test,

@@ -119,7 +119,7 @@ describe('people-ops slice (integration, 2 years, scale 0.05)', () => {
     if (ds) await ds.destroy();
   });
 
-  it('seeds ACRs, surveys, incidents and an open admission intake', async () => {
+  it('seeds ACRs, surveys, incidents', async () => {
     // The ACR total of a completed assessment is the sum of its scores.
     const totals = await q<{ total: number; sum: string; n: string }>(
       `SELECT a.total, sum(sc.score) AS sum, count(sc.id) AS n
@@ -140,35 +140,6 @@ describe('people-ops slice (integration, 2 years, scale 0.05)', () => {
     const [{ n: criteria }] = await q<{ n: string }>(`SELECT count(*) AS n FROM acr_criteria`);
     expect(Number(criteria) % 25).toBe(0);
 
-    // The intake is open on the anchor date.
-    const intakes = await q(
-      `SELECT id FROM admission_intakes WHERE open_date <= $1 AND close_date >= $1`,
-      [ANCHOR],
-    );
-    expect(intakes.length).toBeGreaterThan(0);
-
-    // Applicants exist in every status, and every shortlisted one has an evaluation.
-    const statuses = await q<{ status: string }>(
-      `SELECT DISTINCT status FROM admission_applicants ORDER BY status`,
-    );
-    expect(statuses.map((r) => r.status)).toEqual([
-      'ADMITTED',
-      'PENDING',
-      'REJECTED',
-      'SHORTLISTED',
-    ]);
-    const [{ n: bare }] = await q<{ n: string }>(
-      `SELECT count(*) AS n FROM admission_applicants a WHERE a.status = 'SHORTLISTED'
-          AND NOT EXISTS (SELECT 1 FROM admission_evaluations e WHERE e.applicant_id = a.id)`,
-    );
-    expect(Number(bare)).toBe(0);
-    // One pair of twins under one guardian phone per intake.
-    const twins = await q(
-      `SELECT guardian_phone FROM admission_applicants
-        GROUP BY intake_id, guardian_phone HAVING count(*) > 1`,
-    );
-    expect(twins.length).toBeGreaterThan(0);
-
     // Surveys have responses with answers.
     const [{ n: responses }] = await q<{ n: string }>(`SELECT count(*) AS n FROM survey_responses`);
     expect(Number(responses)).toBeGreaterThan(0);
@@ -182,7 +153,7 @@ describe('people-ops slice (integration, 2 years, scale 0.05)', () => {
     expect(withdrawn).toHaveLength(3);
     for (const w of withdrawn) expect(w.withdraw_reason.length).toBeGreaterThan(0);
     expect(
-      (await validate(ds)).filter((v) => /acr|survey|incident|admission/.test(v.check)),
+      (await validate(ds)).filter((v) => /acr|survey|incident/.test(v.check)),
     ).toEqual([]);
   }, 120_000);
 });

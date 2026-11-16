@@ -218,6 +218,7 @@ describe('SLICES', () => {
       'exams',
       'learning',
       'people-ops',
+      'admission',
       'comms-print',
       'sms-bundles',
       'applications',

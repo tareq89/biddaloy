@@ -11,7 +11,12 @@ import {
 } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
 import { AdmissionIntake } from './admission-intake.entity';
-import type { AdmissionApplicantStatus, AdmissionApplicantDocument } from '@biddaloy/shared';
+import type {
+  AdmissionApplicantStatus,
+  AdmissionApplicantDocument,
+  AdmissionSource,
+  AdmissionFeeState,
+} from '@biddaloy/shared';
 
 // Dynamic require, not `import { AdmissionApplicantStatus } from '@biddaloy/shared'`:
 // see `common/decorators/sanitize-text.decorator.ts`'s comment — under this repo's
@@ -100,6 +105,28 @@ export class AdmissionApplicant {
 
   @Column({ type: 'varchar', length: 20, default: shared.AdmissionApplicantStatus.PENDING })
   status: AdmissionApplicantStatus;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  roll_number: string | null;
+
+  @Column({ type: 'varchar', length: 10, default: 'ONLINE' })
+  source: AdmissionSource;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  quota_tags: string[];
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  extra_fields: Record<string, unknown>;
+
+  @Column({ type: 'varchar', length: 20, default: 'NONE' })
+  fee_state: AdmissionFeeState;
+
+  @Column({ type: 'int', nullable: true })
+  merit_rank: number | null;
+
+  /** Existing student this applicant is a sibling of, if any. */
+  @Column({ type: 'uuid', nullable: true })
+  sibling_student_id: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

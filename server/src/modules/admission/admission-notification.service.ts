@@ -20,6 +20,11 @@ import { School } from '../schools/entities/school.entity';
 import { resolveTemplateLocale, TemplateLocale } from '../account-access/account-access-templates';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 
+type NotifyApplicant = Pick<
+  AdmissionApplicant,
+  'id' | 'tenant_id' | 'applicant_name' | 'guardian_name' | 'guardian_phone' | 'status'
+>;
+
 type AdmissionTemplate = (applicantName: string, intakeTitle: string) => string;
 
 // [#2265] Typed values (name, intake title) are inserted as typed (D15).
@@ -44,6 +49,93 @@ const TEMPLATE_BY_STATUS: Record<
       `আবেদন করার জন্য ধন্যবাদ। এবার ${intake}-এ ${name}-এর আবেদন সফল হয়নি।`,
   },
 };
+
+// [#4178] Staff-typed reason is inserted as typed, like the names above.
+const FEE_SENT_BACK: Record<
+  TemplateLocale,
+  (name: string, intake: string, reason: string) => string
+> = {
+  en: (name, intake, reason) =>
+    `We could not verify the fee payment for ${name}'s application to ${intake}: ${reason}. Please contact the school office.`,
+  bn: (name, intake, reason) =>
+    `${intake}-এ ${name}-এর আবেদনের ফি পেমেন্ট যাচাই করা যায়নি: ${reason}। অনুগ্রহ করে স্কুল অফিসে যোগাযোগ করুন।`,
+};
+
+const dateText = (locale: TemplateLocale, at: Date) =>
+  at.toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-GB', {
+    timeZone: 'Asia/Dhaka',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+const dayText = (locale: TemplateLocale, at: Date) =>
+  at.toLocaleDateString(locale === 'bn' ? 'bn-BD' : 'en-GB', {
+    timeZone: 'Asia/Dhaka',
+    dateStyle: 'medium',
+  });
+
+// [#4184, D26] Same rule as above: typed values are inserted as typed.
+const LIST_OFFER: Record<
+  TemplateLocale,
+  (name: string, intake: string, deadline?: Date | null) => string
+> = {
+  en: (name, intake, deadline) =>
+    `Good news! ${name} has been offered a seat for ${intake}.` +
+    (deadline ? ` Please confirm by ${dayText('en', deadline)}.` : '') +
+    ' Contact the school office.',
+  bn: (name, intake, deadline) =>
+    `সুখবর! ${intake}-এ ${name}-কে আসন দেওয়া হয়েছে।` +
+    (deadline ? ` অনুগ্রহ করে ${dayText('bn', deadline)} এর মধ্যে নিশ্চিত করুন।` : '') +
+    ' স্কুল অফিসে যোগাযোগ করুন।',
+};
+
+const STAGE_SCHEDULE: Record<
+  TemplateLocale,
+  (name: string, intake: string, stage: string, at?: Date | null) => string
+> = {
+  en: (name, intake, stage, at) =>
+    `${name}: ${stage} for ${intake}` +
+    (at ? ` is on ${dateText('en', at)}.` : ' will be scheduled.'),
+  bn: (name, intake, stage, at) =>
+    `${name}: ${intake}-এর ${stage}` +
+    (at ? ` ${dateText('bn', at)}-এ হবে।` : ' শীঘ্রই জানানো হবে।'),
+};
+
+/** What a published result tells the guardian. REJECTED is opt-in (D26). */
+export type AdmissionResultOutcome = 'SELECTED' | 'WAITING' | 'PASSED' | 'NOT_PASSED' | 'REJECTED';
+
+const RESULT: Record<
+  TemplateLocale,
+  Record<AdmissionResultOutcome, (name: string, intake: string) => string>
+> = {
+  en: {
+    SELECTED: (n, i) =>
+      `Congratulations! ${n} is selected for ${i}. Please contact the school office.`,
+    WAITING: (n, i) => `${n} is on the waiting list for ${i}. We will contact you if a seat opens.`,
+    PASSED: (n, i) => `${n} has passed the current round for ${i}. We will share the next step.`,
+    NOT_PASSED: (n, i) => `${n} did not pass the current round for ${i}. Thank you for applying.`,
+    REJECTED: (n, i) => `Thank you for applying. ${n}'s application for ${i} was not successful.`,
+  },
+  bn: {
+    SELECTED: (n, i) => `অভিনন্দন! ${i}-এ ${n} নির্বাচিত হয়েছে। স্কুল অফিসে যোগাযোগ করুন।`,
+    WAITING: (n, i) => `${i}-এ ${n} অপেক্ষমাণ তালিকায় আছে। আসন খালি হলে জানানো হবে।`,
+    PASSED: (n, i) => `${i}-এর এই ধাপে ${n} উত্তীর্ণ হয়েছে। পরের ধাপ জানানো হবে।`,
+    NOT_PASSED: (n, i) => `${i}-এর এই ধাপে ${n} উত্তীর্ণ হয়নি। আবেদনের জন্য ধন্যবাদ।`,
+    REJECTED: (n, i) => `আবেদনের জন্য ধন্যবাদ। ${i}-এ ${n}-এর আবেদন সফল হয়নি।`,
+  },
+};
+
+export const resultBody = (
+  locale: TemplateLocale,
+  outcome: AdmissionResultOutcome,
+  name: string,
+  intake: string,
+) => RESULT[locale][outcome](name, intake);
+export const listOfferBody = (
+  locale: TemplateLocale,
+  name: string,
+  intake: string,
+  deadline?: Date | null,
+) => LIST_OFFER[locale](name, intake, deadline);
 
 /**
  * [27.7] Thin producer for admission status-change notifications — reuses
@@ -79,7 +171,20 @@ export class AdmissionNotificationService {
   ): Promise<void> {
     // PENDING or any other status — nothing to notify about
     if (!TEMPLATE_BY_STATUS.en[applicant.status]) return;
+    await this.sendSms(
+      applicant,
+      (locale) =>
+        TEMPLATE_BY_STATUS[locale][applicant.status]!(applicant.applicant_name, intakeTitle),
+      { applicant_id: applicant.id, admission_status: applicant.status },
+    );
+  }
 
+  /** One SMS to the guardian: locale, log row, credit reserve, enqueue. Never rejects on delivery. */
+  private async sendSms(
+    applicant: NotifyApplicant,
+    body: (locale: TemplateLocale) => string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
     // No module change: read the school through the log repo's manager.
     const school = await this.logRepo.manager.findOne(School, {
       where: { id: applicant.tenant_id },
@@ -87,7 +192,6 @@ export class AdmissionNotificationService {
     });
     // No stored locale resolves to the bn-BD default (#3136).
     const locale = resolveTemplateLocale(school?.settings?.region?.locale);
-    const template = TEMPLATE_BY_STATUS[locale][applicant.status]!;
 
     const log = await this.logRepo.save(
       this.logRepo.create({
@@ -95,11 +199,11 @@ export class AdmissionNotificationService {
         medium: CommunicationMedium.SMS,
         recipient_address: applicant.guardian_phone,
         recipient_name: applicant.guardian_name,
-        message_body: template(applicant.applicant_name, intakeTitle),
+        message_body: body(locale),
         status: CommunicationStatus.QUEUED,
         trigger: CommunicationTrigger.AUTOMATED,
         sent_by_user_id: null,
-        metadata: { applicant_id: applicant.id, admission_status: applicant.status },
+        metadata,
       }),
     );
 
@@ -136,5 +240,67 @@ export class AdmissionNotificationService {
       log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
       await this.logRepo.save(log);
     }
+  }
+
+  // Wave 2 no-op hooks (#4176): final signatures so later tickets never edit call sites.
+  // #4178 fills notifyFeeSentBack; #4182/#4183 notifyListOffer; #4179 notifyStageSchedule;
+  // #4180/#4184 notifyResult.
+  async notifyFeeSentBack(
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    reason: string,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) => FEE_SENT_BACK[locale](applicant.applicant_name, intakeTitle, reason),
+      { applicant_id: applicant.id, admission_event: 'FEE_SENT_BACK' },
+    );
+  }
+
+  async notifyListOffer(
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    deadline?: Date | null,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) => LIST_OFFER[locale](applicant.applicant_name, intakeTitle, deadline),
+      { applicant_id: applicant.id, admission_event: 'LIST_OFFER' },
+    );
+  }
+
+  async notifyStageSchedule(
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    stageName: string,
+    scheduledAt?: Date | null,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) =>
+        STAGE_SCHEDULE[locale](applicant.applicant_name, intakeTitle, stageName, scheduledAt),
+      { applicant_id: applicant.id, admission_event: 'STAGE_SCHEDULE' },
+    );
+  }
+
+  async notifyResult(
+    applicant: NotifyApplicant,
+    intakeTitle: string,
+    outcome: AdmissionResultOutcome,
+  ): Promise<void> {
+    await this.sendSms(
+      applicant,
+      (locale) => resultBody(locale, outcome, applicant.applicant_name, intakeTitle),
+      { applicant_id: applicant.id, admission_event: 'RESULT', outcome },
+    );
+  }
+
+  /** Locale the school's SMS go out in (same rule as `sendSms`). */
+  async localeFor(tenantId: string): Promise<TemplateLocale> {
+    const school = await this.logRepo.manager.findOne(School, {
+      where: { id: tenantId },
+      select: { id: true, settings: true },
+    });
+    return resolveTemplateLocale(school?.settings?.region?.locale);
   }
 }

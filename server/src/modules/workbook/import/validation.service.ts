@@ -232,6 +232,8 @@ export class ValidationService {
         warn: (e: RowError): void => {
           recordWarning(tabWarnings, e);
         },
+        sheetCell: (t: string, matchCell: string, matchValue: string, cell: string) =>
+          sheets.get(t)?.rows.find((r) => r.cells[matchCell] === matchValue)?.cells[cell],
       };
 
       // Rows accepted so far in this sheet, keyed by their natural key, so a

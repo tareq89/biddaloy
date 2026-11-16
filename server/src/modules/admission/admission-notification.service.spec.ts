@@ -120,6 +120,19 @@ describe('AdmissionNotificationService', () => {
     );
   });
 
+  it('fee send-back queues an SMS with the reason and the intake', async () => {
+    await service.notifyFeeSentBack(applicant, 'Class 1 Admission', 'Blurry screenshot');
+    const log = logRepo.save.mock.calls[0][0];
+    expect(log).toMatchObject({
+      recipient_address: '01700000000',
+      status: CommunicationStatus.QUEUED,
+      metadata: { applicant_id: 'applicant-1', admission_event: 'FEE_SENT_BACK' },
+    });
+    expect(log.message_body).toContain('Blurry screenshot');
+    expect(log.message_body).toContain('Class 1 Admission');
+    expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' });
+  });
+
   it('queues an SMS with the SHORTLISTED template', async () => {
     await service.notifyStatusChange(
       { ...applicant, status: AdmissionApplicantStatus.SHORTLISTED },

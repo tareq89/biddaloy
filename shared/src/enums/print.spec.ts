@@ -41,6 +41,9 @@ describe('print enums', () => {
       'PARTICIPATION_CERTIFICATE',
       'RESULT_CERTIFICATE',
       'MERIT_CERTIFICATE',
+      'ADMISSION_ADMIT_CARD',
+      'ADMISSION_ATTENDANCE_SHEET',
+      'ADMISSION_LIST',
     ]);
     expect(Object.values(PrintContextType)).toEqual(['EXAM']);
     expect(Object.values(LayoutKind)).toEqual(['FIXED', 'FLOWING']);

@@ -4,16 +4,34 @@ import {
   IsUUID,
   IsInt,
   Min,
+  Max,
   IsArray,
   IsEnum,
+  IsIn,
+  IsBoolean,
+  IsOptional,
+  ValidateIf,
+  ArrayMaxSize,
   MaxLength,
+  Matches,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { AdmissionDocumentType } from '@biddaloy/shared';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  AdmissionDocumentType,
+  AdmissionPayMethod,
+  AdmissionTemplateKey,
+  ADMISSION_FIELD_CATALOGUE,
+} from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
+import { MONEY_MAX, toPaisa } from '../../../common/constants/money';
+import { TIE_BREAK_KEYS } from '../admission-merit.util';
 
-/** [27.3] Payload to open a new admission intake window for a class section. */
+/** [#4184, D6] Where a round's results go: public site, SMS, status check, call list. */
+export const PUBLISH_CHANNELS = ['SITE', 'SMS', 'STATUS_CHECK', 'CALL_LIST'] as const;
+
+/** [Epic 71 D2] A round is one class. `class_section_id` stays accepted until Wave 4 so the
+ * old admin screens keep working; exactly one of the two is required (checked in the service). */
 export class CreateIntakeDto {
   @ApiProperty()
   @IsString()
@@ -22,9 +40,23 @@ export class CreateIntakeDto {
   @SanitizeText()
   title: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
   @IsUUID()
-  class_section_id: string;
+  class_id?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Legacy; the class is derived from it.' })
+  @IsOptional()
+  @IsUUID()
+  class_section_id?: string;
+
+  @ApiPropertyOptional({
+    enum: Object.values(AdmissionTemplateKey),
+    enumName: 'AdmissionTemplateKey',
+  })
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsEnum(AdmissionTemplateKey)
+  template_key?: AdmissionTemplateKey;
 
   @ApiProperty()
   @IsInt()
@@ -43,4 +75,61 @@ export class CreateIntakeDto {
   @IsArray()
   @IsEnum(AdmissionDocumentType, { each: true })
   required_document_types: AdmissionDocumentType[];
+
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Admission-number prefix.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^[A-Za-z0-9-]*$/)
+  roll_prefix?: string | null;
+
+  @ApiPropertyOptional({ description: 'Whole paisa; omit or null = no fee.', nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(toPaisa(MONEY_MAX))
+  fee_amount_paisa?: number | null;
+
+  @ApiPropertyOptional({ enum: Object.values(AdmissionPayMethod), isArray: true })
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsEnum(AdmissionPayMethod, { each: true })
+  fee_pay_methods?: AdmissionPayMethod[];
+
+  @ApiPropertyOptional({ type: String, isArray: true, description: 'Field catalogue keys.' })
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsArray()
+  @ArrayMaxSize(ADMISSION_FIELD_CATALOGUE.length)
+  @IsIn(ADMISSION_FIELD_CATALOGUE.map((f) => f.key), { each: true })
+  form_fields?: string[];
+
+  @ApiPropertyOptional({ type: String, isArray: true, enum: PUBLISH_CHANNELS })
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsArray()
+  @ArrayMaxSize(PUBLISH_CHANNELS.length)
+  @IsIn([...PUBLISH_CHANNELS], { each: true })
+  publish_channels?: string[];
+
+  @ApiPropertyOptional({ type: String, isArray: true, enum: TIE_BREAK_KEYS })
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsArray()
+  @ArrayMaxSize(TIE_BREAK_KEYS.length)
+  @IsIn([...TIE_BREAK_KEYS], { each: true })
+  tie_break?: string[];
+
+  @ApiPropertyOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsBoolean()
+  show_names_publicly?: boolean;
+
+  @ApiPropertyOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsBoolean()
+  widget_always_show?: boolean;
+
+  @ApiPropertyOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
+  @IsBoolean()
+  auto_activate_lists?: boolean;
 }

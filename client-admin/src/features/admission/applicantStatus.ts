@@ -10,4 +10,8 @@ export const APPLICANT_STATUS: Record<
   [AdmissionApplicantStatus.SHORTLISTED]: { tone: 'info', labelKey: 'list.statusShortlisted' },
   [AdmissionApplicantStatus.ADMITTED]: { tone: 'success', labelKey: 'list.statusAdmitted' },
   [AdmissionApplicantStatus.REJECTED]: { tone: 'danger', labelKey: 'list.statusRejected' },
+  [AdmissionApplicantStatus.FEE_PENDING]: { tone: 'warning', labelKey: 'list.statusFeePending' },
+  [AdmissionApplicantStatus.OFFERED]: { tone: 'info', labelKey: 'list.statusOffered' },
+  [AdmissionApplicantStatus.WAITING]: { tone: 'info', labelKey: 'list.statusWaiting' },
+  [AdmissionApplicantStatus.EXPIRED]: { tone: 'danger', labelKey: 'list.statusExpired' },
 };

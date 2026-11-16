@@ -107,7 +107,9 @@ export class PrintJobsService {
     if (family) this.assertFamilyKind(template.document_kind);
     else this.assertCanPrint(template.document_kind, caller);
     const resolver = RESOLVERS[template.document_kind];
-    if (!resolver || resolver.subjectType !== dto.subject_type) {
+    // Admission kinds exist in the catalogue before their print path ships (Epic 71 later waves).
+    if (!resolver) throw new BadRequestException('This document type cannot be printed yet');
+    if (resolver.subjectType !== dto.subject_type) {
       throw new BadRequestException('subject_type does not match the template');
     }
     // Context (the exam) is required exactly for the kinds that have one, refused for the rest.

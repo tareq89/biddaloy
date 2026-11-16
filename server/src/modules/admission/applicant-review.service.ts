@@ -28,6 +28,14 @@ import { bdPhoneTail } from '../communications/providers/shared/phone-number.uti
 import { StorageService, type StoredObject } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
 import type { RequestContext } from '../../common/request-context.util';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+
+const ADMITTABLE: AdmissionApplicantStatus[] = [
+  AdmissionApplicantStatus.PENDING,
+  AdmissionApplicantStatus.SHORTLISTED,
+  AdmissionApplicantStatus.OFFERED,
+  AdmissionApplicantStatus.WAITING,
+];
 
 const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicantStatus> = {
   SHORTLIST: AdmissionApplicantStatus.SHORTLISTED,
@@ -145,6 +153,9 @@ export class ApplicantReviewService {
     if (applicant.status === AdmissionApplicantStatus.REJECTED) {
       throw new ConflictException('Applicant is already rejected and cannot be modified');
     }
+    if (applicant.status === AdmissionApplicantStatus.EXPIRED) {
+      throw new ConflictException('Applicant offer expired; an admin must re-offer');
+    }
   }
 
   /** Records an evaluation row and, when a decision is given, moves the
@@ -255,10 +266,7 @@ export class ApplicantReviewService {
   ): Promise<AdmissionApplicant> {
     const applicant = await this.findOne(id, tenantId);
     this.assertMutable(applicant);
-    if (
-      applicant.status !== AdmissionApplicantStatus.PENDING &&
-      applicant.status !== AdmissionApplicantStatus.SHORTLISTED
-    ) {
+    if (!ADMITTABLE.includes(applicant.status)) {
       throw new ConflictException(`Cannot admit an applicant with status ${applicant.status}`);
     }
 
@@ -277,14 +285,16 @@ export class ApplicantReviewService {
         .getOne();
       if (!intake) throw new NotFoundException('Admission intake not found');
 
-      const admittedCount = await manager.getRepository(AdmissionApplicant).count({
+      // An OFFERED applicant already holds a seat, so they are not counted against themselves.
+      const heldCount = await manager.getRepository(AdmissionApplicant).count({
         where: {
           tenant_id: tenantId,
           intake_id: intake.id,
-          status: AdmissionApplicantStatus.ADMITTED,
+          status: In([AdmissionApplicantStatus.ADMITTED, AdmissionApplicantStatus.OFFERED]),
+          ...(applicant.status === AdmissionApplicantStatus.OFFERED ? { id: Not(id) } : {}),
         },
       });
-      if (admittedCount >= intake.seat_count) {
+      if (heldCount >= intake.seat_count) {
         throw new ConflictException('This intake has no seats left');
       }
 
@@ -294,11 +304,21 @@ export class ApplicantReviewService {
         .getRepository(AdmissionApplicant)
         .findOne({ where: { id, tenant_id: tenantId, deleted_at: IsNull() } });
       if (!current) throw new NotFoundException('Admission applicant not found');
-      if (
-        current.status !== AdmissionApplicantStatus.PENDING &&
-        current.status !== AdmissionApplicantStatus.SHORTLISTED
-      ) {
+      if (!ADMITTABLE.includes(current.status)) {
         throw new ConflictException(`Cannot admit an applicant with status ${current.status}`);
+      }
+      if (current.status === AdmissionApplicantStatus.WAITING) {
+        const active: unknown[] = await manager.query(
+          `SELECT 1 FROM admission_list_members m
+             JOIN admission_lists l ON l.id = m.list_id
+            WHERE m.applicant_id = $1 AND m.tenant_id = $2 AND m.deleted_at IS NULL
+              AND l.deleted_at IS NULL AND l.activated_at IS NOT NULL
+            LIMIT 1`,
+          [id, tenantId],
+        );
+        if (active.length === 0) {
+          throw new ConflictException('Cannot admit a waiting applicant whose list is not active');
+        }
       }
 
       const existingGuardian = await this.guardianService.findByPhoneAnyFormat(
@@ -348,10 +368,36 @@ export class ApplicantReviewService {
             )
           ).id;
 
+      if (
+        dto.class_section_id &&
+        intake.class_section_id &&
+        dto.class_section_id !== intake.class_section_id
+      ) {
+        throw new BadRequestException('This round admits into a fixed section');
+      }
+      const sectionId = dto.class_section_id ?? intake.class_section_id;
+      if (!sectionId) {
+        throw new BadRequestException('This round has no section to admit into');
+      }
+      if (dto.class_section_id) {
+        const rows: unknown[] = await manager.query(
+          `SELECT 1 FROM class_sections s JOIN classes c ON c.id = s.class_id
+            WHERE s.id = $1 AND s.tenant_id = $2 AND s.deleted_at IS NULL AND c.deleted_at IS NULL
+              AND ($3::uuid IS NULL OR s.class_id = $3::uuid)
+              AND ($4::uuid IS NULL OR c.academic_year_id = $4::uuid)`,
+          [sectionId, tenantId, intake.class_id, intake.academic_year_id],
+        );
+        if (rows.length === 0) {
+          throw new BadRequestException('The section does not belong to this round');
+        }
+      }
+      if (intake.academic_year_id) {
+        await assertYearOpen(manager, tenantId, intake.academic_year_id);
+      }
       await this.studentService.create(
         {
           full_name: applicant.applicant_name,
-          class_section_id: intake.class_section_id,
+          class_section_id: sectionId,
           date_of_birth: applicant.date_of_birth,
           gender: applicant.gender,
           home_address: applicant.home_address ?? undefined,
@@ -380,6 +426,51 @@ export class ApplicantReviewService {
     const updated = await this.findOne(id, tenantId);
     await this.notifyStatusChange(updated);
     return updated;
+  }
+
+  /** OFFERED -> EXPIRED by staff. Not repeatable: a second call is a 409 (Rule 25 state decision). */
+  async expire(
+    id: string,
+    tenantId: string,
+    actor: { userId: string; ip?: string | null; userAgent?: string | null },
+  ): Promise<AdmissionApplicant> {
+    const applicant = await this.findOne(id, tenantId);
+    await this.applicants.manager.transaction(async (manager: EntityManager) => {
+      // Same intake lock admit() holds, so expiry and admission cannot interleave (intake first).
+      await manager
+        .getRepository(AdmissionIntake)
+        .createQueryBuilder('intake')
+        .setLock('pessimistic_write')
+        .where('intake.id = :intakeId AND intake.tenant_id = :tenantId', {
+          intakeId: applicant.intake_id,
+          tenantId,
+        })
+        .getOne();
+      const result = await manager
+        .getRepository(AdmissionApplicant)
+        .update(
+          { id, tenant_id: tenantId, status: AdmissionApplicantStatus.OFFERED },
+          { status: AdmissionApplicantStatus.EXPIRED },
+        );
+      if (result.affected === 0) {
+        throw new ConflictException('Only an offered applicant can be expired');
+      }
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'AdmissionApplicant',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: actor.userId,
+          ip_address: actor.ip,
+          user_agent: actor.userAgent,
+          old_values: { status: AdmissionApplicantStatus.OFFERED },
+          new_values: { op: 'ADMISSION_OFFER_EXPIRED', status: AdmissionApplicantStatus.EXPIRED },
+        },
+        manager,
+      );
+    });
+    return this.findOne(id, tenantId);
   }
 
   /** Best-effort — a notification failure must never fail the review
