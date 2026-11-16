@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { randomBytes } from 'crypto';
@@ -546,6 +551,105 @@ describe('SchoolsService', () => {
   });
 
   describe('updateSettings', () => {
+    describe('daily limits lock [60.0 D17/D35]', () => {
+      const build = (stored: unknown) => {
+        const repo = fakeRepo({
+          id: 's1',
+          settings: { version: 1, communications: { dailyLimits: stored } },
+        });
+        const service = new SchoolsService(
+          repo as any,
+          {
+            createQueryBuilder: vi.fn(() => ({
+              innerJoin: vi.fn().mockReturnThis(),
+              where: vi.fn().mockReturnThis(),
+              andWhere: vi.fn().mockReturnThis(),
+              getCount: vi.fn(async () => 0),
+            })),
+          } as any,
+          { count: vi.fn(async () => 0) } as any,
+          { count: vi.fn(async () => 0) } as any,
+          {
+            createQueryBuilder: vi.fn(() => ({
+              select: vi.fn().mockReturnThis(),
+              where: vi.fn().mockReturnThis(),
+              getRawOne: vi.fn(async () => ({ max_created_at: null })),
+            })),
+          } as any,
+          { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+          encryption,
+          settingsCache,
+          auditService as any,
+          tenantStatus as any,
+        );
+        const patch = (dailyLimits: unknown) =>
+          plainToInstance(TenantSettingsDto, { version: 1, communications: { dailyLimits } });
+        return { repo, service, patch };
+      };
+
+      it('platform (true) stores the value', async () => {
+        const { repo, service, patch } = build({ sms: 50 });
+        await service.updateSettings('s1', patch({ sms: 99 }), 'u', REQUEST_CONTEXT, true);
+        expect(repo.schoolRepo.save.mock.calls[0][0].settings.communications.dailyLimits.sms).toBe(
+          99,
+        );
+      });
+
+      it('school resending the stored value is dropped, stored value kept', async () => {
+        const { repo, service, patch } = build({ sms: 50, email: 7 });
+        await service.updateSettings('s1', patch({ sms: 50 }), 'u', REQUEST_CONTEXT);
+        expect(repo.schoolRepo.save.mock.calls[0][0].settings.communications.dailyLimits).toEqual({
+          sms: 50,
+          email: 7,
+        });
+      });
+
+      it('platform write of a new key is stored next to the old ones', async () => {
+        const { repo, service, patch } = build({ sms: 50 });
+        await service.updateSettings('s1', patch({ email: 5 }), 'u', REQUEST_CONTEXT, true);
+        expect(repo.schoolRepo.save.mock.calls[0][0].settings.communications.dailyLimits).toEqual({
+          sms: 50,
+          email: 5,
+        });
+      });
+
+      it('platform write puts old and new dailyLimits in the audit entry', async () => {
+        const { service, patch } = build({ sms: 50 });
+        auditService.record.mockClear();
+        await service.updateSettings('s1', patch({ sms: 99 }), 'u', REQUEST_CONTEXT, true);
+        const [entry] = auditService.record.mock.calls[0];
+        expect((entry.old_values as any).communications.dailyLimits).toEqual({ sms: 50 });
+        expect((entry.new_values as any).communications.dailyLimits).toEqual({ sms: 99 });
+      });
+
+      it('school sending dailyLimits: null is treated as no change (nothing stored)', async () => {
+        // Pinned current behaviour: null is dropped like an omitted key, never a 403.
+        const { repo, service, patch } = build(undefined);
+        await service.updateSettings('s1', patch(null), 'u', REQUEST_CONTEXT);
+        expect(repo.schoolRepo.save).toHaveBeenCalledTimes(1);
+      });
+
+      it('school sending { sms: null } with nothing stored is pinned', async () => {
+        const { repo, service, patch } = build(undefined);
+        // Pinned current behaviour: null !== undefined stored, so it is refused with 403.
+        await expect(
+          service.updateSettings('s1', patch({ sms: null }), 'u', REQUEST_CONTEXT),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+      });
+
+      it('school changing a value gets 403 and nothing is saved', async () => {
+        const { repo, service, patch } = build({ sms: 50 });
+        await expect(
+          service.updateSettings('s1', patch({ sms: 51 }), 'u', REQUEST_CONTEXT),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        await expect(
+          service.updateSettings('s1', patch({ whatsapp: 5 }), 'u', REQUEST_CONTEXT),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+      });
+    });
+
     it('merges the patch into the stored settings and persists it', async () => {
       const school = {
         id: 's1',
