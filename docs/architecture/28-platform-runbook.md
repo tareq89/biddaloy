@@ -83,7 +83,7 @@ whether a second person can get in if the founder cannot.
 | Sentry                  | Error reports (one browser project, one server project)              | 6    | Biddaloy vault | yes                        |
 | Telegram                | Alerts and deploy messages (a bot and a group)                       | 6    | Biddaloy vault | yes                        |
 | SMS gateway             | The app's own SMS and critical alerts                                | 6    | Biddaloy vault | via emergency access       |
-| Uptime Kuma             | Status checks and the public status page                             | 11   | Biddaloy vault | yes                        |
+| Uptime Kuma             | Status checks and alerts                                             | 11   | Biddaloy vault | yes                        |
 | Beszel                  | Server graphs (CPU, memory, disk)                                    | 11   | Biddaloy vault | yes                        |
 | Dozzle                  | Live container logs                                                  | 12   | Biddaloy vault | yes                        |
 | Google, Facebook (Meta) | "Sign in with" buttons (prod only, optional)                         | 6    | Biddaloy vault | no                         |
