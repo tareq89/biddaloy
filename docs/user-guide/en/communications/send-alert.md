@@ -42,6 +42,7 @@ An alert is not an SMS. To text one guardian, use [**Send a message**](send-mess
   - [Choosing who gets it](#task-who)
   - [Add a page to open](#task-link)
   - [Withdraw an alert](#task-withdraw)
+  - [Daily limit](#daily-limit)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -131,6 +132,10 @@ You can use several groups together. If nobody matches, the box says **Nobody ma
 3. Press **Withdraw** again.
 
    → **Alert withdrawn**. The status becomes **Withdrawn**. It cannot be sent again; write a new one if needed.
+
+### Daily limit <a href="#daily-limit" id="daily-limit"></a>
+
+An alert is not an SMS, email or WhatsApp message, so the **Daily limit** on those channels (2,000 a day by default) does not count alerts. Alerts have their own limit, shown in [Problems and fixes](#trouble). If the school's daily limit on a channel is reached, the school's admins get an alert about it, once a day for that channel. They can wait until tomorrow or ask the platform team for a higher number.
 
 ---
 
