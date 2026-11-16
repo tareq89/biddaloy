@@ -34,7 +34,7 @@ export type UpdatePrinterInput = components['schemas']['UpdatePrinterProfileDto'
 export type CreatePrintJobInput = components['schemas']['CreatePrintJobDto'];
 export type PreviewPrintJobInput = components['schemas']['PreviewPrintJobDto'];
 
-export type PrintSubjectType = 'STUDENT' | 'STAFF' | 'ACR';
+export type PrintSubjectType = 'STUDENT' | 'STAFF' | 'ACR' | 'APPLICANT';
 
 export interface PrintTemplateRow {
   id: string;

@@ -148,6 +148,8 @@ const APPLICANT: FieldDef[] = [
     'মোহাম্মদ আব্দুল্লাহ আল মামুন রহিম উদ্দিন',
   ),
   f('applicant.reference_number', 'text', 'ADM-2027-000123'),
+  f('applicant.roll', 'text', '101'),
+  f('applicant.guardian_phone', 'text', '01712345678'),
   f('applicant.father_name', 'text', 'Abdul Karim'),
   f('applicant.class', 'text', 'Class 6'),
   f('applicant.photo', 'image', 'photo'),

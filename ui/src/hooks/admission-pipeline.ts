@@ -88,6 +88,20 @@ export const admissionCallListKeys = createEntityKeys<{ roundId: string; listId:
   'admission-call-list',
 );
 
+/** [71.5.01] Everyone in a stage who holds a roll, in roll order, all pages (print feeds). */
+export async function fetchStageApplicants(intakeId: string, stageId: string) {
+  const rows: ApplicantRow[] = [];
+  for (let page = 1; ; page++) {
+    const res = (
+      await apiClient.get<ApplicantList>('/admission/applicants', {
+        params: { intakeId, stage_id: stageId, sort: 'roll', page, limit: 100 },
+      })
+    ).data;
+    rows.push(...res.data);
+    if (page >= res.totalPages) return rows.filter((r) => r.roll_number !== null);
+  }
+}
+
 export function useAdmissionApplicants(filters: ApplicantFilters) {
   return useQuery({
     queryKey: admissionApplicantKeys.list(filters),

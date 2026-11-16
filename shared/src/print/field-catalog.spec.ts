@@ -67,6 +67,8 @@ describe('admission kinds (Epic 71)', () => {
   it('give the applicant fields to the admit card only', () => {
     const has = (k: DocumentKind) => FIELD_CATALOG[k].some((x) => x.key === 'applicant.name');
     expect(has(DocumentKind.ADMISSION_ADMIT_CARD)).toBe(true);
+    const keys = FIELD_CATALOG[DocumentKind.ADMISSION_ADMIT_CARD].map((x) => x.key);
+    expect(keys).toEqual(expect.arrayContaining(['applicant.roll', 'applicant.guardian_phone']));
     expect(has(DocumentKind.ADMISSION_LIST)).toBe(false);
   });
   it('give the list and sheet row fields', () => {

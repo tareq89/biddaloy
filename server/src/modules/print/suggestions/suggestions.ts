@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { ACR_CRITERIA_SLOTS, CR80, DocumentKind } from '@biddaloy/shared';
 import type { PrintElement, TemplateDefinition } from '@biddaloy/shared';
 import { ADMIT_CARD_SUGGESTIONS } from './admit-card.suggestions';
+import { ADMISSION_ADMIT_CARD_SUGGESTIONS } from './admission-admit-card.suggestions';
 import { STUDENT_CERTIFICATE_SUGGESTIONS } from './student-certificate.suggestions';
 import { RESULT_CERTIFICATE_SUGGESTIONS } from './result-certificate.suggestions';
 import {
@@ -284,6 +285,7 @@ export const PRINT_SUGGESTIONS: readonly PrintSuggestion[] = [
   ),
   buildAcr(),
   ...ADMIT_CARD_SUGGESTIONS,
+  ...ADMISSION_ADMIT_CARD_SUGGESTIONS,
   ...STUDENT_CERTIFICATE_SUGGESTIONS,
   ...RESULT_CERTIFICATE_SUGGESTIONS,
 ];

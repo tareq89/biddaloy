@@ -64,7 +64,7 @@ export interface PrintPreviewProps {
   /** "Back" to the picker; only passed when the preview was reached from it. */
   onBack?: () => void;
   /** The exam these documents belong to; sent with the preview and create calls. */
-  context?: { type: 'EXAM'; id: string };
+  context?: { type: 'EXAM' | 'ADMISSION_STAGE'; id: string };
   /** Extra pre-flight problems (e.g. a student who owes fees); each needs "Print anyway". */
   extraIssues?: PreflightIssue[];
 }
@@ -135,7 +135,8 @@ export function PrintPreview({
   const { t: tc } = useTranslation('common');
   const region = useRegionConfig();
   const tenantId = getActiveTenant() ?? '';
-  const prefix = subjectType === 'STUDENT' ? 'student' : 'staff';
+  const prefix =
+    subjectType === 'STUDENT' ? 'student' : subjectType === 'APPLICANT' ? 'applicant' : 'staff';
 
   const templatesQuery = usePrintTemplates(documentKind);
   const printersQuery = usePrinters();

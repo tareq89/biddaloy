@@ -45,7 +45,7 @@ describe('print enums', () => {
       'ADMISSION_ATTENDANCE_SHEET',
       'ADMISSION_LIST',
     ]);
-    expect(Object.values(PrintContextType)).toEqual(['EXAM']);
+    expect(Object.values(PrintContextType)).toEqual(['EXAM', 'ADMISSION_STAGE']);
     expect(Object.values(LayoutKind)).toEqual(['FIXED', 'FLOWING']);
     expect(Object.values(PrintElementType)).toEqual(['TEXT', 'IMAGE', 'QR', 'SHAPE']);
     expect(Object.values(ShapeKind)).toEqual(['RECT', 'LINE']);
@@ -56,7 +56,7 @@ describe('print enums', () => {
     expect(Object.values(PrintAssetKind)).toEqual(['ARTWORK', 'IMAGE', 'FONT']);
     expect(Object.values(PrintJobStatus)).toEqual(['OPEN', 'CONFIRMED']);
     expect(Object.values(PrintItemOutcome)).toEqual(['PENDING', 'OK', 'FAILED']);
-    expect(Object.values(PrintSubjectType)).toEqual(['STUDENT', 'STAFF', 'ACR']);
+    expect(Object.values(PrintSubjectType)).toEqual(['STUDENT', 'STAFF', 'ACR', 'APPLICANT']);
   });
 
   it('pins the batch limits and CR80 size', () => {

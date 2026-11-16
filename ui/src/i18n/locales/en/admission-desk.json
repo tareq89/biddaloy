@@ -287,5 +287,25 @@
         "heard_of_us": "For example a friend, a banner or the website."
       }
     }
+  },
+  "print": {
+    "admitCards": "Print admit cards",
+    "attendance": "Print attendance sheet",
+    "attendanceTitle": "Attendance sheet",
+    "list": "Print list",
+    "none": "Nobody has a roll number yet. Create roll numbers first.",
+    "loadError": "Could not load the applicants. Try again.",
+    "col": {
+      "serial": "No.",
+      "roll": "Roll",
+      "name": "Name",
+      "reference": "Application no.",
+      "signature": "Signature",
+      "status": "Status"
+    },
+    "listTitle": "{{list}}",
+    "listCut": "Only the first {{shown}} of {{total}} names are on this sheet. The rest are not printed.",
+    "listEmpty": "This list has no one on it.",
+    "capped": "Printing all {{total}} admit cards in batches of {{max}} (the most one job takes). Confirm each batch in the preview."
   }
 }
