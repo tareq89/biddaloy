@@ -6,6 +6,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID } from '@test/constants';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationLog } from './entities/communication-log.entity';
+import { ReminderBatch } from './entities/reminder-batch.entity';
 import { BulkReminderService } from './reminders.service';
 
 /**
@@ -25,7 +26,7 @@ describe('BulkReminderService.findLogs (integration)', () => {
     const unused = {} as any;
     service = new BulkReminderService(
       module.get(getRepositoryToken(CommunicationLog)),
-      unused,
+      module.get(getRepositoryToken(ReminderBatch)),
       unused,
       unused,
       unused,
@@ -285,5 +286,46 @@ describe('BulkReminderService.findLogs (integration)', () => {
 
     expect(ids(res)).toEqual([hit]);
     expect(res.data[0]).toMatchObject({ trigger: 'MANUAL', provider: 'stub-a' });
+  });
+
+  describe('staff and marks SMS (80.4.01)', () => {
+    it('filters the log by trigger and recipient_user_id', async () => {
+      const [{ id: userId }] = await dataSource.query(`SELECT id FROM users WHERE id = $1`, [
+        SEED_ADMIN_USER_ID,
+      ]);
+      const staff = await addLog(tenantA, { trigger: CommunicationTrigger.STAFF_MESSAGE });
+      const marks = await addLog(tenantA, { trigger: CommunicationTrigger.MARKS_SMS });
+      await addLog(tenantA, { trigger: CommunicationTrigger.MANUAL });
+      await dataSource.query(`UPDATE communication_logs SET recipient_user_id = $1 WHERE id = $2`, [
+        userId,
+        staff,
+      ]);
+
+      expect(
+        ids(await service.findLogs({ trigger: CommunicationTrigger.MARKS_SMS }, tenantA, 'ADMIN')),
+      ).toEqual([marks]);
+      expect(ids(await service.findLogs({ recipient_user_id: userId }, tenantA, 'ADMIN'))).toEqual([
+        staff,
+      ]);
+    });
+
+    it('keeps staff and marks batches out of Reminder history, fee batches stay', async () => {
+      const mk = async (filters: object | null) => {
+        const [{ id }] = await dataSource.query(
+          `INSERT INTO reminder_batches (tenant_id, batch_name, status, total_recipients, message_template, filters_applied, initiated_by_user_id)
+           VALUES ($1, 'b', 'COMPLETED', 1, 't', $2, $3) RETURNING id`,
+          [tenantA, filters ? JSON.stringify(filters) : null, SEED_ADMIN_USER_ID],
+        );
+        return id as string;
+      };
+      const fee = await mk({ student_ids: [] });
+      const bare = await mk(null);
+      await mk({ kind: 'STAFF_MESSAGE' });
+      await mk({ kind: 'MARKS_SMS' });
+
+      const res = await service.findBatches({}, tenantA);
+      expect(res.data.map((b) => b.id).sort()).toEqual([fee, bare].sort());
+      await dataSource.query(`DELETE FROM reminder_batches WHERE tenant_id = $1`, [tenantA]);
+    });
   });
 });

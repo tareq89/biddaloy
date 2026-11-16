@@ -357,6 +357,11 @@ export class QueryCommunicationLogsDto {
   @IsUUID()
   guardian_id?: string;
 
+  /** [80.4.01] One staff member's received messages (`recipient_user_id`). */
+  @IsOptional()
+  @IsUUID()
+  recipient_user_id?: string;
+
   /** The staff user who sent it (`sent_by_user_id`). */
   @IsOptional()
   @IsUUID()
