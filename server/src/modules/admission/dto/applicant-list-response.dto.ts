@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AdmissionApplicantStatus, AdmissionDocumentType } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  AdmissionDocumentType,
+  AdmissionFeeState,
+  AdmissionSource,
+} from '@biddaloy/shared';
 
 /** One uploaded document on an applicant. Mirrors `AdmissionApplicantDocument`. */
 export class AdmissionApplicantDocumentDto {
@@ -26,8 +31,27 @@ export class AdmissionApplicantResponseDto {
   documents: AdmissionApplicantDocumentDto[];
   @ApiProperty({ enum: AdmissionApplicantStatus, enumName: 'AdmissionApplicantStatus' })
   status: AdmissionApplicantStatus;
+  @ApiProperty({ type: String, nullable: true }) roll_number: string | null;
+  @ApiProperty({ enum: Object.values(AdmissionSource), enumName: 'AdmissionSource' })
+  source: AdmissionSource;
+  @ApiProperty({ type: [String] }) quota_tags: string[];
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  extra_fields: Record<string, unknown>;
+  @ApiProperty({ enum: Object.values(AdmissionFeeState), enumName: 'AdmissionFeeState' })
+  fee_state: AdmissionFeeState;
+  @ApiProperty({ type: String, nullable: true, description: 'Method of the latest fee proof.' })
+  fee_method: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Reference of the latest fee proof.' })
+  fee_reference: string | null;
+  @ApiProperty({ description: 'Sibling of an existing student.' }) has_sibling: boolean;
   @ApiProperty({ type: String, format: 'date-time' }) created_at: string;
   @ApiProperty({ type: String, format: 'date-time' }) updated_at: string;
+}
+
+export class ApplicantDetailResponseDto {
+  @ApiProperty({ type: AdmissionApplicantResponseDto }) applicant: AdmissionApplicantResponseDto;
+  @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true } })
+  evaluations: Record<string, unknown>[];
 }
 
 /** `GET /admission/applicants` returns a page, not a bare array. */

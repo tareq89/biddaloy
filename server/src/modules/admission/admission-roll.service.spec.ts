@@ -101,6 +101,13 @@ describe('AdmissionRollService.setSchedule', () => {
     expect(off.notify).not.toHaveBeenCalled();
   });
 
+  it('keeps cutoff_committed_at', async () => {
+    const stage = { id: 's', intake_id: 'i', config: { cutoff_committed_at: 'X' } };
+    const t = build({ id: 'i', publish_channels: [] }, [], stage);
+    await t.service.setSchedule('s', dto, 't');
+    expect(stage.config).toMatchObject({ cutoff_committed_at: 'X', ...dto });
+  });
+
   it('refuses a past date', async () => {
     const t = build({ id: 'i' }, [], {});
     await expect(

@@ -137,6 +137,33 @@ describe('Admission fee verification (e2e)', () => {
     await as(http().get(URL), UserRole.TEACHER).expect(403);
   });
 
+  it('[#4253] amount_paisa is the round fee; applicantId lists that applicant in every state', async () => {
+    const one = await seedProof('TX-A');
+    await seedProof('TX-B');
+    await ds.query(`UPDATE admission_fee_proofs SET state = 'SENT_BACK' WHERE id = $1`, [
+      one.proof,
+    ]);
+    const all = await admin(http().get(URL)).expect(200);
+    expect(all.body.total).toBe(1);
+    expect(all.body.data[0].amount_paisa).toBe(50000);
+    const mine = await admin(http().get(`${URL}?applicantId=${one.applicant}`)).expect(200);
+    expect(mine.body.total).toBe(1);
+    expect(mine.body.data[0]).toMatchObject({ applicant_id: one.applicant, state: 'SENT_BACK' });
+    const none = await admin(
+      http().get(`${URL}?applicantId=${one.applicant}&state=AWAITING`),
+    ).expect(200);
+    expect(none.body.total).toBe(0);
+    await admin(http().get(`${URL}?applicantId=nope`)).expect(400);
+    const other = await admin(
+      http().get(`${URL}?applicantId=${one.applicant}`),
+      OTHER_TENANT_ID,
+    ).expect(200);
+    expect(other.body.total).toBe(0);
+    await ds.query(`UPDATE admission_intakes SET fee_amount_paisa = NULL WHERE id = $1`, [intake]);
+    const free = await admin(http().get(`${URL}?applicantId=${one.applicant}`)).expect(200);
+    expect(free.body.data[0].amount_paisa).toBeNull();
+  });
+
   it('limit over 100 is a 400; a bad state is a 400', async () => {
     await admin(http().get(`${URL}?limit=101`)).expect(400);
     await admin(http().get(`${URL}?state=NOPE`)).expect(400);

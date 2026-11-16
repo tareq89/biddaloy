@@ -1,1 +1,146 @@
-{}
+{
+  "panel": {
+    "meritHeading": "Merit list",
+    "waitingHeading": "Waiting lists",
+    "loading": "Loading lists…",
+    "loadError": "Could not load the lists. Try again.",
+    "noMerit": "The merit list is not made yet.",
+    "noWaiting": "No waiting list yet.",
+    "buildMerit": "Make merit list",
+    "newWaiting": "New waiting list",
+    "seats": "Seats {{seats}} · seats left {{left}}"
+  },
+  "card": {
+    "merit": "Merit list",
+    "waiting": "Waiting list {{n}}",
+    "capacity": "Seats: {{count}}",
+    "deadline": "Last date: {{date}}",
+    "noDeadline": "No last date",
+    "offered": "Offered {{count}}",
+    "admitted": "Admitted {{count}}",
+    "expired": "Expired {{count}}",
+    "waitingCount": "Waiting {{count}}",
+    "seatsLeft": "Seats left {{count}}",
+    "notOpened": "Not opened yet",
+    "members": "People in this list",
+    "noMembers": "No one in this list.",
+    "position": "No. {{n}}"
+  },
+  "actions": {
+    "activate": "Open this list",
+    "expire": "Mark time over",
+    "call": "Call list",
+    "admit": "Admit",
+    "activating": "Opening…",
+    "expiring": "Saving…"
+  },
+  "reasons": {
+    "activateDeadline": "You can open this list after {{date}}, the last date of the list before it.",
+    "activateSeats": "No seat is free, so there is nobody to offer.",
+    "expireDeadline": "You can do this after {{date}}, the last date of this list."
+  },
+  "confirm": {
+    "activateTitle": "Open this list?",
+    "activateText": "Offers go to the people in this list.",
+    "expireTitle": "Mark the time over?",
+    "expireText": "People who were offered a seat and have not been admitted lose their offer.",
+    "yes": "Yes, continue"
+  },
+  "toast": {
+    "created": "List made. {{count}} people added.",
+    "activated": "List opened.",
+    "expired": "Time marked over for {{count}} people.",
+    "error": "Could not do that. Try again."
+  },
+  "build": {
+    "titleMerit": "Make merit list",
+    "titleWaiting": "New waiting list",
+    "capacity": "Seats in this list",
+    "capacityHelp": "At most {{max}} (seats left).",
+    "deadline": "Last date to take admission",
+    "order": "Choose people by",
+    "orders": {
+      "MERIT": "Merit order",
+      "FIRST_COME": "First come, first served",
+      "MANUAL": "Pick by hand",
+      "FILTER": "Filter"
+    },
+    "pickTitle": "Pick people",
+    "pickHelp": "Tick people to add, then use the arrows to set the order.",
+    "pickEmpty": "No applicant can be added now.",
+    "pickLoading": "Loading applicants…",
+    "pickError": "Could not load the applicants.",
+    "pickRetry": "Try again",
+    "picked": "Picked {{count}}",
+    "up": "Move {{name}} up",
+    "down": "Move {{name}} down",
+    "pick": "Add {{name}}",
+    "filterTitle": "Filter",
+    "quota": "Quota",
+    "quotas": {
+      "quota_freedom_fighter": "Freedom fighter child",
+      "quota_teacher_child": "Teacher child",
+      "quota_disabled": "Disabled",
+      "quota_ethnic_minority": "Ethnic minority"
+    },
+    "minScore": "Lowest score",
+    "gender": "Gender",
+    "genderAny": "Any",
+    "genders": { "MALE": "Boy", "FEMALE": "Girl", "OTHER": "Other" },
+    "errors": {
+      "capacity": "Seats must be from 1 to {{max}}.",
+      "deadline": "Choose the last date.",
+      "picked": "Pick at least one person.",
+      "score": "Write a number, up to 2 decimals.",
+      "save": "Could not save. Check the seats and date and try again."
+    },
+    "save": "Make list",
+    "saving": "Saving…",
+    "cancel": "Cancel"
+  },
+  "call": {
+    "title": "Call list",
+    "loading": "Loading…",
+    "loadError": "Could not load the call list. Try again.",
+    "empty": "No one to call in this list.",
+    "name": "Name",
+    "phone": "Phone",
+    "roll": "Roll",
+    "called": "Called",
+    "calledLabel": "{{name}} was called",
+    "note": "Note",
+    "noteLabel": "Note about {{name}}",
+    "callLink": "Call {{name}}",
+    "saveError": "Could not save. Try again.",
+    "close": "Close"
+  },
+  "publish": {
+    "loading": "Loading…",
+    "loadError": "Could not load this page. Try again.",
+    "published": "Published",
+    "notPublished": "Not published",
+    "channelSite": "Site",
+    "channelPhone": "Phone",
+    "channelSms": "Send SMS",
+    "includeNotSelected": "Also text applicants who were not selected",
+    "action": "Publish",
+    "confirmTitle": "Publish {{name}}?",
+    "estimate": "{{count}} SMS ≈ {{credits}} credits",
+    "estimateLoading": "Counting SMS…",
+    "estimateError": "Could not count the SMS.",
+    "estimateRetry": "Try again",
+    "lowCredit": "Not enough credits: this needs {{credits}} but only {{available}} are left.",
+    "noSms": "No SMS will be sent.",
+    "names": "List with names",
+    "namesWarning": "These are children's names. Anyone who opens the public site will see them. Turn this on only if the school really wants it.",
+    "preview": "How it looks on the site",
+    "previewUnavailable": "The public lists page is not ready yet.",
+    "toast": {
+      "done": "Published. {{count}} SMS sent.",
+      "error": "Could not publish. Try again."
+    }
+  },
+  "admit": {
+    "loadError": "Could not open this applicant. Try again."
+  }
+}

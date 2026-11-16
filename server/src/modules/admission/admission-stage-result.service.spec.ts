@@ -26,6 +26,7 @@ function build(
   opts: { downstream?: boolean; kind?: string } = {},
 ) {
   const saved: Record<string, unknown>[] = [];
+  const stageSaves: { config: Record<string, unknown> }[] = [];
   const updates: unknown[][] = [];
   const audits: unknown[] = [];
   const manager = {
@@ -40,6 +41,8 @@ function build(
         applicant_id: r.applicant_id,
         date_of_birth: r.dob ?? '2015-01-01',
         created_at: r.at ?? '2026-01-01T00:00:00.000000',
+        name: `Name ${r.applicant_id}`,
+        roll: null,
         recorded: r.recorded,
         score: r.score,
       }));
@@ -47,7 +50,8 @@ function build(
     getRepository: () => ({
       findOne: async () => ({ ...stage, config, kind: opts.kind ?? 'WRITTEN' }),
       create: (v: object) => ({ ...v }),
-      save: async (v: Record<string, unknown>[]) => saved.push(...v),
+      save: async (v: Record<string, unknown>[] | Record<string, unknown>) =>
+        Array.isArray(v) ? saved.push(...v) : (stageSaves.push(v as never), v),
       createQueryBuilder: () => {
         const qb = { where: () => qb, getMany: async () => [] };
         return qb;
@@ -62,7 +66,7 @@ function build(
     { lockIntake } as never,
     { record: auditRecord } as never,
   );
-  return { service, saved, updates, audits, lockIntake };
+  return { service, saved, stageSaves, updates, audits, lockIntake };
 }
 
 const row = (id: string, score: string | null, recorded = true): Row => ({
@@ -156,6 +160,25 @@ describe('AdmissionStageResultService.putResults', () => {
     );
   });
 
+  it('a score change clears the stale cut-off commit marker; pass/fail stages keep it', async () => {
+    const sc = build([row('a1', null, false)], { total_marks: 100, cutoff_committed_at: 'X' });
+    await sc.service.putResults(
+      's1',
+      body([{ applicant_id: 'a1', attended: true, score: 50 }]),
+      TENANT,
+      actor,
+    );
+    expect(sc.stageSaves[0].config).toEqual({ total_marks: 100 });
+    const pf = build([row('a1', null, false)], { cutoff_committed_at: 'X' });
+    await pf.service.putResults(
+      's1',
+      body([{ applicant_id: 'a1', attended: true, passed: true }]),
+      TENANT,
+      actor,
+    );
+    expect(pf.stageSaves).toHaveLength(0);
+  });
+
   it('a pass/fail stage takes passed, not a score', async () => {
     const pf = build([row('a1', null, false)], {});
     await pf.service.putResults(
@@ -210,7 +233,10 @@ describe('cut-off preview and commit', () => {
     const { service, updates } = build(rows);
     const p = await service.preview('s1', 'TOP_N', 3, TENANT);
     const c = await service.commit('s1', { mode: 'TOP_N', value: 3 } as never, TENANT, actor);
-    expect(c).toEqual({ passed: p.passing_count, failed: p.failing_count });
+    expect(c).toMatchObject({ passed: p.passing_count, failed: p.failing_count });
+    expect(c.passing_rows).toEqual(p.passing_rows);
+    expect(c.failing_rows).toEqual(p.failing_rows);
+    expect(c.cutoff_committed_at).toEqual(expect.any(String));
     expect(passed(updates)).toEqual(new Set(p.passing));
   });
 

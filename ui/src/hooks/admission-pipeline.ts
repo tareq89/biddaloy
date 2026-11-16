@@ -14,6 +14,9 @@ type S = components['schemas'];
 export type ApplicantList = S['ApplicantListResponseDto'];
 export type FeeProofList = S['FeeProofListResponseDto'];
 export type FeeState = S['AdmissionFeeState'];
+export type ApplicantSource = S['AdmissionSource'];
+/** The applicant row with the Epic 71 fields (source, quota tags, fee state, sibling). */
+export type ApplicantRow = S['AdmissionApplicantResponseDto'];
 export type PutStageResultsInput = S['PutStageResultsDto'];
 export type CutoffPreviewInput = S['CutoffPreviewDto'];
 export type CutoffPreview = S['CutoffPreviewResponseDto'];
@@ -40,6 +43,9 @@ export interface PublishResult {
 }
 export type PublishEstimate = S['PublishEstimateResponseDto'];
 export type CallListRow = S['CallListRowDto'];
+export type StageResultRow = S['StageResultListRowDto'];
+export type AssignRollsResult = S['AssignRollsResponseDto'];
+export type StageScheduleInput = S['StageScheduleDto'];
 export type SendBackFeeProofInput = S['SendBackFeeProofDto'];
 
 export interface ApplicantFilters {
@@ -54,11 +60,19 @@ export interface ApplicantFilters {
     | 'WAITING'
     | 'EXPIRED';
   search?: string;
+  fee_state?: FeeState;
+  quota_tag?: string;
+  source?: ApplicantSource;
+  /** Only applicants in this stage (eligible for it). */
+  stage_id?: string;
+  sort?: 'newest' | 'roll';
   page?: number;
   limit?: number;
 }
 export interface FeeProofFilters {
   intakeId?: string;
+  /** One applicant's proofs, every state (their fee history). */
+  applicantId?: string;
   state?: FeeState;
   page?: number;
   limit?: number;
@@ -66,6 +80,9 @@ export interface FeeProofFilters {
 
 export const admissionApplicantKeys = createEntityKeys<ApplicantFilters>('admission-applicants');
 export const admissionFeeProofKeys = createEntityKeys<FeeProofFilters>('admission-fee-proofs');
+export const admissionStageResultKeys = createEntityKeys<{ stageId: string }>(
+  'admission-stage-results',
+);
 export const admissionListKeys = createEntityKeys('admission-lists');
 export const admissionCallListKeys = createEntityKeys<{ roundId: string; listId: string }>(
   'admission-call-list',
@@ -127,6 +144,63 @@ export function useSendBackFeeProof(id: string) {
 
 // ---- Stages: results, cut-off, lottery ----
 
+const RESULTS_PAGE = 100;
+/** Stage rows carry cutoff_committed_at, so a save or commit refreshes them. */
+const STAGES = ['admission-stages'] as const;
+
+/** Every saved row of a stage, all pages (the grid prefills from it). */
+export function useStageResults(stageId: string) {
+  return useQuery({
+    enabled: Boolean(stageId),
+    queryKey: admissionStageResultKeys.list({ stageId }),
+    queryFn: async ({ signal }) => {
+      const rows: StageResultRow[] = [];
+      for (let page = 1; ; page++) {
+        const res = (
+          await apiClient.get<S['StageResultListResponseDto']>(
+            `/admission/stages/${stageId}/results`,
+            { params: { page, limit: RESULTS_PAGE }, signal },
+          )
+        ).data;
+        rows.push(...res.data);
+        if (page >= res.totalPages) return rows;
+      }
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAssignRolls(roundId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (order: 'APPLIED_AT' | 'NAME') =>
+      (await apiClient.post<AssignRollsResult>(`/admission/intakes/${roundId}/rolls`, { order }))
+        .data,
+    onSuccess: () => invalidate(admissionApplicantKeys.all),
+    retry: false,
+  });
+}
+
+export function useSetStageSchedule(stageId: string) {
+  const queryClient = useQueryClient();
+  const { keyFor, rotate } = useIdempotencyKey();
+  return useMutation({
+    mutationFn: async (input: StageScheduleInput) =>
+      (
+        await apiClient.patch<S['StageScheduleResponseDto']>(
+          `/admission/stages/${stageId}/schedule`,
+          input,
+          { headers: { 'Idempotency-Key': keyFor({ stageId, ...input }) } },
+        )
+      ).data,
+    onSuccess: () => {
+      rotate();
+      void queryClient.invalidateQueries({ queryKey: ['admission-stages'] });
+    },
+    retry: false,
+  });
+}
+
 export function usePutStageResults(stageId: string) {
   const invalidate = useInvalidate();
   return useMutation({
@@ -137,7 +211,7 @@ export function usePutStageResults(stageId: string) {
           input,
         )
       ).data,
-    onSuccess: () => invalidate(admissionApplicantKeys.all),
+    onSuccess: () => invalidate(admissionApplicantKeys.all, admissionStageResultKeys.all, STAGES),
     retry: false,
   });
 }
@@ -162,7 +236,7 @@ export function useCommitCutoff(stageId: string) {
           input,
         )
       ).data,
-    onSuccess: () => invalidate(admissionApplicantKeys.all),
+    onSuccess: () => invalidate(admissionApplicantKeys.all, admissionStageResultKeys.all, STAGES),
     retry: false,
   });
 }
@@ -179,7 +253,7 @@ export function useDrawLottery(stageId: string) {
       ).data,
     onSuccess: () => {
       rotate();
-      invalidate(admissionApplicantKeys.all);
+      invalidate(admissionApplicantKeys.all, admissionStageResultKeys.all, STAGES);
     },
     retry: false,
   });
@@ -211,7 +285,7 @@ export function useCommitLotteryImport(stageId: string) {
           input,
         )
       ).data,
-    onSuccess: () => invalidate(admissionApplicantKeys.all),
+    onSuccess: () => invalidate(admissionApplicantKeys.all, admissionStageResultKeys.all, STAGES),
     retry: false,
   });
 }

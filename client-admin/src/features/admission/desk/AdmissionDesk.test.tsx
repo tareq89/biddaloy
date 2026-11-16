@@ -63,7 +63,7 @@ describe('AdmissionDesk', () => {
   it('?step= selects the panel', async () => {
     api({ applicants: 12, feePending: 3 });
     render('?step=merit');
-    expect(await screen.findByRole('heading', { name: 'Merit and waiting lists' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Merit list' })).toBeTruthy();
   });
 
   it('empty round says no application yet', async () => {

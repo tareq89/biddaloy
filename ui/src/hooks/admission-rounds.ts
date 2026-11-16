@@ -11,11 +11,16 @@ import { shouldRetryQuery } from './retry';
 
 export type CreateAdmissionRoundInput = components['schemas']['CreateIntakeDto'];
 export type UpdateAdmissionRoundInput = components['schemas']['UpdateIntakeDto'];
-export type AdmissionStageRow = components['schemas']['AdmissionStage'];
+export type AdmissionStageRow = components['schemas']['AdmissionStageResponseDto'];
 export type CreateAdmissionStageInput = components['schemas']['CreateStageDto'];
 export type UpdateAdmissionStageInput = components['schemas']['UpdateStageDto'];
 /** The intake routes have no response DTO in the schema yet, so only what the screens read. */
-export type AdmissionRound = CreateAdmissionRoundInput & { id: string; status?: string };
+export type AdmissionRound = CreateAdmissionRoundInput & {
+  id: string;
+  status?: string;
+  /** The section a round admits into; set means the admit picker offers only it. */
+  class_section_id?: string | null;
+};
 
 export const admissionRoundKeys = createEntityKeys('admission-rounds');
 export const admissionStageKeys = createEntityKeys<{ roundId: string }>('admission-stages');

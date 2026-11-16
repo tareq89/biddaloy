@@ -12,13 +12,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Label,
   RadioRows,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
+import { useAdmissionRound, useClassSections } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatPhone } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { useAdmitApplicant, useGuardianMatch } from './hooks/useAdmitApplicant';
+
+const AUTO = '__auto__';
 
 export function AdmitApplicantModal({
   applicant,
@@ -36,6 +45,13 @@ export function AdmitApplicantModal({
   const [choice, setChoice] = React.useState<'LINK_EXISTING' | 'CREATE_NEW' | ''>('');
   const match = useGuardianMatch(applicant.id, open);
   const matched = match.data?.guardian ?? null;
+  // [71.4.09] Only sections of the round's class; the round without a class gets no picker.
+  const round = useAdmissionRound(open ? applicant.intake_id : '');
+  const sections = useClassSections(open ? round.data?.class_id : undefined);
+  const [sectionId, setSectionId] = React.useState('');
+  // A round with a fixed section admits only into it; the server answers 400 to any other.
+  const fixedSection = round.data?.class_section_id;
+  const pickable = (sections.data ?? []).filter((s) => !fixedSection || s.id === fixedSection);
   const needsChoice = matched !== null && choice === '';
   // A different guardian after a refetch (409 MATCH_CHANGED): staff choose again.
   React.useEffect(() => setChoice(''), [matched?.id]);
@@ -45,17 +61,21 @@ export function AdmitApplicantModal({
     if (!next) {
       setAdmitted(false);
       setChoice('');
+      setSectionId('');
       admit.reset();
     }
   }
 
   function handleConfirm() {
     admit.mutate(
-      matched && choice
-        ? choice === 'LINK_EXISTING'
-          ? { guardian_choice: choice, guardian_id: matched.id }
-          : { guardian_choice: choice }
-        : {},
+      {
+        ...(matched && choice
+          ? choice === 'LINK_EXISTING'
+            ? { guardian_choice: choice, guardian_id: matched.id }
+            : { guardian_choice: choice }
+          : {}),
+        ...(sectionId ? { class_section_id: sectionId } : {}),
+      },
       { onSuccess: () => setAdmitted(true) },
     );
   }
@@ -84,6 +104,27 @@ export function AdmitApplicantModal({
                 <dd>{formatPhone(applicant.guardian_phone, regionConfig)}</dd>
               </div>
             </dl>
+            {pickable.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="admit-section">{t('admitModal.section')}</Label>
+                <Select
+                  value={sectionId || AUTO}
+                  onValueChange={(v) => setSectionId(v === AUTO ? '' : v)}
+                >
+                  <SelectTrigger id="admit-section">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={AUTO}>{t('admitModal.sectionAuto')}</SelectItem>
+                    {pickable.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.section_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             {match.isError ? (
               <div
                 role="alert"

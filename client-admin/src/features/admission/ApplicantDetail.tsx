@@ -21,6 +21,7 @@ import {
   Textarea,
   type StatusTone,
 } from '@biddaloy/ui/components';
+import { useFeeProofs } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
 import { formatDate, formatDateTime, formatPhone } from '@biddaloy/ui/utils';
@@ -51,6 +52,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
   const applicantQuery = useApplicant(applicantId);
   const regionConfig = useRegionConfig();
   const intakeQuery = useIntake(applicantQuery.data?.applicant.intake_id);
+  const feeHistory = useFeeProofs({ applicantId, limit: 50 });
   const rejectApplicant = useRejectApplicant(applicantId);
   const deleteDocuments = useDeleteApplicantDocuments(applicantId);
   const [deleteDocsOpen, setDeleteDocsOpen] = React.useState(false);
@@ -95,6 +97,9 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
 
   const sortedEvaluations = [...evaluations].sort((x, y) =>
     y.created_at.localeCompare(x.created_at),
+  );
+  const extraEntries = Object.entries(applicant.extra_fields ?? {}).filter(
+    ([, v]) => v !== null && v !== undefined && v !== '',
   );
   const genderKey = ['MALE', 'FEMALE', 'OTHER'].includes(applicant.gender)
     ? `detail.genderOptions.${applicant.gender}`
@@ -177,6 +182,80 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
                   value={applicant.home_address ?? t('detail.notProvided')}
                 />
               </dl>
+            </Card>
+
+            <Card padded>
+              <h2 className="text-h2">{t('detail.sectionAdmission')}</h2>
+              <dl className="mt-4 grid gap-4 md:grid-cols-3">
+                {applicant.source ? (
+                  <Field
+                    label={t('detail.fieldSource')}
+                    value={t(`list.source.${applicant.source}`)}
+                  />
+                ) : null}
+                {applicant.roll_number ? (
+                  <Field label={t('detail.fieldRoll')} value={applicant.roll_number} />
+                ) : null}
+                {applicant.fee_state ? (
+                  <Field
+                    label={t('detail.fieldFee')}
+                    value={t(`list.feeState.${applicant.fee_state}`)}
+                  />
+                ) : null}
+                <Field
+                  label={t('detail.fieldQuota')}
+                  value={applicant.quota_tags?.length ? applicant.quota_tags.join(', ') : '—'}
+                />
+                {applicant.has_sibling !== undefined ? (
+                  <Field
+                    label={t('detail.fieldSibling')}
+                    value={applicant.has_sibling ? t('detail.siblingYes') : t('detail.siblingNo')}
+                  />
+                ) : null}
+              </dl>
+              {extraEntries.length > 0 ? (
+                <>
+                  <h3 className="mt-4 font-medium">{t('detail.sectionExtra')}</h3>
+                  <dl className="mt-2 grid gap-4 md:grid-cols-3">
+                    {extraEntries.map(([key, value]) => (
+                      <Field key={key} label={key} value={String(value)} />
+                    ))}
+                  </dl>
+                </>
+              ) : null}
+            </Card>
+
+            <Card padded>
+              <h2 className="text-h2">{t('detail.sectionFees')}</h2>
+              {feeHistory.isError ? (
+                <p role="alert" className="text-danger mt-2">
+                  {t('detail.feesError')}
+                </p>
+              ) : (feeHistory.data?.data ?? []).length === 0 ? (
+                <p className="mt-2 text-text-secondary">{t('detail.noFees')}</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-border-subtle">
+                  {feeHistory.data!.data.map((proof) => (
+                    <li key={proof.id} className="py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{t(`list.feeState.${proof.state}`)}</span>
+                        <span className="text-caption text-text-secondary">
+                          {formatDateTime(proof.created_at, regionConfig)}
+                        </span>
+                      </div>
+                      <p className="text-text-secondary">
+                        {proof.method}
+                        {proof.reference
+                          ? ` · ${t('detail.feeReference', { ref: proof.reference })}`
+                          : ''}
+                      </p>
+                      {proof.reason ? (
+                        <p>{t('detail.feeReason', { reason: proof.reason })}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
 
             <Card padded>

@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -27,8 +29,10 @@ import {
   CutoffCommitResponseDto,
   CutoffPreviewDto,
   CutoffPreviewResponseDto,
+  ListStageResultsDto,
   PutStageResultsDto,
   PutStageResultsResponseDto,
+  StageResultListResponseDto,
 } from './dto/stage-result.dto';
 
 /** [71.G2.05] Stage results and cut-off. */
@@ -44,6 +48,19 @@ export class AdmissionStageResultController {
   private actor(user: JwtPayload, request: Request): ResultActor {
     const ctx = requestContext(request);
     return { userId: user.sub, ip: ctx.ip, userAgent: ctx.userAgent };
+  }
+
+  @Get('stages/:id/results')
+  @ApiOperation({
+    summary: 'Saved results of a stage, ordered by roll. Page size at most 100.',
+  })
+  @ApiOkResponse({ type: StageResultListResponseDto })
+  list(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ListStageResultsDto,
+    @CurrentTenant() tenant: { id: string },
+  ) {
+    return this.results.list(id, query.page ?? 1, query.limit ?? 50, tenant.id);
   }
 
   @Put('stages/:id/results')

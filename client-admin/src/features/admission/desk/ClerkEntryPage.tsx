@@ -5,6 +5,7 @@
  */
 import {
   ADMISSION_FIELD_CATALOGUE,
+  BD_PHONE_REGEX,
   fieldsForRound,
   validateExtraFields,
   type AdmissionFieldDef,
@@ -34,8 +35,6 @@ import {
 
 /** The five boxes the server stores as columns (mirrors `CORE_FORM_KEYS`); always shown. */
 const CORE = ['name', 'dob', 'gender', 'guardian_name', 'guardian_phone'] as const;
-/** Mirrors the server's `BD_PHONE_REGEX` (`server/src/modules/students/dto/students.dto.ts`). */
-const PHONE = /^(?:\+?880|0)1[3-9]\d{8}$/;
 type Value = string | boolean;
 
 export function ClerkEntryPage() {
@@ -86,7 +85,7 @@ export function ClerkEntryPage() {
   for (const k of CORE) {
     if (text(k).trim() === '') errors[k] = 'REQUIRED';
   }
-  if (!errors.guardian_phone && !PHONE.test(text('guardian_phone')))
+  if (!errors.guardian_phone && !BD_PHONE_REGEX.test(text('guardian_phone')))
     errors.guardian_phone = 'INVALID';
   const extraValues: Record<string, string | number | boolean> = {};
   for (const f of extras) {

@@ -4,8 +4,7 @@ export type DeskStageKind = 'WRITTEN' | 'VIVA' | 'GPA' | 'LOTTERY' | 'FIRST_COME
 export interface DeskStage {
   id: string;
   kind: DeskStageKind;
-  /** ponytail: no API says a stage is finished yet, so a marks/lottery stage keeps asking until
-   * a merit list exists; the stage panel ticket sets this. */
+  /** The stage's `cutoff_committed_at` is set (AdmissionDesk wires it). */
   done?: boolean;
 }
 export interface DeskList {
