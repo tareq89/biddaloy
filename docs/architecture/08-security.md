@@ -226,6 +226,15 @@ flowchart LR
 - **Example.** `POST /auth/login` with Redis down → `503`; `POST /auth/refresh` → served. The public notice link routes (`/public/notices/:token*`) are not `/auth*` or `/account*`: they stay open without Redis (the throttle fails open, #3374 D29).
 - **Test.** `app-throttler.guard.spec.ts`, `app-throttler.guard.e2e-spec.ts`, `route-guard-coverage.e2e-spec.ts`, `platform-alerts.service.spec.ts`.
 
+**Two more written answers (Epic 60, D8).**
+
+| Control                                                                                            | Redis down                       | Why                                                                                                              |
+| -------------------------------------------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Send limit counter (`SendLimitService`, key `send-limit:<tenant>:<channel, lowercase>:<yyyymmdd>`) | **Fails open** + a Sentry error  | A closed counter would stop a school from messaging anyone. The existing `REDIS_DOWN` platform alert also fires. |
+| OTP SMS caps (`OtpSmsCapsService`)                                                                 | **Needs Redis**, like OTP itself | OTP sign-in already answers 503 without Redis, so there is nothing to fail open into.                            |
+
+**OTP SMS caps.** Two numbers, both per hour: **10 different numbers per IP** and **500 OTP SMS platform-wide**. Over either, the person gets the same answer as any other OTP request (Rule 18), and the platform owners are alerted. The caps count OTP and account-access SMS only; they are separate from a school's daily send limit (D22).
+
 | Marks sheet route (81 D21)                 | Redis down      | Why                                                                                           |
 | ------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------- |
 | `POST /exams/:examId/marks/sheet/validate` | 503 fail-closed | The parsed diff is staged in Redis; without it nothing can be committed.                      |

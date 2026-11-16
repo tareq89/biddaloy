@@ -2594,6 +2594,28 @@ flowchart TD
 
 **Oversold example.** Stock recorded: 10000 SMS. Schools hold 10500 unused. The red "Oversold" line shows and a new package buy by Greenview answers `409 SMS_SALES_PAUSED`. You record a new 5000 SMS purchase: promised 10500 is below stock 15000, so the line clears.
 
+## Daily send limits (owners)
+
+A school that sends through the platform's own account has a **daily limit** per channel (SMS, email, WhatsApp). A school's own gateway is never limited. Design: [05-communications.md](05-communications.md#daily-send-limits-epic-60).
+
+```mermaid
+flowchart TD
+  A[School sends a message] --> B{Platform account?}
+  B -->|no, own gateway| C[Not counted]
+  B -->|yes| D{Today's count below the limit?}
+  D -->|yes| E[Sent, count goes up]
+  D -->|no| F["Refused: 'Today's daily limit (2000) is used up.'"]
+```
+
+| Situation                                    | What you do                                                                                                                                                                                                                                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Change the limit for every school**        | Cockpit, **Operations**, daily limits card (platform default). Saves at once, no deploy.                                                                                                                                                                      |
+| **Change it for one school**                 | Cockpit, the school's page, **Daily limits** card. A blank value falls back to the platform default, then to 2000. The card also shows today's count.                                                                                                         |
+| **Emergency: read today's count**            | `redis-cli GET send-limit:<school-id>:sms:<yyyymmdd>` (channel in lowercase; the date is the Asia/Dhaka date for every school).                                                                                                                               |
+| **Emergency: let a school send again today** | `redis-cli DEL send-limit:<school-id>:sms:<yyyymmdd>`. Prefer raising the limit in the cockpit: it is audited, a `DEL` is not. A `DEL` leaves the `send-limit-hit:<school-id>:sms:<yyyymmdd>` flag, so the "limit reached" alert can stay until the day ends. |
+
+**Example.** Greenview texts 2000 parents by 11 a.m. and the principal calls. You open Greenview's page, set SMS to 4000, save. The next send works; nothing else changes.
+
 ## Part 20. The virus scanner (owners)
 
 Every file a school or the public uploads is checked by ClamAV, one container (`clamav`) in the `ops` stack shared by prod, staging and demo. Design: [30-deployment-target.md](30-deployment-target.md#the-virus-scanner-epic-60-4004).
