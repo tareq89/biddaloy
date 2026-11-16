@@ -44,6 +44,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
 import { SendLimitService } from './limits/send-limit.service';
 import { PlatformDailyLimitsService } from './limits/platform-daily-limits.service';
 import { PlatformDailyLimitsController } from './limits/platform-daily-limits.controller';
+import { DailyLimitsTodayController } from './limits/daily-limits-today.controller';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 
@@ -128,6 +129,7 @@ import { PlatformIdentityModule } from '../platform-identity/platform-identity.m
   controllers: [
     CreditsController,
     SmsSourceController, // literal path: before `CommunicationsController` `:id`
+    DailyLimitsTodayController, // same: literal path before `:id`
     CommunicationsController,
     ProviderConnectionTestController,
     CommunicationsDashboardController,

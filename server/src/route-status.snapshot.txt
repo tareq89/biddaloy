@@ -251,6 +251,7 @@ GET    /api/v1/classes/:id                                                      
 PATCH  /api/v1/classes/:id                                                       401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/classes/vocabulary                                                401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS -
 GET    /api/v1/communications/:id                                                401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403 messaging
+GET    /api/v1/communications/daily-limits/today                                 401 401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403 -
 GET    /api/v1/communications/guardian/:guardianId                               401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403 messaging
 GET    /api/v1/communications/last-reminders                                     401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403 fees
 GET    /api/v1/communications/logs                                               401 401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403 messaging
