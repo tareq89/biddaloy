@@ -220,6 +220,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'routines.copyLastYearRoutine': 'client-admin/src/routes/_staff/routines/review.tsx',
   'results.enterMarks': 'client-admin/src/routes/_staff/marks/index.tsx',
   'marks.uploadSheet': `${R}_staff/marks/$examId.$sectionId.$subjectId_.import.tsx`,
+  'marks-sms.send': `${R}_staff/marks/$examId.$sectionId.$subjectId_.sms.tsx`,
   'results.process': 'client-admin/src/routes/_staff/results/-process-dialog.tsx',
   'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
   'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
@@ -364,6 +365,8 @@ describe('action-registry.ts', () => {
     'programs.add',
     // [81.3.3] Uploading marks is MARK_ENTER; `/marks` is MARK_VIEW.
     'marks.uploadSheet',
+    // [80.3.03] Marks SMS is MARKS_SMS_SEND; its fallback target `/marks` is MARK_VIEW.
+    'marks-sms.send',
     // [40.5.03] Showing results on the website is RESULT_PUBLISH; `/exams` is EXAM_MANAGE.
     'exams.publishWebsite',
     'programs.enrol',
@@ -601,6 +604,26 @@ describe('action-registry.ts', () => {
     it('elsewhere (or on a partial route) opens the marks list', () => {
       expect(target()).toBe('/marks');
       expect(target({ examId: 'e1' })).toBe('/marks');
+    });
+  });
+
+  describe('[80.3.03] marks-sms.send', () => {
+    const action = ACTIONS.find((a) => a.id === 'marks-sms.send');
+    const target = (params?: { examId?: string; sectionId?: string; subjectId?: string }) => {
+      let to = '';
+      action!.run({ navigate: (o) => (to = o.to), ...(params ? { params } : {}) });
+      return to;
+    };
+
+    it('needs MARKS_SMS_SEND and an exam route', () => {
+      expect(action?.permission).toBe(Permission.MARKS_SMS_SEND);
+      expect(action?.context).toEqual(['exam']);
+    });
+    it('on a grid route opens that grid’s marks SMS page; elsewhere the marks list', () => {
+      expect(target({ examId: 'e1', sectionId: 's1', subjectId: 'u1' })).toBe(
+        '/marks/e1/s1/u1/sms',
+      );
+      expect(target()).toBe('/marks');
     });
   });
 

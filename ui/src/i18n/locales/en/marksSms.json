@@ -1,0 +1,29 @@
+{
+  "title": "Marks SMS",
+  "button": "Send marks SMS to guardians",
+  "intro": "Guardians get each student's marks for {{subject}}.",
+  "notPublished": "Submitted, not yet published. Guardians will see these marks before the results are out.",
+  "loading": "Checking who will get the SMS…",
+  "counts_one": "{{count}} guardian will get an SMS, {{credits}} credits",
+  "counts_other": "{{count}} guardians will get an SMS, {{credits}} credits",
+  "none": "Nobody is left to send to.",
+  "skippedTitle": "Not getting an SMS",
+  "reason": {
+    "no_reachable_guardian": "No guardian with a phone number",
+    "notifications_off": "Guardian turned SMS off",
+    "no_marks": "No marks entered"
+  },
+  "send": "Send SMS",
+  "sent": "Sent. {{count}} SMS are on the way, {{credits}} credits used.",
+  "alreadySent": "Already sent on {{date}}",
+  "alreadySentNote": "Everyone has already got this. To correct one student, use the single-guardian SMS.",
+  "errors": {
+    "previewFailed": "Could not check right now. Try again.",
+    "sendFailed": "Could not confirm the SMS went out. Check the message log before sending again.",
+    "notSubmitted": "Submit the marks list first, then send the SMS.",
+    "shortCredit": "Not enough SMS credit. {{required}} credits needed, {{available}} left.",
+    "forbidden": "You cannot send marks SMS for this list."
+  },
+  "retry": "Check again",
+  "back": "Back to marks"
+}

@@ -168,6 +168,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/marks/': Permission.MARK_VIEW,
   '/_staff/marks/$examId/$sectionId/$subjectId': Permission.MARK_VIEW,
   '/_staff/marks/$examId/$sectionId/$subjectId_/import': Permission.MARK_ENTER,
+  // [80.3.03] The send routes enforce MARKS_SMS_SEND + grid scope themselves.
+  '/_staff/marks/$examId/$sectionId/$subjectId_/sms': Permission.MARKS_SMS_SEND,
   // [19.8.1] `RESULT_PROCESS` — the whole `/results` route is the
   // process/publish/reopen/SMS console, ADMIN-only the same way
   // `EXAM_MANAGE` gates `/exams` above (both `RESULT_PROCESS` and

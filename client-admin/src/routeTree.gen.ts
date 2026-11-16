@@ -214,6 +214,7 @@ import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes
 import { Route as StaffStaffUserIdAcrAssessmentIdRouteImport } from './routes/_staff/staff/$userId_.acr.$assessmentId'
 import { Route as StaffStaffEvaluationsSurveysSurveyIdRouteImport } from './routes/_staff/staff/evaluations_.surveys.$surveyId'
 import { Route as StaffMarksExamIdSectionIdSubjectIdImportRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId_.import'
+import { Route as StaffMarksExamIdSectionIdSubjectIdSmsRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId_.sms'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -1303,6 +1304,12 @@ const StaffMarksExamIdSectionIdSubjectIdImportRoute =
     path: '/marks/$examId/$sectionId/$subjectId/import',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffMarksExamIdSectionIdSubjectIdSmsRoute =
+  StaffMarksExamIdSectionIdSubjectIdSmsRouteImport.update({
+    id: '/marks/$examId/$sectionId/$subjectId_/sms',
+    path: '/marks/$examId/$sectionId/$subjectId/sms',
+    getParentRoute: () => StaffRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1508,6 +1515,7 @@ export interface FileRoutesByFullPath {
   '/staff/evaluations/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
   '/communications/notices/$noticeId/': typeof StaffCommunicationsNoticesNoticeIdIndexRoute
   '/marks/$examId/$sectionId/$subjectId/import': typeof StaffMarksExamIdSectionIdSubjectIdImportRoute
+  '/marks/$examId/$sectionId/$subjectId/sms': typeof StaffMarksExamIdSectionIdSubjectIdSmsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1709,6 +1717,7 @@ export interface FileRoutesByTo {
   '/staff/evaluations/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
   '/communications/notices/$noticeId': typeof StaffCommunicationsNoticesNoticeIdIndexRoute
   '/marks/$examId/$sectionId/$subjectId/import': typeof StaffMarksExamIdSectionIdSubjectIdImportRoute
+  '/marks/$examId/$sectionId/$subjectId/sms': typeof StaffMarksExamIdSectionIdSubjectIdSmsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1917,6 +1926,7 @@ export interface FileRoutesById {
   '/_staff/staff/evaluations_/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
   '/_staff/communications/notices/$noticeId/': typeof StaffCommunicationsNoticesNoticeIdIndexRoute
   '/_staff/marks/$examId/$sectionId/$subjectId_/import': typeof StaffMarksExamIdSectionIdSubjectIdImportRoute
+  '/_staff/marks/$examId/$sectionId/$subjectId_/sms': typeof StaffMarksExamIdSectionIdSubjectIdSmsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -2124,6 +2134,7 @@ export interface FileRouteTypes {
     | '/staff/evaluations/surveys/$surveyId'
     | '/communications/notices/$noticeId/'
     | '/marks/$examId/$sectionId/$subjectId/import'
+    | '/marks/$examId/$sectionId/$subjectId/sms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -2325,6 +2336,7 @@ export interface FileRouteTypes {
     | '/staff/evaluations/surveys/$surveyId'
     | '/communications/notices/$noticeId'
     | '/marks/$examId/$sectionId/$subjectId/import'
+    | '/marks/$examId/$sectionId/$subjectId/sms'
   id:
     | '__root__'
     | '/'
@@ -2532,6 +2544,7 @@ export interface FileRouteTypes {
     | '/_staff/staff/evaluations_/surveys/$surveyId'
     | '/_staff/communications/notices/$noticeId/'
     | '/_staff/marks/$examId/$sectionId/$subjectId_/import'
+    | '/_staff/marks/$examId/$sectionId/$subjectId_/sms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -3997,6 +4010,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffMarksExamIdSectionIdSubjectIdImportRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/marks/$examId/$sectionId/$subjectId_/sms': {
+      id: '/_staff/marks/$examId/$sectionId/$subjectId_/sms'
+      path: '/marks/$examId/$sectionId/$subjectId/sms'
+      fullPath: '/marks/$examId/$sectionId/$subjectId/sms'
+      preLoaderRoute: typeof StaffMarksExamIdSectionIdSubjectIdSmsRouteImport
+      parentRoute: typeof StaffRoute
+    }
   }
 }
 
@@ -4234,6 +4254,7 @@ interface StaffRouteChildren {
   StaffStaffEvaluationsSurveysSurveyIdRoute: typeof StaffStaffEvaluationsSurveysSurveyIdRoute
   StaffCommunicationsNoticesNoticeIdIndexRoute: typeof StaffCommunicationsNoticesNoticeIdIndexRoute
   StaffMarksExamIdSectionIdSubjectIdImportRoute: typeof StaffMarksExamIdSectionIdSubjectIdImportRoute
+  StaffMarksExamIdSectionIdSubjectIdSmsRoute: typeof StaffMarksExamIdSectionIdSubjectIdSmsRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -4372,6 +4393,8 @@ const StaffRouteChildren: StaffRouteChildren = {
     StaffCommunicationsNoticesNoticeIdIndexRoute,
   StaffMarksExamIdSectionIdSubjectIdImportRoute:
     StaffMarksExamIdSectionIdSubjectIdImportRoute,
+  StaffMarksExamIdSectionIdSubjectIdSmsRoute:
+    StaffMarksExamIdSectionIdSubjectIdSmsRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
