@@ -1394,7 +1394,7 @@ they carry no request. A failed upstream still shows as a 502/504 line in the ma
 ## Vulnerability disclosure
 
 - `/.well-known/security.txt` is static text served by edge nginx on every host (`SECURITY_TXT` in `nginx/edge-mode.sh`, both modes, `auth_basic off` so protected hosts serve it; and in `nginx/templates/site.conf.template` for a school's own domain).
-- Its `Expires` date is renewed yearly (calendar row in the incident-response doc, once that doc lands).
+- Its `Expires` date is renewed yearly (calendar row in [43-incident-response.md](43-incident-response.md#security-calendar)).
 - Reports go to `security@schoolmanagerp.com` or GitHub private reporting ([`.github/SECURITY.md`](../../.github/SECURITY.md)).
 
 ## Repository and GitHub settings
@@ -1684,3 +1684,11 @@ Raw notes from the QA audit, same format as the
 - A double click sent one SMS twice — fix: server replay by Idempotency-Key (#2631), registry of dialogs (#2656) — the interceptor entry in [Rule 15](#rule-15-redis-down-has-a-written-answer-per-route) was written then. → Rule 25
 - Some bulk routes (`fees/generate`, `fees/schedules/run-now`, `fees/fines/generate`) stay outside the interceptor until a unique constraint is verified (#2691). → follow-up
 - The wave-close full runs (ci-local, e2e, pwa, axe, 10x flake gate) were not run in Waves 3-5: no Docker, shared ports 3000/5174. → run on a free machine
+
+### Epic 60 Wave 1 — 2026-11-16
+
+- Dependabot's compose updater only reads file names containing `compose`, so the deploy stack files were silently unscanned — fix: renamed to `deploy/compose.{stack,edge,edge-direct,ops}.yml` (#2811); `compose.edge.direct.yml` would not match, the name takes one dotted part. → Rule 21 (confirm `/deploy` shows under Insights > Dependency graph > Dependabot after merge)
+- Trivy runs on PRs, weekly and manually, not on pushes to `main`; only `secret-scan` runs on `main` pushes (#1757). → follow-up if a main-push image scan is wanted
+- `security.txt` text lives in two places (`nginx/edge-mode.sh` and `site.conf.template`); change both together (#1761). → no rule
+- The architecture README has two "43" docs (`43-admission-pipeline`, `43-incident-response`); D11 fixed the name. → renumber later
+- Owed to the #1757 PR: full-history gitleaks count, fake-key bite test, a first Trivy run. Wave 1 close ran no `ci:local` by design; GitHub CI is the check.
