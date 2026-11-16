@@ -14636,7 +14636,7 @@ export interface components {
             photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN";
             /** Format: date-time */
             photo_consent_recorded_at: string | null;
-            photo_consent_recorded_by_user: components["schemas"]["User"] | null;
+            photo_consent_recorded_by_user?: components["schemas"]["User"] | null;
             photo_consent_recorded_by: string | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;

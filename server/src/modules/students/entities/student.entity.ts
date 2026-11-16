@@ -149,7 +149,7 @@ export class Student {
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'photo_consent_recorded_by' })
-  photo_consent_recorded_by_user: User | null;
+  photo_consent_recorded_by_user?: User | null;
 
   @Column({ type: 'uuid', nullable: true })
   photo_consent_recorded_by: string | null;
