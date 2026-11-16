@@ -15,7 +15,7 @@ import {
 import type { Request, Response } from 'express';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
-import { ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiTags, ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
 import { IsString, Length } from 'class-validator';
 import { ADMISSION_STATUS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { FailClosedWithoutRedis } from '../../../common/rate-limit/app-throttler.guard';
@@ -28,10 +28,12 @@ import { CheckApplicantStatusDto } from '../../admission/dto/check-applicant-sta
 import { PublicAdmissionSiteService } from './public-admission-site.service';
 
 export class RollPhoneBodyDto {
+  @ApiProperty({ maxLength: 30 })
   @IsString()
   @Length(1, 30)
   roll_number: string;
 
+  @ApiProperty({ minLength: 6, maxLength: 20 })
   @IsString()
   @Length(6, 20)
   guardian_phone: string;
@@ -47,6 +49,7 @@ export const ADMISSION_WRITE_UNAVAILABLE = 'এখন জমা নেওয়�
  */
 // core: not tagged with @RequiresModule - public host route; PublicAdmissionSiteService.school answers the site 404 when admission is off.
 @ApiTags('public-site')
+@ApiExtraModels(PublicSiteSubmitApplicantDto)
 @Controller('public/site/by-host/:host/admission')
 export class PublicAdmissionSiteController {
   constructor(
@@ -80,8 +83,27 @@ export class PublicAdmissionSiteController {
   @Post('applicants')
   @Throttle({ default: STRICT_RATE_LIMIT })
   @FailClosedWithoutRedis(ADMISSION_WRITE_UNAVAILABLE)
-  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 4 } }))
+  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 7 } }))
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(PublicSiteSubmitApplicantDto) },
+        {
+          type: 'object',
+          properties: {
+            fee_proof: { type: 'string', format: 'binary' },
+            photo: { type: 'string', format: 'binary' },
+            birth_certificate: { type: 'string', format: 'binary' },
+            transcript: { type: 'string', format: 'binary' },
+            ssc_marksheet: { type: 'string', format: 'binary' },
+            transfer_certificate: { type: 'string', format: 'binary' },
+            quota_certificate: { type: 'string', format: 'binary' },
+          },
+        },
+      ],
+    },
+  })
   @ApiOperation({
     summary:
       'Submit an application (multipart). Turnstile first; 409 while the school is being restored.',

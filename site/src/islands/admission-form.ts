@@ -91,7 +91,8 @@ export function mountAdmission(root: HTMLElement, deps: Deps): void {
 
   const dates = (r: AdmissionRound) => t.dates.replace('{date}', r.close_date);
   const pickRound = (r: AdmissionRound) => draw(r);
-  if (rounds.length === 1) pickRound(rounds[0]);
+  const preselected = rounds.find((r) => r.id === root.dataset.round) ?? (rounds.length === 1 ? rounds[0] : undefined);
+  if (preselected) pickRound(preselected);
   else {
     host.append(
       el('p', {}, [t.pickRound]),
@@ -149,7 +150,8 @@ export function mountAdmission(root: HTMLElement, deps: Deps): void {
       const v = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? '';
       return { values, files, feeMethod: v('feeMethod'), feeReference: v('feeReference') };
     };
-    const msg = (code: string) => t[`err.${code}`] ?? t['err.missing'];
+    const SERVER_CODE: Record<string, string> = { REQUIRED: 'missing', INVALID: 'invalid' };
+    const msg = (code: string) => t[`err.${SERVER_CODE[code] ?? code}`] ?? t['err.missing'];
     const say = (text: string, ok = false) => {
       status.textContent = text;
       status.className = ok ? 'ok' : 'bad';

@@ -21668,6 +21668,14 @@ export interface components {
             /** @description Applicant ids in the new order; must be every current member. */
             order?: string[];
         };
+        AdmissionPublishDto: {
+            what: "STAGE" | "MERIT" | "WAITING";
+            /** @description Stage id (STAGE) or list id (MERIT, WAITING). */
+            ref_id: string;
+            send_sms: boolean;
+            /** @description Also SMS not-passed / rejected applicants (D26: off). */
+            include_not_selected?: boolean;
+        };
         PublishDto: {
             /** @description The version this publish started from (409 site.stale if behind). */
             version: number;
@@ -21942,7 +21950,10 @@ export interface components {
             middle_name_confirm?: string;
             reference_number?: string;
         };
-        RollPhoneBodyDto: Record<string, never>;
+        RollPhoneBodyDto: {
+            roll_number: string;
+            guardian_phone: string;
+        };
         StaffWebProfileDto: {
             user_id: string;
             full_name: string;
@@ -48858,7 +48869,22 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["PublicSiteSubmitApplicantDto"];
+                "multipart/form-data": components["schemas"]["PublicSiteSubmitApplicantDto"] & {
+                    /** Format: binary */
+                    fee_proof?: string;
+                    /** Format: binary */
+                    photo?: string;
+                    /** Format: binary */
+                    birth_certificate?: string;
+                    /** Format: binary */
+                    transcript?: string;
+                    /** Format: binary */
+                    ssc_marksheet?: string;
+                    /** Format: binary */
+                    transfer_certificate?: string;
+                    /** Format: binary */
+                    quota_certificate?: string;
+                };
             };
         };
         responses: {

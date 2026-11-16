@@ -168,8 +168,8 @@ server {
 
     # Islands (D21): straight to the by-host API, never cached. rewrite keeps the query string.
     location /_api/ {
-        # Admission submit is multipart: up to 3 documents + a fee proof, 5 MB each. Default 1m would 413.
-        client_max_body_size 21m;
+        # Admission submit is multipart: up to 6 documents + a fee proof, 5 MB each. Default 1m would 413.
+        client_max_body_size 36m;
         rewrite ^/_api/(.*)$ /api/v1/public/site/by-host/$host/$1 break;
         proxy_pass http://$site_app_upstream_name;
         add_header Strict-Transport-Security $edge_hsts always;

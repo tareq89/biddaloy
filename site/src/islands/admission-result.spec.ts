@@ -71,6 +71,43 @@ describe('result lookup', () => {
   });
 });
 
+describe('result island races', () => {
+  it('admit-card button uses the roll and phone of the displayed result, not the edited inputs', async () => {
+    const root = page('result');
+    const f = vi.fn(async (u: string, init?: RequestInit) =>
+      u.endsWith('admit-card')
+        ? json(200, { applicant_name: 'A', roll_number: '12', guardian_name: 'G', date_of_birth: null, intake_title: 'C1', schedule: [] })
+        : json(200, { applicant_name: 'A', roll_number: '12', intake_title: 'C1', status: 'PENDING', stages: [], lists: [] }),
+    );
+    await mountLookup(root, T, { fetchImpl: f as never, print: vi.fn() });
+    await submit(root);
+    (root.querySelector('input[name=roll]') as HTMLInputElement).value = '99';
+    root.querySelector<HTMLButtonElement>('button')!.click();
+    await vi.waitFor(() => expect(f.mock.calls.length).toBe(2));
+    const body = JSON.parse((f.mock.calls[1] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.roll_number).toBe('12');
+  });
+
+  it('a stale failure does not wipe a newer result', async () => {
+    const root = page('result');
+    let slowReject!: () => void;
+    let n = 0;
+    const f = vi.fn(() =>
+      ++n === 1
+        ? new Promise<Response>((res) => (slowReject = () => res(json(404))))
+        : Promise.resolve(json(200, { applicant_name: 'B', roll_number: '12', intake_title: 'C1', status: 'PENDING', stages: [], lists: [] })),
+    );
+    await mountLookup(root, T, { fetchImpl: f as never });
+    const form = root.querySelector('form')!;
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    await vi.waitFor(() => expect(root.querySelector('[data-out]')!.textContent).toContain('B'));
+    slowReject();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(root.querySelector('[data-out]')!.textContent).toContain('B');
+  });
+});
+
 describe('lists', () => {
   it('shows roll numbers, and a name only when the server sent one', () => {
     const el = renderLists(

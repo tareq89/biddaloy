@@ -66,7 +66,7 @@ export function validate(r: AdmissionRound, i: FormInput): Record<string, string
   for (const f of inputFields(r)) {
     const v = i.values[f.key];
     if (f.input === 'boolean') continue;
-    const s = typeof v === 'string' ? v.trim() : '';
+    const s = typeof v === 'string' ? (f.input === 'phone' ? normalizeDigits(v) : v.trim()) : '';
     if (!s) {
       if (f.required) bad[f.key] = 'missing';
     } else if (f.input === 'phone' && !PHONE.test(s)) bad[f.key] = 'phone';
@@ -103,7 +103,7 @@ export function buildBody(r: AdmissionRound, i: FormInput, captcha: string): For
     const v = i.values[f.key];
     const key = CORE[f.key];
     if (key) {
-      if (typeof v === 'string' && v.trim()) core[key] = v.trim();
+      if (typeof v === 'string' && v.trim()) core[key] = f.input === 'phone' ? normalizeDigits(v) : v.trim();
     } else if (f.input === 'boolean') extra[f.key] = v === true;
     else if (typeof v === 'string' && v.trim()) extra[f.key] = f.input === 'number' ? Number(v) : v.trim();
   }
@@ -219,6 +219,7 @@ async function call<T>(path: string, body: unknown | undefined, fetchImpl: typeo
 
 /** Bangla digits count; the server compares case-insensitively and trims. */
 export const normalizeDigits = (s: string) => s.trim().replace(/[০-৯]/g, (c) => String(c.charCodeAt(0) - 0x09e6));
+
 
 export const fetchStatus = (reference: string, phone: string, f: typeof fetch = fetch) =>
   call<StatusData>('status', { reference_number: normalizeDigits(reference), guardian_phone: normalizeDigits(phone) }, f);

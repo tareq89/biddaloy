@@ -92,6 +92,8 @@ export async function mountLookup(root: HTMLElement, t: Dict, deps: Deps = {}) {
     out.replaceChildren();
     say(failText(r.kind, t));
   };
+  // A newer lookup makes every answer to an older one stale: it must not draw, clear or print.
+  let gen = 0;
 
   if (mode === 'lists') {
     const r = await fetchLists(f);
@@ -113,22 +115,29 @@ export async function mountLookup(root: HTMLElement, t: Dict, deps: Deps = {}) {
   const val = (n: string) => (form.elements.namedItem(n) as HTMLInputElement).value;
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); // never the browser's GET: a phone number must not reach the URL
+    const mine = ++gen;
     say(t.showing);
     out.replaceChildren();
     if (mode === 'status') {
       const r = await fetchStatus(val('reference'), val('phone'), f);
+      if (mine !== gen) return;
       if (r.kind !== 'ok') return fail(r);
       say('');
       out.append(el('p', {}, [fill(t.statusLine, { name: r.data.applicant_name, status: t[`status.${r.data.status}`] ?? '' })]));
       return;
     }
-    const r = await fetchResult(val('roll'), val('phone'), f);
+    // Bound to the applicant shown: later edits to the inputs do not change whose card prints.
+    const roll = val('roll');
+    const phone = val('phone');
+    const r = await fetchResult(roll, phone, f);
+    if (mine !== gen) return;
     if (r.kind !== 'ok') return fail(r);
     say('');
     out.append(renderResult(r.data, t));
     const btn = el('button', { type: 'button', className: 'btn btn-ghost' }, [t.admitCard]);
     btn.addEventListener('click', async () => {
-      const c = await fetchAdmitCard(val('roll'), val('phone'), f);
+      const c = await fetchAdmitCard(roll, phone, f);
+      if (mine !== gen) return;
       if (c.kind !== 'ok') return fail(c);
       out.querySelector('.adm-card')?.remove();
       out.append(renderAdmitCard(c.data, t));

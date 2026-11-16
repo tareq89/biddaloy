@@ -94,6 +94,9 @@ export class PublicAdmissionSiteService {
       .createQueryBuilder('a')
       .where('a.tenant_id = :tenantId AND a.deleted_at IS NULL', { tenantId })
       .andWhere('UPPER(a.roll_number) = UPPER(:roll)', { roll })
+      // Deterministic when two rounds share a roll prefix: the earliest application answers.
+      .orderBy('a.created_at', 'ASC')
+      .addOrderBy('a.id', 'ASC')
       .getMany();
     const phone = normalizeBdPhoneNumber(dto.guardian_phone);
     const hit = rows.find((a) => normalizeBdPhoneNumber(a.guardian_phone) === phone);
@@ -128,7 +131,8 @@ export class PublicAdmissionSiteService {
       applicant_name: a.applicant_name,
       roll_number: a.roll_number,
       intake_title: intake?.title ?? '',
-      status: a.status,
+      // The staff decision stays hidden until the round publishes something for this applicant.
+      status: stages.length || lists.length ? a.status : 'PENDING',
       stages: stages.map((s) => ({
         title: s.title ?? s.kind,
         outcome: s.passed ? 'PASSED' : 'NOT_PASSED',

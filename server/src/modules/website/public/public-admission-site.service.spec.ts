@@ -9,13 +9,15 @@ const applicant = {
   applicant_name: 'Rahim',
   roll_number: 'R-1',
   guardian_phone: '01700000001',
-  status: 'PENDING',
+  status: 'SHORTLISTED',
 };
 
 function build(queries: { sql: string; rows: unknown[] }[]) {
   const qb: any = {
     where: () => qb,
     andWhere: () => qb,
+    orderBy: () => qb,
+    addOrderBy: () => qb,
     getMany: async () => [applicant],
   };
   const dataSource = {
@@ -45,9 +47,16 @@ describe('PublicAdmissionSiteService.result', () => {
     const out = await svc.result('h.test', { roll_number: 'r-1', guardian_phone: '01700000001' });
     expect(out.stages).toEqual([{ title: 'Written', outcome: 'NOT_PASSED' }]);
     expect(out.lists).toEqual([{ kind: 'MERIT', sequence: 1, position: 3 }]);
+    expect(out.status).toBe('SHORTLISTED');
     const sqls = dataSource.query.mock.calls.map((c) => c[0] as string).join(' ');
     expect(sqls).toContain(`s.config ? 'published_at'`);
     expect(sqls).toContain('l.published_at IS NOT NULL');
+  });
+
+  it('hides the staff decision until the round has published something for the applicant', async () => {
+    const { svc } = build([]);
+    const out = await svc.result('h.test', { roll_number: 'r-1', guardian_phone: '01700000001' });
+    expect(out.status).toBe('PENDING');
   });
 
   it('a wrong phone is the same NotFound as a wrong roll', async () => {

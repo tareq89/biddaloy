@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { mountAdmission } from './admission-form';
-import { submitApplication, type AdmissionRound } from '../lib/admission';
+import { submitApplication, validate, type AdmissionRound } from '../lib/admission';
 import bn from '../i18n/bn.json';
 import en from '../i18n/en.json';
 
@@ -118,6 +118,14 @@ describe('submitApplication', () => {
   ])('%s %j -> %s', async (status, json, kind) => {
     expect((await submitApplication(new FormData(), 'k', reply(status, json) as never)).kind).toBe(kind);
   });
+  it('server codes REQUIRED / INVALID are passed through as sent (the island maps them to err keys)', async () => {
+    const r = await submitApplication(
+      new FormData(),
+      'k',
+      reply(400, { details: { code: 'INVALID_FORM_FIELDS', fields: { ssc_gpa: 'INVALID' } } }) as never,
+    );
+    expect(r).toEqual({ kind: 'fields', fields: { ssc_gpa: 'INVALID' } });
+  });
   it('INVALID_FORM_FIELDS carries the field names', async () => {
     const r = await submitApplication(
       new FormData(),
@@ -133,5 +141,15 @@ describe('copy', () => {
   it('en and bn have the same keys and no never-say word', () => {
     expect(Object.keys(flat(en.admission)).sort()).toEqual(Object.keys(flat(bn.admission)).sort());
     expect(Object.values({ ...flat(en.admission), ...T }).some((v) => never.test(v))).toBe(false);
+  });
+});
+
+describe('Bangla phone digits', () => {
+  it('validate accepts them for a phone field', () => {
+    const r = round(null);
+    const phoneField = r.form.fields.find((f) => f.input === 'phone');
+    if (!phoneField) return;
+    const bad = validate(r, { values: { [phoneField.key]: '০১৭১২৩৪৫৬৭৮' }, files: {}, feeMethod: '', feeReference: '' });
+    expect(bad[phoneField.key]).toBeUndefined();
   });
 });

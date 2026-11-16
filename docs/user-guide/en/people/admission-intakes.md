@@ -235,7 +235,7 @@ The school's public website has four pages for admission. None needs a sign-in. 
 | Admission application | `/admission` | Guardian | Shows the open **admission rounds**. The guardian picks one, fills the form and submits. |
 | Application status | `/admission-status` | Guardian | **Reference number** + **Phone given in the application** → **See status**. |
 | See your admission result | `/admission-result` | Guardian | **Roll number** + **Phone given in the application** → **See result**. |
-| Admission lists | `/admission-lists` | Anyone | Shows the published lists. Only **roll numbers** are shown, no names. |
+| Admission lists | `/admission-lists` | Anyone | Shows the published lists. **Roll numbers** are always shown. Names are shown too when the round's **show names publicly** setting is on. |
 
 1. The guardian opens `/admission` and, if more than one round is open, presses **Choose** under the round they want.
 

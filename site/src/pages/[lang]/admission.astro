@@ -34,7 +34,7 @@ const dict = flat({ ...bn.admission, ...(lang === 'en' ? en.admission : {}) });
     <div class="sec-head"><h1>{m('title')}</h1></div>
     {rounds.length === 0 ? <p class="empty">{m('none')}</p> : !siteKey ? <p class="empty">{m('unavailable')}</p> : (
       <>
-        <div class="island" data-admission data-lang={lang} data-sitekey={siteKey}
+        <div class="island" data-admission data-lang={lang} data-sitekey={siteKey} data-round={Astro.url.searchParams.get('round') ?? ''}
           data-status-href={`/${lang}/admission-status/`} data-rounds={JSON.stringify(rounds)} data-t={JSON.stringify(dict)}>
           <noscript><p class="bad">{m('unavailable')}</p></noscript>
         </div>

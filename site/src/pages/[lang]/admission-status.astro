@@ -23,7 +23,7 @@ const dict = flat({ ...bn.admission.lookup, ...(lang === 'en' ? en.admission.loo
   <section class="sec" id="admission-status"><div class="wrap">
     <div class="sec-head"><h1>{m('statusTitle')}</h1></div>
     <div class="island" data-adm-lookup data-mode="status" data-t={JSON.stringify(dict)}>
-      <form class="adm-lookup" novalidate>
+      <form class="adm-lookup" method="post" action="#" novalidate>
         <label class="field"><span>{m('reference')}</span><input name="reference" type="text" required autocomplete="off" /></label>
         <label class="field"><span>{m('phone')}</span><input name="phone" type="tel" inputmode="tel" required autocomplete="tel" /></label>
         <button class="btn" type="submit">{m('showStatus')}</button>
