@@ -135,7 +135,7 @@ You can use several groups together. If nobody matches, the box says **Nobody ma
 
 ### Daily limit <a href="#daily-limit" id="daily-limit"></a>
 
-An alert is not an SMS, email or WhatsApp message, so the **Daily limit** on those channels (2,000 a day by default) does not count alerts. Alerts have their own limit, shown in [Problems and fixes](#trouble). If a message is refused because the school's daily limit on a channel is used up, the school's admins get an alert about it, once a day for that channel. They can wait until tomorrow or ask the platform team for a higher number.
+An alert is not an SMS, email or WhatsApp message, so the **Daily limit** on those channels (2,000 a day by default) does not count alerts. Alerts have their own limit, shown in [Problems and fixes](#trouble). If a message is refused because the school's daily limit on a channel is used up while a send is going out, the school's admins get an alert about it, once a day for that channel. A send turned back whole before it starts does not raise the alert. They can wait until tomorrow or ask the platform team for a higher number.
 
 ---
 

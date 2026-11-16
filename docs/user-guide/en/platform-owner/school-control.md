@@ -106,7 +106,7 @@ A school that sends through the platform's own SMS, email or WhatsApp account ha
 - **Which number is used.** The school's own number first, then the platform default, then the built-in 2,000.
 - **"Left today" switch.** On either card you can turn on **left today**. It is off until you turn it on. When it is on, staff see one line above **Send** on the four send screens, for example **1,700 of today's 2,000 left.** A switch set on a school wins over the default.
 
-When a school's staff try to send more than is left, they see the refusal. When a message is refused because the day's number is used up, its admins also get an alert, once a day for that channel. See [Daily limit](../communications/send-message.md#daily-limit).
+When a school's staff try to send more than is left, they see the refusal. When a message is refused because the day's number is used up while a send is going out, its admins also get an alert, once a day for that channel. A send turned back whole before it starts does not raise the alert. See [Daily limit](../communications/send-message.md#daily-limit).
 
 ---
 
