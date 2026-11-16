@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { EnrollmentStatus } from '@biddaloy/shared';
+import { ADMIN_REQUIRED_DOCS, EnrollmentStatus, LEGAL_DOCS } from '@biddaloy/shared';
+import { AuditService } from '../modules/audit/audit.service';
+import { LegalService } from '../modules/legal/legal.service';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { School } from '../modules/schools/entities/school.entity';
@@ -15,10 +17,12 @@ import { ensureTrialDemoSeed, TRIAL_DEMO } from './seed.accounts';
 
 describe('ensureTrialDemoSeed (integration)', () => {
   let ds: DataSource;
+  let legal: LegalService;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, []);
+    const module = await createTestModule(ALL_ENTITIES, [LegalService, AuditService]);
     ds = module.get<DataSource>(getDataSourceToken());
+    legal = module.get(LegalService);
   }, 60000);
 
   afterAll(async () => {
@@ -88,5 +92,21 @@ describe('ensureTrialDemoSeed (integration)', () => {
     expect(await memberships.countBy({ user_id: teacher.id, tenant_id: school.id })).toBe(1);
     const invite = await tokens.findOneByOrFail({ token_hash });
     expect(invite.expires_at.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  // [59.2.99, D33] Playwright signs the trial admin in; the legal gate must not stop it.
+  it('the trial admin has accepted the current version of every required document', async () => {
+    const school = await ensureTrialDemoSeed(ds.manager, 'x');
+    const admin = await ds.getRepository(User).findOneByOrFail({ email: TRIAL_DEMO.adminEmail });
+    expect(await legal.pending(admin.id, school.id, 'ADMIN')).toEqual([]);
+    const rows = await ds.query(
+      `SELECT document, version FROM legal_acceptances WHERE user_id = $1 ORDER BY document`,
+      [admin.id],
+    );
+    expect(rows).toEqual(
+      [...ADMIN_REQUIRED_DOCS]
+        .sort()
+        .map((d) => ({ document: d, version: LEGAL_DOCS[d].version })),
+    );
   });
 });
