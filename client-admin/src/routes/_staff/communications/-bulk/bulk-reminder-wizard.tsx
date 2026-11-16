@@ -63,6 +63,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { LeftTodayLine, useDailyLimitMessage, useRefreshLeftToday } from '../-shared/daily-limit';
 import { PlaceholderButtons } from '../-shared/placeholder-buttons';
 import { RecipientList } from '../-shared/recipient-list';
 import { MAX_BULK_REMINDER_STUDENTS } from '../-shared/reminder-limits';
@@ -141,6 +142,8 @@ export function BulkReminderWizard() {
 
   const preview = useBulkReminderPreview();
   const send = useSendBulkReminder();
+  const dailyLimitMessage = useDailyLimitMessage();
+  const refreshLeftToday = useRefreshLeftToday();
 
   const serverTemplate = toServerTemplate(template, labels);
   const strayBraces = hasStrayBraces(template, labels);
@@ -207,12 +210,14 @@ export function BulkReminderWizard() {
     // (`ui/src/hooks/reminders.ts:22-30`). The terminal outcome is produced
     // by the batch detail route, the only place that polls for it.
     send.mutate(buildInput(), {
-      onSuccess: () =>
+      onSuccess: () => {
+        refreshLeftToday();
         notifyOutcome({
           tenantId: notifyTenantId,
           variant: 'info',
           message: t('notifications.batchQueued'),
-        }),
+        });
+      },
       onError: () =>
         notifyOutcome({
           tenantId: notifyTenantId,
@@ -785,10 +790,19 @@ export function BulkReminderWizard() {
                   </Card>
                 )}
 
+                {(['SMS', 'EMAIL', 'WHATSAPP'] as const)
+                  .filter((m) => mediums.has(m))
+                  .map((m) => (
+                    <LeftTodayLine
+                      key={m}
+                      channel={m.toLowerCase() as 'sms' | 'email' | 'whatsapp'}
+                    />
+                  ))}
                 {send.isError && (
                   <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
                     <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-                    {insufficientCreditMessage(send.error) ??
+                    {dailyLimitMessage(send.error) ??
+                      insufficientCreditMessage(send.error) ??
                       requestErrorMessage(
                         send.error,
                         'bulk.review.sendInvalid',
