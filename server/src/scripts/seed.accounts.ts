@@ -1,4 +1,11 @@
-import { AuthTokenPurpose, EnrollmentStatus, UserRole, UserStatus } from '@biddaloy/shared';
+import {
+  ADMIN_REQUIRED_DOCS,
+  AuthTokenPurpose,
+  EnrollmentStatus,
+  LEGAL_DOCS,
+  UserRole,
+  UserStatus,
+} from '@biddaloy/shared';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { AuthToken } from '../modules/account-access/entities/auth-token.entity';
 import { generateDeviceKey } from '../modules/attendance/devices/device.service';
@@ -836,6 +843,30 @@ export async function seedAccounts(
       { schoolId: school.id },
     );
   }
+  // Mocked repositories (unit tests) have no manager; real ones always do.
+  const manager = repos.userRepository.manager as EntityManager | undefined;
+  if (manager) await acceptCurrentLegalForAdmins(manager);
+}
+
+/**
+ * [59.2.99, D33] Every ADMIN membership accepts the current version of each required legal document,
+ * so Playwright logins never meet the gate. Versions come from `LEGAL_DOCS`, never literals, so a
+ * version bump needs no seed edit. Idempotent.
+ */
+export async function acceptCurrentLegalForAdmins(manager: EntityManager): Promise<void> {
+  await manager.query(
+    `INSERT INTO legal_acceptances (user_id, tenant_id, document, version)
+     SELECT ut.user_id, ut.tenant_id, d.document, d.version
+       FROM user_tenants ut
+      CROSS JOIN unnest($1::text[], $2::text[]) AS d(document, version)
+      WHERE ut.role = $3 AND ut.deleted_at IS NULL
+     ON CONFLICT DO NOTHING`,
+    [
+      [...ADMIN_REQUIRED_DOCS],
+      ADMIN_REQUIRED_DOCS.map((d) => LEGAL_DOCS[d].version),
+      UserRole.ADMIN,
+    ],
+  );
 }
 
 /** [13.1.4] Fixed so e2e can open the teacher's invite link; mirrored in `e2e/seed-contract.ts`. */
@@ -996,5 +1027,6 @@ export async function ensureTrialDemoSeed(
       }),
     );
   }
+  await acceptCurrentLegalForAdmins(manager);
   return school;
 }
