@@ -9,7 +9,7 @@
 #   1. Auto review only runs on PRs into main / develop / feature-* / epic-*
 #      (.coderabbit.yaml). A stacked PR into `epic/97/accum-3` or
 #      `claude/...-pr2` gets "Review skipped" and needs a manual
-#      `@coderabbitai review`.
+#      `@coderabbitai full review`.
 #   2. CodeRabbit's review limit. When it is hit, CodeRabbit edits its summary
 #      comment to "Review limit reached ... Next included review available in
 #      19 minutes." and the review never happens unless someone asks again.
@@ -141,7 +141,7 @@ gh_list() { gh api "$1" --paginate --jq '.[]'; }
 #   older wording:   "Rate limit exceeded" ... "Please wait **7 minutes and 3 seconds**"
 #   too many files:  "## Review skipped" ... "Too many files!"
 #   command ack:     "<!-- This is an auto-generated reply by CodeRabbit -->" ...
-#                    "Review triggered." /  review triggered."
+#                    "Review triggered." / "Full review triggered."
 # shellcheck disable=SC2016 # $vars below are jq variables, not shell ones.
 CLASSIFY='
 def ts: fromdateiso8601;
@@ -183,7 +183,7 @@ def wait_secs:
     last_trigger: $last_trigger,
     cooldown_until: $cooldown_until,
     attempts: $attempts,
-    command: (if $last_review == null then "@coderabbitai review" else "@coderabbitai review" end),
+    command: (if $last_review == null then "@coderabbitai full review" else "@coderabbitai review" end),
     state: (
       if ($needs | not) then "reviewed"
       elif $too_big then "skipped"
