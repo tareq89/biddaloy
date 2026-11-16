@@ -19,6 +19,7 @@ const prodConfig = {
   CORS_ORIGINS: 'https://app.school.org,https://admin.school.org',
   S3_ACCESS_KEY_ID: 'AKIA7QW3ER9TY2UI',
   S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
+  CLAMAV_HOST: 'clamav',
   COCKPIT_DOMAIN: 'cockpit.school.org',
   COCKPIT_OWNER_1_EMAIL: 'owner1@school.org',
   COCKPIT_OWNER_1_PHONE: '+8801711111111',
@@ -562,5 +563,24 @@ describe('cockpit owners (98 #3737)', () => {
       /SMOKE_COCKPIT_TOTP_SECRET is allowed/,
     );
     expect(() => validate({ ...prodConfig, ...smoke, ENV_NAME: 'staging' })).not.toThrow();
+  });
+});
+
+describe('CLAMAV_HOST (Epic 60, D25)', () => {
+  it('production without it refuses to boot', () => {
+    const { CLAMAV_HOST: _omit, ...rest } = prodConfig;
+    expect(() => validate(rest)).toThrow(/CLAMAV_HOST/);
+  });
+
+  it('production with it passes', () => {
+    expect(() => validate({ ...prodConfig, CLAMAV_PORT: '3310' })).not.toThrow();
+  });
+
+  it('a bad port is refused', () => {
+    expect(() => validate({ ...prodConfig, CLAMAV_PORT: 'abc' })).toThrow(/CLAMAV_PORT/);
+  });
+
+  it('development without it passes', () => {
+    expect(() => validate({ ...validConfig, NODE_ENV: 'development' })).not.toThrow();
   });
 });
