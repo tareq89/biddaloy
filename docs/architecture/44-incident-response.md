@@ -35,6 +35,11 @@ When unsure, pick the higher level. You can lower it later.
 
 Do these in order. Step (a) comes first because it stops more damage.
 
+**One exception: take the database dump (b.2) before any step that changes data**, such as
+the `tokens_valid_after` bump in a.3. Suspending a school (a.1) changes
+only that school's status row and rotating a key (a.2) changes none, so they can go first. If you must change data before the dump, write each change and
+its time in the shared note (b.3), so the dump can be read against it.
+
 ```mermaid
 flowchart LR
     a[a. Stop the bleeding] --> b[b. Keep evidence]
@@ -49,7 +54,7 @@ flowchart LR
    The change applies on the school's very next request.
 2. **Rotate the leaked key or secret.** Follow
    [28-platform-runbook.md, Part 16 "Rotate a secret, lose a key"](28-platform-runbook.md#part-16-rotate-a-secret-lose-a-key).
-3. **Sign people out.**
+3. **Sign people out.** This changes data, so take the dump ([b.2](#first-hour-sev1)) first.
    - One person: suspend or reset that user. Either sets `users.tokens_valid_after`, so their access tokens are refused on the next request ([08-security.md, Rule 8](08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after)). `POST /auth/logout-all` only signs out the caller, so do not use it here.
    - A whole school: bump `users.tokens_valid_after` for its users
      ([08-security.md, Rule 8](08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after)).
