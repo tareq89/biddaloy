@@ -14632,6 +14632,12 @@ export interface components {
             guardians: components["schemas"]["Guardian"][];
             /** @enum {string} */
             enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** @enum {string} */
+            photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN";
+            /** Format: date-time */
+            photo_consent_recorded_at: string | null;
+            photo_consent_recorded_by_user: components["schemas"]["User"] | null;
+            photo_consent_recorded_by: string | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -14724,6 +14730,8 @@ export interface components {
             total: number;
         };
         UpdateStudentDto: {
+            /** @enum {string} */
+            photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
             full_name?: string;
             full_name_bn?: string | null;
             /** @enum {string|null} */
@@ -21350,6 +21358,8 @@ export interface components {
             guardian_email: string | null;
             home_address: string | null;
             documents: Record<string, never>[];
+            /** @enum {string|null} */
+            photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN" | null;
             /** @enum {string} */
             status: "REJECTED" | "PENDING" | "EXPIRED" | "SHORTLISTED" | "ADMITTED" | "FEE_PENDING" | "OFFERED" | "WAITING";
             roll_number: string | null;
@@ -25266,6 +25276,7 @@ export interface operations {
     StudentController_findAllStudents_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 search?: string;
                 class_id?: string;
                 section_id?: string;
@@ -25418,6 +25429,7 @@ export interface operations {
     StudentController_exportStudents_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 format?: "CSV" | "XLSX";
                 search?: string;
                 class_id?: string;
@@ -25494,6 +25506,7 @@ export interface operations {
     StudentController_findAllStudentIds_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 search?: string;
                 class_id?: string;
                 section_id?: string;
