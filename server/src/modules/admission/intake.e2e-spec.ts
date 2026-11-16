@@ -107,6 +107,22 @@ describe('IntakeController rounds and stages (e2e)', () => {
     await as(http().post(`${BASE}/${round.id}/stages`), UserRole.TEACHER)
       .send({ kind: 'VIVA' })
       .expect(403);
+    const [stage] = (await as(http().get(`${BASE}/${round.id}/stages`), UserRole.ADMIN)).body;
+    const one = `${BASE}/${round.id}/stages/${stage.id}`;
+    await as(http().get(`${BASE}/${round.id}/stages`), UserRole.TEACHER).expect(403);
+    await as(http().patch(one), UserRole.TEACHER).send({ title: 'x' }).expect(403);
+    await as(http().delete(one), UserRole.TEACHER).expect(403);
+  });
+
+  it('null on a required round or stage field is a 400, not a DB error', async () => {
+    const round = await createRound();
+    await as(http().patch(`${BASE}/${round.id}`), UserRole.ADMIN)
+      .send({ show_names_publicly: null })
+      .expect(400);
+    const [stage] = (await as(http().get(`${BASE}/${round.id}/stages`), UserRole.ADMIN)).body;
+    const one = `${BASE}/${round.id}/stages/${stage.id}`;
+    await as(http().patch(one), UserRole.ADMIN).send({ kind: null }).expect(400);
+    await as(http().patch(one), UserRole.ADMIN).send({ config: null }).expect(400);
   });
 
   it('a non-UUID id is a 400, never a 500', async () => {
@@ -195,6 +211,12 @@ describe('IntakeController rounds and stages (e2e)', () => {
 
     await ds.query(`DELETE FROM admission_stage_results WHERE tenant_id = $1`, [SEED_TENANT_ID]);
     await as(http().delete(`${BASE}/${round.id}/stages/${added.id}`), UserRole.ADMIN).expect(204);
+    const [row] = await ds.query(`SELECT deleted_at FROM admission_stages WHERE id = $1`, [
+      added.id,
+    ]);
+    expect(row.deleted_at).not.toBeNull();
+    const after = (await as(http().get(`${BASE}/${round.id}/stages`), UserRole.ADMIN)).body;
+    expect(after.map((s: { id: string }) => s.id)).not.toContain(added.id);
   });
 
   it('a round in a closed year is a 409 on create (ACADEMIC_YEAR_CLOSED)', async () => {

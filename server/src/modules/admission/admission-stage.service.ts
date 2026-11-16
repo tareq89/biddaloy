@@ -101,6 +101,10 @@ export class AdmissionStageService {
     dto: UpdateStageDto,
     tenantId: string,
   ): Promise<AdmissionStage> {
+    // PartialType re-allows null on every field; kind and config columns are NOT NULL.
+    if (dto.kind === null || dto.config === null) {
+      throw new BadRequestException('kind and config cannot be cleared');
+    }
     assertConfigSize(dto.config);
     return this.dataSource.transaction(async (manager) => {
       await this.lockIntake(manager, intakeId, tenantId);

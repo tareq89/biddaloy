@@ -23,7 +23,7 @@ import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
 import { GuardianService } from '../students/students.service';
-import { AdmissionFormSchemaService } from './admission-form-schema.service';
+import { AdmissionFormSchemaService, type AdmissionFormSchema } from './admission-form-schema.service';
 import { ADMISSION_FIELD_CATALOGUE, validateExtraFields } from '@biddaloy/shared';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
@@ -51,6 +51,8 @@ export interface PublicIntakeDto {
   open_date: string;
   close_date: string;
   required_document_types: AdmissionDocumentType[];
+  /** Ticked extra fields and document slots, so the form can render them. */
+  form_schema: AdmissionFormSchema;
 }
 
 /** One message for every duplicate, so status isn't leaked (PUB-09). */
@@ -144,6 +146,7 @@ export class AdmissionApplicantService {
         open_date: intake.open_date,
         close_date: intake.close_date,
         required_document_types: intake.required_document_types,
+        form_schema: this.formSchema.forRound(intake),
       }));
   }
 

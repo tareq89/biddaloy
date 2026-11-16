@@ -10,6 +10,7 @@ import {
   IsIn,
   IsBoolean,
   IsOptional,
+  ValidateIf,
   ArrayMaxSize,
   MaxLength,
   Matches,
@@ -49,7 +50,7 @@ export class CreateIntakeDto {
     enum: Object.values(AdmissionTemplateKey),
     enumName: 'AdmissionTemplateKey',
   })
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsEnum(AdmissionTemplateKey)
   template_key?: AdmissionTemplateKey;
 
@@ -86,21 +87,21 @@ export class CreateIntakeDto {
   fee_amount_paisa?: number | null;
 
   @ApiPropertyOptional({ enum: Object.values(AdmissionPayMethod), isArray: true })
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsArray()
   @ArrayMaxSize(4)
   @IsEnum(AdmissionPayMethod, { each: true })
   fee_pay_methods?: AdmissionPayMethod[];
 
   @ApiPropertyOptional({ type: String, isArray: true, description: 'Field catalogue keys.' })
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsArray()
   @ArrayMaxSize(ADMISSION_FIELD_CATALOGUE.length)
   @IsIn(ADMISSION_FIELD_CATALOGUE.map((f) => f.key), { each: true })
   form_fields?: string[];
 
   @ApiPropertyOptional({ type: String, isArray: true })
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsArray()
   @ArrayMaxSize(10)
   @IsString({ each: true })
@@ -108,7 +109,7 @@ export class CreateIntakeDto {
   publish_channels?: string[];
 
   @ApiPropertyOptional({ type: String, isArray: true })
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsArray()
   @ArrayMaxSize(10)
   @IsString({ each: true })
@@ -116,17 +117,17 @@ export class CreateIntakeDto {
   tie_break?: string[];
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsBoolean()
   show_names_publicly?: boolean;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsBoolean()
   widget_always_show?: boolean;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined) // omission-only: null must fail validation
   @IsBoolean()
   auto_activate_lists?: boolean;
 }

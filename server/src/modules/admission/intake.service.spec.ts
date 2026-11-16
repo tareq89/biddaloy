@@ -59,6 +59,10 @@ describe('IntakeService', () => {
       update: vi.fn(),
     };
 
+    // the in-transaction lock-and-reread (`createQueryBuilder().setLock().where().getOne()`)
+    const qb = { setLock: () => qb, where: () => qb, getOne: () => repo.findOne() };
+    Object.assign(repo, { createQueryBuilder: () => qb });
+
     const repos = new Map<unknown, unknown>([
       [AdmissionIntake, repo],
       [AdmissionStage, stageRepo],
@@ -236,6 +240,24 @@ describe('IntakeService', () => {
       ConflictException,
     );
     expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('update checks the year of the locked row, not the one read before the transaction', async () => {
+    repo.findOne
+      .mockResolvedValueOnce(makeIntake({ academic_year_id: 'year-1' })) // read before
+      .mockResolvedValueOnce(makeIntake({ academic_year_id: 'year-2' })); // locked reread
+    yearClosed = true;
+    await expect(service.update('intake-1', { seat_count: 5 }, TENANT_A)).rejects.toThrow(
+      ConflictException,
+    );
+    expect(JSON.stringify(txQuery.mock.calls)).toContain('year-2');
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('update refuses null on a required setting', async () => {
+    await expect(
+      service.update('intake-1', { show_names_publicly: null } as never, TENANT_A),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects findOne for an intake belonging to a different tenant', async () => {

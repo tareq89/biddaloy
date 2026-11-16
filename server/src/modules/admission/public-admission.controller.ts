@@ -117,6 +117,9 @@ export class PublicAdmissionController {
         photo: { type: 'string', format: 'binary' },
         birth_certificate: { type: 'string', format: 'binary' },
         transcript: { type: 'string', format: 'binary' },
+        ssc_marksheet: { type: 'string', format: 'binary' },
+        transfer_certificate: { type: 'string', format: 'binary' },
+        quota_certificate: { type: 'string', format: 'binary' },
       },
     },
   })

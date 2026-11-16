@@ -64,7 +64,7 @@ export class SubmitApplicantDto {
     try {
       return JSON.parse(value);
     } catch {
-      return null;
+      return value; // a raw string fails @IsObject() below instead of becoming null
     }
   })
   @IsObject()

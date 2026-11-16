@@ -147,7 +147,7 @@ export class IntakeService {
     const statusRows: Array<{ intake_id: string; status: string; n: string }> =
       await this.repo.manager.query(
         `SELECT intake_id, status, COUNT(*) AS n FROM admission_applicants
-          WHERE tenant_id = $1 GROUP BY intake_id, status`,
+          WHERE tenant_id = $1 AND deleted_at IS NULL GROUP BY intake_id, status`,
         [tenantId],
       );
     const stageCount = new Map(stageRows.map((r) => [r.intake_id, Number(r.n)]));
@@ -175,6 +175,11 @@ export class IntakeService {
   }
 
   async update(id: string, dto: UpdateIntakeDto, tenantId: string): Promise<IntakeWithStatus> {
+    // PartialType re-allows null on every field; only these columns are nullable.
+    const nullable = new Set(['class_id', 'class_section_id', 'roll_prefix', 'fee_amount_paisa']);
+    if (Object.entries(dto).some(([k, v]) => v === null && !nullable.has(k))) {
+      throw new BadRequestException('Required settings cannot be cleared');
+    }
     // findOne enforces tenant scoping before any write touches the row.
     const current = await this.findOne(id, tenantId);
     assertDateRange(dto.open_date ?? current.open_date, dto.close_date ?? current.close_date);
@@ -185,8 +190,15 @@ export class IntakeService {
         target = await this.resolveTarget(manager, tenantId, { class_id, class_section_id });
         await assertYearOpen(manager, tenantId, target.academic_year_id!);
       }
-      if (current.academic_year_id)
-        await assertYearOpen(manager, tenantId, current.academic_year_id);
+      // Lock and reread: `current` was read before the transaction, the year may have moved.
+      const locked = await manager
+        .getRepository(AdmissionIntake)
+        .createQueryBuilder('i')
+        .setLock('pessimistic_write')
+        .where('i.id = :id AND i.tenant_id = :tenantId AND i.deleted_at IS NULL', { id, tenantId })
+        .getOne();
+      if (!locked) throw new NotFoundException('Admission intake not found');
+      if (locked.academic_year_id) await assertYearOpen(manager, tenantId, locked.academic_year_id);
       await manager
         .getRepository(AdmissionIntake)
         .update({ id, tenant_id: tenantId }, { ...rest, ...target });
