@@ -152,7 +152,6 @@ export const FAIL_CLOSED = [
 // and routes that check no password or code. confirm-phone checks a code, but OtpService.verify
 // itself answers 503 when Redis is down, so it cannot fail open.
 export const FAIL_OPEN = [
-<<<<<<< HEAD
   // [3.x/#3965 D19] Guardian proof routes: no password or code; Idempotency-Key fails open by design.
   'POST /portal/payment-proofs',
   'GET /portal/payment-proofs',
@@ -173,12 +172,10 @@ export const FAIL_OPEN = [
   'POST /payment-submissions/:id/confirm',
   'POST /payment-submissions/:id/reject',
   'POST /payment-submissions/:id/reopen',
-=======
   // [#4187] School-site admission reads and lookups that open no write: the per-IP throttle is down, nothing more.
   'GET /public/site/by-host/:host/admission/rounds',
   'GET /public/site/by-host/:host/admission/lists',
   'POST /public/site/by-host/:host/admission/status',
->>>>>>> addc5f79d (feat(website): public admission API by host — rounds, submit, status, result, admit card, lists (#4187))
   // Bearer-token only banner status and end for a Login as session: no password or code.
   'GET /auth/impersonation/me',
   'POST /auth/impersonation/end',
