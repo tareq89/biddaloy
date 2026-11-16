@@ -41,6 +41,7 @@ import { UniqueLabelListConstraint } from '../settings/unique-labels.validator';
 import {
   ApprovalMode,
   CommunicationMedium,
+  DAILY_LIMIT_MAX,
   DailyAttendanceSource,
   DiscountKind,
   FeeType,
@@ -207,7 +208,40 @@ export class RegionSettingsDto {
   calendar?: RegionCalendarDto;
 }
 
+/** [60.0 D17] Written only through the platform route (#4254); see `SchoolsService.updateSettings`. */
+export class DailySendLimitsDto {
+  @ApiPropertyOptional({ example: 2000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(DAILY_LIMIT_MAX)
+  sms?: number;
+
+  @ApiPropertyOptional({ example: 2000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(DAILY_LIMIT_MAX)
+  email?: number;
+
+  @ApiPropertyOptional({ example: 2000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(DAILY_LIMIT_MAX)
+  whatsapp?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showRemaining?: boolean;
+}
+
 export class CommunicationsSettingsDto {
+  @OptionalSetting()
+  @NestedSettings(() => DailySendLimitsDto)
+  dailyLimits?: DailySendLimitsDto;
+
   @MessagingMediumSettings(CommunicationMedium.SMS) sms?: MediumSettings;
   @MessagingMediumSettings(CommunicationMedium.WHATSAPP) whatsapp?: MediumSettings;
   @MessagingMediumSettings(CommunicationMedium.EMAIL) email?: MediumSettings;

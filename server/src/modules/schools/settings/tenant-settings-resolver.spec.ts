@@ -33,6 +33,25 @@ import {
   DEFAULT_STUDY_PLANS_SETTINGS,
 } from './tenant-settings-defaults';
 
+describe('resolveTenantSettings communications.dailyLimits [60.0 D31]', () => {
+  const resolve = (dailyLimits: unknown) =>
+    resolveTenantSettings({ communications: { dailyLimits } } as never).communications?.dailyLimits;
+
+  it('missing stays undefined, no default filled in', () => {
+    expect(
+      resolveTenantSettings({ communications: {} } as never).communications?.dailyLimits,
+    ).toBeUndefined();
+    expect(resolveTenantSettings(null).communications?.dailyLimits).toBeUndefined();
+  });
+  it('keeps only own valid values', () => {
+    expect(resolve({ sms: 50 })).toEqual({ sms: 50 });
+    expect(resolve({ sms: 0, showRemaining: true })).toEqual({ sms: 0, showRemaining: true });
+  });
+  it('drops negative, fractional, above-max and non-boolean showRemaining', () => {
+    expect(resolve({ sms: -1, email: 1.5, whatsapp: 1_000_001, showRemaining: 'yes' })).toEqual({});
+  });
+});
+
 describe('resolveTenantSettings', () => {
   it('region.timezone is always set (todayFor relies on it)', () => {
     expect(resolveTenantSettings(null).region.timezone).toBe('Asia/Dhaka');
