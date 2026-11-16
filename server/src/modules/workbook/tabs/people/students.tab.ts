@@ -152,13 +152,6 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Photo key', bn: 'ছবির কী' },
   },
   {
-    // A restore must keep a refusal (blank leaves the existing value alone).
-    key: 'photo_consent',
-    type: 'enum',
-    enumValues: Object.values(PhotoConsent),
-    label: { en: 'Photo consent', bn: 'ছবির সম্মতি' },
-  },
-  {
     key: 'date_of_birth',
     type: 'date',
     label: { en: 'Date of birth', bn: 'জন্ম তারিখ' },
@@ -558,7 +551,6 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'full_name_bn',
       'blood_group',
       'photo_key',
-      'photo_consent',
       'roll_number',
       'gender',
       'home_address',
@@ -572,7 +564,6 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'enrollment_status',
     ] as const;
     for (const key of fields) {
-      if (key === 'photo_consent' && row.photo_consent === null) continue; // blank keeps existing
       if (row[key] !== existing[key]) changed.push(key);
     }
     if (row.photo_consent !== null && row.photo_consent !== existing.photo_consent)
