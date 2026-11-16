@@ -90,6 +90,8 @@ GET /admission/fee-proofs/:id/attachment | AdmissionFeeController | perm: ADMISS
 GET /admission/intakes/:id/call-list | AdmissionPublicationController | perm: ADMISSION_REVIEW
 GET /admission/intakes/:id/lists | AdmissionListController | perm: ADMISSION_REVIEW
 GET /admission/intakes/:id/publish/estimate | AdmissionPublicationController | perm: ADMISSION_REVIEW
+GET /admission/reports/export/:kind | AdmissionReportsController | perm: ADMISSION_REVIEW
+GET /admission/reports/funnel | AdmissionReportsController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
 GET /admission/stages/:id/results | AdmissionStageResultController | perm: ADMISSION_REVIEW
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
@@ -396,7 +398,6 @@ GET /promotions | PromotionsController | perm: PROMOTION_MANAGE
 GET /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
 GET /promotions/:id/groups | PromotionsController | perm: PROMOTION_GROUP_SET
 GET /promotions/suggest-target | PromotionsController | perm: PROMOTION_MANAGE
-GET /public/admission/:slug | PublicAdmissionController | allowlist: none
 GET /public/invoices/:token | PublicInvoiceController | allowlist: none
 GET /public/notices/:token | PublicNoticeController | allowlist: none
 GET /public/notices/:token/files/:fileId | PublicNoticeController | allowlist: none
@@ -877,8 +878,6 @@ POST /programs/:id/milestones | ProgramsController | perm: PROGRAM_MANAGE
 POST /promotions | PromotionsController | perm: PROMOTION_MANAGE
 POST /promotions/:id/commit | PromotionsController | perm: PROMOTION_MANAGE
 POST /promotions/:id/refresh | PromotionsController | perm: PROMOTION_MANAGE
-POST /public/admission/:slug/applicants | PublicAdmissionController | allowlist: none
-POST /public/admission/:slug/status | PublicAdmissionController | allowlist: none
 POST /public/notices/:token/opened | PublicNoticeController | allowlist: none
 POST /public/site/by-host/:host/admission/admit-card | PublicAdmissionSiteController | allowlist: none
 POST /public/site/by-host/:host/admission/applicants | PublicAdmissionSiteController | allowlist: none

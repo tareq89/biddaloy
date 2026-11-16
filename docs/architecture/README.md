@@ -54,6 +54,7 @@ at hand instead of loading the whole set.
 | [40-reporting-engine.md](40-reporting-engine.md) | Working on `modules/reports` beyond the coded collections report — the report registry and compiler, report definitions and versions, runs, CSV/XLSX exports, the Reports hub and designer, schedules and snapshots, or the BANBEIS student count |
 | [41-reporting-load-test.md](41-reporting-load-test.md) | Running or changing the reports load test (`report-runner.perf.spec.ts`, 3,000 students, p95 under 2 s), adding an index for a report, or reading the plans behind the `ReportingIndexes` migration |
 | [42-school-website.md](42-school-website.md) | Working on the public school website: `modules/website`, the `site/` container, `site-themes/`, host to school lookup, the Redis cache, publish, or how the site fails when Redis, the API, the database or storage is down |
+| [43-admission-pipeline.md](43-admission-pipeline.md) | Working on admission: rounds, stages, applicant statuses, merit and waiting lists, fee proofs, lottery, roll numbers, the public by-host API, the admission widgets, or what fails closed when Redis or Turnstile is down |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
