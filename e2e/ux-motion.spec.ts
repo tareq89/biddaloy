@@ -73,7 +73,8 @@ test.describe('success tick', () => {
       await page.goto('/verify-email?token=e2e-motion');
       await verified;
 
-      const tick = page.locator('[role="status"]:has(svg circle)');
+      // The card's own status region (`div`) also holds an svg circle; the tick is the `span`.
+      const tick = page.locator('span[role="status"]:has(svg circle)');
       await expect(tick).toBeVisible();
       // Same end state in both modes: the screen-reader label is present.
       await expect(tick.locator('.sr-only')).not.toBeEmpty();
