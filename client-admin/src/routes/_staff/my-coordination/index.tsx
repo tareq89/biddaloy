@@ -63,7 +63,7 @@ export const Route = createFileRoute('/_staff/my-coordination/')({
       queryClient
         .ensureQueryData(coordinationOverviewQueryOptions(deps.date))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('coordination', 'nav'),
+      loadRouteNamespaces('coordination', 'nav', 'communications'),
     ]),
   pendingComponent: MyCoordinationPending,
   component: MyCoordinationPage,

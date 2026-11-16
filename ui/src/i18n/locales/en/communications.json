@@ -475,6 +475,7 @@
       "alreadySent": "This message was just sent to the same people. Wait a minute before sending it again."
     },
     "coordinator": {
+      "sentToast": "SMS queued for {{count}} $t(common:entities.teacher_other).",
       "sendAsSms": "Send as SMS",
       "dialogTitle": "Send as SMS",
       "dialogDescription": "Only the teachers you coordinate will get this SMS.",
