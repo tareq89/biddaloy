@@ -36,8 +36,8 @@ When unsure, pick the higher level. You can lower it later.
 Do these in order. Step (a) comes first because it stops more damage.
 
 **One exception: take the database dump (b.2) before any step that changes data**, such as
-the `tokens_valid_after` bump in a.3. Suspending a school (a.1) changes
-only that school's status row and rotating a key (a.2) changes none, so they can go first. If you must change data before the dump, write each change and
+suspending a school (a.1, it also bumps `users.tokens_valid_after` for the school's users and writes an audit row) and
+the sign-out in a.3. Only rotating a key (a.2) changes no data, so it can go first. If you must change data before the dump, write each change and
 its time in the shared note (b.3), so the dump can be read against it.
 
 ```mermaid
@@ -49,7 +49,7 @@ flowchart LR
 
 **a. Stop the bleeding**
 
-1. **Suspend the school** (if one school is affected): `PATCH /platform/schools/:id/status`
+1. **Suspend the school** (if one school is affected; this changes data, so take the dump ([b.2](#first-hour-sev1)) first, unless the leak is still running): `PATCH /platform/schools/:id/status`
    with a reason, as a cockpit owner. Code: `server/src/modules/schools/platform-schools.controller.ts`.
    The change applies on the school's very next request.
 2. **Rotate the leaked key or secret.** Follow
