@@ -148,7 +148,7 @@ export function SessionExpiredDialog() {
 
 function OpenDialog({ redirect, identity }: { redirect: () => void; identity: Identity }) {
   const queryClient = useQueryClient();
-  const { t } = useTranslation('auth');
+  const { t: tAuth } = useTranslation('auth');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<SignInFormError | null>(null);
 
@@ -176,10 +176,10 @@ function OpenDialog({ redirect, identity }: { redirect: () => void; identity: Id
       setError({
         message:
           e instanceof RateLimitedError
-            ? t('errors.rateLimitedGeneric')
+            ? tAuth('errors.rateLimitedGeneric')
             : e instanceof ApiError && e.statusCode === 401
-              ? t('errors.invalidCredentials')
-              : t('errors.generic'),
+              ? tAuth('errors.invalidCredentials')
+              : tAuth('errors.generic'),
         tone: 'alert',
       });
     } finally {

@@ -53,7 +53,7 @@ function DashboardPending() {
 
 /** A failed load says so with a retry; a refusal (403) says that instead. */
 function DashboardError({ error }: { error: unknown }) {
-  const { t } = useTranslation('dashboard');
+  const { t: tDashboard } = useTranslation('dashboard');
   const router = useRouter();
   // A suspended or trial-ended school has its own screen: the router's default error component.
   if ((error as { details?: { code?: string } } | null)?.details?.code === 'TENANT_SUSPENDED')
@@ -61,8 +61,8 @@ function DashboardError({ error }: { error: unknown }) {
   if (error instanceof ApiError && error.statusCode === 403) return <AccessDeniedState />;
   return (
     <ErrorState
-      message={t('states.error')}
-      retryLabel={t('states.retry')}
+      message={tDashboard('states.error')}
+      retryLabel={tDashboard('states.retry')}
       onRetry={() => void router.invalidate()}
     />
   );
