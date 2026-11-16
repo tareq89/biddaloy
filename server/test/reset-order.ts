@@ -23,6 +23,8 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [59] FKs users and schools (child of both); nothing references it.
+  'legal_acceptances',
   // [75.34] platform incident state; no FKs.
   'platform_alerts',
   // [49.4] billing; payments FK orders, so they clear first.
