@@ -343,20 +343,25 @@ export class AdmissionReportsService {
       q,
     )
       .andWhere('m.deleted_at IS NULL AND l.deleted_at IS NULL')
-      .select('l.kind', 'kind')
+      .select('i.title', 'round')
+      .addSelect('l.kind', 'kind')
       .addSelect('l.sequence', 'sequence')
       .addSelect('m.position', 'position')
       .addSelect('a.reference_number', 'ref')
       .addSelect('a.applicant_name', 'name')
       .addSelect('a.status', 'status')
-      .orderBy('l.kind', 'ASC')
+      // Sequence numbers repeat across rounds: group by round (id breaks title ties) first.
+      .orderBy('i.title', 'ASC')
+      .addOrderBy('i.id', 'ASC')
+      .addOrderBy('l.kind', 'ASC')
       .addOrderBy('l.sequence', 'ASC')
       .addOrderBy('m.position', 'ASC')
       .getRawMany();
     return buildExportWorkbook(
       'lists',
-      ['List', 'Sequence', 'Position', 'Reference', 'Name', 'Status'],
+      ['Round', 'List', 'Sequence', 'Position', 'Reference', 'Name', 'Status'],
       rows.map((r): ExportCell[] => [
+        r.round,
         r.kind,
         num(r.sequence),
         num(r.position),

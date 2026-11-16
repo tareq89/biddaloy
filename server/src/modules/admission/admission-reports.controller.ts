@@ -58,6 +58,14 @@ export class AdmissionReportsController {
   @Get('export/:kind')
   @RequirePermissions(Permission.ADMISSION_REVIEW)
   @ApiOperation({ summary: 'Download applicants, stage scores or lists as .xlsx.' })
+  @ApiOkResponse({
+    description: 'The workbook.',
+    content: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        schema: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   async exportKind(
     @Param() params: AdmissionExportParamsDto,
     @Query() query: FunnelReportQueryDto,

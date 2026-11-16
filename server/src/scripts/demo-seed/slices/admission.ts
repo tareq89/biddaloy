@@ -268,6 +268,9 @@ export const slice: DemoSlice = {
             r.score = mine.length - i;
             r.passed = null;
           });
+          // The lists follow the draw: highest points first.
+          const points = new Map(mine.map((r) => [r.applicant_id, Number(r.score)]));
+          roundApplicants.sort((a, b) => (points.get(b.id) ?? 0) - (points.get(a.id) ?? 0));
         }
 
         // A published merit list of the first half of those who passed every stage, and waiting
