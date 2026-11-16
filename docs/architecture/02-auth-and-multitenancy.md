@@ -629,7 +629,7 @@ out, so a refused code (cooldown) signs nobody out.
 Forgot-password and OTP sign-in still answer 202 when refused (so nobody
 can tell which numbers have accounts). Their "enter the code" screen says
 so: "No code after a few tries? Wait an hour, then try again."
-Registration and contact change show the 429. The platform-wide SMS ceiling is
+Registration and contact change show the 429. The per-IP and platform-wide SMS caps are
 `OtpSmsCapsService` (see [08-security](08-security.md)).
 
 ### Batch invites (12.6) — inviting a whole imported cohort's guardians
