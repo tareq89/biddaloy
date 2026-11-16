@@ -42,6 +42,8 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { CommunicationsDashboardController } from './communications-dashboard.controller';
 import { CommunicationsDashboardService } from './communications-dashboard.service';
 import { SendLimitService } from './limits/send-limit.service';
+import { PlatformDailyLimitsService } from './limits/platform-daily-limits.service';
+import { PlatformDailyLimitsController } from './limits/platform-daily-limits.controller';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 
@@ -117,6 +119,7 @@ import { PlatformIdentityModule } from '../platform-identity/platform-identity.m
     CommunicationsDashboardService,
     SmsSourceService,
     SendLimitService,
+    PlatformDailyLimitsService,
   ],
   // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
   // matches routes in registration order and `CommunicationsController` has
@@ -128,6 +131,7 @@ import { PlatformIdentityModule } from '../platform-identity/platform-identity.m
     CommunicationsController,
     ProviderConnectionTestController,
     CommunicationsDashboardController,
+    PlatformDailyLimitsController,
   ],
   exports: [
     CommunicationsService,
