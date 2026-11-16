@@ -236,7 +236,37 @@ export type WhatsAppSettings = MediumSettings;
 export type EmailSettings = MediumSettings;
 export type MessengerSettings = MediumSettings;
 
+/** Per-channel daily send caps. */
+export interface DailySendLimits {
+  sms?: number;
+  email?: number;
+  whatsapp?: number;
+  showRemaining?: boolean;
+}
+
+export const DEFAULT_DAILY_SEND_LIMITS = { sms: 2000, email: 2000, whatsapp: 2000 } as const;
+export const DAILY_LIMIT_MAX = 1_000_000;
+/** `PlatformSettingsService` key for the platform-wide default (D31). */
+export const DAILY_LIMITS_PLATFORM_KEY = 'comms.dailyLimits';
+
+export type DailyLimitChannel = 'sms' | 'email' | 'whatsapp';
+
+/** Response of the platform route #4254. */
+export interface DailyLimitsView {
+  stored: DailySendLimits;
+  effective: Record<DailyLimitChannel, number>;
+  usedToday: Record<DailyLimitChannel, number>;
+}
+
+/** Response of #4255: the optional "left today" notice (D33). */
+export interface DailyLimitsToday {
+  show: boolean;
+  channels: Partial<Record<DailyLimitChannel, { limit: number; used: number; left: number }>>;
+}
+
 export interface CommunicationsSettings {
+  /** Written only by the platform route #4254 (D17, D31). A missing value falls back to the platform default, then to the code default (D7). Applies only to sends on the platform account (D16). `showRemaining` is the optional 'left today' notice (D33). */
+  dailyLimits?: DailySendLimits;
   sms?: MediumSettings;
   whatsapp?: MediumSettings;
   email?: MediumSettings;
