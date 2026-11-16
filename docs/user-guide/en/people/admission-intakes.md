@@ -9,6 +9,7 @@ sources:
   - site/src/pages/[lang]/admission-result.astro
   - site/src/pages/[lang]/admission-lists.astro
   - site/src/islands/admission-form.ts
+  - server/src/modules/admission/applicant-review.service.ts
   - site/src/islands/admission-result.ts
   - site/src/themes/basic/AdmissionRibbon.astro
   - client-admin/src/routes/_staff/admissions/intakes/index.tsx
@@ -76,6 +77,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
   - [Change a round or close it early](#task-edit)
   - [See the applicants of one round](#task-applicants)
   - [On the school's website: apply, status, result and lists](#task-site)
+  - [Photo choice on the form: Yes / No](#task-photo-choice)
   - [From application to admitted student](#task-flow)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
@@ -195,11 +197,25 @@ The school's public website has four pages for admission. None needs a sign-in. 
 
 <!-- unverified: not run in the app; written from the site pages and their texts -->
 
+### Photo choice on the form: Yes / No <a href="#task-photo-choice" id="task-photo-choice"></a>
+
+Near the end of the admission form on the school's website there is a question: **May the school keep and print your child's photo?** The guardian must choose an answer.
+
+1. Choose **Yes, I agree** or **No, I do not agree**.
+
+   → If nothing is chosen, **Submit application** shows a red note: **Please choose one.** The application is not sent.
+
+2. If **No, I do not agree** is chosen, the photo box disappears. No photo is needed. Choose **Yes, I agree** again and the box comes back.
+
+When the application becomes a student (you press **Admit**), this answer goes to the student's **Photo consent**: **Yes** becomes **Given**, **No** becomes **Refused**. An old application with no answer becomes **Not recorded**. You can change it later on the [student's profile](students.md#task-photo-consent).
+
+<!-- unverified: not run in the app; written from the screen code and texts -->
+
 ### From application to admitted student <a href="#task-flow" id="task-flow"></a>
 
 1. A guardian submits the form. → The application appears in the [Admission applicants](admission-applicants.md) list as **Awaiting review**.
 2. The office opens the application and chooses **Add to shortlist**, **Admit** or **Reject**. Each time, an SMS goes to the guardian's mobile (if the school has SMS balance).
-3. When you press **Admit**, a new student is created in the round's section, the registration and roll numbers are filled in automatically, and the guardian is linked or created. You can find the student in the [Students](students.md) list.
+3. When you press **Admit**, a new student is created in the round's section, the registration and roll numbers are filled in automatically, and the guardian is linked or created. You can find the student in the [Students](students.md) list. The applicant's photo choice goes with the student ([see](#task-photo-choice)).
 4. How many were admitted online in a year is shown on [Admission reports](admission-reports.md).
 
 ---

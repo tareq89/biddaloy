@@ -11,5 +11,7 @@
   "/money/packages": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
   "/money/plans": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
   "/money/coupons": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
-  "/money/revenue": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19"
+  "/money/revenue": "internal: SUPER_ADMIN platform (D15), cockpit Money, owner runbook Part 19",
+  "/legal/accept": "internal: documented in admin/create-school (#task-legal-accept); a route-to-feature link needs client-admin/src/help/guide-gen/features.ts, outside the guide lane",
+  "/legal/$doc": "internal: public read-only legal text, opened from the sign-up documents dialog and portal footer; see admin/create-school (#task-terms)"
 }
