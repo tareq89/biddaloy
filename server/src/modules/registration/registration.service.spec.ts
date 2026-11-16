@@ -25,6 +25,7 @@ function build(env: Record<string, string>, deliver: ReturnType<typeof vi.fn>) {
     {} as never,
     // The `is_platform` home school id; `PLATFORM_HOME_ID` unset = no home school.
     { platformTenantId: async () => env.PLATFORM_HOME_ID || undefined } as never,
+    {} as never, // LegalService
   );
 }
 
@@ -36,6 +37,7 @@ const dto = {
   phone: '01711000000',
   email: 'a@example.com',
   terms_accepted: true,
+  terms_version: '1.0',
   captcha_token: 't',
 } as never;
 const ctx = { ip: null, userAgent: null };
@@ -96,6 +98,7 @@ describe('RegistrationService.createSchool contacts', () => {
       {} as never,
       {} as never,
       { findOne } as never,
+      {} as never,
       {} as never,
       {} as never,
     );

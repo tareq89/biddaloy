@@ -10,6 +10,7 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { LEGAL_DOCS, LegalDocument } from '@biddaloy/shared';
 import { INTERNATIONAL_PHONE_REGEX } from '../../users/dto/users.dto';
 import { latinDigits } from '../../account-access/dto/otp-request.dto';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -64,6 +65,11 @@ export class RegisterStartDto {
   @ApiProperty({ description: 'Must be true.' })
   @Equals(true, { message: 'The terms must be accepted' })
   terms_accepted: boolean;
+
+  @ApiProperty({ description: 'The terms version the registrant saw; must be the current one.' })
+  @IsString()
+  @Equals(LEGAL_DOCS[LegalDocument.TERMS].version, { message: 'The terms version is not current' })
+  terms_version: string;
 
   @ApiProperty({ description: 'Cloudflare Turnstile token.' })
   @IsString()
