@@ -968,3 +968,36 @@ The screen turns it into: "You can send 12 more today. You are trying to send 30
 - `check-api-types` was clean after `yarn api:types`; the wave's DTOs were already committed in #4254 and #4255.
 - Not done here by design: the Playwright spec `e2e/communications-daily-limit.spec.ts` (file cap on the closing branch) and a Bangla runbook copy.
 - The Redis key uses the lowercase channel and an Asia/Dhaka date; the first runbook draft had `SMS` and "school time zone", which would have made the emergency `DEL` do nothing. Rule candidate: a runbook command is copied from the code's key builder, never typed from memory.
+## Staff messages (Epic 80, Wave 1)
+
+A staff message is a normal `reminder_batches` row plus `communication_logs` rows, told apart by
+`filters_applied.kind = 'STAFF_MESSAGE'` and `trigger = STAFF_MESSAGE`. Each log carries
+`recipient_user_id` (a user, not a guardian).
+
+```mermaid
+flowchart LR
+  A[POST staff message] --> B[audience -> users with a phone]
+  B --> C[batch header kind=STAFF_MESSAGE]
+  C --> D[one log per user, recipient_user_id]
+  D --> E[queue send]
+```
+
+The demo school seeds 3 such batches per branch (teachers, office staff, one designation), each
+with a FAILED row. Code: `server/src/scripts/demo-seed/slices/comms-print.ts` (`staffMessages`).
+
+### Learning (2026-11-16)
+
+- **Surprise:** `sendBulk` sent SMS segments for schools that are not metered. **Cost:** a wasted
+  credit path found in W1 review. **Fix:** #4346. **Rule candidate:** any send path asks
+  `isMetered` before it counts segments.
+- **Surprise:** `PermissionsGuard` is all-of only, so "A or B" permissions cannot sit in
+  `@RequirePermissions`. **Fix:** staff routes use `@Roles` + `@AuthenticatedOnly` and the
+  service picks the scope (`callerScope`). **Rule candidate:** an any-of rule lives in the service,
+  with a test per role.
+- **Surprise:** `route-status.snapshot.txt` has no comment format, so a changed line cannot be
+  explained inside the file. **Fix:** explain each line in the PR body. **Rule candidate:** none
+  needed; the PR body is the place.
+- **Surprise:** a slice-only seed spec has no staff users, so the staff batches silently seeded
+  nothing. **Fix:** the spec runs the `staff` slice first and asserts at least 3 batches.
+  **Rule candidate:** a seed that depends on another slice's rows has a test that fails when they
+  are missing.
