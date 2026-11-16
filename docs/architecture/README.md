@@ -55,6 +55,7 @@ at hand instead of loading the whole set.
 | [41-reporting-load-test.md](41-reporting-load-test.md) | Running or changing the reports load test (`report-runner.perf.spec.ts`, 3,000 students, p95 under 2 s), adding an index for a report, or reading the plans behind the `ReportingIndexes` migration |
 | [42-school-website.md](42-school-website.md) | Working on the public school website: `modules/website`, the `site/` container, `site-themes/`, host to school lookup, the Redis cache, publish, or how the site fails when Redis, the API, the database or storage is down |
 | [43-admission-pipeline.md](43-admission-pipeline.md) | Working on admission: rounds, stages, applicant statuses, merit and waiting lists, fee proofs, lottery, roll numbers, the public by-host API, the admission widgets, or what fails closed when Redis or Turnstile is down |
+| [43-incident-response.md](43-incident-response.md) | A bad day: data leak, hacked account, ransomware or long outage. Severity levels, the first-hour SEV1 checklist, bn + en messages to schools, the 7-day blameless write-up, and the security calendar of yearly, quarterly and monthly chores |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
