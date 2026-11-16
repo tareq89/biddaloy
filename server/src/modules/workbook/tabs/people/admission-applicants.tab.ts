@@ -373,14 +373,15 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
     applicant.guardian_email = row.guardian_email;
     applicant.home_address = row.home_address;
     // Refused consent keeps no photo (D8): the sheet cannot leave one reachable.
+    // A blank cell keeps the stored answer, so a stored refusal still strips the photo.
+    const effectiveConsent = row.photo_consent ?? applicant.photo_consent;
     applicant.documents = (row.documents as AdmissionApplicant['documents']).filter(
-      (d) =>
-        !(row.photo_consent === PhotoConsent.REFUSED && d.type === AdmissionDocumentType.PHOTO),
+      (d) => !(effectiveConsent === PhotoConsent.REFUSED && d.type === AdmissionDocumentType.PHOTO),
     );
     applicant.status = row.status;
     applicant.roll_number = row.roll_number;
     applicant.source = row.source as AdmissionApplicant['source'];
-    applicant.photo_consent = row.photo_consent;
+    if (row.photo_consent !== null) applicant.photo_consent = row.photo_consent;
     applicant.quota_tags = row.quota_tags;
     applicant.extra_fields = row.extra_fields;
     applicant.fee_state = row.fee_state as AdmissionApplicant['fee_state'];

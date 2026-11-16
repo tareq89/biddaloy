@@ -16,6 +16,7 @@ import {
   AuditAction,
   CommunicationMedium,
   CommunicationStatus,
+  LEGAL_DOCS,
   LegalDocument,
   LoginResponse,
   SIGNUP_DOCS,
@@ -133,6 +134,10 @@ export class RegistrationService {
       email: dto.email ?? null,
       terms_accepted_at: new Date().toISOString(),
       terms_version: dto.terms_version,
+      doc_versions: {
+        [LegalDocument.PRIVACY]: LEGAL_DOCS[LegalDocument.PRIVACY].version,
+        [LegalDocument.DPA]: LEGAL_DOCS[LegalDocument.DPA].version,
+      },
       identifier: dto.phone,
       channel: 'sms',
     };
@@ -357,6 +362,7 @@ export class RegistrationService {
               await this.socialIdentity.link(userId, ticket, manager, context, result.school.id);
             }
             await this.legal.accept(userId, result.school.id, SIGNUP_DOCS, context.ip, manager, {
+              ...staged.doc_versions,
               [LegalDocument.TERMS]: staged.terms_version,
             });
             await this.audit.record(

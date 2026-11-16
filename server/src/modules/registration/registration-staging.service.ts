@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type Redis from 'ioredis';
+import type { LegalDocument } from '@biddaloy/shared';
 
 export const REGISTRATION_REDIS = 'REGISTRATION_REDIS';
 const TTL_SEC = 30 * 60;
@@ -15,6 +16,8 @@ export interface StagedRegistration {
   email: string | null;
   terms_accepted_at: string;
   terms_version: string;
+  /** PRIVACY/DPA versions current at start (what the dialog showed); absent on older stages. */
+  doc_versions?: Partial<Record<LegalDocument, string>>;
   /** What the code was sent to, and how. Fixed at start so verify cannot be pointed elsewhere. */
   identifier: string;
   channel: 'sms';
