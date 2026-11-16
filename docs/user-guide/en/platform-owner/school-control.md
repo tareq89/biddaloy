@@ -101,7 +101,7 @@ Press **Audit**. The tab **All activity** lists what anyone did in any school, n
 
 A school that sends through the platform's own SMS, email or WhatsApp account has a **Daily limit** on each channel. A school that uses its own SMS gateway has none. The day starts again at midnight, Bangladesh time.
 
-- **One school.** On the school's page, the **Daily limits** card shows that school's number for SMS, email and WhatsApp, and how many it has used today. Change a number to raise or lower it for this school; clear it to go back to the platform default. The change works at once, with no deploy. When a school needs more on a big day, raise its number here.
+- **One school.** On the school's page, the **Daily limits** card shows that school's number for SMS, email and WhatsApp, and how many it has used today. Change a number to raise or lower it for this school; clear it to go back to the platform default. The change works at once. When a school needs more on a big day, raise its number here.
 - **Platform default.** Press **Operations**. The **Daily limits** card there sets the default for every school that has no number of its own.
 - **Which number is used.** The school's own number first, then the platform default, then the built-in 2,000.
 - **"Left today" switch.** On either card you can turn on **left today**. It is off until you turn it on. When it is on, staff see one line above **Send** on the four send screens, for example **1,700 of today's 2,000 left.** A switch set on a school wins over the default.
