@@ -239,6 +239,10 @@ For the other roles, **Fee Reminders** is not in the left menu.
 | Batch name                | A name for this batch; you find it by this name in Reminder history later.                                                                                                                                                                  | Yes               |
 | Channels (bulk reminder)  | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                                                                                                                                                   | Yes, at least one |
 | Status                    | Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.                                                                                                         | No                |
+| Who gets it               | Starts on All teachers. Choose more to pick a role, a designation or named people. Someone in two groups is messaged once.                                                                                                                  | Yes               |
+| Send by                   | SMS uses your school’s SMS credits. WhatsApp needs a template your school has already got approved, and shows only if the school set it up.                                                                                                 | No                |
+| Message                   | What to send. The characters and how many SMS each person uses show below. A credit is one SMS to one person. Staff who have no phone number are left out and listed by name.                                                               | Yes               |
+| WhatsApp template         | Type the approved template’s name, its language and the values. Everyone gets the same words. The preview shows exactly what is delivered.                                                                                                  | No                |
 
 <!-- /guide:generated -->
 

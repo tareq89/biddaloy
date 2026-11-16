@@ -297,7 +297,8 @@
     "routes": [
       "/marks",
       "/marks/$examId/$sectionId/$subjectId",
-      "/marks/$examId/$sectionId/$subjectId/import"
+      "/marks/$examId/$sectionId/$subjectId/import",
+      "/marks/$examId/$sectionId/$subjectId/sms"
     ]
   },
   {
@@ -908,6 +909,14 @@
       "COMMITTEE"
     ],
     "routes": ["/notifications"]
+  },
+  {
+    "id": "communications.staffMessage",
+    "kind": "communications",
+    "path": "communications/staff-message",
+    "route": "/communications/staff-message",
+    "roles": ["ADMIN", "EXECUTIVE"],
+    "routes": ["/communications/staff-message"]
   },
   {
     "id": "administration.printDesignerGuide",

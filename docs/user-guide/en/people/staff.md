@@ -459,6 +459,7 @@ Someone without permission who opens the page sees **You don't have access to th
 
 - [**School website**](../administration/website.md) — the **Website profile** tab decides how a teacher appears on the website.
 - [**Importing from Excel**](staff-import.md) — add many staff at once.
+- [**Message staff**](../communications/staff-message.md) — tick people and press **Send SMS**.
 - [**Teacher assignments**](teaching-assignments.md) — give a teacher a class, section and subject.
 - [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff attendance and leave.
 - [**Evaluations: ACR, teacher surveys and incidents**](evaluations.md) — evaluations of staff.
