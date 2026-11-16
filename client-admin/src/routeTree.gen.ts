@@ -92,6 +92,7 @@ import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes
 import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
 import { Route as StaffCommunicationsSendRouteImport } from './routes/_staff/communications/send'
 import { Route as StaffCommunicationsSendAlertRouteImport } from './routes/_staff/communications/send-alert'
+import { Route as StaffCommunicationsStaffMessageRouteImport } from './routes/_staff/communications/staff-message'
 import { Route as StaffExamsIndexRouteImport } from './routes/_staff/exams/index'
 import { Route as StaffExamsExamIdRouteImport } from './routes/_staff/exams/$examId'
 import { Route as StaffFeeStructuresIndexRouteImport } from './routes/_staff/fee-structures/index'
@@ -637,6 +638,12 @@ const StaffCommunicationsSendAlertRoute =
   StaffCommunicationsSendAlertRouteImport.update({
     id: '/communications/send-alert',
     path: '/communications/send-alert',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffCommunicationsStaffMessageRoute =
+  StaffCommunicationsStaffMessageRouteImport.update({
+    id: '/communications/staff-message',
+    path: '/communications/staff-message',
     getParentRoute: () => StaffRoute,
   } as any)
 const StaffExamsIndexRoute = StaffExamsIndexRouteImport.update({
@@ -1362,6 +1369,7 @@ export interface FileRoutesByFullPath {
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
   '/communications/send-alert': typeof StaffCommunicationsSendAlertRoute
+  '/communications/staff-message': typeof StaffCommunicationsStaffMessageRoute
   '/exams/$examId': typeof StaffExamsExamIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
@@ -1562,6 +1570,7 @@ export interface FileRoutesByTo {
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
   '/communications/send-alert': typeof StaffCommunicationsSendAlertRoute
+  '/communications/staff-message': typeof StaffCommunicationsStaffMessageRoute
   '/exams/$examId': typeof StaffExamsExamIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
@@ -1769,6 +1778,7 @@ export interface FileRoutesById {
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
   '/_staff/communications/send-alert': typeof StaffCommunicationsSendAlertRoute
+  '/_staff/communications/staff-message': typeof StaffCommunicationsStaffMessageRoute
   '/_staff/exams/$examId': typeof StaffExamsExamIdRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
   '/_staff/fees/generate': typeof StaffFeesGenerateRoute
@@ -1975,6 +1985,7 @@ export interface FileRouteTypes {
     | '/communications/reminders'
     | '/communications/send'
     | '/communications/send-alert'
+    | '/communications/staff-message'
     | '/exams/$examId'
     | '/fees/dues'
     | '/fees/generate'
@@ -2175,6 +2186,7 @@ export interface FileRouteTypes {
     | '/communications/reminders'
     | '/communications/send'
     | '/communications/send-alert'
+    | '/communications/staff-message'
     | '/exams/$examId'
     | '/fees/dues'
     | '/fees/generate'
@@ -2381,6 +2393,7 @@ export interface FileRouteTypes {
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
     | '/_staff/communications/send-alert'
+    | '/_staff/communications/staff-message'
     | '/_staff/exams/$examId'
     | '/_staff/fees/dues'
     | '/_staff/fees/generate'
@@ -3128,6 +3141,13 @@ declare module '@tanstack/react-router' {
       path: '/communications/send-alert'
       fullPath: '/communications/send-alert'
       preLoaderRoute: typeof StaffCommunicationsSendAlertRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/communications/staff-message': {
+      id: '/_staff/communications/staff-message'
+      path: '/communications/staff-message'
+      fullPath: '/communications/staff-message'
+      preLoaderRoute: typeof StaffCommunicationsStaffMessageRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/exams/': {
@@ -4111,6 +4131,7 @@ interface StaffRouteChildren {
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
   StaffCommunicationsSendAlertRoute: typeof StaffCommunicationsSendAlertRoute
+  StaffCommunicationsStaffMessageRoute: typeof StaffCommunicationsStaffMessageRoute
   StaffExamsExamIdRoute: typeof StaffExamsExamIdRoute
   StaffGradingScalesScaleIdRoute: typeof StaffGradingScalesScaleIdRoute
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
@@ -4237,6 +4258,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
   StaffCommunicationsSendAlertRoute: StaffCommunicationsSendAlertRoute,
+  StaffCommunicationsStaffMessageRoute: StaffCommunicationsStaffMessageRoute,
   StaffExamsExamIdRoute: StaffExamsExamIdRoute,
   StaffGradingScalesScaleIdRoute: StaffGradingScalesScaleIdRoute,
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,

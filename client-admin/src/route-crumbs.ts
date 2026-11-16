@@ -318,6 +318,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'edit' } },
   ],
   '/_staff/communications/send': [{ label: { key: 'sendMessage' } }],
+  '/_staff/communications/staff-message': [
+    { label: { key: 'sendMessage' } },
+    { label: { key: 'staff' } },
+  ],
   '/_staff/communications/send-alert': [{ label: { key: 'sendAlert' } }],
   '/_staff/reports/alerts': [{ label: { key: 'alertsReport' } }],
   '/_staff/communications/reminders': [{ label: { key: 'feeReminders' } }],
