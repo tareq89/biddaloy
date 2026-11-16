@@ -1,0 +1,10 @@
+%% title: Walk-in application, from desk to fee check
+%% desc: A guardian comes to the office; the clerk picks the round, fills the boxes the round asks for, adds papers and fee details, and saves. The application gets a reference number and waits in the fee queue until someone checks the fee.
+flowchart LR
+  G["Guardian comes to the office"] --> C["Clerk: New application<br/>pick the round, fill the boxes"]
+  C --> S["Save application<br/>reference number given"]
+  S --> Q["Fee check pending"]
+  Q -->|"Fee is ok"| L["Can join a list"]:::done
+  Q -->|"Send back"| B["Guardian is asked again"]:::stop
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef stop fill:#fff5f5,stroke:#c92a2a,color:#5c1111

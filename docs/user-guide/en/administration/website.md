@@ -303,6 +303,7 @@ After **Publish** you see **Published.** and the badge says **Your website is on
 
 - [**Staff**](../people/staff.md) — the **Website profile** tab decides how a teacher appears on the website.
 - [**Notices**](../communications/notices.md) — **Show on the website** and **Pin on the home page**.
+- [**Admission on the school website**](admission-widgets.md) — the three admission sections in detail.
 
 ---
 

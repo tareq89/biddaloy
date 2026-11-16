@@ -5149,6 +5149,82 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 0,
   },
+  'people.admissionClerkEntry': {
+    title: {
+      bn: 'অফিসে আসা অভিভাবকের আবেদন তোলা',
+      en: 'Entering an application for a guardian who comes to the office',
+    },
+    summary: {
+      bn: 'অফিসে আসা অভিভাবকের জন্য কাগজপত্র ও ফিসহ ভর্তির আবেদন তুলুন আর রেফারেন্স নম্বর নিন।',
+      en: 'Fill an admission application at the office for a walk-in guardian, with papers and the fee, and get a reference number.',
+    },
+    path: 'people/admission-clerk-entry',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'people.admissionFeeVerify': {
+    title: { bn: 'আবেদনের ফি যাচাই', en: 'Checking an application fee' },
+    summary: {
+      bn: 'আবেদনের ফি-র প্রমাণ খুলে দেখুন, তারপর ফি ঠিক আছে চাপুন অথবা কারণসহ ফেরত পাঠান, যাতে আবেদন তালিকায় যেতে পারে।',
+      en: 'Open the fee proof of an application, then mark the fee ok or send it back with a reason, so the application can join a list.',
+    },
+    path: 'people/admission-fee-verify',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'people.admissionStages': {
+    title: {
+      bn: 'ভর্তি ডেস্ক, পরীক্ষার নম্বর ও কাটঅফ',
+      en: 'The admission desk, test marks and cut-off',
+    },
+    summary: {
+      bn: 'একটি ভর্তি রাউন্ডকে ডেস্কে ধাপে ধাপে চালান, রোল নম্বর দিন, পরীক্ষার নম্বর তুলুন আর ঠিক করুন কারা পরের ধাপে যাবে।',
+      en: 'Walk one admission round step by step on its desk, give roll numbers, enter test marks and choose who goes on to the next step.',
+    },
+    path: 'people/admission-stages',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'people.admissionLottery': {
+    title: { bn: 'ভর্তির লটারি', en: 'Admission lottery' },
+    summary: {
+      bn: 'অ্যাপে একবার লটারি করুন, অথবা বাইরে বানানো এক্সেল তালিকা আপলোড করুন, যাতে প্রতিজন আবেদনকারীর লটারি নম্বর হয়।',
+      en: 'Draw the lottery in the app once, or upload an Excel list made outside, so every applicant has a lottery number.',
+    },
+    path: 'people/admission-lottery',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'people.admissionLists': {
+    title: { bn: 'মেরিট ও অপেক্ষা-তালিকা', en: 'Merit and waiting lists' },
+    summary: {
+      bn: 'মেরিট তালিকা বানান, আসন খালি থাকলে অপেক্ষা-তালিকা চালু করুন, ফোন করুন আর শাখা দিয়ে ভর্তি করুন।',
+      en: 'Make the merit list, open waiting lists when seats are still free, call people and admit them to a section.',
+    },
+    path: 'people/admission-lists',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'people.admissionPublish': {
+    title: { bn: 'ভর্তির ফল প্রকাশ', en: 'Publishing admission results' },
+    summary: {
+      bn: 'মেরিট বা অপেক্ষা-তালিকা স্কুলের ওয়েবসাইটে প্রকাশ করুন, রাউন্ডে থাকলে কল-তালিকা ও এসএমএসসহ, আর ঠিক করুন নাম দেখাবে কি না।',
+      en: 'Publish a merit or waiting list on the school website, with a call list and SMS if the round uses them, and decide if names are shown.',
+    },
+    path: 'people/admission-publish',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.admissionWidgets': {
+    title: { bn: 'স্কুলের ওয়েবসাইটে ভর্তি', en: 'Admission on the school website' },
+    summary: {
+      bn: 'স্কুলের ওয়েবসাইটের ভর্তির তিনটি অংশ চালু বা বন্ধ করুন, রাউন্ড কখন দেখাবে ঠিক করুন, আর জানুন অভিভাবক কী দেখেন।',
+      en: 'Switch the three admission sections of the school website on or off, choose when a round shows, and know what a guardian sees.',
+    },
+    path: 'administration/admission-widgets',
+    anchor: '',
+    knownIssues: 0,
+  },
   'administration.modulesWords': {
     title: { bn: 'মডিউল ও শব্দ', en: 'Modules and words' },
     summary: {
@@ -5261,7 +5337,6 @@ export const HELP_ROUTES = {
   '/admissions/intakes/new': 'people.admissionIntakes',
   '/admissions/applicants': 'people.admissionApplicants',
   '/admissions/applicants/$applicantId': 'people.admissionApplicants',
-  '/admissions/applicants/new': 'people.admissionApplicants',
   '/admissions/reports': 'people.admissionReports',
   '/staff/teaching-assignments': 'people.teachingAssignments',
   '/staff/$userId/acr/$assessmentId': 'people.evaluations',
@@ -5415,6 +5490,8 @@ export const HELP_ROUTES = {
   '/support-access/requests/$requestId': 'administration.supportAccess',
   '/support/enter': 'administration.supportAccess',
   '/welcome/support-access': 'administration.supportAccess',
+  '/admissions/applicants/new': 'people.admissionClerkEntry',
+  '/admissions/rounds/$roundId': 'people.admissionStages',
   '/portal/notifications': 'portal.notifications',
 } as const;
 

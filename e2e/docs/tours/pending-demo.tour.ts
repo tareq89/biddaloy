@@ -1,20 +1,19 @@
 /**
  * [Epic 42 / W11] The pending PNG shots that a DEMO_MODE server can take: dashboard saved,
  * committee meeting report, the SVG import window, a teacher with two sections, a Reported
- * period card, and the public admission form on a guardian's phone (three shots).
+ * period card, and the admission walk-in form with its saved message (two shots).
  *
  *   GUIDE_LANG=en npx playwright test -c playwright.docs.config.ts --project=en-desktop pending-demo
  *
  * Local data this expects (throwaway demo DB only): the class teacher of 8-A is also
  * ASSISTANT_CLASS_TEACHER of 8-B (one SQL insert into teacher_class_sections).
  */
-import { devices, expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { guideLang, imgDir, loginAs, prepare, requireEnv, shoot } from '../helpers/capture';
 import { re, tr } from '../helpers/nav';
 
 const lang = guideLang();
-const SLUG = process.env.GUIDE_SCHOOL_SLUG ?? 'bmsc-high';
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="86mm" height="54mm" viewBox="0 0 86 54">
   <rect width="86" height="54" fill="#f3f6ff"/>
@@ -110,75 +109,39 @@ test('teacher: two sections in My class, a Reported period', async ({ page }, in
   await shoot(page, `${dir}/my-routine-02.png`, [{ target: card }]);
 });
 
-test('guest on a phone: form top, submitted page, status card', async ({ browser }, info) => {
+test('admin: walk-in application form and its saved message', async ({ page }, info) => {
   test.skip(info.project.metadata.device !== 'desktop');
-  const context = await browser.newContext({
-    ...devices['Pixel 7'],
-    locale: lang,
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 2,
-  });
-  const page: Page = await context.newPage();
   await prepare(page);
-  const ns = 'admission-public';
+  await loginAs(page, 'admin');
+  const ns = 'admission-desk';
   const dir = imgDir('people');
   const name = lang === 'bn' ? 'তানিশা রহমান' : 'Tanisha Rahman';
-  const phone = '01700000123';
 
-  await page.goto(`/admission/${SLUG}`);
-  await expect(page.getByRole('heading', { level: 1, name: tr(ns, 'form.title') })).toBeVisible();
-  const facts = page
-    .getByText(tr(ns, 'form.intakeFacts.round'))
-    .locator('xpath=ancestor::*[contains(@class,"rounded")][1]');
-  await expect(facts).toBeVisible();
-  await shoot(page, `${dir}/admission-intakes-03.png`, [{ target: facts }]);
+  await page.goto('/admissions/applicants/new');
+  await expect(page.getByRole('heading', { level: 1, name: tr(ns, 'clerk.title') })).toBeVisible();
+  // The first open round; its own boxes appear below.
+  await page.locator('#clerk-round').click();
+  await page.getByRole('option').first().click();
+  const form = page.locator('#clerk-name');
+  await expect(form).toBeVisible();
+  await shoot(page, `${dir}/admission-clerk-entry-01.png`, [
+    { target: page.locator('#clerk-round') },
+    { target: form },
+    { target: page.getByRole('button', { name: tr(ns, 'clerk.save') }) },
+  ]);
 
-  await page.getByLabel(tr(ns, 'form.fields.applicantName')).fill(name);
+  await form.fill(name);
+  await page.locator('#clerk-dob').fill('2015-03-10');
+  await page.locator('#clerk-gender').click();
+  await page.getByRole('option').first().click();
   await page
-    .locator('button', { hasText: tr('common', 'date.pick') })
-    .first()
-    .click();
-  await page.getByRole('button', { name: tr('common', 'date.chooseMonthYear') }).click();
-  const back = page.getByRole('button', { name: tr('common', 'date.previousYear') });
-  for (let y = new Date().getFullYear(); y > 2015; y--) await back.click();
-  await page
-    .getByRole('button', { name: /^Mar|মার্চ/ })
-    .first()
-    .click();
-  await page.locator('[role="grid"] [data-date="2015-03-10"]').click();
-  await page.getByRole('combobox', { name: tr(ns, 'form.fields.gender') }).click();
-  await page.getByRole('option', { name: tr(ns, 'form.fields.genderOptions.FEMALE') }).click();
-  await page
-    .getByLabel(tr(ns, 'form.fields.guardianName'))
+    .locator('#clerk-guardian_name')
     .fill(lang === 'bn' ? 'মিজানুর রহমান' : 'Mizanur Rahman');
-  await page.getByLabel(tr(ns, 'form.fields.guardianPhone')).fill(phone);
-  // The seeded round asks for a photo and a birth certificate: two tiny JPEGs (magic bytes only).
-  const jpeg = { mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]) };
-  for (const [doc, file] of [
-    ['PHOTO', 'photo.jpg'],
-    ['BIRTH_CERTIFICATE', 'birth-certificate.jpg'],
-  ] as const) {
-    const input = page.getByLabel(tr(ns, `form.documents.${doc}`), { exact: true });
-    if (await input.count()) await input.setInputFiles({ name: file, ...jpeg });
-  }
-  await page.getByRole('button', { name: tr(ns, 'form.submit') }).click();
-  const ref = page.getByTestId('reference-number');
-  await expect(ref).toBeVisible();
-  await shoot(page, `${dir}/admission-intakes-04.png`, [
-    { target: ref },
-    { target: page.getByRole('button', { name: tr(ns, 'confirmation.copy') }) },
-  ]);
-  const reference = ((await ref.textContent()) ?? '').trim();
-
-  await page.goto(`/admission/${SLUG}/status`);
-  await page.getByLabel(tr(ns, 'status.fields.referenceNumber')).fill(reference);
-  await page.getByLabel(tr(ns, 'status.fields.guardianPhone')).fill(phone);
-  await page.getByRole('button', { name: tr(ns, 'status.submit') }).click();
-  const badge = page.getByText(tr(ns, 'status.badges.PENDING'), { exact: true }).first();
-  await expect(badge).toBeVisible();
-  await shoot(page, `${dir}/admission-intakes-05.png`, [
-    { target: badge },
-    { target: page.getByText(tr(ns, 'status.next.PENDING')).first() },
-  ]);
-  await context.close();
+  await page.locator('#clerk-guardian_phone').fill('01700000123');
+  const docsLater = page.locator('#clerk-docs-later');
+  if (await docsLater.isVisible().catch(() => false)) await docsLater.click();
+  await page.getByRole('button', { name: tr(ns, 'clerk.save') }).click();
+  const saved = page.getByText(re(tr(ns, 'clerk.done'))).first();
+  await expect(saved).toBeVisible();
+  await shoot(page, `${dir}/admission-clerk-entry-02.png`, [{ target: saved }]);
 });

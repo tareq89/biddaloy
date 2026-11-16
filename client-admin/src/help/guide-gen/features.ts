@@ -160,6 +160,51 @@ const FIXED: Fixed[] = [
     roles: [UserRole.ADMIN],
     routes: ['/support/enter', '/welcome/support-access', '/support-access/requests/$requestId'],
   },
+  // [71.6.02] Admission desk pages. The desk is one route (`/admissions/rounds/$roundId`); its steps
+  // and dialogs are separate guide pages, so only the desk and the walk-in form claim a route.
+  {
+    id: 'people.admissionClerkEntry',
+    path: 'people/admission-clerk-entry',
+    roles: [UserRole.ADMIN, UserRole.OFFICE_STAFF],
+    routes: ['/admissions/applicants/new'],
+  },
+  {
+    id: 'people.admissionFeeVerify',
+    path: 'people/admission-fee-verify',
+    roles: [UserRole.ADMIN, UserRole.OFFICE_STAFF],
+    routes: [],
+  },
+  {
+    id: 'people.admissionStages',
+    path: 'people/admission-stages',
+    roles: [UserRole.ADMIN, UserRole.OFFICE_STAFF],
+    routes: ['/admissions/rounds/$roundId'],
+  },
+  {
+    id: 'people.admissionLottery',
+    path: 'people/admission-lottery',
+    roles: [UserRole.ADMIN, UserRole.OFFICE_STAFF],
+    routes: [],
+  },
+  {
+    id: 'people.admissionLists',
+    path: 'people/admission-lists',
+    roles: [UserRole.ADMIN, UserRole.OFFICE_STAFF],
+    routes: [],
+  },
+  {
+    id: 'people.admissionPublish',
+    path: 'people/admission-publish',
+    roles: [UserRole.ADMIN, UserRole.OFFICE_STAFF],
+    routes: [],
+  },
+  // The three admission sections of the school website; they live in Administration > Website.
+  {
+    id: 'administration.admissionWidgets',
+    path: 'administration/admission-widgets',
+    roles: [UserRole.ADMIN],
+    routes: [],
+  },
   // [77.7.01] Settings > Modules & words: a category of /settings, so no route of its own.
   {
     id: 'administration.modulesWords',
