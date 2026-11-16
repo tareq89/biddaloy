@@ -61,6 +61,7 @@ import {
   STUDENT_FORM_SERVER_FIELDS,
   BLOOD_GROUP_VALUES,
   GENDER_VALUES,
+  PHOTO_CONSENT_VALUES,
   buildStudentFormSchema,
   type StudentFormValues,
 } from './-student-form-schema';
@@ -85,6 +86,9 @@ export interface StudentFormProps<TInput> {
   disableSubmitWhenClean?: boolean;
   /** [76.5.07] `?focus=card` deep link (palette action): focus the card field on open. */
   focusCard?: boolean;
+  /** Edit mode only: whether the student has a photo. Its presence also shows the photo-consent
+   * field (create has none). REFUSED on a student with a photo asks first, as it deletes it (D26). */
+  hasPhoto?: boolean;
 }
 
 function isCardTaken(error: unknown): boolean {
@@ -108,6 +112,7 @@ export function StudentForm<TInput>({
   buildPayload,
   disableSubmitWhenClean,
   focusCard,
+  hasPhoto,
   onSuccess,
 }: StudentFormProps<TInput>) {
   const { t } = useTranslation('students');
@@ -132,6 +137,9 @@ export function StudentForm<TInput>({
     resolver: zodResolver(schema),
     defaultValues: initialValues,
   });
+
+  // The REFUSED choice waiting for the confirm; the field keeps its old value until then.
+  const [pendingRefuse, setPendingRefuse] = React.useState(false);
 
   const classId = form.watch('classId');
   const sectionsQuery = useClassSections(classId || undefined);
@@ -231,6 +239,20 @@ export function StudentForm<TInput>({
           confirmLabel={t('form.unsavedChangesDialog.leaveAction')}
           tone="danger"
           onConfirm={() => blocker.proceed?.()}
+        />
+
+        <ConfirmDialog
+          open={pendingRefuse}
+          onOpenChange={(open) => !open && setPendingRefuse(false)}
+          title={t('photoConsent.confirm.title')}
+          description={t('photoConsent.confirm.body')}
+          cancelLabel={t('photoConsent.confirm.cancel')}
+          confirmLabel={t('photoConsent.confirm.confirm')}
+          tone="danger"
+          onConfirm={() => {
+            form.setValue('photo_consent', 'REFUSED', { shouldDirty: true });
+            setPendingRefuse(false);
+          }}
         />
 
         {draftBannerVisible && (
@@ -421,6 +443,47 @@ export function StudentForm<TInput>({
                 </FormItem>
               )}
             />
+            {hasPhoto !== undefined && (
+              <FormField
+                control={form.control}
+                name="photo_consent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor={fieldId('photo_consent')}>
+                      {t('photoConsent.label')}
+                    </FormLabel>
+                    <FormControl>
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) => {
+                          if (value === 'REFUSED' && hasPhoto && field.value !== 'REFUSED') {
+                            setPendingRefuse(true);
+                            return;
+                          }
+                          field.onChange(value);
+                        }}
+                      >
+                        <SelectTrigger
+                          id={fieldId('photo_consent')}
+                          aria-label={t('photoConsent.label')}
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PHOTO_CONSENT_VALUES.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {t(`photoConsent.values.${value}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </FormSection>
 
           <FormSection legend={t('form.sections.placement')}>

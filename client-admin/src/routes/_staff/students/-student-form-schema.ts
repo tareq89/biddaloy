@@ -64,7 +64,11 @@ export const STUDENT_FORM_SERVER_FIELDS = [
   'gender',
   'home_address',
   'preferred_communication',
+  'photo_consent',
 ] as const;
+
+/** [59.G3] Mirrors `PhotoConsent`; `UpdateStudentInput` is checked against the generated union. */
+export const PHOTO_CONSENT_VALUES = ['GIVEN', 'REFUSED', 'UNKNOWN'] as const;
 
 export const GENDER_VALUES = ['MALE', 'FEMALE', 'OTHER'] as const;
 
@@ -93,6 +97,8 @@ export function buildStudentFormSchema(messages: StudentFormMessages) {
     gender: z.string().trim(),
     home_address: z.string().trim(),
     preferred_communication: z.enum(PREFERRED_COMMUNICATION_VALUES),
+    // Edit only: create has no such field (the server starts it at UNKNOWN).
+    photo_consent: z.enum(PHOTO_CONSENT_VALUES),
     guardian_ids: z.array(z.string()),
   });
 }
@@ -113,6 +119,7 @@ export function defaultStudentFormValues(): StudentFormValues {
     gender: '',
     home_address: '',
     preferred_communication: 'SMS',
+    photo_consent: 'UNKNOWN',
     guardian_ids: [],
   };
 }
@@ -137,6 +144,7 @@ export function studentToFormValues(student: Student): StudentFormValues {
     gender: student.gender ?? '',
     home_address: student.home_address ?? '',
     preferred_communication: student.preferred_communication,
+    photo_consent: student.photo_consent,
     guardian_ids: student.guardians.map((guardian) => guardian.id),
   };
 }
@@ -214,6 +222,7 @@ function buildFullUpdatePayload(values: StudentFormValues): UpdateStudentInput {
     gender: toOptional(values.gender) ?? null,
     home_address: toOptional(values.home_address) ?? null,
     card_no: toOptional(values.card_no ?? '') ?? null,
+    photo_consent: values.photo_consent,
   };
 }
 
