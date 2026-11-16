@@ -1066,4 +1066,16 @@ gets the section 404 first, so existence never leaks).
   **Rule candidate:** a seed that depends on another slice's rows has a test that fails when they
   are missing.
 
+- **Surprise (2026-11-16, wave-2 close):** a school registered over the API has exactly one staff
+  member, the admin, with a phone, and no teaching designation. "All teachers" therefore finds
+  nobody there, and the `?people=<id>` link is the shortest way to a known recipient. **Fix:**
+  `e2e/journeys/staff-message.spec.ts` uses a fresh school, checks the empty case from the default
+  audience, then sends through the link. **Rule candidate:** a journey that needs a recipient
+  names the person (link or picker), never "everyone".
+- **Surprise:** the committed `ui/src/api/schema.d.ts` was missing the two marks SMS routes (the
+  routes landed without a regeneration). **Fix:** regenerated here, `check-api-types` is green.
+  **Rule candidate:** none, the parent regenerates once at integration.
+- **Not verified:** the journey was written and type-checked without the stack (no Docker in this
+  lane); it has not run. The integration run (`ci:local`) is the parent's.
+
 Demo data: see [22-demo-seed.md](22-demo-seed.md) (`comms-print` slice).
