@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { StaffDocumentService } from './staff-document.service';
 import { StaffDocument } from './entities/staff-document.entity';
 import { AuditAction, StaffDocumentType } from '@biddaloy/shared';
@@ -78,12 +78,14 @@ describe('StaffDocumentService', () => {
   let storage: ReturnType<typeof createStorageStub>;
   let audit: ReturnType<typeof createAuditStub>;
   let service: StaffDocumentService;
+  let scan: { assertClean: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     repo = createRepoStub();
     storage = createStorageStub();
     audit = createAuditStub();
-    service = new StaffDocumentService(repo as any, storage as any, audit as any);
+    scan = { assertClean: vi.fn(async () => undefined) };
+    service = new StaffDocumentService(repo as any, storage as any, audit as any, scan as any);
   });
 
   it('uploads a new document: puts the object, saves the row, records an audit entry', async () => {
@@ -177,5 +179,28 @@ describe('StaffDocumentService', () => {
     const ok = await service.download(doc.id, TENANT_A);
     expect(ok.doc.id).toBe(doc.id);
     expect(storage.getForTenant).toHaveBeenCalledWith(doc.storage_key, TENANT_A);
+  });
+
+  // [#4003] Staff uploads: the scan runs before the object is stored, in 'open' mode.
+  it('scans the file in open mode before storing it', async () => {
+    await service.upload(STAFF_USER, StaffDocumentType.NID, makeFile(), {
+      userId: UPLOADER,
+      tenantId: TENANT_A,
+    });
+    expect(scan.assertClean).toHaveBeenCalledWith(expect.any(Buffer), 'open', {
+      tenantId: TENANT_A,
+      userId: UPLOADER,
+    });
+  });
+
+  it('a harmful file is refused and nothing is stored', async () => {
+    scan.assertClean.mockRejectedValue(new UnprocessableEntityException('x'));
+    await expect(
+      service.upload(STAFF_USER, StaffDocumentType.NID, makeFile(), {
+        userId: UPLOADER,
+        tenantId: TENANT_A,
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(storage.put).not.toHaveBeenCalled();
   });
 });

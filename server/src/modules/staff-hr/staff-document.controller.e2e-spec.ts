@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import * as Sentry from '@sentry/node';
+import { EICAR, startFakeClamd } from '@test/helpers/fake-clamd';
+
+// Real Sentry, but captureMessage is a spy (ESM exports cannot be spied on directly).
+vi.mock('@sentry/node', async (orig) => ({
+  ...(await orig<typeof import('@sentry/node')>()),
+  captureMessage: vi.fn(),
+}));
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -373,5 +381,56 @@ describe('StaffDocument E2E (23.6)', () => {
     const storageKeysAfterReplace = (storage as unknown as { objects: Map<string, unknown> })
       .objects.size;
     expect(storageKeysAfterReplace).toBe(firstStorageKeysBefore);
+  });
+
+  // [#4003, D19] Staff upload: harmful is 422, a dead scanner lets it through with a Sentry warning.
+  describe('virus scan (fail open)', () => {
+    let fake: Awaited<ReturnType<typeof startFakeClamd>> | undefined;
+    afterEach(async () => {
+      await fake?.close();
+      fake = undefined;
+      delete process.env.CLAMAV_HOST;
+      delete process.env.CLAMAV_PORT;
+      vi.restoreAllMocks();
+    });
+    const send = (body: string) =>
+      supertest(app.getHttpServer())
+        .post(`${API}/staff-documents/${STAFF_USER_ID}/NID`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .set('X-Role', UserRole.ADMIN)
+        .attach('file', Buffer.from(`%PDF-1.4 ${body}`, 'latin1'), {
+          filename: 'n.pdf',
+          contentType: 'application/pdf',
+        });
+    const start = async () => {
+      fake = await startFakeClamd();
+      process.env.CLAMAV_HOST = '127.0.0.1';
+      process.env.CLAMAV_PORT = String(fake.port);
+    };
+    const objectCount = () =>
+      (app.get(StorageService) as unknown as { objects: Map<string, unknown> }).objects.size;
+
+    it('a normal PDF is 201', async () => {
+      await start();
+      await send('hello').expect(201);
+    });
+
+    it('an EICAR PDF is 422 FILE_HARMFUL and nothing is stored', async () => {
+      await start();
+      const before = objectCount();
+      const res = await send(EICAR).expect(422);
+      expect(res.body.details.code).toBe('FILE_HARMFUL');
+      expect(objectCount()).toBe(before);
+    });
+
+    it('with the scanner down it is 201 and a Sentry warning is recorded', async () => {
+      await start();
+      await fake!.close();
+      const spy = vi.mocked(Sentry.captureMessage);
+      spy.mockClear();
+      await send('hello').expect(201);
+      expect(spy).toHaveBeenCalledWith('virus scan unavailable; staff upload allowed', 'warning');
+    });
   });
 });
