@@ -36,6 +36,7 @@ import {
   type StaffMessageInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -132,6 +133,8 @@ export function NotifyTeachersDialog({
     });
   }
 
+  const navigate = useNavigate();
+
   function sendSms() {
     if (!smsInput || sms.isPending) return;
     sms.mutate(smsInput, {
@@ -143,6 +146,12 @@ export function NotifyTeachersDialog({
               count: result.queued,
               failed: result.failed,
             }),
+            {
+              action: {
+                label: t('staffMessage.send.viewLog', { ns: 'communications' }),
+                onClick: () => void navigate({ to: '/communications/message-log' }),
+              },
+            },
           );
         } else {
           toast.success(

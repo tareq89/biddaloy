@@ -45,9 +45,8 @@ test.describe('Communications (admin)', () => {
       }),
     );
     await page.keyboard.press('Enter');
-    await expect(
-      page.getByRole('button', { name: t('communications.staffMessage.send.action'), exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText(t('communications.staffMessage.preview.title'))).toBeVisible();
+    await expect(page.getByText(t('communications.staffMessage.preview.people'))).toBeVisible();
   });
 
   // [97.4.03] Opening the log reads only; nothing is sent.
