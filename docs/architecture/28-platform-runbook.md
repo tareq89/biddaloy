@@ -39,6 +39,7 @@ Why the setup looks like this: [30-deployment-target.md](30-deployment-target.md
 - [Part 18. Login as and school control](#part-18-login-as-and-school-control-owners)
 - [Part 19. Money: SMS stock, packages, coupons, refunds](#part-19-money-sms-stock-packages-coupons-refunds-owners)
 - [Part 20. The virus scanner](#part-20-the-virus-scanner-owners)
+- [Part 21. Maintenance and telling schools](#part-21-maintenance-and-telling-schools)
 - [Known gaps](#known-gaps)
 
 ## Part 0. The picture and the order
@@ -1139,7 +1140,7 @@ Next:      check the Publish image run for 3f9c2ab4e1d0: gh run list -w publish-
 The full output stays on the VM in `/opt/biddaloy/logs/<stack>-last-deploy.log`. Run the
 `Next:` command (the doctor's `Next:` lines carry the full `docker compose -p ... -f ...`
 flags; the short `docker compose -p prod logs app` in a deploy message needs them added, see
-the `dcp` helper in [11a](#11a-platform-super-admin)), fix, and rerun the same `scripts/deploy.sh` line. Common first-time
+the `dcp` helper in [11a](#11a-platform-owners-the-cockpit)), fix, and rerun the same `scripts/deploy.sh` line. Common first-time
 failures:
 
 | `FAILED at` | Usual cause                                                               | Next                                                                  |
@@ -2722,6 +2723,92 @@ flowchart TD
 | **Memory?**                      | About 1.2 GB resident, limit 2 GB (`CLAMAV_MEM` in the ops `.env`). Watch it in Beszel; raise the limit if it is killed (`docker inspect` shows `OOMKilled`).                                                                                   |
 
 **Staging smoke.** After every staging deploy the smoke test uploads the standard EICAR test string (harmless) as a staff document and expects `422 FILE_HARMFUL`. A red `eicar` line there means the app cannot reach `clamav:3310` or clamd has no signatures yet. Production never sends it.
+
+## Part 21. Maintenance and telling schools
+
+> **Not yet run on staging — owner must run steps a–c once and paste the real output before relying on this.**
+> Every command below was read out of `scripts/deploy.sh`, `deploy/stack.yml`, `deploy/bin/biddaloy-doctor`,
+> [12-operations.md](12-operations.md) and [Part 12](#part-12-every-day-use). None was run. No output is shown
+> on purpose: what you see is described in words, not invented.
+
+**One-minute answer: "how do I put the site in maintenance?"** Tell the schools first (step 1), then on the VM run
+`DC prod stop app app2` (step 2). Bring it back with `DC prod start app app2` (step 4). `DC` is the shorthand
+defined in [12-operations.md section 3](12-operations.md#3-runbooks).
+
+```mermaid
+flowchart TD
+  T["1. Tell schools first<br/>(the cockpit needs the app)"] --> A["2. a: stop app and app2<br/>db, redis, files, backups keep running"]
+  A --> B["3. b: check<br/>biddaloy-doctor edge + a browser"]
+  B --> W["Do the work"]
+  W --> C["4. c: start app and app2"]
+  C --> R["5. biddaloy-doctor prod<br/>wait for 'prod ready' OK"]
+  R --> D["6. d: tell schools it is back"]
+```
+
+### What you will see, and a gap to know
+
+- **School websites** (`<school>.schoolmanagerp.com`): their `site` container keeps running, but it reads from `app`.
+  With `app` stopped, nginx answers the friendly 503 "try again" page (`site/public/maintenance.html`, rule in
+  `nginx/templates/site.conf.template`). Pages already in the 30 second cache are served stale.
+- **The app and the cockpit** (`app.` and the cockpit host): nginx has **no maintenance page** for these. With both app
+  containers down, nginx answers its plain 502 "Bad Gateway" page (`nginx/templates/default.conf.template` has no
+  `error_page` rule). Tell schools in advance so they are not surprised. A friendly page is not built yet.
+- **Kuma** will raise its app monitors and Telegram will get alerts. That is expected; tell the alert group first.
+
+### Steps
+
+Run these on the VM as the `deploy` user (`ssh deploy@$BIDDALOY_HOST`, same as [Part 12](#the-nightly-jobs)).
+
+1. **Tell schools first.** The cockpit is served by the app, so it goes down at step 2.
+   - Owner announcement to all schools: cockpit, `POST /api/v1/platform/announcements` (preview with
+     `.../announcements/preview` first). It needs the **second owner** to approve
+     ([12-operations 3.11](12-operations.md#311-a-queue-is-stuck-or-a-restore-lock-will-not-clear)).
+   - Post one message in the Telegram alert group by hand: what, when, how long.
+   - Public status page: pending (#1770). Until it exists, the announcement above is the school notice.
+   - Message words: [44-continuity.md](44-continuity.md#telling-schools).
+2. **(a) Stop the app.** Only `app` and `app2`. **Never** stop `db`, `redis` or `seaweedfs`.
+
+   ```bash
+   DC() { p=$1; shift; docker compose -p "$p" --project-directory "/opt/biddaloy/$p" -f /opt/biddaloy/repo/deploy/stack.yml "$@"; }
+   DC prod stop app app2
+   DC prod ps
+   ```
+
+   Expected, in words: `app` and `app2` show as exited; `db`, `redis`, `seaweedfs`, `backup` and `site` stay `Up`.
+
+3. **(b) Check.**
+
+   ```bash
+   biddaloy-doctor edge
+   biddaloy-doctor prod
+   ```
+
+   Expected, in words: every `edge` row is OK (the edge is healthy, it just has nothing behind it); `prod ready` is
+   **FAIL** (that proves the app is down, so it is the right answer here). Then open `app.schoolmanagerp.com` in a
+   browser and see the 502 page, and a school website and see the 503 try-again page.
+
+4. **(c) Bring it back.**
+
+   ```bash
+   DC prod start app app2
+   biddaloy-doctor prod
+   ```
+
+   Run `biddaloy-doctor prod` again every 30 seconds until `prod ready` is OK (the deploy waits up to 24 x 5 s for
+   this, see [07-deployment.md](07-deployment.md#rolling-restart)). Then open the app and sign in once.
+
+5. **(d) Tell schools it is back.** A second announcement and one Telegram message.
+
+**What stays running.** The `db`, `redis`, `seaweedfs` and `backup` containers are never touched, so the hourly
+backup to R2 continues. The nightly jobs (restore drill 02:20, demo rebuild 03:00, log archive 04:00) are host
+timers that do not need the app; see [The nightly jobs](#the-nightly-jobs).
+
+**Do not** run `biddaloy-deploy` while the site is in maintenance: a deploy restarts `app` and `app2` itself, which
+ends the maintenance without you saying so. `docker compose stop` is sticky (`restart: unless-stopped`), so a VM
+reboot also leaves `app` and `app2` stopped until step 4.
+
+**Before you rely on this:** run steps 2 to 4 once on **staging** (use `DC staging stop app`, there is one `app` there
+and no `app2`), then paste the real output of each command into this part and delete the banner at the top.
 
 ## Known gaps
 
