@@ -9,6 +9,7 @@ import { DataSource, type EntityManager } from 'typeorm';
 import { ATTACHMENT_LIMITS, ApplicationStatus, AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { StorageService, type StoredObject } from '../storage/storage.service';
+import { VirusScanService } from '../storage/virus-scan.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
 import { ApplicationsService } from './applications.service';
@@ -42,6 +43,7 @@ export class ApplicationAttachmentsService {
     private readonly applications: ApplicationsService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly virusScan: VirusScanService,
   ) {}
 
   /** Applicant or enterer only (403), and only while PENDING (422). Optionally row-locks. */
@@ -115,6 +117,11 @@ export class ApplicationAttachmentsService {
       if (file.originalname.length > 255) {
         throw new BadRequestException('Filename must be at most 255 characters');
       }
+    }
+
+    // Scan every file before storing any, so a harmful second file leaves nothing behind.
+    for (const file of files) {
+      await this.virusScan.assertClean(file.buffer, 'closed', { tenantId, userId: user.userId });
     }
 
     const keys: string[] = [];

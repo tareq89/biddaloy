@@ -27,10 +27,14 @@ import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
 import { ModuleStateReader } from '../auth/guards/module-state.reader';
 import { StorageService } from '../storage/storage.service';
+import { VirusScanService } from '../storage/virus-scan.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
 import { GuardianService } from '../students/students.service';
-import { AdmissionFormSchemaService, type AdmissionFormSchema } from './admission-form-schema.service';
+import {
+  AdmissionFormSchemaService,
+  type AdmissionFormSchema,
+} from './admission-form-schema.service';
 import { ADMISSION_FIELD_CATALOGUE, validateExtraFields } from '@biddaloy/shared';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import type { StaffCreateApplicantDto } from './dto/staff-create-applicant.dto';
@@ -132,6 +136,7 @@ export class AdmissionApplicantService {
     private readonly formSchema: AdmissionFormSchemaService,
     private readonly guardianService: GuardianService,
     private readonly auditService: AuditService,
+    private readonly virusScan: VirusScanService,
   ) {}
 
   /**
@@ -295,8 +300,8 @@ export class AdmissionApplicantService {
     let replacedKeys: string[] = [];
     let strayKeys: string[] = [];
     try {
-      const documents = await this.uploadDocuments(school.id, files, uploadedKeys);
-      // Check the proof's bytes before anything is stored (Rule 6), then store it with the rest.
+      // Check the proof's bytes (Rule 6) and scan it before anything is stored, then store it
+      // with the rest. Public route, so a scanner outage refuses the upload (fail closed, D19).
       const proofFile = opts.fee?.file;
       let proofKey: string | null = null;
       if (proofFile) {
@@ -306,6 +311,11 @@ export class AdmissionApplicantService {
             'fee_proof: file must be a PNG, JPEG, WEBP or PDF whose contents match its type',
           );
         }
+        await this.virusScan.assertClean(proofFile.buffer, 'closed', { tenantId: school.id });
+      }
+      const documents = await this.uploadDocuments(school.id, files, uploadedKeys);
+      if (proofFile) {
+        const ext = EXT_BY_MIME[proofFile.mimetype];
         proofKey = tenantObjectKey(school.id, 'admission-fee-proofs', ext);
         await this.storage.put(proofKey, proofFile.buffer, proofFile.mimetype);
         uploadedKeys.push(proofKey);
@@ -547,7 +557,9 @@ export class AdmissionApplicantService {
       // needs no login, so only ever delete inside this school's own prefix.
       if (replacedKeys.length + strayKeys.length > 0) {
         await Promise.allSettled(
-          [...replacedKeys, ...strayKeys].map((key) => this.storage.deleteForTenant(key, school.id)),
+          [...replacedKeys, ...strayKeys].map((key) =>
+            this.storage.deleteForTenant(key, school.id),
+          ),
         );
       }
       return result;
@@ -658,6 +670,11 @@ export class AdmissionApplicantService {
           `${file.fieldname}: file must be a PNG, JPEG, WEBP or PDF whose contents match its type`,
         );
       }
+    }
+    // Scan every file before writing any (fail closed: this route has no login).
+    for (const file of files ?? []) {
+      if (!documentTypeForFieldname(file.fieldname)) continue;
+      await this.virusScan.assertClean(file.buffer, 'closed', { tenantId });
     }
 
     const documents: AdmissionApplicantDocument[] = [];

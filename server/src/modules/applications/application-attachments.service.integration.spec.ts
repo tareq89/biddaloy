@@ -1,14 +1,26 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi, type Mock } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  afterEach,
+  vi,
+  type Mock,
+} from 'vitest';
 import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
+import { EICAR, startFakeClamd } from '@test/helpers/fake-clamd';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_PASSWORD_HASH, SEED_SECTION_1_ID, SEED_TENANT_ID } from '@test/constants';
@@ -226,6 +238,43 @@ describe('ApplicationAttachmentsService (integration)', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(put).not.toHaveBeenCalled();
       expect(await rows()).toHaveLength(0);
+    });
+
+    describe('virus scan (fail closed, D19)', () => {
+      let fake: Awaited<ReturnType<typeof startFakeClamd>>;
+      beforeEach(async () => {
+        fake = await startFakeClamd();
+        process.env.CLAMAV_HOST = '127.0.0.1';
+        process.env.CLAMAV_PORT = String(fake.port);
+      });
+      afterEach(async () => {
+        await fake.close();
+        delete process.env.CLAMAV_HOST;
+        delete process.env.CLAMAV_PORT;
+      });
+
+      it('a clean PDF is stored', async () => {
+        await upload([pdf()]);
+        expect(put).toHaveBeenCalledTimes(1);
+      });
+
+      it('an EICAR PDF is 422 FILE_HARMFUL and the clean first file is not stored either', async () => {
+        const bad = file('b.pdf', 'application/pdf', Buffer.from(`%PDF-1.4 ${EICAR}`, 'latin1'));
+        const err = await upload([pdf(), bad]).catch((e) => e);
+        expect(err).toBeInstanceOf(UnprocessableEntityException);
+        expect(err.getResponse().details.code).toBe('FILE_HARMFUL');
+        expect(put).not.toHaveBeenCalled();
+        expect(await rows()).toHaveLength(0);
+      });
+
+      it('with the scanner down it is 503 FILE_CHECK_UNAVAILABLE and nothing is stored', async () => {
+        await fake.close();
+        const err = await upload([pdf()]).catch((e) => e);
+        expect(err).toBeInstanceOf(ServiceUnavailableException);
+        expect(err.getResponse().details.code).toBe('FILE_CHECK_UNAVAILABLE');
+        expect(put).not.toHaveBeenCalled();
+        expect(await rows()).toHaveLength(0);
+      });
     });
 
     it('a WebP is a 400', async () => {
