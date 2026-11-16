@@ -14,6 +14,7 @@ export interface StagedRegistration {
   /** Typed at signup, optional; stored unverified. */
   email: string | null;
   terms_accepted_at: string;
+  terms_version: string;
   /** What the code was sent to, and how. Fixed at start so verify cannot be pointed elsewhere. */
   identifier: string;
   channel: 'sms';

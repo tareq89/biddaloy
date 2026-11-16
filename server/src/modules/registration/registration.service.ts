@@ -17,9 +17,11 @@ import {
   CommunicationMedium,
   CommunicationStatus,
   LoginResponse,
+  SIGNUP_DOCS,
   UserRole,
   UserStatus,
 } from '@biddaloy/shared';
+import { LegalService } from '../legal/legal.service';
 import { AuditService } from '../audit/audit.service';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
 import { AccountAccessDeliveryService } from '../account-access/account-access-delivery.service';
@@ -102,6 +104,7 @@ export class RegistrationService {
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(UserTenant) private readonly memberships: Repository<UserTenant>,
     private readonly tenantStatus: TenantStatusService,
+    private readonly legal: LegalService,
   ) {}
 
   async start(dto: RegisterStartDto, context: RequestContext): Promise<RegisterStartResult> {
@@ -128,6 +131,7 @@ export class RegistrationService {
       phone: dto.phone,
       email: dto.email ?? null,
       terms_accepted_at: new Date().toISOString(),
+      terms_version: dto.terms_version,
       identifier: dto.phone,
       channel: 'sms',
     };
@@ -351,6 +355,7 @@ export class RegistrationService {
             if (ticket) {
               await this.socialIdentity.link(userId, ticket, manager, context, result.school.id);
             }
+            await this.legal.accept(userId, result.school.id, SIGNUP_DOCS, context.ip, manager);
             await this.audit.record(
               {
                 action: AuditAction.CREATE,
@@ -362,6 +367,7 @@ export class RegistrationService {
                 user_agent: context.userAgent,
                 new_values: {
                   terms_accepted_at: staged.terms_accepted_at,
+                  terms_version: staged.terms_version,
                   country_code: staged.country_code,
                 },
               },
