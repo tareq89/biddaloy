@@ -1,5 +1,8 @@
 import '@biddaloy/ui/test';
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import {
   createMemoryHistory,
@@ -175,31 +178,19 @@ const keys = (v: unknown, p = ''): string[] =>
   typeof v === 'string'
     ? [p]
     : Object.entries(v as object).flatMap(([k, x]) => keys(x, `${p}.${k}`));
-// Glossary "Never say" column (D15), plus the ticket's list.
-const never = [
-  'bundle',
-  'stock',
-  'lot',
-  'ledger',
-  'allocation',
-  'voucher',
-  'promo code',
-  'reversal',
-  'chargeback',
-  'tax rate',
-  'levy',
-  'tier',
-  'pricing profile',
-  'billing console',
-  'finance',
-  'non-masking',
-  'raw sender',
-  'TTL',
-  'lot expiry',
-  'coupon',
-];
+// Glossary "Never say" column (D15), read from the glossary file so the two cannot drift.
+const never = readFileSync(
+  resolve(__dirname, '../../../../../../docs/ux-research/cockpit-money-glossary.md'),
+  'utf8',
+)
+  .split('\n')
+  .filter((l) => /^\| .+ \| .+ \| .+ \| .+ \|$/.test(l) && !/^\| (UI|---)/.test(l))
+  .flatMap((l) => l.split('|')[3]!.split(','))
+  .map((w) => w.trim())
+  .filter(Boolean);
 
 describe('Revenue words', () => {
+  it('reads the glossary', () => expect(never).toContain('bundle'));
   it.each([
     ['en', en],
     ['bn', bn],

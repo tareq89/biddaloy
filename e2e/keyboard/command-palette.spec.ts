@@ -1,5 +1,5 @@
 import { adminApiSession, createStudent } from '../api';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { cockpitOwner, expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
 /**
@@ -152,4 +152,35 @@ test('Page tab lists every page; ArrowDown walks to the last row, keeps it visib
   // Dashboard is row 1 and a fresh context has no recents.
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+/**
+ * [100.5.gI-02] D14: the six money actions are in the owner's palette (Action tab), found by their
+ * plain English label and keyboard-run to the right cockpit URL. Labels and targets mirror
+ * `PLATFORM_ACTIONS` in `client-admin/src/action-registry.ts`. One owner, English UI.
+ */
+test.describe('cockpit owner: money actions', () => {
+  test.use({ ...cockpitOwner, e2eLocale: 'en' });
+
+  const moneyActions: [label: string, url: RegExp][] = [
+    ['SMS report', /\/money$/],
+    ['New SMS package', /\/money\/packages\?new=1$/],
+    ['Record SMS bought', /\/money\?record=1$/],
+    ['Plans', /\/money\/plans$/],
+    ['New coupon', /\/money\/coupons\?new=1$/],
+    ['Refund an order (pick the school)', /\/subscriptions$/],
+  ];
+
+  for (const [label, url] of moneyActions) {
+    test(`"${label}" runs from the palette`, async ({ page }) => {
+      await page.goto('/schools');
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      await page.keyboard.press('ControlOrMeta+k');
+      await page.keyboard.press('Control+3');
+      await page.keyboard.type(label);
+      await expect(page.getByRole('option', { name: label }).first()).toBeVisible();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(url);
+    });
+  }
 });

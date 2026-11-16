@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { clearOwnerTotpStep, post, put, registerTrialSchool } from '../api';
-import { newOwner, resetOwners } from '../cockpit/helpers';
+import { expectAccessiblePage, newOwner, resetOwners } from '../cockpit/helpers';
 import { shells } from '../config';
 import {
   deactivateSmsPackages,
@@ -234,8 +234,25 @@ test.describe('on a phone', () => {
     const box = await dialog.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    await page.keyboard.press('Escape');
+    await expectAccessiblePage(page);
   });
 });
+
+// [100.5.gI-02] The axe gate on every money route in the manifest (the 390 px SMS page is above).
+for (const path of [
+  '/money',
+  '/money/packages',
+  '/money/plans',
+  '/money/coupons',
+  '/money/revenue',
+]) {
+  test(`axe: ${path} has no violations`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+    await expectAccessiblePage(page);
+  });
+}
 
 test('a 100 % coupon waits for the other owner', async ({ page }) => {
   // A second active owner (rows only: it never signs in here), so the request can wait for them.
