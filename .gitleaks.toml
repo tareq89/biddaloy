@@ -1,0 +1,28 @@
+# [Epic 60, D10] Default gitleaks rules plus a path-only allowlist for
+# files that hold test or example values. No blanket regex on purpose.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test and example values live only in these paths"
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.test\.example$''',
+  '''.*\.spec\.ts$''',
+  '''.*\.e2e-spec\.ts$''',
+  '''^e2e/''',
+  '''^docs/''',
+  '''^server/src/scripts/''',
+  # Throwaway SETTINGS_ENCRYPTION_KEY the CI jobs give their own empty database.
+  '''^\.github/workflows/ci\.yml$''',
+  '''^\.github/workflows/nightly-quality\.yml$''',
+  # Fixtures, in test files and scripts.
+  '''.*\.test\.(ts|tsx|sh)$''',
+  '''.*\.spec\.mjs$''',
+  '''^scripts/(test-env|ci-local)\.sh$''',
+  '''^docker/test/''',
+  # Migration lists old setting key names, not secrets.
+  '''^server/src/migrations/1791900000000-PerTenantProfileUniqueness\.ts$''',
+  # Built output that only exists in old history.
+  '''^ui/storybook-static/''',
+]
