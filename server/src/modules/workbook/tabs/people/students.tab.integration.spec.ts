@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { TestingModule } from '@nestjs/testing';
-import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { CommunicationMedium, EnrollmentStatus, PhotoConsent } from '@biddaloy/shared';
 import { School } from '../../../schools/entities/school.entity';
 import { User } from '../../../users/entities/user.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
@@ -162,6 +162,7 @@ describe('studentsTab (integration)', () => {
       full_name_bn: null,
       blood_group: null,
       photo_key: null,
+      photo_consent: null,
       roll_number: 1,
       class_section_id: chain.section.id,
       date_of_birth: null,
@@ -187,6 +188,46 @@ describe('studentsTab (integration)', () => {
   }
 
   describe('upsert', () => {
+    describe('photo consent (59.2.05)', () => {
+      it('a new student defaults to UNKNOWN; a set value is stamped; a blank cell keeps it', async () => {
+        const chain = await seedChain(TENANT_A, 'consent');
+        const created = await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        expect(created.photo_consent).toBe('UNKNOWN');
+
+        const given = await studentsTab.upsert(
+          rowFor(chain, { photo_consent: PhotoConsent.GIVEN }),
+          created,
+          TENANT_A,
+          dataSource.manager,
+        );
+        expect(given.photo_consent).toBe('GIVEN');
+        expect(given.photo_consent_recorded_at).toBeInstanceOf(Date);
+
+        const kept = await studentsTab.upsert(rowFor(chain), given, TENANT_A, dataSource.manager);
+        expect((await studentRepo.findOneByOrFail({ id: kept.id })).photo_consent).toBe('GIVEN');
+      });
+
+      it('REFUSED clears the stored photo key', async () => {
+        const chain = await seedChain(TENANT_A, 'consent2');
+        const key = `tenants/${TENANT_A}/student-photo/p.jpg`;
+        const created = await studentsTab.upsert(
+          rowFor(chain, { photo_key: key }),
+          null,
+          TENANT_A,
+          dataSource.manager,
+        );
+        const refused = await studentsTab.upsert(
+          rowFor(chain, { photo_consent: PhotoConsent.REFUSED, photo_key: null }),
+          created,
+          TENANT_A,
+          dataSource.manager,
+        );
+        const stored = await studentRepo.findOneByOrFail({ id: refused.id });
+        expect(stored.photo_consent).toBe('REFUSED');
+        expect(stored.photo_key).toBeNull();
+      });
+    });
+
     describe('seat limit [13.2.3]', () => {
       const ctx = async (limit: number | null) => {
         await schoolRepo.update(TENANT_A, { seat_limit: limit });
