@@ -70,6 +70,28 @@ export class SendLimitService {
     return value;
   }
 
+  /** Platform default over the code default, no school (cockpit platform GET). */
+  async platformEffective(): Promise<Limits & { showRemaining: boolean }> {
+    return this.chain({}, await this.platformDefaults());
+  }
+
+  /** What a send uses now, plus `showRemaining`, on the same chain (cockpit GET). */
+  async effective(tenantId: string): Promise<Limits & { showRemaining: boolean }> {
+    const settings = await this.settingsCache.getOrLoad(tenantId, () =>
+      this.schools.getDecryptedSettings(tenantId),
+    );
+    const school = sanitiseDailyLimits(settings.communications?.dailyLimits) ?? {};
+    return this.chain(school, await this.platformDefaults());
+  }
+
+  private chain(school: Record<string, any>, platform: Record<string, any>) {
+    const out = {
+      showRemaining: school.showRemaining ?? platform.showRemaining ?? false,
+    } as Limits & { showRemaining: boolean };
+    for (const c of CHANNELS) out[c] = school[c] ?? platform[c] ?? DEFAULT_DAILY_SEND_LIMITS[c];
+    return out;
+  }
+
   /** Per field: school ?? platform ?? default. A `{}` never means "no limit". */
   async effectiveLimits(tenantId: string): Promise<Limits> {
     const settings = await this.settingsCache.getOrLoad(tenantId, () =>

@@ -254,8 +254,8 @@ export type DailyLimitChannel = 'sms' | 'email' | 'whatsapp';
 /** Response of the platform route #4254. */
 export interface DailyLimitsView {
   stored: DailySendLimits;
-  effective: Record<DailyLimitChannel, number>;
-  usedToday: Record<DailyLimitChannel, number>;
+  effective: Record<DailyLimitChannel, number> & { showRemaining: boolean };
+  usedToday: Record<DailyLimitChannel, number> | null;
 }
 
 /** Response of #4255: the optional "left today" notice (D33). */
