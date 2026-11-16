@@ -936,6 +936,30 @@ describe('BulkReminderService', () => {
       expect(reserveOrder).toBeLessThan(jobAddOrder);
     });
 
+    it('over the daily send limit: 409 DAILY_LIMIT_REACHED, no batch, no reserve, no jobs [60.0]', async () => {
+      const limited = new BulkReminderService(
+        logRepo as any,
+        batchRepo as any,
+        queue as any,
+        studentService as any,
+        feeDuesService as any,
+        auditService as any,
+        smsCreditService as any,
+        { resolveFor: vi.fn(async () => ({ source: 'platform' })) } as any,
+        { remaining: vi.fn(async () => ({ limit: 10, remaining: 0 })) } as any,
+      );
+      const err: any = await limited.sendBulk(dto as any, TENANT, USER).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details).toMatchObject({
+        code: 'DAILY_LIMIT_REACHED',
+        remaining: 0,
+        limit: 10,
+      });
+      expect(batchRepo.save).not.toHaveBeenCalled();
+      expect(smsCreditService.reserve).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
     it('metered, insufficient balance: 409 with INSUFFICIENT_SMS_CREDIT, no logs/jobs, batch rolled back', async () => {
       smsCreditService.isMetered.mockResolvedValue(true);
       smsCreditService.reserve.mockResolvedValue({ ok: false, available: 2 });
