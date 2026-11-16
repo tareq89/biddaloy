@@ -89,6 +89,8 @@ describe('VirusScanService', () => {
 
   it('streams a 5 MB buffer in chunks and still sees EICAR at the end', async () => {
     await use();
+    // Two 5 MB scans on a loaded CI runner can outrun the 300 ms default; the timeout is not what this test checks.
+    (svc as unknown as { timeoutMs: number }).timeoutMs = 10_000;
     const big = Buffer.concat([Buffer.alloc(5 * 1024 * 1024, 1), Buffer.from(EICAR, 'latin1')]);
     await expect(svc.assertClean(big, 'closed')).rejects.toMatchObject({ status: 422 });
     await expect(
