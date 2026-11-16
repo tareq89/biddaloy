@@ -1,4 +1,8 @@
 {
+  "moved": {
+    "title": "This link is no longer active",
+    "body": "Apply online on the school website."
+  },
   "form": {
     "title": "Admission form",
     "loading": "Loading the form…",

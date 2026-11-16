@@ -26,7 +26,23 @@
     "columnIntake": "Admission round",
     "view": "View",
     "emptyTitle": "No applications yet",
-    "emptyText": "Applications appear here when guardians apply online."
+    "emptyText": "Applications appear here when guardians apply online.",
+    "filterFee": "Fee",
+    "filterAllFees": "All fee states",
+    "filterQuota": "Quota",
+    "filterQuotaPlaceholder": "Quota tag",
+    "filterSource": "Applied through",
+    "filterAllSources": "All sources",
+    "feeState": {
+      "NONE": "No fee proof",
+      "AWAITING": "Fee waiting to be checked",
+      "CONFIRMED": "Fee ok",
+      "SENT_BACK": "Fee sent back"
+    },
+    "source": {
+      "ONLINE": "Online form",
+      "CLERK": "Entered by staff"
+    }
   },
   "detail": {
     "sectionApplicant": "Applicant",
@@ -76,7 +92,21 @@
       "REJECT": "Rejected"
     },
     "rejectNotesLabel": "Reason (optional)",
-    "rejectDescription": "{{name}} will be told the application was not accepted. This cannot be undone."
+    "rejectDescription": "{{name}} will be told the application was not accepted. This cannot be undone.",
+    "sectionAdmission": "Application details",
+    "fieldSource": "Applied through",
+    "fieldQuota": "Quota",
+    "fieldSibling": "Sibling in this school",
+    "siblingYes": "Yes",
+    "siblingNo": "No",
+    "fieldRoll": "Roll number",
+    "fieldFee": "Fee",
+    "sectionExtra": "More information",
+    "sectionFees": "Fee history",
+    "noFees": "No fee proof yet",
+    "feeReference": "Reference {{ref}}",
+    "feeReason": "Reason: {{reason}}",
+    "feesError": "Could not load the fee history."
   },
   "evaluate": {
     "shortlistTitle": "Add to shortlist",
@@ -102,7 +132,9 @@
     "choiceLegend": "This phone number already belongs to a guardian",
     "linkExisting": "Link this child to this family",
     "createNew": "Create a new guardian for this child",
-    "matchError": "Could not check for an existing guardian. Try again before admitting."
+    "matchError": "Could not check for an existing guardian. Try again before admitting.",
+    "section": "$t(common:entities.section_one)",
+    "sectionAuto": "Let the school choose"
   },
   "fields": {
     "notes": "Note",

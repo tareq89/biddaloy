@@ -685,7 +685,7 @@ export const HELP_INDEX: HelpIndex = {
   },
   'people.admissionIntakes': {
     title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      bn: 'ভর্তি রাউন্ড ও অনলাইন ভর্তির ফর্ম',
       en: 'Admission rounds and the online admission form',
     },
     summary: {
@@ -698,7 +698,7 @@ export const HELP_INDEX: HelpIndex = {
   },
   'people.admissionIntakes.action.add': {
     title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      bn: 'ভর্তি রাউন্ড ও অনলাইন ভর্তির ফর্ম',
       en: 'Admission rounds and the online admission form',
     },
     summary: {
@@ -711,7 +711,7 @@ export const HELP_INDEX: HelpIndex = {
   },
   'people.admissionIntakes.field.classSection': {
     title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      bn: 'ভর্তি রাউন্ড ও অনলাইন ভর্তির ফর্ম',
       en: 'Admission rounds and the online admission form',
     },
     summary: { bn: '', en: '' },
@@ -722,7 +722,7 @@ export const HELP_INDEX: HelpIndex = {
   },
   'people.admissionIntakes.field.seatCount': {
     title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      bn: 'ভর্তি রাউন্ড ও অনলাইন ভর্তির ফর্ম',
       en: 'Admission rounds and the online admission form',
     },
     summary: { bn: '', en: '' },
@@ -733,7 +733,7 @@ export const HELP_INDEX: HelpIndex = {
   },
   'people.admissionIntakes.field.dates': {
     title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      bn: 'ভর্তি রাউন্ড ও অনলাইন ভর্তির ফর্ম',
       en: 'Admission rounds and the online admission form',
     },
     summary: { bn: '', en: '' },
@@ -744,7 +744,7 @@ export const HELP_INDEX: HelpIndex = {
   },
   'people.admissionIntakes.field.requiredDocuments': {
     title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      bn: 'ভর্তি রাউন্ড ও অনলাইন ভর্তির ফর্ম',
       en: 'Admission rounds and the online admission form',
     },
     summary: { bn: '', en: '' },
@@ -5258,8 +5258,10 @@ export const HELP_ROUTES = {
   '/admission/$slug/status': 'people.admissionIntakes',
   '/admissions/intakes': 'people.admissionIntakes',
   '/admissions/intakes/$intakeId': 'people.admissionIntakes',
+  '/admissions/intakes/new': 'people.admissionIntakes',
   '/admissions/applicants': 'people.admissionApplicants',
   '/admissions/applicants/$applicantId': 'people.admissionApplicants',
+  '/admissions/applicants/new': 'people.admissionApplicants',
   '/admissions/reports': 'people.admissionReports',
   '/staff/teaching-assignments': 'people.teachingAssignments',
   '/staff/$userId/acr/$assessmentId': 'people.evaluations',

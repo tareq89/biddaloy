@@ -9201,57 +9201,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/admission/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Open admission intakes (and their required document types) for a school, by slug. */
-        get: operations["PublicAdmissionController_listOpenIntakes_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/admission/{slug}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Check an admission application status by reference number plus the guardian phone given on the form, no login required. Returns only status/applicant name/intake title — an unknown reference, a wrong phone, or a wrong-tenant reference number all 404 identically. POST (not GET) so the phone number never lands in a URL/access log. */
-        post: operations["PublicAdmissionController_getStatus_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/admission/{slug}/applicants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit an admission application. Multipart form: applicant fields plus one file field per required document type (photo/birth_certificate/transcript). Updating an existing PENDING application for the same child (intake, guardian_phone, date of birth, name) requires its reference_number as proof of ownership — a phone number and intake_id are both public, so matching on those two alone isn't enough. */
-        post: operations["PublicAdmissionController_submit_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admission/reports/lifecycle": {
         parameters: {
             query?: never;
@@ -9261,6 +9210,40 @@ export interface paths {
         };
         /** Admitted / withdrawn / transferred out / graduated / readmitted counts and rows for an academic year. */
         get: operations["AdmissionReportsController_lifecycle_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/reports/funnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Applied to admitted funnel, ONLINE/CLERK split and quota counts for an academic year. */
+        get: operations["AdmissionReportsController_funnel_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admission/reports/export/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download applicants, stage scores or lists as .xlsx. */
+        get: operations["AdmissionReportsController_exportKind_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9395,7 +9378,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Saved results of a stage, ordered by roll. Page size at most 100. */
+        get: operations["AdmissionStageResultController_list_v1"];
         /** Record attendance and a score (or pass/fail) per applicant, up to 200 rows. Last write wins. */
         put: operations["AdmissionStageResultController_put_v1"];
         post?: never;
@@ -21202,6 +21186,121 @@ export interface components {
             widget_always_show?: boolean;
             auto_activate_lists?: boolean;
         };
+        /** @enum {string} */
+        AdmissionStageKind: "NONE" | "WRITTEN" | "VIVA" | "LOTTERY" | "FIRST_COME" | "GPA";
+        AdmissionStageResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            intake_id: string;
+            position: number;
+            kind: components["schemas"]["AdmissionStageKind"];
+            title: string | null;
+            config: {
+                [key: string]: unknown;
+            };
+            /** @example 2026-12-01 */
+            date: string | null;
+            /** @example 10:30 */
+            start_time: string | null;
+            venue: string | null;
+            max_score: number | null;
+            /** @enum {string|null} */
+            mode: "SCORE" | "PASS_FAIL" | null;
+            /** Format: date-time */
+            cutoff_committed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateStageDto: {
+            kind: components["schemas"]["AdmissionStageKind"];
+            title?: string | null;
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateStageDto: {
+            kind?: components["schemas"]["AdmissionStageKind"];
+            title?: string | null;
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        AdmissionFeeState: "NONE" | "AWAITING" | "CONFIRMED" | "SENT_BACK";
+        /** @enum {string} */
+        AdmissionSource: "ONLINE" | "CLERK";
+        /** @enum {string} */
+        AdmissionDocumentType: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT" | "SSC_MARKSHEET" | "TRANSFER_CERTIFICATE" | "QUOTA_CERTIFICATE";
+        AdmissionApplicantDocumentDto: {
+            type: components["schemas"]["AdmissionDocumentType"];
+            storage_key: string;
+        };
+        /** @enum {string} */
+        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
+        AdmissionApplicantResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            intake_id: string;
+            reference_number: string;
+            applicant_name: string;
+            /** Format: date */
+            date_of_birth: string;
+            gender: string;
+            guardian_name: string;
+            guardian_phone: string;
+            guardian_email: string | null;
+            home_address: string | null;
+            documents: components["schemas"]["AdmissionApplicantDocumentDto"][];
+            status: components["schemas"]["AdmissionApplicantStatus"];
+            roll_number: string | null;
+            source: components["schemas"]["AdmissionSource"];
+            quota_tags: string[];
+            extra_fields: {
+                [key: string]: unknown;
+            };
+            fee_state: components["schemas"]["AdmissionFeeState"];
+            /** @description Method of the latest fee proof. */
+            fee_method: string | null;
+            /** @description Reference of the latest fee proof. */
+            fee_reference: string | null;
+            /** @description Sibling of an existing student. */
+            has_sibling: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ApplicantListResponseDto: {
+            data: components["schemas"]["AdmissionApplicantResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        ApplicantDetailResponseDto: {
+            applicant: components["schemas"]["AdmissionApplicantResponseDto"];
+            evaluations: {
+                [key: string]: unknown;
+            }[];
+        };
+        GuardianMatchGuardianDto: {
+            id: string;
+            full_name: string;
+            phone: string;
+            student_names: string[];
+        };
+        GuardianMatchResponseDto: {
+            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
+        };
+        EvaluateApplicantDto: {
+            notes: string;
+            /** @enum {string} */
+            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
+        };
         AdmissionIntake: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -21235,92 +21334,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        AdmissionStage: {
-            id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            intake: components["schemas"]["AdmissionIntake"];
-            intake_id: string;
-            position: number;
-            /** @enum {string} */
-            kind: "NONE" | "WRITTEN" | "VIVA" | "GPA" | "LOTTERY" | "FIRST_COME";
-            title: string | null;
-            config: {
-                [key: string]: unknown;
-            };
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        /** @enum {string} */
-        AdmissionStageKind: "NONE" | "WRITTEN" | "VIVA" | "LOTTERY" | "FIRST_COME" | "GPA";
-        CreateStageDto: {
-            kind: components["schemas"]["AdmissionStageKind"];
-            title?: string | null;
-            config?: {
-                [key: string]: unknown;
-            };
-        };
-        UpdateStageDto: {
-            kind?: components["schemas"]["AdmissionStageKind"];
-            title?: string | null;
-            config?: {
-                [key: string]: unknown;
-            };
-        };
-        /** @enum {string} */
-        AdmissionDocumentType: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT" | "SSC_MARKSHEET" | "TRANSFER_CERTIFICATE" | "QUOTA_CERTIFICATE";
-        AdmissionApplicantDocumentDto: {
-            type: components["schemas"]["AdmissionDocumentType"];
-            storage_key: string;
-        };
-        /** @enum {string} */
-        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
-        AdmissionApplicantResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            intake_id: string;
-            reference_number: string;
-            applicant_name: string;
-            /** Format: date */
-            date_of_birth: string;
-            gender: string;
-            guardian_name: string;
-            guardian_phone: string;
-            guardian_email: string | null;
-            home_address: string | null;
-            documents: components["schemas"]["AdmissionApplicantDocumentDto"][];
-            status: components["schemas"]["AdmissionApplicantStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ApplicantListResponseDto: {
-            data: components["schemas"]["AdmissionApplicantResponseDto"][];
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-        GuardianMatchGuardianDto: {
-            id: string;
-            full_name: string;
-            phone: string;
-            student_names: string[];
-        };
-        GuardianMatchResponseDto: {
-            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
-        };
-        EvaluateApplicantDto: {
-            notes: string;
-            /** @enum {string} */
-            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
         };
         AdmissionApplicant: {
             id: string;
@@ -21366,21 +21379,6 @@ export interface components {
             /** Format: uuid */
             class_section_id?: string;
         };
-        CheckApplicantStatusDto: {
-            reference_number: string;
-            guardian_phone: string;
-        };
-        ApplicantStatusDto: {
-            /** @enum {string} */
-            status: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
-            applicant_name: string;
-            intake_title: string;
-        };
-        SubmitApplicantResponseDto: {
-            reference_number: string;
-            status: string;
-            warnings?: string[];
-        };
         LifecycleReportCountsDto: {
             admitted: number;
             withdrawn: number;
@@ -21406,6 +21404,31 @@ export interface components {
             rows: components["schemas"]["LifecycleReportRowDto"][];
             /** @description True when more than 500 rows matched and the list was cut. */
             truncated: boolean;
+        };
+        FunnelStepDto: {
+            /** @enum {string} */
+            step: "APPLIED" | "STAGE" | "OFFERED" | "ADMITTED";
+            /** @description Stage position; null otherwise. */
+            position: number | null;
+            /** @description Stage kind(s), e.g. WRITTEN. */
+            kind: string | null;
+            count: number;
+        };
+        SourceSplitRowDto: {
+            /** @enum {string} */
+            source: "ONLINE" | "CLERK";
+            applied: number;
+            admitted: number;
+        };
+        QuotaCountRowDto: {
+            quota: string;
+            applied: number;
+            admitted: number;
+        };
+        FunnelReportDto: {
+            funnel: components["schemas"]["FunnelStepDto"][];
+            sources: components["schemas"]["SourceSplitRowDto"][];
+            quotas: components["schemas"]["QuotaCountRowDto"][];
         };
         AdmissionLatestApplicantDto: {
             id: string;
@@ -21448,8 +21471,11 @@ export interface components {
             /** @description Let a late walk-in past the close date. */
             allow_after_close?: boolean;
         };
-        /** @enum {string} */
-        AdmissionFeeState: "NONE" | "AWAITING" | "CONFIRMED" | "SENT_BACK";
+        SubmitApplicantResponseDto: {
+            reference_number: string;
+            status: string;
+            warnings?: string[];
+        };
         FeeProofRowDto: {
             /** Format: uuid */
             id: string;
@@ -21462,6 +21488,8 @@ export interface components {
             applicant_status: components["schemas"]["AdmissionApplicantStatus"];
             method: string;
             reference: string | null;
+            /** @description Application fee of the round, whole paisa; null = the round has no fee. */
+            amount_paisa: number | null;
             state: components["schemas"]["AdmissionFeeState"];
             reason: string | null;
             /** Format: date-time */
@@ -21516,6 +21544,22 @@ export interface components {
             start_time: string;
             venue: string;
         };
+        StageResultListRowDto: {
+            /** Format: uuid */
+            applicant_id: string;
+            roll: string | null;
+            name: string;
+            attended: boolean;
+            score: number | null;
+            passed: boolean | null;
+        };
+        StageResultListResponseDto: {
+            data: components["schemas"]["StageResultListRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
         StageResultRowDto: {
             /** Format: uuid */
             applicant_id: string;
@@ -21545,9 +21589,17 @@ export interface components {
              */
             value: number;
         };
+        CutoffRowDto: {
+            /** Format: uuid */
+            applicant_id: string;
+            name: string;
+            roll: string | null;
+        };
         CutoffPreviewResponseDto: {
             passing: string[];
             failing: string[];
+            passing_rows: components["schemas"]["CutoffRowDto"][];
+            failing_rows: components["schemas"]["CutoffRowDto"][];
             passing_count: number;
             failing_count: number;
             /** @description Lowest passing score. */
@@ -21568,6 +21620,10 @@ export interface components {
         CutoffCommitResponseDto: {
             passed: number;
             failed: number;
+            passing_rows: components["schemas"]["CutoffRowDto"][];
+            failing_rows: components["schemas"]["CutoffRowDto"][];
+            /** Format: date-time */
+            cutoff_committed_at: string;
         };
         LotteryDrawResponseDto: {
             drawn: number;
@@ -46329,7 +46385,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdmissionStage"][];
+                    "application/json": components["schemas"]["AdmissionStageResponseDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -46366,7 +46422,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdmissionStage"];
+                    "application/json": components["schemas"]["AdmissionStageResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -46436,7 +46492,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdmissionStage"];
+                    "application/json": components["schemas"]["AdmissionStageResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -46453,6 +46509,13 @@ export interface operations {
             query?: {
                 intakeId?: string;
                 status?: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
+                fee_state?: components["schemas"]["AdmissionFeeState"];
+                /** @description Applicants carrying this quota tag. */
+                quota_tag?: string;
+                source?: components["schemas"]["AdmissionSource"];
+                /** @description Only applicants in this stage: not FEE_PENDING and past the earlier stage. */
+                stage_id?: string;
+                sort?: "newest" | "roll";
                 search?: string;
                 page?: number;
                 limit?: number;
@@ -46540,7 +46603,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ApplicantDetailResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -46791,102 +46856,6 @@ export interface operations {
             };
         };
     };
-    PublicAdmissionController_listOpenIntakes_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PublicAdmissionController_getStatus_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CheckApplicantStatusDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApplicantStatusDto"];
-                };
-            };
-        };
-    };
-    PublicAdmissionController_submit_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: uuid */
-                    intake_id?: string;
-                    applicant_name?: string;
-                    /** Format: date */
-                    date_of_birth?: string;
-                    gender?: string;
-                    guardian_name?: string;
-                    guardian_phone?: string;
-                    /** @description Cloudflare Turnstile token. */
-                    captcha_token?: string;
-                    guardian_email?: string | null;
-                    home_address?: string | null;
-                    /** @description Proof of ownership when updating an existing PENDING application for the same child. Omit on a first submission. */
-                    reference_number?: string | null;
-                    /** Format: binary */
-                    photo?: string;
-                    /** Format: binary */
-                    birth_certificate?: string;
-                    /** Format: binary */
-                    transcript?: string;
-                    /** Format: binary */
-                    ssc_marksheet?: string;
-                    /** Format: binary */
-                    transfer_certificate?: string;
-                    /** Format: binary */
-                    quota_certificate?: string;
-                };
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubmitApplicantResponseDto"];
-                };
-            };
-        };
-    };
     AdmissionReportsController_lifecycle_v1: {
         parameters: {
             query: {
@@ -46910,6 +46879,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LifecycleReportDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionReportsController_funnel_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+                class_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FunnelReportDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionReportsController_exportKind_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+                class_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                kind: "applicants" | "scores" | "lists";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workbook. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -46963,6 +47003,9 @@ export interface operations {
         parameters: {
             query?: {
                 intakeId?: string;
+                /** @description One applicant's proofs. Without `state`, every state is listed (their history). */
+                applicantId?: string;
+                /** @description Default AWAITING, except when `applicantId` is given (then all states). */
                 state?: components["schemas"]["AdmissionFeeState"];
                 page?: number;
                 limit?: number;
@@ -47159,6 +47202,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StageScheduleResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdmissionStageResultController_list_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageResultListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

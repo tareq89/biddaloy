@@ -17,6 +17,7 @@ import {
   createSurvey,
   createTeacher,
   createTeacherForSection,
+  createWalkInApplicant,
   currentAcademicYearId,
   findSeedSectionA,
   get,
@@ -420,18 +421,11 @@ export async function resolvePath(
       required_document_types: [],
     });
     if (route.path.includes('$intakeId')) return route.path.replace('$intakeId', intake.id);
-    const response = await request.post('/api/v1/public/admission/default-school/applicants', {
-      multipart: {
-        intake_id: intake.id,
-        applicant_name: `Reflow Applicant ${stamp}`,
-        date_of_birth: '2018-06-01',
-        gender: 'MALE',
-        guardian_name: `Reflow Guardian ${stamp}`,
-        guardian_phone: `01${3 + (stamp % 7)}${stamp.toString().slice(-8)}`,
-        captcha_token: 'no-captcha',
-      },
+    await createWalkInApplicant(request, session, {
+      intakeId: intake.id,
+      name: `Reflow Applicant ${stamp}`,
+      guardianPhone: `01${3 + (stamp % 7)}${stamp.toString().slice(-8)}`,
     });
-    if (!response.ok()) throw new Error(`applicant submit failed: ${response.status()}`);
     const listed = await get<{ id: string }[] | { data: { id: string }[] }>(
       request,
       session,

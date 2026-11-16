@@ -14,7 +14,6 @@ import { ApplicantReviewService } from './applicant-review.service';
 import { ApplicantReviewController } from './applicant-review.controller';
 import { StudentModule } from '../students/students.module';
 import { CreditsModule } from '../communications/credits/credits.module';
-import { PublicAdmissionController } from './public-admission.controller';
 import { AdmissionApplicantService } from './admission-applicant.service';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { TurnstileService } from '../registration/turnstile.service';
@@ -54,7 +53,7 @@ import {
 /**
  * [27.1] Registers the three admission entities with TypeORM.
  * [27.2] Adds the unauthenticated public-submission surface
- * (`PublicAdmissionController`/`AdmissionApplicantService`).
+ * (`PublicAdmissionSiteController`/`AdmissionApplicantService`).
  * [27.3] Adds staff intake CRUD (`IntakeController`/`IntakeService`).
  * [27.5] Adds applicant review/evaluate/admit/reject
  * (`ApplicantReviewController`/`ApplicantReviewService`), which reuses
@@ -94,7 +93,6 @@ import {
   controllers: [
     IntakeController,
     ApplicantReviewController,
-    PublicAdmissionController,
     AdmissionReportsController,
     AdmissionDashboardController,
     AdmissionApplicantStaffController,

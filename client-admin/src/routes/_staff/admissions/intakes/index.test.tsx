@@ -32,26 +32,6 @@ describe('/admissions/intakes', () => {
     section_name: 'A',
   });
 
-  // The picker opens on the current month, so tests pick day-of-this-month cells.
-  const now = new Date();
-  const iso = (day: number) =>
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-  async function pickDate(
-    user: ReturnType<typeof userEvent.setup>,
-    scope: ReturnType<typeof within>,
-    label: string,
-    day: number,
-  ) {
-    await user.click(scope.getByRole('button', { name: new RegExp(`^${label}, `) }));
-    const cell = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>(`[data-date="${iso(day)}"]`);
-      if (!el) throw new Error('calendar not open');
-      return el;
-    });
-    await user.click(cell);
-  }
-
   function mockClassAndSection() {
     server.use(
       http.get('/api/v1/classes', ({ request }) =>
@@ -68,13 +48,14 @@ describe('/admissions/intakes', () => {
     );
   }
 
-  it('copies the public admission link for the school', async () => {
+  it('copies the public admission link from the live site address', async () => {
     const user = userEvent.setup();
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
     server.use(
       http.get('/api/v1/admission-intakes', () => HttpResponse.json([])),
-      http.get('/api/v1/schools/me/profile', () =>
-        HttpResponse.json({ name: 'Demo', slug: 'demo-school' }),
+      http.get('/api/v1/website', () => HttpResponse.json({ has_published: true })),
+      http.get('/api/v1/website/preview-token', () =>
+        HttpResponse.json({ url: 'https://demo-school.example.test/?preview=t' }),
       ),
     );
     renderWithRouter(routeTree, {
@@ -85,57 +66,8 @@ describe('/admissions/intakes', () => {
     });
     await user.click((await screen.findAllByRole('button', { name: 'Copy public link' }))[0]!);
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/admission/demo-school`),
+      expect(writeText).toHaveBeenCalledWith('https://demo-school.example.test/admission'),
     );
-  });
-
-  it('creates an intake and shows it in the list', async () => {
-    mockClassAndSection();
-    let intakes: unknown[] = [];
-    server.use(
-      http.get('/api/v1/admission-intakes', () => HttpResponse.json(intakes)),
-      http.post('/api/v1/admission-intakes', async ({ request }) => {
-        const body = (await request.json()) as Record<string, unknown>;
-        const created = {
-          id: 'intake-1',
-          ...body,
-          status: 'OPEN',
-          created_at: '2026-01-01T00:00:00.000Z',
-          updated_at: '2026-01-01T00:00:00.000Z',
-        };
-        intakes = [created];
-        return HttpResponse.json(created, { status: 201 });
-      }),
-    );
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/admissions/intakes'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    await screen.findByRole('heading', { name: 'Admission rounds' });
-
-    const user = userEvent.setup();
-    await user.click((await screen.findAllByRole('button', { name: 'Add admission round' }))[0]!);
-
-    const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByRole('textbox', { name: /^Title/ }), 'Class 5 intake 2026');
-    await user.click(dialog.getByRole('combobox', { name: /^Class \/ Section/ }));
-    await user.click(await screen.findByRole('option', { name: 'Class 5 · A' }));
-    await user.type(dialog.getByRole('spinbutton', { name: /^Seat count/ }), '30');
-    await pickDate(user, dialog, 'Open date', 10);
-    await pickDate(user, dialog, 'Close date', 20);
-    // Toggle a required document type on, then off — exercises both branches
-    // of toggleDocumentType, not just the "never touched" default.
-    const photoCheckbox = dialog.getByRole('checkbox', { name: 'Photo' });
-    await user.click(photoCheckbox);
-    await user.click(photoCheckbox);
-    await user.click(dialog.getByRole('button', { name: 'Create' }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(await screen.findByText('Class 5 intake 2026')).toBeTruthy();
   });
 
   it('lists names, formatted seats and dates, and row links - never an id or ISO date', async () => {
@@ -169,12 +101,12 @@ describe('/admissions/intakes', () => {
     });
 
     const row = within(await screen.findByRole('table'));
-    expect(row.getByText('Class 5 · A')).toBeTruthy();
+    expect(row.getByText('Class 5')).toBeTruthy();
     expect(row.getByText('Open')).toBeTruthy();
     expect(screen.queryByText('section-1')).toBeNull();
     expect(screen.queryByText(/2026-01-10/)).toBeNull();
-    expect(row.getByRole('link', { name: 'View applicants' }).getAttribute('href')).toContain(
-      '/admissions/applicants?intakeId=intake-1',
+    expect(row.getByRole('link', { name: 'Open desk' }).getAttribute('href')).toBe(
+      '/admissions/rounds/intake-1',
     );
     expect(row.getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe(
       '/admissions/intakes/intake-1',
@@ -193,7 +125,10 @@ describe('/admissions/intakes', () => {
     });
 
     expect(await screen.findByText('No admission rounds yet')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Add admission round' }).length).toBe(2);
+    expect(screen.getByRole('button', { name: 'Add admission round' })).toBeTruthy();
+    expect(
+      screen.getAllByRole('link', { name: 'Add admission round' })[0]!.getAttribute('href'),
+    ).toBe('/admissions/intakes/new');
   });
 
   it('editing an intake saves the change', async () => {
@@ -312,34 +247,6 @@ describe('/admissions/intakes', () => {
     await screen.findByRole('textbox', { name: /^Title/ });
     await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel' }));
     expect(await screen.findByRole('heading', { name: 'Admission rounds' })).toBeTruthy();
-  });
-
-  it('disables Create when close date is before open date', async () => {
-    mockClassAndSection();
-    server.use(http.get('/api/v1/admission-intakes', () => HttpResponse.json([])));
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/admissions/intakes'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    await screen.findByRole('heading', { name: 'Admission rounds' });
-
-    const user = userEvent.setup();
-    await user.click((await screen.findAllByRole('button', { name: 'Add admission round' }))[0]!);
-
-    const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByRole('textbox', { name: /^Title/ }), 'Class 5 intake 2026');
-    await user.click(dialog.getByRole('combobox', { name: /^Class \/ Section/ }));
-    await user.click(await screen.findByRole('option', { name: 'Class 5 · A' }));
-    await user.type(dialog.getByRole('spinbutton', { name: /^Seat count/ }), '30');
-    await pickDate(user, dialog, 'Open date', 20);
-    await pickDate(user, dialog, 'Close date', 10);
-
-    expect(dialog.getByText('Close date must not be before open date.')).toBeTruthy();
-    expect(dialog.getByRole<HTMLButtonElement>('button', { name: 'Create' }).disabled).toBe(true);
   });
 
   it('shows an error state instead of spinning forever when the intake fails to load', async () => {

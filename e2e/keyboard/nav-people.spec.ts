@@ -1,4 +1,4 @@
-import { loggedIn, test } from '../fixtures/test';
+import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
 import {
@@ -6,6 +6,7 @@ import {
   expectReachableInMain,
   modalTitled,
   openFromSidebar,
+  tabUntilFocused,
 } from './keyboard-utils';
 
 // [31.5.2] D36 — one keyboard journey per nav group; a new screen in this group adds one test here.
@@ -33,11 +34,12 @@ test.describe('People (admin)', () => {
 
   test('admission intakes', async ({ page }) => {
     await openFromSidebar(page, t('nav.items.admissionIntakes'));
-    await expectPrimaryTaskOpensAndCloses(
-      page,
-      t('admission-staff-intakes.list.addIntake'),
-      modalTitled(page, t('admission-staff-intakes.createDialog.title')),
-    );
+    // Add round is a link to the round wizard (a page, not a dialog), so there is no Escape to close.
+    await tabUntilFocused(page, t('admission-staff-intakes.list.addIntake'), 30, { tag: 'A' });
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('admission-desk.wizard.title') }),
+    ).toBeVisible();
   });
 
   test('admission applicants', async ({ page }) => {

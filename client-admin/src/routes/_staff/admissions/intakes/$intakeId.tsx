@@ -144,6 +144,11 @@ function IntakeDetailPage() {
             </Button>
           )}
           <Button asChild variant="outline" className="w-full md:w-auto">
+            <Link to="/admissions/rounds/$roundId" params={{ roundId: intakeId }}>
+              {t('detail.goToDesk')}
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="w-full md:w-auto">
             <Link to="/admissions/applicants" search={{ intakeId }}>
               <UsersIcon aria-hidden />
               {t('list.viewApplicants')}

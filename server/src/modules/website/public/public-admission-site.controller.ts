@@ -22,7 +22,7 @@ import { FailClosedWithoutRedis } from '../../../common/rate-limit/app-throttler
 import { requestContext } from '../../../common/request-context.util';
 import { TurnstileService } from '../../registration/turnstile.service';
 import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
-import { MAX_DOCUMENT_FILE_SIZE } from '../../admission/public-admission.controller';
+import { MAX_DOCUMENT_FILE_SIZE } from '../../admission/admission-upload.constants';
 import { PublicSiteSubmitApplicantDto } from './public-site-submit-applicant.dto';
 import { CheckApplicantStatusDto } from '../../admission/dto/check-applicant-status.dto';
 import { PublicAdmissionSiteService } from './public-admission-site.service';

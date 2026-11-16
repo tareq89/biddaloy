@@ -1,0 +1,291 @@
+{
+  "desk": {
+    "title": "Admission desk",
+    "loading": "Loading the round…",
+    "loadError": "Could not load the round. Try again.",
+    "statusOpen": "Open",
+    "statusClosed": "Closed",
+    "facts": {
+      "applicants": "Applicants",
+      "feePending": "Fee check pending",
+      "seats": "Seats",
+      "seatsLeft": "Seats left"
+    },
+    "stepper": {
+      "label": "Steps",
+      "progress": "Step {{current}} of {{total}}",
+      "pick": "Choose a step",
+      "next": "Next"
+    },
+    "steps": {
+      "applicants": "Applications",
+      "merit": "Merit list",
+      "waiting": "Waiting list",
+      "admit": "Admission",
+      "kind": {
+        "WRITTEN": "Written test",
+        "VIVA": "Viva",
+        "GPA": "GPA",
+        "LOTTERY": "Lottery",
+        "FIRST_COME": "First come first served"
+      }
+    },
+    "next": {
+      "empty": {
+        "title": "No application yet",
+        "description": "Tell guardians the apply link, or enter an application yourself.",
+        "action": "See applicants"
+      },
+      "feePending": {
+        "title": "{{num}} fee checks pending",
+        "description": "An application joins no list until its fee is checked.",
+        "action": "Check fees"
+      },
+      "enterMarks": {
+        "title": "Enter marks",
+        "description": "Enter the marks of {{stage}}, then make the merit list.",
+        "action": "Enter marks"
+      },
+      "drawLottery": {
+        "title": "Draw the lottery",
+        "description": "The lottery is drawn only once.",
+        "action": "Draw lottery"
+      },
+      "makeMerit": {
+        "title": "Make the merit list",
+        "description": "The list is made from applications whose fee is ok.",
+        "action": "Make the list"
+      },
+      "startWaiting": {
+        "title": "Start waiting list {{n}} (time is over)",
+        "description": "The last date to take admission has passed and seats are still free.",
+        "action": "Start waiting list {{n}}"
+      },
+      "publish": {
+        "title": "Publish the result",
+        "description": "If the lists are right, tell everyone online and by SMS.",
+        "action": "Publish"
+      }
+    }
+  },
+  "clerk": {
+    "title": "New application",
+    "round": "Admission round",
+    "pick": "Choose",
+    "save": "Save application",
+    "another": "Enter another",
+    "done": "Application saved. Reference: {{ref}}",
+    "referenceSeen": "This payment reference was used before. The application is saved; check the fee file carefully.",
+    "docs": {
+      "PHOTO": "Photo",
+      "BIRTH_CERTIFICATE": "Birth certificate",
+      "TRANSCRIPT": "Previous result",
+      "SSC_MARKSHEET": "SSC marksheet",
+      "TRANSFER_CERTIFICATE": "Transfer certificate",
+      "QUOTA_CERTIFICATE": "Quota certificate"
+    },
+    "feeTitle": "Application fee",
+    "feeMethod": "Sent by",
+    "feeReference": "Payment reference (optional)",
+    "feeProof": "Proof of payment (photo or PDF)",
+    "afterClose": "The last date has passed. Take this application anyway.",
+    "retry": "Try again",
+    "shortcut": "Press Ctrl and Enter to save.",
+    "options": {
+      "MALE": "Boy",
+      "FEMALE": "Girl",
+      "OTHER": "Other",
+      "ISLAM": "Islam",
+      "HINDUISM": "Hinduism",
+      "BUDDHISM": "Buddhism",
+      "CHRISTIANITY": "Christianity",
+      "SCIENCE": "Science",
+      "COMMERCE": "Commerce",
+      "HUMANITIES": "Humanities"
+    },
+    "errors": {
+      "REQUIRED": "This box must be filled.",
+      "INVALID": "This box is not right. Check it.",
+      "UNKNOWN_FIELD": "This box is not part of the round.",
+      "create": "Could not save the application. Try again.",
+      "roundsLoad": "Could not load the rounds.",
+      "roundLoad": "Could not load this round."
+    }
+  },
+  "wizard": {
+    "title": "New admission round",
+    "steps": {
+      "kind": "Class and kind",
+      "dates": "Seats and dates",
+      "fee": "Fee and form",
+      "publish": "Publish"
+    },
+    "class": "Class",
+    "year": "Academic year",
+    "pick": "Choose",
+    "kindTitle": "What kind of admission?",
+    "kindHelp": "Pick one. Stages can change later.",
+    "mostUsed": "Most used",
+    "templates": {
+      "APPLY_ONLY": {
+        "name": "Apply only",
+        "help": "Take applications, no test"
+      },
+      "WRITTEN": {
+        "name": "Written test",
+        "help": "Test, then merit list"
+      },
+      "WRITTEN_VIVA": {
+        "name": "Written and viva",
+        "help": "A two-stage test"
+      },
+      "LOTTERY": {
+        "name": "Lottery",
+        "help": "Draw a lottery from the applications"
+      },
+      "FIRST_COME": {
+        "name": "First come first served",
+        "help": "Closes when the seats are full"
+      },
+      "GPA_MERIT": {
+        "name": "GPA merit",
+        "help": "Class 11, SSC GPA"
+      }
+    },
+    "seats": "Seats",
+    "rollPrefix": "Roll number prefix (optional)",
+    "openDate": "Applications open",
+    "closeDate": "Last date to apply",
+    "datesHelp": "Guardians can apply online between these two dates. Waiting lists are made later.",
+    "feeTitle": "Application fee",
+    "fee": "Fee (taka, leave empty for no fee)",
+    "methods": "Ways to send the fee",
+    "method": {
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket",
+      "BANK": "Bank"
+    },
+    "feeHelp": "You check that each fee is ok. Until then the application joins no list.",
+    "fieldsTitle": "Which boxes the form has",
+    "fieldSearch": "Search boxes",
+    "recommended": "Recommended",
+    "noFieldMatch": "No box matches.",
+    "fieldCount_one": "{{num}} box ticked",
+    "fieldCount_other": "{{num}} boxes ticked",
+    "groups": {
+      "child": "The child",
+      "parents": "Parents",
+      "guardian": "Guardian",
+      "address": "Address",
+      "previous": "Previous school",
+      "quota": "Quota",
+      "other": "Other"
+    },
+    "resultTitle": "How results are told",
+    "channel": {
+      "SITE": "List on the school website",
+      "SMS": "SMS",
+      "STATUS_CHECK": "See result with roll and phone",
+      "CALL_LIST": "Call list (for the office)"
+    },
+    "siteTitle": "On the website",
+    "alwaysShow": "Always show on the website",
+    "alwaysShowHint": "Off: shown only while the round is open.",
+    "siteEditor": "Choose where it shows on the website",
+    "create": "Create round",
+    "defaultTitle": "{{class}} admission {{year}}",
+    "errors": {
+      "class": "Choose a class.",
+      "seats": "Seats must be a number from 1 to 100,000.",
+      "range": "The last date cannot be before the start.",
+      "fee": "Write the fee as taka, with at most 2 digits after the point.",
+      "create": "Could not create the round. Try again.",
+      "method": "Choose at least one way to send the fee."
+    }
+  },
+  "panels": {
+    "applicants": "Applicants",
+    "stage": "Stage",
+    "lottery": "Draw lottery",
+    "lists": "Merit and waiting lists",
+    "publication": "Publish online",
+    "print": "Print"
+  },
+  "applicantsPanel": {
+    "checkFees": "Check fees ({{num}})",
+    "newApplication": "New application",
+    "queueLabel": "Fees waiting to be checked",
+    "check": "Check",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{current}} of {{total}}",
+    "retry": "Try again",
+    "queueLoading": "Loading…",
+    "queueError": "Could not load the fees waiting to be checked.",
+    "rollPending": {
+      "title": "{{num}} applicants have no roll number yet",
+      "description": "Make roll numbers in the test step so seat cards and mark sheets can be printed.",
+      "action": "Make roll numbers"
+    }
+  },
+  "fee": {
+    "title": "Fee of {{name}}",
+    "description": "Application {{ref}}",
+    "seenBefore": "This payment reference was used before. Look at the file carefully.",
+    "fileLoading": "Opening the file…",
+    "fileError": "Could not open the file.",
+    "fileTitle": "Fee proof",
+    "amount": "Fee",
+    "method": "Sent by",
+    "reference": "Reference",
+    "reasonLabel": "Reason (needed only to send back)",
+    "reasonCount": "{{used}} of {{max}}",
+    "sendBack": "Send back",
+    "confirm": "Fee is ok",
+    "errors": {
+      "decide": "Could not save. Try again."
+    }
+  },
+  "help": {
+    "admission": {
+      "field": {
+        "name": "Write the child's full name as on the birth certificate.",
+        "dob": "Pick the child's date of birth.",
+        "gender": "Choose one.",
+        "religion": "Choose one, or leave empty.",
+        "blood_group": "Leave empty if not known.",
+        "birth_reg_no": "The number on the birth certificate.",
+        "nationality": "For example Bangladeshi.",
+        "photo": "The photo is added as a document below.",
+        "father_name": "Write the father's full name.",
+        "father_phone": "11 digits, starting with 01.",
+        "father_occupation": "What the father does for work.",
+        "father_nid": "The number on the father's national ID card.",
+        "mother_name": "Write the mother's full name.",
+        "mother_phone": "11 digits, starting with 01.",
+        "mother_occupation": "What the mother does for work.",
+        "mother_nid": "The number on the mother's national ID card.",
+        "guardian_name": "The person who will come to the school. Often a parent.",
+        "guardian_phone": "11 digits, starting with 01. Messages go to this number.",
+        "present_address": "Where the family lives now.",
+        "permanent_address": "The home village or town address.",
+        "previous_school": "The school the child went to before.",
+        "previous_class": "The last class the child passed.",
+        "ssc_gpa": "The GPA on the SSC result, for example 4.50.",
+        "ssc_roll": "The roll number on the SSC result.",
+        "ssc_board": "The education board of the SSC exam.",
+        "ssc_year": "The year of the SSC exam.",
+        "group_preference": "The group the child wants.",
+        "siblings_in_school": "Tick if a brother or sister studies here.",
+        "quota_freedom_fighter": "Tick if the child is a freedom fighter's child. A certificate may be asked for.",
+        "quota_teacher_child": "Tick if a parent teaches at this school.",
+        "quota_disabled": "Tick if the child has a disability. A certificate may be asked for.",
+        "quota_ethnic_minority": "Tick if the child belongs to a small ethnic group.",
+        "special_needs": "Anything the school should know to help the child.",
+        "transport_need": "Tick if the child needs a way to get to school.",
+        "heard_of_us": "For example a friend, a banner or the website."
+      }
+    }
+  }
+}

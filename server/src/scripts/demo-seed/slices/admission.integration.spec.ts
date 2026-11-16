@@ -191,6 +191,41 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
       `SELECT count(*) AS n FROM admission_fee_proofs WHERE state = 'SENT_BACK' AND reason IS NOT NULL`,
     );
     expect(Number(sentBack)).toBeGreaterThan(0);
+    // Waiting list 1 is active with a deadline, list 2 is pending; a lottery is drawn; a CLERK applicant exists.
+    expect(lists.some((l) => l.kind === 'WAITING' && l.sequence === 1)).toBe(true);
+    expect(lists.some((l) => l.kind === 'WAITING' && l.sequence === 2)).toBe(true);
+    const [{ n: w1 }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_lists WHERE kind = 'WAITING' AND sequence = 1 AND active AND act_by_date IS NOT NULL`,
+    );
+    expect(Number(w1)).toBeGreaterThan(0);
+    const [{ n: w2 }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_lists WHERE kind = 'WAITING' AND sequence = 2 AND NOT active`,
+    );
+    expect(Number(w2)).toBeGreaterThan(0);
+    const [{ n: drawn }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_stage_results r JOIN admission_stages s ON s.id = r.stage_id
+         WHERE s.kind = 'LOTTERY' AND r.score IS NOT NULL AND r.passed IS NULL`,
+    );
+    expect(Number(drawn)).toBeGreaterThan(0);
+    const [{ n: clerk }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_applicants WHERE source = 'CLERK'`,
+    );
+    expect(Number(clerk)).toBeGreaterThan(0);
+    const [{ n: quota }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_applicants WHERE quota_tags <> '[]'::jsonb`,
+    );
+    expect(Number(quota)).toBeGreaterThan(0);
+    const states = await q<{ state: string }>(`SELECT DISTINCT state FROM admission_fee_proofs`);
+    expect(states.map((r) => r.state).sort()).toEqual(['AWAITING', 'CONFIRMED', 'SENT_BACK']);
+    // No list is longer than its round's seats.
+    const [{ n: over }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM admission_lists l JOIN admission_intakes i ON i.id = l.intake_id
+         WHERE (SELECT count(*) FROM admission_list_members m WHERE m.list_id = l.id) > i.seat_count`,
+    );
+    expect(Number(over)).toBe(0);
+    // Not re-seeded here: audit_logs is append-only and blocks the school delete in one database.
+    // demo-seed.coverage.integration.spec.ts compares two fresh databases, so it covers "same seed,
+    // same rows".
     expect(await validate(ds)).toEqual([]);
-  }, 120_000);
+  }, 600_000);
 });

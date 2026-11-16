@@ -547,3 +547,6 @@ export {
   type ScanCardFieldProps,
 } from './scan-card-field';
 export { AttendanceMarkBadges, type AttendanceMarkBadgesProps } from './attendance-mark-badges';
+
+export { NextActionCard, type NextActionCardProps, type NextActionLink } from './next-action-card';
+export { AdmissionFieldPicker, type AdmissionFieldPickerProps } from './field-picker';

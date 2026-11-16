@@ -12,7 +12,6 @@ import { join, relative } from 'path';
  * unpiped to an allowlisted file still fails.
  */
 const NON_UUID_PARAMS = new Map<string, number>([
-  ['modules/admission/public-admission.controller.ts:slug', 3], // school slug
   ['modules/auth/social/social-auth.controller.ts:provider', 4], // google / facebook
   ['modules/calendar/calendar-feed.controller.ts:token', 1], // opaque feed token
   ['modules/invoices/public-invoice.controller.ts:token', 1], // share-link token
@@ -25,6 +24,7 @@ const NON_UUID_PARAMS = new Map<string, number>([
   ['modules/website/public/public-site.controller.ts:kind', 1], // SiteIslandKind name
   ['modules/website/public/public-site.controller.ts:key', 1], // `logo` or a media id (service checks)
   ['modules/website/site-enquiries.controller.ts:host', 1], // site host name (public enquiry)
+  ['modules/admission/admission-reports.controller.ts:(all)', 1], // :kind is an enum checked by AdmissionExportParamsDto, not a UUID
   ['modules/presets/presets.controller.ts:id', 1], // preset key such as bd/nctb
   ['modules/presets/platform-modules.controller.ts:key', 1], // module key slug, checked against ModuleKey (unknown = 400 fixed text, not echoed)
   ['modules/presets/institution-kind.controller.ts:id', 2], // institution kind slug (preview, apply), checked against the shared INSTITUTION_KINDS (unknown = 400 fixed text, not echoed)

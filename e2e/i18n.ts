@@ -8,6 +8,7 @@
 // `{{var}}` interpolation + `$t(ns:key)` nesting (stock words), nothing more.
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
+import bnAdmissionDesk from '../ui/src/i18n/locales/bn/admission-desk.json';
 import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
 import bnAdmissionReports from '../ui/src/i18n/locales/bn/admission-reports.json';
 import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staff-applicants.json';
@@ -91,6 +92,7 @@ import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.j
 import bnWebsite from '../ui/src/i18n/locales/bn/website.json';
 import enWebsite from '../ui/src/i18n/locales/en/website.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
+import enAdmissionDesk from '../ui/src/i18n/locales/en/admission-desk.json';
 import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
 import enAdmissionReports from '../ui/src/i18n/locales/en/admission-reports.json';
 import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staff-applicants.json';
@@ -206,6 +208,7 @@ const catalogs = {
     staffImport: bnStaffImport,
     trial: bnTrial,
     'admission-public': bnAdmissionPublic,
+    'admission-desk': bnAdmissionDesk,
     'admission-reports': bnAdmissionReports,
     'admission-staff-applicants': bnAdmissionStaffApplicants,
     'admission-staff-intakes': bnAdmissionStaffIntakes,
@@ -300,6 +303,7 @@ const catalogs = {
     staffImport: enStaffImport,
     trial: enTrial,
     'admission-public': enAdmissionPublic,
+    'admission-desk': enAdmissionDesk,
     'admission-reports': enAdmissionReports,
     'admission-staff-applicants': enAdmissionStaffApplicants,
     'admission-staff-intakes': enAdmissionStaffIntakes,

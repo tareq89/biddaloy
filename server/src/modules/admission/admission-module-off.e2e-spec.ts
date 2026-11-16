@@ -70,14 +70,4 @@ describe('[77.2.05] programs, admission and applications controllers honour the 
     await setModules(app, SEED_TENANT_ID, { [ModuleKey.applications]: null });
     await get('/api/v1/applications').expect(200);
   });
-
-  it('public admission: off -> the existing 404, on -> 200', async () => {
-    const url = '/api/v1/public/admission/test-school';
-    await setModules(app, SEED_TENANT_ID, { admission: { on: false } });
-    const off = await supertest(app.getHttpServer()).get(url).expect(404);
-    expect(off.body.message).toBe('School not found');
-
-    await setModules(app, SEED_TENANT_ID, { admission: null });
-    await supertest(app.getHttpServer()).get(url).expect(200);
-  });
 });
