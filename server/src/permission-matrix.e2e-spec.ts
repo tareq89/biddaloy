@@ -204,6 +204,18 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason: '15.5.3 — self-service removal, same as POST /schools/me/logo.',
   },
   {
+    controller: 'LegalController',
+    method: 'GET',
+    path: '/legal/status',
+    reason: '59.2.01 — a user reads their own acceptance state; ids come from the JWT',
+  },
+  {
+    controller: 'LegalController',
+    method: 'POST',
+    path: '/legal/accept',
+    reason: '59.2.01 — a user records their own acceptance; ids come from the JWT',
+  },
+  {
     controller: 'PushSubscriptionsController',
     method: 'GET',
     path: '/me/push/public-key',

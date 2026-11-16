@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { LEGAL_DOCS } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
@@ -35,6 +36,7 @@ describe('RegistrationController (e2e)', () => {
       phone: `0171${suffix.slice(-7)}`,
       email: `reg-${suffix}@example.com`,
       terms_accepted: true,
+      terms_version: LEGAL_DOCS.terms.version,
       captcha_token: 'ok',
       ...over,
     };
@@ -108,6 +110,13 @@ describe('RegistrationController (e2e)', () => {
       await start(details({ terms_accepted: false })).expect(400);
     });
 
+    it('rejects a missing or stale terms_version with a fixed 400', async () => {
+      await start(details({ terms_version: '0.1' })).expect(400);
+      const d: Record<string, unknown> = details();
+      delete d.terms_version;
+      await start(d).expect(400);
+    });
+
     it('honours the 60 second cooldown on resend', async () => {
       const first = await start(details()).expect(202);
       await supertest(app.getHttpServer())
@@ -154,6 +163,17 @@ describe('RegistrationController (e2e)', () => {
         [school.id],
       );
       expect(audit[0].new_values).toMatchObject({ country_code: 'BD' });
+      // 59.2.01: terms, privacy and dpa accepted at the current versions, for this admin and school.
+      const accepted = await ds.query(
+        `SELECT document, version FROM legal_acceptances WHERE tenant_id = $1 AND user_id = $2 ORDER BY document`,
+        [school.id, admins[0].id],
+      );
+      expect(accepted).toEqual(
+        ['dpa', 'privacy', 'terms'].map((document) => ({
+          document,
+          version: LEGAL_DOCS[document as 'terms'].version,
+        })),
+      );
       // D6: the typed email is stored, but unverified (email_verified_at asserted NULL above).
       const [stored] = await ds.query(`SELECT email, phone FROM users WHERE id = $1`, [
         admins[0].id,
