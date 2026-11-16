@@ -1113,9 +1113,9 @@ already-revoked family is an idempotent 204. Each successful revoke writes a
 tenant if present, else `null` — a session isn't tenant-scoped, so `null` is
 the honest value when there's no active tenant to record.
 
-Out of scope here: a "new sign-in to your account" notification. It waits for
-Epic 98 (#3725), which builds device recognition for platform owners; the
-school-user version (#1762) extends it afterwards (Epic 60, D4).
+Out of scope here: a "new sign-in to your account" notification. Epic 98
+(#3725, closed 2026-11-13) built device recognition for platform owners only.
+The school-user alert (#1762) is still open and not yet planned (Epic 60, D4).
 
 ## Dev seed safety (75.12)
 
@@ -1743,7 +1743,7 @@ Raw notes from the QA audit, same format as the
 
 ## Lessons (Epic 60, Wave 6 close, 2026-11-16)
 
-- **Surprise:** `guide:impact` matches a page's `sources` by file, not by meaning. A comment-only edit in `contact-change.service.ts` (a ticket number in a comment) failed `portal.account`, and a new card on the school page failed `platformOwner.loginAs` although only `school-control` changed. Cost: two pages that cannot honestly be edited. Fix: the PR body carries `User guide: not affected — <reason>` for exactly those two. Rule candidate: keep a comment-only fix out of a file a guide page lists as a source.
+- **Surprise:** `guide:impact` matches a page's `sources` by file, not by meaning. A comment-only edit in `contact-change.service.ts` (a ticket number in a comment) failed `portal.account`, and a new card on the school page failed `platformOwner.loginAs` although only `school-control` changed. Cost: two pages that cannot honestly be edited. Fix: the PR body carries `User guide: not affected — <reason>`. That line passes the whole PR, not just those two pages, so read every failing row first and confirm none needs a guide update. Rule candidate: keep a comment-only fix out of a file a guide page lists as a source.
 - **Surprise:** running `prettier --write` on a guide page rewrites its generated `guide:gen` blocks, and `guide:check` then fails with "differs from what guide:gen writes". Cost: a 240-line diff for a 12-line change. Fix: revert, add the table row by hand. Rule candidate: never run prettier on `docs/user-guide` pages; run `yarn guide:gen` instead.
 - **Surprise:** the two refusal sentences ("This file looks harmful. Choose another file." and "We can't check files right now. Try again shortly.") reach people through four different screens (student homework, admission form, fee proof, staff upload). Cost: each guide page needs its own row. Fix: one row per page, same words. Rule candidate: a new fixed error sentence lists the guide pages it can appear on in its ticket.
 - **Surprise:** two docs already shared the number 43, so the index needed a note, not a rename (other docs link both names). Rule candidate: reserve doc numbers in the README, like rule numbers.

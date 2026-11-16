@@ -273,9 +273,9 @@ For any one message, find it in the [Message log](../communications/message-log.
 
 ### A message did not go: daily limit reached
 
-- **Why:** When the school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit** (2,000 a day unless the platform team set another number). You see **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** or **Today's daily limit (2,000) is used up. Try again tomorrow.** A send that is too big is refused whole, so nothing went. <!-- source: docs/user-guide/en/communications/send-message.md#daily-limit -->
+- **Why:** When the school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit** (2,000 a day unless the platform team set another number). You see **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** or **Today's daily limit (2,000) is used up. Try again tomorrow.** A send that is too big is refused whole, so nothing went. If the limit ran out while a send was going out, some messages went and the rest show as failed. <!-- source: docs/user-guide/en/communications/send-message.md#daily-limit -->
 - **What to do:** Send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. See [Daily limit](../communications/send-message.md#daily-limit).
-- **Automatic messages:** messages the app sends by itself, such as arrival notices, are not checked in advance. Past the limit they show as failed in the [Message log](../communications/message-log.md).
+- **Automatic messages:** SMS, email or WhatsApp messages the app sends by itself, such as arrival notices by SMS, are not checked in advance. Push notices do not count toward the daily limit. Past the limit the SMS, email or WhatsApp messages show as failed in the [Message log](../communications/message-log.md).
 
 ---
 
@@ -283,7 +283,7 @@ For any one message, find it in the [Message log](../communications/message-log.
 
 ### My file was refused
 
-- **Why:** The app checks every file you upload. **This file looks harmful. Choose another file.** means the check found something wrong in that file. **We can't check files right now. Try again shortly.** means the check is not available for a moment; the file is not at fault.
+- **Why:** The app checks most files you upload. **This file looks harmful. Choose another file.** means the check found something wrong in that file. **We can't check files right now. Try again shortly.** means the check is not available for a moment; the file is not at fault.
 - **What to do:** For the first, choose another file (do not try to open the refused one). For the second, wait a little and upload the same file again. If it keeps happening, tell your school admin.
 
 ---

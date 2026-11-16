@@ -250,11 +250,11 @@ In the **Notices** list you can search by title and filter by **Status**. A teac
 
 ### Daily limit <a href="#daily-limit" id="daily-limit"></a>
 
-When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. A school that uses its own SMS gateway has no daily limit.
+When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. If the school uses its own SMS gateway, its SMS has no daily limit. Email and WhatsApp sent through the platform's account still have one.
 
 If the SMS has more people than are left, **Approve and send** is refused as a whole and nothing goes. You see: **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** When the day's number is used up: **Today's daily limit (2,000) is used up. Try again tomorrow.**
 
-What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When the limit is reached, the school's admins also get an alert, once a day for that channel.
+What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When a message is refused because the day's number is used up, the school's admins also get an alert, once a day for that channel. A send turned back as a whole before it starts does not raise the alert.
 
 If the platform team has switched it on, a line above **Send** shows what is left: **1,700 of today's 2,000 left.**
 

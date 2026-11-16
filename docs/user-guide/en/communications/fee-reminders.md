@@ -178,11 +178,11 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 
 ### Daily limit <a href="#daily-limit" id="daily-limit"></a>
 
-When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. A school that uses its own SMS gateway has no daily limit.
+When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. If the school uses its own SMS gateway, its SMS has no daily limit. Email and WhatsApp sent through the platform's account still have one.
 
-Each person who would get the message counts as one. If a reminder, or a whole bulk round, has more people than are left, it is refused as a whole and nothing goes. You see: **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** When the day's number is used up: **Today's daily limit (2,000) is used up. Try again tomorrow.**
+Each message counts as one, so a guardian who gets a message for each of two students counts as two. If a reminder, or a whole bulk round, has more messages on a channel than that channel has left, it is refused as a whole and nothing goes. You see: **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** When the day's number is used up: **Today's daily limit (2,000) is used up. Try again tomorrow.**
 
-What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When the limit is reached, the school's admins also get an alert, once a day for that channel.
+What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When a message is refused because the day's number is used up, the school's admins also get an alert, once a day for that channel. A send turned back as a whole before it starts does not raise the alert.
 
 If the platform team has switched it on, a line above **Send** shows what is left: **1,700 of today's 2,000 left.**
 
