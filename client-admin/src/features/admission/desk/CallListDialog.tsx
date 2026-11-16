@@ -54,7 +54,9 @@ function CallRow({ row }: { row: CallListRow }) {
       <Input
         aria-label={t('call.noteLabel', { name: row.name })}
         value={note}
-        maxLength={500}
+        maxLength={300}
+        // The server keeps a note only on a called row; an uncalled one would be dropped silently.
+        disabled={!row.called}
         onChange={(e) => setNote(e.target.value)}
         onBlur={() => note !== (row.note ?? '') && save(row.called, note)}
       />

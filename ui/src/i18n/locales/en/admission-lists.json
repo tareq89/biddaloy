@@ -69,6 +69,8 @@
     "pickHelp": "Tick people to add, then use the arrows to set the order.",
     "pickEmpty": "No applicant can be added now.",
     "pickLoading": "Loading applicants…",
+    "pickError": "Could not load the applicants.",
+    "pickRetry": "Try again",
     "picked": "Picked {{count}}",
     "up": "Move {{name}} up",
     "down": "Move {{name}} down",
@@ -125,6 +127,8 @@
     "confirmTitle": "Publish {{name}}?",
     "estimate": "{{count}} SMS ≈ {{credits}} credits",
     "estimateLoading": "Counting SMS…",
+    "estimateError": "Could not count the SMS.",
+    "estimateRetry": "Try again",
     "lowCredit": "Not enough credits: this needs {{credits}} but only {{available}} are left.",
     "noSms": "No SMS will be sent.",
     "names": "List with names",
@@ -135,5 +139,8 @@
       "done": "Published. {{count}} SMS sent.",
       "error": "Could not publish. Try again."
     }
+  },
+  "admit": {
+    "loadError": "Could not open this applicant. Try again."
   }
 }

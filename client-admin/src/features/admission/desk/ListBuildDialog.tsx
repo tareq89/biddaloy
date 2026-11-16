@@ -74,7 +74,7 @@ export function ListBuildDialog({
   // Hand-picked: anyone without a place or a closed answer yet (ponytail: first 100, search later).
   const pool = useAdmissionApplicants({ intakeId: roundId, limit: 100 });
   const candidates = (pool.data?.data ?? []).filter((a) =>
-    ['PENDING', 'SHORTLISTED', 'WAITING'].includes(a.status),
+    ['PENDING', 'SHORTLISTED'].includes(a.status),
   );
 
   const cap = Number(toLatinDigits(capacity));
@@ -188,6 +188,18 @@ export function ListBuildDialog({
               <p className="text-sm text-text-secondary">{t('build.pickHelp')}</p>
               {pool.isPending ? (
                 <p role="status">{t('build.pickLoading')}</p>
+              ) : pool.isError ? (
+                <div role="alert" className="flex items-center justify-between gap-2">
+                  <span>{t('build.pickError')}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void pool.refetch()}
+                  >
+                    {t('build.pickRetry')}
+                  </Button>
+                </div>
               ) : candidates.length === 0 && picked.length === 0 ? (
                 <p>{t('build.pickEmpty')}</p>
               ) : (

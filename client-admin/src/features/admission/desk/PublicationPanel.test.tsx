@@ -98,7 +98,9 @@ describe('PublicationPanel', () => {
   it('shows the estimate before sending, and a double click sends once', async () => {
     const state = setup();
     const user = userEvent.setup();
-    await user.click((await screen.findAllByRole('button', { name: 'Publish' }))[0]!);
+    const [publishButton] = await screen.findAllByRole('button', { name: 'Publish' });
+    await waitFor(() => expect((publishButton as HTMLButtonElement).disabled).toBe(false));
+    await user.click(publishButton!);
     const dialog = await screen.findByRole('alertdialog');
     expect(toLatinDigits(dialog.textContent ?? '')).toContain('580 SMS ≈ 320 credits');
     expect(state.posts).toBe(0);
@@ -142,7 +144,9 @@ describe('PublicationPanel', () => {
     await waitFor(() =>
       expect(state.estimateQueries.some((q) => q.includes('include_not_selected=true'))).toBe(true),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Publish' })[0]!);
+    const [publishButton] = screen.getAllByRole('button', { name: 'Publish' });
+    await waitFor(() => expect((publishButton as HTMLButtonElement).disabled).toBe(false));
+    await user.click(publishButton!);
     const dialog = await screen.findByRole('alertdialog');
     await user.click(
       Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent === 'Publish')!,
@@ -159,7 +163,9 @@ describe('PublicationPanel', () => {
   it('blocks the send when the SMS needs more credits than are left', async () => {
     const state = setup({ available: 100 });
     const user = userEvent.setup();
-    await user.click((await screen.findAllByRole('button', { name: 'Publish' }))[0]!);
+    const [publishButton] = await screen.findAllByRole('button', { name: 'Publish' });
+    await waitFor(() => expect((publishButton as HTMLButtonElement).disabled).toBe(false));
+    await user.click(publishButton!);
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog.textContent).toContain('Not enough credits');
     expect(

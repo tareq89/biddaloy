@@ -49,6 +49,9 @@ export function AdmitApplicantModal({
   const round = useAdmissionRound(open ? applicant.intake_id : '');
   const sections = useClassSections(open ? round.data?.class_id : undefined);
   const [sectionId, setSectionId] = React.useState('');
+  // A round with a fixed section admits only into it; the server answers 400 to any other.
+  const fixedSection = round.data?.class_section_id;
+  const pickable = (sections.data ?? []).filter((s) => !fixedSection || s.id === fixedSection);
   const needsChoice = matched !== null && choice === '';
   // A different guardian after a refetch (409 MATCH_CHANGED): staff choose again.
   React.useEffect(() => setChoice(''), [matched?.id]);
@@ -101,7 +104,7 @@ export function AdmitApplicantModal({
                 <dd>{formatPhone(applicant.guardian_phone, regionConfig)}</dd>
               </div>
             </dl>
-            {sections.data && sections.data.length > 0 ? (
+            {pickable.length > 0 ? (
               <div className="flex flex-col gap-1">
                 <Label htmlFor="admit-section">{t('admitModal.section')}</Label>
                 <Select
@@ -113,7 +116,7 @@ export function AdmitApplicantModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={AUTO}>{t('admitModal.sectionAuto')}</SelectItem>
-                    {sections.data.map((s) => (
+                    {pickable.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.section_name}
                       </SelectItem>

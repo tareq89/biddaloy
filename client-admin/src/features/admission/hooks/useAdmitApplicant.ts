@@ -5,6 +5,7 @@
  */
 import type { AdmissionApplicantDto, AdmissionGuardianMatchDto } from '@biddaloy/shared';
 import { ApiError, apiClient } from '@biddaloy/ui/api';
+import { admissionListKeys } from '@biddaloy/ui/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { applicantKeys } from './useApplicants';
@@ -48,6 +49,8 @@ export function useAdmitApplicant(id: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: applicantKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: applicantKeys.lists() });
+      // A list row's Admit button and the seat counts read the list namespace.
+      void queryClient.invalidateQueries({ queryKey: admissionListKeys.all });
     },
     onError: (error) => {
       // A guardian appeared or changed after the modal opened: show the fresh match.

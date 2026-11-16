@@ -97,6 +97,14 @@ function PublishRow({
           {t('publish.includeNotSelected')}
         </label>
       ) : null}
+      {sms && estimate.isError ? (
+        <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+          <span>{t('publish.estimateError')}</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void estimate.refetch()}>
+            {t('publish.estimateRetry')}
+          </Button>
+        </div>
+      ) : null}
       <div>
         <Button disabled={publish.isPending || (sms && !est)} onClick={() => setOpen(true)}>
           {t('publish.action')}

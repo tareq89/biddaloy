@@ -24,7 +24,15 @@ import { ListBuildDialog } from './ListBuildDialog';
 type List = AdmissionLists['lists'][number];
 
 function AdmitFromList({ id, onClose }: { id: string; onClose: () => void }) {
+  const { t } = useTranslation('admission-lists');
   const applicant = useApplicant(id);
+  const failed = applicant.isError;
+  React.useEffect(() => {
+    if (failed) {
+      toast.error(t('admit.loadError'));
+      onClose();
+    }
+  }, [failed]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!applicant.data) return null;
   return (
     <AdmitApplicantModal
