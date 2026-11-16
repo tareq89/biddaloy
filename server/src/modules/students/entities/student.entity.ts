@@ -16,6 +16,7 @@ import { ClassSection } from '../../academics/entities/class-section.entity';
 import { School } from '../../schools/entities/school.entity';
 import { Guardian } from './guardian.entity';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import type { PhotoConsent } from '@biddaloy/shared';
 
 /**
  * A student enrolled in a class and section.
@@ -132,6 +133,26 @@ export class Student {
 
   @Column({ type: 'enum', enum: EnrollmentStatus, default: EnrollmentStatus.ACTIVE })
   enrollment_status: EnrollmentStatus;
+
+  // [59.1.02] Literal values, not the shared enum: a late-added shared export binds to
+  // `undefined` in decorators under the ts-node entity glob (see admission-applicant.entity).
+  @Column({
+    type: 'enum',
+    enum: ['GIVEN', 'REFUSED', 'UNKNOWN'],
+    enumName: 'photo_consent_enum',
+    default: 'UNKNOWN',
+  })
+  photo_consent: PhotoConsent;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  photo_consent_recorded_at: Date | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'photo_consent_recorded_by' })
+  photo_consent_recorded_by_user: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  photo_consent_recorded_by: string | null;
 
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
