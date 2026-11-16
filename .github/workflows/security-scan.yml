@@ -1,0 +1,131 @@
+name: Security scan
+
+# [Epic 60, D10] Two gates:
+#  - image-scan: Trivy on the production image. A fixable CRITICAL fails the build;
+#    HIGH is only listed in the job summary. If Trivy cannot reach its database
+#    the job fails (closed): re-run it.
+#  - secret-scan: gitleaks on the commits a PR adds (full history on main).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+  # sha256 of gitleaks_8.30.1_linux_x64.tar.gz, from the release's checksums file
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+jobs:
+  changes:
+    name: Image files changed
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.f.outputs.images }}
+    steps:
+      - id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # Only pull_request is path-filtered; every other trigger scans.
+          if [ "$EVENT" != "pull_request" ]; then echo "images=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --paginate --jq '.[].filename')
+          if echo "$files" | grep -qE '^(Dockerfile|yarn\.lock|site/Dockerfile|landing/Dockerfile|scripts/backup/Dockerfile)$'; then
+            echo "images=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "images=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  image-scan:
+    name: Trivy (${{ matrix.image }})
+    needs: changes
+    if: needs.changes.outputs.images == 'true' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # PR: app image only. Weekly + manual: app, site and landing.
+        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"image":"app","context":".","file":"Dockerfile"},{"image":"site","context":".","file":"site/Dockerfile"},{"image":"landing","context":"landing","file":"landing/Dockerfile"}]' || '[{"image":"app","context":".","file":"Dockerfile"}]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          load: true
+          push: false
+          provenance: false
+          tags: scan/${{ matrix.image }}:${{ github.sha }}
+
+      # Gate: a CRITICAL with a fix available fails the job.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: scan/${{ matrix.image }}:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      # Report: HIGH goes to the job summary, never fails the build.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        if: always()
+        with:
+          image-ref: scan/${{ matrix.image }}:${{ github.sha }}
+          severity: HIGH
+          exit-code: "0"
+          format: table
+          output: trivy-high.txt
+
+      - if: always()
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          {
+            echo "### Trivy HIGH findings ($IMAGE), report only"
+            echo '```'
+            cat trivy-high.txt 2>/dev/null || echo "no report"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  secret-scan:
+    name: gitleaks
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Pinned release binary + checksum (gitleaks-action needs a licence for organisations).
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar xzf gitleaks.tgz gitleaks
+
+      - name: Scan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # PR: only the commits the PR adds. main: whole history.
+          if [ "$EVENT" = "pull_request" ]; then
+            ./gitleaks detect --redact --no-banner --config .gitleaks.toml --log-opts="origin/${BASE_REF}..HEAD"
+          else
+            ./gitleaks detect --redact --no-banner --config .gitleaks.toml
+          fi

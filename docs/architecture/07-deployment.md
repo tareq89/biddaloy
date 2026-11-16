@@ -689,6 +689,39 @@ Monday morning instead of a feeling.
 See the root README's "CI" section for the full per-job description and
 `ui/CONTRIBUTING.md` for the PR checklist tied to these gates.
 
+### Security checks
+
+Five checks watch for known-bad code, images and secrets. Two of them
+(`security-scan.yml`) are new in Epic 60.
+
+```mermaid
+flowchart LR
+    PR["Pull request"] --> ci["ci.yml: yarn audit"]
+    PR --> cq["codeql.yml: CodeQL"]
+    PR --> img["security-scan.yml: Trivy<br/>(only if a Dockerfile or yarn.lock changed)"]
+    PR --> sec["security-scan.yml: gitleaks<br/>(only the PR's commits)"]
+    dep["Dependabot"] -.->|opens update PRs| PR
+    week["Monday schedule"] --> img
+```
+
+| Check | Finds | Fails the build when |
+| --- | --- | --- |
+| Dependabot | Outdated dependencies and actions | Never fails a build; opens a PR |
+| CodeQL | Insecure code patterns in TypeScript | CodeQL reports a new alert on the PR |
+| `yarn audit` | Known-vulnerable npm packages | A vulnerability is not on the audit allowlist |
+| Trivy (`image-scan`) | Known CVEs in the built production image | A CRITICAL with a fix available (HIGH is only listed in the job summary) |
+| gitleaks (`secret-scan`) | Keys, tokens and passwords in commits | Any commit the PR adds matches a rule (`.gitleaks.toml`) |
+
+Example: a PR bumps the base image in `Dockerfile`. `image-scan` builds it
+and Trivy finds a CRITICAL in `openssl` with a fixed version. The job fails,
+and the fix is to bump the base image again.
+
+Fail-open or fail-closed: if Trivy cannot reach its database, the job
+fails (closed). Re-run it. `.gitleaks.toml` allows test and example values
+by file path only, never by pattern. A real secret found in history is
+rotated (`28-platform-runbook.md` Part 16); history is not rewritten.
+The weekly run also scans the `site` and `landing` images.
+
 ### Local loop
 
 Catching a regression in CI (7-15 minutes) is strictly worse than catching
