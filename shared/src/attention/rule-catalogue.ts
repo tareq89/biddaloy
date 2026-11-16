@@ -93,7 +93,7 @@ export interface AlertRuleMeta {
   canDisable: boolean;
   guardianSmsFallback: boolean;
   staffSmsFallback: boolean;
-  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725' | '#3727';
+  ownerEpic?: '#1828' | '#1752' | '#1726' | '#1373' | '#1649' | '#169' | '#3725' | '#3727' | '#2204';
 }
 
 const C = AlertCategory;
@@ -155,7 +155,7 @@ const ROWS: Row[] = [
   ['exams.seat_plan_missing', C.EXAMS, S.WARNING, [K.DAILY], [R.EXAM_CONTROLLER, R.ADMIN], true, true, false],
   ['admission.applications_pending', C.OFFICE, S.REMINDER, [K.DAILY], [R.OFFICE_STAFF, R.ADMIN], false, true, false],
   ['admission.intake_window', C.OFFICE, S.REMINDER, [K.DAILY], [R.OFFICE_STAFF, R.ADMIN], false, true, false],
-  ['admission.list_deadline', C.OFFICE, S.REMINDER, [K.DAILY], [R.OFFICE_STAFF, R.ADMIN], false, true, false],
+  ['admission.list_deadline', C.OFFICE, S.REMINDER, [K.DAILY], [R.OFFICE_STAFF, R.ADMIN], false, true, false, '#2204'],
   ['students.records_incomplete', C.OFFICE, S.REMINDER, [K.DAILY], [R.OFFICE_STAFF, R.ADMIN], false, true, false],
   ['leave.staff_pending', C.OFFICE, S.WARNING, [K.HOURLY, K.ON_CHANGE], [R.ADMIN, R.EXECUTIVE], true, true, false],
   ['leave.my_request_decided', C.OFFICE, S.REMINDER, [K.ON_CHANGE], [], true, true, false],

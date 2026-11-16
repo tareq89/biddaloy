@@ -167,6 +167,6 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
          WHERE p.state <> a.fee_state`,
     );
     expect(Number(mismatched)).toBe(0);
-    expect((await validate(ds)).filter((v) => /admission/.test(v.check))).toEqual([]);
+    expect(await validate(ds)).toEqual([]);
   }, 120_000);
 });
