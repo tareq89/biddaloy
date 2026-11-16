@@ -1,7 +1,7 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 

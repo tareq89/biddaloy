@@ -408,6 +408,35 @@ describe('/students', () => {
     await waitFor(() => expect(lastGender).toBe('FEMALE'));
   });
 
+  // [59.G3] Photo-consent filter: request param + URL, empty state, no raw enum.
+  it('photo consent filter reaches the request and the URL; empty state says everyone is recorded', async () => {
+    let lastConsent: string | null = null;
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        lastConsent = new URL(request.url).searchParams.get('photo_consent');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 });
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Photo consent' }));
+    expect(screen.queryByRole('option', { name: 'UNKNOWN' })).toBeNull();
+    await user.click(screen.getByRole('option', { name: 'Not recorded' }));
+
+    await waitFor(() => expect(lastConsent).toBe('UNKNOWN'));
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ photo_consent: 'UNKNOWN' }),
+    );
+    expect(await screen.findByText('Photo consent is on file for everyone')).toBeTruthy();
+  });
+
   it('status filter shows translated labels, never the raw enum', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/students'],
