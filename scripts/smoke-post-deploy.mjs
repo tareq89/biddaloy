@@ -128,7 +128,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     method,
     path,
     label,
-    { headers = {}, body, rawBody, expect = 200, ok = () => true } = {},
+    { headers = {}, body, rawBody, expect = 200, ok = () => true, text = false } = {},
   ) => {
     const started = Date.now();
     let status = '';
@@ -143,7 +143,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       });
       status = String(res.status);
       if (res.status === expect) {
-        json = await res.json().catch(() => undefined);
+        json = await (text ? res.text() : res.json()).catch(() => undefined);
         good = json !== undefined && ok(json);
       }
     } catch (e) {
@@ -163,6 +163,15 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   };
 
   if ((await check('GET', '/api/health', '')) === null) return done();
+
+  // [60.1761] Edge nginx serves the disclosure contact (RFC 9116) on every host.
+  if (
+    (await check('GET', '/.well-known/security.txt', '', {
+      text: true,
+      ok: (t) => typeof t === 'string' && t.startsWith('Contact:'),
+    })) === null
+  )
+    return done();
 
   const sessions = {};
   for (const [key, role] of ACCOUNTS) {
