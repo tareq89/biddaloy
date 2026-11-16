@@ -132,33 +132,44 @@ export class StaffMessagesService {
     if (!recipients.length) throw new BadRequestException(STAFF_MESSAGE_NO_RECIPIENTS);
 
     const audienceHash = this.hash(dto);
-    await this.assertNotDuplicate(tenantId, userId, audienceHash);
-
     const eachSegments = this.segmentsEach(dto);
     const totalSegments = eachSegments * recipients.length;
     const template = this.template(dto);
 
-    const batch = await this.batchRepo.save(
-      this.batchRepo.create({
-        tenant_id: tenantId,
-        batch_name: `Staff message ${localToday()}`,
-        status: ReminderBatchStatus.PROCESSING,
-        total_recipients: recipients.length,
-        message_template: dto.message,
-        initiated_by_user_id: userId,
-        filters_applied: {
-          kind: 'STAFF_MESSAGE',
-          audience: dto.audience,
-          medium: dto.medium,
-          mediums: [dto.medium],
-          message_hash: audienceHash,
-          whatsapp_template_name: template?.name ?? null,
-          whatsapp_template_language: template?.language ?? null,
-          whatsapp_template_params: template?.params ?? null,
-          skipped,
-        },
-      }),
-    );
+    // The 60-second window can't be a unique index, so the count and the insert share one
+    // transaction behind a per-sender advisory lock; two overlapping sends can't both pass.
+    const batch = await this.batchRepo.manager.transaction(async (manager) => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `staff-message:${tenantId}:${userId}`,
+      ]);
+      await this.assertNotDuplicate(
+        manager.getRepository(ReminderBatch),
+        tenantId,
+        userId,
+        audienceHash,
+      );
+      return manager.getRepository(ReminderBatch).save(
+        this.batchRepo.create({
+          tenant_id: tenantId,
+          batch_name: `Staff message ${localToday()}`,
+          status: ReminderBatchStatus.PROCESSING,
+          total_recipients: recipients.length,
+          message_template: dto.message,
+          initiated_by_user_id: userId,
+          filters_applied: {
+            kind: 'STAFF_MESSAGE',
+            audience: dto.audience,
+            medium: dto.medium,
+            mediums: [dto.medium],
+            message_hash: audienceHash,
+            whatsapp_template_name: template?.name ?? null,
+            whatsapp_template_language: template?.language ?? null,
+            whatsapp_template_params: template?.params ?? null,
+            skipped,
+          },
+        }),
+      );
+    });
 
     // Reserve BEFORE any log or job exists. A refusal or a throw deletes the batch, so nothing
     // is left behind (D8, D34, D35).
@@ -193,24 +204,48 @@ export class StaffMessagesService {
     let queued = 0;
     let failed = 0;
     for (const person of recipients) {
-      const log = await this.logRepo.save(
-        this.logRepo.create({
-          tenant_id: tenantId,
-          reminder_batch_id: batch.id,
-          medium: dto.medium,
-          recipient_address: person.phone,
-          recipient_name: person.name,
-          recipient_user_id: person.user_id,
-          message_body: dto.message,
-          subject: null,
-          student_id: null,
-          guardian_id: null,
-          sent_by_user_id: userId,
-          status: CommunicationStatus.QUEUED,
-          trigger: CommunicationTrigger.STAFF_MESSAGE,
-          metadata: whatsAppTemplateMetadata(template),
-        }),
-      );
+      let log: CommunicationLog;
+      try {
+        log = await this.logRepo.save(
+          this.logRepo.create({
+            tenant_id: tenantId,
+            reminder_batch_id: batch.id,
+            medium: dto.medium,
+            recipient_address: person.phone,
+            recipient_name: person.name,
+            recipient_user_id: person.user_id,
+            message_body: dto.message,
+            subject: null,
+            student_id: null,
+            guardian_id: null,
+            sent_by_user_id: userId,
+            status: CommunicationStatus.QUEUED,
+            trigger: CommunicationTrigger.STAFF_MESSAGE,
+            metadata: whatsAppTemplateMetadata(template),
+          }),
+        );
+      } catch (err) {
+        // The log row never existed: count the person as failed and give their units back.
+        await recordBatchOutcome(this.logRepo.manager, batch.id, 'failure');
+        failed++;
+        if (metered && dto.medium === CommunicationMedium.SMS) {
+          await this.smsCreditService
+            .settlePart(
+              tenantId,
+              `batch:${batch.id}`,
+              `person:${person.user_id}`,
+              eachSegments,
+              'RELEASE',
+            )
+            .catch(() => undefined);
+        }
+        this.logger.error({
+          msg: 'staff message log save failed',
+          batch_id: batch.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
       // Only a metered school has a reservation for the worker to settle against.
       const segments = metered && dto.medium === CommunicationMedium.SMS ? eachSegments : undefined;
       try {
@@ -320,9 +355,14 @@ export class StaffMessagesService {
   }
 
   /** D32. Same sender + same text/audience hash inside 60 s. Never echoes the input. */
-  private async assertNotDuplicate(tenantId: string, userId: string, hash: string): Promise<void> {
+  private async assertNotDuplicate(
+    repo: Repository<ReminderBatch>,
+    tenantId: string,
+    userId: string,
+    hash: string,
+  ): Promise<void> {
     const since = new Date(Date.now() - STAFF_MESSAGE_DUPLICATE_WINDOW_MS);
-    const found = await this.batchRepo
+    const found = await repo
       .createQueryBuilder('b')
       .where('b.tenant_id = :tenantId', { tenantId })
       .andWhere('b.initiated_by_user_id = :userId', { userId })

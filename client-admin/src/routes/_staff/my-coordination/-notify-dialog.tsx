@@ -64,6 +64,8 @@ export function NotifyTeachersDialog({
   const preview = useStaffMessagePreview();
   const sms = useSendStaffMessage();
   const [smsInput, setSmsInput] = React.useState<StaffMessageInput | null>(null);
+  const checkedRef = React.useRef<string[]>([]);
+  checkedRef.current = checked;
 
   React.useEffect(() => {
     if (!open) return;
@@ -117,16 +119,36 @@ export function NotifyTeachersDialog({
       message: text,
       medium: 'SMS',
     };
-    preview.mutate(input, { onSuccess: () => setSmsInput(input) });
+    preview.mutate(input, {
+      onSuccess: () => {
+        // Inputs stay editable while the check runs; drop the answer if they moved meanwhile.
+        const same =
+          form.getValues('message').trim() === input.message &&
+          checkedRef.current.length === checked.length &&
+          checked.every((id) => checkedRef.current.includes(id));
+        if (same) setSmsInput(input);
+        else preview.reset();
+      },
+    });
   }
 
   function sendSms() {
     if (!smsInput || sms.isPending) return;
     sms.mutate(smsInput, {
       onSuccess: (result) => {
-        toast.success(
-          t('staffMessage.coordinator.sentToast', { ns: 'communications', count: result.queued }),
-        );
+        if (result.failed > 0) {
+          toast.warning(
+            t('staffMessage.coordinator.sentWithFailures', {
+              ns: 'communications',
+              count: result.queued,
+              failed: result.failed,
+            }),
+          );
+        } else {
+          toast.success(
+            t('staffMessage.coordinator.sentToast', { ns: 'communications', count: result.queued }),
+          );
+        }
         onOpenChange(false);
       },
     });
@@ -137,7 +159,9 @@ export function NotifyTeachersDialog({
   const result = preview.data;
   const reviewing = smsInput !== null && result !== undefined;
   const smsErrorKey = sms.isError
-    ? staffErrorKey(sms.error, 'sendFailed')
+    ? sms.error instanceof ApiError && sms.error.statusCode < 500
+      ? staffErrorKey(sms.error, 'sendFailed')
+      : 'staffMessage.errors.unknownOutcome'
     : preview.isError
       ? staffErrorKey(preview.error, 'previewFailed')
       : null;

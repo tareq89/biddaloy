@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import {
   AuditAction,
   CommunicationMedium,
@@ -436,7 +436,12 @@ export class MarksSmsService {
     let alreadySentAt: Date | null = null;
     if (planned.length > 0) {
       const existing = await this.logRepo.find({
-        where: { tenant_id: tenantId, reference_key: In(planned.map((j) => j.log.reference_key!)) },
+        where: {
+          tenant_id: tenantId,
+          reference_key: In(planned.map((j) => j.log.reference_key!)),
+          // A FAILED row never reached the guardian; it must not block a retry.
+          status: Not(CommunicationStatus.FAILED),
+        },
         select: ['reference_key', 'created_at'],
       });
       const sent = new Set(existing.map((e) => e.reference_key));

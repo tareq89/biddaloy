@@ -8,6 +8,7 @@ import { useActiveRole, useActiveTenant, useSchoolSettings } from '@biddaloy/ui/
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
@@ -35,6 +36,9 @@ function StaffMessagePage() {
   const regionConfig = useTenantRegionConfig();
   const navigate = useNavigate();
   const { people } = Route.useSearch();
+  // Clearing the prefill (people -> undefined) must keep the draft; only a new link changes the key.
+  const formKey = React.useRef('');
+  if (people) formKey.current = people.join(',');
   const role = useActiveRole();
   const tenantId = useActiveTenant();
   // Settings are ADMIN-only on the server; for others WhatsApp stays hidden.
@@ -45,7 +49,7 @@ function StaffMessagePage() {
       <PageContainer size="narrow">
         <StaffMessageForm
           // A new link with other people starts a fresh form.
-          key={people?.join(',') ?? ''}
+          key={formKey.current}
           prefillIds={people}
           whatsappConfigured={whatsappConfigured}
           onClearPrefill={() =>

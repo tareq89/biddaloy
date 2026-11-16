@@ -25,20 +25,28 @@ test.describe('Communications (admin)', () => {
   // "Check who gets it": the check writes nothing, and Send would spend the school's SMS credits.
   test('message staff', async ({ page }) => {
     await openFromSidebar(page, t('nav.items.sendMessage'));
-    await tabUntilFocused(page, t('staffMessage.switch.guardians'), 30, { exact: true });
+    await tabUntilFocused(page, t('communications.staffMessage.switch.guardians'), 30, {
+      exact: true,
+    });
     await page.keyboard.press('ArrowRight');
     await expect(
-      page.getByRole('heading', { level: 1, name: t('staffMessage.title') }),
+      page.getByRole('heading', { level: 1, name: t('communications.staffMessage.title') }),
     ).toBeVisible();
-    await tabToLocator(page, page.getByRole('textbox', { name: t('staffMessage.message.label') }));
+    await tabToLocator(
+      page,
+      page.getByRole('textbox', { name: t('communications.staffMessage.message.label') }),
+    );
     await page.keyboard.type('Staff meeting at 3 pm');
     await tabToLocator(
       page,
-      page.getByRole('button', { name: t('staffMessage.preview.action'), exact: true }),
+      page.getByRole('button', {
+        name: t('communications.staffMessage.preview.action'),
+        exact: true,
+      }),
     );
     await page.keyboard.press('Enter');
     await expect(
-      page.getByRole('button', { name: t('staffMessage.send.action'), exact: true }),
+      page.getByRole('button', { name: t('communications.staffMessage.send.action'), exact: true }),
     ).toBeVisible();
   });
 

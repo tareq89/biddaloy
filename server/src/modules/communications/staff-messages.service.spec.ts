@@ -35,6 +35,11 @@ function build(opts: {
       return q;
     },
   };
+  // send() takes an advisory lock, counts and inserts inside one transaction.
+  batchRepo.manager = {
+    transaction: async (fn: (m: any) => unknown) =>
+      fn({ query: vi.fn(async () => []), getRepository: () => batchRepo }),
+  };
   const logRepo: any = {
     create: (x: any) => x,
     save: vi.fn(async (x: any) => ({ id: `log-${Math.random()}`, ...x })),
