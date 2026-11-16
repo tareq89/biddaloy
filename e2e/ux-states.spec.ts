@@ -28,6 +28,19 @@ const PAGES = [
   { name: 'portal home', role: 'parent', path: '/portal' },
 ] as const;
 
+/**
+ * The SPA turns an error reply into an `ApiError` only when the body carries `requestId`
+ * (`toApiError`). Without it the reply is a plain Error: 4xx gets retried with backoff and
+ * the 401 / 403 paths never run.
+ */
+const apiError = (statusCode: number, message: string) => ({
+  statusCode,
+  message,
+  requestId: 'e2e-ux-states',
+  path: '/e2e',
+  timestamp: '2026-01-01T00:00:00.000Z',
+});
+
 for (const p of PAGES) {
   test.describe(p.name, () => {
     test.use(loggedIn(p.role));
@@ -46,11 +59,14 @@ for (const p of PAGES) {
     });
 
     test('session end opens the dialog; nothing is replayed', async ({ page }) => {
+      await page.clock.install();
       await page.goto(p.path);
       await page.waitForLoadState('networkidle');
+      // Queries are fresh for 30s (`staleTime`), and a tab return only refetches stale ones.
+      await page.clock.fastForward(31_000);
 
       const sent: string[] = [];
-      const gone = { statusCode: 401, message: 'Unauthorized' };
+      const gone = apiError(401, 'Unauthorized');
       await page.route('**/api/v1/auth/refresh', (route) =>
         route.fulfill({ status: 401, json: gone }),
       );
@@ -59,8 +75,11 @@ for (const p of PAGES) {
         return route.fulfill({ status: 401, json: gone });
       });
       // TanStack's focus manager listens to `visibilitychange`, not `focus`: returning to the
-      // tab refetches active queries, and that read gets the 401.
-      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      // tab refetches active queries, and that read gets the 401. It listens on `window`, so
+      // the event must bubble from `document`, as the browser's own does.
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event('visibilitychange', { bubbles: true })),
+      );
 
       await expect(page.getByRole('dialog').getByText(EXPIRED_TITLE)).toBeVisible();
       await page.waitForTimeout(1500);
@@ -76,7 +95,7 @@ test.describe('students list: denied, error, empty', () => {
 
   test('403 shows the denied state', async ({ page }) => {
     await page.route(LIST, (route) =>
-      route.fulfill({ status: 403, json: { statusCode: 403, message: 'Forbidden' } }),
+      route.fulfill({ status: 403, json: apiError(403, 'Forbidden') }),
     );
     await page.goto('/students');
     await expect(page.getByText(DENIED_TITLE)).toBeVisible();
@@ -86,11 +105,12 @@ test.describe('students list: denied, error, empty', () => {
     let fail = true;
     await page.route(LIST, (route) =>
       fail
-        ? route.fulfill({ status: 500, json: { statusCode: 500, message: 'Server error' } })
+        ? route.fulfill({ status: 500, json: apiError(500, 'Server error') })
         : route.continue(),
     );
     await page.goto('/students');
-    await expect(page.getByText(ERROR_TITLE)).toBeVisible();
+    // A 5xx is retried twice with backoff (~3s) before the error state shows.
+    await expect(page.getByText(ERROR_TITLE)).toBeVisible({ timeout: 15_000 });
     fail = false;
     const retried = page.waitForResponse((res) => LIST.test(res.url()) && res.status() === 200);
     await page.getByRole('button', { name: ERROR_RETRY }).click();
