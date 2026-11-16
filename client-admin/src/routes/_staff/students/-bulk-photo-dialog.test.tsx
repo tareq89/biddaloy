@@ -90,4 +90,26 @@ describe('BulkPhotoDialog', () => {
 
     expect(await screen.findByRole('alert')).toBeTruthy();
   });
+
+  it('lists REFUSED skips as one summary plus the file names, apart from other failures', async () => {
+    server.use(
+      http.post('/api/v1/students/photos/bulk', () =>
+        HttpResponse.json({
+          matched: [],
+          unmatched: [],
+          invalid: [
+            { file: 'R-1.jpg', reason: 'x', code: 'PHOTO_CONSENT_REFUSED' },
+            { file: 'R-2.jpg', reason: 'Not an image' },
+          ],
+        }),
+      ),
+    );
+    const { user } = render();
+    await user.upload(await screen.findByTestId('photos-input'), photos(2));
+    await user.click(screen.getByRole('button', { name: /Upload 2 photos/ }));
+    expect(await screen.findByText(/1 student.*photo consent/i)).toBeTruthy();
+    expect(screen.getByText('R-1.jpg')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Couldn't read \(1\)/ }));
+    expect(screen.getByText('R-2.jpg: Not an image')).toBeTruthy();
+  });
 });
