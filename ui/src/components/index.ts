@@ -50,6 +50,7 @@ export {
   FormItem,
   FormLabel,
   FormMessage,
+  focusFirstError,
   useFormField,
 } from './form-field';
 export { Field, FieldGrid, type FieldProps, type FieldGridProps } from './field-grid';

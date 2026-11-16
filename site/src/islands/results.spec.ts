@@ -65,6 +65,15 @@ describe('results island', () => {
     expect(await queryResults({ ...q, captcha_token: '' }, f)).toEqual({ failure: 'captcha' });
   });
 
+  it('offline browser gives the offline failure, online network drop stays error', async () => {
+    const down = vi.fn(async () => {
+      throw new TypeError('x');
+    }) as unknown as typeof fetch;
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    expect(await queryResults(q, down)).toEqual({ failure: 'offline' });
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+    expect(await queryResults(q, down)).toEqual({ failure: 'error' });
+  });
   it('maps each status to one fixed failure; the server text is never read', async () => {
     expect(await queryResults(q, reply(400, { message: 'secret' }))).toEqual({
       failure: 'invalid',

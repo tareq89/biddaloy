@@ -64,6 +64,43 @@ export function RegisterDetailsForm({
 
   React.useEffect(() => setCaptcha(null), [captchaResetKey]);
 
+  /** "I agree to the {terms} and {privacy}": the words link to the landing pages in the user's
+   * language, new tab (D5, D18). No landing base configured: plain words, never a dead link. */
+  function consentLine() {
+    const base = (import.meta.env.VITE_LANDING_URL ?? '').replace(/\/+$/, '');
+    const word = (page: 'terms' | 'privacy') =>
+      base ? (
+        <a
+          key={page}
+          href={`${base}/${locale}/${page}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2"
+        >
+          {t(`${page}Link`)}
+        </a>
+      ) : (
+        t(`${page}Link`)
+      );
+    // Placeholders stay in the translated sentence so each language orders the words itself.
+    const parts = t('terms', { terms: '{terms}', privacy: '{privacy}' }).split(
+      /(\{terms\}|\{privacy\})/,
+    );
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part === '{terms}' ? (
+            <React.Fragment key={i}>{word('terms')}</React.Fragment>
+          ) : part === '{privacy}' ? (
+            <React.Fragment key={i}>{word('privacy')}</React.Fragment>
+          ) : (
+            part
+          ),
+        )}
+      </span>
+    );
+  }
+
   const schema = React.useMemo(
     () =>
       z.object({
@@ -231,7 +268,7 @@ export function RegisterDetailsForm({
                   htmlFor="register-terms"
                   className="flex flex-1 items-center self-stretch font-normal"
                 >
-                  {t('terms')}
+                  {consentLine()}
                 </FormLabel>
               </div>
               <FormMessage />

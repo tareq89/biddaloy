@@ -333,7 +333,30 @@ Example: a teacher submits a form with an empty name. `FormField` shows
 `states:validation.fixFields`, focus jumps to the first bad field. On save,
 `SuccessTick` reads `states:success.title` ("Done" / "সফল হয়েছে") to screen readers.
 `PullToRefresh` and `RollingNumber` are polish, not states; both take a `label`.
-`yarn ux-states:audit` fails a route that lacks its states.
+`yarn ux-states:audit` fails a route that lacks its states. There is no baseline file: a gap is fixed or is a justified `EXCEPTIONS` line.
+
+How the audit reads a route (it matches text, so these rules say what counts):
+
+```mermaid
+flowchart TD
+  F[route file + its imports one level down] --> O{has an Outlet?}
+  O -->|yes| X[skipped: a layout, its children carry the states]
+  O -->|no| Q{which states are needed?}
+  Q --> A[a query: loading, error, denied, empty]
+  Q --> B[a real search box or filter: noResult]
+  Q --> C[a form: validation]
+  Q --> D[a mutation: success]
+```
+
+- Empty and no-result are covered only by the exact wiring: `ListShell` (empty), `ListShell` with the `filters` prop (no-result; the legacy `filterBar` does not), or `DataTable` with `emptyState` (empty). A bare `DataTable` shows a generic line, so the audit still asks for the state.
+- A `GuestStatus` / `AuthLayout` card (sign-in, activate, token links) shows one outcome, so it is exempt from denied, empty, no-result and success.
+- Validation is handled by `FormMessage`, `role="alert"`, `ErrorText`, `aria-invalid` or `focusFirstError`.
+- no-result needs a real search UI (`SearchInput`, `FilterBar`, `type="search"`, `useListShellState`), not a variable named `q`.
+- A justified gap goes in `EXCEPTIONS` in `scripts/ux-states-audit.mjs` as `route|state` plus one reason. There is no baseline; a new route that adds a gap fails the guard. An exception whose gap is gone fails the guard as stale.
+
+Example: `login.tsx|loading` is an exception because its only query is the optional
+social-provider list; a failure just shows no provider buttons.
+`e2e/ux-states.spec.ts` proves offline, expired session, denied, error and empty in a browser.
 
 Shell and shared props that tripped people (read the source, not the plan):
 
