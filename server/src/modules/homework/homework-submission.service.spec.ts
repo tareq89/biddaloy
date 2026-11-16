@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   HomeworkAssignmentStatus,
   HomeworkGradingMode,
@@ -66,8 +72,10 @@ describe('HomeworkSubmissionService', () => {
   let storage: { put: ReturnType<typeof vi.fn>; deleteForTenant: ReturnType<typeof vi.fn> };
   let schoolsService: { getResolvedSettings: ReturnType<typeof vi.fn> };
   let service: HomeworkSubmissionService;
+  const scan = { assertClean: vi.fn() };
 
   beforeEach(() => {
+    scan.assertClean = vi.fn(async () => undefined);
     homeworkRepo = { findOne: vi.fn(async () => HOMEWORK) };
     assignmentRepo = { findOne: vi.fn(async () => ({ ...SECTION_ASSIGNMENT })) };
     submissionRepo = {
@@ -137,6 +145,7 @@ describe('HomeworkSubmissionService', () => {
       familyAccess as never,
       storage as never,
       schoolsService as never,
+      scan as never,
     );
   });
 
@@ -516,6 +525,36 @@ describe('HomeworkSubmissionService', () => {
         [{ student_id: SID_B, status: 'DONE' }],
         'A student in this list is not on this homework',
       );
+    });
+  });
+
+  // [#4000] Students upload, so a scan that refuses or cannot run stores nothing (fail closed).
+  describe('virus scan', () => {
+    it('scans every file in closed mode before storing any', async () => {
+      await service.upload('assign-1', 'student-1', [FILE, FILE], studentCtx);
+      expect(scan.assertClean).toHaveBeenCalledTimes(2);
+      expect(scan.assertClean).toHaveBeenCalledWith(FILE.buffer, 'closed', {
+        tenantId: TENANT_ID,
+        userId: studentCtx.userId,
+      });
+    });
+
+    it('a harmful second file leaves the first one unstored', async () => {
+      scan.assertClean
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new UnprocessableEntityException('x'));
+      await expect(
+        service.upload('assign-1', 'student-1', [FILE, FILE], studentCtx),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(storage.put).not.toHaveBeenCalled();
+    });
+
+    it('scanner down: nothing is stored', async () => {
+      scan.assertClean.mockRejectedValue(new ServiceUnavailableException('x'));
+      await expect(
+        service.upload('assign-1', 'student-1', [FILE], studentCtx),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(storage.put).not.toHaveBeenCalled();
     });
   });
 });

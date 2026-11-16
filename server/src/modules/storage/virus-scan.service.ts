@@ -61,10 +61,10 @@ export class VirusScanService {
     if (reply.endsWith('FOUND')) {
       this.logger.warn(`upload refused: ${reply}`);
       // ponytail: AuditAction and AuditEntityType have no upload value (a new one needs a shared
-      // enum + DB migration, outside this lane), so this borrows CREATE / ApplicationAttachment and
+      // enum + DB migration, outside this lane), so this borrows BULK_UPLOAD / ApplicationAttachment and
       // new_values.kind carries the meaning. Swap to `upload.harmful_file` when shared adds it.
       await this.audit.record({
-        action: AuditAction.CREATE,
+        action: AuditAction.BULK_UPLOAD,
         entity_type: 'ApplicationAttachment',
         new_values: { kind: 'upload.harmful_file' },
         tenant_id: ctx.tenantId ?? null,
