@@ -10,6 +10,7 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import {
   AdmissionApplicantStatus,
   AdmissionDocumentType,
+  PhotoConsent,
   AdmissionEvaluationDecision,
   AuditAction,
   type AdmissionGuardianMatchDto,
@@ -21,6 +22,7 @@ import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionStage } from './entities/admission-stage.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { Guardian } from '../students/entities/guardian.entity';
+import { Student } from '../students/entities/student.entity';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { AdmissionNotificationService } from './admission-notification.service';
@@ -395,7 +397,7 @@ export class ApplicantReviewService {
       if (intake.academic_year_id) {
         await assertYearOpen(manager, tenantId, intake.academic_year_id);
       }
-      await this.studentService.create(
+      const student = await this.studentService.create(
         {
           full_name: applicant.applicant_name,
           class_section_id: sectionId,
@@ -407,6 +409,16 @@ export class ApplicantReviewService {
         tenantId,
         manager,
         { userId: reviewerUserId },
+      );
+      // D25: carry the guardian's choice over (old applicant NULL -> UNKNOWN). The new student
+      // has no photo, so nothing to delete or copy.
+      await manager.getRepository(Student).update(
+        { id: student.id, tenant_id: tenantId },
+        {
+          photo_consent: applicant.photo_consent ?? PhotoConsent.UNKNOWN,
+          photo_consent_recorded_at: new Date(),
+          photo_consent_recorded_by: reviewerUserId,
+        },
       );
 
       await manager.getRepository(AdmissionEvaluation).save(

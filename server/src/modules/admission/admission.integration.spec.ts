@@ -2,6 +2,9 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import { AppModule } from '../../app.module';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { AdmissionApplicantService } from './admission-applicant.service';
@@ -634,5 +637,87 @@ describe('Admission flow (integration)', () => {
     expect(audits).toHaveLength(1);
     expect(audits[0].old_values).toEqual({ types: ['PHOTO'] });
     expect(JSON.stringify(audits[0].old_values)).not.toContain(key);
+  });
+  describe('photo consent (59.2.05)', () => {
+    const png = (): Express.Multer.File =>
+      ({
+        fieldname: 'photo',
+        originalname: 'p.png',
+        mimetype: 'image/png',
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]),
+        size: 8,
+      }) as Express.Multer.File;
+    const dto = (intake_id: string, photo_consent: 'GIVEN' | 'REFUSED', phone: string) => ({
+      intake_id,
+      applicant_name: 'Consent Kid',
+      date_of_birth: '2018-05-01',
+      gender: 'MALE',
+      guardian_name: 'Guardian',
+      guardian_phone: phone,
+      photo_consent,
+    });
+    const docsOf = async (ref: string) =>
+      (
+        await dataSource.query(
+          `SELECT documents, photo_consent FROM admission_applicants WHERE reference_number = $1`,
+          [ref],
+        )
+      )[0];
+
+    it('a public submit without a choice is a 400 (fixed sentence, no echo)', async () => {
+      const body = plainToInstance(SubmitApplicantDto, {
+        ...dto('00000000-0000-4000-8000-000000000001', 'GIVEN', '01700000901'),
+        photo_consent: undefined,
+        captcha_token: 't',
+      });
+      const errors = await validate(body);
+      expect(errors.map((e) => e.property)).toContain('photo_consent');
+      const bad = plainToInstance(SubmitApplicantDto, {
+        ...dto('00000000-0000-4000-8000-000000000001', 'GIVEN', '01700000901'),
+        photo_consent: 'UNKNOWN',
+        captcha_token: 't',
+      });
+      expect((await validate(bad)).map((e) => e.property)).toContain('photo_consent');
+    });
+
+    it('REFUSED with a photo stores no photo document and does not fail', async () => {
+      const intakeId = await createIntake();
+      const res = await applicantService.submit(
+        SEED_SLUG,
+        dto(intakeId, 'REFUSED', '01700000902'),
+        [png()],
+      );
+      const row = await docsOf(res.reference_number);
+      expect(row.photo_consent).toBe('REFUSED');
+      expect(row.documents).toEqual([]);
+    });
+
+    it('REFUSED does not fail a round that requires a photo', async () => {
+      const intakeId = await createIntake({ required_document_types: ['PHOTO'] });
+      const res = await applicantService.submit(
+        SEED_SLUG,
+        dto(intakeId, 'REFUSED', '01700000903'),
+        [],
+      );
+      expect((await docsOf(res.reference_number)).documents).toEqual([]);
+    });
+
+    it('GIVEN stores the photo document', async () => {
+      const intakeId = await createIntake();
+      const res = await applicantService.submit(SEED_SLUG, dto(intakeId, 'GIVEN', '01700000904'), [
+        png(),
+      ]);
+      const row = await docsOf(res.reference_number);
+      expect(row.photo_consent).toBe('GIVEN');
+      expect(row.documents).toHaveLength(1);
+      expect(row.documents[0].type).toBe('PHOTO');
+    });
+
+    it('a submit to an unknown school slug is a 404', async () => {
+      const intakeId = await createIntake();
+      await expect(
+        applicantService.submit('no-such-school', dto(intakeId, 'GIVEN', '01700000905'), []),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });
