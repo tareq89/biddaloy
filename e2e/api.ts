@@ -7,6 +7,7 @@ import {
   ExamComponentKind,
   ExamComponentSource,
   ExamKind,
+  LEGAL_DOCS,
   type AlertRuleKey,
 } from '@biddaloy/shared';
 import type { APIRequestContext } from '@playwright/test';
@@ -1325,6 +1326,7 @@ export async function registerTrialSchool(
       phone: who.phone,
       email: who.email,
       terms_accepted: true,
+      terms_version: LEGAL_DOCS.terms.version,
       captcha_token: 'no-captcha',
     },
   });
