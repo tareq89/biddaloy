@@ -32,19 +32,25 @@ describe('PlatformSettingsService.update (integration)', () => {
       (svc as any).audit,
       (svc as any).dataSource,
     );
-    // Deterministic hold: `svc` pauses after its read until `other` is provably racing it —
-    // either `other` has also read (no lock: both saw {}) or `other` is queued on the
+    // Deterministic hold: `svc` starts first and pauses after its read. `other` is started only
+    // once `svc` has read, and `svc` is released only when `other` is provably racing it —
+    // either `other` has also read (no lock: both saw {}) or `other` is queued on THIS key's
     // advisory lock (lock held: it cannot read yet). No timing involved.
+    let svcRead!: () => void;
+    const svcHasRead = new Promise<void>((r) => (svcRead = r));
     let otherRead = false;
     const otherQueuedOnLock = async () => {
       const rows = await ds.query(
-        `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted LIMIT 1`,
+        `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted
+           AND ((classid::bigint << 32) | objid::bigint) = hashtext($1)::bigint LIMIT 1`,
+        [`platform_settings:${KEY}`],
       );
       return rows.length > 0;
     };
     const readSvc = svc.get.bind(svc);
     svc.get = (async (k: string, m?: any) => {
       const v = await readSvc(k, m);
+      svcRead();
       await vi.waitFor(
         async () => {
           if (!otherRead && !(await otherQueuedOnLock())) throw new Error('other not racing yet');
@@ -60,10 +66,10 @@ describe('PlatformSettingsService.update (integration)', () => {
       return v;
     }) as typeof other.get;
     const merge = (patch: object) => (old: unknown) => ({ ...((old as object) ?? {}), ...patch });
-    await Promise.all([
-      svc.update(KEY, merge({ sms: 1 }), null as never),
-      other.update(KEY, merge({ email: 2 }), null as never),
-    ]);
+    const first = svc.update(KEY, merge({ sms: 1 }), null as never);
+    await svcHasRead;
+    const second = other.update(KEY, merge({ email: 2 }), null as never);
+    await Promise.all([first, second]);
     const [row] = await ds.query(`SELECT value FROM platform_settings WHERE key = $1`, [KEY]);
     expect(row.value).toEqual({ sms: 1, email: 2 });
   });
