@@ -86,7 +86,9 @@ export class RecoveryService {
       ],
     });
     return (
-      (await this.delivery.detach('forgot-password', () => this.forgotJob(user, normalized))) ?? {}
+      (await this.delivery.detach('forgot-password', () =>
+        this.forgotJob(user, normalized, context.ip),
+      )) ?? {}
     );
   }
 
@@ -98,7 +100,11 @@ export class RecoveryService {
   }
 
   /** Everything `forgot` does after the lookup; its value only reaches the caller in echo mode. */
-  private async forgotJob(user: User | null, normalized: string): Promise<ForgotPasswordResult> {
+  private async forgotJob(
+    user: User | null,
+    normalized: string,
+    ip: string | null,
+  ): Promise<ForgotPasswordResult> {
     if (!user || user.status !== UserStatus.ACTIVE) {
       return {};
     }
@@ -128,12 +134,12 @@ export class RecoveryService {
       if (!user.phone_verified_at && user.email && user.email_verified_at) {
         return this.sendLink(user, user.email, tenantId, null);
       }
-      return this.sendOtp(user, user.phone, tenantId);
+      return this.sendOtp(user, user.phone, tenantId, ip);
     }
 
     if (!user.email) return {};
     if (!user.email_verified_at && user.phone && user.phone_verified_at) {
-      return this.sendOtp(user, user.phone, tenantId);
+      return this.sendOtp(user, user.phone, tenantId, ip);
     }
     return this.sendLink(user, user.email, tenantId, null);
   }
@@ -376,6 +382,7 @@ export class RecoveryService {
     user: User,
     phone: string,
     tenantId: string | null,
+    ip: string | null,
   ): Promise<ForgotPasswordResult> {
     let code: string;
     try {
@@ -398,6 +405,7 @@ export class RecoveryService {
       recipientName: user.full_name,
       kind: 'OTP',
       vars: { code },
+      ip,
     });
     return this.echo({ otp: code });
   }

@@ -132,7 +132,7 @@ export class RegistrationService {
       channel: 'sms',
     };
     const registrationId = await this.staging.stage(staged);
-    return this.sendCode(registrationId, staged);
+    return this.sendCode(registrationId, staged, context.ip);
   }
 
   async resend(dto: RegisterResendDto): Promise<RegisterStartResult> {
@@ -149,7 +149,8 @@ export class RegistrationService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    const result = await this.sendCode(dto.registration_id, staged);
+    // ponytail: no request context here, so a resend is under the platform ceiling only (#3992); pass req.ip from the controller to add the per-IP cap.
+    const result = await this.sendCode(dto.registration_id, staged, null);
     const resends = (staged.resends ?? 0) + 1;
     if (!(await this.staging.save(dto.registration_id, { ...staged, resends }))) {
       throw registrationExpired();
@@ -207,9 +208,10 @@ export class RegistrationService {
   private async sendCode(
     registrationId: string,
     staged: StagedRegistration,
+    ip: string | null,
   ): Promise<RegisterStartResult> {
     const { code } = await this.otp.request(OTP_PURPOSE, staged.identifier, registrationId);
-    await this.deliver(staged, code);
+    await this.deliver(staged, code, ip);
     return {
       registration_id: registrationId,
       channel: staged.channel,
@@ -224,7 +226,11 @@ export class RegistrationService {
    * code that cannot be sent is a 503, never a silent 202; elsewhere it stays quiet (the echo
    * flag is how tests read the code).
    */
-  private async deliver(staged: StagedRegistration, code: string): Promise<void> {
+  private async deliver(
+    staged: StagedRegistration,
+    code: string,
+    ip: string | null,
+  ): Promise<void> {
     const production = this.config.get<string>('NODE_ENV') === 'production';
     const tenantId = await this.tenantStatus.platformTenantId();
     let sent = false;
@@ -237,6 +243,7 @@ export class RegistrationService {
           recipientName: staged.admin_name,
           kind: 'OTP',
           vars: { code },
+          ip,
         });
         sent = res.status === CommunicationStatus.SENT;
       } catch {
