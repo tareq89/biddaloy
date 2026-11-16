@@ -9,7 +9,8 @@ import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { Guardian } from '../students/entities/guardian.entity';
-import { AdmissionApplicantStatus } from '@biddaloy/shared';
+import { Student } from '../students/entities/student.entity';
+import { AdmissionApplicantStatus, PhotoConsent } from '@biddaloy/shared';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { StorageService } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
@@ -73,9 +74,11 @@ describe('ApplicantReviewService', () => {
   let getOneMock: ReturnType<typeof vi.fn>;
   let guardianRepo: { findOne: ReturnType<typeof vi.fn> };
   let queryMock: ReturnType<typeof vi.fn>;
+  let studentRepo: { update: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     queryMock = vi.fn(async () => [{ ok: 1 }]);
+    studentRepo = { update: vi.fn(async () => ({ affected: 1 })) };
     applicantRepo = {
       findOne: vi.fn(),
       update: vi.fn(async () => ({ affected: 1 })),
@@ -92,6 +95,7 @@ describe('ApplicantReviewService', () => {
               if (entity === AdmissionApplicant) return applicantRepo;
               if (entity === AdmissionIntake) return intakeRepo;
               if (entity === Guardian) return guardianRepo;
+              if (entity === Student) return studentRepo;
               throw new Error('unexpected entity');
             },
           }),
@@ -258,6 +262,38 @@ describe('ApplicantReviewService', () => {
   });
 
   describe('admit', () => {
+    describe.each([
+      [PhotoConsent.GIVEN, PhotoConsent.GIVEN],
+      [PhotoConsent.REFUSED, PhotoConsent.REFUSED],
+      [null, PhotoConsent.UNKNOWN],
+    ])('photo consent %s', (stored, expected) => {
+      it(`student gets ${expected}, stamped with the admitting user; no photo is copied`, async () => {
+        const applicant = makeApplicant({
+          status: AdmissionApplicantStatus.SHORTLISTED,
+          photo_consent: stored,
+          documents: [{ type: 'PHOTO', storage_key: 'k' }] as never,
+        });
+        applicantRepo.findOne
+          .mockResolvedValueOnce(applicant)
+          .mockResolvedValueOnce(applicant)
+          .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
+        guardianService.findByPhoneAnyFormat.mockResolvedValueOnce(null);
+        guardianService.create.mockResolvedValueOnce({ id: 'g-1' });
+
+        await service.admit('applicant-1', { guardian_choice: 'CREATE_NEW' }, TENANT_A, REVIEWER);
+
+        expect(studentRepo.update).toHaveBeenCalledWith(
+          { id: 'student-1', tenant_id: TENANT_A },
+          expect.objectContaining({
+            photo_consent: expected,
+            photo_consent_recorded_by: REVIEWER,
+            photo_consent_recorded_at: expect.any(Date),
+          }),
+        );
+        expect(studentService.create.mock.calls[0][0]).not.toHaveProperty('photo_key');
+      });
+    });
+
     it('LINK_EXISTING creates exactly one student and links the matched guardian', async () => {
       applicantRepo.findOne
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
