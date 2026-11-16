@@ -321,6 +321,8 @@
       "MANUAL": "হাতে পাঠানো",
       "SINGLE_REMINDER": "একজনকে রিমাইন্ডার",
       "BULK_REMINDER": "গণ রিমাইন্ডার",
+      "STAFF_MESSAGE": "কর্মীদের বার্তা",
+      "MARKS_SMS": "নম্বর এসএমএস",
       "AUTOMATED": "স্বয়ংক্রিয়",
       "ACCOUNT_ACCESS": "সাইন-ইন কোড",
       "RESULT_SMS": "পরীক্ষার ফল",

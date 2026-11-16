@@ -42,6 +42,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { CommunicationsDashboardController } from './communications-dashboard.controller';
 import { CommunicationsDashboardService } from './communications-dashboard.service';
 import { StaffAudienceService } from './staff-audience.service';
+import { StaffMessagesService } from './staff-messages.service';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { StaffAudienceService } from './staff-audience.service';
     CommunicationsDashboardService,
     SmsSourceService,
     StaffAudienceService,
+    StaffMessagesService,
   ],
   // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
   // matches routes in registration order and `CommunicationsController` has

@@ -259,6 +259,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/staff/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a staff message: who, segments, credits, skipped. */
+        post: operations["CommunicationsController_previewStaffMessage_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/communications/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send an SMS or WhatsApp message to a staff audience. */
+        post: operations["CommunicationsController_sendStaffMessage_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/send": {
         parameters: {
             query?: never;
@@ -14297,7 +14331,7 @@ export interface components {
             /** @enum {string} */
             status: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";
             /** @enum {string} */
-            trigger: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE";
+            trigger: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE" | "STAFF_MESSAGE" | "MARKS_SMS";
             student_id: string | null;
             guardian_id: string | null;
             provider_message_id: string | null;
@@ -14338,6 +14372,53 @@ export interface components {
         MessageLogFilterOptionsDto: {
             companies: components["schemas"]["MessageLogCompanyDto"][];
             senders: components["schemas"]["MessageLogSenderDto"][];
+        };
+        StaffAudienceDto: {
+            roles?: ("ADMIN" | "ACCOUNTANT" | "TEACHER" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE")[];
+            /** @description Staff whose current designation is one of these. */
+            designationIds?: string[];
+            /** @description true: teaching staff; false: non-teaching staff. */
+            teaching?: boolean;
+            /** @description Named people of this school. */
+            userIds?: string[];
+        };
+        StaffMessageDto: {
+            audience: components["schemas"]["StaffAudienceDto"];
+            message: string;
+            /** @enum {string} */
+            medium: "SMS" | "WHATSAPP";
+            /** @description Required when medium is WHATSAPP (D33). */
+            whatsapp_template_name?: string;
+            /** @description Required when medium is WHATSAPP. */
+            whatsapp_template_language?: string;
+            /** @description Literal values for the template {{1}}, {{2}}, ... Required when WHATSAPP. */
+            whatsapp_template_params?: string[];
+        };
+        StaffSkippedDto: {
+            user_id: string;
+            name: string;
+            reason: string;
+        };
+        StaffMessagePreviewResponseDto: {
+            people: number;
+            with_phone: number;
+            skipped: components["schemas"]["StaffSkippedDto"][];
+            segments_each: number;
+            credits_needed: number;
+            balance: number | null;
+            shortfall: number;
+            whatsapp_template: {
+                name: string;
+                language: string;
+                params: string[];
+            };
+        };
+        StaffMessageSendResponseDto: {
+            batch_id: string;
+            total_recipients: number;
+            queued: number;
+            failed: number;
+            skipped: components["schemas"]["StaffSkippedDto"][];
         };
         SendGuardianMessageDto: {
             /** @enum {string} */
@@ -24872,7 +24953,7 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string;
-                trigger?: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE";
+                trigger?: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE" | "STAFF_MESSAGE" | "MARKS_SMS";
                 student_id?: string;
                 guardian_id?: string;
                 sent_by?: string;
@@ -24965,6 +25046,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReminderBatchLogDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_previewStaffMessage_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffMessageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMessagePreviewResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_sendStaffMessage_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffMessageDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMessageSendResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

@@ -22,6 +22,8 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -43,8 +45,17 @@ import {
   MessageLogFilterOptionsDto,
 } from './dto/reminders.dto';
 import { DeliveryStatusService } from './delivery-status.service';
+import { StaffMessageDto } from './dto/staff-message.dto';
+import { StaffMessagesService } from './staff-messages.service';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
-import { JwtPayload, ModuleKey, Permission, RoleScope, roleScope } from '@biddaloy/shared';
+import {
+  JwtPayload,
+  ModuleKey,
+  Permission,
+  RoleScope,
+  UserRole,
+  roleScope,
+} from '@biddaloy/shared';
 import { RequiresModule } from '../auth/decorators/require-module.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
@@ -62,6 +73,7 @@ export class CommunicationsController {
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
     @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
     @Inject(DeliveryStatusService) private readonly deliveryStatus: DeliveryStatusService,
+    @Inject(StaffMessagesService) private readonly staffMessages: StaffMessagesService,
   ) {}
 
   // Distinct segment count from reminder/bulk(/:id) above and reminder/single/:studentId
@@ -244,6 +256,48 @@ export class CommunicationsController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.deliveryStatus.checkStatus(id, tenant.id, tenant.role);
+  }
+
+  // [80.1.05] D2/D28: PermissionsGuard is all-of, so "STAFF_MESSAGE_SEND or
+  // STAFF_MESSAGE_COORDINATED" is checked in StaffMessagesService.callerScope. @Roles is the
+  // coarse gate (holders of either permission); the service refuses anyone else with 403.
+  // Declared before the `send` route; 'staff' is a distinct segment from ':id' GETs.
+  @Post('staff/preview')
+  @RequiresModule(ModuleKey.messaging)
+  @AuthenticatedOnly()
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: 'Preview a staff message: who, segments, credits, skipped.' })
+  previewStaffMessage(
+    @Body() dto: StaffMessageDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.staffMessages.preview(
+      dto,
+      tenant.id,
+      user.sub,
+      tenant.role,
+      requestContext(request),
+    );
+  }
+
+  @Post('staff')
+  @RequiresModule(ModuleKey.messaging)
+  @AuthenticatedOnly()
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @UseInterceptors(IdempotencyInterceptor)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: 'Send an SMS or WhatsApp message to a staff audience.' })
+  sendStaffMessage(
+    @Body() dto: StaffMessageDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.staffMessages.send(dto, tenant.id, user.sub, tenant.role, requestContext(request));
   }
 
   @Post('send')
