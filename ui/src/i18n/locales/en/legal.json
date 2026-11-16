@@ -1,0 +1,26 @@
+{
+  "docs": {
+    "terms": "Terms",
+    "privacy": "Privacy policy",
+    "dpa": "Data agreement",
+    "sla": "Service agreement"
+  },
+  "pageTitle": {
+    "terms": "Terms",
+    "privacy": "Privacy policy",
+    "dpa": "Data agreement",
+    "sla": "Service agreement"
+  },
+  "accept": {
+    "title": "Agree to the new terms",
+    "body": "We have changed our terms. Read the documents below and agree to continue.",
+    "checkbox": "I have read and agree",
+    "submit": "Agree and continue",
+    "error": "Your agreement was not saved. Please try again."
+  },
+  "footer": "Privacy policy · Terms",
+  "dialog": {
+    "agree": "Agree",
+    "close": "Close"
+  }
+}
