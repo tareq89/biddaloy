@@ -55,6 +55,7 @@ export const slice: DemoSlice = {
       const id = given.pop()!;
       refused.push({ id, tenantId: studentIds(ctx).students.find((s) => s.id === id)!.tenantId });
     }
+    // GIVEN is bulk SQL on purpose: 1,000+ rows, and no audit row per student is wanted in a seed.
     for (let i = 0; i < given.length; i += 2000) {
       const ids = given.slice(i, i + 2000);
       const daysAgo = ids.map(() => ctx.rng.number.int({ min: 1, max: CONSENT_MAX_DAYS_AGO }));
@@ -80,7 +81,7 @@ export const slice: DemoSlice = {
 
     // ---- 3. applicants: a mix of GIVEN and REFUSED (their documents hold no photo in the demo) -
     const applicants: { id: string }[] = await ctx.ds.query(
-      `SELECT id FROM admission_applicants ORDER BY id`,
+      `SELECT id FROM admission_applicants ORDER BY reference_number`,
     );
     const applicantRefused = applicants.filter(
       (_, i) => i === 0 || ctx.rng.number.float({ min: 0, max: 1 }) < APPLICANT_REFUSED_RATE,

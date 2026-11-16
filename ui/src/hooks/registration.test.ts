@@ -1,3 +1,4 @@
+import { LEGAL_DOCS } from '@biddaloy/shared';
 import { QueryClient } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -22,6 +23,7 @@ const START = {
   phone: '01712345678',
   email: 'rahim@example.com',
   terms_accepted: true,
+  terms_version: LEGAL_DOCS.terms.version,
   captcha_token: 'tok',
 };
 
