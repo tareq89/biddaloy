@@ -625,3 +625,14 @@ Specs were written without a local Playwright run (Docker unavailable); CI is th
 - **Clerk-form boxes are located by id (`#clerk-name`)**: catalogue labels carry a trailing " *" and repeat words. A photo input has no keyboard path, so the keyboard spec uses a round that needs no document.
 - **`t()` in `e2e/i18n.ts` needs each namespace registered**; `admission-lists` and `admission-stages` were missing.
 - **Task 5 (guardian on a phone) has no browser coverage**: the e2e stack does not run the site container. The usability re-check in `docs/ux-research/epic-71-admission-findings.md` is a simulated heuristic pass; the human test (#4169) is still open.
+
+### Legal gate and photo consent (Epic #1743, Wave 3 close, 2026-11-16)
+
+Specs (`e2e/legal-acceptance.spec.ts`, `e2e/photo-consent.spec.ts`) were written without a local Playwright run (Docker unavailable); CI is the first real run.
+
+- **Fixtures only stop at the gate if they skip acceptance.** Sign-up records terms, privacy and DPA, so `newSchool` admins pass. An ADMIN made any other way (`activateInvite` after `provisionSchool`, `POST /users` with `role: 'ADMIN'`) owes the documents. `activateInvite` now calls `acceptLegal()` for an ADMIN; `createUnacceptedAdmin()` is the one admin that must stop.
+- **There is no API to delete an acceptance row.** The gate spec uses a second, unaccepted ADMIN instead of deleting rows.
+- **Read documents from `ADMIN_REQUIRED_DOCS` (D33), never literals.** A version bump then needs no spec edit.
+- **`/legal/accept` and `/legal/$doc` still carry inline bn/en text** (a `ponytail` note in each route), not the `legal:accept.*` keys. The spec reads `legal.json`, which has the same checkbox and button words; if the two drift, the spec fails first.
+- **A Login as visit is not gated (D36).** The spec needs the cockpit owner's authenticator code, so it shares the 30 s step with the other support specs.
+- **Refusing consent removes the photo on save, not on confirm.** The confirm dialog only sets the field; the PATCH does the removal (`photo_key` is null afterwards).
