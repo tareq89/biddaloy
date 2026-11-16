@@ -41,6 +41,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { CommunicationsDashboardController } from './communications-dashboard.controller';
 import { CommunicationsDashboardService } from './communications-dashboard.service';
+import { StaffAudienceService } from './staff-audience.service';
 
 @Module({
   imports: [
@@ -109,6 +110,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     FeeNotifyProcessor,
     CommunicationsDashboardService,
     SmsSourceService,
+    StaffAudienceService,
   ],
   // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
   // matches routes in registration order and `CommunicationsController` has
