@@ -365,7 +365,7 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
                   }),
               }}
             />
-          ) : items.length === 0 ? (
+          ) : items.length === 0 && total === 0 ? (
             <EmptyState
               title={t(
                 tab === 'active' ? 'worklist.emptyActiveTitle' : 'worklist.emptyHistoryTitle',

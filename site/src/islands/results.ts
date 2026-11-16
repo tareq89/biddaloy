@@ -266,6 +266,7 @@ async function init(root: HTMLElement) {
   const setToken = (t: string) => {
     token = t;
     button.disabled = t === '';
+    for (const b of out.querySelectorAll<HTMLButtonElement>('button')) b.disabled = t === '';
   };
   // First thing, before any await: a click while the Turnstile script is still loading (or is
   // blocked) must never fall through to the browser's own GET submit, which would put the roll in

@@ -4517,8 +4517,8 @@ export const HELP_INDEX: HelpIndex = {
   'start.ifSomethingGoesWrong': {
     title: { bn: 'কিছু ঠিকমতো না চললে', en: 'If something goes wrong' },
     summary: {
-      bn: 'ইন্টারনেট চলে গেলে, নেট ধীর হলে বা আবার লগইন করতে বললে কী দেখবেন আর কী করবেন। আপনার লেখা হারায় না।',
-      en: 'What you see and what to do when the internet goes off, the connection is slow, or the app asks you to sign in again. What you typed is not lost.',
+      bn: 'ইন্টারনেট চলে গেলে, নেট ধীর হলে বা আবার লগইন করতে বললে কী দেখবেন আর কী করবেন। একই ব্যক্তি একই স্কুলে আবার লগইন করলে আপনার লেখা থাকে।',
+      en: 'What you see and what to do when the internet goes off, the connection is slow, or the app asks you to sign in again. What you typed is kept when the same person signs in again to the same school.',
     },
     path: 'start/if-something-goes-wrong',
     anchor: '',

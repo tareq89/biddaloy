@@ -19,7 +19,6 @@ const EXPIRED_TITLE = 'আবার লগইন করুন';
 const DENIED_TITLE = 'আপনার অনুমতি নেই';
 const ERROR_TITLE = 'কিছু একটা ঠিক হয়নি';
 const ERROR_RETRY = 'আবার চেষ্টা করুন';
-const EMPTY_TITLE = 'এখানে এখনো কিছু নেই';
 
 const PAGES = [
   { name: 'dashboard', role: 'admin', path: '/dashboard' },
@@ -50,22 +49,22 @@ for (const p of PAGES) {
       await page.goto(p.path);
       await page.waitForLoadState('networkidle');
 
-      let apiCalls = 0;
+      const sent: string[] = [];
       const gone = { statusCode: 401, message: 'Unauthorized' };
       await page.route('**/api/v1/auth/refresh', (route) =>
         route.fulfill({ status: 401, json: gone }),
       );
       await page.route(/\/api\/v1\/(?!auth\/)/, (route) => {
-        apiCalls += 1;
+        sent.push(route.request().method() + ' ' + route.request().url());
         return route.fulfill({ status: 401, json: gone });
       });
-      // Returning to the tab refetches active queries; that read gets the 401.
-      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      // TanStack's focus manager listens to `visibilitychange`, not `focus`: returning to the
+      // tab refetches active queries, and that read gets the 401.
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 
       await expect(page.getByRole('dialog').getByText(EXPIRED_TITLE)).toBeVisible();
-      const seen = apiCalls;
       await page.waitForTimeout(1500);
-      expect(apiCalls).toBe(seen); // no replay
+      expect(new Set(sent).size).toBe(sent.length); // a failed request is never sent again
     });
   });
 }
@@ -93,8 +92,11 @@ test.describe('students list: denied, error, empty', () => {
     await page.goto('/students');
     await expect(page.getByText(ERROR_TITLE)).toBeVisible();
     fail = false;
+    const retried = page.waitForResponse((res) => LIST.test(res.url()) && res.status() === 200);
     await page.getByRole('button', { name: ERROR_RETRY }).click();
+    await retried;
     await expect(page.getByText(ERROR_TITLE)).toHaveCount(0);
+    await expect(page.getByRole('table')).toBeVisible();
   });
 
   test('an empty school shows the empty state', async ({ page }) => {
@@ -105,6 +107,6 @@ test.describe('students list: denied, error, empty', () => {
       }),
     );
     await page.goto('/students');
-    await expect(page.getByText(EMPTY_TITLE)).toBeVisible();
+    await expect(page.locator('[data-slot="empty-state"]')).toBeVisible();
   });
 });

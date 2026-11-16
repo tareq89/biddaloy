@@ -151,9 +151,11 @@ export function NoticeDetail({ noticeId }: { noticeId: string }) {
                     </>
                   )}
                 </div>
-                notice.body ? (<p className="whitespace-pre-line">{notice.body}</p>
+                {notice.body ? (
+                  <p className="whitespace-pre-line">{notice.body}</p>
                 ) : (
-                <EmptyState title={t('manage.noBody')} explanation={ts('empty.body')} />)
+                  <EmptyState title={t('manage.noBody')} explanation={ts('empty.body')} />
+                )}
               </div>
             ),
           },

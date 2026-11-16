@@ -348,7 +348,7 @@ flowchart TD
   Q --> D[a mutation: success]
 ```
 
-- `ListShell` / `DataTable` cover empty and no-result; they draw both themselves.
+- Empty and no-result are covered only by the exact wiring: `ListShell` (empty), `ListShell` with the `filters` prop (no-result; the legacy `filterBar` does not), or `DataTable` with `emptyState` (empty). A bare `DataTable` shows a generic line, so the audit still asks for the state.
 - A `GuestStatus` / `AuthLayout` card (sign-in, activate, token links) shows one outcome, so it is exempt from denied, empty, no-result and success.
 - Validation is handled by `FormMessage`, `role="alert"`, `ErrorText`, `aria-invalid` or `focusFirstError`.
 - no-result needs a real search UI (`SearchInput`, `FilterBar`, `type="search"`, `useListShellState`), not a variable named `q`.

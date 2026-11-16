@@ -52,9 +52,18 @@ describe('ux-states-audit', () => {
     expect(audit(fixture({ 'a.tsx': '<form></form>' }))).toEqual([{ route: 'a.tsx', state: 'validation' }]);
   });
 
-  it('a ListShell or DataTable covers empty and noResult', () => {
-    const t = `${A}<Skeleton/><ErrorState/><AccessDeniedState/><SearchInput/><ListShell/>`;
+  const BASE = `${A}<Skeleton/><ErrorState/><AccessDeniedState/><SearchInput/>`;
+
+  it('a ListShell with filters covers empty and noResult', () => {
+    const t = `${BASE}<ListShell\n  filters={{}}\n/>`;
     expect(audit(fixture({ 'a.tsx': t }))).toEqual([]);
+  });
+
+  it('a bare DataTable, or a legacy filterBar ListShell, still needs its states', () => {
+    const bare = audit(fixture({ 'a.tsx': `${BASE}<DataTable/>` })).map((g) => g.state);
+    expect(bare).toEqual(expect.arrayContaining(['empty', 'noResult']));
+    const legacy = audit(fixture({ 'a.tsx': `${BASE}<ListShell\n  filterBar={x}\n/>` })).map((g) => g.state);
+    expect(legacy).toEqual(['noResult']);
   });
 
   it('a bare q / search / filter identifier does not need noResult; a search box does', () => {

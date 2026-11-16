@@ -11,7 +11,10 @@ const SRC = join(root, 'client-admin/src');
 const HAS_QUERY = /\buse(?:Infinite)?Query\b|\buse[A-Z]\w*Query\b/;
 const HAS_MUTATION = /\buseMutation\b|\buse[A-Z]\w*Mutation\b/;
 // A shell renders its own empty / no-match states (`emptyState` prop, built-in no-match action).
-const SHELL = /<(?:ListShell|DataTable)\b/;
+// `DataTable` draws a generic empty line unless it gets `emptyState`; `ListShell` draws no-result only
+// for its `filters` prop (the legacy `filterBar` does not), so those exact wirings are what count.
+const EMPTY_SHELL = /<ListShell\b|<DataTable\b[^>]*\bemptyState=/s;
+const NO_RESULT_SHELL = /<ListShell\b[\s\S]*?\n\s+filters=\{/;
 // One-purpose sign-in / token cards: no list, no permission, one link; they show a single outcome.
 const GUEST_CARD = /GuestStatus|AuthLayout/;
 // Hand-rolled forms show inline errors with an alert role, ErrorText or aria-invalid.
@@ -25,10 +28,10 @@ const test = (re) => (t) => re.test(t);
 const STATES = {
   loading: { when: HAS_QUERY, has: /Skeleton|RoutePending|pendingComponent/ },
   error: { when: HAS_QUERY, has: /ErrorState/ },
-  empty: { when: and(test(HAS_QUERY), not(SHELL), not(GUEST_CARD)), has: /EmptyState/ },
+  empty: { when: and(test(HAS_QUERY), not(EMPTY_SHELL), not(GUEST_CARD)), has: /EmptyState/ },
   denied: { when: and(test(HAS_QUERY), not(GUEST_CARD)), has: /AccessDeniedState/ },
   noResult: {
-    when: and(test(HAS_QUERY), test(FILTER_UI), not(SHELL), not(GUEST_CARD)),
+    when: and(test(HAS_QUERY), test(FILTER_UI), not(NO_RESULT_SHELL), not(GUEST_CARD)),
     has: /states\.noResult|EmptyState[^>]*(?:filter|query|search)/is,
   },
   validation: { when: /<form|\buseForm\b/, has: FORM_ERRORS },

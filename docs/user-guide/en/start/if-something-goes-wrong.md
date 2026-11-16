@@ -1,7 +1,7 @@
 <!-- guide:meta
 feature: start.ifSomethingGoesWrong
 title: If something goes wrong
-summary: What you see and what to do when the internet goes off, the connection is slow, or the app asks you to sign in again. What you typed is not lost.
+summary: What you see and what to do when the internet goes off, the connection is slow, or the app asks you to sign in again. What you typed is kept when the same person signs in again to the same school.
 roles: [ADMIN, EXECUTIVE, TEACHER, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER, COMMITTEE, PARENT, STUDENT]
 sources:
   - ui/src/components/connection-banner.tsx
@@ -20,7 +20,7 @@ knownIssues: []
 
 # If something goes wrong
 
-What you see and what to do when the internet goes off, the connection is slow, or the app asks you to sign in again. What you typed is not lost.
+What you see and what to do when the internet goes off, the connection is slow, or the app asks you to sign in again. What you typed is kept when the same person signs in again to the same school.
 
 **Where to go:** Nowhere. These messages appear by themselves: a bar at the very top of the page, and a small window in the middle.
 **Before you start:** Nothing is needed.
@@ -104,7 +104,7 @@ For your safety, the app can sign you out after a while. If this happens while y
 
 | What you see                                      | What to do                                                                              | Who can help       |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------ |
-| **No internet**, but other apps work              | Reload the page. If that does not help, close the browser and open it again.            | —                  |
+| **No internet**, but other apps work              | Copy any text you have not saved. Then reload the page. If that does not help, close the browser and open it again.            | —                  |
 | The bar stays after you press **Try again**       | Check the Wi-Fi or mobile data, then press it again.                                    | The school's admin |
 | I was taken to the sign-in page and my text is gone | This happens when another person or school signs in. Sign in and do the work again.   | —                  |
 | **Slow internet** for a long time                 | Try again in a little while. On a phone, switch between Wi-Fi and mobile data.          | —                  |
