@@ -199,8 +199,13 @@ describe('studentsTab shape', () => {
     expect(studentsTab.deleteByAbsence).toBe(true);
   });
 
-  it('excludes exactly user_id and class_section_id', () => {
-    expect(studentsTab.excluded).toEqual(['user_id', 'class_section_id']);
+  it('excludes exactly the ref ids and the photo-consent audit stamps', () => {
+    expect(studentsTab.excluded).toEqual([
+      'user_id',
+      'class_section_id',
+      'photo_consent_recorded_at',
+      'photo_consent_recorded_by',
+    ]);
     const exported = studentsTab.columns.map((c) => c.key);
     expect(exported).not.toContain('user_id');
     expect(exported).not.toContain('class_section_id');

@@ -248,6 +248,8 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'user_id', // exported instead as the `user` ref column, keyed by the referenced tab's natural key
   'class_section_id', // exported instead as the `section` ref column, keyed by the referenced tab's natural key
+  'photo_consent_recorded_at', // [59] audit stamp set by the consent service, not a sheet field
+  'photo_consent_recorded_by', // [59] audit stamp set by the consent service, not a sheet field
 ];
 
 const MAX_LENGTHS: Record<string, number> = {

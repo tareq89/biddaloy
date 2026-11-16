@@ -68,4 +68,6 @@ export const EXEMPT: Record<string, string> = {
   AuditLog: 'written by services as a side effect, never seeded directly',
   ReportSnapshot: 'runtime output: a stored copy of one run (Epic 8.15)',
   ReportSchedule: 'runtime output: schedules are set up by the school (Epic 8.15)',
+  LegalAcceptance:
+    'a user act recorded at sign-in/register (Epic 59), minted by the real accept flow, never seeded',
 };

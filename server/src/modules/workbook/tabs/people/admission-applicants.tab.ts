@@ -126,6 +126,7 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'intake_id', // exported instead as the `intake` ref column
   'sibling_student_id', // exported instead as the `sibling_student` ref column
+  'photo_consent', // [59] set by the public apply form only; not editable in the sheet (DB backup covers it)
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
