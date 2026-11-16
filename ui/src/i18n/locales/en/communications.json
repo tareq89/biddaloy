@@ -271,7 +271,8 @@
   "deliveryErrors": {
     "notConfigured": "Sending by {{medium}} is not set up for this school. Turn it on in Settings › Communication.",
     "noProvider": "{{medium}} cannot be sent automatically.",
-    "generic": "Could not be sent."
+    "generic": "Could not be sent.",
+    "dailyLimit": "Not sent: daily limit reached"
   },
   "fields": {
     "guardian": "Which guardian to send to",
@@ -367,5 +368,10 @@
     "scopedClear": "Show all messages",
     "scopedEmptyStudent": "No message has been sent to this student's guardians yet.",
     "scopedEmptyGuardian": "No message has been sent to this guardian yet."
+  },
+  "dailyLimit": {
+    "batchTooBig": "You can send {{remaining}} more today. You are trying to send {{requested}}. Send to fewer people, or try again tomorrow.",
+    "none": "Today's daily limit ({{limit}}) is used up. Try again tomorrow.",
+    "leftToday": "{{remaining}} of today's {{limit}} left."
   }
 }
