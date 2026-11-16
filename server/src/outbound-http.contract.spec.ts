@@ -101,6 +101,8 @@ const REVIEWED_OUTBOUND: Record<string, string> = {
     'api.cloudflare.com constant host, operator token (CF_SAAS_API_TOKEN); the school hostname travels in the JSON body only and the id in the path is checked as 32 hex, so pinned-http.ts is not used (Rule 7)',
   'modules/website/umami.client.ts':
     'UMAMI_API_URL env, operator config (platform Umami); the website id in the path is checked as a UUID, nothing tenant-supplied reaches the URL',
+  'modules/storage/virus-scan.service.ts':
+    'clamd over node:net to CLAMAV_HOST env (compose alias clamav:3310), operator config; never tenant-influenced (Rule 33)',
   'modules/storage/storage.service.ts': 'S3_ENDPOINT env, operator config',
   'common/sentry.ts': 'SENTRY_DSN env, operator config',
   'modules/storage/virus-scan.service.ts':
