@@ -1337,3 +1337,42 @@ its `rollbackTransaction` forgets what it remembered, and its `release` resets t
 **CI note.** The spec changes `biddaloy_app`'s password in the worker database and creates throwaway
 roles, so it runs in the shared integration stack like the other `*.integration.spec.ts` files; the
 role itself is cluster-wide and created by the migration, never by the spec.
+
+## Learning: Epic 59 wave 1 (2026-11-16, #3944)
+
+What wave 1 shipped: the legal texts and kit, `legal_acceptances` + photo consent columns
+(`1792500000001`), the `biddaloy_app` role and RLS wall (`1792500000100`), and the RLS spike.
+
+```mermaid
+flowchart LR
+  S[Spike #3942] -->|D13 holds| P[Promoted #3949]
+  P --> M2[Migration 1792500000100]
+  L[#3939] --> M1[Migration 1792500000001]
+  M1 --> M2
+```
+
+**Migration check.** The round-trip (`migration-schema` spec, up then down then up) was run by the
+#3939 agent on a local Postgres and passed. That is the only run so far. **CI on the integration
+stack is the first shared-stack run**; do not call the migrations "verified in CI" until it is green.
+
+Each bullet: what surprised us, what it cost, the rule candidate.
+
+- **Spike (#3942) proved D13.** Per-request `set_config('app.tenant_id', id, false)` plus a reset on
+  release gave no leak on pooled connections, and `''` means "no wall" (D22). Cost: none, the
+  design stood. Rule: keep the spec that connects AS `biddaloy_app`; a superuser connection proves nothing.
+- **Migration timestamp collision, `1792500000001` vs `1792500000100`.** Two lanes picked timestamps
+  in the same range. The RLS migration (`...100`) must run after the consent migration (`...001`),
+  and TypeORM orders by the number alone, so a lane choosing a lower one would have run first. Cost:
+  a re-check of the run order. Rule candidate: when two lanes in a wave both add
+  migrations, the parent assigns each lane a distinct timestamp range up front, in the ticket body.
+- **Docker hung on the agent's machine.** The test stack never came up, so the round-trip ran on a
+  plain local Postgres instead. Cost: a long wait, then a workaround. Rule candidate: agents never
+  start Docker; use `yarn test-env run -- <cmd>` or a local Postgres, and say which one in the report.
+- **`core.bare` flipped to `true` in a worktree.** Git commands in the worktree began failing as if
+  the repo had no working tree. Cost: lost time on a confusing error. Rule candidate: agents never
+  edit git config; if git fails, stop, leave the files in the worktree and report the exact state.
+
+**Demo seed.** `legal_acceptances` and the three `students.photo_consent*` columns are a recorded
+gap, see [`22-demo-seed.md`](22-demo-seed.md#known-gaps-recorded-here).
+
+**59.2.04.** The spike passed, so the RLS-based plan stands. No doc-only fallback is needed.
