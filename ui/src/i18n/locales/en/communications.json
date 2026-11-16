@@ -392,7 +392,7 @@
     },
     "switch": {
       "label": "Send to",
-      "guardians": "Guardians",
+      "guardians": "$t(common:entities.guardian_other)",
       "staff": "Staff"
     },
     "audience": {
@@ -407,8 +407,9 @@
       "designationPlaceholder": "Pick one or more designations",
       "people": "Pick people",
       "peoplePlaceholder": "Search by name",
+      "unnamedPerson": "Staff member",
       "peopleNoResults": "No staff match.",
-      "coordinated": "Teachers you coordinate",
+      "coordinated": "$t(common:entities.teacher_other) you coordinate",
       "empty": "Nobody matches. Choose someone else."
     },
     "medium": {
