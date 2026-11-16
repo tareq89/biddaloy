@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { TestingModule } from '@nestjs/testing';
@@ -32,15 +32,33 @@ describe('PlatformSettingsService.update (integration)', () => {
       (svc as any).audit,
       (svc as any).dataSource,
     );
-    // Delay right after each read so, without the lock, both would read {} before either writes.
-    for (const inst of [svc, other]) {
-      const read = inst.get.bind(inst);
-      inst.get = (async (k: string, m?: any) => {
-        const v = await read(k, m);
-        await new Promise((r) => setTimeout(r, 150));
-        return v;
-      }) as typeof inst.get;
-    }
+    // Deterministic hold: `svc` pauses after its read until `other` is provably racing it —
+    // either `other` has also read (no lock: both saw {}) or `other` is queued on the
+    // advisory lock (lock held: it cannot read yet). No timing involved.
+    let otherRead = false;
+    const otherQueuedOnLock = async () => {
+      const rows = await ds.query(
+        `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted LIMIT 1`,
+      );
+      return rows.length > 0;
+    };
+    const readSvc = svc.get.bind(svc);
+    svc.get = (async (k: string, m?: any) => {
+      const v = await readSvc(k, m);
+      await vi.waitFor(
+        async () => {
+          if (!otherRead && !(await otherQueuedOnLock())) throw new Error('other not racing yet');
+        },
+        { timeout: 10_000, interval: 10 },
+      );
+      return v;
+    }) as typeof svc.get;
+    const readOther = other.get.bind(other);
+    other.get = (async (k: string, m?: any) => {
+      const v = await readOther(k, m);
+      otherRead = true;
+      return v;
+    }) as typeof other.get;
     const merge = (patch: object) => (old: unknown) => ({ ...((old as object) ?? {}), ...patch });
     await Promise.all([
       svc.update(KEY, merge({ sms: 1 }), null as never),
