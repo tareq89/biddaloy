@@ -235,16 +235,27 @@ export class MarksSmsService {
       }
     }
 
-    await this.auditService.record({
-      action: AuditAction.REMINDER_SENT,
-      entity_type: 'ReminderBatch',
-      entity_id: batch.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      ip_address: context.ip,
-      user_agent: context.userAgent,
-      new_values: { queued, skipped_count: skipped.length },
-    });
+    // The messages are already queued: a failed audit write must not turn a sent batch into a 500
+    // (the page would tell the teacher it failed and they would send again).
+    try {
+      await this.auditService.record({
+        action: AuditAction.REMINDER_SENT,
+        entity_type: 'ReminderBatch',
+        entity_id: batch.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        new_values: { queued, skipped_count: skipped.length },
+      });
+    } catch (err) {
+      this.logger.error({
+        msg: 'marks-sms audit record failed after the batch was queued',
+        tenant_id: tenantId,
+        batch_id: batch.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     return { queued, segments: queuedSegments, skipped, already_sent_at: null };
   }
