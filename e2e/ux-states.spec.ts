@@ -104,9 +104,7 @@ test.describe('students list: denied, error, empty', () => {
   test('500 shows the error state and Retry reloads', async ({ page }) => {
     let fail = true;
     await page.route(LIST, (route) =>
-      fail
-        ? route.fulfill({ status: 500, json: apiError(500, 'Server error') })
-        : route.continue(),
+      fail ? route.fulfill({ status: 500, json: apiError(500, 'Server error') }) : route.continue(),
     );
     await page.goto('/students');
     // A 5xx is retried twice with backoff (~3s) before the error state shows.
