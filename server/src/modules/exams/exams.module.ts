@@ -61,6 +61,8 @@ import { TranscriptController } from './transcript.controller';
 import { AnalysisService } from './analysis.service';
 import { AnalysisController } from './analysis.controller';
 import { ResultSmsService } from './result-sms.service';
+import { MarksSmsService } from './marks-sms.service';
+import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { WebsiteResultsService } from './website-results.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { ExamSchedulesService } from './exam-schedules.service';
@@ -106,6 +108,7 @@ import {
       GradingScale,
       GradingBand,
       CommunicationLog,
+      ReminderBatch,
       School,
       ProgramEnrollment,
       ProgramMilestone,
@@ -156,6 +159,7 @@ import {
     TranscriptService,
     AnalysisService,
     ResultSmsService,
+    MarksSmsService,
     WebsiteResultsService,
     FamilyAccessService,
     ExamSchedulesService,
@@ -175,6 +179,7 @@ import {
     MarkGridService,
     // [70.2.1] The final-result SMS reuses the exam send path (`sendForFinal`).
     ResultSmsService,
+    MarksSmsService,
     // [40.5.01] The public site's results feed and island read it.
     WebsiteResultsService,
   ],
