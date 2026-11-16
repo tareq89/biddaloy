@@ -2,6 +2,8 @@ import { SiteSectionKey } from '@biddaloy/shared';
 import type { ThemeModule } from '../basic';
 import about from './sections/about.astro';
 import academics from './sections/academics.astro';
+import admissionResult from '../basic/sections/admission-result.astro';
+import admissionLists from '../basic/sections/admission-lists.astro';
 import admissions from './sections/admissions.astro';
 import blog from './sections/blog.astro';
 import contact from './sections/contact.astro';
@@ -22,6 +24,8 @@ export default {
     [SiteSectionKey.ACADEMICS]: academics,
     [SiteSectionKey.ROUTINE]: routine,
     [SiteSectionKey.ADMISSIONS]: admissions,
+    [SiteSectionKey.ADMISSION_RESULT]: admissionResult,
+    [SiteSectionKey.ADMISSION_LISTS]: admissionLists,
     [SiteSectionKey.TEACHERS]: teachers,
     [SiteSectionKey.NOTICES]: notices,
     [SiteSectionKey.EVENTS]: events,

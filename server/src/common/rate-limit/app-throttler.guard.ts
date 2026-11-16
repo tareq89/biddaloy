@@ -16,7 +16,9 @@ export const FAIL_CLOSED_WITHOUT_REDIS_KEY = 'failClosedWithoutRedis';
  * 503 instead. Leave it off routes that only keep signed-in people signed in (refresh,
  * logout, logout-all, sessions) and off read-only routes.
  */
-export const FailClosedWithoutRedis = () => SetMetadata(FAIL_CLOSED_WITHOUT_REDIS_KEY, true);
+/** `message` replaces the default 503 text (a route whose caller sees it, e.g. the school site). */
+export const FailClosedWithoutRedis = (message?: string) =>
+  SetMetadata(FAIL_CLOSED_WITHOUT_REDIS_KEY, message ?? true);
 
 /**
  * The global rate-limit guard. Behaves exactly like ThrottlerGuard while Redis is up. While
@@ -30,13 +32,15 @@ export class AppThrottlerGuard extends ThrottlerGuard {
       return await super.canActivate(context);
     } catch (error) {
       if (!(error instanceof ThrottlerStorageUnavailableError)) throw error;
-      const failClosed = this.reflector.getAllAndOverride<boolean>(FAIL_CLOSED_WITHOUT_REDIS_KEY, [
-        context.getHandler(),
-        context.getClass(),
-      ]);
+      const failClosed = this.reflector.getAllAndOverride<boolean | string>(
+        FAIL_CLOSED_WITHOUT_REDIS_KEY,
+        [context.getHandler(), context.getClass()],
+      );
       if (failClosed) {
         throw new ServiceUnavailableException(
-          'This action is temporarily unavailable. Please try again in a few minutes.',
+          typeof failClosed === 'string'
+            ? failClosed
+            : 'This action is temporarily unavailable. Please try again in a few minutes.',
         );
       }
       return true;

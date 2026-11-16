@@ -1,0 +1,64 @@
+---
+import Skeleton from '../../components/Skeleton.astro';
+import bn from '../../i18n/bn.json';
+import en from '../../i18n/en.json';
+import { t } from '../../i18n/t';
+import { fetchByHost } from '../../lib/api';
+import type { AdmissionRound } from '../../lib/admission';
+import type { Lang } from '../../lib/types';
+import { themes } from '../../themes';
+
+const { site } = Astro.locals;
+const lang = Astro.params.lang as Lang;
+if (!site) return new Response(null, { status: 404 });
+if (Astro.locals.preview) return Astro.rewrite('/404/');
+// Read here so the round list is in the first HTML. 404 = admission off for this school.
+const list = await fetchByHost<AdmissionRound[]>(Astro.locals.host, 'admission/rounds');
+if (list.kind !== 'ok') return Astro.rewrite(list.kind === 'down' ? '/503/' : '/404/');
+const rounds = list.data;
+const { Layout } = themes[site.theme] ?? themes.basic;
+// The Turnstile site key is public; the site container carries it in its own env.
+const siteKey = process.env.TURNSTILE_SITE_KEY ?? import.meta.env?.TURNSTILE_SITE_KEY ?? '';
+const m = (k: string) => t(lang, `admission.${k}`);
+// The island reads a flat `a.b` -> text map of this page's own strings.
+const flat = (o: Record<string, unknown>, p = ''): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(o).flatMap(([k, v]) =>
+      typeof v === 'string' ? [[p + k, v]] : Object.entries(flat(v as Record<string, unknown>, `${p}${k}.`)),
+    ),
+  );
+const dict = flat({ ...bn.admission, ...(lang === 'en' ? en.admission : {}) });
+---
+<Layout manifest={{ ...site, noindex: true }} lang={lang} rest="admission/" title={m('title')}>
+  <section class="sec" id="admission"><div class="wrap">
+    <div class="sec-head"><h1>{m('title')}</h1></div>
+    {rounds.length === 0 ? <p class="empty">{m('none')}</p> : !siteKey ? <p class="empty">{m('unavailable')}</p> : (
+      <>
+        <div class="island" data-admission data-lang={lang} data-sitekey={siteKey} data-round={Astro.url.searchParams.get('round') ?? ''}
+          data-status-href={`/${lang}/admission-status/`} data-rounds={JSON.stringify(rounds)} data-t={JSON.stringify(dict)}>
+          <noscript><p class="bad">{m('unavailable')}</p></noscript>
+        </div>
+      </>
+    )}
+  </div></section>
+</Layout>
+<script>
+  import '../../islands/admission-form';
+</script>
+<style is:global>
+  .adm-form{display:grid;gap:14px;max-width:560px}
+  .adm-form .field{display:grid;gap:6px}
+  .adm-form input:not([type=checkbox]),.adm-form select,.adm-form textarea{min-height:44px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s);width:100%;background:var(--surface);color:var(--ink)}
+  .adm-form input[type=checkbox]{width:44px;height:44px}
+  .adm-form .btn{width:100%}
+  .adm-err{color:var(--warn)}
+  .adm-fee{display:grid;gap:12px;border:1px solid var(--line);border-radius:var(--r-s);padding:12px}
+  .adm-prev{display:block;font-size:14px;color:var(--ink-3);word-break:break-all}
+  .adm-thumb{display:block;max-width:160px;margin-top:6px;border-radius:var(--r-s)}
+  .adm-rounds{display:grid;gap:10px;max-width:560px}
+  .adm-round{width:100%;white-space:normal;text-align:start;justify-content:flex-start}
+  .adm-ref{font-size:2rem;font-weight:700;letter-spacing:.04em;word-break:break-all}
+  .adm-done{display:grid;gap:14px;max-width:560px}
+  .bad{color:var(--warn)}.ok{color:var(--ok)}
+  @media(min-width:720px){.adm-form .btn{width:auto}}
+</style>

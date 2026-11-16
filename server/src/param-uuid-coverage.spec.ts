@@ -19,6 +19,7 @@ const NON_UUID_PARAMS = new Map<string, number>([
   ['modules/notices/links/public-notice.controller.ts:token', 3], // notice link token (256-bit), not a UUID
   ['modules/print/verify/public-verify.controller.ts:token', 1], // verify token
   ['modules/website/public/public-site.controller.ts:host', 7], // site host name
+  ['modules/website/public/public-admission-site.controller.ts:host', 6], // site host name; the host alone picks the school (#4187)
   ['modules/website/public/public-site.controller.ts:page', 1], // SitePage name
   ['modules/website/public/public-site.controller.ts:slug', 1], // blog post slug (service checks the shape)
   ['modules/website/public/public-site.controller.ts:kind', 1], // SiteIslandKind name

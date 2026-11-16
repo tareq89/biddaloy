@@ -1,0 +1,30 @@
+---
+import type { SectionProps } from '../../../lib/types';
+import { field } from '../../../lib/pick';
+
+// Roll + phone box: goes to the result page, which asks the server (the widget itself holds no data).
+const { data, lang, feed } = Astro.props as SectionProps;
+const pre = Astro.locals.base ?? '';
+const title = field(data.title, lang) ?? (lang === 'en' ? 'Check admission result' : 'ভর্তির ফলাফল দেখুন');
+const rounds = feed.filter((r) => typeof r.round_id === 'string');
+const L = lang === 'en'
+  ? { round: 'Admission round', roll: 'Roll number', phone: 'Phone number', go: 'See result' }
+  : { round: 'ভর্তি রাউন্ড', roll: 'রোল নম্বর', phone: 'ফোন নম্বর', go: 'ফল দেখুন' };
+---
+{rounds.length > 0 && (
+  <section class="sec" id="admission-result"><div class="wrap">
+    <div class="sec-head"><h2>{title}</h2></div>
+    <form class="adm-result card" method="get" action={`${pre}/${lang}/admission-result`}>
+      {rounds.length === 1 ? (
+        <input type="hidden" name="round" value={String(rounds[0].round_id)} />
+      ) : (
+        <label>
+          {L.round}
+          <select name="round">{rounds.map((r) => <option value={String(r.round_id)}>{String(r.title)}</option>)}</select>
+        </label>
+      )}
+      <label>{L.roll}<input name="roll" inputmode="numeric" autocomplete="off" required /></label>
+      <button class="btn btn-primary" type="submit">{L.go}</button>
+    </form>
+  </div></section>
+)}

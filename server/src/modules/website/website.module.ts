@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { School } from '../schools/entities/school.entity';
@@ -42,6 +42,8 @@ import { ClassSectionsFeed } from './public/feeds/class-sections.feed';
 import { BlogFeed } from './public/feeds/blog.feed';
 import { FeesFeed } from './public/feeds/fees.feed';
 import { AdmissionsFeed } from './public/feeds/admissions.feed';
+import { AdmissionListsFeed } from './public/feeds/admission-lists.feed';
+import { AdmissionResultsFeed } from './public/feeds/admission-results.feed';
 import { GalleryFeed } from './public/feeds/gallery.feed';
 import { GalleryController } from './gallery/gallery.controller';
 import { GalleryService } from './gallery/gallery.service';
@@ -52,6 +54,11 @@ import { CUSTOM_DOMAIN_QUEUE, CustomDomainProcessor } from './custom-domain.proc
 import { CloudflareSaasClient } from './cloudflare-saas.client';
 import { UmamiClient } from './umami.client';
 import { UmamiService } from './umami.service';
+import { AdmissionModule } from '../admission/admission.module';
+import { PublicAdmissionSiteController } from './public/public-admission-site.controller';
+import { PublicAdmissionSiteService } from './public/public-admission-site.service';
+import { AdmissionIntake } from '../admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from '../admission/entities/admission-applicant.entity';
 
 /**
  * [40.1.04] The school website: ADMIN editing (`/website`) and the anonymous by-host reads the
@@ -70,12 +77,15 @@ import { UmamiService } from './umami.service';
       SiteEnquiry,
       StaffWebProfile,
       UserTenant,
+      AdmissionIntake,
+      AdmissionApplicant,
     ]),
     BullModule.registerQueue({ name: CUSTOM_DOMAIN_QUEUE }),
     StorageModule,
     SchoolsModule,
     ExamsModule,
     CommunicationsModule,
+    forwardRef(() => AdmissionModule),
   ],
   controllers: [
     SiteConfigController,
@@ -86,6 +96,7 @@ import { UmamiService } from './umami.service';
     SitePostsController,
     SiteEnquiriesController,
     PublicEnquiryController,
+    PublicAdmissionSiteController,
     StaffWebProfilesController,
     GalleryController,
   ],
@@ -100,6 +111,7 @@ import { UmamiService } from './umami.service';
     PreviewTokenService,
     SiteMediaService,
     PublicSiteService,
+    PublicAdmissionSiteService,
     SiteHostService,
     SiteCacheService,
     NoticesFeed,
@@ -109,6 +121,8 @@ import { UmamiService } from './umami.service';
     BlogFeed,
     FeesFeed,
     AdmissionsFeed,
+    AdmissionListsFeed,
+    AdmissionResultsFeed,
     ResultsFeed,
     ClassSectionsFeed,
     GalleryFeed,

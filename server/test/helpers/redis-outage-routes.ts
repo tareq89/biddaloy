@@ -32,6 +32,7 @@ import {
 } from '../../src/modules/payment-submissions/online-payments.controller';
 import { OnlinePaymentsPublicController } from '../../src/modules/payment-submissions/online-payments-public.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
+import { PublicAdmissionSiteController } from '../../src/modules/website/public/public-admission-site.controller';
 
 // What each sign-in-related route does while Redis (the rate limiter) is down. Shared by
 // app-throttler.guard.spec (every route on these controllers must be in exactly one list) and
@@ -50,6 +51,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   RegistrationController,
   UserController,
   MarksController,
+  PublicAdmissionSiteController,
   ImpersonationExchangeController,
   CockpitAuthController,
   CockpitEnrolController,
@@ -121,6 +123,10 @@ export const FAIL_CLOSED = [
   // MarksController: the sheet import stages in Redis, so without it validate and commit cannot work.
   'POST /exams/:examId/marks/sheet/validate',
   'POST /exams/:examId/marks/sheet/commit',
+  // [#4187] The school site's admission writes and result lookup: no rate limit, no answer.
+  'POST /public/site/by-host/:host/admission/applicants',
+  'POST /public/site/by-host/:host/admission/result',
+  'POST /public/site/by-host/:host/admission/admit-card',
   // [99.4.16] Owner actions that spend a step-up token or a restore lock kept in Redis.
   'POST /platform/ops/queues/:name/retry-failed',
   'POST /platform/ops/restore-lock/:schoolId/release',
@@ -166,6 +172,10 @@ export const FAIL_OPEN = [
   'POST /payment-submissions/:id/confirm',
   'POST /payment-submissions/:id/reject',
   'POST /payment-submissions/:id/reopen',
+  // [#4187] School-site admission reads and lookups that open no write: the per-IP throttle is down, nothing more.
+  'GET /public/site/by-host/:host/admission/rounds',
+  'GET /public/site/by-host/:host/admission/lists',
+  'POST /public/site/by-host/:host/admission/status',
   // Bearer-token only banner status and end for a Login as session: no password or code.
   'GET /auth/impersonation/me',
   'POST /auth/impersonation/end',

@@ -1,0 +1,12 @@
+---
+import type { Lang } from '../../lib/types';
+
+interface Props { lang: Lang; link?: string }
+const { lang, link } = Astro.props;
+const pre = Astro.locals.base ?? '';
+---
+{link && (
+  <div class="adm-ribbon"><div class="wrap">
+    <a href={`${pre}/${lang}${link}`}>{lang === 'en' ? 'Admission open — apply now' : 'ভর্তি চলছে — আবেদন করুন'}</a>
+  </div></div>
+)}
