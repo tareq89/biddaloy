@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsEnum } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsObject,
+} from 'class-validator';
 import { LegalDocument } from '@biddaloy/shared';
 
 /** Body of `POST /legal/accept`. */
@@ -11,6 +18,14 @@ export class AcceptLegalDto {
   @ArrayUnique()
   @IsEnum(LegalDocument, { each: true })
   documents: LegalDocument[];
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    description: 'Version of each named document, as displayed to the user.',
+  })
+  @IsObject()
+  versions: Partial<Record<LegalDocument, string>>;
 }
 
 /** What the caller still owes in this school. */

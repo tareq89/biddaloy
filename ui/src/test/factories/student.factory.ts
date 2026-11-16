@@ -48,11 +48,6 @@ export function studentFactory(overrides: Partial<Student> = {}, script?: Script
     card_no: null,
     health_notes: null,
     father_name: null,
-    // Epic 59: existing students read UNKNOWN until consent is recorded (D25).
-    photo_consent: 'UNKNOWN',
-    photo_consent_recorded_at: null,
-    photo_consent_recorded_by_user: null,
-    photo_consent_recorded_by: null,
     mother_name: null,
     tenant,
     tenant_id: tenant.id,

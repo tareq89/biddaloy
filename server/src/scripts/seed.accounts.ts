@@ -859,7 +859,9 @@ export async function acceptCurrentLegalForAdmins(manager: EntityManager): Promi
      SELECT ut.user_id, ut.tenant_id, d.document, d.version
        FROM user_tenants ut
       CROSS JOIN unnest($1::text[], $2::text[]) AS d(document, version)
+      JOIN users u ON u.id = ut.user_id
       WHERE ut.role = $3 AND ut.deleted_at IS NULL
+        AND u.email LIKE '%@biddaloy.test'
      ON CONFLICT DO NOTHING`,
     [
       [...ADMIN_REQUIRED_DOCS],

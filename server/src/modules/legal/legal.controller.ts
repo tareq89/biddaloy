@@ -1,13 +1,24 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { GUARDIAN_ROLES, JwtPayload, STAFF_ROLES } from '@biddaloy/shared';
+import { LEGAL_DOCS, GUARDIAN_ROLES, JwtPayload, STAFF_ROLES } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AllowWhenReadOnly } from '../auth/decorators/allow-when-read-only.decorator';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 import { DenyWhenImpersonating } from '../auth/decorators/deny-when-impersonating.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -37,6 +48,7 @@ export class LegalController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @DenyWhenImpersonating()
   @Post('accept')
   @HttpCode(HttpStatus.OK)
@@ -49,6 +61,10 @@ export class LegalController {
     @CurrentUser() jwt: JwtPayload,
     @Req() request: Request,
   ): Promise<LegalStatusResponseDto> {
+    // The text the user read came from their client build: refuse a stale version (fixed sentence).
+    if (dto.documents.some((d) => dto.versions[d] !== LEGAL_DOCS[d].version)) {
+      throw new ConflictException('Legal document version changed, reload and read it again');
+    }
     await this.legal.accept(jwt.sub, tenant.id, dto.documents, request.ip ?? null);
     return { pending: await this.legal.pending(jwt.sub, tenant.id, tenant.role) };
   }

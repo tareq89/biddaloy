@@ -89,12 +89,12 @@ describe('LegalController (e2e)', () => {
     await http()
       .post(`${API}/legal/accept`)
       .set(as(admin.token))
-      .send({ documents: ['terms'] })
+      .send({ documents: ['terms'], versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' } })
       .expect(401);
     await http()
       .post(`${API}/legal/accept`)
       .set(as(admin.token, 'not-a-uuid'))
-      .send({ documents: ['terms'] })
+      .send({ documents: ['terms'], versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' } })
       .expect(401);
   });
 
@@ -112,7 +112,10 @@ describe('LegalController (e2e)', () => {
     const done = await http()
       .post(`${API}/legal/accept`)
       .set(as(admin.token, schoolA))
-      .send({ documents: ['terms', 'privacy', 'dpa'] })
+      .send({
+        documents: ['terms', 'privacy', 'dpa'],
+        versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' },
+      })
       .expect(200);
     expect(done.body).toEqual({ pending: [] });
     const after = await http().get(`${API}/legal/status`).set(as(admin.token, schoolA)).expect(200);
@@ -132,13 +135,21 @@ describe('LegalController (e2e)', () => {
     await http()
       .post(`${API}/legal/accept`)
       .set(as(admin.token, schoolB))
-      .send({ documents: ['bogus'] })
+      .send({ documents: ['bogus'], versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' } })
       .expect(400);
     await http()
       .post(`${API}/legal/accept`)
       .set(as(admin.token, schoolB))
-      .send({ documents: [] })
+      .send({ documents: [], versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' } })
       .expect(400);
+  });
+
+  it('rejects a version the user did not read with 409', async () => {
+    await http()
+      .post(`${API}/legal/accept`)
+      .set(as(admin.token, schoolB))
+      .send({ documents: ['terms'], versions: { terms: '0.9' } })
+      .expect(409);
   });
 
   it('a Login as session gets 403 IMPERSONATION_DENIED on accept and no row is written (D37)', async () => {
@@ -174,7 +185,7 @@ describe('LegalController (e2e)', () => {
     const res = await http()
       .post(`${API}/legal/accept`)
       .set(as(ex.body.access_token, schoolB))
-      .send({ documents: ['terms'] })
+      .send({ documents: ['terms'], versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' } })
       .expect(403);
     expect(JSON.stringify(res.body)).toContain('IMPERSONATION_DENIED');
     const rows = await ds.query(`SELECT 1 FROM legal_acceptances WHERE tenant_id = $1`, [schoolB]);

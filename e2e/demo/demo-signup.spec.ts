@@ -52,7 +52,15 @@ test('a visitor signs up with a made-up phone, reads the OTP from the inbox, and
   await page.getByLabel(t('register.fields.email')).fill(who.email);
   await page.getByLabel(t('register.fields.schoolName')).fill(who.schoolName);
   await page.getByLabel(t('register.fields.address')).fill('1 Demo Road, Dhaka');
-  await page.getByRole('checkbox', { name: t('register.terms', { terms: t('register.termsLink'), privacy: t('register.privacyLink') }) }).check();
+  await page
+    .getByRole('checkbox', {
+      name: t('register.terms', {
+        terms: t('legal.docs.terms'),
+        privacy: t('legal.docs.privacy'),
+        dpa: t('legal.docs.dpa'),
+      }),
+    })
+    .check();
   await page.getByRole('button', { name: t('register.continue') }).click();
   await register.submitCode(await otpFromInbox(request, who.phone));
   await register.setPassword(PASSWORD);

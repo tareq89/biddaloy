@@ -49,7 +49,10 @@ describe('/legal/accept', () => {
     pending = [];
     await user.click(submit);
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
-    expect(body).toEqual({ documents: ['terms', 'privacy', 'dpa'] });
+    expect(body).toEqual({
+      documents: ['terms', 'privacy', 'dpa'],
+      versions: { terms: '1.0', privacy: '1.0', dpa: '1.0' },
+    });
   });
 
   it('keeps a submit error inline and stays on the page', async () => {

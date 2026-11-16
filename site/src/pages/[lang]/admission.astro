@@ -53,6 +53,7 @@ const dict = flat({ ...bn.admission, ...(lang === 'en' ? en.admission : {}) });
 <style is:global>
   .adm-form{display:grid;gap:14px;max-width:560px}
   .adm-form .field{display:grid;gap:6px}
+  .adm-form .field[hidden]{display:none}
   .adm-form input:not([type=checkbox]),.adm-form select,.adm-form textarea{min-height:44px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s);width:100%;background:var(--surface);color:var(--ink)}
   .adm-form input[type=checkbox]{width:44px;height:44px}
   .adm-form .btn{width:100%}

@@ -139,7 +139,6 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'intake_id', // exported instead as the `intake` ref column
   'sibling_student_id', // exported instead as the `sibling_student` ref column
-  'photo_consent', // [59] set by the public apply form only; not editable in the sheet (DB backup covers it)
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
@@ -373,7 +372,11 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
     applicant.guardian_phone = row.guardian_phone;
     applicant.guardian_email = row.guardian_email;
     applicant.home_address = row.home_address;
-    applicant.documents = row.documents as AdmissionApplicant['documents'];
+    // Refused consent keeps no photo (D8): the sheet cannot leave one reachable.
+    applicant.documents = (row.documents as AdmissionApplicant['documents']).filter(
+      (d) =>
+        !(row.photo_consent === PhotoConsent.REFUSED && d.type === AdmissionDocumentType.PHOTO),
+    );
     applicant.status = row.status;
     applicant.roll_number = row.roll_number;
     applicant.source = row.source as AdmissionApplicant['source'];

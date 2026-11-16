@@ -415,7 +415,7 @@ export class ApplicantReviewService {
       await manager.getRepository(Student).update(
         { id: student.id, tenant_id: tenantId },
         {
-          photo_consent: applicant.photo_consent ?? PhotoConsent.UNKNOWN,
+          photo_consent: current.photo_consent ?? PhotoConsent.UNKNOWN,
           photo_consent_recorded_at: new Date(),
           photo_consent_recorded_by: reviewerUserId,
         },

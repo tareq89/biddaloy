@@ -1,4 +1,5 @@
 /** [59.3.G1.01] What legal documents the signed-in admin still owes, and the accept call. */
+import { LEGAL_DOCS } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -22,7 +23,12 @@ export function useAcceptLegal() {
   return useMutation({
     retry: false,
     mutationFn: async (documents: LegalDocName[]): Promise<LegalStatus> =>
-      (await apiClient.post<LegalStatus>('/legal/accept', { documents })).data,
+      (
+        await apiClient.post<LegalStatus>('/legal/accept', {
+          documents,
+          versions: Object.fromEntries(documents.map((d) => [d, LEGAL_DOCS[d].version])),
+        })
+      ).data,
     onSuccess: async (status) => {
       queryClient.setQueryData(legalStatusKey, status);
       await queryClient.invalidateQueries({ queryKey: legalStatusKey });

@@ -21,8 +21,10 @@ describe('/legal/$doc', () => {
     for (const locale of ['en', 'bn'] as const) {
       renderWithRouter(routeTree, { initialEntries: [`/legal/${doc}`], ...OPTS, locale });
       expect(
-        await screen.findByRole('heading', { name: firstHeading(locale, doc) }),
+        await screen.findByRole('heading', { level: 2, name: firstHeading(locale, doc) }),
       ).toBeTruthy();
+      // The sr-only h1 is the route-focus target.
+      expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
       await cleanupTestState();
     }
   });

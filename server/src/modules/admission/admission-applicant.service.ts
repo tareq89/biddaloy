@@ -433,9 +433,11 @@ export class AdmissionApplicantService {
         const newTypes = new Set(documents.map((d) => d.type));
         const kept = (existing?.documents ?? []).filter((d) => !newTypes.has(d.type));
         const merged = [...kept, ...documents];
+        // Staff may omit photo_consent on a resubmit: a stored REFUSED still applies.
+        const refused = (dto.photo_consent ?? existing?.photo_consent) === PhotoConsent.REFUSED;
         const missing = intake.required_document_types.filter(
           (type) =>
-            !(type === AdmissionDocumentType.PHOTO && dto.photo_consent === PhotoConsent.REFUSED) &&
+            !(type === AdmissionDocumentType.PHOTO && refused) &&
             !merged.some((d) => d.type === type),
         );
         if (missing.length > 0) {
@@ -487,18 +489,16 @@ export class AdmissionApplicantService {
           existing.guardian_email = dto.guardian_email ?? null;
           existing.home_address = dto.home_address ?? null;
           existing.documents = merged;
-          if (dto.photo_consent) {
-            existing.photo_consent = dto.photo_consent;
-            if (dto.photo_consent === PhotoConsent.REFUSED) {
-              existing.documents = merged.filter((d) => d.type !== AdmissionDocumentType.PHOTO);
-              // the earlier photo file goes too
-              replacedKeys = [
-                ...replacedKeys,
-                ...merged
-                  .filter((d) => d.type === AdmissionDocumentType.PHOTO)
-                  .map((d) => d.storage_key),
-              ];
-            }
+          if (dto.photo_consent) existing.photo_consent = dto.photo_consent;
+          if (refused) {
+            existing.documents = merged.filter((d) => d.type !== AdmissionDocumentType.PHOTO);
+            // the earlier (and any just-uploaded) photo file goes too
+            replacedKeys = [
+              ...replacedKeys,
+              ...merged
+                .filter((d) => d.type === AdmissionDocumentType.PHOTO)
+                .map((d) => d.storage_key),
+            ];
           }
           existing.extra_fields = extra;
           existing.quota_tags = quotaTags;

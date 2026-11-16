@@ -657,7 +657,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.full_name = row.full_name;
     student.full_name_bn = row.full_name_bn;
     student.blood_group = row.blood_group;
-    student.photo_key = row.photo_key;
+    // A blank consent cell keeps the stored one, so a stored REFUSED still drops the photo.
+    student.photo_key =
+      (row.photo_consent ?? student.photo_consent) === PhotoConsent.REFUSED ? null : row.photo_key;
     // A blank cell keeps the stored consent. A real change stamps the time; the person is not
     // known in a file import.
     // ponytail: only the key is cleared; deleting the stored file for REFUSED goes through the

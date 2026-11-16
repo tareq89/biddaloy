@@ -58,6 +58,7 @@ function LegalDocPage() {
   return (
     <AuthLayout size="wide">
       <article lang={lang} className="flex flex-col gap-3">
+        <h1 className="sr-only">{title}</h1>
         <LegalMarkdown source={getLegalDoc(doc, lang).body} />
       </article>
     </AuthLayout>

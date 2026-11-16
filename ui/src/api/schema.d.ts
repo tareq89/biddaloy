@@ -24229,6 +24229,10 @@ export interface components {
         };
         AcceptLegalDto: {
             documents: ("terms" | "privacy" | "dpa" | "sla")[];
+            /** @description Version of each named document, as displayed to the user. */
+            versions: {
+                [key: string]: string;
+            };
         };
         SocialProvidersDto: {
             providers: ("google" | "facebook")[];

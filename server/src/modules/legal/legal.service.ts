@@ -40,6 +40,8 @@ export class LegalService {
     docs: readonly LegalDocument[],
     ip: string | null,
     manager?: EntityManager,
+    /** Versions the user actually read; a doc missing here records the current version. */
+    accepted: Partial<Record<LegalDocument, string>> = {},
   ): Promise<void> {
     // Fixed sentence, the submitted value is never echoed (Rule 23).
     if (docs.some((d) => !Object.hasOwn(LEGAL_DOCS, d))) {
@@ -47,7 +49,9 @@ export class LegalService {
     }
     const unique = [...new Set(docs)];
     if (unique.length === 0) return;
-    const versions = Object.fromEntries(unique.map((d) => [d, LEGAL_DOCS[d].version]));
+    const versions = Object.fromEntries(
+      unique.map((d) => [d, accepted[d] ?? LEGAL_DOCS[d].version]),
+    );
     await (manager ? manager.getRepository(LegalAcceptance) : this.repo)
       .createQueryBuilder()
       .insert()

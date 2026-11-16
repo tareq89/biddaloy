@@ -23,7 +23,7 @@ describe('ApplicantReviewService.admit seats (integration)', () => {
     service = new ApplicantReviewService(
       ds.getRepository(AdmissionApplicant),
       ds.getRepository(AdmissionEvaluation),
-      { create: async () => ({ id: 'student' }) } as never,
+      { create: async () => ({ id: '00000000-0000-4000-8000-0000000000a1' }) } as never,
       { findByPhoneAnyFormat: async () => null, create: async () => ({ id: 'g' }) } as never,
       { notifyStatusChange: async () => undefined } as never,
       {} as never,

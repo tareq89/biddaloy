@@ -16,6 +16,7 @@ import {
   AuditAction,
   CommunicationMedium,
   CommunicationStatus,
+  LegalDocument,
   LoginResponse,
   SIGNUP_DOCS,
   UserRole,
@@ -355,7 +356,9 @@ export class RegistrationService {
             if (ticket) {
               await this.socialIdentity.link(userId, ticket, manager, context, result.school.id);
             }
-            await this.legal.accept(userId, result.school.id, SIGNUP_DOCS, context.ip, manager);
+            await this.legal.accept(userId, result.school.id, SIGNUP_DOCS, context.ip, manager, {
+              [LegalDocument.TERMS]: staged.terms_version,
+            });
             await this.audit.record(
               {
                 action: AuditAction.CREATE,
