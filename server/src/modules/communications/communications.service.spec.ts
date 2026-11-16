@@ -296,6 +296,7 @@ describe('CommunicationsService', () => {
     it.each([
       [{ error: 'SMS (Greenweb) is not configured for this tenant' }, 'NOT_CONFIGURED'],
       [{ error: 'No provider registered for medium "SMS"' }, 'NO_PROVIDER'],
+      [{ error: 'Daily limit reached.' }, 'DAILY_LIMIT_REACHED'],
       // [2683] Raw provider text never reaches the response (Rule 23).
       [{ error: 'Gateway https://gw.example/acct-9 rejected 01712345678' }, 'FAILED'],
       [null, null],

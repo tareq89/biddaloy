@@ -41,6 +41,9 @@ import { InvoicesModule } from '../invoices/invoices.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { CommunicationsDashboardController } from './communications-dashboard.controller';
 import { CommunicationsDashboardService } from './communications-dashboard.service';
+import { SendLimitService } from './limits/send-limit.service';
+import { AccountAccessModule } from '../account-access/account-access.module';
+import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 
 @Module({
   imports: [
@@ -79,6 +82,10 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     // through this bare import (the first is the `InvoicesModule` edge
     // above). `forwardRef` breaks it the same way.
     forwardRef(() => CreditsModule),
+    // [60.0] SendLimitService needs OTP_REDIS and PlatformSettingsService; both modules sit in
+    // existing cycles with this one, so both edges are forwardRef.
+    forwardRef(() => AccountAccessModule),
+    forwardRef(() => PlatformIdentityModule),
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
@@ -109,6 +116,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     FeeNotifyProcessor,
     CommunicationsDashboardService,
     SmsSourceService,
+    SendLimitService,
   ],
   // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
   // matches routes in registration order and `CommunicationsController` has
@@ -127,6 +135,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     SingleReminderService,
     CommunicationProviderRegistryService,
     MessagingConfigResolver,
+    SendLimitService,
     ...MESSAGING_PROVIDERS,
   ],
 })
