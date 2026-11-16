@@ -127,6 +127,9 @@ export const COMMON_REQUIRED = [
   'POSTGRES_USER',
   'POSTGRES_DB',
   'POSTGRES_PASSWORD',
+  // [59] The app connects as the non-owner role biddaloy_app (x-app-db-url).
+  'APP_DB_USER',
+  'APP_DB_PASSWORD',
   'S3_ACCESS_KEY_ID',
   'S3_SECRET_ACCESS_KEY',
   // School websites (Epic 40): the app gets it as SITE_ROOT_DOMAIN.

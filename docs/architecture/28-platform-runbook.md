@@ -2053,8 +2053,9 @@ echo "$PW"                          # into the env's sops file: APP_DB_PASSWORD 
 ```
 
 If the role already exists (an earlier migration ran), use `ALTER ROLE biddaloy_app PASSWORD '$PW'`
-instead. Compose refuses any command (even `run migrate`) while `APP_DB_PASSWORD` is unset, so the
-sops value must be deployed first.
+instead. Compose refuses any command (even `run migrate`) while `APP_DB_USER` or `APP_DB_PASSWORD` is unset.
+Add both to the env's sops file and to your local env file (`infra/secrets/<env>.env`, which stays
+untracked), and deploy the sops values first.
 
 Rotate: `ALTER ROLE biddaloy_app PASSWORD '<new>'`, update `APP_DB_PASSWORD` in sops, commit, deploy.
 Production refuses to boot if the app URL is a superuser, a `BYPASSRLS` role or the owner of
