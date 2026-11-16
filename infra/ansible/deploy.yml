@@ -149,7 +149,7 @@
             fail_ctx:
               {
                 step: networks,
-                next: 'docker network ls; docker network inspect biddaloy-edge biddaloy-ops-edge',
+                next: 'docker network ls; docker network inspect biddaloy-edge biddaloy-ops-edge biddaloy-ops-scan',
               }
         - name: Create the shared networks (idempotent)
           ansible.builtin.shell: |
@@ -157,6 +157,7 @@
           loop:
             - { name: biddaloy-edge, args: '--subnet {{ edge_subnet }}' }
             - { name: biddaloy-ops-edge, args: '' }
+            - { name: biddaloy-ops-scan, args: '' }
           changed_when: false
         - name: Read the subnet of biddaloy-edge
           ansible.builtin.command: docker network inspect -f '{% raw %}{{ (index .IPAM.Config 0).Subnet }}{% endraw %}' biddaloy-edge

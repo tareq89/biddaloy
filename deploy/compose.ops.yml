@@ -1,6 +1,7 @@
 # Ops stack (Epic 79.0): Beszel (host + container metrics), Uptime Kuma (uptime monitors +
-# alerts), Dozzle (live logs, behind its own login). Nothing is published on the host;
-# edge nginx reaches the three UIs over `biddaloy-ops-edge`.
+# alerts), Dozzle (live logs, behind its own login), ClamAV (the one virus scanner prod, staging
+# and demo share, Epic 60 D5). Nothing is published on the host; edge nginx reaches the three UIs
+# over `biddaloy-ops-edge`, and the app containers reach clamd over `biddaloy-ops-scan`.
 #
 #   OPS_DIR=/opt/biddaloy/ops docker compose -p ops -f deploy/compose.ops.yml --env-file /opt/biddaloy/ops/.env up -d
 #
@@ -55,12 +56,48 @@ services:
         limits:
           memory: ${DOZZLE_MEM:-128m}
 
+  # Virus scanner (Epic 60, #4004): clamd on tcp 3310, reached by app / app2 of every stack as
+  # `clamav:3310` (CLAMAV_HOST / CLAMAV_PORT in deploy/compose.stack.yml). It is only on the
+  # `ops-scan` network: no published port, not on an edge network (Rule 12). Other containers on
+  # ops-scan (every stack's app) can reach it and each other's app port, an accepted gap like mailpit's.
+  # First start downloads the signature database (freshclam, outbound HTTPS to database.clamav.net,
+  # a few minutes); the app never waits for it, scan calls fail per route (D19) meanwhile.
+  clamav:
+    logging: *logging
+    image: clamav/clamav:1.5.4@sha256:7054e3f34308c384ea43cd786ea17abf899bd44af40af9f1b099853d7a5c214e
+    restart: unless-stopped
+    environment:
+      CLAMAV_NO_MILTERD: 'true'
+    volumes:
+      # Signature database: survives a restart, so only the first start downloads it all.
+      - clamav_db:/var/lib/clamav
+    networks:
+      ops-scan:
+        aliases: [clamav]
+    deploy:
+      resources:
+        limits:
+          memory: ${CLAMAV_MEM:-2g}
+    healthcheck:
+      # Ships in the image: sends PING to clamd and exits 0 on PONG. `start_period` covers the
+      # first signature download and load (clamd answers only once it has loaded them).
+      test: ['CMD', '/usr/local/bin/clamdcheck.sh']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
 volumes:
   beszel_data:
   kuma_data:
+  clamav_db:
 
 networks:
   # Created by the deploy (W3.01). Edge nginx on this host joins it too.
   ops-edge:
     name: biddaloy-ops-edge
+    external: true
+  # Created by the deploy. The three app stacks join it too (clamav is reached only here).
+  ops-scan:
+    name: biddaloy-ops-scan
     external: true
