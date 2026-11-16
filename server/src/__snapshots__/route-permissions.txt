@@ -746,6 +746,8 @@ POST /exam-templates | ExamTemplatesController | perm: EXAM_MANAGE
 POST /exams | ExamsController | perm: EXAM_MANAGE
 POST /exams/:examId/components | ExamComponentsController | perm: EXAM_MANAGE
 POST /exams/:examId/components/copy | ExamComponentsController | perm: EXAM_MANAGE
+POST /exams/:examId/marks/:sectionId/:subjectId/sms | MarksSmsController | perm: MARKS_SMS_SEND
+POST /exams/:examId/marks/:sectionId/:subjectId/sms/preview | MarksSmsController | perm: MARKS_SMS_SEND
 POST /exams/:examId/marks/reopen | MarksController | perm: MARK_ENTER | roles: ADMIN
 POST /exams/:examId/marks/sheet/commit | MarksController | perm: MARK_ENTER
 POST /exams/:examId/marks/sheet/validate | MarksController | perm: MARK_ENTER

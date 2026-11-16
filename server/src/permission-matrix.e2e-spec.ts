@@ -727,11 +727,9 @@ function findRoleNarrowing(
  */
 export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [80.1.05] The staff-message routes check these in StaffMessagesService.callerScope (any-of;
-  // the guard is all-of), so no route declares them. MARKS_SMS_SEND has no route until its
-  // Wave 2 ticket; remove it from here then.
+  // the guard is all-of), so no route declares them.
   Permission.STAFF_MESSAGE_SEND,
   Permission.STAFF_MESSAGE_COORDINATED,
-  Permission.MARKS_SMS_SEND,
   // Nav/page gates with no corresponding route check.
   Permission.DASHBOARD_ADMIN,
   // [10.4] G17 — reserved for endpoints that don't exist yet (#291's
