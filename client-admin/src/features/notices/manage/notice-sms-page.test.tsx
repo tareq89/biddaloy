@@ -41,7 +41,7 @@ const view = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const err = (status: number, code?: string) =>
+const err = (status: number, code?: string, extra: Record<string, unknown> = {}) =>
   new HttpResponse(
     JSON.stringify({
       statusCode: status,
@@ -49,7 +49,7 @@ const err = (status: number, code?: string) =>
       timestamp: new Date().toISOString(),
       path: '/x',
       requestId: 'r',
-      ...(code ? { details: { code } } : {}),
+      ...(code ? { details: { code, ...extra } } : {}),
     }),
     { status, headers: { 'Content-Type': 'application/json' } },
   );
@@ -198,6 +198,23 @@ describe('NoticeSmsPage', () => {
         'Not enough SMS credit. Nothing was sent, and the request is still waiting. Top up, then approve again.',
       ),
     ).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('a 409 DAILY_LIMIT_REACHED says how many can still go today and keeps the request open', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    server.use(
+      http.get(`*/notices/${ID}/sms`, () => HttpResponse.json(view())),
+      http.post(`*/notices/${ID}/sms/approve`, () =>
+        err(409, 'DAILY_LIMIT_REACHED', { requested: 30, remaining: 12, limit: 100 }),
+      ),
+    );
+    renderPage(onClose);
+
+    await screen.findByText('Rahim Uddin');
+    await user.click(screen.getByRole('button', { name: 'Approve and send' }));
+    expect(await screen.findByText(/You can send 12 more today/)).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
 
