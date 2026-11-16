@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import supertest = require('supertest');
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -9,9 +9,13 @@ import { AppModule } from '../../app.module';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { StorageService } from '../storage/storage.service';
 import { createProofFixture, JPEG } from '@test/helpers/proof-submissions.fixture';
+import { EICAR, startFakeClamd } from '@test/helpers/fake-clamd';
 
 class FakeStorage {
-  async put() {}
+  static puts = 0;
+  async put() {
+    FakeStorage.puts += 1;
+  }
   async deleteForTenant() {}
   async getForTenant() {
     const { Readable } = await import('stream');
@@ -153,5 +157,57 @@ describe('Payment proofs (E2E)', () => {
       [SEED_TENANT_ID],
     );
     expect(n).toBe(0);
+  });
+
+  // [#4000, D19, D36] Guardians upload proofs, so a harmful file or a dead scanner stores nothing.
+  describe('virus scan', () => {
+    let fake: Awaited<ReturnType<typeof startFakeClamd>>;
+    const pdf = (body: string) => Buffer.from(`%PDF-1.4 ${body}`, 'latin1');
+    const attachPdf = (token: string, bill: string, body: string) =>
+      submit(token, bill, '300').attach('files', pdf(body), {
+        filename: 'p.pdf',
+        contentType: 'application/pdf',
+      });
+    const count = async () => {
+      const [{ n }] = await ds.query(
+        `SELECT COUNT(*)::int n FROM payment_submissions WHERE tenant_id=$1`,
+        [SEED_TENANT_ID],
+      );
+      return n as number;
+    };
+
+    beforeEach(async () => {
+      fake = await startFakeClamd();
+      process.env.CLAMAV_HOST = '127.0.0.1';
+      process.env.CLAMAV_PORT = String(fake.port);
+      FakeStorage.puts = 0;
+    });
+    afterEach(async () => {
+      await fake.close();
+      delete process.env.CLAMAV_HOST;
+      delete process.env.CLAMAV_PORT;
+    });
+
+    it('a normal PDF proof is accepted', async () => {
+      const bill = await fix.bill(fix.fx.studentA, 300);
+      await attachPdf(fix.parent.token, bill, 'hello').expect(201);
+    });
+
+    it('an EICAR PDF is 422 FILE_HARMFUL with nothing stored and no submission row', async () => {
+      const bill = await fix.bill(fix.fx.studentA, 300);
+      const res = await attachPdf(fix.parent.token, bill, EICAR).expect(422);
+      expect(res.body.details.code).toBe('FILE_HARMFUL');
+      expect(FakeStorage.puts).toBe(0);
+      expect(await count()).toBe(0);
+    });
+
+    it('with the scanner down it is 503 FILE_CHECK_UNAVAILABLE and nothing is stored', async () => {
+      await fake.close();
+      const bill = await fix.bill(fix.fx.studentA, 300);
+      const res = await attachPdf(fix.parent.token, bill, 'hello').expect(503);
+      expect(res.body.details.code).toBe('FILE_CHECK_UNAVAILABLE');
+      expect(FakeStorage.puts).toBe(0);
+      expect(await count()).toBe(0);
+    });
   });
 });
