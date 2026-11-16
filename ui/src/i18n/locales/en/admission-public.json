@@ -68,6 +68,14 @@
       "intakeClosed": "This admission round is not taking applications now.",
       "intakeFull": "This admission round has no seats left.",
       "duplicate": "This application could not be accepted. If you already applied for this child, contact the school with your reference number."
+    },
+    "photoConsent": {
+      "question": "May the school keep and print your child's photo?",
+      "options": {
+        "GIVEN": "Yes, I agree",
+        "REFUSED": "No, I do not agree"
+      },
+      "required": "Please choose one."
     }
   },
   "confirmation": {
