@@ -15,6 +15,7 @@ import {
 import { StorageService, type StoredObject } from '../../storage/storage.service';
 import { tenantObjectKey } from '../../storage/storage-key';
 import { matchesDeclaredType } from '../../storage/file-signature';
+import { VirusScanService } from '../../storage/virus-scan.service';
 import { Notice } from '../entities/notice.entity';
 import { NoticeAttachment } from '../entities/notice-attachment.entity';
 import { claimRecipientRows } from '../notice-recipients.service';
@@ -45,6 +46,7 @@ export class NoticeFilesService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly storage: StorageService,
+    private readonly virusScan: VirusScanService,
   ) {}
 
   private canManage(user: NoticeCaller) {
@@ -112,6 +114,12 @@ export class NoticeFilesService {
       if (file.originalname.length > 255) {
         throw new BadRequestException('Filename must be at most 255 characters');
       }
+    }
+
+    // Scan every file before storing any. Staff upload: a harmful file is refused (422), a dead
+    // scanner lets it through with a Sentry warning (D19).
+    for (const file of files) {
+      await this.virusScan.assertClean(file.buffer, 'open', { tenantId, userId: user.userId });
     }
 
     const keys: string[] = [];
