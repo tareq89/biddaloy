@@ -665,6 +665,8 @@ export class StudentService {
           {
             photo_consent: locked.photo_consent,
             photo_key: locked.photo_key,
+            photo_consent_recorded_at: locked.photo_consent_recorded_at,
+            photo_consent_recorded_by: locked.photo_consent_recorded_by,
           },
         );
         if (dto.photo_consent !== locked.photo_consent) {
@@ -769,6 +771,8 @@ export class StudentService {
     // Replace guardian links if provided
     if (dto.guardian_ids !== undefined) {
       const student = await this.findOne(id, tenantId);
+      const oldGuardianIds = (student.guardians ?? []).map((g) => g.id);
+      const newGuardianIds = dto.guardian_ids;
       const removedAny = (student.guardians ?? []).some((g) => !dto.guardian_ids!.includes(g.id));
       if (dto.guardian_ids.length > 0) {
         const guardians = await this.guardianRepo.find({
@@ -782,7 +786,15 @@ export class StudentService {
         student.guardians = [];
       }
       await this.repo.manager.transaction(async (m) => {
-        await m.save(student);
+        // Relation only: saving the whole snapshot could write back a stale photo_consent/photo_key.
+        await m
+          .createQueryBuilder()
+          .relation(Student, 'guardians')
+          .of(id)
+          .addAndRemove(
+            newGuardianIds.filter((g) => !oldGuardianIds.includes(g)),
+            oldGuardianIds.filter((g) => !newGuardianIds.includes(g)),
+          );
         if (removedAny) await revokeInvoiceShareLinks(m, tenantId, [id]);
       });
     }

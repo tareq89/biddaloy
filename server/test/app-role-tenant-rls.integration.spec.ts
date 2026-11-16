@@ -51,13 +51,16 @@ describe('AppRoleTenantRls migration', () => {
   });
 
   it('up, down, up leaves the same state, and down never drops the role', async () => {
-    await run('down');
-    expect(await policies()).toEqual([]);
-    expect(await can('students', 'SELECT')).toBe(false);
-    expect(
-      (await admin.query(`SELECT 1 FROM pg_roles WHERE rolname = 'biddaloy_app'`)).length,
-    ).toBe(1);
-    await run('up');
+    try {
+      await run('down');
+      expect(await policies()).toEqual([]);
+      expect(await can('students', 'SELECT')).toBe(false);
+      expect(
+        (await admin.query(`SELECT 1 FROM pg_roles WHERE rolname = 'biddaloy_app'`)).length,
+      ).toBe(1);
+    } finally {
+      await run('up'); // never leave the worker database without the wall
+    }
     expect((await policies()).map((p) => p.relname).sort()).toEqual([...WALLED].sort());
     expect(await can('students', 'DELETE')).toBe(true);
     await run('up'); // idempotent: a second up (role/policies exist) must not throw

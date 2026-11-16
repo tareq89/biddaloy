@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { CommunicationMedium, EnrollmentStatus, PhotoConsent } from '@biddaloy/shared';
 import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import type { Guardian } from '../../../students/entities/guardian.entity';
@@ -72,6 +72,7 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     full_name_bn: 'করিম উদ্দিন',
     blood_group: 'O+',
     photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
+    photo_consent: PhotoConsent.REFUSED,
     roll_number: 1,
     class_section_id: SECTION_ID,
     class_section: {
@@ -287,6 +288,7 @@ describe('round-trip', () => {
       full_name_bn: 'করিম উদ্দিন',
       blood_group: 'O+',
       photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
+      photo_consent: PhotoConsent.REFUSED,
       roll_number: 1,
       class_section_id: SECTION_ID,
       date_of_birth: null,

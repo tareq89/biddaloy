@@ -34,6 +34,14 @@ describe('assertAppRoleIsNotOwner (D14)', () => {
     };
     await expect(assertAppRoleIsNotOwner(db, 'test')).resolves.toBeUndefined();
   });
+  it('an unset or unknown NODE_ENV is checked, not skipped (fail closed)', async () => {
+    await expect(
+      assertAppRoleIsNotOwner(fake({ ...ok, rolsuper: true }), undefined),
+    ).rejects.toThrow(/Refusing to boot/);
+    await expect(
+      assertAppRoleIsNotOwner(fake({ ...ok, rolsuper: true }), 'staging'),
+    ).rejects.toThrow(/Refusing to boot/);
+  });
   it('the demo-reset opt-out skips the check only together with DEMO_MODE=true', async () => {
     await expect(
       assertAppRoleIsNotOwner(fake({ ...ok, rolsuper: true }), 'production', 'true', 'true'),

@@ -150,7 +150,11 @@ export class StudentPhotoService {
           details: { code: 'STUDENT_NOT_FOUND' },
         });
 
-      if (student.photo_consent === PhotoConsent.REFUSED) throw photoConsentRefused();
+      if (student.photo_consent === PhotoConsent.REFUSED) {
+        // Refusal landed while the put was pending: the new object never got a committed reference.
+        await this.storage.delete(newKey).catch(() => undefined);
+        throw photoConsentRefused();
+      }
       // D48: previous object is intentionally left in storage.
       student.photo_key = newKey;
       await studentRepo.save(student);

@@ -200,8 +200,14 @@ describe('StudentPhotoService', () => {
       expect(storage.put).toHaveBeenCalledTimes(1);
     });
 
-    it.each([PhotoConsent.UNKNOWN, PhotoConsent.GIVEN])('%s is allowed', async (consent) => {
-      const { service, storage } = setup([{ ...s1, photo_consent: consent }]);
+    it('UNKNOWN is allowed', async () => {
+      const { service, storage } = setup([{ ...s1, photo_consent: PhotoConsent.UNKNOWN }]);
+      await service.upload('s1', await png(), TENANT, USER);
+      expect(storage.put).toHaveBeenCalledTimes(1);
+    });
+
+    it('GIVEN is allowed', async () => {
+      const { service, storage } = setup([{ ...s1, photo_consent: PhotoConsent.GIVEN }]);
       await service.upload('s1', await png(), TENANT, USER);
       expect(storage.put).toHaveBeenCalledTimes(1);
     });

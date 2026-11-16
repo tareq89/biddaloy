@@ -2,7 +2,7 @@
  * [#3949, Epic 59 D14] In production the app must connect as a role the database tenant wall
  * applies to: not a superuser, not BYPASSRLS, and not the owner of `students` (an owner can
  * `ALTER TABLE ... NO FORCE ROW LEVEL SECURITY` on its own table). One fixed sentence, never the
- * role name (Rule 23). Outside production this is a no-op: dev and CI connect as the owner.
+ * role name (Rule 23). Only `development` and `test` skip it (dev and CI connect as the owner); an unset NODE_ENV is checked too.
  *
  * Takes anything with `query`, so a spec can pass a fake.
  */
@@ -14,10 +14,15 @@ export async function assertAppRoleIsNotOwner(
   allowOwner?: string,
   demoMode?: string,
 ): Promise<void> {
-  if (nodeEnv !== 'production' || (allowOwner === 'true' && demoMode === 'true')) return;
+  if (
+    nodeEnv === 'development' ||
+    nodeEnv === 'test' ||
+    (allowOwner === 'true' && demoMode === 'true')
+  )
+    return;
   const rows = (await db.query(
     `SELECT r.rolsuper, r.rolbypassrls,
-            COALESCE((SELECT c.relowner = r.oid FROM pg_class c
+            COALESCE((SELECT pg_has_role(r.oid, c.relowner, 'USAGE') FROM pg_class c
                        WHERE c.relname = 'students' AND c.relnamespace = 'public'::regnamespace), false) AS owns_students
        FROM pg_roles r WHERE r.rolname = current_user`,
   )) as Array<{ rolsuper: boolean; rolbypassrls: boolean; owns_students: boolean }>;

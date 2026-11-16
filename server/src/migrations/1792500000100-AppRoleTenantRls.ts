@@ -89,7 +89,7 @@ export class AppRoleTenantRls1792500000100 implements MigrationInterface {
         EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM biddaloy_app', current_user);
         EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE USAGE, SELECT ON SEQUENCES FROM biddaloy_app', current_user);
       END $$`);
-    await queryRunner.query(`REVOKE report_reader FROM biddaloy_app`);
+    // report_reader membership stays: it is cluster-wide, other databases still use it.
     await queryRunner.query(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM biddaloy_app`);
     await queryRunner.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM biddaloy_app`);
     await queryRunner.query(`REVOKE USAGE ON SCHEMA public FROM biddaloy_app`);

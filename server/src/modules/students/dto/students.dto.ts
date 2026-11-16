@@ -155,7 +155,7 @@ export class CreateStudentDto {
 export class UpdateStudentDto {
   // [59.2.01] Setting REFUSED also clears the student's photo (D26).
   @ApiPropertyOptional({ enum: PhotoConsent })
-  @IsOptional()
+  @ValidateIf((_o, v) => v !== undefined)
   @IsEnum(PhotoConsent)
   photo_consent?: PhotoConsent;
 
