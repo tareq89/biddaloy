@@ -1284,7 +1284,6 @@ export {
   admissionListKeys,
   useAdmissionApplicants,
   useActivateList,
-  admissionListKeys,
   useAdmissionLists,
   useAssignRolls,
   useCallList,
