@@ -37,6 +37,13 @@ const serve = (system: object = SYSTEM) =>
   server.use(
     http.get('*/platform/ops/queues', () => HttpResponse.json(QUEUES)),
     http.get('*/platform/ops/system', () => HttpResponse.json(system)),
+    http.get('*/platform/settings/daily-limits', () =>
+      HttpResponse.json({
+        stored: {},
+        effective: { sms: 2000, email: 2000, whatsapp: 2000, showRemaining: false },
+        usedToday: null,
+      }),
+    ),
   );
 const render = () =>
   renderWithRouter(routeTree, {
