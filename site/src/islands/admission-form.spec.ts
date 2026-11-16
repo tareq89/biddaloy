@@ -34,7 +34,7 @@ const round = (fee: number | null): AdmissionRound => ({
 const reply = (status: number, json?: unknown) =>
   vi.fn(async () => new Response(json === undefined ? null : JSON.stringify(json), { status }));
 
-function mount(r: AdmissionRound, fetchImpl = reply(201, { reference_number: 'ADM-1', status: 'PENDING' })) {
+function mount(r: AdmissionRound, fetchImpl = reply(201, { reference_number: 'ADM-1', status: 'PENDING' }), consent = true) {
   document.body.innerHTML = '<div id="r"></div>';
   const root = document.getElementById('r')!;
   root.dataset.t = JSON.stringify(T);
@@ -44,6 +44,7 @@ function mount(r: AdmissionRound, fetchImpl = reply(201, { reference_number: 'AD
   const form = root.querySelector('form')!;
   const set = (n: string, v: string) => ((form.elements.namedItem(n) as HTMLInputElement).value = v);
   const submit = () => form.dispatchEvent(new Event('submit', { cancelable: true }));
+  if (consent) form.querySelector<HTMLInputElement>('input[name=photo_consent][value=GIVEN]')!.checked = true;
   return { root, form, set, submit, fetchImpl };
 }
 
@@ -103,6 +104,47 @@ describe('admission form', () => {
     set('guardian_phone', '01712345678');
     await submit();
     await vi.waitFor(() => expect(root.textContent).toContain(T.feePending));
+  });
+});
+
+describe('photo consent', () => {
+  const pick = (form: HTMLFormElement, v: string) => {
+    const r = form.querySelector<HTMLInputElement>(`input[name=photo_consent][value=${v}]`)!;
+    r.checked = true;
+    r.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const withPhoto = () => ({ ...round(null), form: { ...round(null).form, documents: ['PHOTO'] } });
+  const sent = (m: ReturnType<typeof reply>) => (m.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+  it('an unchosen consent blocks the submit with the Bangla sentence', async () => {
+    const { form, set, submit, fetchImpl } = mount(round(null), undefined, false);
+    set('name', 'রহিম');
+    set('guardian_phone', '01712345678');
+    await submit();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(form.querySelector('[data-key=photoConsent] .adm-err')!.textContent).toBe('একটি বেছে নিন।');
+  });
+  it('sends photo_consent GIVEN', async () => {
+    const { form, set, submit, fetchImpl } = mount(round(null));
+    set('name', 'রহিম');
+    set('guardian_phone', '01712345678');
+    pick(form, 'GIVEN');
+    await submit();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalled());
+    expect(sent(fetchImpl).get('photo_consent')).toBe('GIVEN');
+  });
+  it('REFUSED hides the photo slot, does not require it and does not send it', async () => {
+    const { form, set, submit, fetchImpl } = mount(withPhoto());
+    set('name', 'রহিম');
+    set('guardian_phone', '01712345678');
+    const slot = form.querySelector<HTMLElement>('[data-key="doc:PHOTO"]')!;
+    pick(form, 'REFUSED');
+    expect(slot.hidden).toBe(true);
+    await submit();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalled());
+    expect(sent(fetchImpl).get('photo_consent')).toBe('REFUSED');
+    expect(sent(fetchImpl).has('photo')).toBe(false);
+    pick(form, 'GIVEN');
+    expect(slot.hidden).toBe(false);
   });
 });
 

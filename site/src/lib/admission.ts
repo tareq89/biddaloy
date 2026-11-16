@@ -58,6 +58,8 @@ export interface FormInput {
   files: Files;
   feeMethod: string;
   feeReference: string;
+  /** Chosen on the form; empty until the guardian picks one (the server refuses UNKNOWN). */
+  photoConsent?: '' | 'GIVEN' | 'REFUSED';
 }
 
 /** Field key (or `doc:<TYPE>` / `feeMethod` / `feeProof` / `feeReference`) -> message key. Empty = ok. */
@@ -72,7 +74,9 @@ export function validate(r: AdmissionRound, i: FormInput): Record<string, string
     } else if (f.input === 'phone' && !PHONE.test(s)) bad[f.key] = 'phone';
     else if (f.input === 'number' && Number.isNaN(Number(s))) bad[f.key] = 'number';
   }
+  if (!i.photoConsent) bad.photoConsent = 'consent';
   for (const d of r.form.documents) {
+    if (d === 'PHOTO' && i.photoConsent === 'REFUSED') continue; // the server drops it anyway
     const file = i.files[`doc:${d}`];
     if (!file) bad[`doc:${d}`] = 'missing';
     else {
@@ -97,6 +101,7 @@ export function buildBody(r: AdmissionRound, i: FormInput, captcha: string): For
   const fd = new FormData();
   fd.set('intake_id', r.id);
   fd.set('captcha_token', captcha);
+  fd.set('photo_consent', i.photoConsent ?? '');
   const extra: Record<string, unknown> = {};
   const core: Record<string, string> = {};
   for (const f of inputFields(r)) {
@@ -112,6 +117,7 @@ export function buildBody(r: AdmissionRound, i: FormInput, captcha: string): For
   for (const [k, v] of Object.entries(core)) if (v) fd.set(k, v);
   fd.set('extra_fields', JSON.stringify(extra));
   for (const d of r.form.documents) {
+    if (d === 'PHOTO' && i.photoConsent === 'REFUSED') continue;
     const file = i.files[`doc:${d}`];
     if (file) fd.set(d.toLowerCase(), file);
   }

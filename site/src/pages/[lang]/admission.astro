@@ -7,6 +7,7 @@ import { fetchByHost } from '../../lib/api';
 import type { AdmissionRound } from '../../lib/admission';
 import type { Lang } from '../../lib/types';
 import { themes } from '../../themes';
+import { portalUrl } from '../../themes/primary/text';
 
 const { site } = Astro.locals;
 const lang = Astro.params.lang as Lang;
@@ -19,6 +20,9 @@ const rounds = list.data;
 const { Layout } = themes[site.theme] ?? themes.basic;
 // The Turnstile site key is public; the site container carries it in its own env.
 const siteKey = process.env.TURNSTILE_SITE_KEY ?? import.meta.env?.TURNSTILE_SITE_KEY ?? '';
+// Legal pages live on the app host (D19); no PORTAL_URL, no links.
+const portal = portalUrl(process.env.PORTAL_URL);
+const legal = (p: string) => (portal ? new URL(p, portal).href : '');
 const m = (k: string) => t(lang, `admission.${k}`);
 // The island reads a flat `a.b` -> text map of this page's own strings.
 const flat = (o: Record<string, unknown>, p = ''): Record<string, string> =>
@@ -38,6 +42,7 @@ const dict = flat({ ...bn.admission, ...(lang === 'en' ? en.admission : {}) });
           data-status-href={`/${lang}/admission-status/`} data-rounds={JSON.stringify(rounds)} data-t={JSON.stringify(dict)}>
           <noscript><p class="bad">{m('unavailable')}</p></noscript>
         </div>
+        {portal && <p class="adm-legal"><a href={legal('/legal/privacy')} rel="noopener">{m('consent.privacy')}</a> · <a href={legal('/legal/terms')} rel="noopener">{m('consent.terms')}</a></p>}
       </>
     )}
   </div></section>
@@ -51,6 +56,7 @@ const dict = flat({ ...bn.admission, ...(lang === 'en' ? en.admission : {}) });
   .adm-form input:not([type=checkbox]),.adm-form select,.adm-form textarea{min-height:44px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s);width:100%;background:var(--surface);color:var(--ink)}
   .adm-form input[type=checkbox]{width:44px;height:44px}
   .adm-form .btn{width:100%}
+  .adm-consent{border:0;padding:0;margin:0}.adm-radio{display:flex;gap:10px;align-items:center;min-height:44px}.adm-radio input{width:24px;height:24px;min-height:0}
   .adm-err{color:var(--warn)}
   .adm-fee{display:grid;gap:12px;border:1px solid var(--line);border-radius:var(--r-s);padding:12px}
   .adm-prev{display:block;font-size:14px;color:var(--ink-3);word-break:break-all}
