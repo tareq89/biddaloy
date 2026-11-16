@@ -394,6 +394,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/settings/daily-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform-wide default daily send limits (stored and effective). */
+        get: operations["PlatformDailyLimitsController_getPlatform_v1"];
+        /** Set the platform default; null removes a value. Audited. */
+        put: operations["PlatformDailyLimitsController_putPlatform_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/daily-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own daily send limits, effective values and today's use. */
+        get: operations["PlatformDailyLimitsController_getSchool_v1"];
+        /** Set one school's own limits; null removes a value. Audited. */
+        put: operations["PlatformDailyLimitsController_putSchool_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students": {
         parameters: {
             query?: never;
@@ -14422,6 +14458,15 @@ export interface components {
             failed: number;
             window: components["schemas"]["FailedMessagesWindowDto"];
         };
+        UpdateDailyLimitsDto: {
+            /** @example 2000 */
+            sms?: number | null;
+            /** @example 2000 */
+            email?: number | null;
+            /** @example 2000 */
+            whatsapp?: number | null;
+            showRemaining?: boolean | null;
+        };
         CreateStudentDto: {
             full_name: string;
             full_name_bn?: string;
@@ -25266,6 +25311,90 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_getPlatform_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DailyLimitsView; usedToday is null. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_putPlatform_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDailyLimitsDto"];
+            };
+        };
+        responses: {
+            /** @description DailyLimitsView after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_getSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DailyLimitsView. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_putSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDailyLimitsDto"];
+            };
+        };
+        responses: {
+            /** @description DailyLimitsView after the change. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
