@@ -171,6 +171,7 @@ On a phone each message is a card: the recipient and the **Sent** time at the to
 | No **Check status**                                                                    | The message is not **Sent**, its company does not report delivery, or it was sent before the company was recorded. | —            |
 | **Message**: **Not shown: only staff who can see exam results can read this message.** | An exam result. Ask an Admin or Office staff to read it.                                                           | Admin        |
 | **Why it failed**: **Sending by … is not set up for this school. …**                   | An Admin turns it on in **Settings › Communication**, then send again.                                             | Admin        |
+| **Why it failed**: **Not sent: daily limit reached** | The school's **Daily limit** for this channel is used up for today. It starts again at midnight, Bangladesh time. Send again tomorrow, or ask the Admin to ask the platform team to raise the limit. See [Daily limit](send-message.md#daily-limit). | Admin |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 

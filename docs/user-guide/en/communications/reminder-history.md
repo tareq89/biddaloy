@@ -155,6 +155,7 @@ In the **Search** box above the list type the round's name. Filter by **Status**
 | **The retry could not be started.**                                   | Try again. For SMS the credit may be low; tell the Admin.                              | Admin        |
 | **Too many bulk requests in a row — …**                               | Wait a minute and press again.                                                         | —            |
 | A round stays **Processing** for a long time                          | Some messages are still queued. If it stays long, tell the Admin.                      | Admin        |
+| **Why it failed**: **Not sent: daily limit reached** | The school's **Daily limit** for this channel is used up for today. It starts again at midnight, Bangladesh time. Send again tomorrow, or ask the Admin to ask the platform team to raise the limit. See [Daily limit](send-message.md#daily-limit). | Admin |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 

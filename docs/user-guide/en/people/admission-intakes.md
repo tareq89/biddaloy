@@ -223,6 +223,8 @@ The school's public website has four pages for admission. None needs a sign-in. 
 | A guardian says **The robot check didn't go through. Please complete the check below again, then submit.**              | They complete the check box again and press **Submit application**. What they typed is not lost.                                                                    | —            |
 | A guardian says **Applications can't be sent right now. Please try again in a little while.**                           | The site's check service is not running right now; changing the form will not help. Tell support.                                                                   | Support team |
 | A guardian says **We couldn't find an application with this reference number and phone number.**                        | Ask them to use the phone number they gave on the form. Compare the reference number with the applicants list.                                                      | Office staff |
+| A guardian says **This file looks harmful. Choose another file.** | The file was not saved. Ask them to choose another file. | — |
+| A guardian says **We can't check files right now. Try again shortly.** | The file was not saved. Ask them to send it again in a little while. If it keeps happening, tell support. | Support team |
 
 ---
 
