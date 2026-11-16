@@ -14632,6 +14632,12 @@ export interface components {
             guardians: components["schemas"]["Guardian"][];
             /** @enum {string} */
             enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** @enum {string} */
+            photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN";
+            /** Format: date-time */
+            photo_consent_recorded_at: string | null;
+            photo_consent_recorded_by_user: components["schemas"]["User"] | null;
+            photo_consent_recorded_by: string | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -14724,6 +14730,8 @@ export interface components {
             total: number;
         };
         UpdateStudentDto: {
+            /** @enum {string} */
+            photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
             full_name?: string;
             full_name_bn?: string | null;
             /** @enum {string|null} */
@@ -21350,6 +21358,8 @@ export interface components {
             guardian_email: string | null;
             home_address: string | null;
             documents: Record<string, never>[];
+            /** @enum {string|null} */
+            photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN" | null;
             /** @enum {string} */
             status: "REJECTED" | "PENDING" | "EXPIRED" | "SHORTLISTED" | "ADMITTED" | "FEE_PENDING" | "OFFERED" | "WAITING";
             roll_number: string | null;
@@ -21725,20 +21735,6 @@ export interface components {
             order?: string[];
         };
         AdmissionPublishDto: {
-            what: "STAGE" | "MERIT" | "WAITING";
-            /** @description Stage id (STAGE) or list id (MERIT, WAITING). */
-            ref_id: string;
-            send_sms: boolean;
-            /** @description Also SMS not-passed / rejected applicants (D26: off). */
-            include_not_selected?: boolean;
-        };
-        PublishDto: {
-            /** @description The version this publish started from (409 site.stale if behind). */
-            version: number;
-            /** @description The draft_revision the publisher is looking at (409 site.stale if it changed). */
-            draft_revision: number;
-        };
-        AdmissionPublishDto: {
             /** @enum {string} */
             what: "STAGE" | "MERIT" | "WAITING";
             /**
@@ -21822,6 +21818,12 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @description The draft_revision this edit started from (409 site.stale if someone saved since). */
+            draft_revision: number;
+        };
+        PublishDto: {
+            /** @description The version this publish started from (409 site.stale if behind). */
+            version: number;
+            /** @description The draft_revision the publisher is looking at (409 site.stale if it changed). */
             draft_revision: number;
         };
         SetEnabledDto: {
@@ -22005,6 +22007,16 @@ export interface components {
             home_address?: string;
             middle_name_confirm?: string;
             reference_number?: string;
+        };
+        CheckApplicantStatusDto: {
+            reference_number: string;
+            guardian_phone: string;
+        };
+        ApplicantStatusDto: {
+            /** @enum {string} */
+            status: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED" | "FEE_PENDING" | "OFFERED" | "WAITING" | "EXPIRED";
+            applicant_name: string;
+            intake_title: string;
         };
         RollPhoneBodyDto: {
             roll_number: string;
@@ -25264,6 +25276,7 @@ export interface operations {
     StudentController_findAllStudents_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 search?: string;
                 class_id?: string;
                 section_id?: string;
@@ -25416,6 +25429,7 @@ export interface operations {
     StudentController_exportStudents_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 format?: "CSV" | "XLSX";
                 search?: string;
                 class_id?: string;
@@ -25492,6 +25506,7 @@ export interface operations {
     StudentController_findAllStudentIds_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 search?: string;
                 class_id?: string;
                 section_id?: string;
