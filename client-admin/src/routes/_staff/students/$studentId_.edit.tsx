@@ -98,6 +98,7 @@ function EditStudentPage() {
           buildPayload={(values) => buildUpdatePayload(values, initialValues)}
           disableSubmitWhenClean
           focusCard={focus === 'card'}
+          hasPhoto={!!studentQuery.data.photo_key}
           onSuccess={toDetail}
         />
       ) : null}
