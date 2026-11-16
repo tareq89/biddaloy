@@ -270,6 +270,7 @@ import { StudentNote } from './modules/students/entities/student-note.entity';
 import { StudentPublicExam } from './modules/students/entities/student-public-exam.entity';
 import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
+import { LegalAcceptance } from './modules/legal/entities/legal-acceptance.entity';
 import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
 import { AdmissionStage } from './modules/admission/entities/admission-stage.entity';
 import { AdmissionStageResult } from './modules/admission/entities/admission-stage-result.entity';
@@ -402,6 +403,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StudyPlanTemplate,
             AdmissionIntake,
             AdmissionApplicant,
+            LegalAcceptance,
             AdmissionEvaluation,
             AdmissionStage,
             AdmissionStageResult,

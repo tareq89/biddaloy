@@ -12,6 +12,7 @@ import { AttendanceDevice } from '../../attendance/entities/attendance-device.en
 import { AttendanceImport } from '../../attendance/entities/attendance-import.entity';
 import { AttendanceDeviceEvent } from '../../attendance/entities/attendance-device-event.entity';
 import { Alert } from '../../attention/entities/alert.entity';
+import { LegalAcceptance } from '../../legal/entities/legal-acceptance.entity';
 import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import { PlatformAdminDevice } from '../../platform-identity/entities/platform-admin-device.entity';
 import { PlatformApproval } from '../../platform-identity/entities/platform-approval.entity';
@@ -82,6 +83,10 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   string
 >([
   // --- Platform-scoped / regenerable technical state ---
+  [
+    LegalAcceptance,
+    'Legal record of a user act (Epic 59), not school-owned working data. The hourly DB backup covers it; deliberately not in the workbook.',
+  ],
   [
     Alert,
     // ponytail: MANUAL alerts (W5 composer) are lost on restore; cover them when the composer ships (#2137).

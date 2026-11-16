@@ -84,6 +84,7 @@ text, the reason and the enforcing test live in
 - **Cockpit sign-in needs two proofs.** Password, then authenticator code (new device: SMS + email too); every failure before both pass is the same answer (D3b, D6, D7, D23). → [08-security §Rules 30](docs/architecture/08-security.md#rule-30-a-cockpit-sign-in-needs-a-second-factor-and-answers-equally-until-both-proofs-pass)
 - **Platform tables are not school data.** Owner rows have no school, audit rows carry user ids only, and no school screen lists or edits an owner (D3b, D4). → [08-security §Rules 31](docs/architecture/08-security.md#rule-31-platform-tables-are-not-school-data)
 - **Login as is stamped and deny-listed.** An `imp` session fills `RequestActorContext`, which stamps every audit row; routes marked `@DenyWhenImpersonating` answer `403 IMPERSONATION_DENIED`, pinned by a snapshot; the Redis key `imp:<sid>` ends a session at once (Epic 99, D4, D6, D19). → [08-security §Rules 32](docs/architecture/08-security.md#rule-32-login-as-is-stamped-and-deny-listed)
+- **The app connects as a role that cannot bypass RLS.** `biddaloy_app` (not owner, not superuser, no BYPASSRLS) plus a tenant wall on `students`, `guardians`, `payments`, `invoices`, `student_fees`; boot refuses production otherwise (Epic 59, D12–D14). → [08-security §Rules 33](docs/architecture/08-security.md#rule-33-five-tables-carry-a-database-tenant-wall)
 
 ## Documentation style (always, for any doc in this repo)
 
