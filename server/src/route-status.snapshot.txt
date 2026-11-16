@@ -480,6 +480,8 @@ GET    /api/v1/invoices/export                                                  
 GET    /api/v1/leave/balance                                                     401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403 staffAttendance
 GET    /api/v1/leave/policies                                                    401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403 staffAttendance
 PUT    /api/v1/leave/policies/:type                                              401 401 PASS PASS PASS 403 403 403 403 PASS 403 403 403 staffAttendance
+POST   /api/v1/legal/accept                                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
+GET    /api/v1/legal/status                                                      401 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS -
 GET    /api/v1/lesson-deliveries                                                 401 401 PASS PASS PASS 403 PASS PASS PASS PASS 403 403 403 studyPlans
 PUT    /api/v1/lesson-deliveries                                                 401 401 PASS PASS PASS 403 PASS 403 403 403 403 403 403 studyPlans
 POST   /api/v1/lesson-deliveries/extra                                           401 401 PASS PASS PASS 403 PASS 403 403 403 403 403 403 studyPlans

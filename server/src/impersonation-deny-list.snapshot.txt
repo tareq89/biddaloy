@@ -13,6 +13,7 @@ POST /auth/step-up
 POST /auth/step-up/otp/request
 POST /billing/orders
 POST /billing/orders/:id/pay/bkash
+POST /legal/accept
 POST /sms-bundles/orders
 POST /sms-bundles/orders/:id/pay/bkash
 POST /support-access/confirm
