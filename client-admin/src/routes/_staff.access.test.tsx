@@ -3,7 +3,7 @@ import { clearAuthState, setSupportSession, writeSupportEntry } from '@biddaloy/
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
@@ -257,5 +257,69 @@ describe('_staff route access [8.14.17]', () => {
     });
     expect(await screen.findByRole('button', { name: 'End' })).toBeTruthy();
     clearAuthState();
+  });
+
+  // [59.3.G1.01] The legal gate: an ADMIN who owes a document lands on /legal/accept first.
+  describe('legal gate', () => {
+    // The support test above leaves its tab flag and stored entry behind.
+    beforeEach(() => {
+      setSupportSession(false);
+      sessionStorage.clear();
+    });
+
+    function status(pending: string[]) {
+      let calls = 0;
+      server.use(
+        http.get('/api/v1/legal/status', () => {
+          calls += 1;
+          return HttpResponse.json({ pending });
+        }),
+      );
+      return () => calls;
+    }
+    const admin = { tenantId: 'tenant-1', role: UserRole.ADMIN, locale: 'en' as const };
+
+    it('sends an ADMIN with pending documents to /legal/accept, keeping the redirect', async () => {
+      status(['terms', 'privacy']);
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/students'], ...admin });
+      await waitFor(() => expect(router.state.location.pathname).toBe('/legal/accept'));
+      expect(router.state.location.search).toMatchObject({ redirect: '/students' });
+    });
+
+    it('lets an ADMIN with nothing pending stay', async () => {
+      status([]);
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/students'], ...admin });
+      await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
+      expect(router.state.location.pathname).toBe('/students');
+    });
+
+    it('lets a TEACHER stay', async () => {
+      status([]);
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/students'],
+        tenantId: 'tenant-1',
+        role: UserRole.TEACHER,
+        locale: 'en',
+      });
+      await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
+      expect(router.state.location.pathname).toBe('/students');
+    });
+
+    it('fails open when the lookup errors', async () => {
+      server.use(http.get('/api/v1/legal/status', () => HttpResponse.error()));
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/students'], ...admin });
+      await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
+      expect(router.state.location.pathname).toBe('/students');
+    });
+
+    it('skips the check, and the call, in a "Login as" session (D36)', async () => {
+      const calls = status(['terms']);
+      enterSupportTab('ADMIN');
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/students'], ...admin });
+      expect(await screen.findByRole('button', { name: 'End' })).toBeTruthy();
+      expect(router.state.location.pathname).toBe('/students');
+      expect(calls()).toBe(0);
+      clearAuthState();
+    });
   });
 });
