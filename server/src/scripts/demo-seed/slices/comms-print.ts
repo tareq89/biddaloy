@@ -3,6 +3,7 @@ import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
+  countSmsSegments,
   DocumentKind,
   KIND_CONTEXT,
   ReminderBatchStatus,
@@ -18,6 +19,7 @@ import { PrintJobItem } from '../../../modules/print/entities/print-job-item.ent
 import { SmsCreditBalance } from '../../../modules/communications/credits/entities/sms-credit-balance.entity';
 import { PrintTemplatesService } from '../../../modules/print/templates/print-templates.service';
 import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
+import { buildMarksBody } from '../../../modules/exams/marks-sms.service';
 import { formatArrivalTime } from '../../../modules/attendance/arrival-notice.service';
 import { buildEncryptionKey } from '../../../modules/schools/settings/encryption-key';
 import { EncryptionService } from '../../../modules/schools/settings/encryption.service';
@@ -104,6 +106,7 @@ export const slice: DemoSlice = {
     }
     rows += await arrivalLogs(ctx);
     rows += await staffMessages(ctx, org.tenants, org.adminUserId);
+    rows += await marksSmsBatches(ctx, org.tenants, org.adminUserId);
     // Last, so the extra rng draws shift nothing above.
     return rows + (await messagingSettings(ctx, org.tenants));
   },
@@ -684,6 +687,173 @@ async function staffMessages(
         tenant_id: tenant.id,
         kind: 'DEBIT',
         units: 1,
+        reference_type: 'log',
+        reference_id: d.id,
+        idempotency_key: `demo-debit:${d.id}`,
+        reason: null,
+        actor_user_id: null,
+        created_at: d.at,
+      })),
+    ] as never);
+  }
+  return rows;
+}
+
+/**
+ * [80.W3 close] Two marks-SMS batches per branch, shaped like `MarksSmsService.send` leaves
+ * them: header `filters_applied.kind = 'MARKS_SMS'` with the `mark_grid_id`, every log with
+ * `trigger = MARKS_SMS`, a student, a guardian and the service's own `reference_key`
+ * (`marks-sms:<grid>:<student>:<guardian>`). Each batch belongs to a SUBMITTED grid from the
+ * exams slice, so the grid screen answers "already sent". The second batch has FAILED rows
+ * (the enqueue failure the service writes: key released, `released_reference_key` kept). The
+ * body is the service's own `buildMarksBody`, from the seeded marks. SENT SMS spend their
+ * segments, like `staffMessages`, so ledger and balance agree. No `ctx.rng` draw (anchor
+ * dates, stableId), so later random values stay the same.
+ */
+async function marksSmsBatches(
+  ctx: DemoSeedContext,
+  tenants: OrgTenant[],
+  adminId: string,
+): Promise<number> {
+  let rows = 0;
+  for (const tenant of tenants) {
+    const grids: {
+      id: string;
+      exam_id: string;
+      section_id: string;
+      subject_id: string;
+      exam: string;
+      subject: string;
+    }[] = await ctx.ds.query(
+      `SELECT g.id, g.exam_id, g.section_id, g.subject_id, e.name AS exam,
+              COALESCE(sub.name_bn, sub.name_en) AS subject
+         FROM mark_grids g
+         JOIN exams e ON e.id = g.exam_id AND e.tenant_id = $1
+         JOIN subjects sub ON sub.id = g.subject_id AND sub.tenant_id = $1
+        WHERE g.tenant_id = $1 AND g.state = 'SUBMITTED'
+          AND EXISTS (SELECT 1 FROM marks m
+                        JOIN exam_components c ON c.id = m.component_id AND c.deleted_at IS NULL
+                        JOIN students st ON st.id = m.student_id AND st.class_section_id = g.section_id
+                         AND st.enrollment_status = 'ACTIVE' AND st.deleted_at IS NULL
+                        JOIN student_guardians sg ON sg.student_id = st.id
+                        JOIN guardians gd ON gd.id = sg.guardian_id
+                         AND NULLIF(btrim(gd.phone), '') IS NOT NULL
+                       WHERE m.exam_id = g.exam_id AND m.subject_id = g.subject_id
+                         AND m.tenant_id = $1 AND m.value IS NOT NULL)
+        ORDER BY e.name, sub.name_en, g.section_id LIMIT 2`,
+      [tenant.id],
+    );
+    const logs: Record<string, unknown>[] = [];
+    const debits: { id: string; at: Date; units: number }[] = [];
+    for (const [n, grid] of grids.entries()) {
+      const people: {
+        student_id: string;
+        name: string;
+        obtained: string;
+        full_marks: string;
+        guardian_id: string;
+        guardian: string;
+        phone: string;
+      }[] = await ctx.ds.query(
+        `SELECT st.id AS student_id, COALESCE(st.full_name_bn, st.full_name) AS name,
+                t.obtained, t.full_marks, g.id AS guardian_id, g.full_name AS guardian, g.phone
+           FROM (SELECT m.student_id, sum(m.value) AS obtained, sum(c.full_marks) AS full_marks
+                   FROM marks m JOIN exam_components c ON c.id = m.component_id AND c.deleted_at IS NULL
+                  WHERE m.tenant_id = $1 AND m.exam_id = $2 AND m.subject_id = $3 AND m.value IS NOT NULL
+                  GROUP BY m.student_id) t
+           JOIN students st ON st.id = t.student_id AND st.class_section_id = $4
+                AND st.enrollment_status = 'ACTIVE' AND st.deleted_at IS NULL
+           JOIN student_guardians sg ON sg.student_id = st.id
+           JOIN guardians g ON g.id = sg.guardian_id AND NULLIF(btrim(g.phone), '') IS NOT NULL
+          ORDER BY st.id, g.id`,
+        [tenant.id, grid.exam_id, grid.subject_id, grid.section_id],
+      );
+      if (!people.length) continue;
+      const when = at(addDays(ctx.anchor, -3 - n), 11);
+      const batchId = stableId(`${tenant.slug}:marks-sms-batch:${n}`);
+      // The first batch is clean; the second has every fourth message FAILED.
+      const isBad = (i: number) => n === 1 && i % 4 === 3;
+      const failed = people.filter((_, i) => isBad(i)).length;
+      await ctx.ds.getRepository(ReminderBatch).insert({
+        id: batchId,
+        tenant_id: tenant.id,
+        batch_name: `Marks SMS — ${grid.exam}, ${grid.subject}`.slice(0, 200),
+        status: failed ? ReminderBatchStatus.PARTIALLY_FAILED : ReminderBatchStatus.COMPLETED,
+        total_recipients: people.length,
+        successful_count: people.length - failed,
+        failed_count: failed,
+        message_template: null,
+        initiated_by_user_id: adminId,
+        filters_applied: { kind: 'MARKS_SMS', mark_grid_id: grid.id, skipped: [] },
+        created_at: when,
+        updated_at: when,
+      } as never);
+      rows++;
+      people.forEach((p, i) => {
+        const bad = isBad(i);
+        const id = stableId(`${tenant.slug}:marks-sms-log:${n}:${p.student_id}:${p.guardian_id}`);
+        const text = buildMarksBody({
+          locale: 'bn',
+          name: p.name,
+          exam: grid.exam,
+          subject: grid.subject,
+          total: {
+            obtained: Number(p.obtained),
+            full_marks: Number(p.full_marks),
+            is_absent: false,
+            component_failed: false,
+          },
+        });
+        const key = `marks-sms:${grid.id}:${p.student_id}:${p.guardian_id}`;
+        logs.push({
+          id,
+          tenant_id: tenant.id,
+          medium: CommunicationMedium.SMS,
+          recipient_address: p.phone,
+          recipient_name: p.guardian,
+          message_body: text,
+          subject: null,
+          status: bad ? CommunicationStatus.FAILED : CommunicationStatus.SENT,
+          trigger: CommunicationTrigger.MARKS_SMS,
+          student_id: p.student_id,
+          guardian_id: p.guardian_id,
+          sent_by_user_id: adminId,
+          reminder_batch_id: batchId,
+          provider_message_id: bad ? null : id,
+          metadata: bad
+            ? {
+                provider: COMPANY[CommunicationMedium.SMS],
+                error: 'Failed to enqueue for delivery',
+                released_reference_key: key,
+              }
+            : { provider: COMPANY[CommunicationMedium.SMS] },
+          reference_key: bad ? null : key,
+          created_at: when,
+          updated_at: when,
+        });
+        if (!bad) debits.push({ id, at: when, units: countSmsSegments(text).segments });
+      });
+    }
+    if (!logs.length) continue;
+    rows += await insertChunked(ctx.ds.getRepository(CommunicationLog), logs as never);
+    // A matching top-up just before the first batch keeps balance at the floor and the running
+    // balance above zero (same as `staffMessages`).
+    rows += await insertChunked(ctx.ds.getRepository(SmsCreditLedger), [
+      {
+        tenant_id: tenant.id,
+        kind: 'GRANT',
+        units: debits.reduce((sum, d) => sum + d.units, 0),
+        reference_type: 'manual',
+        reference_id: null,
+        idempotency_key: `demo-grant:marks-sms:${tenant.slug}`,
+        reason: 'ডেমো টপ-আপ',
+        actor_user_id: adminId,
+        created_at: at(addDays(ctx.anchor, -5), 9),
+      },
+      ...debits.map((d) => ({
+        tenant_id: tenant.id,
+        kind: 'DEBIT',
+        units: d.units,
         reference_type: 'log',
         reference_id: d.id,
         idempotency_key: `demo-debit:${d.id}`,

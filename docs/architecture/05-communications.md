@@ -1078,4 +1078,15 @@ gets the section 404 first, so existence never leaks).
 - **Not verified:** the journey was written and type-checked without the stack (no Docker in this
   lane); it has not run. The integration run (`ci:local`) is the parent's.
 
+- **Surprise (2026-11-16, wave-3 close):** picking "the first SUBMITTED grid" for a seed batch gave
+  grids whose students had no marks in that section (an older exam, or a section nobody sat), so
+  the batch had no recipients and the spec failed with 0 batches. **Fix:** the grid query asks for
+  the same rows the people query joins (active students of that section, a component, a guardian
+  with a phone). **Rule candidate:** a seed that picks a parent row must filter on the child
+  rows it will use.
+- **Surprise:** a Teacher cannot open a marks list without a subject-teacher assignment, and no e2e
+  helper creates one, so `e2e/journeys/marks-sms.spec.ts` signs in as the admin (who holds the
+  permission for every grid). The teacher path stays covered by the server and web unit tests.
+  **Rule candidate:** add a `assignSubjectTeacher` e2e helper when a second journey needs it.
+
 Demo data: see [22-demo-seed.md](22-demo-seed.md) (`comms-print` slice).
