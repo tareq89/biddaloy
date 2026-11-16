@@ -33,8 +33,6 @@ const valid = {
   COCKPIT_OWNER_1_PHONE: '+8801711111111',
   COCKPIT_OWNER_2_EMAIL: 'owner2@school.org',
   COCKPIT_OWNER_2_PHONE: '+8801722222222',
-  // [60] production requires the virus scanner host (compose.stack.yml sets it to the clamav service).
-  CLAMAV_HOST: 'clamav',
 };
 
 describe('runConfigCheck', () => {
@@ -314,8 +312,6 @@ describe('runStackConfigCheck', () => {
       'ENV_BADGE',
       'ENV_BADGE_DATE',
       'MESSAGE_SINK',
-      'CLAMAV_HOST', // fixed to this stack's clamav service by compose.stack.yml
-      'CLAMAV_PORT',
       'MESSAGE_SINK_PUBLIC_URL',
       'MESSAGE_SINK_SMTP_URL', // fixed to this stack's mailpit by compose.stack.yml, not an operator value
       'ALLOW_REAL_PROVIDERS_ON_STAGING',
