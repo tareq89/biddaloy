@@ -71,6 +71,16 @@ export class RegisterStartDto {
   @Equals(LEGAL_DOCS[LegalDocument.TERMS].version, { message: 'The terms version is not current' })
   terms_version: string;
 
+  @ApiProperty({ description: 'The privacy version the registrant saw; must be the current one.' })
+  @IsString()
+  @Equals(LEGAL_DOCS[LegalDocument.PRIVACY].version, { message: 'The privacy version is not current' })
+  privacy_version: string;
+
+  @ApiProperty({ description: 'The DPA version the registrant saw; must be the current one.' })
+  @IsString()
+  @Equals(LEGAL_DOCS[LegalDocument.DPA].version, { message: 'The DPA version is not current' })
+  dpa_version: string;
+
   @ApiProperty({ description: 'Cloudflare Turnstile token.' })
   @IsString()
   @IsNotEmpty()

@@ -37,6 +37,8 @@ describe('RegistrationController (e2e)', () => {
       email: `reg-${suffix}@example.com`,
       terms_accepted: true,
       terms_version: LEGAL_DOCS.terms.version,
+      privacy_version: LEGAL_DOCS.privacy.version,
+      dpa_version: LEGAL_DOCS.dpa.version,
       captcha_token: 'ok',
       ...over,
     };
@@ -115,6 +117,16 @@ describe('RegistrationController (e2e)', () => {
       const d: Record<string, unknown> = details();
       delete d.terms_version;
       await start(d).expect(400);
+    });
+
+    it('rejects a missing or stale privacy or DPA version with a fixed 400', async () => {
+      await start(details({ privacy_version: '0.1' })).expect(400);
+      await start(details({ dpa_version: '0.1' })).expect(400);
+      for (const k of ['privacy_version', 'dpa_version']) {
+        const d: Record<string, unknown> = details();
+        delete d[k];
+        await start(d).expect(400);
+      }
     });
 
     it('honours the 60 second cooldown on resend', async () => {

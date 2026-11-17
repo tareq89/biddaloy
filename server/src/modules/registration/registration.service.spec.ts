@@ -3,10 +3,14 @@ import { BadRequestException, GoneException, ServiceUnavailableException } from 
 import { RegistrationService } from './registration.service';
 
 /** Only the pieces `start` touches; everything else is never reached. */
-function build(env: Record<string, string>, deliver: ReturnType<typeof vi.fn>) {
+function build(
+  env: Record<string, string>,
+  deliver: ReturnType<typeof vi.fn>,
+  stagingOver: Record<string, unknown> = {},
+) {
   const config = { get: (k: string) => env[k] };
   const turnstile = { verify: vi.fn(), assertAvailable: vi.fn() };
-  const staging = { stage: vi.fn().mockResolvedValue('id-1'), peek: vi.fn() };
+  const staging = { stage: vi.fn().mockResolvedValue('id-1'), peek: vi.fn(), ...stagingOver };
   const otp = { request: vi.fn().mockResolvedValue({ code: '123456' }) };
   return new RegistrationService(
     turnstile as never,
@@ -38,6 +42,8 @@ const dto = {
   email: 'a@example.com',
   terms_accepted: true,
   terms_version: '1.0',
+  privacy_version: '1.0',
+  dpa_version: '1.0',
   captcha_token: 't',
 } as never;
 const ctx = { ip: null, userAgent: null };
@@ -170,5 +176,22 @@ describe('RegistrationService.start channel', () => {
       message: ['Invalid phone format'],
       details: { code: 'PHONE_NOT_SUPPORTED' },
     });
+  });
+});
+
+describe('RegistrationService.start doc versions', () => {
+  it('stages the privacy and DPA versions the registrant sent', async () => {
+    const stage = vi.fn().mockResolvedValue('id-1');
+    const s = build({ NODE_ENV: 'test' }, vi.fn(), { stage });
+    await s.start({ ...(dto as object), privacy_version: 'p9', dpa_version: 'd9' } as never, ctx);
+    expect(stage).toHaveBeenCalledWith(
+      expect.objectContaining({ doc_versions: { privacy: 'p9', dpa: 'd9' } }),
+    );
+  });
+
+  it('rejects a stage without versions instead of falling back to the current ones', async () => {
+    const peek = vi.fn().mockResolvedValue({ channel: 'sms', identifier: '017' });
+    const s = build({ NODE_ENV: 'test' }, vi.fn(), { peek });
+    await expect(s.resend({ registration_id: 'r' } as never)).rejects.toThrow(GoneException);
   });
 });

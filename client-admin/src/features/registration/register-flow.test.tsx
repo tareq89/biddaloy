@@ -95,6 +95,8 @@ describe('RegisterFlow', () => {
       phone: '01712345678',
       terms_accepted: true,
       terms_version: LEGAL_DOCS.terms.version,
+      privacy_version: LEGAL_DOCS.privacy.version,
+      dpa_version: LEGAL_DOCS.dpa.version,
       captcha_token: 'no-captcha',
     });
   });

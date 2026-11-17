@@ -135,8 +135,8 @@ export class RegistrationService {
       terms_accepted_at: new Date().toISOString(),
       terms_version: dto.terms_version,
       doc_versions: {
-        [LegalDocument.PRIVACY]: LEGAL_DOCS[LegalDocument.PRIVACY].version,
-        [LegalDocument.DPA]: LEGAL_DOCS[LegalDocument.DPA].version,
+        [LegalDocument.PRIVACY]: dto.privacy_version,
+        [LegalDocument.DPA]: dto.dpa_version,
       },
       identifier: dto.phone,
       channel: 'sms',
@@ -150,6 +150,7 @@ export class RegistrationService {
     const staged = await this.staging.peek(dto.registration_id);
     if (!staged) throw registrationExpired();
     this.assertNotLegacyEmailStage(staged);
+    this.assertDocVersions(staged);
     if ((staged.resends ?? 0) >= MAX_RESENDS) {
       throw new HttpException(
         {
@@ -176,6 +177,7 @@ export class RegistrationService {
     const peeked = await this.staging.peek(dto.registration_id);
     if (!peeked) throw registrationExpired();
     this.assertNotLegacyEmailStage(peeked);
+    this.assertDocVersions(peeked);
 
     // The code is checked against what the stage says it was sent to — the caller cannot pick it.
     // Bound to this registration: a code sent for another stage on the same contact fails here.
@@ -199,8 +201,15 @@ export class RegistrationService {
     const staged = await this.staging.consume(dto.registration_id);
     if (!staged) throw new GoneException('This registration has already been completed');
     this.assertNotLegacyEmailStage(staged);
+    this.assertDocVersions(staged);
 
     return this.createSchool(dto.registration_id, staged, context, socialTicketId);
+  }
+
+  /** A stage without the versions the registrant saw must not fall back to today's versions. */
+  private assertDocVersions(staged: StagedRegistration): void {
+    const v = staged.doc_versions;
+    if (!v?.[LegalDocument.PRIVACY] || !v[LegalDocument.DPA]) throw registrationExpired();
   }
 
   /**

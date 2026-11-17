@@ -251,6 +251,8 @@ export function RegisterFlow({
                 ...(values.email ? { email: values.email } : {}),
                 terms_accepted: values.terms,
                 terms_version: LEGAL_DOCS.terms.version,
+                privacy_version: LEGAL_DOCS.privacy.version,
+                dpa_version: LEGAL_DOCS.dpa.version,
                 captcha_token: captchaToken,
               });
             }}

@@ -24182,6 +24182,10 @@ export interface components {
             terms_accepted: boolean;
             /** @description The terms version the registrant saw; must be the current one. */
             terms_version: string;
+            /** @description The privacy version the registrant saw; must be the current one. */
+            privacy_version: string;
+            /** @description The DPA version the registrant saw; must be the current one. */
+            dpa_version: string;
             /** @description Cloudflare Turnstile token. */
             captcha_token: string;
         };

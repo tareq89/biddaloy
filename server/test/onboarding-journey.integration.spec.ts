@@ -60,6 +60,8 @@ describe('Onboarding journey (server)', () => {
         email: `journey-${suffix}@example.com`,
         terms_accepted: true,
         terms_version: LEGAL_DOCS.terms.version,
+        privacy_version: LEGAL_DOCS.privacy.version,
+        dpa_version: LEGAL_DOCS.dpa.version,
         captcha_token: 'ok',
       })
       .expect(202);

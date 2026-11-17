@@ -1327,6 +1327,8 @@ export async function registerTrialSchool(
       email: who.email,
       terms_accepted: true,
       terms_version: LEGAL_DOCS.terms.version,
+      privacy_version: LEGAL_DOCS.privacy.version,
+      dpa_version: LEGAL_DOCS.dpa.version,
       captcha_token: 'no-captcha',
     },
   });
