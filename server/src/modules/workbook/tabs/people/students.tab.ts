@@ -550,7 +550,6 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'full_name',
       'full_name_bn',
       'blood_group',
-      'photo_key',
       'roll_number',
       'gender',
       'home_address',
@@ -566,6 +565,10 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     for (const key of fields) {
       if (row[key] !== existing[key]) changed.push(key);
     }
+    // Same rule as upsert: a (stored or sheet) REFUSED consent saves no photo.
+    const effectivePhoto =
+      (row.photo_consent ?? existing.photo_consent) === PhotoConsent.REFUSED ? null : row.photo_key;
+    if (effectivePhoto !== existing.photo_key) changed.push('photo_key');
     if (row.photo_consent !== null && row.photo_consent !== existing.photo_consent)
       changed.push('photo_consent');
     if (keptUserId(row, existing) !== existing.user_id) changed.push('user_id');

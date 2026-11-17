@@ -2,6 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { AdmissionApplicant } from '../../../admission/entities/admission-applicant.entity';
 import {
   AdmissionApplicantStatus,
+  AdmissionDocumentType,
   AdmissionFeeState,
   AdmissionSource,
   PhotoConsent,

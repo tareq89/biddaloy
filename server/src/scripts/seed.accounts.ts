@@ -860,16 +860,28 @@ export async function acceptCurrentLegalForAdmins(manager: EntityManager): Promi
        FROM user_tenants ut
       CROSS JOIN unnest($1::text[], $2::text[]) AS d(document, version)
       JOIN users u ON u.id = ut.user_id
+      JOIN schools sc ON sc.id = ut.tenant_id
       WHERE ut.role = $3 AND ut.deleted_at IS NULL
         AND u.email LIKE '%@biddaloy.test'
+        AND sc.slug = ANY($4::text[])
      ON CONFLICT DO NOTHING`,
     [
       [...ADMIN_REQUIRED_DOCS],
       ADMIN_REQUIRED_DOCS.map((d) => LEGAL_DOCS[d].version),
       UserRole.ADMIN,
+      // Fixture user AND fixture school: a look-alike admin in a real school gets nothing.
+      FIXTURE_SCHOOL_SLUGS,
     ],
   );
 }
+
+const FIXTURE_SCHOOL_SLUGS = [
+  'default-school',
+  'test-school',
+  'rose-valley-school',
+  'fresh-demo-school',
+  'trial-demo-school',
+];
 
 /** [13.1.4] Fixed so e2e can open the teacher's invite link; mirrored in `e2e/seed-contract.ts`. */
 export const TRIAL_DEMO = {

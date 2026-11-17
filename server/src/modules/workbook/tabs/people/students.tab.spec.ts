@@ -297,6 +297,12 @@ describe('photo_consent', () => {
     ).not.toContain('photo_consent');
   });
 
+  it('blank cell + stored REFUSED: a sheet photo_key is not a diff (upsert saves null)', () => {
+    const row = { ...fromRowOrThrow({ ...toCells(makeStudent()), photo_consent: '' }), photo_key: 'k' };
+    const stored = makeStudent({ photo_consent: PhotoConsent.REFUSED, photo_key: null });
+    expect(studentsTab.diffFields(row, stored)).not.toContain('photo_key');
+  });
+
   it('an invalid value is a row error on the column', () => {
     const result = studentsTab.fromRow(
       { ...toCells(makeStudent()), photo_consent: 'MAYBE' },
