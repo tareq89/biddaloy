@@ -862,8 +862,10 @@ export async function acceptCurrentLegalForAdmins(manager: EntityManager): Promi
       JOIN users u ON u.id = ut.user_id
       JOIN schools sc ON sc.id = ut.tenant_id
       WHERE ut.role = $3 AND ut.deleted_at IS NULL
-        AND u.email LIKE '%@biddaloy.test'
-        AND sc.slug = ANY($4::text[])
+        AND (
+          (u.email LIKE '%@biddaloy.test' AND sc.slug = ANY($4::text[]))
+          OR (u.email = 'admin@school.com' AND sc.slug = 'rose-valley-school')
+        )
      ON CONFLICT DO NOTHING`,
     [
       [...ADMIN_REQUIRED_DOCS],

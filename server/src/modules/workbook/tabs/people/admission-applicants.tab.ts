@@ -345,7 +345,9 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
     if (row.status !== existing.status) changed.push('status');
     if (row.roll_number !== existing.roll_number) changed.push('roll_number');
     if (row.source !== existing.source) changed.push('source');
-    if (row.photo_consent !== existing.photo_consent) changed.push('photo_consent');
+    // A blank cell keeps the stored answer (see upsert), so it is not a change.
+    if (row.photo_consent !== null && row.photo_consent !== existing.photo_consent)
+      changed.push('photo_consent');
     if (JSON.stringify(row.quota_tags) !== JSON.stringify(existing.quota_tags))
       changed.push('quota_tags');
     if (JSON.stringify(row.extra_fields) !== JSON.stringify(existing.extra_fields))

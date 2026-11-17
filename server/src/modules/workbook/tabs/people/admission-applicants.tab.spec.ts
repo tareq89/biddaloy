@@ -101,3 +101,17 @@ describe('admissionApplicantsTab photo_consent', () => {
     expect('errors' in result).toBe(true);
   });
 });
+
+describe('admissionApplicantsTab diffFields photo_consent', () => {
+  it('a blank cell is not a change; a different value is', () => {
+    const r = admissionApplicantsTab.fromRow(cells([]), 2, ctx());
+    if ('errors' in r) throw new Error(JSON.stringify(r.errors));
+    const existing = { ...r.row, photo_consent: PhotoConsent.REFUSED } as never;
+    expect(
+      admissionApplicantsTab.diffFields({ ...r.row, photo_consent: null }, existing),
+    ).not.toContain('photo_consent');
+    expect(
+      admissionApplicantsTab.diffFields({ ...r.row, photo_consent: PhotoConsent.GRANTED }, existing),
+    ).toContain('photo_consent');
+  });
+});
