@@ -59,6 +59,7 @@ A notice is an announcement from the school: a title, some text, and up to three
   - [What a person sees who gets the link](#task-public-page)
   - [Sending an SMS](#task-sms)
   - [Edit, withdraw, copy](#task-manage)
+  - [Daily limit](#daily-limit)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -246,6 +247,16 @@ These buttons are in the notices list and on the notice page.
 | **Copy**     | **A new draft was made from this notice.** shows. The draft keeps the same people. Open it, check the **Chosen list** and remove anyone who should not get it, then publish. |
 
 In the **Notices** list you can search by title and filter by **Status**. A teacher or office staff member sees only the notices they wrote.
+
+### Daily limit <a href="#daily-limit" id="daily-limit"></a>
+
+When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. If the school uses its own SMS gateway, its SMS has no daily limit. Email and WhatsApp sent through the platform's account still have one.
+
+If the SMS has more people than are left, **Approve and send** is refused as a whole and nothing goes. You see: **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** When the day's number is used up: **Today's daily limit (2,000) is used up. Try again tomorrow.**
+
+What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When a message is refused because the day's number is used up, the school's admins also get an alert, once a day for that channel. A send turned back as a whole before it starts does not raise the alert.
+
+If the platform team has switched it on, a line above **Send** shows what is left: **1,700 of today's 2,000 left.**
 
 ---
 
