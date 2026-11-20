@@ -8,6 +8,9 @@ sources:
   - client-admin/src/features/registration/register-flow.tsx
   - client-admin/src/features/registration/register-details-form.tsx
   - client-admin/src/features/registration/register-code-step.tsx
+  - client-admin/src/features/legal/legal-documents-dialog.tsx
+  - client-admin/src/routes/legal.accept.tsx
+  - client-admin/src/routes/_staff.tsx
   - client-admin/src/features/registration/register-password-step.tsx
   - client-admin/src/features/onboarding/welcome-wizard.tsx
   - client-admin/src/features/onboarding/welcome-gate.ts
@@ -19,6 +22,7 @@ labels:
     register:social.*,
     register:fields.*,
     register:terms,
+    legal:*,
     register:continue,
     register:otp.*,
     register:password.*,
@@ -57,6 +61,8 @@ The person who opens a school becomes the **Admin** of that school. This page ha
 - [Other situations](#other)
   - [The setup wizard, step by step](#task-wizard)
   - [If you want to start with Google or Facebook](#task-social)
+  - [Read the documents, then agree](#task-terms)
+  - [Agree to new terms after signing in](#task-legal-accept)
   - [When you sign in again later](#task-signin)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
@@ -87,7 +93,7 @@ If you are already signed in, this page will not open. You go straight to the ap
 
    → The boxes are filled in.
 
-3. Tick the box **I agree to the terms and privacy policy**. The words **terms** and **privacy policy** are links: press one to read it in a new tab, then come back here to tick the box. (If the app has no address set for them, they show as plain words.)
+3. Tick the box **I have read and agree to the Terms, Privacy policy and Data agreement**. The three names are buttons that open the documents (see [Read the documents, then agree](#task-terms)). If you do not tick, the form says **Please accept to continue.**
 4. If the page has a robot check (a box to show you are not a robot), finish it.
 5. Press **Continue**.
 
@@ -178,6 +184,43 @@ The order to do the tasks in is on the [Setup order](setup-order.md) page.
 
 3. Fill in the other boxes (school name, country, address, mobile number), and carry on from step 3 of [Create a school](#task-main).
 
+### Read the documents, then agree <a href="#task-terms" id="task-terms"></a>
+
+Next to the tick box on the Create your school form are three names: **Terms**, **Privacy policy** and **Data agreement**.
+
+1. Press any one of them, for example **Terms**.
+
+   → A window called **Legal documents** opens. It has three tabs. At the top of each tab, three short lines say in plain words what the document says. Then comes the full document.
+
+2. When you have read, press **Agree**.
+
+   → The window closes and the box on the form is ticked.
+
+3. If you do not want to agree, press **Close**. The box stays unticked.
+
+The **বাংলা** button at the top of the window shows the documents in Bangla; the same button then reads **English** in the Bangla view. The **Agree** button can be pressed from the start; you do not have to scroll to the end. On a phone the window fills the whole screen.
+
+> **Remember:** the Service agreement is not a separate tab. It is a section inside the Terms.
+
+### Agree to new terms after signing in <a href="#task-legal-accept" id="task-legal-accept"></a>
+
+Only a school **Admin** sees this page. Each Admin agrees for themselves. When one Admin agrees, it does not count for another.
+
+1. After you sign in, the **Read and agree to continue** page (`/legal/accept`) opens. It comes when you have not yet agreed to the current version of the Terms, Privacy policy or Data agreement. The page lists only the documents still waiting.
+2. Press a name to open that document. Read it and press **Agree**, or go straight on.
+3. Tick **I have read and agree**.
+4. Press **Agree and continue**.
+
+   → You go to the page you were heading for.
+
+**When the documents change:** when a new version of the Terms, Privacy policy or Data agreement comes out, every Admin must agree again. The page comes back at the next sign-in. Until you agree, you cannot open the school's pages.
+
+**Who does not see it:** people with other roles (teacher, accountant, parent and so on) never see this page. A support-team **Login as** session does not see it either; nobody can agree on your behalf.
+
+To read the documents later, use the **Privacy policy · Terms** links at the bottom of the guardian and student portal.
+
+<!-- unverified: not run in the app; written from the screen code and texts -->
+
 ### When you sign in again later <a href="#task-signin" id="task-signin"></a>
 
 Next time, come in through the normal [Signing in](../start/sign-in.md) page. The wizard comes only once: when the admin first opens the dashboard of an incomplete school. If you finish it, or press **Do this later** (the close button of the wizard, which also hides the card), it does not come again. After finishing, the rest of the work stays on the card on the dashboard.
@@ -192,6 +235,7 @@ Next time, come in through the normal [Signing in](../start/sign-in.md) page. Th
 | **This number or email is already used for another school. Sign in instead.**                                                                  | [Sign in](../start/sign-in.md). You cannot open a second school with the same number.       | —            |
 | **A trial school already exists for this number or email. Sign in instead.**                                                                   | Sign in.                                                                                    | —            |
 | **You already have an account. Sign in to continue.**                                                                                          | Sign in.                                                                                    | —            |
+| **Please accept to continue.** | Tick the box, or open a document and press **Agree**, then press **Continue** again. | — |
 | **Please complete the check to show you are not a robot.**                                                                                     | Finish the robot check box and press **Continue** again.                                    | —            |
 | **The robot check could not load. Check your connection, turn off any blocker for this page, then reload.**                                    | Do what the message says: check your connection, turn off the blocker, open the page again. | —            |
 | **That code is not right. Check it and try again.**                                                                                            | Look at the code and type it again.                                                         | —            |

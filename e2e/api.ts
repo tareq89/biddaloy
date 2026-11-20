@@ -3,6 +3,7 @@
 // request context, then tenant-scoped calls with the same headers the
 // SPA sends (Bearer + X-Tenant-ID).
 import {
+  ADMIN_REQUIRED_DOCS,
   ALERT_RULES,
   ExamComponentKind,
   ExamComponentSource,
@@ -1187,7 +1188,43 @@ export async function activateInvite(
   const body = (await response.json()) as RefreshResponse;
   const membership = body.memberships[0];
   if (!membership) throw new Error('no membership in activate response');
-  return { token: body.access_token, tenantId: membership.tenantId, role: membership.role };
+  const session = { token: body.access_token, tenantId: membership.tenantId, role: membership.role };
+  // [59.3.03, D33] An activated ADMIN would stop at /legal/accept on its first staff page.
+  if (membership.role === 'ADMIN') await acceptLegal(request, session);
+  return session;
+}
+
+/**
+ * [59.3.03, D33] The signed-in ADMIN accepts the current version of every required legal
+ * document (`POST /legal/accept`), so specs that sign in a school admin the sign-up form did not
+ * create (provisioned, invited, added by the cockpit) are not sent to `/legal/accept`. Docs come
+ * from `ADMIN_REQUIRED_DOCS`, versions are the server's own `LEGAL_DOCS`; no literals here.
+ */
+export async function acceptLegal(request: APIRequestContext, session: ApiSession): Promise<void> {
+  await post(request, session, '/legal/accept', { documents: [...ADMIN_REQUIRED_DOCS] });
+}
+
+/**
+ * [59.3.03] A second ADMIN of the session's school, made with `POST /users` (a password, no
+ * invite), who has accepted nothing. The sign-up form records acceptance, so this is the way to
+ * get an admin the staff gate stops. Sign in with `loginAsFreshUser`.
+ */
+export async function createUnacceptedAdmin(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+): Promise<{ id: string; email: string; password: string }> {
+  const suffix = crypto.randomUUID();
+  const email = `admin-${suffix}@e2e.example.com`;
+  const password = `E2e-Admin-${suffix}`;
+  const created = await post<{ user: { id: string } }>(request, session, '/users', {
+    full_name: fullName,
+    email,
+    password,
+    role: 'ADMIN',
+    tenantId: session.tenantId,
+  });
+  return { id: created.user.id, email, password };
 }
 
 /** `POST /auth/step-up/otp/request` — retried with a short wait when the
