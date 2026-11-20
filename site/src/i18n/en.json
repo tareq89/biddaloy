@@ -195,6 +195,14 @@
       "COMMERCE": "Commerce",
       "HUMANITIES": "Humanities"
     },
+    "consent": {
+      "question": "May the school keep and print your child's photo?",
+      "GIVEN": "I agree",
+      "REFUSED": "I do not agree",
+      "required": "Choose one.",
+      "privacy": "Privacy policy",
+      "terms": "Terms"
+    },
     "doc": {
       "PHOTO": "Photo",
       "BIRTH_CERTIFICATE": "Birth certificate",

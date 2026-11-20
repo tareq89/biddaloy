@@ -1,4 +1,4 @@
-import { Card, Field, FieldGrid, SkeletonFieldList } from '@biddaloy/ui/components';
+import { Card, Field, FieldGrid, SkeletonFieldList, StatusBadge } from '@biddaloy/ui/components';
 import { useStudent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate } from '@biddaloy/ui/utils';
@@ -6,6 +6,8 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { GENDER_VALUES } from '../-student-form-schema';
 
 import { TabQueryState } from './tab-query-state';
+
+const PHOTO_CONSENT_TONE = { GIVEN: 'success', REFUSED: 'danger', UNKNOWN: 'neutral' } as const;
 
 export interface OverviewTabProps {
   studentId: string;
@@ -59,6 +61,27 @@ export function OverviewTab({ studentId }: OverviewTabProps) {
             </Field>
             <Field label={t('detail.overview.address')} className="col-span-2 md:col-span-1">
               {student.home_address ?? t('list.emptyValue')}
+            </Field>
+            <Field label={t('photoConsent.label')} className="col-span-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge
+                  tone={PHOTO_CONSENT_TONE[student.photo_consent]}
+                  label={t(`photoConsent.values.${student.photo_consent}`)}
+                />
+                {student.photo_consent_recorded_at ? (
+                  <span className="text-text-muted text-caption">
+                    {[
+                      student.photo_consent_recorded_by_user?.email,
+                      formatDate(student.photo_consent_recorded_at, config),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-text-muted mt-1 text-caption">
+                {t('help.students.photoConsent', { ns: 'helpHint' })}
+              </p>
             </Field>
           </FieldGrid>
         </Card>

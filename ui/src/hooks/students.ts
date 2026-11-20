@@ -45,6 +45,8 @@ export interface StudentListFilters {
   gender?: string;
   date_of_birth_from?: string;
   date_of_birth_to?: string;
+  /** [59.G3] Filters on the recorded photo consent. */
+  photo_consent?: 'GIVEN' | 'REFUSED' | 'UNKNOWN';
   sort?: StudentSortField;
   order?: 'asc' | 'desc';
   page?: number;
@@ -433,7 +435,7 @@ export const STUDENT_PHOTO_CHUNK_BYTES = 40 * 1024 * 1024;
 export interface BulkStudentPhotoResult {
   matched: Array<{ file: string; student_id: string; full_name: string }>;
   unmatched: string[];
-  invalid: Array<{ file: string; reason: string }>;
+  invalid: Array<{ file: string; reason: string; code?: string }>;
 }
 
 /** Replaces one student's photo. The old object is never deleted (D48). */

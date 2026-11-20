@@ -25,6 +25,11 @@ export function studentFactory(overrides: Partial<Student> = {}, script?: Script
     // Epic 32 columns; null until a photo / Bangla name / blood group is set.
     full_name_bn: null,
     photo_key: null,
+    // [59.2.99] Consent defaults to UNKNOWN, as the column does.
+    photo_consent: 'UNKNOWN',
+    photo_consent_recorded_at: null,
+    photo_consent_recorded_by_user: null,
+    photo_consent_recorded_by: null,
     blood_group: null,
     registration_number: faker.string.numeric(8),
     roll_number: faker.number.int({ min: 1, max: 60 }),
@@ -43,11 +48,6 @@ export function studentFactory(overrides: Partial<Student> = {}, script?: Script
     card_no: null,
     health_notes: null,
     father_name: null,
-    // Epic 59: existing students read UNKNOWN until consent is recorded (D25).
-    photo_consent: 'UNKNOWN',
-    photo_consent_recorded_at: null,
-    photo_consent_recorded_by_user: null,
-    photo_consent_recorded_by: null,
     mother_name: null,
     tenant,
     tenant_id: tenant.id,

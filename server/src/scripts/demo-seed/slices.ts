@@ -10,6 +10,7 @@ import { slice as exams } from './slices/exams';
 import { slice as learning } from './slices/learning';
 import { slice as peopleOps } from './slices/people-ops';
 import { slice as admission } from './slices/admission';
+import { slice as legal } from './slices/legal';
 import { slice as commsPrint } from './slices/comms-print';
 import { slice as applications } from './slices/applications';
 import { slice as smsBundles } from './slices/sms-bundles';
@@ -34,6 +35,7 @@ export const SLICES: DemoSlice[] = [
   learning,
   peopleOps,
   admission,
+  legal,
   commsPrint,
   smsBundles,
   applications,
@@ -68,6 +70,4 @@ export const EXEMPT: Record<string, string> = {
   AuditLog: 'written by services as a side effect, never seeded directly',
   ReportSnapshot: 'runtime output: a stored copy of one run (Epic 8.15)',
   ReportSchedule: 'runtime output: schedules are set up by the school (Epic 8.15)',
-  LegalAcceptance:
-    'a user act recorded at sign-in/register (Epic 59), minted by the real accept flow, never seeded',
 };

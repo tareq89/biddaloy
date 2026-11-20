@@ -24,7 +24,7 @@ export const Route = createFileRoute('/register')({
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     if (await ensureSessionLoaded()) throw redirect({ to: '/' });
   },
-  loader: () => loadRouteNamespaces('register', 'auth', 'common'),
+  loader: () => loadRouteNamespaces('register', 'auth', 'common', 'legal'),
   component: RegisterPage,
 });
 

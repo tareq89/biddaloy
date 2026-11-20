@@ -72,7 +72,7 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     full_name_bn: 'করিম উদ্দিন',
     blood_group: 'O+',
     photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
-    photo_consent: PhotoConsent.REFUSED,
+    photo_consent: PhotoConsent.GIVEN,
     roll_number: 1,
     class_section_id: SECTION_ID,
     class_section: {
@@ -199,12 +199,12 @@ describe('studentsTab shape', () => {
     expect(studentsTab.deleteByAbsence).toBe(true);
   });
 
-  it('excludes exactly the ref ids and the photo-consent audit stamps', () => {
+  it('excludes exactly the id-ref columns and the consent stamp columns', () => {
     expect(studentsTab.excluded).toEqual([
       'user_id',
-      'class_section_id',
       'photo_consent_recorded_at',
       'photo_consent_recorded_by',
+      'class_section_id',
     ]);
     const exported = studentsTab.columns.map((c) => c.key);
     expect(exported).not.toContain('user_id');
@@ -280,6 +280,45 @@ describe('photo_key across schools (Epic 32)', () => {
   });
 });
 
+describe('photo_consent', () => {
+  it('round-trips each value through export and import', () => {
+    for (const v of Object.values(PhotoConsent)) {
+      const cells = toCells(makeStudent({ photo_consent: v }));
+      expect(fromRowOrThrow(cells).photo_consent).toBe(v);
+    }
+  });
+
+  it('a blank cell keeps the stored value (null row value, no diff)', () => {
+    const cells = { ...toCells(makeStudent()), photo_consent: '' };
+    const row = fromRowOrThrow(cells);
+    expect(row.photo_consent).toBeNull();
+    expect(
+      studentsTab.diffFields(row, makeStudent({ photo_consent: PhotoConsent.REFUSED })),
+    ).not.toContain('photo_consent');
+  });
+
+  it('blank cell + stored REFUSED: a sheet photo_key is not a diff (upsert saves null)', () => {
+    const row = { ...fromRowOrThrow({ ...toCells(makeStudent()), photo_consent: '' }), photo_key: 'k' };
+    const stored = makeStudent({ photo_consent: PhotoConsent.REFUSED, photo_key: null });
+    expect(studentsTab.diffFields(row, stored)).not.toContain('photo_key');
+  });
+
+  it('an invalid value is a row error on the column', () => {
+    const result = studentsTab.fromRow(
+      { ...toCells(makeStudent()), photo_consent: 'MAYBE' },
+      2,
+      importCtx(),
+    );
+    expect('errors' in result).toBe(true);
+    if ('errors' in result) expect(result.errors[0]).toMatchObject({ column: 'photo_consent' });
+  });
+
+  it('REFUSED drops the photo key', () => {
+    const row = fromRowOrThrow(toCells(makeStudent({ photo_consent: PhotoConsent.REFUSED })));
+    expect(row.photo_key).toBeNull();
+  });
+});
+
 describe('round-trip', () => {
   it('fromRow(toRow(entity)) round-trips every field for a fully populated student', () => {
     const student = makeStudent();
@@ -293,7 +332,7 @@ describe('round-trip', () => {
       full_name_bn: 'করিম উদ্দিন',
       blood_group: 'O+',
       photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
-      photo_consent: PhotoConsent.REFUSED,
+      photo_consent: PhotoConsent.GIVEN,
       roll_number: 1,
       class_section_id: SECTION_ID,
       date_of_birth: null,

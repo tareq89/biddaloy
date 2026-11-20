@@ -127,7 +127,26 @@ export function mountAdmission(root: HTMLElement, deps: Deps): void {
         });
       form.append(field(label, c, f.key));
     }
-    for (const d of round.form.documents) form.append(fileField(`${t[`doc.${d}`] ?? d} *`, `doc:${d}`, t));
+    const docFields: Record<string, HTMLElement> = {};
+    for (const d of round.form.documents) form.append((docFields[d] = fileField(`${t[`doc.${d}`] ?? d} *`, `doc:${d}`, t)));
+    const consent = el('fieldset', { className: 'field adm-consent', dataset: { key: 'photoConsent' } }, [
+      el('legend', {}, [`${t['consent.question']} *`]),
+      ...(['GIVEN', 'REFUSED'] as const).map((v) =>
+        el('label', { className: 'adm-radio' }, [
+          el('input', { type: 'radio', name: 'photo_consent', value: v }),
+          el('span', {}, [t[`consent.${v}`]]),
+        ]),
+      ),
+      el('small', { className: 'adm-err', role: 'alert' }),
+    ]);
+    form.append(consent);
+    const consentValue = () =>
+      (form.querySelector<HTMLInputElement>('input[name=photo_consent]:checked')?.value ?? '') as '' | 'GIVEN' | 'REFUSED';
+    // A refused photo is not asked for: hide the slot (the server drops the file anyway).
+    consent.addEventListener('change', () => {
+      const photo = docFields.PHOTO;
+      if (photo) photo.hidden = consentValue() === 'REFUSED';
+    });
     if (hasFee(round)) form.append(renderPaymentMethods(round, t));
     const box = el('div', { dataset: { captcha: '' } });
     const button = el('button', { type: 'submit', className: 'btn btn-primary' }, [t.send]);
@@ -148,10 +167,11 @@ export function mountAdmission(root: HTMLElement, deps: Deps): void {
       }
       form.querySelectorAll<HTMLInputElement>('input[type=file]').forEach((i) => (files[i.name] = i.files?.[0]));
       const v = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? '';
-      return { values, files, feeMethod: v('feeMethod'), feeReference: v('feeReference') };
+      return { values, files, feeMethod: v('feeMethod'), feeReference: v('feeReference'), photoConsent: consentValue() };
     };
     const SERVER_CODE: Record<string, string> = { REQUIRED: 'missing', INVALID: 'invalid' };
-    const msg = (code: string) => t[`err.${SERVER_CODE[code] ?? code}`] ?? t['err.missing'];
+    const msgOf = (code: string) => (code === 'consent' ? t['consent.required'] : undefined);
+    const msg = (code: string) => msgOf(code) ?? t[`err.${SERVER_CODE[code] ?? code}`] ?? t['err.missing'];
     const say = (text: string, ok = false) => {
       status.textContent = text;
       status.className = ok ? 'ok' : 'bad';

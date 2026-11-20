@@ -16,10 +16,14 @@ import {
   AuditAction,
   CommunicationMedium,
   CommunicationStatus,
+  LEGAL_DOCS,
+  LegalDocument,
   LoginResponse,
+  SIGNUP_DOCS,
   UserRole,
   UserStatus,
 } from '@biddaloy/shared';
+import { LegalService } from '../legal/legal.service';
 import { AuditService } from '../audit/audit.service';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
 import { AccountAccessDeliveryService } from '../account-access/account-access-delivery.service';
@@ -102,6 +106,7 @@ export class RegistrationService {
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(UserTenant) private readonly memberships: Repository<UserTenant>,
     private readonly tenantStatus: TenantStatusService,
+    private readonly legal: LegalService,
   ) {}
 
   async start(dto: RegisterStartDto, context: RequestContext): Promise<RegisterStartResult> {
@@ -128,6 +133,11 @@ export class RegistrationService {
       phone: dto.phone,
       email: dto.email ?? null,
       terms_accepted_at: new Date().toISOString(),
+      terms_version: dto.terms_version,
+      doc_versions: {
+        [LegalDocument.PRIVACY]: dto.privacy_version,
+        [LegalDocument.DPA]: dto.dpa_version,
+      },
       identifier: dto.phone,
       channel: 'sms',
     };
@@ -140,6 +150,7 @@ export class RegistrationService {
     const staged = await this.staging.peek(dto.registration_id);
     if (!staged) throw registrationExpired();
     this.assertNotLegacyEmailStage(staged);
+    this.assertDocVersions(staged);
     if ((staged.resends ?? 0) >= MAX_RESENDS) {
       throw new HttpException(
         {
@@ -166,6 +177,7 @@ export class RegistrationService {
     const peeked = await this.staging.peek(dto.registration_id);
     if (!peeked) throw registrationExpired();
     this.assertNotLegacyEmailStage(peeked);
+    this.assertDocVersions(peeked);
 
     // The code is checked against what the stage says it was sent to — the caller cannot pick it.
     // Bound to this registration: a code sent for another stage on the same contact fails here.
@@ -189,8 +201,15 @@ export class RegistrationService {
     const staged = await this.staging.consume(dto.registration_id);
     if (!staged) throw new GoneException('This registration has already been completed');
     this.assertNotLegacyEmailStage(staged);
+    this.assertDocVersions(staged);
 
     return this.createSchool(dto.registration_id, staged, context, socialTicketId);
+  }
+
+  /** A stage without the versions the registrant saw must not fall back to today's versions. */
+  private assertDocVersions(staged: StagedRegistration): void {
+    const v = staged.doc_versions;
+    if (!v?.[LegalDocument.PRIVACY] || !v[LegalDocument.DPA]) throw registrationExpired();
   }
 
   /**
@@ -351,6 +370,10 @@ export class RegistrationService {
             if (ticket) {
               await this.socialIdentity.link(userId, ticket, manager, context, result.school.id);
             }
+            await this.legal.accept(userId, result.school.id, SIGNUP_DOCS, context.ip, manager, {
+              ...staged.doc_versions,
+              [LegalDocument.TERMS]: staged.terms_version,
+            });
             await this.audit.record(
               {
                 action: AuditAction.CREATE,
@@ -362,6 +385,7 @@ export class RegistrationService {
                 user_agent: context.userAgent,
                 new_values: {
                   terms_accepted_at: staged.terms_accepted_at,
+                  terms_version: staged.terms_version,
                   country_code: staged.country_code,
                 },
               },

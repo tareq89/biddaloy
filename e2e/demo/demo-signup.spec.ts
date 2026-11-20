@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { LEGAL_DOCS } from '@biddaloy/shared';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { uniqueRegistration } from '../api';
@@ -51,7 +52,15 @@ test('a visitor signs up with a made-up phone, reads the OTP from the inbox, and
   await page.getByLabel(t('register.fields.email')).fill(who.email);
   await page.getByLabel(t('register.fields.schoolName')).fill(who.schoolName);
   await page.getByLabel(t('register.fields.address')).fill('1 Demo Road, Dhaka');
-  await page.getByRole('checkbox', { name: t('register.terms', { terms: t('register.termsLink'), privacy: t('register.privacyLink') }) }).check();
+  await page
+    .getByRole('checkbox', {
+      name: t('register.terms', {
+        terms: t('legal.docs.terms'),
+        privacy: t('legal.docs.privacy'),
+        dpa: t('legal.docs.dpa'),
+      }),
+    })
+    .check();
   await page.getByRole('button', { name: t('register.continue') }).click();
   await register.submitCode(await otpFromInbox(request, who.phone));
   await register.setPassword(PASSWORD);
@@ -72,6 +81,9 @@ test('a 101-row student file is refused whole with DEMO_ROW_LIMIT', async ({ req
       phone: who.phone,
       email: who.email,
       terms_accepted: true,
+      terms_version: LEGAL_DOCS.terms.version,
+      privacy_version: LEGAL_DOCS.privacy.version,
+      dpa_version: LEGAL_DOCS.dpa.version,
       captcha_token: 'no-captcha',
     },
   });

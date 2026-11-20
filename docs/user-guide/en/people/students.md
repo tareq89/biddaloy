@@ -5,6 +5,9 @@ summary: Add a new student, import many at once, and use each student's profile 
 roles: [ADMIN, ACCOUNTANT, TEACHER, EXECUTIVE, OFFICE_STAFF, EXAM_CONTROLLER]
 sources:
   - client-admin/src/routes/_staff/students/index.tsx
+  - client-admin/src/routes/_staff/students/-student-form.tsx
+  - client-admin/src/routes/_staff/students/-detail/overview-tab.tsx
+  - client-admin/src/components/print/student-photo-card.tsx
   - client-admin/src/routes/_staff/students/new.tsx
   - client-admin/src/routes/_staff/students/$studentId.tsx
   - client-admin/src/routes/_staff/students/$studentId_.edit.tsx
@@ -20,6 +23,7 @@ sources:
 labels:
   [
     students:*,
+    helpHint:help.students.photoConsent,
     fees:statement.*,
     student-lifecycle:*,
     student-notes:*,
@@ -113,6 +117,7 @@ Every student has a **profile**. The profile is their own page: at the top their
   - [Write a note](#task-notes)
   - [Family, health and public exam details](#task-records)
   - [Photo, ID card and documents](#task-documents)
+  - [Photo consent](#task-photo-consent)
   - [Upload many photos at once](#task-photos)
   - [Give a student a card number](#task-card)
   - [Import many students at once](#task-import)
@@ -199,7 +204,7 @@ This form cannot keep a student on your device while the internet is off. So the
 
    → The list shrinks to the students who match.
 
-2. If needed, add filters: **Class**, **Section**, **Status**, **Gender**, **Date of birth** (from–to). If the school has two or more [shifts](../help/glossary.md#shift) or [versions](../help/glossary.md#version), **Shift** and **Version** filters appear too.
+2. If needed, add filters: **Class**, **Section**, **Status**, **Gender**, **Date of birth** (from–to). If the school has two or more [shifts](../help/glossary.md#shift) or [versions](../help/glossary.md#version), **Shift** and **Version** filters appear too. A **Photo consent** filter is there too (see [Photo consent](#task-photo-consent)).
 3. Press **Columns** to choose which columns to show. **Date of birth**, **Gender**, **Address** and **Preferred contact** are hidden at first.
 4. Press the **Registration No.** or **Name** column heading to sort (ascending or descending).
 5. Tick the boxes on the left to choose several students.
@@ -382,6 +387,36 @@ In the profile's **Documents** tab:
    → At the end you see three groups: **Matched**, **No matching student**, **Couldn't read**. You can copy the unmatched list with **Copy list**.
 
 If it stops halfway, the photos sent so far are kept.
+
+### Photo consent <a href="#task-photo-consent" id="task-photo-consent"></a>
+
+If a guardian does not agree, the school cannot keep or print the student's photo. This is written down for each student. There are three values:
+
+| Value | Meaning |
+| ----- | ------- |
+| **Given** | The guardian agrees. The photo can be kept and printed. |
+| **Refused** | The guardian does not agree. The photo cannot be kept or printed. |
+| **Not recorded** | Nobody has written it down yet. A student added outside the admission form starts like this. |
+
+**Where to see it:** on the student's profile, in the **Overview** tab, the **Photo consent** row shows the value. Next to it you see who wrote it and when.
+
+**To change it:**
+
+1. Press **Edit** at the top of the profile.
+2. In **Identity**, choose **Photo consent**: **Given**, **Refused** or **Not recorded**.
+3. Press **Save changes**.
+
+If you choose **Refused** and the student already has a photo, a confirmation window **The photo will be deleted** opens. It says: **The guardian has not given photo consent. If you continue, this student's photo will be deleted.** Press **Delete photo** and the value becomes **Refused**; when you save, the photo is deleted. Press **Cancel** and nothing changes.
+
+While the value is **Refused**:
+
+- Uploading a photo on the profile shows **The guardian has not given photo consent, so the photo cannot be kept.**
+- In [Upload many photos at once](#task-photos), that student's photo is skipped. At the end you see **N students' photos were not kept — no photo consent**, with the file names.
+- The ID card prints without a photo.
+
+**To find the students whose consent is not written yet:** in the filters above the list, set **Photo consent** to **Not recorded**. The list shows who is still missing. When everyone has it, you see **Photo consent is on file for everyone**. Then ask the guardians and write the value for each.
+
+<!-- unverified: not run in the app; written from the screen code and texts -->
 
 ### Give a student a card number <a href="#task-card" id="task-card"></a>
 

@@ -65,6 +65,7 @@ export interface StudentRow {
   full_name_bn: string | null;
   blood_group: string | null;
   photo_key: string | null;
+  /** null = blank cell: keep the stored value (UNKNOWN for a new student). */
   photo_consent: PhotoConsent | null;
   roll_number: number;
   class_section_id: string;
@@ -151,13 +152,6 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Photo key', bn: 'ছবির কী' },
   },
   {
-    // A restore must keep a refusal (blank leaves the existing value alone).
-    key: 'photo_consent',
-    type: 'enum',
-    enumValues: Object.values(PhotoConsent),
-    label: { en: 'Photo consent', bn: 'ছবির সম্মতি' },
-  },
-  {
     key: 'date_of_birth',
     type: 'date',
     label: { en: 'Date of birth', bn: 'জন্ম তারিখ' },
@@ -212,6 +206,13 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Preferred communication', bn: 'পছন্দের যোগাযোগ মাধ্যম' },
   },
   {
+    // Not `required`: a blank cell keeps the stored value (D17).
+    key: 'photo_consent',
+    type: 'enum',
+    enumValues: Object.values(PhotoConsent),
+    label: { en: 'Photo consent', bn: 'ছবির অনুমতি' },
+  },
+  {
     // Not `required`; an empty cell defaults to `ACTIVE`.
     key: 'enrollment_status',
     type: 'enum',
@@ -247,9 +248,9 @@ const columns: readonly ColumnSpec[] = [
  */
 const excluded: readonly string[] = [
   'user_id', // exported instead as the `user` ref column, keyed by the referenced tab's natural key
+  'photo_consent_recorded_at', // set by the app when the consent changes, never by a file
+  'photo_consent_recorded_by', // same
   'class_section_id', // exported instead as the `section` ref column, keyed by the referenced tab's natural key
-  'photo_consent_recorded_at', // [59] audit stamp set by the consent service, not a sheet field
-  'photo_consent_recorded_by', // [59] audit stamp set by the consent service, not a sheet field
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
@@ -492,6 +493,10 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       }
     }
 
+    // Refusing photo consent means no photo is kept (D8).
+    const photoConsent = (values.photo_consent as PhotoConsent | null) ?? null;
+    if (photoConsent === PhotoConsent.REFUSED) photoKey = null;
+
     if (errors.length > 0) return { errors };
     if (photoWarning) ctx.warn(photoWarning);
 
@@ -503,7 +508,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         full_name_bn: (values.full_name_bn as string | null) ?? null,
         blood_group: (values.blood_group as string | null) ?? null,
         photo_key: photoKey,
-        photo_consent: (values.photo_consent as PhotoConsent | null) ?? null,
+        photo_consent: photoConsent,
         roll_number: values.roll_number as number,
         class_section_id: sectionId as string,
         date_of_birth: (values.date_of_birth as string | null) ?? null,
@@ -545,8 +550,6 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'full_name',
       'full_name_bn',
       'blood_group',
-      'photo_key',
-      'photo_consent',
       'roll_number',
       'gender',
       'home_address',
@@ -560,9 +563,14 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'enrollment_status',
     ] as const;
     for (const key of fields) {
-      if (key === 'photo_consent' && row.photo_consent === null) continue; // blank keeps existing
       if (row[key] !== existing[key]) changed.push(key);
     }
+    // Same rule as upsert: a (stored or sheet) REFUSED consent saves no photo.
+    const effectivePhoto =
+      (row.photo_consent ?? existing.photo_consent) === PhotoConsent.REFUSED ? null : row.photo_key;
+    if (effectivePhoto !== existing.photo_key) changed.push('photo_key');
+    if (row.photo_consent !== null && row.photo_consent !== existing.photo_consent)
+      changed.push('photo_consent');
     if (keptUserId(row, existing) !== existing.user_id) changed.push('user_id');
     if (row.class_section_id !== existing.class_section_id) changed.push('section');
     if (row.date_of_birth !== formatNullableDateOnly(existing.date_of_birth))
@@ -652,8 +660,18 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.full_name = row.full_name;
     student.full_name_bn = row.full_name_bn;
     student.blood_group = row.blood_group;
-    student.photo_key = row.photo_key;
-    if (row.photo_consent) student.photo_consent = row.photo_consent;
+    // A blank consent cell keeps the stored one, so a stored REFUSED still drops the photo.
+    student.photo_key =
+      (row.photo_consent ?? student.photo_consent) === PhotoConsent.REFUSED ? null : row.photo_key;
+    // A blank cell keeps the stored consent. A real change stamps the time; the person is not
+    // known in a file import.
+    // ponytail: only the key is cleared; deleting the stored file for REFUSED goes through the
+    // 59.2.02 students-service path, which a tab (no DI, only `m`) cannot call.
+    if (row.photo_consent !== null && row.photo_consent !== student.photo_consent) {
+      student.photo_consent = row.photo_consent;
+      student.photo_consent_recorded_at = new Date();
+      student.photo_consent_recorded_by = null;
+    }
     // `roll_number` is unique per `class_section_id`
     // (`IDX_ca01941430b7d99b013e6c6948`, migrations/1784175065078-InitialSchema.ts:61).
     // This tab deliberately does NOT pre-check it: the restore executor (14.10.2)

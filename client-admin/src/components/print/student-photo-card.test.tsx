@@ -77,6 +77,37 @@ describe('StudentPhotoCard', () => {
     await waitFor(() => expect(posted).toBe(1));
   });
 
+  it('shows the fixed consent sentence on a PHOTO_CONSENT_REFUSED 409', async () => {
+    server.use(
+      http.get('/api/v1/students/st-1', () => HttpResponse.json(student(null))),
+      http.post('/api/v1/students/st-1/photo', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'raw server text',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/students/st-1/photo',
+            requestId: 'r1',
+            details: { code: 'PHOTO_CONSENT_REFUSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const { user, container } = render();
+    await waitFor(() => expect(screen.getByText('RA')).toBeTruthy());
+
+    await user.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(['x'], 'me.jpg', { type: 'image/jpeg' }),
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(
+      'The guardian has not given photo consent, so the photo cannot be kept.',
+    );
+  });
+
   it('refuses a photo over 8 MB without sending it', async () => {
     let posted = 0;
     server.use(
