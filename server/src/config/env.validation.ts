@@ -380,6 +380,16 @@ class EnvironmentVariables {
   @IsString()
   OTP_SMS_ALLOWED_PREFIXES?: string;
 
+  // clamd scanner for uploads (Epic 60): host name or IP, port default 3310. Unset skips the scan
+  // outside production; assertProductionConfig refuses to boot without the host.
+  @IsOptional()
+  @IsString()
+  CLAMAV_HOST?: string;
+
+  @ValidateIf((o: EnvironmentVariables) => !!o.CLAMAV_PORT)
+  @Matches(/^\d{1,5}$/, { message: 'CLAMAV_PORT must be a port number' })
+  CLAMAV_PORT?: string;
+
   @IsOptional()
   @IsString()
   TURNSTILE_SECRET_KEY?: string;
@@ -539,7 +549,10 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
 
   for (const key of ['JWT_SECRET', 'JWT_SECRET_PREVIOUS']) {
     const secret = str(key);
-    if (secret && (/^\d+$/.test(secret) || /^(.+?)\1+$/s.test(secret) || new Set(secret).size < 8)) {
+    if (
+      secret &&
+      (/^\d+$/.test(secret) || /^(.+?)\1+$/s.test(secret) || new Set(secret).size < 8)
+    ) {
       // All digits, one substring repeated ('abcde123'.repeat(4)), or under 8
       // distinct symbols ('a'.repeat(40)). Random hex of the minimum 32
       // characters trips none of these far less than once in a million draws;
@@ -588,6 +601,9 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
   if (Boolean(str('TURNSTILE_SITE_KEY')) !== Boolean(str('TURNSTILE_SECRET_KEY'))) {
     problems.push('TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or not at all');
   }
+
+  // Uploads are virus-scanned (Epic 60, D25): no scanner address, no boot.
+  if (!str('CLAMAV_HOST')) problems.push('CLAMAV_HOST is required in production');
 
   if (Boolean(str('CF_SAAS_API_TOKEN')) !== Boolean(str('CF_ZONE_ID'))) {
     problems.push('CF_SAAS_API_TOKEN and CF_ZONE_ID must be set together or not at all');

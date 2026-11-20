@@ -57,6 +57,7 @@ at hand instead of loading the whole set.
 | [43-admission-pipeline.md](43-admission-pipeline.md) | Working on admission: rounds, stages, applicant statuses, merit and waiting lists, fee proofs, lottery, roll numbers, the public by-host API, the admission widgets, or what fails closed when Redis or Turnstile is down |
 | [44-incident-response.md](44-incident-response.md) | A bad day: data leak, hacked account, ransomware or long outage. Severity levels, the first-hour SEV1 checklist, bn + en messages to schools, the 7-day blameless write-up, and the security calendar of yearly, quarterly and monthly chores |
 
+
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
 architecture, README covers the _how_ of working in the repo day to day.

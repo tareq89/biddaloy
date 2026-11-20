@@ -251,6 +251,7 @@ GET    /api/v1/classes/:id                                                      
 PATCH  /api/v1/classes/:id                                                       401 401 PASS PASS PASS 403 403 403 403 403 403 403 403 -
 GET    /api/v1/classes/vocabulary                                                401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS -
 GET    /api/v1/communications/:id                                                401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403 messaging
+GET    /api/v1/communications/daily-limits/today                                 401 401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403 -
 GET    /api/v1/communications/guardian/:guardianId                               401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403 messaging
 GET    /api/v1/communications/last-reminders                                     401 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403 fees
 GET    /api/v1/communications/logs                                               401 401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403 messaging
@@ -611,6 +612,8 @@ POST   /api/v1/platform/schools/:id/archive                                     
 POST   /api/v1/platform/schools/:id/archive/export                               401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/archive/export/:jobId                        401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/archive/export/:jobId/download               401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
+GET    /api/v1/platform/schools/:id/daily-limits                                 401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
+PUT    /api/v1/platform/schools/:id/daily-limits                                 401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
 GET    /api/v1/platform/schools/:id/login-as/candidates                          401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/schools/:id/logout-all                                   401 403 401 401 401 401 401 401 401 401 401 401 401 -
 GET    /api/v1/platform/schools/:id/modules                                      401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
@@ -633,6 +636,8 @@ PATCH  /api/v1/platform/schools/:id/status                                      
 GET    /api/v1/platform/schools/search                                           401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
 GET    /api/v1/platform/settings/approvals                                       401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 PATCH  /api/v1/platform/settings/approvals                                       401 403 401 401 401 401 401 401 401 401 401 401 401 -
+GET    /api/v1/platform/settings/daily-limits                                    401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
+PUT    /api/v1/platform/settings/daily-limits                                    401 PASS 403 403 403 403 403 403 403 403 403 403 403 -
 GET    /api/v1/platform/sms-packages                                             401 PASS 401 401 401 401 401 401 401 401 401 401 401 -
 POST   /api/v1/platform/sms-packages                                             401 403 401 401 401 401 401 401 401 401 401 401 401 -
 PATCH  /api/v1/platform/sms-packages/:id                                         401 403 401 401 401 401 401 401 401 401 401 401 401 -

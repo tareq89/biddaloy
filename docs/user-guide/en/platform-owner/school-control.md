@@ -40,6 +40,7 @@ See how a school is doing, fix what it cannot fix itself, and read what happened
   - [Operations: queues, system and restore lock](#task-operations)
   - [Users: find a person in every school](#task-users)
   - [Audit: what happened](#task-audit)
+  - [Daily limits: how many messages a school can send](#task-limits)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -95,6 +96,17 @@ Press **Users** and type at least 3 letters of a phone number or email. Each res
 ### Audit: what happened <a href="#task-audit" id="task-audit"></a>
 
 Press **Audit**. The tab **All activity** lists what anyone did in any school, newest first. Filter by **School**, **Action**, **Who** and dates, and press **Clear all filters** to start again. The tab **Login as visits** has one row for each visit: who, as whom, the reason, start, length and changes made. Press **See all activity** on a row to see everything done in that visit.
+
+### Daily limits: how many messages a school can send <a href="#task-limits" id="task-limits"></a>
+
+A school that sends through the platform's own SMS, email or WhatsApp account has a **Daily limit** on each channel. If the school uses its own SMS gateway, its SMS has none. Email and WhatsApp sent through the platform's account still have one. The day starts again at midnight, Bangladesh time.
+
+- **One school.** On the school's page, the **Daily limits** card shows that school's number for SMS, email and WhatsApp, and how many it has used today. Change a number to raise or lower it for this school; clear it to go back to the platform default. The change works at once. When a school needs more on a big day, raise its number here.
+- **Platform default.** Press **Operations**. The **Daily limits** card there sets the default for every school that has no number of its own.
+- **Which number is used.** The school's own number first, then the platform default, then the built-in 2,000.
+- **"Left today" switch.** On either card you can turn on **left today**. It is off until you turn it on. When it is on, staff see one line above **Send** on the four send screens, for example **1,700 of today's 2,000 left.** A switch set on a school wins over the default.
+
+When a school's staff try to send more than is left, they see the refusal. When a message is refused because the day's number is used up while a send is going out, its admins also get an alert, once a day for that channel. A send turned back whole before it starts does not raise the alert. See [Daily limit](../communications/send-message.md#daily-limit).
 
 ---
 

@@ -105,6 +105,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/daily-limits/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messages left today on the platform account, only when the owner switched it on. */
+        get: operations["DailyLimitsTodayController_today_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/reminder/single/{studentId}/preview": {
         parameters: {
             query?: never;
@@ -387,6 +404,42 @@ export interface paths {
         /** Dashboard widget: failed-messages */
         get: operations["CommunicationsDashboardController_getFailedMessages_v1"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/daily-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform-wide default daily send limits (stored and effective). */
+        get: operations["PlatformDailyLimitsController_getPlatform_v1"];
+        /** Set the platform default; null removes a value. Audited. */
+        put: operations["PlatformDailyLimitsController_putPlatform_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/daily-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own daily send limits, effective values and today's use. */
+        get: operations["PlatformDailyLimitsController_getSchool_v1"];
+        /** Set one school's own limits; null removes a value. Audited. */
+        put: operations["PlatformDailyLimitsController_putSchool_v1"];
         post?: never;
         delete?: never;
         options?: never;
@@ -14162,6 +14215,16 @@ export interface components {
             /** @enum {string} */
             source: "OWN" | "SCHOOLMANAGERP";
         };
+        DailyLimitsTodayDto: {
+            show: boolean;
+            channels: {
+                [key: string]: {
+                    limit?: number;
+                    used?: number;
+                    left?: number;
+                };
+            };
+        };
         SendSingleReminderDto: {
             message_template: string;
             guardian_ids?: string[];
@@ -14421,6 +14484,15 @@ export interface components {
             /** @description SMS with status FAILED in the last 7 school days */
             failed: number;
             window: components["schemas"]["FailedMessagesWindowDto"];
+        };
+        UpdateDailyLimitsDto: {
+            /** @example 2000 */
+            sms?: number | null;
+            /** @example 2000 */
+            email?: number | null;
+            /** @example 2000 */
+            whatsapp?: number | null;
+            showRemaining?: boolean | null;
         };
         CreateStudentDto: {
             full_name: string;
@@ -24619,6 +24691,37 @@ export interface operations {
             };
         };
     };
+    DailyLimitsTodayController_today_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyLimitsTodayDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommunicationsController_previewSingleReminder_v1: {
         parameters: {
             query?: never;
@@ -25266,6 +25369,90 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_getPlatform_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DailyLimitsView; usedToday is null. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_putPlatform_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDailyLimitsDto"];
+            };
+        };
+        responses: {
+            /** @description DailyLimitsView after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_getSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DailyLimitsView. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_putSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDailyLimitsDto"];
+            };
+        };
+        responses: {
+            /** @description DailyLimitsView after the change. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

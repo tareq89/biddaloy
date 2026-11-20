@@ -1,3 +1,5 @@
 {
-  "demoRowLimit": "Demo allows at most 100 rows at a time. This request has {{count}}."
+  "demoRowLimit": "Demo allows at most 100 rows at a time. This request has {{count}}.",
+  "fileHarmful": "This file looks harmful. Choose another file.",
+  "fileCheckUnavailable": "We can't check files right now. Try again shortly."
 }

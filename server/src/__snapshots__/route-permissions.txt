@@ -166,6 +166,7 @@ GET /classes/:classId/subjects | ClassSubjectController | perm: ACADEMIC_STRUCTU
 GET /classes/:id | ClassController | perm: ACADEMIC_STRUCTURE_READ
 GET /classes/vocabulary | ClassController | perm: ACADEMIC_STRUCTURE_READ
 GET /communications/:id | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /communications/daily-limits/today | DailyLimitsTodayController | perm: COMMUNICATION_SEND
 GET /communications/guardian/:guardianId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /communications/last-reminders | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /communications/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
@@ -350,6 +351,7 @@ GET /platform/schools | PlatformSchoolsController | allowlist: AuthGuard(['jwt',
 GET /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/:id/archive/export/:jobId | SchoolArchiveController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/archive/export/:jobId/download | SchoolArchiveController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/schools/:id/daily-limits | PlatformDailyLimitsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/:id/login-as/candidates | LoginAsCandidatesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/modules | PlatformModulesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/schools/:id/notes | SchoolNotesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
@@ -360,6 +362,7 @@ GET /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: 
 GET /platform/schools/:id/stats | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/schools/search | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/settings/daily-limits | PlatformDailyLimitsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/sms-packages | PlatformSmsCatalogController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/sms-stock | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/sms-stock/balance | PlatformSmsStockController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
@@ -983,7 +986,9 @@ PUT /my-class/sections/:sectionId/report-card-notes | ReportCardNotesController 
 PUT /platform/holiday-sets/:id/entries | PlatformHolidaySetsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 PUT /platform/modules | PlatformModulesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
 PUT /platform/money/vat | PlatformVatController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.vat
+PUT /platform/schools/:id/daily-limits | PlatformDailyLimitsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 PUT /platform/schools/:id/modules/:key/lock | PlatformModulesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.school_control
+PUT /platform/settings/daily-limits | PlatformDailyLimitsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 PUT /portal/arrival-subscriptions/:studentId | PortalArrivalSubscriptionsController | identity | roles: PARENT
 PUT /programs/:id/milestones/order | ProgramsController | perm: PROGRAM_MANAGE
 PUT /routines/shifts/:id/period-slots | ShiftsController | perm: ROUTINE_MANAGE

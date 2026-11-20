@@ -705,6 +705,8 @@ Then add one line to `SLICES` in `slices.ts` (a new file) and run the guard.
 
 ### Known gaps recorded here
 
+- **Not a gap: Epic 60 (#2186) owes nothing.** It adds no table or column: each school's daily limits live in `schools.settings` jsonb and the counters live in Redis. Support-access seed data belongs to Epic 99 (#3726).
+
 - `school_sites.custom_domain`, `custom_domain_status`, `custom_domain_external_id`, `umami_website_id` and (40.4.08)
   `custom_domain_records`, `custom_domain_since`, `custom_domain_checked_at` are exempt: they only mean something
   with a live Cloudflare / Umami account, and the demo has neither. The staging `SITE_TEST_HOST` row sets only

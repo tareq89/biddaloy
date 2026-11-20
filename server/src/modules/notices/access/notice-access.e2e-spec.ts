@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
+import * as Sentry from '@sentry/node';
+import { EICAR, startFakeClamd } from '@test/helpers/fake-clamd';
+
+// Real Sentry, but captureMessage is a spy (ESM exports cannot be spied on directly).
+vi.mock('@sentry/node', async (orig) => ({
+  ...(await orig<typeof import('@sentry/node')>()),
+  captureMessage: vi.fn(),
+}));
 import supertest = require('supertest');
 import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -232,6 +240,39 @@ describe('Notice access E2E', () => {
       expect(res.body).toHaveLength(2);
       const [n] = await ds.query(`SELECT edited_at FROM notices WHERE id = $1`, [noticeId]);
       expect(n.edited_at).not.toBeNull(); // D5: published notice with changed files is "edited"
+    });
+
+    // [#4003, D19] Staff upload: harmful is 422, a dead scanner lets it through with a warning.
+    describe('virus scan (fail open)', () => {
+      let fake: Awaited<ReturnType<typeof startFakeClamd>>;
+      beforeEach(async () => {
+        fake = await startFakeClamd();
+        process.env.CLAMAV_HOST = '127.0.0.1';
+        process.env.CLAMAV_PORT = String(fake.port);
+      });
+      afterEach(async () => {
+        await fake.close();
+        delete process.env.CLAMAV_HOST;
+        delete process.env.CLAMAV_PORT;
+      });
+      const eicarPdf = Buffer.from(`%PDF-1.4 ${EICAR}`, 'latin1');
+
+      it('EICAR is 422 FILE_HARMFUL; the clean first file is not stored either', async () => {
+        const res = await upload(draftId, 'author', [
+          [PDF, 'ok.pdf', 'application/pdf'],
+          [eicarPdf, 'bad.pdf', 'application/pdf'],
+        ]).expect(422);
+        expect(res.body.details.code).toBe('FILE_HARMFUL');
+        expect(stored.size).toBe(0);
+      });
+
+      it('scanner down: 201 and a Sentry warning', async () => {
+        await fake.close();
+        const spy = vi.mocked(Sentry.captureMessage);
+        spy.mockClear();
+        await upload(draftId, 'author', [[PDF, 'ok.pdf', 'application/pdf']]).expect(201);
+        expect(spy).toHaveBeenCalledWith('virus scan unavailable; staff upload allowed', 'warning');
+      });
     });
 
     it('a renamed .exe declared as PDF gets 400 and the file name is not echoed', async () => {

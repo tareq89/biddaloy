@@ -110,6 +110,9 @@ export function composeAppEnv(env: Record<string, unknown>): Record<string, unkn
     S3_BUCKET: str('S3_BUCKET') || 'biddaloy',
     SENTRY_TRACES_SAMPLE_RATE: str('SENTRY_TRACES_SAMPLE_RATE') || '0.1',
     DB_SSL: 'true',
+    // Fixed in the x-app block of deploy/compose.stack.yml (the scanner sits on biddaloy-ops-scan).
+    CLAMAV_HOST: 'clamav',
+    CLAMAV_PORT: '3310',
     // The edge serves /api on the app host, so compose.stack.yml defaults it to APP_BASE_URL (#2459).
     API_BASE_URL: str('API_BASE_URL') || str('APP_BASE_URL'),
     // Same mapping as the x-app block of deploy/compose.stack.yml.

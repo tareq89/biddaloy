@@ -226,6 +226,16 @@ flowchart LR
 - **Example.** `POST /auth/login` with Redis down → `503`; `POST /auth/refresh` → served. The public notice link routes (`/public/notices/:token*`) are not `/auth*` or `/account*`: they stay open without Redis (the throttle fails open, #3374 D29).
 - **Test.** `app-throttler.guard.spec.ts`, `app-throttler.guard.e2e-spec.ts`, `route-guard-coverage.e2e-spec.ts`, `platform-alerts.service.spec.ts`.
 
+**Two more written answers (Epic 60, D8).**
+
+| Control                                                                                            | Redis down                                                     | Why                                                                                                              |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Send limit counter (`SendLimitService`, key `send-limit:<tenant>:<channel, lowercase>:<yyyymmdd>`) | **Fails open** + a Sentry error                                | A closed counter would stop a school from messaging anyone. The existing `REDIS_DOWN` platform alert also fires. |
+| OTP SMS caps (`OtpSmsCapsService`)                                                                 | **Needs Redis**, like OTP itself                               | OTP sign-in already answers 503 without Redis, so there is nothing to fail open into.                            |
+| Virus scanner (ClamAV, [Rule 33](#rule-33-document-uploads-are-virus-scanned))                     | **Per upload**: four uploads refuse, two save and alert Sentry | A dependency that is down gets a written answer per route, like Redis.                                           |
+
+**OTP SMS caps.** Two numbers, both per hour: **10 different numbers per IP** and **500 OTP SMS platform-wide**. Over either, the person gets the same answer as any other OTP request (Rule 18), and the platform owners are alerted. The caps count OTP and account-access SMS only; they are separate from a school's daily send limit (D22).
+
 | Marks sheet route (81 D21)                 | Redis down      | Why                                                                                           |
 | ------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------- |
 | `POST /exams/:examId/marks/sheet/validate` | 503 fail-closed | The parsed diff is staged in Redis; without it nothing can be committed.                      |
@@ -446,7 +456,38 @@ flowchart LR
 
 - **Test.** `server/src/impersonation-deny-list.e2e-spec.ts` (the snapshot), `server/src/modules/auth/deny-when-impersonating.interceptor.spec.ts`, `server/src/common/request-actor-context.spec.ts` (stamping), `server/src/modules/auth/strategies/jwt.strategy.impersonation.spec.ts` (Redis key), `server/src/modules/auth/guards/context.guard.spec.ts` (view-only), `server/src/modules/support-access/sessions/impersonation-session.service.integration.spec.ts`, `server/src/modules/support-access/consent/support-access-consent.e2e-spec.ts`.
 
-> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98 and Rule 32 is Epic 99, so Epic 96's rules start at 33.
+### Rule 33: Document uploads are virus-scanned
+
+- **Rule.** Every upload that stores a person's document goes through `VirusScanService.assertClean(buffer, mode, ctx)` after the signature check (Rule 6) and before anything is saved. The mode says what happens when ClamAV does not answer: `closed` refuses the upload, `open` lets it through and tells Sentry.
+- **Why.** A file a guardian, applicant or staff member uploads is later opened by a teacher or an accountant (Epic 60, D19). Nobody else looks at the bytes.
+- **Example.** A guardian attaches `proof.pdf` to a payment submission. ClamAV says `FOUND`: `422 FILE_HARMFUL`, nothing stored, one audit row (recorded as `BULK_UPLOAD` with `new_values.kind = upload.harmful_file`, because no upload action exists yet). ClamAV is stopped: `503 FILE_CHECK_UNAVAILABLE`, nothing stored. The same stop on a staff document: saved, Sentry gets a warning.
+
+| Upload                    | Mode        | ClamAV down                                                                                  |
+| ------------------------- | ----------- | -------------------------------------------------------------------------------------------- |
+| Admission applicant files | `closed`    | refused                                                                                      |
+| Application attachments   | `closed`    | refused                                                                                      |
+| Homework submissions      | `closed`    | refused                                                                                      |
+| Payment proofs            | `closed`    | refused                                                                                      |
+| Notice files              | `open`      | saved, Sentry warning                                                                        |
+| Staff documents           | `open`      | saved, Sentry warning                                                                        |
+| Site pictures             | not scanned | `sharp` decodes the picture and stores a new WebP, so the original bytes never reach storage |
+
+Two fixed sentences, never changed, never carrying the file name or the scanner's reply (Rule 23): "This file looks harmful. Choose another file." (`422 FILE_HARMFUL`) and "We can't check files right now. Try again shortly." (`503 FILE_CHECK_UNAVAILABLE`). Never say malware, infected, ClamAV or "scanner down" to a person.
+
+```mermaid
+flowchart TD
+  U[Upload] --> S[Signature check, Rule 6]
+  S --> C{ClamAV answers?}
+  C -- clean --> OK[Saved]
+  C -- FOUND --> H["422 FILE_HARMFUL"]
+  C -- no answer --> M{Mode}
+  M -- closed --> E["503 FILE_CHECK_UNAVAILABLE"]
+  M -- open --> W[Saved, Sentry warning]
+```
+
+- **Test.** `server/src/modules/storage/upload-scan.guard.spec.ts`: every non-spec file under `server/src/modules` that calls `matchesDeclaredType(` must also call `assertClean(`, or be on its `IMAGE_ONLY` list with a reason. Owner steps: [28-platform-runbook.md Part 20](28-platform-runbook.md#part-20-the-virus-scanner-owners). Unit: `virus-scan.service.spec.ts`.
+
+> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98 and Rule 32 is Epic 99, so Epic 96's rules start at 34 (Rule 33 is Epic 60's virus-scan rule).
 
 ### Candidate rule: money-tier tables have one writer
 
@@ -1072,8 +1113,9 @@ already-revoked family is an idempotent 204. Each successful revoke writes a
 tenant if present, else `null` — a session isn't tenant-scoped, so `null` is
 the honest value when there's no active tenant to record.
 
-Out of scope for this ticket: a "new sign-in to your account" notification
-(needs a per-user notification-preference surface that doesn't exist yet).
+Out of scope here: a "new sign-in to your account" notification. Epic 98
+(#3725, closed 2026-11-13) built device recognition for platform owners only.
+The school-user alert (#1762) is still open and not yet planned (Epic 60, D4).
 
 ## Dev seed safety (75.12)
 
@@ -1692,3 +1734,16 @@ Raw notes from the QA audit, same format as the
 - `security.txt` text lives in two places (`nginx/edge-mode.sh` and `site.conf.template`); change both together (#1761). → no rule
 - The incident guide was renumbered to `44-incident-response.md` because `43-admission-pipeline.md` held the same prefix (the architecture-docs check rejects duplicates).
 - Owed to the #1757 PR: full-history gitleaks count, fake-key bite test, a first Trivy run. Wave 1 close ran no `ci:local` by design; GitHub CI is the check.
+
+## Lessons (Epic 60, Wave 3 close, 2026-11-16)
+
+- The guard found that site pictures call `matchesDeclaredType(` but never `assertClean(`, although the epic's D19 table listed site media as scanned fail-open. Cost: a guard spec could not be written as "every caller scans" without an exception. Fix: site pictures are on `IMAGE_ONLY` because `sharp` re-encodes them; the rule's table says so. Rule candidate: a decision table that names a route and a control gets a test that reads the code, the day it is written.
+- Proof the guard bites: renaming every `assertClean(` call in `notice-files.service.ts` turned the spec red with "call virusScan.assertClean(...) in: notices/access/notice-files.service.ts"; restored, green.
+- Rule 33 was taken as "next number after the last rule". Epic 96 had reserved 33 and up; its note now starts at 34. Rule candidate: reserve numbers in a table in this doc, not in an epic body.
+
+## Lessons (Epic 60, Wave 6 close, 2026-11-16)
+
+- **Surprise:** `guide:impact` matches a page's `sources` by file, not by meaning. A comment-only edit in `contact-change.service.ts` (a ticket number in a comment) failed `portal.account`, and a new card on the school page failed `platformOwner.loginAs` although only `school-control` changed. Cost: two pages that cannot honestly be edited. Fix: the PR body carries `User guide: not affected — <reason>`. That line passes the whole PR, not just those two pages, so read every failing row first and confirm none needs a guide update. Rule candidate: keep a comment-only fix out of a file a guide page lists as a source.
+- **Surprise:** running `prettier --write` on a guide page rewrites its generated `guide:gen` blocks, and `guide:check` then fails with "differs from what guide:gen writes". Cost: a 240-line diff for a 12-line change. Fix: revert, add the table row by hand. Rule candidate: never run prettier on `docs/user-guide` pages; run `yarn guide:gen` instead.
+- **Surprise:** the two refusal sentences ("This file looks harmful. Choose another file." and "We can't check files right now. Try again shortly.") reach people through four different screens (student homework, admission form, fee proof, staff upload). Cost: each guide page needs its own row. Fix: one row per page, same words. Rule candidate: a new fixed error sentence lists the guide pages it can appear on in its ticket.
+- **Surprise:** two docs already shared the number 43, so the index needed a note, not a rename (other docs link both names). Rule candidate: reserve doc numbers in the README, like rule numbers.

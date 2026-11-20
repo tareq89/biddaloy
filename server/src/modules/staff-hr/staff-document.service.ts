@@ -6,6 +6,7 @@ import { StaffDocument } from './entities/staff-document.entity';
 import { StorageService, StoredObject } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
+import { VirusScanService } from '../storage/virus-scan.service';
 import { AuditService } from '../audit/audit.service';
 
 interface CallerContext {
@@ -39,6 +40,7 @@ export class StaffDocumentService {
     private readonly repo: Repository<StaffDocument>,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly virusScan: VirusScanService,
   ) {}
 
   private validateFile(file: Express.Multer.File): void {
@@ -74,6 +76,11 @@ export class StaffDocumentService {
     ctx: CallerContext,
   ): Promise<StaffDocument> {
     this.validateFile(file);
+    // Staff upload: harmful is refused (422), a dead scanner lets it through with a warning (D19).
+    await this.virusScan.assertClean(file.buffer, 'open', {
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
 
     const ext = ALLOWED_MIME_TO_EXT[file.mimetype];
     const key = tenantObjectKey(ctx.tenantId, 'staff-documents', ext);

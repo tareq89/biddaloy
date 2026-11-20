@@ -145,6 +145,17 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     return [...new Set(fallback)];
   }
 
+  /** [#3992] A one-off operator text (no `platform_alerts` row: its kind CHECK allows REDIS_DOWN only). Never throws. */
+  async notifyOperators(body: string): Promise<void> {
+    try {
+      await this.sendToOperators(body);
+    } catch (error) {
+      this.logger.warn(
+        `notifyOperators failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+    }
+  }
+
   private async sendToOperators(body: string): Promise<void> {
     const env = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
     const text = `[${env}] ${body}`;

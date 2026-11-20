@@ -11,6 +11,10 @@ describe('deliveryErrorKey', () => {
     expect(deliveryErrorKey('NO_PROVIDER')).toBe('deliveryErrors.noProvider');
   });
 
+  it('maps DAILY_LIMIT_REACHED', () => {
+    expect(deliveryErrorKey('DAILY_LIMIT_REACHED')).toBe('deliveryErrors.dailyLimit');
+  });
+
   it('falls back to the generic key for FAILED', () => {
     expect(deliveryErrorKey('FAILED')).toBe('deliveryErrors.generic');
   });
