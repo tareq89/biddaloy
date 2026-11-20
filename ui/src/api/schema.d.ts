@@ -13302,6 +13302,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/legal/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Legal documents the caller still owes in this school. */
+        get: operations["LegalController_status_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept the current version of the named legal documents. */
+        post: operations["LegalController_accept_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/social/providers": {
         parameters: {
             query?: never;
@@ -14632,6 +14666,12 @@ export interface components {
             guardians: components["schemas"]["Guardian"][];
             /** @enum {string} */
             enrollment_status: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** @enum {string} */
+            photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN";
+            /** Format: date-time */
+            photo_consent_recorded_at: string | null;
+            photo_consent_recorded_by_user?: components["schemas"]["User"] | null;
+            photo_consent_recorded_by: string | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -14724,6 +14764,8 @@ export interface components {
             total: number;
         };
         UpdateStudentDto: {
+            /** @enum {string} */
+            photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
             full_name?: string;
             full_name_bn?: string | null;
             /** @enum {string|null} */
@@ -21350,6 +21392,8 @@ export interface components {
             guardian_email: string | null;
             home_address: string | null;
             documents: Record<string, never>[];
+            /** @enum {string|null} */
+            photo_consent: "GIVEN" | "REFUSED" | "UNKNOWN" | null;
             /** @enum {string} */
             status: "REJECTED" | "PENDING" | "EXPIRED" | "SHORTLISTED" | "ADMITTED" | "FEE_PENDING" | "OFFERED" | "WAITING";
             roll_number: string | null;
@@ -21465,6 +21509,8 @@ export interface components {
             /** Format: email */
             guardian_email?: string;
             home_address?: string;
+            /** @enum {string} */
+            photo_consent?: "GIVEN" | "REFUSED";
             /** @enum {string} */
             fee_method?: "BKASH" | "NAGAD" | "ROCKET" | "BANK";
             fee_reference?: string;
@@ -21979,6 +22025,8 @@ export interface components {
             extra_fields?: {
                 [key: string]: unknown;
             };
+            /** @enum {string} */
+            photo_consent: "GIVEN" | "REFUSED";
             /** @description Cloudflare Turnstile token. */
             captcha_token: string;
             /** @enum {string} */
@@ -24132,6 +24180,12 @@ export interface components {
             email?: string;
             /** @description Must be true. */
             terms_accepted: boolean;
+            /** @description The terms version the registrant saw; must be the current one. */
+            terms_version: string;
+            /** @description The privacy version the registrant saw; must be the current one. */
+            privacy_version: string;
+            /** @description The DPA version the registrant saw; must be the current one. */
+            dpa_version: string;
             /** @description Cloudflare Turnstile token. */
             captcha_token: string;
         };
@@ -24173,6 +24227,16 @@ export interface components {
             needs_password: boolean;
             /** @description needs_password, and no social sign-in was linked to fall back on. */
             password_required: boolean;
+        };
+        LegalStatusResponseDto: {
+            pending: ("terms" | "privacy" | "dpa" | "sla")[];
+        };
+        AcceptLegalDto: {
+            documents: ("terms" | "privacy" | "dpa" | "sla")[];
+            /** @description Version of each named document, as displayed to the user. */
+            versions: {
+                [key: string]: string;
+            };
         };
         SocialProvidersDto: {
             providers: ("google" | "facebook")[];
@@ -25266,6 +25330,7 @@ export interface operations {
     StudentController_findAllStudents_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 search?: string;
                 class_id?: string;
                 section_id?: string;
@@ -25418,6 +25483,7 @@ export interface operations {
     StudentController_exportStudents_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 format?: "CSV" | "XLSX";
                 search?: string;
                 class_id?: string;
@@ -25494,6 +25560,7 @@ export interface operations {
     StudentController_findAllStudentIds_v1: {
         parameters: {
             query?: {
+                photo_consent?: "GIVEN" | "REFUSED" | "UNKNOWN";
                 search?: string;
                 class_id?: string;
                 section_id?: string;
@@ -56616,6 +56683,72 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RegisterVerifyResponseDto"];
                 };
+            };
+        };
+    };
+    LegalController_status_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatusResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LegalController_accept_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptLegalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatusResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

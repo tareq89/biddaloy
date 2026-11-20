@@ -77,8 +77,42 @@ because it derives alerts from everything before it.
 
 ```mermaid
 flowchart LR
-  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> sms-bundles --> applications --> billing --> reports --> notices --> website --> attention
+  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> admission --> legal --> comms-print --> sms-bundles --> applications --> billing --> reports --> notices --> website --> attention
 ```
+
+The `legal` slice (Epic 59, #3952) runs right after `admission` (it needs students and applicants) and gives the demo
+school its consent data:
+
+```mermaid
+flowchart LR
+  A[demo admin] -->|LegalService.accept, every branch| L[legal_acceptances<br/>terms, privacy, dpa at LEGAL_DOCS versions]
+  S[students, ctx.rng roll each] -->|95% GIVEN bulk SQL| G[GIVEN]
+  S -->|about 1%, at least one| R[REFUSED via StudentService.update<br/>photo_key cleared]
+  S -->|about 4%| U[UNKNOWN, the column default]
+  P[applicants] -->|about 15% REFUSED, rest GIVEN| C[photo_consent]
+```
+
+Every date is an offset from the anchor (admin accepted 30 days before, student consent 1 to 60 days before). The demo
+admin never sees the legal gate (`pending` is empty in all three branches). The dev seed (`seed.accounts.ts`) does the
+same for every ADMIN membership, including the trial admin, through `acceptCurrentLegalForAdmins`; the versions come
+from `LEGAL_DOCS`, never literals.
+
+Things learned (wave 2 of Epic 59, 2026-11-16):
+
+- **`legal_acceptances` is append-only per version.** A version bump in `LEGAL_DOCS` adds rows and makes every seeded
+  admin owe the document again at the next sign-in, so seeds read the versions instead of writing `'1.0'`.
+- **Refusing consent through the service does not touch storage.** `StudentService.update` sets `photo_key` to NULL but
+  the stored file stays (D48: print snapshots may point at it). So a seeded REFUSED student still has an object in the
+  bucket. Two follow-ups are filed: #4329 (workbook restore cannot delete that file) and #4330 (a REFUSED applicant import
+  keeps the PHOTO document entry).
+- **The service stamps "now".** It writes `photo_consent_recorded_at = new Date()`, which breaks the no-real-clock rule,
+  so the slice rewrites that column from the anchor right after each call.
+- **Two seed runs in one spec need a reset between them.** Audit rows block `DELETE FROM schools`; call
+  `clearTransactionalTables()` before the second run.
+- **`schema.d.ts` regenerated on this branch also carried drift that was already on main** (website `PublishDto`, the
+  admission status check). Regenerate it before the first ticket of a wave, not at the close.
+- **Regenerating the types broke two ui test files** that built a registration body without `terms_version` and a
+  student without `photo_consent`. A required field on a DTO means a `tsc -p ui` run at the close.
 
 The `website` slice (Epic 40, #3621) gives the demo school (`bmsc-high`) a published, switched-on Basic
 site at the subdomain `bmsc-high`. It goes through `SiteConfigService` (draft, publish, switch on), stores two
@@ -705,6 +739,10 @@ Then add one line to `SLICES` in `slices.ts` (a new file) and run the guard.
 
 ### Known gaps recorded here
 
+- `legal_acceptances` (new table), `students.photo_consent`, `photo_consent_recorded_at`,
+  `photo_consent_recorded_by` and `admission_applicants.photo_consent` (Epic 59, migration
+  `1792500000001`) are not seeded yet. Gap owner: ticket 59.2.99, which adds a demo slice with
+  a few accepted legal versions and a mix of GIVEN / REFUSED / UNKNOWN photo consent.
 - `school_sites.custom_domain`, `custom_domain_status`, `custom_domain_external_id`, `umami_website_id` and (40.4.08)
   `custom_domain_records`, `custom_domain_since`, `custom_domain_checked_at` are exempt: they only mean something
   with a live Cloudflare / Umami account, and the demo has neither. The staging `SITE_TEST_HOST` row sets only

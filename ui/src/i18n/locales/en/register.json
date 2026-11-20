@@ -22,9 +22,7 @@
     "email": "Email",
     "emailHint": "Optional. You can verify it later."
   },
-  "terms": "I agree to the {{terms}} and {{privacy}}",
-  "termsLink": "terms",
-  "privacyLink": "privacy policy",
+  "terms": "I have read and agree to the {{terms}}, {{privacy}} and {{dpa}}",
   "continue": "Continue",
   "haveAccount": "Already have an account? Sign in",
   "otp": {

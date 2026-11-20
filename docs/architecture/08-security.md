@@ -446,7 +446,24 @@ flowchart LR
 
 - **Test.** `server/src/impersonation-deny-list.e2e-spec.ts` (the snapshot), `server/src/modules/auth/deny-when-impersonating.interceptor.spec.ts`, `server/src/common/request-actor-context.spec.ts` (stamping), `server/src/modules/auth/strategies/jwt.strategy.impersonation.spec.ts` (Redis key), `server/src/modules/auth/guards/context.guard.spec.ts` (view-only), `server/src/modules/support-access/sessions/impersonation-session.service.integration.spec.ts`, `server/src/modules/support-access/consent/support-access-consent.e2e-spec.ts`.
 
-> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98 and Rule 32 is Epic 99, so Epic 96's rules start at 33.
+### Rule 33: Five tables carry a database tenant wall
+
+- **Rule.** The app connects as `biddaloy_app`, never as the owner or a superuser. `students`, `guardians`, `payments`, `invoices` and `student_fees` have `FORCE ROW LEVEL SECURITY` and the policy `app_tenant_wall`: with `app.tenant_id` set, only that school's rows are visible or writable (`student_fees` asks its student). Unset or `''` passes everything (platform routes, jobs). Migrations, backup, restore drill and the other jobs run as the owner and are **not** walled (no tenant is set; they need a superuser or `BYPASSRLS` role to see rows, because the policy names only `biddaloy_app` and `FORCE` also binds a plain owner); only `app` / `app2` are. Production refuses to boot as a superuser, a `BYPASSRLS` role or the owner of `students`. A new high-risk table joins the migration's list in a new migration, never by editing the old one.
+- **Why.** Epic 59 (D3, D12, D14, D21, D22): a query that forgets its `tenant_id` must still not cross schools.
+- **Example.** Inside school A's request, `SELECT * FROM students` returns A's rows only. A `guardians` insert naming school B is rejected by `WITH CHECK`.
+
+```mermaid
+flowchart LR
+  Q[Request for school A] --> S[tenant store: A]
+  S --> H[hook: set app.tenant_id on the connection]
+  H --> P{app_tenant_wall}
+  P -- "tenant_id = A" --> R[rows]
+  P -- "other school" --> X[hidden or WITH CHECK error]
+```
+
+- **Test.** `server/src/database/tenant-context.integration.spec.ts` (connects as `biddaloy_app`), `server/test/app-role-tenant-rls.integration.spec.ts` (up, down, up and default privileges), `server/src/app-role-check.spec.ts` (boot check). Mechanics: [02-auth-and-multitenancy](02-auth-and-multitenancy.md#database-tenant-wall-rls). Password setup: [28-platform-runbook](28-platform-runbook.md).
+
+> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98, Rule 32 is Epic 99 and Rule 33 is Epic 59 (#3949), so Epic 96's rules start at 34.
 
 ### Candidate rule: money-tier tables have one writer
 

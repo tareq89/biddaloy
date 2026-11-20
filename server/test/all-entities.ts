@@ -70,6 +70,7 @@ import { Guardian } from '../src/modules/students/entities/guardian.entity';
 import { Enrollment } from '../src/modules/students/entities/enrollment.entity';
 import { User } from '../src/modules/users/entities/user.entity';
 import { PushSubscription } from '../src/modules/push/entities/push-subscription.entity';
+import { LegalAcceptance } from '../src/modules/legal/entities/legal-acceptance.entity';
 import { WorkbookJob } from '../src/modules/workbook/jobs/workbook-job.entity';
 import { GradingScale } from '../src/modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../src/modules/grading/entities/grading-band.entity';
@@ -261,6 +262,7 @@ export const ALL_ENTITIES = [
   Enrollment,
   User,
   PushSubscription,
+  LegalAcceptance,
   WorkbookJob,
   GradingScale,
   GradingBand,

@@ -47,6 +47,27 @@ describe('RegisterDetailsForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('opens the documents on the tapped tab without ticking, then Agree ticks and refocuses the box', async () => {
+    const { user } = setup();
+    const box = await screen.findByRole('checkbox');
+    await user.click(screen.getByRole('button', { name: 'Terms' }));
+    expect(box.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('tab', { name: 'Terms', selected: true })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Agree' }));
+    await waitFor(() => expect(box.getAttribute('aria-checked')).toBe('true'));
+    await waitFor(() => expect(document.activeElement).toBe(box));
+  });
+
+  it('opens the Privacy tab from its own link, and closing returns focus to the box', async () => {
+    const { user } = setup();
+    const box = await screen.findByRole('checkbox');
+    await user.click(screen.getByRole('button', { name: 'Privacy policy' }));
+    expect(screen.getByRole('tab', { name: 'Privacy policy', selected: true })).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(document.activeElement).toBe(box));
+    expect(box.getAttribute('aria-checked')).toBe('false');
+  });
+
   it('submits a local phone in the sign-in form, with a captcha token, when everything is valid', async () => {
     const { onSubmit, user } = setup({
       initialValues: {

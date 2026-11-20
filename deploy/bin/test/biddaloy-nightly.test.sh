@@ -87,7 +87,7 @@ done
 expect "1 steps in order ($inorder)" test "$inorder" = yes
 expect "1 every compose call has project-directory and -f" test "$(grep -c '^docker compose' "$LOG")" = "$(grep -c -- "--project-directory $WORK/opt/staging -f $WORK/opt/repo/deploy/stack.yml" "$LOG")"
 expect "1 deploy lock (fd 8) before swap lock (fd 9)" test "$(at "flock -w 3600 8")" -lt "$(at "flock -w 3600 9")"
-expect "1 migrate targets the drill db via env, not argv" has "run --rm -T --no-deps app node server/dist/scripts/migrate.js run"
+expect "1 migrate targets the drill db via env, not argv" has "run --rm -T --no-deps migrate node server/dist/scripts/migrate.js run"
 expect "1 smoke app uses its own redis db" has "REDIS_URL=redis://redis:6379/15"
 expect "1 last-drill written with duration and counts" grep -q 'duration=' "$WORK/opt/staging/last-drill"
 expect "1 live staging never stopped, swapped, flushed or dropped" bash -c "! grep -qE 'stop app|db-swap|FLUSHALL|up -d app|IF EXISTS \"biddaloy_staging\" ' '$LOG'"

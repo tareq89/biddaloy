@@ -18,6 +18,7 @@ import {
   AdmissionSource,
   AuditAction,
   ModuleKey,
+  PhotoConsent,
   resolveModuleState,
 } from '@biddaloy/shared';
 import { AdmissionIntake } from './entities/admission-intake.entity';
@@ -30,7 +31,10 @@ import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
 import { GuardianService } from '../students/students.service';
-import { AdmissionFormSchemaService, type AdmissionFormSchema } from './admission-form-schema.service';
+import {
+  AdmissionFormSchemaService,
+  type AdmissionFormSchema,
+} from './admission-form-schema.service';
 import { ADMISSION_FIELD_CATALOGUE, validateExtraFields } from '@biddaloy/shared';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import type { StaffCreateApplicantDto } from './dto/staff-create-applicant.dto';
@@ -84,7 +88,10 @@ const duplicateRefusal = () =>
   new ConflictException(refusalBody(DUPLICATE_MESSAGE, 'DUPLICATE_APPLICATION'));
 
 /** What the shared create path reads: the public form minus the bot fields. */
-type ApplicantInput = Omit<SubmitApplicantDto, 'captcha_token' | 'middle_name_confirm'>;
+type ApplicantInput = Omit<
+  SubmitApplicantDto,
+  'captcha_token' | 'middle_name_confirm' | 'photo_consent'
+> & { photo_consent?: SubmitApplicantDto['photo_consent'] };
 
 export interface CreateApplicantOptions {
   source: AdmissionSource;
@@ -295,7 +302,14 @@ export class AdmissionApplicantService {
     let replacedKeys: string[] = [];
     let strayKeys: string[] = [];
     try {
-      const documents = await this.uploadDocuments(school.id, files, uploadedKeys);
+      // REFUSED consent: the photo is dropped before storage, and never fails the submit.
+      const keptFiles =
+        dto.photo_consent === PhotoConsent.REFUSED
+          ? files.filter(
+              (f) => documentTypeForFieldname(f.fieldname) !== AdmissionDocumentType.PHOTO,
+            )
+          : files;
+      const documents = await this.uploadDocuments(school.id, keptFiles, uploadedKeys);
       // Check the proof's bytes before anything is stored (Rule 6), then store it with the rest.
       const proofFile = opts.fee?.file;
       let proofKey: string | null = null;
@@ -419,8 +433,12 @@ export class AdmissionApplicantService {
         const newTypes = new Set(documents.map((d) => d.type));
         const kept = (existing?.documents ?? []).filter((d) => !newTypes.has(d.type));
         const merged = [...kept, ...documents];
+        // Staff may omit photo_consent on a resubmit: a stored REFUSED still applies.
+        const refused = (dto.photo_consent ?? existing?.photo_consent) === PhotoConsent.REFUSED;
         const missing = intake.required_document_types.filter(
-          (type) => !merged.some((d) => d.type === type),
+          (type) =>
+            !(type === AdmissionDocumentType.PHOTO && refused) &&
+            !merged.some((d) => d.type === type),
         );
         if (missing.length > 0) {
           throw new BadRequestException(`Missing required documents: ${missing.join(', ')}`);
@@ -471,6 +489,17 @@ export class AdmissionApplicantService {
           existing.guardian_email = dto.guardian_email ?? null;
           existing.home_address = dto.home_address ?? null;
           existing.documents = merged;
+          if (dto.photo_consent) existing.photo_consent = dto.photo_consent;
+          if (refused) {
+            existing.documents = merged.filter((d) => d.type !== AdmissionDocumentType.PHOTO);
+            // the earlier (and any just-uploaded) photo file goes too
+            replacedKeys = [
+              ...replacedKeys,
+              ...merged
+                .filter((d) => d.type === AdmissionDocumentType.PHOTO)
+                .map((d) => d.storage_key),
+            ];
+          }
           existing.extra_fields = extra;
           existing.quota_tags = quotaTags;
           existing.sibling_student_id = sibling?.id ?? null;
@@ -512,6 +541,7 @@ export class AdmissionApplicantService {
             guardian_email: dto.guardian_email ?? null,
             home_address: dto.home_address ?? null,
             documents: merged,
+            photo_consent: dto.photo_consent ?? null,
             extra_fields: extra,
             quota_tags: quotaTags,
             sibling_student_id: sibling?.id ?? null,
@@ -547,7 +577,9 @@ export class AdmissionApplicantService {
       // needs no login, so only ever delete inside this school's own prefix.
       if (replacedKeys.length + strayKeys.length > 0) {
         await Promise.allSettled(
-          [...replacedKeys, ...strayKeys].map((key) => this.storage.deleteForTenant(key, school.id)),
+          [...replacedKeys, ...strayKeys].map((key) =>
+            this.storage.deleteForTenant(key, school.id),
+          ),
         );
       }
       return result;

@@ -4,5 +4,10 @@
   "openGuide": "Open the guide",
   "knownIssues": "Known issues →",
   "watchVideo": "Watch the video · {{duration}}",
-  "shortcutF1": "Open help for this page"
+  "shortcutF1": "Open help for this page",
+  "help": {
+    "students": {
+      "photoConsent": "This comes from the admission form or from the guardian. If it is Refused, this student's photo cannot be kept or printed."
+    }
+  }
 }

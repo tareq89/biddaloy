@@ -29,7 +29,15 @@ test('register, pick a door with the arrow keys, reach the staff import', async 
     await typeInto(page, t('register.fields.address'), '1 Test Road, Dhaka');
     await typeInto(page, t('register.fields.phone'), who.phone);
     await typeInto(page, t('register.fields.email'), who.email);
-    await tabUntilFocused(page, t('register.terms', { terms: t('register.termsLink'), privacy: t('register.privacyLink') }), 5);
+    await tabUntilFocused(
+      page,
+      t('register.terms', {
+        terms: t('legal.docs.terms'),
+        privacy: t('legal.docs.privacy'),
+        dpa: t('legal.docs.dpa'),
+      }),
+      5,
+    );
     await page.keyboard.press('Space');
     await tabUntilFocused(page, t('register.continue'), 5, { tag: 'BUTTON' });
     const started = page.waitForResponse((res) => res.url().includes('/auth/register/start'));

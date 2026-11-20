@@ -47,6 +47,19 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/legal/accept",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/legal/$doc",
+      "params": {
+        "doc": "terms"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/dashboard",
       "role": "admin",
       "archetype": "bespoke",

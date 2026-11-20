@@ -1,13 +1,12 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
-describe('/register consent line (3329.3.01)', () => {
+describe('/register consent line (59.3.02)', () => {
   afterEach(async () => {
-    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -17,38 +16,21 @@ describe('/register consent line (3329.3.01)', () => {
   };
 
   it.each([
-    ['en', 'terms', 'privacy policy'],
-    ['bn', 'শর্তাবলি', 'গোপনীয়তা নীতিতে'],
-  ] as const)('links terms and privacy in %s, new tab', async (locale, terms, privacy) => {
-    vi.stubEnv('VITE_LANDING_URL', 'https://site.test/');
+    ['en', ['Terms', 'Privacy policy', 'Data agreement']],
+    ['bn', ['শর্তাবলি', 'গোপনীয়তা নীতি', 'তথ্য চুক্তি']],
+  ] as const)('shows the three documents as buttons in %s', async (locale, names) => {
     open(locale);
 
-    const t = await screen.findByRole<HTMLAnchorElement>('link', { name: terms });
-    const p = screen.getByRole<HTMLAnchorElement>('link', { name: privacy });
-    expect(t.getAttribute('href')).toBe(`https://site.test/${locale}/terms`);
-    expect(p.getAttribute('href')).toBe(`https://site.test/${locale}/privacy`);
-    for (const a of [t, p]) {
-      expect(a.getAttribute('target')).toBe('_blank');
-      expect(a.getAttribute('rel')).toContain('noopener');
+    for (const name of names) {
+      expect(await screen.findByRole('button', { name })).toBeTruthy();
     }
   });
 
-  it('clicking a link does not toggle the checkbox', async () => {
-    vi.stubEnv('VITE_LANDING_URL', 'https://site.test');
+  it('opening a document does not tick the checkbox', async () => {
     open('en');
 
-    const link = await screen.findByRole('link', { name: 'terms' });
-    link.addEventListener('click', (e) => e.preventDefault());
-    fireEvent.click(link);
+    fireEvent.click(await screen.findByRole('button', { name: 'Terms' }));
     expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('false');
-  });
-
-  it('renders plain words, no links, when the landing base is empty', async () => {
-    vi.stubEnv('VITE_LANDING_URL', '');
-    open('en');
-
-    expect(await screen.findByText(/I agree to the terms and privacy policy/)).toBeTruthy();
-    expect(screen.queryByRole('link', { name: /terms|privacy/ })).toBeNull();
   });
 });
 

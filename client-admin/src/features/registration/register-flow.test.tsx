@@ -1,4 +1,5 @@
 /** [13.5.1] Details → code → password → done, MSW-backed. */
+import { LEGAL_DOCS } from '@biddaloy/shared';
 import { clearFirstPasswordGate, getFirstPasswordGate } from '@biddaloy/ui/api';
 import { authHandlers, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
@@ -93,6 +94,9 @@ describe('RegisterFlow', () => {
       country_code: 'BD',
       phone: '01712345678',
       terms_accepted: true,
+      terms_version: LEGAL_DOCS.terms.version,
+      privacy_version: LEGAL_DOCS.privacy.version,
+      dpa_version: LEGAL_DOCS.dpa.version,
       captcha_token: 'no-captcha',
     });
   });

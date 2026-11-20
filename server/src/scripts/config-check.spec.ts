@@ -102,6 +102,8 @@ describe('runStackConfigCheck', () => {
     CORS_ORIGINS: 'https://school.example.org',
     POSTGRES_USER: 'app',
     POSTGRES_PASSWORD: 'Zq8vR2mXw4Lp',
+    APP_DB_USER: 'biddaloy_app',
+    APP_DB_PASSWORD: 'Hk3nT9vBq7Ws',
     JWT_SECRET: valid.JWT_SECRET,
     SETTINGS_ENCRYPTION_KEY: valid.SETTINGS_ENCRYPTION_KEY,
     HEALTH_TOKEN: 'h7Kp2Vx9Qm4Lr8Tz',
