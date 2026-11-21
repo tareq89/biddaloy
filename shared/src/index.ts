@@ -44,3 +44,4 @@ export * from './types/attendance-import.types';
 export * from './types/site';
 export * from './video';
 export * from './phone';
+export * from './constants/error-codes';

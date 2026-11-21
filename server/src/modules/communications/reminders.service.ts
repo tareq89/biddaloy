@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { deliveryErrorCode } from './delivery-error-code';
@@ -57,6 +58,9 @@ import {
 } from './reminder-recipients.util';
 import { resolveWhatsAppTemplate, whatsAppTemplateMetadata } from './whatsapp-template.util';
 import { projectSmsUnits } from './sms-projection.util';
+import { assertRoomForBatch } from './limits/send-limit.precheck';
+import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
+import { SendLimitService } from './limits/send-limit.service';
 import { SmsCreditService } from './credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
@@ -226,7 +230,15 @@ export class BulkReminderService {
     private readonly feeDuesService: FeeDuesService,
     private readonly auditService: AuditService,
     private readonly smsCreditService: SmsCreditService,
+    @Optional() private readonly sendLimitRegistry?: CommunicationProviderRegistryService,
+    @Optional() private readonly sendLimits?: SendLimitService,
   ) {}
+
+  private get precheckDeps() {
+    return this.sendLimitRegistry && this.sendLimits
+      ? { registry: this.sendLimitRegistry, limits: this.sendLimits }
+      : undefined;
+  }
 
   async sendBulk(
     dto: SendBulkReminderDto,
@@ -242,6 +254,14 @@ export class BulkReminderService {
     // earlier number is advisory only, this is the number that gets
     // reserved). Server is the enforcement boundary.
     const { sms_units } = projectSmsUnits(recipients, dto.message_template);
+
+    // [60.0 D2] Whole batch refused when a channel's share does not fit today's limit; before the
+    // batch row and the credit reservation, so nothing is left to undo.
+    const perMedium = new Map<CommunicationMedium, number>();
+    for (const r of recipients) perMedium.set(r.medium, (perMedium.get(r.medium) ?? 0) + 1);
+    for (const [medium, count] of perMedium) {
+      await assertRoomForBatch(this.precheckDeps, tenantId, medium, count);
+    }
 
     const batch = await this.batchRepo.save(
       this.batchRepo.create({

@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { AuditService } from '../audit/audit.service';
+import { VirusScanService } from './virus-scan.service';
 import { StorageService, buildStorageConfig } from './storage.service';
 
 /** The `StorageService` provider's `useFactory`, pulled out and exported so
@@ -12,7 +15,19 @@ export function storageServiceFactory(): StorageService {
 }
 
 @Module({
+  // No AuditModule import: it pulls controllers, DashboardModule and guards into every module (and
+  // integration spec) that stores a file, and a second AuditService instance breaks specs that spy on
+  // the app's one. VirusScanService needs AuditService only on the refusal path, so it looks it up then.
   providers: [
+    {
+      provide: VirusScanService,
+      inject: [ModuleRef],
+      useFactory: (ref: ModuleRef) =>
+        new VirusScanService({
+          record: (...args: Parameters<AuditService['record']>) =>
+            ref.get(AuditService, { strict: false }).record(...args),
+        } as AuditService),
+    },
     {
       provide: StorageService,
       // Eagerly instantiated as part of module setup — a boot with a
@@ -21,6 +36,6 @@ export function storageServiceFactory(): StorageService {
       useFactory: storageServiceFactory,
     },
   ],
-  exports: [StorageService],
+  exports: [StorageService, VirusScanService],
 })
 export class StorageModule {}

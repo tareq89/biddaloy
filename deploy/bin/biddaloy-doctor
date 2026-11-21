@@ -55,8 +55,8 @@ envval() { # envval <file> <KEY>: value without quotes; no `source` (values hold
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
 # The compose file the stack's last ok deploy kept (lib.sh). dcs prints the same command for a
 # `Next:` hint, so the hint runs as printed.
-dcs() { echo "docker compose -p $1 --project-directory $ROOT/$1 -f $(kept_file "$1" stack.yml deploy/stack.yml)"; }
-dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" stack.yml deploy/stack.yml)" "$@"; }
+dcs() { echo "docker compose -p $1 --project-directory $ROOT/$1 -f $(kept_file "$1" compose.stack.yml deploy/compose.stack.yml)"; }
+dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" compose.stack.yml deploy/compose.stack.yml)" "$@"; }
 
 # --- host ---------------------------------------------------------------------------------------
 check_disk() { # <path>

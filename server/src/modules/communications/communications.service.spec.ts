@@ -193,6 +193,36 @@ describe('CommunicationsService', () => {
     });
   });
 
+  describe('sendToGuardian daily limit pre-check [60.0]', () => {
+    it('over the limit: 409 DAILY_LIMIT_REACHED, no credit reserved, nothing enqueued', async () => {
+      guardianService.findOne.mockResolvedValue({ id: 'g-1', full_name: 'G', phone: '0171' });
+      const limited = new CommunicationsService(
+        repo as any,
+        queue as any,
+        studentService as any,
+        guardianService as any,
+        smsCreditService as any,
+        { resolveFor: vi.fn(async () => ({ source: 'platform' })) } as any,
+        { remaining: vi.fn(async () => ({ limit: 10, remaining: 0 })) } as any,
+      );
+      const err: any = await limited
+        .sendToGuardian(
+          { medium: CommunicationMedium.SMS, message_body: 'Hi', guardian_id: 'g-1' } as any,
+          TENANT_ID,
+          USER_ID,
+        )
+        .catch((e) => e);
+      expect(err.getResponse().details).toEqual({
+        code: 'DAILY_LIMIT_REACHED',
+        requested: 1,
+        remaining: 0,
+        limit: 10,
+      });
+      expect(smsCreditService.reserveIfMetered).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+  });
+
   describe('enqueue reserves for an unreserved SMS [#2216]', () => {
     const dto = {
       medium: CommunicationMedium.SMS,
@@ -296,6 +326,7 @@ describe('CommunicationsService', () => {
     it.each([
       [{ error: 'SMS (Greenweb) is not configured for this tenant' }, 'NOT_CONFIGURED'],
       [{ error: 'No provider registered for medium "SMS"' }, 'NO_PROVIDER'],
+      [{ error: 'Daily limit reached.' }, 'DAILY_LIMIT_REACHED'],
       // [2683] Raw provider text never reaches the response (Rule 23).
       [{ error: 'Gateway https://gw.example/acct-9 rejected 01712345678' }, 'FAILED'],
       [null, null],

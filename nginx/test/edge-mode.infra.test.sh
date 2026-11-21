@@ -199,6 +199,11 @@ run_edge tunnel
 # shellcheck disable=SC2046
 expect "tunnel: app host over plain HTTP -> 200" "200 0" "$(curl_as $(http example.test /))"
 # shellcheck disable=SC2046
+for h in example.test kuma.example.test; do
+  # shellcheck disable=SC2046
+  expect "tunnel: security.txt on $h -> 200 with Contact:" "200 0 Contact:" \
+    "$(curl_as $(http "$h" /.well-known/security.txt)) $(body_as $(http "$h" /.well-known/security.txt) | head -c 8)"
+done
 expect "tunnel: unknown Host -> 444" "000 52" "$(curl_as $(http evil.test /))"
 # shellcheck disable=SC2046
 expect "tunnel: readiness stays 404" "404 0" "$(curl_as $(http example.test /api/health/ready))"
@@ -259,6 +264,12 @@ for h in kuma.example.test staging.example.test beszel.example.test logs.example
   # shellcheck disable=SC2046
   expect "direct: ACME path on $h (https) is not behind the login" "404 0" \
     "$(curl_as $(https "$h" /.well-known/acme-challenge/x))"
+done
+# security.txt is served on protected hosts without a login (Rule 12).
+for h in example.test kuma.example.test staging.example.test; do
+  # shellcheck disable=SC2046
+  expect "direct: security.txt on $h -> 200 with Contact:, no login" "200 0 Contact:" \
+    "$(curl_as $(https "$h" /.well-known/security.txt)) $(body_as $(https "$h" /.well-known/security.txt) | head -c 8)"
 done
 # Only a plain /api/push/<token> skips the outer login; path tricks must not reach Kuma unauthenticated.
 # shellcheck disable=SC2046

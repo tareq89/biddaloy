@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { AttentionModule } from '../../attention/attention.module';
@@ -10,6 +10,7 @@ import {
 } from '../../communications/communications.constants';
 import { CreditsModule } from '../../communications/credits/credits.module';
 import { SchoolsModule } from '../../schools/schools.module';
+import { CommunicationsModule } from '../../communications/communications.module';
 import { Notice } from '../entities/notice.entity';
 import { NoticeRecipient } from '../entities/notice-recipient.entity';
 import { NoticeLinksModule } from '../links/notice-links.module';
@@ -24,6 +25,7 @@ import { NoticeSmsService } from './notice-sms.service';
     AttentionModule,
     AuditModule,
     CreditsModule,
+    forwardRef(() => CommunicationsModule),
     NoticeLinksModule,
     SchoolsModule,
     BullModule.registerQueue({

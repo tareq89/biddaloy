@@ -36,7 +36,7 @@ const COOLDOWN_MS = 60_000;
  * stranger who spends a phone's sign-in codes cannot also block its password
  * reset; per hour so any such block ends soon (a 24 h shared bucket let anyone
  * lock a parent out of sign-in and recovery for a day, #2398 review).
- * ponytail: per-destination only; per-school and global caps are #1759.
+ * ponytail: per-destination only; the per-IP and platform SMS caps live in OtpSmsCapsService (#3992).
  */
 const MAX_CODES_PER_WINDOW = 5;
 const CAP_WINDOW_MS = 60 * 60_000;

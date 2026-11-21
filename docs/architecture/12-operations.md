@@ -22,7 +22,7 @@ CHECK              STATUS  DETAIL
 disk /             OK      61% free
 prod ready         OK      ready (200)
 backup age         WARN    newest hourly backup is 84 min old
-  Next: docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml logs --tail 50 backup
+  Next: docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/compose.stack.yml logs --tail 50 backup
 ```
 
 Exit code 0 means all OK, 1 any WARN, 2 any FAIL. Thresholds it applies:
@@ -33,7 +33,7 @@ fail; a certificate (direct mode) under 20 days warns.
 ## 1. What is monitored
 
 Four tools, each watching something different. The ops tools are the `ops`
-project (`deploy/ops.yml`, deployed with `biddaloy-deploy ops <sha>`). Each has
+project (`deploy/compose.ops.yml`, deployed with `biddaloy-deploy ops <sha>`). Each has
 its own hostname behind the edge: `kuma.<domain>`, `beszel.<domain>`,
 `logs.<domain>` (Dozzle).
 
@@ -241,7 +241,7 @@ nothing. Short form used below:
 
 ```bash
 # $DC <project> ...  is shorthand for:
-DC() { p=$1; shift; docker compose -p "$p" --project-directory "/opt/biddaloy/$p" -f /opt/biddaloy/repo/deploy/stack.yml "$@"; }
+DC() { p=$1; shift; docker compose -p "$p" --project-directory "/opt/biddaloy/$p" -f /opt/biddaloy/repo/deploy/compose.stack.yml "$@"; }
 ```
 
 ### 3.1 5xx spike

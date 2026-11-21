@@ -160,7 +160,7 @@
       no_log: true
       when: edge_mode == 'tunnel'
     # One bcrypt line per user (`htpasswd -nB user`); \n in the secret becomes a newline.
-    # edge.direct.yml mounts this exact file path.
+    # compose.edge-direct.yml mounts this exact file path.
     - name: Basic-auth users (direct mode)
       ansible.builtin.copy:
         content: "{{ secret_env.edge.BASIC_AUTH_HTPASSWD | replace('\\n', '\n') }}\n"

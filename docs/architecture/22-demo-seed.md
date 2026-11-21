@@ -376,7 +376,7 @@ is only a label today).
 
 ## Running the demo site
 
-The demo is the `demo` project on the one VM (`deploy/stack.yml` with
+The demo is the `demo` project on the one VM (`deploy/compose.stack.yml` with
 `ENV_NAME=demo`, its own database, Redis and bucket), served at
 `demo.<domain>` by the shared edge nginx. It rebuilds itself every night from
 a **host systemd timer**, not from a cron inside a container (D11). The design
@@ -460,7 +460,7 @@ journalctl -u biddaloy-nightly@demo-rebuild.service -n 100 --no-pager
 or only the script, without the restart and the Kuma push (you then restart the app yourself):
 
 ```bash
-docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/stack.yml \
+docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/compose.stack.yml \
   run --rm demo-reset /app/reset.sh --now
 ```
 
@@ -498,7 +498,7 @@ The tests are `scripts/demo/reset.infra.test.sh`. CI runs them in the infra job 
 
 Set these in `infra/secrets/demo.enc.env` (`sops`); the deploy writes them to
 `/opt/biddaloy/demo/.env` and compose passes them to `demo-reset`. Rows marked
-"set by compose" are fixed in `deploy/stack.yml`: a value in the file does nothing for them.
+"set by compose" are fixed in `deploy/compose.stack.yml`: a value in the file does nothing for them.
 
 | Variable                                      | Default                                                        | Example                                            | Notes                                                                                                                                                                                                                                                           |
 | --------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -597,7 +597,7 @@ Bugs the sweep found:
 Yesterday's database is still there as `biddaloy_demo_prev`, with its S3 objects. Run this on the VM.
 
 ```bash
-C="docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/stack.yml"
+C="docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/compose.stack.yml"
 SQL='psql -U "$POSTGRES_USER" -d postgres -c'
 
 # 1. Stop the app. Make sure no rebuild is running (systemctl status biddaloy-nightly@demo-rebuild.service).
@@ -743,6 +743,7 @@ Then add one line to `SLICES` in `slices.ts` (a new file) and run the guard.
   `photo_consent_recorded_by` and `admission_applicants.photo_consent` (Epic 59, migration
   `1792500000001`) are not seeded yet. Gap owner: ticket 59.2.99, which adds a demo slice with
   a few accepted legal versions and a mix of GIVEN / REFUSED / UNKNOWN photo consent.
+- **Not a gap: Epic 60 (#2186) owes nothing.** It adds no table or column: each school's daily limits live in `schools.settings` jsonb and the counters live in Redis. Support-access seed data belongs to Epic 99 (#3726).
 - `school_sites.custom_domain`, `custom_domain_status`, `custom_domain_external_id`, `umami_website_id` and (40.4.08)
   `custom_domain_records`, `custom_domain_since`, `custom_domain_checked_at` are exempt: they only mean something
   with a live Cloudflare / Umami account, and the demo has neither. The staging `SITE_TEST_HOST` row sets only

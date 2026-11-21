@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  EICAR,
   exitCode,
   hasFreshMessage,
   inboxSearchUrl,
   inboxSmsSearchUrl,
+  jwtSub,
   pollUntil,
   resolveBaseUrl,
   runSmoke,
@@ -48,6 +50,8 @@ function fakeFetch(overrides = {}) {
       const role = ROLE_BY_EMAIL[JSON.parse(init.body).email] ?? 'PARENT';
       return json(200, { access_token: TOKEN, memberships: [{ role, tenantId: 't1' }] });
     }
+    if (key === 'GET /.well-known/security.txt')
+      return { status: 200, text: async () => 'Contact: mailto:security@x.test\n' };
     if (key === 'GET /api/health/ready') return json(200, { status: 'ok' });
     return json(200, key === 'GET /api/health' ? { status: 'ok' } : []);
   };
@@ -60,9 +64,17 @@ const run = (fetch, env = ENV, baseUrl = 'https://x.test') => runSmoke({ baseUrl
 describe('smoke-post-deploy', () => {
   it('passes all 9 checks', async () => {
     const r = await run(fakeFetch());
-    expect(r.passed).toBe(7);
+    expect(r.passed).toBe(8);
     expect(r.failed).toBe(0);
-    expect(r.lines.at(-1)).toBe('smoke: 7/7 passed');
+    expect(r.lines.at(-1)).toBe('smoke: 8/8 passed');
+  });
+
+  it('fails when security.txt is a 404 or lacks Contact:', async () => {
+    for (const bad of [json(404, {}), { status: 200, text: async () => '<html>' }]) {
+      const r = await run(fakeFetch({ 'GET /.well-known/security.txt': bad }));
+      expect(r.failed).toBe(1);
+      expect(r.lines.find((l) => l.startsWith('FAIL'))).toContain('/.well-known/security.txt');
+    }
   });
 
   it('stops at a failed admin login', async () => {
@@ -71,7 +83,7 @@ describe('smoke-post-deploy', () => {
       i.method === 'POST' && JSON.parse(i.body).email === 'adm@x.test' ? json(401, {}) : f(u, i),
     );
     expect(r.failed).toBe(1);
-    expect(r.passed).toBe(1); // only /health
+    expect(r.passed).toBe(2); // /health + security.txt
     const fails = r.lines.filter((l) => l.startsWith('FAIL'));
     expect(fails).toHaveLength(1);
     expect(fails[0]).toContain('(admin)');
@@ -124,7 +136,7 @@ describe('smoke-post-deploy', () => {
     const b = fakeFetch();
     const r = await run(b, { ...ENV, SMOKE_HEALTH_TOKEN: 'h' });
     expect(b.calls).toContain('GET /api/health/ready');
-    expect(r.passed).toBe(8);
+    expect(r.passed).toBe(9);
   });
 
   const OPT = {
@@ -152,7 +164,7 @@ describe('smoke-post-deploy', () => {
       const env = { ...ENV, ...OPT[k] };
       const ok = await run(fakeFetch(), env);
       expect(ok.failed).toBe(0);
-      expect(ok.passed).toBe(7 + extra);
+      expect(ok.passed).toBe(8 + extra);
       expect(ok.lines.join('\n')).toContain(tag);
       const bad = await run(fakeFetch({ [key]: wrong }), env);
       expect(bad.failed).toBe(1);
@@ -355,6 +367,43 @@ describe('smoke-post-deploy', () => {
     });
   });
 
+  describe('eicar check (Epic 60 D25, #4004)', () => {
+    const SUB = '11111111-2222-4333-8444-555555555555';
+    const jwt = `h.${Buffer.from(JSON.stringify({ sub: SUB })).toString('base64url')}.s`;
+    const login = json(200, {
+      access_token: jwt,
+      memberships: [
+        { role: 'ADMIN', tenantId: 't1' },
+        { role: 'TEACHER', tenantId: 't1' },
+      ],
+    });
+    const UPLOAD = `POST /api/v1/staff-documents/${SUB}/OTHER`;
+    const ON = { ...ENV, SMOKE_EICAR: '1' };
+    const harmful = json(422, { details: { code: 'FILE_HARMFUL' } });
+    it('the test string is the 68-byte standard one', () => {
+      expect(EICAR).toHaveLength(68);
+      expect(jwtSub(jwt)).toBe(SUB);
+    });
+    it('passes on 422 FILE_HARMFUL', async () => {
+      const f = fakeFetch({ 'POST /api/v1/auth/login': login, [UPLOAD]: harmful });
+      const r = await run(f, ON);
+      expect(exitCode(r)).toBe(0);
+      expect(r.lines.some((l) => l.startsWith('PASS') && l.includes('(eicar)'))).toBe(true);
+    });
+    it('fails when the file is stored (201) or refused for another reason', async () => {
+      for (const res of [json(201, {}), json(422, { details: { code: 'OTHER' } })]) {
+        const f = fakeFetch({ 'POST /api/v1/auth/login': login, [UPLOAD]: res });
+        expect(exitCode(await run(f, ON))).toBe(1);
+      }
+    });
+    it('is skipped, and uploads nothing, without SMOKE_EICAR', async () => {
+      const f = fakeFetch({ 'POST /api/v1/auth/login': login });
+      const r = await run(f);
+      expect(r.lines).toContain('eicar: skipped (no SMOKE_EICAR)');
+      expect(f.calls).not.toContain(UPLOAD);
+    });
+  });
+
   describe('moduleRefusal (Epic 77, D10)', () => {
     const PATH = '/api/v1/fees';
     const ON = { ...ENV, SMOKE_MODULE_OFF_PATH: PATH };
@@ -416,7 +465,7 @@ describe('smoke-post-deploy', () => {
       const r = await run(fenceFetch(), FENCE);
       expect(fails(r)).toHaveLength(0);
       expect(r.failed).toBe(0);
-      expect(r.passed).toBe(11);
+      expect(r.passed).toBe(12);
     });
 
     it.each([
@@ -635,7 +684,7 @@ describe('smoke-post-deploy', () => {
         now.mockRestore();
       }
       expect(r.failed).toBe(0);
-      expect(r.passed).toBe(7 + 4);
+      expect(r.passed).toBe(8 + 4);
       expect(f.seen.mfa.body).toEqual({
         mfaToken: 'mfa-tok',
         code: totpCode(SECRET, 1_700_000_000_000),

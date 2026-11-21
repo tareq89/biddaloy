@@ -20,6 +20,7 @@ import { localToday } from '../attendance/attendance-policy.util';
 import { SchoolsService } from '../schools/schools.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { StorageService, StoredObject } from '../storage/storage.service';
+import { VirusScanService } from '../storage/virus-scan.service';
 import { matchesDeclaredType } from '../storage/file-signature';
 import {
   CreateProofSubmissionDto,
@@ -79,6 +80,7 @@ export class ProofSubmissionsService {
     private readonly schools: SchoolsService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly virusScan: VirusScanService,
   ) {}
 
   /**
@@ -151,6 +153,14 @@ export class ProofSubmissionsService {
       [ctx.tenantId, ctx.userId],
     );
     if (waiting >= PROOF_MAX_PENDING) throw new ConflictException(MSG.tooMany);
+
+    // Guardian uploads fail closed (D19, D36). Scan every file before storing any.
+    for (const file of files) {
+      await this.virusScan.assertClean(file.buffer, 'closed', {
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+      });
+    }
 
     // Storage first, with keys built from the pre-generated submission id (D37).
     const submissionId = randomUUID();

@@ -1,6 +1,6 @@
 # Test inbox (Epic 87): Mailpit's UI, one block per environment. INBOX_DEMO_DOMAIN and
 # INBOX_STAGING_DOMAIN come from the edge .env (`*.invalid` when unset, so nothing matches).
-# `demo-mailpit` and `staging-mailpit` are the aliases deploy/stack.yml gives each stack's
+# `demo-mailpit` and `staging-mailpit` are the aliases deploy/compose.stack.yml gives each stack's
 # mailpit on the `biddaloy-edge` network. `resolve` keeps nginx booting while a stack is down.
 #
 # Demo is public and never indexed (D6). Staging sits behind the same outer login as the

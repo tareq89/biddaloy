@@ -1,4 +1,4 @@
-# Ops UIs (deploy/ops.yml), one hostname each at `/`: KUMA_DOMAIN, BESZEL_DOMAIN, LOGS_DOMAIN
+# Ops UIs (deploy/compose.ops.yml), one hostname each at `/`: KUMA_DOMAIN, BESZEL_DOMAIN, LOGS_DOMAIN
 # (all `*.invalid` when unset). Not rendered when OPS_UPSTREAM_HOST is empty: ops runs on
 # another host then (reload-loop.sh removes conf.d/ops.conf).
 #

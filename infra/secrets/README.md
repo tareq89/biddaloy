@@ -13,11 +13,11 @@ flowchart LR
 
 | File (`infra/secrets/`) | Stack | Who reads it | On the host (W3.01 writes it, `0640 root:deploy`) |
 | --- | --- | --- | --- |
-| `prod.enc.env` | prod | `deploy/stack.yml` (`ENV_NAME=prod`), `config:check --env prod`, the smoke test | `/opt/biddaloy/prod/.env` |
-| `staging.enc.env` | staging | `deploy/stack.yml` (`ENV_NAME=staging`), the nightly refresh | `/opt/biddaloy/staging/.env` |
-| `demo.enc.env` | demo | `deploy/stack.yml` (`ENV_NAME=demo`), `scripts/demo/reset.sh` | `/opt/biddaloy/demo/.env` |
-| `edge.enc.env` | edge | `deploy/edge.yml`, `deploy/edge.direct.yml`, deploy messages | `/opt/biddaloy/edge/.env` |
-| `ops.enc.env` | ops | `deploy/ops.yml` (Beszel, Kuma, Dozzle) | `/opt/biddaloy/ops/.env` |
+| `prod.enc.env` | prod | `deploy/compose.stack.yml` (`ENV_NAME=prod`), `config:check --env prod`, the smoke test | `/opt/biddaloy/prod/.env` |
+| `staging.enc.env` | staging | `deploy/compose.stack.yml` (`ENV_NAME=staging`), the nightly refresh | `/opt/biddaloy/staging/.env` |
+| `demo.enc.env` | demo | `deploy/compose.stack.yml` (`ENV_NAME=demo`), `scripts/demo/reset.sh` | `/opt/biddaloy/demo/.env` |
+| `edge.enc.env` | edge | `deploy/compose.edge.yml`, `deploy/compose.edge-direct.yml`, deploy messages | `/opt/biddaloy/edge/.env` |
+| `ops.enc.env` | ops | `deploy/compose.ops.yml` (Beszel, Kuma, Dozzle) | `/opt/biddaloy/ops/.env` |
 | `*.example.env` | all | people | nowhere: committed key lists with empty values |
 
 Staging has no OAuth or SMS keys on purpose (D6); its Turnstile pair is Cloudflare's public
@@ -27,7 +27,7 @@ limits, that test pair): the list is in `scripts/check-tracked-files.mjs`.
 Paths and switches the deploy sets itself are not in any example (`EDGE_DIR`, `REPO_DIR`,
 `OPS_DIR`, `PG_TLS_DIR`, `EDGE_TRUSTED_CIDR`, `BACKUP_AGE_KEY_DIR`).
 
-`BESZEL_KEY` is in both `edge.example.env` (the agent in `edge.yml`) and `ops.example.env`
+`BESZEL_KEY` is in both `edge.example.env` (the agent in `compose.edge.yml`) and `ops.example.env`
 (the hub); it is the same public value.
 
 ### Check a file before it ships

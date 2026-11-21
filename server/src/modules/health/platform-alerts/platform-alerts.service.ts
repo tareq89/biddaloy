@@ -145,6 +145,17 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     return [...new Set(fallback)];
   }
 
+  /** [#3992] A one-off operator text (no `platform_alerts` row: its kind CHECK allows REDIS_DOWN only). Never throws. */
+  async notifyOperators(body: string): Promise<void> {
+    try {
+      await this.sendToOperators(body);
+    } catch (error) {
+      this.logger.warn(
+        `notifyOperators failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+    }
+  }
+
   private async sendToOperators(body: string): Promise<void> {
     const env = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
     const text = `[${env}] ${body}`;
@@ -183,7 +194,7 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
   /** Deprecated `PLATFORM_SMS_*` keys: one boot warning, key names only (Rule 13). */
   private warnDeprecatedKeys(): void {
     const get = (k: string) => this.config.get<string>(k);
-    // stack.yml defaults PLATFORM_SMS_PROVIDER, so it alone is never a signal.
+    // compose.stack.yml defaults PLATFORM_SMS_PROVIDER, so it alone is never a signal.
     const names = ['PLATFORM_SMS_API_KEY', 'PLATFORM_SMS_SENDER_ID', 'PLATFORM_SMS_API_URL'];
     const setNames = names.filter((k) => get(k));
     if (setNames.length === 0) return;

@@ -17,6 +17,8 @@ import { AuditModule } from '../audit/audit.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { AuthTokenService } from './auth-token.service';
 import { OtpService, OTP_REDIS } from './otp.service';
+import { OtpSmsCapsService } from './otp-sms-caps.service';
+import { HealthModule } from '../health/health.module';
 import { AccountAccessDeliveryService } from './account-access-delivery.service';
 import { InvitationService } from './invitation.service';
 import { ActivationService } from './activation.service';
@@ -55,6 +57,9 @@ import { SchoolInvitesController } from './school-invites.controller';
     // AccountAccessDeliveryService, so SchoolsModule imports this module
     // back — forwardRef breaks that cycle.
     forwardRef(() => SchoolsModule),
+    // PlatformAlertsService for the OTP SMS ceiling alert (#3992); HealthModule sits on the same
+    // CommunicationsModule cycle, so forwardRef.
+    forwardRef(() => HealthModule),
     AuditModule,
     StaffProfilesModule,
     ConfigModule,
@@ -69,6 +74,7 @@ import { SchoolInvitesController } from './school-invites.controller';
     SchoolInviteService,
     AuthTokenService,
     AccountAccessDeliveryService,
+    OtpSmsCapsService,
     InvitationService,
     ActivationService,
     RecoveryService,

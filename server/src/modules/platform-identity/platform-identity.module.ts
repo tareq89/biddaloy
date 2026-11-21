@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
 import { MfaModule } from '../auth/mfa/mfa.module';
@@ -29,7 +29,7 @@ import { PlatformCutoverService } from './platform-cutover.service';
     TypeOrmModule.forFeature([PlatformAdmin, PlatformApproval, PlatformSetting]),
     AuditModule,
     MfaModule,
-    AccountAccessModule,
+    forwardRef(() => AccountAccessModule),
   ],
   controllers: [
     PlatformStepUpController,

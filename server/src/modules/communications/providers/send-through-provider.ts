@@ -10,7 +10,7 @@ import type {
 const logger = new Logger('MessagingSend');
 
 // An SMS log always carries its segment count (#549/#570), even when the send failed early.
-const segmentsFor = (medium: CommunicationMedium, params: CommunicationSendParams) =>
+export const segmentsFor = (medium: CommunicationMedium, params: CommunicationSendParams) =>
   medium === CommunicationMedium.SMS ? countSmsSegments(params.body).segments : undefined;
 
 /**

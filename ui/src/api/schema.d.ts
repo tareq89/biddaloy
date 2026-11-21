@@ -105,6 +105,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/daily-limits/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messages left today on the platform account, only when the owner switched it on. */
+        get: operations["DailyLimitsTodayController_today_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/reminder/single/{studentId}/preview": {
         parameters: {
             query?: never;
@@ -387,6 +404,42 @@ export interface paths {
         /** Dashboard widget: failed-messages */
         get: operations["CommunicationsDashboardController_getFailedMessages_v1"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/daily-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform-wide default daily send limits (stored and effective). */
+        get: operations["PlatformDailyLimitsController_getPlatform_v1"];
+        /** Set the platform default; null removes a value. Audited. */
+        put: operations["PlatformDailyLimitsController_putPlatform_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/daily-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's own daily send limits, effective values and today's use. */
+        get: operations["PlatformDailyLimitsController_getSchool_v1"];
+        /** Set one school's own limits; null removes a value. Audited. */
+        put: operations["PlatformDailyLimitsController_putSchool_v1"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2417,6 +2470,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/step-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authenticator code in, single-use approval token out. */
+        post: operations["PlatformStepUpController_issue_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Approval requests, newest first. */
+        get: operations["PlatformApprovalsController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/approvals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve another owner's request. Needs a step-up token. */
+        post: operations["PlatformApprovalsController_approve_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/approvals/{id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deny another owner's request. Needs a step-up token. */
+        post: operations["PlatformApprovalsController_deny_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Is two-person approval on? */
+        get: operations["PlatformSettingsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Switch two-person approval on or off. Needs a step-up token. */
+        patch: operations["PlatformSettingsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Both owners, contacts masked. */
+        get: operations["PlatformOwnersController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/owners/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform sign-in and owner history, newest first. */
+        get: operations["PlatformOwnersController_history_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/owners/{userId}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lock another owner and end their sessions. Needs a step-up token. */
+        post: operations["PlatformOwnersController_lock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/owners/{userId}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unlock another owner. Needs a step-up token. */
+        post: operations["PlatformOwnersController_unlock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/impersonation/exchange": {
         parameters: {
             query?: never;
@@ -2841,160 +3048,6 @@ export interface paths {
         put?: never;
         /** Verifies an approver by OTP or password and issues a 300s approval token scoped to one gated action. */
         post: operations["StepUpController_verify_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/step-up": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Authenticator code in, single-use approval token out. */
-        post: operations["PlatformStepUpController_issue_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Approval requests, newest first. */
-        get: operations["PlatformApprovalsController_list_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/approvals/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve another owner's request. Needs a step-up token. */
-        post: operations["PlatformApprovalsController_approve_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/approvals/{id}/deny": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Deny another owner's request. Needs a step-up token. */
-        post: operations["PlatformApprovalsController_deny_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/settings/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Is two-person approval on? */
-        get: operations["PlatformSettingsController_get_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Switch two-person approval on or off. Needs a step-up token. */
-        patch: operations["PlatformSettingsController_update_v1"];
-        trace?: never;
-    };
-    "/api/v1/platform/owners": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Both owners, contacts masked. */
-        get: operations["PlatformOwnersController_list_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/owners/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Platform sign-in and owner history, newest first. */
-        get: operations["PlatformOwnersController_history_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/owners/{userId}/lock": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Lock another owner and end their sessions. Needs a step-up token. */
-        post: operations["PlatformOwnersController_lock_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform/owners/{userId}/unlock": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Unlock another owner. Needs a step-up token. */
-        post: operations["PlatformOwnersController_unlock_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14196,6 +14249,16 @@ export interface components {
             /** @enum {string} */
             source: "OWN" | "SCHOOLMANAGERP";
         };
+        DailyLimitsTodayDto: {
+            show: boolean;
+            channels: {
+                [key: string]: {
+                    limit?: number;
+                    used?: number;
+                    left?: number;
+                };
+            };
+        };
         SendSingleReminderDto: {
             message_template: string;
             guardian_ids?: string[];
@@ -14324,7 +14387,7 @@ export interface components {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
             /** @enum {string|null} */
-            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "FAILED" | null;
+            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "DAILY_LIMIT_REACHED" | "FAILED" | null;
             id: string;
             recipient_address: string;
             recipient_name: string;
@@ -14390,7 +14453,7 @@ export interface components {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
             /** @enum {string|null} */
-            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "FAILED" | null;
+            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "DAILY_LIMIT_REACHED" | "FAILED" | null;
             id: string;
             recipient_address: string;
             recipient_name: string;
@@ -14455,6 +14518,15 @@ export interface components {
             /** @description SMS with status FAILED in the last 7 school days */
             failed: number;
             window: components["schemas"]["FailedMessagesWindowDto"];
+        };
+        UpdateDailyLimitsDto: {
+            /** @example 2000 */
+            sms?: number | null;
+            /** @example 2000 */
+            email?: number | null;
+            /** @example 2000 */
+            whatsapp?: number | null;
+            showRemaining?: boolean | null;
         };
         CreateStudentDto: {
             full_name: string;
@@ -16442,6 +16514,15 @@ export interface components {
             from: string;
             to: string;
         };
+        DailySendLimitsDto: {
+            /** @example 2000 */
+            sms?: number;
+            /** @example 2000 */
+            email?: number;
+            /** @example 2000 */
+            whatsapp?: number;
+            showRemaining?: boolean;
+        };
         CommunicationsSettingsDto: {
             /** @description D6: { provider, <company>: {…}, metering? }; fields from GET …/settings/messaging/providers */
             sms?: {
@@ -16459,6 +16540,7 @@ export interface components {
             messenger?: {
                 [key: string]: unknown;
             };
+            dailyLimits?: components["schemas"]["DailySendLimitsDto"];
         };
         AutoAbsentNotificationDto: {
             enabled: boolean;
@@ -16875,6 +16957,42 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
+        PlatformStepUpDto: {
+            /** @enum {string} */
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "platform.login_as" | "platform.delete_school" | "platform.announce_all" | "platform.ops_action" | "platform.school_control" | "academic_year.close" | "platform.refund" | "platform.coupon" | "platform.coupon_free" | "platform.plan" | "platform.sms_stock" | "platform.vat";
+            /** @description Current 6-digit authenticator code. Recovery codes are refused. */
+            code: string;
+        };
+        PlatformApprovalSettingDto: {
+            /** @description Whether gated platform actions need the other owner. */
+            enabled: boolean;
+        };
+        UpdatePlatformApprovalSettingDto: {
+            enabled: boolean;
+        };
+        PlatformOwnerDto: {
+            userId: string;
+            fullName: string;
+            email: string | null;
+            phone: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "LOCKED";
+            lockedAt: string | null;
+            lockedByName: string | null;
+            lastLoginAt: string | null;
+            mfaEnrolled: boolean;
+        };
+        PlatformHistoryRowDto: {
+            id: string;
+            action: string;
+            actorName: string | null;
+            at: string;
+            label: string;
+        };
+        PlatformHistoryPageDto: {
+            data: components["schemas"]["PlatformHistoryRowDto"][];
+            nextCursor: string | null;
+        };
         ImpersonationExchangeDto: {
             /** @description The one-time code handed over by the cockpit. */
             code: string;
@@ -17002,42 +17120,6 @@ export interface components {
             password?: string;
             /** @enum {string} */
             scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "platform.login_as" | "platform.delete_school" | "platform.announce_all" | "platform.ops_action" | "platform.school_control" | "academic_year.close" | "platform.refund" | "platform.coupon" | "platform.coupon_free" | "platform.plan" | "platform.sms_stock" | "platform.vat";
-        };
-        PlatformStepUpDto: {
-            /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "platform.login_as" | "platform.delete_school" | "platform.announce_all" | "platform.ops_action" | "platform.school_control" | "academic_year.close" | "platform.refund" | "platform.coupon" | "platform.coupon_free" | "platform.plan" | "platform.sms_stock" | "platform.vat";
-            /** @description Current 6-digit authenticator code. Recovery codes are refused. */
-            code: string;
-        };
-        PlatformApprovalSettingDto: {
-            /** @description Whether gated platform actions need the other owner. */
-            enabled: boolean;
-        };
-        UpdatePlatformApprovalSettingDto: {
-            enabled: boolean;
-        };
-        PlatformOwnerDto: {
-            userId: string;
-            fullName: string;
-            email: string | null;
-            phone: string | null;
-            /** @enum {string} */
-            status: "ACTIVE" | "LOCKED";
-            lockedAt: string | null;
-            lockedByName: string | null;
-            lastLoginAt: string | null;
-            mfaEnrolled: boolean;
-        };
-        PlatformHistoryRowDto: {
-            id: string;
-            action: string;
-            actorName: string | null;
-            at: string;
-            label: string;
-        };
-        PlatformHistoryPageDto: {
-            data: components["schemas"]["PlatformHistoryRowDto"][];
-            nextCursor: string | null;
         };
         BkashPayResponseDto: {
             /** @description The bKash checkout page to send the admin to. */
@@ -24673,6 +24755,37 @@ export interface operations {
             };
         };
     };
+    DailyLimitsTodayController_today_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyLimitsTodayDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommunicationsController_previewSingleReminder_v1: {
         parameters: {
             query?: never;
@@ -25320,6 +25433,90 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_getPlatform_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DailyLimitsView; usedToday is null. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_putPlatform_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDailyLimitsDto"];
+            };
+        };
+        responses: {
+            /** @description DailyLimitsView after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_getSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DailyLimitsView. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformDailyLimitsController_putSchool_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDailyLimitsDto"];
+            };
+        };
+        responses: {
+            /** @description DailyLimitsView after the change. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -30509,6 +30706,270 @@ export interface operations {
             };
         };
     };
+    PlatformStepUpController_issue_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformStepUpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformApprovalsController_list_v1: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "GRANTED" | "DENIED" | "USED" | "EXPIRED";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    PlatformApprovalsController_approve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approval_decide" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformApprovalsController_deny_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approval_decide" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformSettingsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformApprovalSettingDto"];
+                };
+            };
+        };
+    };
+    PlatformSettingsController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approvals_switch" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlatformApprovalSettingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformApprovalSettingDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformOwnersController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformOwnerDto"][];
+                };
+            };
+        };
+    };
+    PlatformOwnersController_history_v1: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHistoryPageDto"];
+                };
+            };
+        };
+    };
+    PlatformOwnersController_lock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.owner_lock" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformOwnersController_unlock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.owner_unlock" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     ImpersonationExchangeController_exchange_v1: {
         parameters: {
             query?: never;
@@ -31281,270 +31742,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    PlatformStepUpController_issue_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformStepUpDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
-    PlatformApprovalsController_list_v1: {
-        parameters: {
-            query?: {
-                status?: "PENDING" | "GRANTED" | "DENIED" | "USED" | "EXPIRED";
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-        };
-    };
-    PlatformApprovalsController_approve_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approval_decide" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformApprovalsController_deny_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approval_decide" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformSettingsController_get_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformApprovalSettingDto"];
-                };
-            };
-        };
-    };
-    PlatformSettingsController_update_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approvals_switch" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePlatformApprovalSettingDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformApprovalSettingDto"];
-                };
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformOwnersController_list_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformOwnerDto"][];
-                };
-            };
-        };
-    };
-    PlatformOwnersController_history_v1: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformHistoryPageDto"];
-                };
-            };
-        };
-    };
-    PlatformOwnersController_lock_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.owner_lock" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    PlatformOwnersController_unlock_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Single-use JWT proving a fresh admin approval for scope "platform.owner_unlock" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
-            };
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
             };
         };
     };
@@ -41918,7 +42115,7 @@ export interface operations {
             query: {
                 /** @description School-local month, within the last 12 months. */
                 month: string;
-                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.payment_proofs_waiting" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "admission.list_deadline" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due" | "platform.login_as_burst" | "support.access_request" | "sms.low" | "sms.expiring" | "platform.sms.stock_low" | "platform.sms.oversold";
+                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.daily_limit_reached" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.payment_proofs_waiting" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "admission.list_deadline" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due" | "platform.login_as_burst" | "support.access_request" | "sms.low" | "sms.expiring" | "platform.sms.stock_low" | "platform.sms.oversold";
                 sectionId?: string;
                 format?: "json" | "csv";
             };

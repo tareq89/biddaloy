@@ -85,7 +85,7 @@ for s in "${steps[@]}"; do
   n="$(at "$s")"; [[ -n "$n" && "$n" -gt "$prev" ]] || { inorder="no ($s)"; break; }; prev="$n"
 done
 expect "1 steps in order ($inorder)" test "$inorder" = yes
-expect "1 every compose call has project-directory and -f" test "$(grep -c '^docker compose' "$LOG")" = "$(grep -c -- "--project-directory $WORK/opt/staging -f $WORK/opt/repo/deploy/stack.yml" "$LOG")"
+expect "1 every compose call has project-directory and -f" test "$(grep -c '^docker compose' "$LOG")" = "$(grep -c -- "--project-directory $WORK/opt/staging -f $WORK/opt/repo/deploy/compose.stack.yml" "$LOG")"
 expect "1 deploy lock (fd 8) before swap lock (fd 9)" test "$(at "flock -w 3600 8")" -lt "$(at "flock -w 3600 9")"
 expect "1 migrate targets the drill db via env, not argv" has "run --rm -T --no-deps migrate node server/dist/scripts/migrate.js run"
 expect "1 smoke app uses its own redis db" has "REDIS_URL=redis://redis:6379/15"
@@ -199,10 +199,10 @@ d="$(find "$WORK/opt/logs-export" -mindepth 1 -maxdepth 1 | head -1)"
 expect "6 export is deploy-only (0700)" test "$(stat -c %a "$d" 2>/dev/null || stat -f %Lp "$d")" = 700
 rm -rf "$WORK/opt/logs-export"
 # 6b a stack's last ok compose file wins over the live checkout
-printf 'x\n' > "$WORK/opt/prod/stack.yml"
+printf 'x\n' > "$WORK/opt/prod/compose.stack.yml"
 run log-archive
-expect "6b uses <stack>/stack.yml when the deploy kept one" has "-f $WORK/opt/prod/stack.yml"
-rm -f "$WORK/opt/prod/stack.yml"
+expect "6b uses <stack>/compose.stack.yml when the deploy kept one" has "-f $WORK/opt/prod/compose.stack.yml"
+rm -f "$WORK/opt/prod/compose.stack.yml"
 # 6c the staging smoke script is the copy staging's last ok deploy kept, not the checkout's
 printf 'x\n' > "$WORK/opt/staging/smoke-post-deploy.mjs"
 run restore-drill

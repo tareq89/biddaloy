@@ -1,0 +1,103 @@
+# Ops stack (Epic 79.0): Beszel (host + container metrics), Uptime Kuma (uptime monitors +
+# alerts), Dozzle (live logs, behind its own login), ClamAV (the one virus scanner prod, staging
+# and demo share, Epic 60 D5). Nothing is published on the host; edge nginx reaches the three UIs
+# over `biddaloy-ops-edge`, and the app containers reach clamd over `biddaloy-ops-scan`.
+#
+#   OPS_DIR=/opt/biddaloy/ops docker compose -p ops -f deploy/compose.ops.yml --env-file /opt/biddaloy/ops/.env up -d
+#
+# First-run steps done by hand in the UIs: docs/architecture/12-operations.md section 1.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+services:
+  beszel:
+    logging: *logging
+    image: henrygd/beszel:0.21.0@sha256:6b39a8b64f9b15d00a25e7683e31a93c46161182a54f62713525107064e10599
+    restart: unless-stopped
+    volumes:
+      - beszel_data:/beszel_data
+      # The edge beszel-agent's unix socket (deploy/compose.edge.yml); same host only.
+      - /run/beszel:/beszel_socket
+    networks: [default, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${BESZEL_MEM:-256m}
+
+  uptime-kuma:
+    logging: *logging
+    image: louislam/uptime-kuma:1@sha256:70233f4acb5163fd2a59a49909cf01e44415cecff13dba69e3a86647a2919f83
+    restart: unless-stopped
+    volumes:
+      - kuma_data:/app/data
+    networks: [default, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${KUMA_MEM:-384m}
+
+  dozzle:
+    logging: *logging
+    image: amir20/dozzle:v11.3.3@sha256:6d9e194587c20660f73967ee8567ce8e2e9e2e17046b0c95586a37a970b1d5ed
+    restart: unless-stopped
+    environment:
+      DOZZLE_NO_ANALYTICS: 'true'
+      # Own login (D14): users.yml is rendered by the deploy from ops.enc.env.
+      DOZZLE_AUTH_PROVIDER: simple
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OPS_DIR:?OPS_DIR must be set}/dozzle/users.yml:/data/users.yml:ro
+    networks: [default, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${DOZZLE_MEM:-128m}
+
+  # Virus scanner (Epic 60, #4004): clamd on tcp 3310, reached by app / app2 of every stack as
+  # `clamav:3310` (CLAMAV_HOST / CLAMAV_PORT in deploy/compose.stack.yml). It is only on the
+  # `ops-scan` network: no published port, not on an edge network (Rule 12). Other containers on
+  # ops-scan (every stack's app) can reach it and each other's app port, an accepted gap like mailpit's.
+  # First start downloads the signature database (freshclam, outbound HTTPS to database.clamav.net,
+  # a few minutes); the app never waits for it, scan calls fail per route (D19) meanwhile.
+  clamav:
+    logging: *logging
+    image: clamav/clamav:1.5.4@sha256:7054e3f34308c384ea43cd786ea17abf899bd44af40af9f1b099853d7a5c214e
+    restart: unless-stopped
+    environment:
+      CLAMAV_NO_MILTERD: 'true'
+    volumes:
+      # Signature database: survives a restart, so only the first start downloads it all.
+      - clamav_db:/var/lib/clamav
+    networks:
+      ops-scan:
+        aliases: [clamav]
+    deploy:
+      resources:
+        limits:
+          memory: ${CLAMAV_MEM:-2g}
+    healthcheck:
+      # Ships in the image: sends PING to clamd and exits 0 on PONG. `start_period` covers the
+      # first signature download and load (clamd answers only once it has loaded them).
+      test: ['CMD', '/usr/local/bin/clamdcheck.sh']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
+volumes:
+  beszel_data:
+  kuma_data:
+  clamav_db:
+
+networks:
+  # Created by the deploy (W3.01). Edge nginx on this host joins it too.
+  ops-edge:
+    name: biddaloy-ops-edge
+    external: true
+  # Created by the deploy. The three app stacks join it too (clamav is reached only here).
+  ops-scan:
+    name: biddaloy-ops-scan
+    external: true

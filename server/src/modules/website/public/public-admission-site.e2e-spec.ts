@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -10,6 +10,8 @@ import type Redis from 'ioredis';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
+import { EICAR, startFakeClamd } from '@test/helpers/fake-clamd';
+import { StorageService } from '../../storage/storage.service';
 import {
   SEED_TENANT_ID,
   SEED_SECTION_1_ID,
@@ -230,7 +232,10 @@ describe('Public site admission API (e2e)', () => {
       const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]);
       const feeIntake = async (fee: number | null) => {
         const id = await intake(SEED_TENANT_ID);
-        await ds.query(`UPDATE admission_intakes SET fee_amount_paisa = $2 WHERE id = $1`, [id, fee]);
+        await ds.query(`UPDATE admission_intakes SET fee_amount_paisa = $2 WHERE id = $1`, [
+          id,
+          fee,
+        ]);
         return id;
       };
       const proofs = async (intakeId: string) =>
@@ -293,6 +298,57 @@ describe('Public site admission API (e2e)', () => {
         expect(res.body.status).toBe('PENDING');
         expect(res.body.fee_status).toBe('NONE');
         expect(await proofs(id)).toEqual([]);
+      });
+    });
+
+    // [#4000, D19] Public route, no login: a harmful file or a dead scanner refuses the upload.
+    describe('virus scan (fail closed)', () => {
+      let fake: Awaited<ReturnType<typeof startFakeClamd>>;
+      let put: ReturnType<typeof vi.spyOn>;
+      const pdf = (body: string) => Buffer.from(`%PDF-1.4 ${body}`, 'latin1');
+      const submitPdf = (id: string, body: string) =>
+        api()
+          .post(`${BASE(hostA)}/applicants`)
+          .field(payload(id))
+          .attach('birth_certificate', pdf(body), {
+            filename: 'b.pdf',
+            contentType: 'application/pdf',
+          });
+
+      beforeEach(async () => {
+        fake = await startFakeClamd();
+        process.env.CLAMAV_HOST = '127.0.0.1';
+        process.env.CLAMAV_PORT = String(fake.port);
+        put = vi.spyOn(app.get(StorageService), 'put');
+      });
+      afterEach(async () => {
+        put.mockRestore();
+        await fake.close();
+        delete process.env.CLAMAV_HOST;
+        delete process.env.CLAMAV_PORT;
+      });
+
+      it('a normal PDF is accepted', async () => {
+        const id = await intake(SEED_TENANT_ID);
+        await submitPdf(id, 'hello').expect(201);
+        expect(put).toHaveBeenCalledTimes(1);
+      });
+
+      it('an EICAR PDF is 422 FILE_HARMFUL with no object stored and no applicant row', async () => {
+        const id = await intake(SEED_TENANT_ID);
+        const res = await submitPdf(id, EICAR).expect(422);
+        expect(res.body.details.code).toBe('FILE_HARMFUL');
+        expect(put).not.toHaveBeenCalled();
+        expect(await countApplicants(id)).toBe(0);
+      });
+
+      it('with the scanner down it is 503 FILE_CHECK_UNAVAILABLE and nothing is stored', async () => {
+        await fake.close();
+        const id = await intake(SEED_TENANT_ID);
+        const res = await submitPdf(id, 'hello').expect(503);
+        expect(res.body.details.code).toBe('FILE_CHECK_UNAVAILABLE');
+        expect(put).not.toHaveBeenCalled();
+        expect(await countApplicants(id)).toBe(0);
       });
     });
 

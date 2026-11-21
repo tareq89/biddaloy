@@ -1,13 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { AdmissionApplicantStatus, type AdmissionApplicantDocument } from '@biddaloy/shared';
 import { StorageService } from '../storage/storage.service';
+import { VirusScanService } from '../storage/virus-scan.service';
+import { EICAR, startFakeClamd } from '../../../test/helpers/fake-clamd';
 import type { SchoolsService } from '../schools/schools.service';
 import { AdmissionApplicantService } from './admission-applicant.service';
 import { AdmissionFormSchemaService } from './admission-form-schema.service';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import type { SubmitApplicantDto } from './dto/submit-applicant.dto';
 
+/** Scanner stub for the tests that are not about scanning. */
+const scan = () => ({ assertClean: async () => undefined }) as never;
 const TENANT = '11111111-1111-4111-8111-111111111111';
 const OTHER_TENANT = '22222222-2222-4222-8222-222222222222';
 const INTAKE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -90,6 +94,7 @@ async function resubmitPhoto(documents: AdmissionApplicantDocument[]) {
     new AdmissionFormSchemaService(),
     { findByPhoneAnyFormat: async () => null } as never,
     {} as never,
+    scan(),
   );
   const dto = {
     intake_id: INTAKE_ID,
@@ -184,6 +189,7 @@ describe('AdmissionApplicantService.submit extra fields', () => {
       new AdmissionFormSchemaService(),
       { findByPhoneAnyFormat: async () => guardian } as never,
       {} as never,
+      scan(),
     );
     const dto = {
       intake_id: INTAKE_ID,
@@ -305,6 +311,7 @@ describe('AdmissionApplicantService create path (source, fee, seats)', () => {
       new AdmissionFormSchemaService(),
       { findByPhoneAnyFormat: async () => null } as never,
       { record: async (e: Record<string, unknown>) => void audits.push(e) } as never,
+      scan(),
     );
     const dto = {
       intake_id: INTAKE_ID,
@@ -416,5 +423,74 @@ describe('AdmissionApplicantService create path (source, fee, seats)', () => {
       const out = await run({ seat_count: 1 }, how, {}, 1);
       expect(out.e?.getResponse().details?.code).toBe('INTAKE_FULL');
     }
+  });
+});
+
+// [#4000] The public form has no login, so a scan that cannot run refuses the upload (fail closed).
+describe('AdmissionApplicantService.uploadDocuments virus scan', () => {
+  let fake: Awaited<ReturnType<typeof startFakeClamd>> | undefined;
+  afterEach(async () => {
+    await fake?.close();
+    fake = undefined;
+    delete process.env.CLAMAV_HOST;
+    delete process.env.CLAMAV_PORT;
+  });
+
+  async function upload(files: Partial<Express.Multer.File>[]) {
+    process.env.CLAMAV_HOST = '127.0.0.1';
+    process.env.CLAMAV_PORT = String(fake!.port);
+    const { storage } = recordingStorage();
+    const put = vi.spyOn(storage, 'put');
+    const service = new AdmissionApplicantService(
+      {} as never,
+      storage,
+      {} as never,
+      {} as never,
+      {} as never,
+      new AdmissionFormSchemaService(),
+      {} as never,
+      {} as never,
+      new VirusScanService({ record: async () => undefined } as never),
+    );
+    const call = (
+      service as unknown as {
+        uploadDocuments(t: string, f: unknown[], k: string[]): Promise<unknown>;
+      }
+    ).uploadDocuments(TENANT, files, []);
+    return {
+      put,
+      result: await call.then(
+        () => 'ok',
+        (e: { getStatus(): number }) => e.getStatus(),
+      ),
+    };
+  }
+
+  const pdf = (body: string, fieldname = 'birth_certificate') => ({
+    fieldname,
+    mimetype: 'application/pdf',
+    buffer: Buffer.from(`%PDF-1.4 ${body}`, 'latin1'),
+  });
+
+  it('stores a clean PDF', async () => {
+    fake = await startFakeClamd();
+    const { put, result } = await upload([pdf('hello')]);
+    expect(result).toBe('ok');
+    expect(put).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses an EICAR PDF with 422 and stores nothing, not even the clean first file', async () => {
+    fake = await startFakeClamd();
+    const { put, result } = await upload([pdf('hello'), pdf(EICAR)]);
+    expect(result).toBe(422);
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('with the scanner down answers 503 and stores nothing', async () => {
+    fake = await startFakeClamd();
+    await fake.close();
+    const { put, result } = await upload([pdf('hello')]);
+    expect(result).toBe(503);
+    expect(put).not.toHaveBeenCalled();
   });
 });

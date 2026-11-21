@@ -13,9 +13,9 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 75 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(75);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(75);
+  it('has 76 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(76);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(76);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
     for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
   });
@@ -88,7 +88,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 20 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 21 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -115,6 +115,7 @@ describe('alert rule catalogue', () => {
         'platform.sms.stock_low',
         'platform.sms.oversold',
         'admission.list_deadline',
+        'comms.daily_limit_reached', // rule class lands in #3991
       ].sort(),
     );
   });
@@ -138,6 +139,13 @@ describe('alert rule catalogue', () => {
     expect(meta('fees.payment_proofs_waiting')).toMatchObject({
       roles: [UserRole.ADMIN, UserRole.ACCOUNTANT],
       pushable: true,
+    });
+  });
+
+  it('daily limit rule is cloned from sms_credit_low', () => {
+    expect(alertRuleMeta('comms.daily_limit_reached')).toMatchObject({
+      ...meta('comms.sms_credit_low'),
+      key: 'comms.daily_limit_reached',
     });
   });
 

@@ -1,5 +1,8 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { assertRoomForBatch } from '../../communications/limits/send-limit.precheck';
+import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
+import { SendLimitService } from '../../communications/limits/send-limit.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -81,7 +84,15 @@ export class NoticeSmsService {
     private readonly audit: AuditService,
     private readonly schools: SchoolsService,
     private readonly config: ConfigService,
+    @Optional() private readonly sendLimitRegistry?: CommunicationProviderRegistryService,
+    @Optional() private readonly sendLimits?: SendLimitService,
   ) {}
+
+  private get precheckDeps() {
+    return this.sendLimitRegistry && this.sendLimits
+      ? { registry: this.sendLimitRegistry, limits: this.sendLimits }
+      : undefined;
+  }
 
   // ---- helpers ----
 
@@ -346,6 +357,13 @@ export class NoticeSmsService {
         const total = segments * will.length;
         // D24 order: credit first, before anything else is written.
         if (will.length > 0) {
+          // [60.0 D2] Whole send refused when it does not fit today's limit; before the credit reserve.
+          await assertRoomForBatch(
+            this.precheckDeps,
+            tenantId,
+            CommunicationMedium.SMS,
+            will.length,
+          );
           const outcome = await this.credits.reserveIfMetered(tenantId, total, batchId);
           if (typeof outcome === 'object') {
             throw new ConflictException({

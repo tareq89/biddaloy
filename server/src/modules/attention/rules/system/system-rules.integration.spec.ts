@@ -6,6 +6,9 @@ import { UserRole } from '@biddaloy/shared';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
 import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
+// Loaded first: CommunicationsModule sits in a file-load cycle (Fee/Invoices) that breaks if
+// AuthModule starts it.
+import '../../../communications/communications.module';
 import { AuthModule } from '../../../auth/auth.module';
 import { TenantStatusModule } from '../../../schools/tenant-status.module';
 import { DEFAULT_TENANT_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';

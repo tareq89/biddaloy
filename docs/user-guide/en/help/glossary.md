@@ -185,6 +185,7 @@ When a new page is written, its record name is added here.
 | --- | --- | --- |
 | <a id="channel"></a>[**Channel**](../communications/send-message.md) | The route a message goes by: SMS, WhatsApp or email. | A message to a guardian by SMS. |
 | <a id="sms-credit"></a>[**SMS credit**](../communications/send-message.md#sms-count) | The school's balance for sending SMS. When it runs out, SMS do not go. | A long message uses more than one SMS. |
+| <a id="daily-limit"></a>[**Daily limit**](../communications/send-message.md#daily-limit) | The most SMS, email or WhatsApp messages a school can send in one day through the platform's own account. It starts again at midnight. | 2,000 SMS a day. |
 | <a id="reminder"></a>[**Reminder**](../communications/fee-reminders.md) | A message that reminds a guardian about dues. The name and amount fill in by themselves. | A message that January tuition is unpaid. |
 | <a id="reminder-batch"></a>[**Reminder round**](../communications/reminder-history.md) | Reminders sent to many people at once. Open the round to see who it reached. | A round for 200 guardians, 12 failed. |
 | <a id="arrival-notice"></a>[**Arrival notice**](../portal/attendance.md#task-arrival) | A message to a guardian when their child reaches school. The guardian asks; the class teacher confirms. | A message at 7:50 am that Rima has arrived. |

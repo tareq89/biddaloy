@@ -103,6 +103,8 @@ const REVIEWED_OUTBOUND: Record<string, string> = {
     'UMAMI_API_URL env, operator config (platform Umami); the website id in the path is checked as a UUID, nothing tenant-supplied reaches the URL',
   'modules/storage/storage.service.ts': 'S3_ENDPOINT env, operator config',
   'common/sentry.ts': 'SENTRY_DSN env, operator config',
+  'modules/storage/virus-scan.service.ts':
+    'raw TCP to the ClamAV daemon (clamd INSTREAM protocol); the host is CLAMAV_HOST env, operator config, never tenant-supplied',
 };
 
 function collectFiles(dir: string): string[] {

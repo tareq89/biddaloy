@@ -122,7 +122,7 @@
       - COCKPIT_OWNER_2_PHONE
       - SMOKE_COCKPIT_DOMAIN
       - SMOKE_APP_DOMAIN
-    # ROOT_DOMAIN: deploy/stack.yml's `${ROOT_DOMAIN:?}` (app and site, Epic 40) aborts compose
+    # ROOT_DOMAIN: deploy/compose.stack.yml's `${ROOT_DOMAIN:?}` (app and site, Epic 40) aborts compose
     # without it; checked here so the message names the file to fix.
     required_by_stack:
       prod: "{{ smoke_keys + cockpit_keys + ['ROOT_DOMAIN'] }}"

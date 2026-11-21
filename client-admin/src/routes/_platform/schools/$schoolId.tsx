@@ -44,6 +44,7 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AddAdminDialog } from './-detail/add-admin-form';
 import { AdminsCard } from './-detail/admins-card';
+import { DailyLimitsCard } from './-detail/daily-limits-card';
 import { ResetPresetCard } from './-detail/preset-reset-card';
 import { RestoreWorkbookDialog } from './-detail/restore-workbook-dialog';
 import { SeatsCard } from './-detail/seats-card';
@@ -138,6 +139,7 @@ function SchoolDetailPage() {
             <SmsCreditsCard schoolId={schoolId} />
             <ResetPresetCard schoolId={schoolId} schoolName={school.name} />
           </div>
+          <DailyLimitsCard schoolId={schoolId} />
         </div>
       ),
     },

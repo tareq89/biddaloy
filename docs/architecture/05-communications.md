@@ -517,11 +517,11 @@ flowchart LR
 
 Example: an SMS to `01711111111` arrives as an email to `01711111111@sms.sink.invalid`, subject `[SMS]`, header `X-Tags: SMS`. The number stays out of the subject, because the demo inbox is public and lists subjects; search by `to:` instead.
 
-| Variable                  | Default               | Meaning                                                                                                                                                                      |
-| ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MESSAGE_SINK`            | unset                 | `mailpit` turns the sink on. Anything else is off.                                                                                                                           |
-| `MESSAGE_SINK_SMTP_URL`   | `smtp://mailpit:1025` | Where the sink sends. Dev `.env` sets it; `deploy/stack.yml` sets `smtp://<stack>-mailpit:1025`, since the bare `mailpit` alias is shared across stacks on the edge network. |
-| `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI.                                                                                                                     |
+| Variable                  | Default               | Meaning                                                                                                                                                                              |
+| ------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MESSAGE_SINK`            | unset                 | `mailpit` turns the sink on. Anything else is off.                                                                                                                                   |
+| `MESSAGE_SINK_SMTP_URL`   | `smtp://mailpit:1025` | Where the sink sends. Dev `.env` sets it; `deploy/compose.stack.yml` sets `smtp://<stack>-mailpit:1025`, since the bare `mailpit` alias is shared across stacks on the edge network. |
+| `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI.                                                                                                                             |
 
 If Mailpit cannot be reached (connection refused, reset, timed out, or its name does not resolve, e.g. during the nightly restart), the send fails with `Test inbox unreachable` and the queue retries it. The log row ends FAILED only when the retries run out. Any other sink error is final at once.
 
@@ -842,7 +842,6 @@ flowchart LR
 update ran on another connection and waited for a lock its own transaction held. Production code
 was correct; the fix was in the spec (#4130).
 
-
 ## Learning: school SMS screen (Epic 100, Wave 4)
 
 ```mermaid
@@ -927,3 +926,45 @@ saved `source` behaves as before.
 
 **One writer.** Only `SmsCreditService` writes the balance, ledger, lots and draws. The rule and
 its enforcing test are in [08-security.md, Money-table writers](08-security.md#candidate-rule-money-tier-tables-have-one-writer).
+
+## Daily send limits (Epic 60)
+
+A school that sends through the **platform's** account has a daily limit per channel. A school's own gateway or SMTP is never limited (D16). OTP and account-access messages and platform alerts are not counted (D22).
+
+```mermaid
+flowchart TD
+  A[Send] --> B[Provider registry resolves the school's provider]
+  B --> C{Source is the platform account?}
+  C -->|no| P[Provider]
+  C -->|yes| D["Counter: send-limit:tenant:channel:day"]
+  D -->|under the limit| P
+  D -->|at the limit| X["REJECTED: DAILY_LIMIT_REACHED"]
+```
+
+| Level            | Where it lives                                       | Used when       |
+| ---------------- | ---------------------------------------------------- | --------------- |
+| School override  | the school's settings (`communications.dailyLimits`) | first           |
+| Platform default | `PlatformSettingsService`, set in the cockpit        | no school value |
+| Code default     | `DEFAULT_DAILY_SEND_LIMITS`: 2000 per channel        | neither is set  |
+
+People pressing Send for a whole batch are refused up front if the batch does not fit in what is left (`assertRoomForBatch`); automated sends fail one by one at the registry and show in the message log (D27). The counter is in Redis and fails open (see [Rule 15](08-security.md#rule-15-redis-down-has-a-written-answer-per-route)).
+
+A refused batch of 30 with 12 left:
+
+```json
+{
+  "statusCode": 409,
+  "message": "Daily limit reached.",
+  "details": { "code": "DAILY_LIMIT_REACHED", "requested": 30, "remaining": 12, "limit": 100 }
+}
+```
+
+The screen turns it into: "You can send 12 more today. You are trying to send 30. Send to fewer people, or try again tomorrow." Test: `server/src/modules/communications/send-limit.e2e-spec.ts`, which sets a limit through the owners' route, shows school A refused while school B is not, and checks a missing or invalid `X-Tenant-ID`. Owner steps: [28-platform-runbook.md](28-platform-runbook.md#daily-send-limits-owners).
+
+### Learning: daily send limits, Wave 2 close (2026-11-16)
+
+- The test suite truncates tenant tables before every test, so a student and guardian made in `beforeAll` were gone: the send route answered 404 "Guardian not found", not the 409 under test. Cost: one debug round. Fix: make fixtures inside the test. Rule candidate: an e2e spec never relies on rows made in `beforeAll`.
+- The notice SMS approval page showed a generic error while the other send screens had the refusal sentence (#3994 was marked done). Fix: it now uses `useDailyLimitMessage` and `LeftTodayLine`. Rule candidate: when a ticket says "every send screen", list the screens in its `## Files`.
+- `check-api-types` was clean after `yarn api:types`; the wave's DTOs were already committed in #4254 and #4255.
+- Not done here by design: the Playwright spec `e2e/communications-daily-limit.spec.ts` (file cap on the closing branch) and a Bangla runbook copy.
+- The Redis key uses the lowercase channel and an Asia/Dhaka date; the first runbook draft had `SMS` and "school time zone", which would have made the emergency `DEL` do nothing. Rule candidate: a runbook command is copied from the code's key builder, never typed from memory.

@@ -407,5 +407,31 @@
     "helpfulNone": "No answers yet",
     "noComments": "No comments",
     "period": "{{from}} to {{to}}"
+  },
+  "dailyLimits": {
+    "title": "Daily limit",
+    "help": "How many messages this school can send each day. Leave a box empty to use the platform default.",
+    "helpDefaults": "The daily limit for every school that has no limit of its own. Leave a box empty to use the built-in value.",
+    "loadError": "Couldn't load the daily limits.",
+    "saveError": "Couldn't save the daily limits. Check the numbers and try again.",
+    "saved": "Saved.",
+    "save": "Save",
+    "limit": "Daily limit",
+    "usedToday": "Sent today",
+    "usingDefault": "Platform default: {{value}}",
+    "usingBuiltIn": "Built-in value: {{value}}",
+    "invalid": "Use a whole number from 0 to {{max}}.",
+    "showRemaining": "Show 'left today' to the school's staff",
+    "channels": {
+      "sms": "SMS",
+      "email": "Email",
+      "whatsapp": "WhatsApp"
+    },
+    "remaining": {
+      "defaultSchool": "Platform default",
+      "defaultPlatform": "Default (off)",
+      "on": "On",
+      "off": "Off"
+    }
   }
 }
