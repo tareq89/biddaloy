@@ -16,6 +16,7 @@ import type {
   AdmissionApplicantDocument,
   AdmissionSource,
   AdmissionFeeState,
+  PhotoConsent,
 } from '@biddaloy/shared';
 
 // Dynamic require, not `import { AdmissionApplicantStatus } from '@biddaloy/shared'`:
@@ -102,6 +103,15 @@ export class AdmissionApplicant {
 
   @Column({ type: 'jsonb', default: () => "'[]'" })
   documents: AdmissionApplicantDocument[];
+
+  /** [59.1.02] NULL = applied before photo consent existed; new submissions set it (59.2.03). */
+  @Column({
+    type: 'enum',
+    enum: ['GIVEN', 'REFUSED', 'UNKNOWN'],
+    enumName: 'photo_consent_enum',
+    nullable: true,
+  })
+  photo_consent: PhotoConsent | null;
 
   @Column({ type: 'varchar', length: 20, default: shared.AdmissionApplicantStatus.PENDING })
   status: AdmissionApplicantStatus;

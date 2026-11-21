@@ -1,9 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import sharp from 'sharp';
 import type { Readable } from 'stream';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, PhotoConsent } from '@biddaloy/shared';
 import { Student } from './entities/student.entity';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
@@ -17,6 +22,15 @@ const MAX_SOURCE_DIMENSION = 6000;
 const TARGET_DIMENSION = 800;
 const JPEG_QUALITY = 85;
 
+const PHOTO_CONSENT_REFUSED_MESSAGE = 'This student has refused photo consent';
+
+function photoConsentRefused(): ConflictException {
+  return new ConflictException({
+    message: PHOTO_CONSENT_REFUSED_MESSAGE,
+    details: { code: 'PHOTO_CONSENT_REFUSED' },
+  });
+}
+
 export interface BulkPhotoFile {
   originalname: string;
   buffer: Buffer;
@@ -25,7 +39,7 @@ export interface BulkPhotoFile {
 export interface BulkPhotoResult {
   matched: { file: string; student_id: string; full_name: string }[];
   unmatched: string[];
-  invalid: { file: string; reason: string }[];
+  invalid: { file: string; reason: string; code?: string }[];
 }
 
 /**
@@ -115,6 +129,9 @@ export class StudentPhotoService {
     userId: string,
     context: RequestContext,
   ): Promise<void> {
+    // [59.2.01] Check before put so a refusal leaves no orphan object; re-checked under the lock.
+    const current = await this.findStudent(studentId, tenantId);
+    if (current.photo_consent === PhotoConsent.REFUSED) throw photoConsentRefused();
     const newKey = tenantObjectKey(tenantId, 'student-photo', 'jpg');
     await this.storage.put(newKey, jpeg, 'image/jpeg');
 
@@ -133,6 +150,11 @@ export class StudentPhotoService {
           details: { code: 'STUDENT_NOT_FOUND' },
         });
 
+      if (student.photo_consent === PhotoConsent.REFUSED) {
+        // Refusal landed while the put was pending: the new object never got a committed reference.
+        await this.storage.delete(newKey).catch(() => undefined);
+        throw photoConsentRefused();
+      }
       // D48: previous object is intentionally left in storage.
       student.photo_key = newKey;
       await studentRepo.save(student);
@@ -180,7 +202,13 @@ export class StudentPhotoService {
         await this.store(student.id, await this.reencode(file.buffer), tenantId, userId, context);
         result.matched.push({ file: name, student_id: student.id, full_name: student.full_name });
       } catch (error: unknown) {
-        if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        if (error instanceof ConflictException) {
+          result.invalid.push({
+            file: name,
+            reason: PHOTO_CONSENT_REFUSED_MESSAGE,
+            code: 'PHOTO_CONSENT_REFUSED',
+          });
+        } else if (error instanceof BadRequestException || error instanceof NotFoundException) {
           result.invalid.push({ file: name, reason: error.message });
         } else {
           throw error;

@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { OTP_REDIS } from '../account-access/otp.service';
 import { AuditModule } from '../audit/audit.module';
+import { LegalModule } from '../legal/legal.module';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { SocialAuthModule } from '../auth/social/social-auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
@@ -22,6 +23,7 @@ import { TurnstileService } from './turnstile.service';
     TypeOrmModule.forFeature([User, UserTenant, School]),
     ConfigModule,
     AuditModule,
+    LegalModule,
     CommunicationsModule,
     TrialModule,
     SocialAuthModule,

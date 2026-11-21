@@ -50,6 +50,12 @@ const PUBLIC_PATHS = new Set([
   // [13.6.1] Sign-up and the social sign-in landing are reached signed out.
   '/register',
   '/auth/social/done',
+  // [59.3.01] The legal documents are readable signed out (sign-up dialog, site footer links).
+  // Exact paths only: /legal/accept stays behind sign-in.
+  '/legal/terms',
+  '/legal/privacy',
+  '/legal/dpa',
+  '/legal/sla',
 ]);
 
 /**

@@ -4,6 +4,7 @@
  * `/register` route mounts this inside `AuthLayout` and owns the redirect in
  * `onDone`; `verifyRegistration` has already adopted the session by then.
  */
+import { LEGAL_DOCS } from '@biddaloy/shared';
 import {
   ApiError,
   clearFirstPasswordGate,
@@ -249,6 +250,9 @@ export function RegisterFlow({
                 phone,
                 ...(values.email ? { email: values.email } : {}),
                 terms_accepted: values.terms,
+                terms_version: LEGAL_DOCS.terms.version,
+                privacy_version: LEGAL_DOCS.privacy.version,
+                dpa_version: LEGAL_DOCS.dpa.version,
                 captcha_token: captchaToken,
               });
             }}

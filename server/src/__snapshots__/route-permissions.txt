@@ -292,6 +292,7 @@ GET /invoices/:id/share | InvoicesController | perm: INVOICE_SEND
 GET /invoices/export | InvoicesController | perm: INVOICE_READ,REPORTS_EXPORT
 GET /leave/balance | LeaveController | identity | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
 GET /leave/policies | LeaveController | identity | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
+GET /legal/status | LegalController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 GET /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_READ
 GET /me/push/public-key | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 GET /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
@@ -793,6 +794,7 @@ POST /invoices | InvoicesController | perm: INVOICE_CREATE
 POST /invoices/:id/send | InvoicesController | perm: INVOICE_SEND
 POST /invoices/:id/share | InvoicesController | perm: INVOICE_SEND
 POST /invoices/:id/share/regenerate | InvoicesController | perm: INVOICE_SEND
+POST /legal/accept | LegalController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /lesson-deliveries/extra | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /lesson-deliveries/today-all-taught | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER

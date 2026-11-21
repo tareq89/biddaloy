@@ -1,6 +1,6 @@
 import { ApiProperty, OmitType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { AdmissionPayMethod } from '@biddaloy/shared';
+import { AdmissionPayMethod, PhotoConsent } from '@biddaloy/shared';
 import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { SubmitApplicantDto } from './submit-applicant.dto';
 
@@ -16,7 +16,14 @@ export class StaffCreateApplicantDto extends OmitType(SubmitApplicantDto, [
   'captcha_token',
   'middle_name_confirm',
   'reference_number',
+  'photo_consent',
 ] as const) {
+  /** Walk-in: the clerk may not have asked yet; a missing value stays NULL (shown as UNKNOWN at admit). */
+  @ApiProperty({ required: false, enum: [PhotoConsent.GIVEN, PhotoConsent.REFUSED] })
+  @IsOptional()
+  @IsIn([PhotoConsent.GIVEN, PhotoConsent.REFUSED])
+  photo_consent?: PhotoConsent.GIVEN | PhotoConsent.REFUSED;
+
   @ApiProperty({ required: false, enum: Object.values(AdmissionPayMethod) })
   @IsOptional()
   @IsIn(Object.values(AdmissionPayMethod))

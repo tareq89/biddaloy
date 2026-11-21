@@ -2,6 +2,8 @@ import { Module, Logger } from '@nestjs/common';
 import { resolve } from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { installTenantHook } from './database/tenant-context';
 import { BullModule } from '@nestjs/bullmq';
 import { queueWorkers } from './common/queue-workers';
 import { APP_GUARD } from '@nestjs/core';
@@ -268,6 +270,7 @@ import { StudentNote } from './modules/students/entities/student-note.entity';
 import { StudentPublicExam } from './modules/students/entities/student-public-exam.entity';
 import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
+import { LegalAcceptance } from './modules/legal/entities/legal-acceptance.entity';
 import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
 import { AdmissionStage } from './modules/admission/entities/admission-stage.entity';
 import { AdmissionStageResult } from './modules/admission/entities/admission-stage-result.entity';
@@ -400,6 +403,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StudyPlanTemplate,
             AdmissionIntake,
             AdmissionApplicant,
+            LegalAcceptance,
             AdmissionEvaluation,
             AdmissionStage,
             AdmissionStageResult,
@@ -516,6 +520,16 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
           migrations: ['dist/migrations/*.js'],
           migrationsTableName: 'typeorm_migrations',
         };
+      },
+      // [#3949] The tenant hook goes on the app's DataSource, so RLS sees each request's school.
+      dataSourceFactory: async (options) => {
+        const ds = new DataSource(options!);
+        installTenantHook(ds, (e) =>
+          new Logger('TenantContext').error(
+            `tenant reset failed, connection destroyed: ${e.message}`,
+          ),
+        );
+        return ds.initialize();
       },
     }),
     BullModule.forRootAsync({

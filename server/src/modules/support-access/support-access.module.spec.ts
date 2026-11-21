@@ -17,6 +17,7 @@ import { LoginAsCandidatesController } from './candidates/login-as-candidates.co
 import { PlatformImpersonationController } from './platform-impersonation.controller';
 import { DenyWhenImpersonatingInterceptor } from '../auth/deny-when-impersonating.interceptor';
 import { requestActorContextMiddleware } from '../../common/request-actor-context';
+import { tenantContextMiddleware } from '../../database/tenant-context';
 import { ConsentGateService } from './consent/consent-gate.service';
 import { SupportAccessSettingsController } from './consent/support-access-settings.controller';
 import { SupportAccessSettingsService } from './consent/support-access-settings.service';
@@ -83,7 +84,7 @@ describe('SupportAccessModule', () => {
     const apply = vi.fn(() => ({ forRoutes }));
     const forRoutes = vi.fn();
     new SupportAccessModule().configure({ apply } as never);
-    expect(apply).toHaveBeenCalledWith(requestActorContextMiddleware);
+    expect(apply).toHaveBeenCalledWith(requestActorContextMiddleware, tenantContextMiddleware);
     expect(forRoutes).toHaveBeenCalledWith('*');
   });
 });

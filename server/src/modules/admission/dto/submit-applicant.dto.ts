@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { PhotoConsent } from '@biddaloy/shared';
 import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
 import { BD_PHONE_REGEX } from '../../students/dto/students.dto';
 import {
@@ -70,6 +71,11 @@ export class SubmitApplicantDto {
   @IsObject()
   @ApiProperty({ required: false, type: Object })
   extra_fields?: Record<string, unknown>;
+
+  /** Photo consent (D27): the public form must choose; UNKNOWN is not offered. */
+  @ApiProperty({ enum: [PhotoConsent.GIVEN, PhotoConsent.REFUSED] })
+  @IsIn([PhotoConsent.GIVEN, PhotoConsent.REFUSED], { message: 'photo_consent must be chosen' })
+  photo_consent: PhotoConsent.GIVEN | PhotoConsent.REFUSED;
 
   @ApiProperty({ description: 'Cloudflare Turnstile token.' })
   @IsString()

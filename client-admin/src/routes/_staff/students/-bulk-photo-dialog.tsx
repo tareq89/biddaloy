@@ -63,14 +63,19 @@ export function BulkPhotoDialog({ open, onOpenChange }: BulkPhotoDialogProps) {
     upload.mutate({ files, onProgress: setPercent }, { onSuccess: (report) => setResult(report) });
   }
 
+  // The server marks a REFUSED skip with `code`.
+  const isRefused = (i: { code?: string }) => i.code === 'PHOTO_CONSENT_REFUSED';
+  const invalidAll = result?.invalid ?? [];
+  const refused = invalidAll.filter(isRefused);
+
   const rows: Record<ReportTab, string[]> = {
     matched: (result?.matched ?? []).map((m) =>
       t('bulkPhotos.matchedRow', { file: m.file, name: m.full_name }),
     ),
     unmatched: result?.unmatched ?? [],
-    invalid: (result?.invalid ?? []).map((i) =>
-      t('bulkPhotos.invalidRow', { file: i.file, reason: i.reason }),
-    ),
+    invalid: invalidAll
+      .filter((i) => !isRefused(i))
+      .map((i) => t('bulkPhotos.invalidRow', { file: i.file, reason: i.reason })),
   };
 
   async function copyList() {
@@ -169,6 +174,18 @@ export function BulkPhotoDialog({ open, onOpenChange }: BulkPhotoDialogProps) {
                 </Button>
               ))}
             </div>
+            {refused.length > 0 ? (
+              <div role="status" className="text-sm">
+                <p className="font-medium">
+                  {t('photoConsent.bulkSkipped', { count: refused.length })}
+                </p>
+                <ul className="mt-1 text-muted-foreground">
+                  {refused.map((r) => (
+                    <li key={r.file}>{r.file}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {rows[tab].length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('bulkPhotos.noneInTab')}</p>
             ) : (

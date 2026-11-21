@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
+import { TenantContext } from '../../../database/tenant-context';
 import { Reflector } from '@nestjs/core';
 import {
   JwtPayload,
@@ -207,6 +208,9 @@ export class ContextGuard implements CanActivate {
       id: tenantId,
       role: activeRole,
     };
+    // [#3949] Tell Postgres which school this request is for (RLS wall). Platform routes throw
+    // above (no X-Tenant-ID), so they never reach here and stay unwalled.
+    TenantContext.setTenant(tenantId);
 
     request.currentUser = user;
     if (imp) request.impersonation = imp;

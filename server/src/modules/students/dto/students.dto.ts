@@ -21,7 +21,12 @@ import {
 import { applyDecorators } from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
-import { BD_PHONE_REGEX, CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import {
+  BD_PHONE_REGEX,
+  CommunicationMedium,
+  EnrollmentStatus,
+  PhotoConsent,
+} from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
 import { ROLL_NUMBER_MAX } from '../roll-number.util';
@@ -148,6 +153,12 @@ export class CreateStudentDto {
 }
 
 export class UpdateStudentDto {
+  // [59.2.01] Setting REFUSED also clears the student's photo (D26).
+  @ApiPropertyOptional({ enum: PhotoConsent })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsEnum(PhotoConsent)
+  photo_consent?: PhotoConsent;
+
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -243,6 +254,11 @@ export class UpdateStudentRecordsDto extends PickType(UpdateStudentDto, [
 ] as const) {}
 
 export class QueryStudentDto {
+  @ApiPropertyOptional({ enum: PhotoConsent })
+  @IsOptional()
+  @IsEnum(PhotoConsent)
+  photo_consent?: PhotoConsent;
+
   @IsOptional()
   @IsString()
   search?: string;
@@ -325,6 +341,11 @@ export class QueryStudentDto {
  * pagination/sort, which don't apply to an unpaginated id list.
  */
 export class QueryStudentIdsDto {
+  @ApiPropertyOptional({ enum: PhotoConsent })
+  @IsOptional()
+  @IsEnum(PhotoConsent)
+  photo_consent?: PhotoConsent;
+
   @IsOptional()
   @IsString()
   search?: string;

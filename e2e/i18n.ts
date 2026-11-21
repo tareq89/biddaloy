@@ -25,6 +25,7 @@ import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
 import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
 import bnAttendanceImport from '../ui/src/i18n/locales/bn/attendanceImport.json';
 import bnAttention from '../ui/src/i18n/locales/bn/attention.json';
+import bnLegal from '../ui/src/i18n/locales/bn/legal.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
 import bnBilling from '../ui/src/i18n/locales/bn/billing.json';
@@ -111,6 +112,7 @@ import enApproval from '../ui/src/i18n/locales/en/approval.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
 import enAttendanceImport from '../ui/src/i18n/locales/en/attendanceImport.json';
 import enAttention from '../ui/src/i18n/locales/en/attention.json';
+import enLegal from '../ui/src/i18n/locales/en/legal.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
 import enBilling from '../ui/src/i18n/locales/en/billing.json';
@@ -223,6 +225,7 @@ const catalogs = {
     attendanceImport: bnAttendanceImport,
     attention: bnAttention,
     auth: bnAuth,
+    legal: bnLegal,
     backup: bnBackup,
     billing: bnBilling,
     money: bnMoney,
@@ -320,6 +323,7 @@ const catalogs = {
     attendanceImport: enAttendanceImport,
     attention: enAttention,
     auth: enAuth,
+    legal: enLegal,
     backup: enBackup,
     billing: enBilling,
     money: enMoney,

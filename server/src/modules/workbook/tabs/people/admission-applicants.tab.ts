@@ -1,6 +1,12 @@
 import type { EntityManager } from 'typeorm';
 import { AdmissionApplicant } from '../../../admission/entities/admission-applicant.entity';
-import { AdmissionApplicantStatus, AdmissionFeeState, AdmissionSource } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  AdmissionDocumentType,
+  AdmissionFeeState,
+  AdmissionSource,
+  PhotoConsent,
+} from '@biddaloy/shared';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import { ownKeysIn } from '../../codec/storage-key-scope';
@@ -36,6 +42,7 @@ export interface AdmissionApplicantRow {
   status: AdmissionApplicantStatus;
   roll_number: string | null;
   source: string;
+  photo_consent: PhotoConsent | null;
   quota_tags: string[];
   extra_fields: Record<string, unknown>;
   fee_state: string;
@@ -105,6 +112,13 @@ const columns: readonly ColumnSpec[] = [
     enumValues: Object.values(AdmissionSource),
     label: { en: 'Source', bn: 'উৎস' },
   },
+  {
+    // Not `required`: an old applicant has no answer (NULL).
+    key: 'photo_consent',
+    type: 'enum',
+    enumValues: Object.values(PhotoConsent),
+    label: { en: 'Photo consent', bn: 'ছবির অনুমতি' },
+  },
   { key: 'quota_tags', type: 'json', label: { en: 'Quota tags', bn: 'কোটা ট্যাগ' } },
   { key: 'extra_fields', type: 'json', label: { en: 'Extra fields', bn: 'অতিরিক্ত তথ্য' } },
   {
@@ -170,6 +184,7 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
       status: entity.status,
       roll_number: entity.roll_number,
       source: entity.source,
+      photo_consent: entity.photo_consent,
       quota_tags: entity.quota_tags ?? [],
       extra_fields: entity.extra_fields ?? {},
       fee_state: entity.fee_state,
@@ -300,6 +315,7 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
         status: values.status as AdmissionApplicantStatus,
         roll_number: (values.roll_number as string | null) ?? null,
         source: values.source as string,
+        photo_consent: (values.photo_consent as PhotoConsent | null) ?? null,
         quota_tags: tags as string[],
         extra_fields: extra as Record<string, unknown>,
         fee_state: values.fee_state as string,
@@ -329,6 +345,9 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
     if (row.status !== existing.status) changed.push('status');
     if (row.roll_number !== existing.roll_number) changed.push('roll_number');
     if (row.source !== existing.source) changed.push('source');
+    // A blank cell keeps the stored answer (see upsert), so it is not a change.
+    if (row.photo_consent !== null && row.photo_consent !== existing.photo_consent)
+      changed.push('photo_consent');
     if (JSON.stringify(row.quota_tags) !== JSON.stringify(existing.quota_tags))
       changed.push('quota_tags');
     if (JSON.stringify(row.extra_fields) !== JSON.stringify(existing.extra_fields))
@@ -356,10 +375,16 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
     applicant.guardian_phone = row.guardian_phone;
     applicant.guardian_email = row.guardian_email;
     applicant.home_address = row.home_address;
-    applicant.documents = row.documents as AdmissionApplicant['documents'];
+    // Refused consent keeps no photo (D8): the sheet cannot leave one reachable.
+    // A blank cell keeps the stored answer, so a stored refusal still strips the photo.
+    const effectiveConsent = row.photo_consent ?? applicant.photo_consent;
+    applicant.documents = (row.documents as AdmissionApplicant['documents']).filter(
+      (d) => !(effectiveConsent === PhotoConsent.REFUSED && d.type === AdmissionDocumentType.PHOTO),
+    );
     applicant.status = row.status;
     applicant.roll_number = row.roll_number;
     applicant.source = row.source as AdmissionApplicant['source'];
+    if (row.photo_consent !== null) applicant.photo_consent = row.photo_consent;
     applicant.quota_tags = row.quota_tags;
     applicant.extra_fields = row.extra_fields;
     applicant.fee_state = row.fee_state as AdmissionApplicant['fee_state'];

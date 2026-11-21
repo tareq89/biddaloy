@@ -849,6 +849,10 @@ Stacked-PR rules (each one has already cost this repo time):
   rebase-merges, and `--no-ff` merge commits block that.
 - **The user may merge a PR at any time.** `git fetch` and re-check the
   remote tip before every push.
+- **Hand the stack to the watcher.** Once the PRs are open, run `/watch-epic <n>`
+  and stop; do not poll CodeRabbit or re-ask for reviews by hand. It asks
+  CodeRabbit, runs `/pr-fix --unattended` on the lowest PR needing work and
+  restacks the PRs above after each push.
 - After PR N merges to `main`: retarget PR N+1 to `main`, rebase it onto the
   new `main`, push. CodeRabbit then reviews it; fold its findings into a
   step-8 round.

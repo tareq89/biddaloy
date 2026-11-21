@@ -315,18 +315,18 @@
             fail_ctx:
               {
                 step: migrate,
-                next: '{{ dc_hint }} run --rm app node server/dist/scripts/migrate.js pending;
+                next: '{{ dc_hint }} run --rm migrate node server/dist/scripts/migrate.js pending;
                   biddaloy-doctor {{ stack }}',
               }
           when: stack in app_stacks
         - name: Are migrations pending?
-          ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js pending'
+          ansible.builtin.command: '{{ dc }} run --rm migrate node server/dist/scripts/migrate.js pending'
           register: pending
           changed_when: false
           failed_when: pending.rc not in [0, 2]
           when: stack in app_stacks and not ansible_check_mode
         - name: Run migrations
-          ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js run'
+          ansible.builtin.command: '{{ dc }} run --rm migrate node server/dist/scripts/migrate.js run'
           changed_when: true
           when: stack in app_stacks and not ansible_check_mode and pending.rc == 2
 

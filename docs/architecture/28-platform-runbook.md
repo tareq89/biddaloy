@@ -2025,6 +2025,54 @@ edge. Treat part 15 as a plan to confirm in wave 5 ([Known gaps](#known-gaps) #2
 4. A database password also needs `ALTER ROLE` in Postgres before the deploy; per-secret
    steps: [12-operations.md section 8](12-operations.md).
 
+### The app database role (biddaloy_app)
+
+The app connects as `biddaloy_app`, not as the Postgres owner, so the database tenant wall applies
+(Rule 33). The owner login (`POSTGRES_USER`) is still used by everything that changes the schema or
+copies data: migrations (the one-off `migrate` service in `deploy/stack.yml`, owner URL), backup,
+restore drill, staging refresh, demo reset and the other jobs (`x-jobs-env`). **Those jobs are not
+walled**: they run as the owner, with no tenant set. Only the running `app` / `app2` are.
+
+The migration also creates the role (`NOSUPERUSER NOBYPASSRLS`, no password), but a deploy runs the
+migration and then starts the app in one go, with no pause to set a password. So create the role
+**by hand first**; the migration then finds it and leaves it alone.
+
+```mermaid
+flowchart LR
+  A["1. Create role + password<br/>by hand (owner psql)"] --> B["2. Put APP_DB_PASSWORD in sops"]
+  B --> C["3. Deploy: migrate as owner,<br/>then app starts on biddaloy_app"]
+```
+
+Once per environment, before the first deploy of a version that carries migration
+`AppRoleTenantRls1792500000100` (the database service must be up):
+
+```bash
+PW=$(openssl rand -hex 32)          # hex only: it goes into a URL
+export APP_DB_USER=biddaloy_app APP_DB_PASSWORD="$PW"   # Compose refuses any command without both
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+  -c "CREATE ROLE biddaloy_app LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT PASSWORD '$PW'"
+echo "$PW"                          # into the env's sops file: APP_DB_PASSWORD (APP_DB_USER=biddaloy_app)
+```
+
+If the role already exists (an earlier migration ran), use `ALTER ROLE biddaloy_app PASSWORD '$PW'`
+instead. Compose refuses any command (even `run migrate`) while `APP_DB_USER` or `APP_DB_PASSWORD` is unset.
+Add both to the env's sops file and to your local env file (`infra/secrets/<env>.env`, which stays
+untracked), and deploy the sops values first.
+
+Rotate: `ALTER ROLE biddaloy_app PASSWORD '<new>'`, update `APP_DB_PASSWORD` in sops, commit, deploy.
+Production refuses to boot if the app URL is a superuser, a `BYPASSRLS` role or the owner of
+`students`.
+
+**Restores.** A dump carries the policies and grants that name `biddaloy_app` and `report_reader`,
+and roles live in the cluster, not in the dump. Restores into the same cluster (restore drill,
+staging refresh, prod restore, demo swap) work as is. On a **fresh cluster** (new VM, part 13)
+create both roles before restoring, or the restore fails on the first policy:
+
+```bash
+psql -U "$POSTGRES_USER" -d postgres -c "CREATE ROLE report_reader NOLOGIN NOINHERIT NOBYPASSRLS" \
+  -c "CREATE ROLE biddaloy_app LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT PASSWORD '<APP_DB_PASSWORD>'"
+```
+
 ### Lose the operator key (laptop lost)
 
 ```mermaid

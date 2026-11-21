@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 fail() { echo "FAIL: $1" >&2; exit 1; }
 pass() { echo "ok: $1"; }
 
-export APP_VERSION=test POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
+export APP_VERSION=test POSTGRES_USER=x POSTGRES_PASSWORD=x APP_DB_USER=biddaloy_app APP_DB_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
   S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x PG_TLS_DIR=./.pgtls DEMO_PASSWORD=x EDGE_DIR=./.edge \
   LANDING_VERSION=test EDGE_MODE=tunnel OPS_DIR=./.ops APP_DOMAIN=app.example.test ROOT_DOMAIN=example.test \
   BACKUP_AGE_PUBLIC_KEY=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq

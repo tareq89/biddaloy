@@ -558,5 +558,23 @@
   },
   "bulkUpload": {
     "cardNoDuplicate": "Row {{row}}: this card number is already used — use a different number."
+  },
+  "photoConsent": {
+    "label": "Photo consent",
+    "values": {
+      "GIVEN": "Given",
+      "REFUSED": "Refused",
+      "UNKNOWN": "Not recorded"
+    },
+    "filter": "Photo consent",
+    "empty": "Photo consent is on file for everyone",
+    "confirm": {
+      "title": "The photo will be deleted",
+      "body": "The guardian has not given photo consent. If you continue, this student's photo will be deleted.",
+      "confirm": "Delete photo",
+      "cancel": "Cancel"
+    },
+    "uploadError": "The guardian has not given photo consent, so the photo cannot be kept.",
+    "bulkSkipped": "{{count}} students' photos were not kept — no photo consent"
   }
 }

@@ -131,7 +131,7 @@ dc() { docker compose -p staging --project-directory "$STAGE" -f "$(kept_file st
 # psql in the db container over its local socket (no password on a command line).
 psql_in() { local db="$1"; shift; dc exec -T db psql -U "$POSTGRES_USER" -d "$db" -v ON_ERROR_STOP=1 -tAq "$@"; }
 psql_admin() { psql_in postgres -c "$1"; }
-migrate_db() { POSTGRES_DB="$1" dc run --rm -T --no-deps app node server/dist/scripts/migrate.js run; }
+migrate_db() { POSTGRES_DB="$1" dc run --rm -T --no-deps migrate node server/dist/scripts/migrate.js run; }
 flush_redis() { [[ "$(dc exec -T redis redis-cli FLUSHALL)" == OK* ]]; }
 
 active_name() { # dev|staging; a missing or empty file means dev (write-env.yml does the same)
