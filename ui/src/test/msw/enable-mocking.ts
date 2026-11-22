@@ -18,7 +18,7 @@ export async function enableMocking(): Promise<void> {
   }
   const { worker } = await import('./browser');
   await worker.start({
-    onUnhandledRequest: 'error',
+    onUnhandledFrame: 'error',
     // Each client app is served under its own base path (`/admin/`,
     // `/student/`), and the worker script has to be fetched from wherever
     // Vite is actually serving `public/` from — a hardcoded root-relative

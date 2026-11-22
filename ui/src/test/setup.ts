@@ -64,6 +64,6 @@ afterEach(resetSystemPrefersDark);
 // pass-through would let a test hit a real, un-mocked network call and
 // still appear to pass, hanging until timeout instead of failing loudly
 // at the point the gap actually is.
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
