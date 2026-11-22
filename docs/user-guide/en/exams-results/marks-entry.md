@@ -243,7 +243,7 @@ After a marks list is **Submitted**, you can send each guardian an SMS with thei
 
    → **Sent. … SMS are on the way, … credits used.** Each guardian gets one SMS per student, for example: `Rahim Uddin — Half Yearly, Mathematics: 18/25`. An absent student shows **absent** in place of the marks.
 
-**If you open it again after sending:** the page shows **Already sent on …** and **Everyone has already got this. To correct one student, use the single-guardian SMS.** **Send SMS** stays grey because nobody new is left. To correct one student's marks, [send one message](../communications/send-message.md) to that guardian.
+**If you open it again after sending:** when nobody new is left, the page shows **Already sent on …** and **Everyone already has this message queued or sent. To correct one student, use the single-guardian SMS.** **Send SMS** stays grey. If a message failed or a guardian was added after the send, the page shows the number of messages still to send, and **Send SMS** stays available for those recipients only. To correct one student's marks, [send one message](../communications/send-message.md) to that guardian.
 
 If the credit is short you see **Not enough SMS credit. … credits needed, … left.** and nothing is sent.
 
