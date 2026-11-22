@@ -80,22 +80,28 @@ test('send marks SMS from a submitted grid, then it says already sent', async ({
 
   await test.step('the submitted grid offers the marks SMS button', async () => {
     await page.goto(`/marks/${exam.id}/${chain.sectionId}/${subject.id}`);
+    const previewed = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'POST' && /\/marks\/[^/]+\/[^/]+\/sms\/preview$/.test(r.url()),
+    );
     await page.getByRole('button', { name: t('marksSms.button') }).click();
     await expect(page).toHaveURL(
       new RegExp(`/marks/${exam.id}/${chain.sectionId}/${subject.id}/sms$`),
     );
+    // The one marked student has one reachable guardian: the review counts one.
+    expect((await (await previewed).json())).toMatchObject({ count: 1 });
   });
 
   const send = page.getByRole('button', { name: t('marksSms.send'), exact: true });
 
   await test.step('the review finds the one guardian, then Send queues it', async () => {
-    // Wait for the count (the review is a POST), then the button is live.
+    // The preview already ran on load; wait for the button to be live.
     await expect(send).toBeEnabled({ timeout: 15_000 });
     const sent = page.waitForResponse(
       (r) => r.request().method() === 'POST' && /\/marks\/[^/]+\/[^/]+\/sms$/.test(r.url()),
     );
     await send.click();
-    expect((await sent).ok()).toBe(true);
+    expect(await (await sent).json()).toMatchObject({ queued: 1 });
     // The send button is gone once it went out.
     await expect(send).toHaveCount(0);
   });

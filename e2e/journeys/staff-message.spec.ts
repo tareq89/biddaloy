@@ -1,4 +1,4 @@
-import { get, put } from '../api';
+import { get, post, put } from '../api';
 import { newSchool } from '../fixtures/new-school';
 import { expect, guest, test } from '../fixtures/test';
 import { makeT } from '../i18n';
@@ -70,6 +70,70 @@ test('an admin messages staff: sends, then is stopped by a credit shortfall', as
           exact: true,
         }),
       ).toBeDisabled();
+    });
+
+    await test.step('a teacher with a phone: the default All teachers send queues one', async () => {
+      const stamp = Date.now();
+      const teacher = await post<{ user: { id: string } }>(school.api, school.session, '/users', {
+        full_name: `All Teachers Teacher ${stamp}`,
+        phone: `017${String(stamp).slice(-8)}`,
+        role: 'TEACHER',
+        // With a password the account is ACTIVE right away; passwordless mints an
+        // invite instead and an INVITED user is not in the staff audience.
+        password: `E2e-${stamp}-pass`,
+        tenantId: school.session.tenantId,
+      });
+      // "All teachers" means teaching staff: an open designation history row on a
+      // designation marked is_teaching, not just the TEACHER role.
+      const designation = await post<{ id: string }>(school.api, school.session, '/designations', {
+        title_en: 'Class Teacher',
+        is_teaching: true,
+      });
+      await post(
+        school.api,
+        school.session,
+        `/staff-hr-records/${teacher.user.id}/promote`,
+        {
+          designation_id: designation.id,
+          effective_date: new Date().toISOString().slice(0, 10),
+        },
+      );
+      // A different text, so the just-sent duplicate rule never answers instead.
+      await page.goto('/communications/send');
+      await page.getByRole('tab', { name: t('communications.staffMessage.switch.staff') }).click();
+      await expect(
+        page.getByRole('checkbox', { name: t('communications.staffMessage.audience.allTeachers') }),
+      ).toBeChecked();
+      await page
+        .getByRole('textbox', { name: t('communications.staffMessage.message.label') })
+        .fill(`${message} (all teachers)`);
+      const previewed = page.waitForResponse(
+        (r) => r.url().includes('/communications/staff/preview') && r.request().method() === 'POST',
+      );
+      await check.click();
+      await previewed;
+      const send = page.getByRole('button', {
+        name: t('communications.staffMessage.send.action'),
+        exact: true,
+      });
+      await expect(send).toBeEnabled();
+      const sent = page.waitForResponse(
+        (r) =>
+          r.url().includes('/communications/staff') &&
+          r.request().method() === 'POST' &&
+          !r.url().includes('/preview'),
+      );
+      await send.click();
+      await page
+        .getByRole('button', { name: t('communications.staffMessage.send.confirm') })
+        .click();
+      expect(await (await sent).json()).toMatchObject({ queued: 1 });
+      await expect(
+        page.getByRole('heading', { name: t('communications.staffMessage.send.successTitle') }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(t('communications.staffMessage.send.successDescription', { queued: 1 })),
+      ).toBeVisible();
     });
 
     await test.step('the staff-list link picks the admin; check and send by keyboard', async () => {
