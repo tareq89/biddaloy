@@ -101,7 +101,7 @@
     "knip": "^6.45.1",
     "lint-staged": "^17.6.1",
     "open": "^11",
-    "otplib": "12.0.1",
+    "otplib": "13.6.0",
     "prettier": "^3.10.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "puppeteer": "^25.17.0",
