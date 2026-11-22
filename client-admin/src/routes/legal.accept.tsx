@@ -10,7 +10,7 @@ import { LegalDocumentsDialog } from '../features/legal/legal-documents-dialog';
 import { legalStatusQuery, useAcceptLegal } from '../features/legal/use-legal-status';
 import { isSameAppRedirect } from '../same-app-redirect';
 
-// ponytail: in-folder bn/en labels like the legal kit; move to t('legal:...') once 59.2.05 keys land.
+// ponytail: in-folder bn/en labels like the legal kit; move to legal-namespace keys once 59.2.05 keys land.
 const TEXT = {
   bn: {
     title: 'শর্তাবলি পড়ে সম্মত হন',

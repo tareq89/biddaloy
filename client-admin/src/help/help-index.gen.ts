@@ -4419,7 +4419,10 @@ export const HELP_INDEX: HelpIndex = {
     field: { ns: 'auth', key: 'identifier' },
   },
   'start.phone': {
-    title: { bn: 'ফোনে খোলা ও অ্যাপ হিসেবে ইনস্টল', en: 'Open on your phone and install as an app' },
+    title: {
+      bn: 'ফোনে খোলা ও অ্যাপ হিসেবে ইনস্টল',
+      en: 'Open on your phone and install as an app',
+    },
     summary: {
       bn: 'ফোনের Chrome বা Safari-তে স্কুলের ঠিকানা খুলুন, আর হোম স্ক্রিনে SchoolManager রাখুন, যাতে এক চাপে খোলে।',
       en: "Open the school's address in Chrome or Safari on your phone, and keep SchoolManager on your home screen so it opens in one tap.",
@@ -4429,7 +4432,10 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'start.phone.action.install': {
-    title: { bn: 'ফোনে খোলা ও অ্যাপ হিসেবে ইনস্টল', en: 'Open on your phone and install as an app' },
+    title: {
+      bn: 'ফোনে খোলা ও অ্যাপ হিসেবে ইনস্টল',
+      en: 'Open on your phone and install as an app',
+    },
     summary: {
       bn: 'ফোনের Chrome বা Safari-তে স্কুলের ঠিকানা খুলুন, আর হোম স্ক্রিনে SchoolManager রাখুন, যাতে এক চাপে খোলে।',
       en: "Open the school's address in Chrome or Safari on your phone, and keep SchoolManager on your home screen so it opens in one tap.",
@@ -4562,7 +4568,10 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'admin.createSchool': {
-    title: { bn: 'স্কুল তৈরি করা ও সেটআপ উইজার্ড', en: 'Creating your school and the setup wizard' },
+    title: {
+      bn: 'স্কুল তৈরি করা ও সেটআপ উইজার্ড',
+      en: 'Creating your school and the setup wizard',
+    },
     summary: {
       bn: 'নিজের স্কুল খুলুন, ফোন যাচাই করুন, তারপর সেটআপ উইজার্ডে স্কুলের প্রথম সাজানো শেষ করুন।',
       en: 'Open your own school, verify your phone, then finish the first setup of your school in the setup wizard.',
@@ -4572,7 +4581,10 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'admin.createSchool.action.continue': {
-    title: { bn: 'স্কুল তৈরি করা ও সেটআপ উইজার্ড', en: 'Creating your school and the setup wizard' },
+    title: {
+      bn: 'স্কুল তৈরি করা ও সেটআপ উইজার্ড',
+      en: 'Creating your school and the setup wizard',
+    },
     summary: {
       bn: 'নিজের স্কুল খুলুন, ফোন যাচাই করুন, তারপর সেটআপ উইজার্ডে স্কুলের প্রথম সাজানো শেষ করুন।',
       en: 'Open your own school, verify your phone, then finish the first setup of your school in the setup wizard.',
@@ -4582,7 +4594,10 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'admin.createSchool.action.verify': {
-    title: { bn: 'স্কুল তৈরি করা ও সেটআপ উইজার্ড', en: 'Creating your school and the setup wizard' },
+    title: {
+      bn: 'স্কুল তৈরি করা ও সেটআপ উইজার্ড',
+      en: 'Creating your school and the setup wizard',
+    },
     summary: {
       bn: 'নিজের স্কুল খুলুন, ফোন যাচাই করুন, তারপর সেটআপ উইজার্ডে স্কুলের প্রথম সাজানো শেষ করুন।',
       en: 'Open your own school, verify your phone, then finish the first setup of your school in the setup wizard.',

@@ -7,7 +7,7 @@ import * as React from 'react';
 import { getLegalDoc, type LegalLang } from '../features/legal/legal-docs';
 import { LegalMarkdown } from '../features/legal/legal-markdown';
 
-// ponytail: in-folder bn/en labels like the legal kit; move to t('legal:...') once 59.2.05 keys land.
+// ponytail: in-folder bn/en labels like the legal kit; move to legal-namespace keys once 59.2.05 keys land.
 const TITLES: Record<LegalLang, Record<LegalDocument, string>> = {
   bn: {
     [LegalDocument.TERMS]: 'শর্তাবলি',
