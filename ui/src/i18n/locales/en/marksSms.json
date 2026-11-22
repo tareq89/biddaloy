@@ -16,7 +16,7 @@
   "send": "Send SMS",
   "sent": "Sent. {{count}} SMS are on the way, {{credits}} credits used.",
   "alreadySent": "Already sent on {{date}}",
-  "alreadySentNote": "Everyone has already got this. To correct one student, use the single-guardian SMS.",
+  "alreadySentNote": "Everyone already has this message queued or sent. To correct one student, use the single-guardian SMS.",
   "errors": {
     "previewFailed": "Could not check right now. Try again.",
     "sendFailed": "Could not confirm the SMS went out. Check the message log before sending again.",
