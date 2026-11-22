@@ -59,6 +59,7 @@ import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
 import bnLeave from '../ui/src/i18n/locales/bn/leave.json';
 import bnMarksImport from '../ui/src/i18n/locales/bn/marksImport.json';
+import bnMarksSms from '../ui/src/i18n/locales/bn/marksSms.json';
 import bnMyClass from '../ui/src/i18n/locales/bn/myClass.json';
 import bnCoordination from '../ui/src/i18n/locales/bn/coordination.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
@@ -145,6 +146,7 @@ import enGrading from '../ui/src/i18n/locales/en/grading.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enHomework from '../ui/src/i18n/locales/en/homework.json';
 import enMarksImport from '../ui/src/i18n/locales/en/marksImport.json';
+import enMarksSms from '../ui/src/i18n/locales/en/marksSms.json';
 import enLeave from '../ui/src/i18n/locales/en/leave.json';
 import enMyClass from '../ui/src/i18n/locales/en/myClass.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
@@ -258,6 +260,7 @@ const catalogs = {
     guardians: bnGuardians,
     homework: bnHomework,
     marksImport: bnMarksImport,
+    marksSms: bnMarksSms,
     applicationForms: bnApplicationForms,
     applications: bnApplications,
     applicationsDetail: bnApplicationsDetail,
@@ -356,6 +359,7 @@ const catalogs = {
     guardians: enGuardians,
     homework: enHomework,
     marksImport: enMarksImport,
+    marksSms: enMarksSms,
     applicationForms: enApplicationForms,
     applications: enApplications,
     applicationsDetail: enApplicationsDetail,

@@ -245,6 +245,16 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/communications/send' }),
   },
   {
+    id: 'staff-message.send',
+    module: ModuleKey.messaging,
+    label: { en: 'Message staff', bn: 'কর্মীদের বার্তা পাঠান' },
+    permission: Permission.STAFF_MESSAGE_SEND,
+    kind: 'navigate',
+    group: 'communications',
+    // Also reached with `?people=<id>,<id>` from the staff list (prefills "Pick people").
+    run: (ctx) => ctx.navigate({ to: '/communications/staff-message' }),
+  },
+  {
     id: 'attention.send',
     label: { en: 'Send an alert', bn: 'সতর্কতা পাঠান' },
     permission: Permission.ALERT_SEND,
@@ -687,6 +697,26 @@ export const ACTIONS: readonly PaletteAction[] = [
         to:
           examId && sectionId && subjectId
             ? `/marks/${examId}/${sectionId}/${subjectId}/import`
+            : '/marks',
+      });
+    },
+  },
+  // [80.3.03] D3: marks SMS for one grid. Off a grid it falls back to the marks list.
+  {
+    id: 'marks-sms.send',
+    module: ModuleKey.exams,
+    label: { en: 'Send marks SMS', bn: 'নম্বরের এসএমএস পাঠান' },
+    synonyms: ['marks sms', 'sms guardians marks', 'নম্বর এসএমএস'],
+    permission: Permission.MARKS_SMS_SEND,
+    kind: 'navigate',
+    context: ['exam'],
+    group: 'examsResults',
+    run: (ctx) => {
+      const { examId, sectionId, subjectId } = ctx.params ?? {};
+      ctx.navigate({
+        to:
+          examId && sectionId && subjectId
+            ? `/marks/${examId}/${sectionId}/${subjectId}/sms`
             : '/marks',
       });
     },

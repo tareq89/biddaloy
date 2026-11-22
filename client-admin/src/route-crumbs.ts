@@ -318,6 +318,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'edit' } },
   ],
   '/_staff/communications/send': [{ label: { key: 'sendMessage' } }],
+  '/_staff/communications/staff-message': [
+    { label: { key: 'sendMessage' } },
+    { label: { key: 'staff' } },
+  ],
   '/_staff/communications/send-alert': [{ label: { key: 'sendAlert' } }],
   '/_staff/reports/alerts': [{ label: { key: 'alertsReport' } }],
   '/_staff/communications/reminders': [{ label: { key: 'feeReminders' } }],
@@ -394,6 +398,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/marks/$examId/$sectionId/$subjectId_/import': [
     { label: { key: 'marksEntry' } },
     { label: { key: 'marksEntryGrid' } },
+  ],
+  // [80.3.03] Exams & Results › Marks entry › Marks SMS.
+  '/_staff/marks/$examId/$sectionId/$subjectId_/sms': [
+    { label: { key: 'marksEntry' } },
+    { label: { key: 'marksSms' } },
   ],
   '/_staff/results/$examId/$studentId': [
     { label: { key: 'results' } },

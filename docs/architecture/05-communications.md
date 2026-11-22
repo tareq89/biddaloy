@@ -69,13 +69,15 @@ shipped instead:
   one `CommunicationLog` row per recipient as each send completes —
   `GET communications/reminder/bulk/:id` polls that batch's status.
 
-## Free-form send: guardians only
+## Free-form send: one guardian at a time
 
 `POST communications/send` does not take a phone number or email. The
 caller sends a `guardian_id`; the server loads that guardian (404 if it is
 another school's) and reads the address from the guardian's own record.
 Only ADMIN, ACCOUNTANT and OFFICE_STAFF hold `COMMUNICATION_SEND`; teachers
 do not.
+
+Staff and marks messages use their own routes, see [Staff messages and marks SMS](#staff-messages-and-marks-sms-epic-80).
 
 ```mermaid
 flowchart LR
@@ -968,3 +970,139 @@ The screen turns it into: "You can send 12 more today. You are trying to send 30
 - `check-api-types` was clean after `yarn api:types`; the wave's DTOs were already committed in #4254 and #4255.
 - Not done here by design: the Playwright spec `e2e/communications-daily-limit.spec.ts` (file cap on the closing branch) and a Bangla runbook copy.
 - The Redis key uses the lowercase channel and an Asia/Dhaka date; the first runbook draft had `SMS` and "school time zone", which would have made the emergency `DEL` do nothing. Rule candidate: a runbook command is copied from the code's key builder, never typed from memory.
+## Staff messages (Epic 80, Wave 1)
+## Staff messages and marks SMS (Epic 80)
+
+Two routes send in bulk without a `guardian_id` in the body. Both reuse the same parts as
+`POST communications/reminder/bulk`: a `reminder_batches` row, one `communication_logs` row per
+person, the `batch:<id>` credit reserve, and the `COMMUNICATIONS_QUEUE`.
+
+```mermaid
+flowchart TD
+  A["preview: who, segments, credits, skipped (writes nothing)"] --> B[send]
+  B --> C{"who is allowed?"}
+  C -- no --> X403[403]
+  C -- yes --> D["resolve people (staff audience or marks grid)"]
+  D --> E{"same sender + text + audience in last 60 s?"}
+  E -- yes --> X409[409 duplicate]
+  E -- no --> F["batch header, filters_applied.kind"]
+  F --> G{"school metered?"}
+  G -- yes --> H["reserve credits as batch:id"]
+  H -- refused --> R["delete batch, 409 INSUFFICIENT_SMS_CREDIT"]
+  H -- ok --> I
+  G -- no --> I["one log per person, queue one job each"]
+```
+
+### The two routes
+
+|                        | Staff message                                                    | Marks SMS                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Routes                 | `POST communications/staff/preview`, `POST communications/staff` | `POST exams/:examId/marks/:sectionId/:subjectId/sms/preview`, `POST .../sms`                                    |
+| Who gets it            | staff with a phone (`recipient_user_id`)                         | each reachable guardian of each student in one SUBMITTED grid                                                   |
+| Who may send           | see below                                                        | `MARKS_SMS_SEND`: ADMIN, TEACHER, EXAM_CONTROLLER (a teacher only for their own grid)                           |
+| `filters_applied.kind` | `STAFF_MESSAGE`                                                  | `MARKS_SMS` (no `kind` column, D31)                                                                             |
+| Log `trigger`          | `STAFF_MESSAGE`                                                  | `MARKS_SMS`                                                                                                     |
+| Repeat guard           | 60-second hash of sender + text + audience (D32), 409            | `reference_key = marks-sms:<gridId>:<studentId>:<guardianId>` per message (D30), already-sent pairs are skipped |
+| Text                   | typed by the sender, sent as typed                               | built by `buildMarksBody`: `Rina Akter — Half-Yearly, Math: 18/25`                                              |
+
+Example, staff message to all teachers:
+
+```http
+POST /api/v1/communications/staff
+{ "medium": "SMS", "message": "Meeting at 2pm.", "audience": { "roles": ["TEACHER"] } }
+
+200 { "batch_id": "…", "total_recipients": 14, "queued": 14, "failed": 0,
+      "skipped": [ { "user_id": "…", "reason": "no_phone" } ] }
+```
+
+The preview takes the same body and returns `people`, `with_phone`, `skipped`,
+`segments_each`, `credits_needed`, `balance` (null if the school is not metered) and `shortfall`.
+An audience is the union of `roles`, `designationIds`, `teaching` and `userIds` (D18).
+
+### Who may send a staff message (D2, D25)
+
+`PermissionsGuard` needs every listed permission, so "A or B" cannot go in
+`@RequirePermissions`. The staff routes use `@AuthenticatedOnly()` and `@Roles(ADMIN, EXECUTIVE, TEACHER)`.
+`StaffMessagesService.callerScope` then decides:
+
+```mermaid
+flowchart LR
+  R[role] --> S{"has STAFF_MESSAGE_SEND?"}
+  S -- yes --> School["school: any audience (ADMIN, EXECUTIVE)"]
+  S -- no --> C{"has STAFF_MESSAGE_COORDINATED?"}
+  C -- yes --> Co["coordinated: only teachers of the caller's coordinated classes (TEACHER)"]
+  C -- no --> F[403]
+```
+
+A coordinator whose audience resolves to nobody gets 400 `No staff to message in your classes.`
+Every failure is one fixed sentence; none repeats a name, id, phone or the typed text (Rule 23).
+Marks SMS does the opposite: `@RequirePermissions(MARKS_SMS_SEND)` is the coarse gate and
+`MarksAuthorizationService.assertCanWrite` is the object-level one (a teacher outside the grid
+gets the section 404 first, so existence never leaks).
+
+### Where users find it
+
+- Staff list row menu, "Message staff" (needs `STAFF_MESSAGE_SEND`) and the page
+  `/communications/staff-message`; palette action `staff-message.send`.
+- Coordinator "Notify teachers" dialog, with "Send as SMS" (`/my-coordination?then=notify`).
+- Marks SMS: server routes are live; the screen entry is a later Wave-4 ticket.
+
+### Learning (2026-11-16)
+
+- **Surprise:** `sendBulk` (`reminders.service.ts`) put SMS `segments` on every queued job, even for
+  a school that is not metered, so the worker had nothing to settle against. **Fixed in #4346**
+  (verified on this branch before that fix: the job data is built from the medium alone, while the
+  reserve is gated by `isMetered`). The staff and marks routes already do it right: segments go on
+  the job only when the school is metered. **Rule candidate:** any send path asks `isMetered`
+  before it puts segments on a job.
+- **Surprise:** `PermissionsGuard` is all-of (403 if the role lacks any listed permission), so an
+  any-of rule cannot sit in `@RequirePermissions`. **Fix:** `@Roles` + `@AuthenticatedOnly` +
+  `callerScope`. **Rule candidate:** an any-of rule lives in the service, with a test per role.
+- **Surprise:** `route-status.snapshot.txt` has a `#` header but no per-line comment syntax, so a
+  changed line cannot be explained inside it. **Fix:** server/CLAUDE.md already asks for each
+  changed line to be listed in the PR body. **Rule candidate:** none needed.
+- **Surprise:** a slice-only seed spec has no staff users, so the staff batches silently seeded
+  nothing. **Fix:** the spec runs the `staff` slice first and asserts at least 3 batches.
+  **Rule candidate:** a seed that depends on another slice's rows has a test that fails when they
+  are missing.
+
+- **Surprise (2026-11-16, wave-2 close):** a school registered over the API has exactly one staff
+  member, the admin, with a phone, and no teaching designation. "All teachers" therefore finds
+  nobody there, and the `?people=<id>` link is the shortest way to a known recipient. **Fix:**
+  `e2e/journeys/staff-message.spec.ts` uses a fresh school, checks the empty case from the default
+  audience, then sends through the link. **Rule candidate:** a journey that needs a recipient
+  names the person (link or picker), never "everyone".
+- **Surprise:** the committed `ui/src/api/schema.d.ts` was missing the two marks SMS routes (the
+  routes landed without a regeneration). **Fix:** regenerated here, `check-api-types` is green.
+  **Rule candidate:** none, the parent regenerates once at integration.
+- **Not verified:** the journey was written and type-checked without the stack (no Docker in this
+  lane); it has not run. The integration run (`ci:local`) is the parent's.
+
+- **Surprise (2026-11-16, wave-3 close):** picking "the first SUBMITTED grid" for a seed batch gave
+  grids whose students had no marks in that section (an older exam, or a section nobody sat), so
+  the batch had no recipients and the spec failed with 0 batches. **Fix:** the grid query asks for
+  the same rows the people query joins (active students of that section, a component, a guardian
+  with a phone). **Rule candidate:** a seed that picks a parent row must filter on the child
+  rows it will use.
+- **Surprise:** a Teacher cannot open a marks list without a subject-teacher assignment, and no e2e
+  helper creates one, so `e2e/journeys/marks-sms.spec.ts` signs in as the admin (who holds the
+  permission for every grid). The teacher path stays covered by the server and web unit tests.
+  **Rule candidate:** add a `assignSubjectTeacher` e2e helper when a second journey needs it.
+
+- **Epic-level learning (2026-11-16, #4349):**
+  - **Surprise:** the route manifest (`e2e/route-manifest.json`) drift guard was already red on the
+    epic branch: the staff-message and marks SMS routes were never added, and `guide:gen` was stale.
+    **Cost:** a red `route-manifest` unit test and `guide-gen` test discovered only at the close.
+    **Fix:** manifest entries and a regeneration in the guide ticket. **Rule candidate:** a ticket
+    that adds a route lists `e2e/route-manifest.json` in its `## Files`.
+  - **Surprise:** `guide:impact` compares the whole epic branch to the base, so an epic that touches
+    `route-permissions.ts` and `permissions.ts` flags dozens of unrelated pages. **Fix:** the epic PR
+    body carries `User guide: not affected: <reason>` for the pages this epic did not change.
+    **Rule candidate:** none; document the PR body line in the epic's close ticket.
+  - **Surprise:** `MarksSmsService.send` let a failed audit write turn an already-queued batch into a
+    500, which would make a teacher send twice. **Fix:** log and continue. **Rule candidate:** any
+    send path writes its audit row after the queue and never lets it fail the response.
+  - **Not verified by a person:** the usability tasks (see `docs/ux-research/epic-80-staff-messaging.md`),
+    and both new journeys, which were written without a running stack.
+
+Demo data: see [22-demo-seed.md](22-demo-seed.md) (`comms-print` slice).

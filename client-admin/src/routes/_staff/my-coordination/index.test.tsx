@@ -175,4 +175,76 @@ describe('/my-coordination', () => {
     await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole('textbox')));
     expect(posted).toBe(false);
   });
+
+  describe('Send as SMS [80.2.03]', () => {
+    const previewBody = {
+      people: 1,
+      with_phone: 1,
+      skipped: [],
+      segments_each: 1,
+      credits_needed: 1,
+      balance: 10,
+      shortfall: 0,
+      whatsapp_template: { name: '', language: '', params: [] },
+    };
+
+    it('previews then sends only the ticked coordinated teachers', async () => {
+      mockOverview([classX]);
+      let sent: unknown;
+      server.use(
+        http.post('/api/v1/communications/staff/preview', () => HttpResponse.json(previewBody)),
+        http.post('/api/v1/communications/staff', async ({ request }) => {
+          sent = await request.json();
+          return HttpResponse.json({
+            batch_id: 'b1',
+            total_recipients: 1,
+            queued: 1,
+            failed: 0,
+            skipped: [],
+          });
+        }),
+      );
+      const user = userEvent.setup();
+      render('/my-coordination?then=notify');
+      const dialog = await screen.findByRole('dialog', { name: 'Notify teachers' });
+      await user.click(within(dialog).getAllByRole('checkbox')[1]!);
+      await user.type(within(dialog).getByRole('textbox'), 'Marks by Thursday.');
+      await user.click(within(dialog).getByRole('button', { name: 'Send as SMS' }));
+      expect(await within(dialog).findByText('Check before sending')).toBeTruthy();
+      await user.click(within(dialog).getByRole('button', { name: 'Send as SMS' }));
+      await waitFor(() =>
+        expect(sent).toEqual({
+          audience: { userIds: ['u-maths'] },
+          message: 'Marks by Thursday.',
+          medium: 'SMS',
+        }),
+      );
+    });
+
+    it('shows a fixed sentence when the server refuses', async () => {
+      mockOverview([classX]);
+      server.use(
+        http.post('/api/v1/communications/staff/preview', () =>
+          HttpResponse.json(
+            apiErrorBody(
+              400,
+              'None of these are in your classes',
+              '/api/v1/communications/staff/preview',
+            ),
+            { status: 400 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      render('/my-coordination?then=notify');
+      const dialog = await screen.findByRole('dialog', { name: 'Notify teachers' });
+      await user.type(within(dialog).getByRole('textbox'), 'Hello');
+      await user.click(within(dialog).getByRole('button', { name: 'Send as SMS' }));
+      expect(
+        await within(dialog).findByText(
+          'You do not coordinate any teachers yet, so there is nobody to message.',
+        ),
+      ).toBeTruthy();
+    });
+  });
 });

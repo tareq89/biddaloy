@@ -5036,6 +5036,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 0,
   },
+  'communications.staffMessage': {
+    title: { bn: 'কর্মীদের বার্তা পাঠান', en: 'Message staff' },
+    summary: {
+      bn: 'শিক্ষক বা অফিস কর্মীদের একটি এসএমএস পাঠান; পাঠানোর আগে দেখে নিন কতজন পাবেন, কারা বাদ পড়বেন আর কত ক্রেডিট লাগবে।',
+      en: 'Send one SMS to your teachers or office staff; see before sending how many people get it, who is left out and how many credits it uses.',
+    },
+    path: 'communications/staff-message',
+    anchor: '',
+    knownIssues: 0,
+  },
   'administration.printDesignerGuide': {
     title: { bn: 'ডিজাইনারের গাইড', en: "Designer's guide" },
     summary: {
@@ -5389,6 +5399,7 @@ export const HELP_ROUTES = {
   '/marks': 'examsResults.marksEntry',
   '/marks/$examId/$sectionId/$subjectId': 'examsResults.marksEntry',
   '/marks/$examId/$sectionId/$subjectId/import': 'examsResults.marksEntry',
+  '/marks/$examId/$sectionId/$subjectId/sms': 'examsResults.marksEntry',
   '/exams/seat-plans': 'examsResults.seatPlans',
   '/exams/seat-plans/$planId': 'examsResults.seatPlans',
   '/grading-scales': 'examsResults.gradingScales',
@@ -5487,6 +5498,7 @@ export const HELP_ROUTES = {
   '/register': 'admin.createSchool',
   '/welcome': 'admin.createSchool',
   '/notifications': 'dashboard.alerts',
+  '/communications/staff-message': 'communications.staffMessage',
   '/sign-in/forgot': 'platformOwner.signIn',
   '/sign-in/reset': 'platformOwner.signIn',
   '/owner-security': 'platformOwner.recoveryCodes',

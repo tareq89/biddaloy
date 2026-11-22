@@ -365,18 +365,13 @@ describe('BulkReminderService', () => {
           message_template: dto.message_template,
         }),
       );
-      // Default recipient is SMS (guardian()'s preferred_communication), so
-      // the job carries both batchId and its own positive segments count.
+      // Default tenant is unmetered, so there is no reservation to settle
+      // and the job carries no segments (else the worker's settlePart throws).
       expect(queue.add).toHaveBeenCalledWith(
         'send',
-        expect.objectContaining({
-          logId: 'log-1',
-          batchId: 'batch-1',
-          segments: expect.any(Number),
-        }),
+        expect.objectContaining({ logId: 'log-1', batchId: 'batch-1' }),
       );
-      const jobData = queue.add.mock.calls[0][1];
-      expect(jobData.segments).toBeGreaterThan(0);
+      expect(queue.add.mock.calls[0][1]).not.toHaveProperty('segments');
       expect(result.total_recipients).toBe(1);
       expect(result.skipped).toEqual([]);
     });
@@ -1012,6 +1007,7 @@ describe('BulkReminderService', () => {
     });
 
     it('each SMS job carries its own segments count and the batchId', async () => {
+      smsCreditService.isMetered.mockResolvedValue(true);
       studentService.findManyWithGuardians.mockResolvedValue([
         student({
           id: 's-1',
@@ -1025,6 +1021,20 @@ describe('BulkReminderService', () => {
         'send',
         expect.objectContaining({ batchId: 'batch-1', segments: expect.any(Number) }),
       );
+    });
+
+    it('an unmetered school SMS job carries no segments', async () => {
+      smsCreditService.isMetered.mockResolvedValue(false);
+      studentService.findManyWithGuardians.mockResolvedValue([
+        student({
+          id: 's-1',
+          guardians: [guardian({ id: 'g-1', preferred_communication: CommunicationMedium.SMS })],
+        }),
+      ]);
+
+      await service.sendBulk(dto as any, TENANT, USER);
+
+      expect(queue.add.mock.calls[0][1]).not.toHaveProperty('segments');
     });
   });
 

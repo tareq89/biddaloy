@@ -46,6 +46,7 @@ export type CommunicationLogMedium = CommunicationMedium | typeof PUSH_MEDIUM;
  *   leave those rows readable by any tenant.
  * - @ManyToOne → Student (optional): the student this message is about
  * - @ManyToOne → Guardian (optional): the guardian who received it
+ * - @ManyToOne → User (recipient_user, optional): the staff member who received it
  * - @ManyToOne → User (sent_by): the staff member who sent it (or null for automated)
  * - @ManyToOne → ReminderBatch (optional): the bulk campaign that produced it
  */
@@ -53,6 +54,7 @@ export type CommunicationLogMedium = CommunicationMedium | typeof PUSH_MEDIUM;
 @Index(['tenant_id'])
 @Index(['reminder_batch_id'])
 @Index(['tenant_id', 'status', 'created_at'])
+@Index(['tenant_id', 'recipient_user_id'])
 export class CommunicationLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -98,6 +100,15 @@ export class CommunicationLog {
 
   @Column({ type: 'uuid', nullable: true })
   guardian_id: string | null;
+
+  // Staff recipient (Epic 80). SET NULL: the log is an audit record and outlives the user, so
+  // Rule 27 needs no delete-guard registry entry.
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'recipient_user_id' })
+  recipient_user: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  recipient_user_id: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'sent_by_user_id' })

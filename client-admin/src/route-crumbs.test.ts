@@ -63,7 +63,8 @@ describe('ROUTE_CRUMBS', () => {
       // Deliberately static: three ids cannot feed one resolver (31.3.5).
       if (
         routeId === '/_staff/marks/$examId/$sectionId/$subjectId' ||
-        routeId === '/_staff/marks/$examId/$sectionId/$subjectId_/import'
+        routeId === '/_staff/marks/$examId/$sectionId/$subjectId_/import' ||
+        routeId === '/_staff/marks/$examId/$sectionId/$subjectId_/sms'
       )
         continue;
 

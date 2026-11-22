@@ -86,6 +86,12 @@ const FIXED: Fixed[] = [
   { id: 'dashboard.widgets', roles: STAFF, routes: [] },
   { id: 'dashboard.customise', roles: STAFF, routes: [] },
   { id: 'dashboard.alerts', roles: STAFF, routes: ['/notifications'] },
+  // [80.5.01] Message staff: no sidebar item (reached from Send Message, the staff list, the palette).
+  {
+    id: 'communications.staffMessage',
+    roles: [UserRole.ADMIN, UserRole.EXECUTIVE],
+    routes: ['/communications/staff-message'],
+  },
   // Child pages of administration/print-templates: pages about a thing, no screen of their own.
   {
     id: 'administration.printDesignerGuide',

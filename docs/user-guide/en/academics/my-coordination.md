@@ -155,6 +155,7 @@ Change the **Date** above the cards. **Today's attendance** then shows that day'
 
 - [**Teacher assignments**](../people/teaching-assignments.md) — who coordinates which class.
 - [**My class**](my-class.md) — the class teacher's own section page.
+- [**Message staff**](../communications/staff-message.md) — an Admin or Academic coordinator messages staff by SMS.
 
 ---
 

@@ -90,6 +90,7 @@
   - [জরিমানা](finance/fines.md)
 - [যোগাযোগ](communications/send-message.md)
   - [বার্তা পাঠান](communications/send-message.md)
+  - [কর্মীদের বার্তা পাঠান](communications/staff-message.md)
   - [সতর্কতা পাঠান](communications/send-alert.md)
   - [নোটিশ দিন ও দেখুন](communications/notices.md)
   - [ফি রিমাইন্ডার](communications/fee-reminders.md)

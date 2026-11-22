@@ -55,6 +55,7 @@ import {
   CircleDashedIcon,
   DownloadIcon,
   LoaderCircleIcon,
+  MessageSquareIcon,
   SendIcon,
   UploadIcon,
 } from 'lucide-react';
@@ -73,7 +74,8 @@ export const Route = createFileRoute('/_staff/marks/$examId/$sectionId/$subjectI
   // depends on `examId`+`sectionId`+`subjectId` together, and this loader
   // has nothing cheaper to prefetch than that same request, so it only
   // needs to warm the i18n namespace before the component renders.
-  loader: () => loadRouteNamespaces('exams', 'grading', 'common', 'academicYears', 'states'),
+  loader: () =>
+    loadRouteNamespaces('exams', 'grading', 'common', 'academicYears', 'states', 'marksSms'),
   pendingComponent: MarksGridPending,
   component: MarksEntryPage,
 });
@@ -108,6 +110,8 @@ function MarksEntryContent() {
   const { t } = useTranslation('exams');
   const { t: tg, i18n } = useTranslation('grading');
   const { t: tCommon } = useTranslation('common');
+  const { t: tSms } = useTranslation('marksSms');
+  const canSendSms = useHasPermission(Permission.MARKS_SMS_SEND);
   const { t: tStates } = useTranslation('states');
   const { t: tYears } = useTranslation('academicYears');
   const config = useRegionConfig();
@@ -350,6 +354,21 @@ function MarksEntryContent() {
               </Button>
               <HelpHint helpId="examsResults.marksEntry.action.downloadSheet" />
             </>
+          )}
+          {submitted && canSendSms && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void navigate({
+                  to: '/marks/$examId/$sectionId/$subjectId/sms',
+                  params: { examId, sectionId, subjectId },
+                })
+              }
+            >
+              <MessageSquareIcon aria-hidden="true" />
+              {tSms('button')}
+            </Button>
           )}
           {canSubmit && (
             <>
