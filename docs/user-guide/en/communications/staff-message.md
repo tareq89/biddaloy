@@ -123,14 +123,14 @@ To message the guardians of a student instead, use [**Send a message**](send-mes
 
    → New choices open: **Role**, **Designation** and **Pick people**. **All teachers** and **All office staff** stay at the top.
 
-2. Tick **All office staff**, or pick one or more in **Role** or **Designation**, or search a name in **Pick people**.
+2. To message only the new group, untick **All teachers** first. Then tick **All office staff**, or pick one or more in **Role** or **Designation**, or search a name in **Pick people**.
 3. Press **Check who gets it** and continue from step 3 above.
 
 Someone who falls in two groups is messaged once. You can message at most 500 people at once; for more, you see **You can message at most 500 people at once. Choose fewer people.** Press **Show fewer choices** to close the extra choices.
 
 ### Send by WhatsApp <a href="#task-whatsapp" id="task-whatsapp"></a>
 
-**Send by** shows **WhatsApp** only if your school has set it up. Everyone gets the same words, taken from a template your school has already got approved. Fill in **Template name**, **Template language** and **Template values (comma separated)**. **What will be delivered** shows the exact words.
+**Send by** shows **WhatsApp** only if your school has set it up. Everyone gets the same words, taken from a template your school has already got approved. Fill in **Template name**, **Template language** and **Template values (comma separated)**. **What will be delivered** shows the template name and the values, not the approved template text.
 
 ### People who are left out <a href="#task-skipped" id="task-skipped"></a>
 
@@ -173,19 +173,19 @@ For the other roles, **Message staff** is not available: the **Staff** tab on **
 
 <!-- guide:generated:fields:communications -->
 
-| Field                     | What to enter                                                                                                                                                                                                                               | Required?         |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Which guardian to send to | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.                                                                                                                                          | Yes               |
-| How to send               | Send message: SMS, WhatsApp or Email; SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. Fee reminder: starts on each guardian’s preferred channel; pick one to send everyone on that channel this time. | No                |
-| Message                   | What to send. For SMS, the characters and the number of SMS it uses show below. In a fee reminder, use the buttons below to put in the name, due amount or month; each guardian gets their real details.                                    | Yes               |
-| Who to remind             | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.                                                                                                                                    | Yes, at least one |
-| Batch name                | A name for this batch; you find it by this name in Reminder history later.                                                                                                                                                                  | Yes               |
-| Channels (bulk reminder)  | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                                                                                                                                                   | Yes, at least one |
-| Status                    | Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.                                                                                                         | No                |
-| Who gets it               | Starts on All teachers. Choose more to pick a role, a designation or named people. Someone in two groups is messaged once.                                                                                                                  | Yes               |
-| Send by                   | SMS uses your school’s SMS credits. WhatsApp needs a template your school has already got approved, and shows only if the school set it up.                                                                                                 | No                |
-| Message                   | What to send. The characters and how many SMS each person uses show below. A credit is one SMS to one person. Staff who have no phone number are left out and listed by name.                                                               | Yes               |
-| WhatsApp template         | Type the approved template’s name, its language and the values. Everyone gets the same words. The preview shows exactly what is delivered.                                                                                                  | No                |
+| Field                     | What to enter                                                                                                                                                                                                                                      | Required?                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Which guardian to send to | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.                                                                                                                                                 | Yes                            |
+| How to send               | Send message: SMS, WhatsApp or Email; SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. Fee reminder: starts on each guardian’s preferred channel; pick one to send everyone on that channel this time.        | No                             |
+| Message                   | What to send. For SMS, the characters and the number of SMS it uses show below. In a fee reminder, use the buttons below to put in the name, due amount or month; each guardian gets their real details.                                           | Yes                            |
+| Who to remind             | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.                                                                                                                                           | Yes, at least one              |
+| Batch name                | A name for this batch; you find it by this name in Reminder history later.                                                                                                                                                                         | Yes                            |
+| Channels (bulk reminder)  | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                                                                                                                                                          | Yes, at least one              |
+| Status                    | Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.                                                                                                                | No                             |
+| Who gets it               | Starts on All teachers when the form opens without preselected staff; opened for one or more staff members, those people stay selected instead. Choose more to pick a role, a designation or named people. Someone in two groups is messaged once. | Yes                            |
+| Send by                   | SMS uses your school’s SMS credits. WhatsApp needs a template your school has already got approved, and shows only if the school set it up.                                                                                                        | No                             |
+| Message                   | What to send. The characters and how many SMS each person uses show below. A credit is one SMS to one person. Staff who have no phone number are left out and listed by name.                                                                      | Yes                            |
+| WhatsApp template         | Type the approved template’s name, its language and the values. Everyone gets the same words. The preview shows the template name and the values, not the approved template text.                                                                  | Yes, once WhatsApp is selected |
 
 <!-- /guide:generated -->
 

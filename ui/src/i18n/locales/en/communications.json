@@ -294,10 +294,10 @@
     "bulkBatchName": "A name for this batch; you find it by this name in Reminder history later.",
     "bulkMediums": "A guardian whose preferred channel is not ticked here is skipped. All three start ticked.",
     "status": "Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.",
-    "staffAudience": "Starts on All teachers. Choose more to pick a role, a designation or named people. Someone in two groups is messaged once.",
+    "staffAudience": "Starts on All teachers when the form opens without preselected staff; opened for one or more staff members, those people stay selected instead. Choose more to pick a role, a designation or named people. Someone in two groups is messaged once.",
     "staffMedium": "SMS uses your school’s SMS credits. WhatsApp needs a template your school has already got approved, and shows only if the school set it up.",
     "staffMessage": "What to send. The characters and how many SMS each person uses show below. A credit is one SMS to one person. Staff who have no phone number are left out and listed by name.",
-    "staffTemplate": "Type the approved template’s name, its language and the values. Everyone gets the same words. The preview shows exactly what is delivered."
+    "staffTemplate": "Type the approved template’s name, its language and the values. Everyone gets the same words. The preview shows the template name and the values, not the approved template text."
   },
   "helpRequired": {
     "guardian": "Yes",
@@ -306,7 +306,8 @@
     "bulkBatchName": "Yes",
     "bulkMediums": "Yes, at least one",
     "staffAudience": "Yes",
-    "staffMessage": "Yes"
+    "staffMessage": "Yes",
+    "staffTemplate": "Yes, once WhatsApp is selected"
   },
   "messageLog": {
     "title": "Message log",
