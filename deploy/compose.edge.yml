@@ -83,7 +83,7 @@ services:
   # dir and is pointed at /beszel_socket/beszel.sock ("Add system").
   beszel-agent:
     logging: *logging
-    image: henrygd/beszel-agent:0.21.0@sha256:f27b1aa2c68404bc5b9e1a2ab36653bd9b4ee14f6299862f09cd5051a4134767
+    image: henrygd/beszel-agent:0.21.2@sha256:343254226ae57a5cc6f8c23c755b1464730aba2abc7043116a2e222711ec6e1a
     restart: unless-stopped
     network_mode: host
     environment:

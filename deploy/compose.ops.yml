@@ -15,7 +15,7 @@ x-logging: &logging
 services:
   beszel:
     logging: *logging
-    image: henrygd/beszel:0.21.0@sha256:6b39a8b64f9b15d00a25e7683e31a93c46161182a54f62713525107064e10599
+    image: henrygd/beszel:0.21.2@sha256:b0be90bd4aee2993fde763032a5098ce4386fba43cfe5031ec017b8d9e8c97a2
     restart: unless-stopped
     volumes:
       - beszel_data:/beszel_data
@@ -41,7 +41,7 @@ services:
 
   dozzle:
     logging: *logging
-    image: amir20/dozzle:v11.3.3@sha256:6d9e194587c20660f73967ee8567ce8e2e9e2e17046b0c95586a37a970b1d5ed
+    image: amir20/dozzle:v11.4.3@sha256:244f218c876d6ed766277e71a537f34bfb2c01829e1927737e3673a8327deeb8
     restart: unless-stopped
     environment:
       DOZZLE_NO_ANALYTICS: 'true'
