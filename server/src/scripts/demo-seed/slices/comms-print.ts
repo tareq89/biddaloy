@@ -6,6 +6,7 @@ import {
   countSmsSegments,
   DocumentKind,
   KIND_CONTEXT,
+  MarkStatus,
   ReminderBatchStatus,
 } from '@biddaloy/shared';
 import type { DemoSeedContext, DemoSlice } from '../context';
@@ -20,6 +21,7 @@ import { SmsCreditBalance } from '../../../modules/communications/credits/entiti
 import { PrintTemplatesService } from '../../../modules/print/templates/print-templates.service';
 import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
 import { buildMarksBody } from '../../../modules/exams/marks-sms.service';
+import { computeSubjectTotal } from '../../../modules/exams/result-rules';
 import { formatArrivalTime } from '../../../modules/attendance/arrival-notice.service';
 import { buildEncryptionKey } from '../../../modules/schools/settings/encryption-key';
 import { EncryptionService } from '../../../modules/schools/settings/encryption.service';
@@ -739,40 +741,97 @@ async function marksSmsBatches(
                         JOIN guardians gd ON gd.id = sg.guardian_id
                          AND NULLIF(btrim(gd.phone), '') IS NOT NULL
                        WHERE m.exam_id = g.exam_id AND m.subject_id = g.subject_id
-                         AND m.tenant_id = $1 AND m.value IS NOT NULL)
+                         AND m.tenant_id = $1)
         ORDER BY e.name, sub.name_en, g.section_id LIMIT 2`,
       [tenant.id],
     );
     const logs: Record<string, unknown>[] = [];
     const debits: { id: string; at: Date; units: number }[] = [];
     for (const [n, grid] of grids.entries()) {
-      const people: {
+      const markRows: {
         student_id: string;
         name: string;
-        obtained: string;
-        full_marks: string;
+        component_full_marks: string;
+        component_value: string | null;
+        component_status: MarkStatus;
+        component_pass_marks: string | null;
         guardian_id: string;
         guardian: string;
         phone: string;
+        is_primary_contact: boolean;
+        notifications_enabled: boolean;
       }[] = await ctx.ds.query(
         `SELECT st.id AS student_id, COALESCE(st.full_name_bn, st.full_name) AS name,
-                t.obtained, t.full_marks, g.id AS guardian_id, g.full_name AS guardian, g.phone
-           FROM (SELECT m.student_id, sum(m.value) AS obtained, sum(c.full_marks) AS full_marks
-                   FROM marks m JOIN exam_components c ON c.id = m.component_id AND c.deleted_at IS NULL
-                  WHERE m.tenant_id = $1 AND m.exam_id = $2 AND m.subject_id = $3 AND m.value IS NOT NULL
-                  GROUP BY m.student_id) t
-           JOIN students st ON st.id = t.student_id AND st.class_section_id = $4
+                c.full_marks AS component_full_marks, m.value AS component_value,
+                m.status AS component_status, c.pass_marks AS component_pass_marks,
+                g.id AS guardian_id, g.full_name AS guardian, g.phone,
+                g.is_primary_contact, g.notifications_enabled
+           FROM marks m
+           JOIN exam_components c ON c.id = m.component_id AND c.deleted_at IS NULL
+           JOIN students st ON st.id = m.student_id AND st.class_section_id = $4
                 AND st.enrollment_status = 'ACTIVE' AND st.deleted_at IS NULL
            JOIN student_guardians sg ON sg.student_id = st.id
            JOIN guardians g ON g.id = sg.guardian_id AND NULLIF(btrim(g.phone), '') IS NOT NULL
+          WHERE m.tenant_id = $1 AND m.exam_id = $2 AND m.subject_id = $3
           ORDER BY st.id, g.id`,
         [tenant.id, grid.exam_id, grid.subject_id, grid.section_id],
       );
+      // Same shape `MarksSmsService` produces: one recipient per guardian the
+      // reminder-audience rules select, with the subject total from the
+      // component rows (an ABSENT component keeps the subject absent).
+      const people: {
+        student_id: string;
+        name: string;
+        obtained: number;
+        full_marks: number;
+        is_absent: boolean;
+        component_failed: boolean;
+        guardian_id: string;
+        guardian: string;
+        phone: string;
+      }[] = [];
+      const byStudent = new Map<string, typeof markRows>();
+      for (const r of markRows) {
+        const list = byStudent.get(r.student_id);
+        if (list) list.push(r);
+        else byStudent.set(r.student_id, [r]);
+      }
+      for (const rowsOfStudent of byStudent.values()) {
+        const total = computeSubjectTotal(
+          rowsOfStudent.map((r) => ({
+            full_marks: Number(r.component_full_marks),
+            value: r.component_value === null ? null : Number(r.component_value),
+            status: r.component_status,
+            pass_marks: r.component_pass_marks === null ? null : Number(r.component_pass_marks),
+          })),
+        );
+        // The service plans no message for a student with no counted marks
+        // (all-EXEMPT), same "no marks" reason as an empty component list.
+        if (!total.is_absent && total.full_marks === 0) continue;
+        const reachable = rowsOfStudent.filter((r) => r.notifications_enabled);
+        if (!reachable.length) continue;
+        // `selectReminderGuardians` over the reachable guardians: primaries
+        // when the student has any, everyone linked otherwise.
+        const primary = reachable.filter((r) => r.is_primary_contact);
+        for (const g of primary.length > 0 ? primary : reachable) {
+          people.push({
+            student_id: g.student_id,
+            name: g.name,
+            obtained: total.obtained,
+            full_marks: total.full_marks,
+            is_absent: total.is_absent,
+            component_failed: total.component_failed,
+            guardian_id: g.guardian_id,
+            guardian: g.guardian,
+            phone: g.phone,
+          });
+        }
+      }
       if (!people.length) continue;
       const when = at(addDays(ctx.anchor, -3 - n), 11);
       const batchId = stableId(`${tenant.slug}:marks-sms-batch:${n}`);
-      // The first batch is clean; the second has every fourth message FAILED.
-      const isBad = (i: number) => n === 1 && i % 4 === 3;
+      // The first batch is clean; the second has every other message FAILED.
+      const isBad = (i: number) => n === 1 && i % 2 === 1;
       const failed = people.filter((_, i) => isBad(i)).length;
       await ctx.ds.getRepository(ReminderBatch).insert({
         id: batchId,
@@ -798,10 +857,10 @@ async function marksSmsBatches(
           exam: grid.exam,
           subject: grid.subject,
           total: {
-            obtained: Number(p.obtained),
-            full_marks: Number(p.full_marks),
-            is_absent: false,
-            component_failed: false,
+            obtained: p.obtained,
+            full_marks: p.full_marks,
+            is_absent: p.is_absent,
+            component_failed: p.component_failed,
           },
         });
         const key = `marks-sms:${grid.id}:${p.student_id}:${p.guardian_id}`;
