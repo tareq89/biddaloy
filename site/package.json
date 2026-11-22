@@ -11,10 +11,10 @@
     "e2e": "playwright test -c playwright.config.ts"
   },
   "dependencies": {
-    "@astrojs/node": "^11.1.13",
+    "@astrojs/node": "^11.1.14",
     "@biddaloy/shared": "*",
     "@biddaloy/site-themes": "*",
-    "astro": "^7.4.12",
+    "astro": "^7.4.13",
     "cookie": "^2.0.1",
     "send": "^1.2.1",
     "sharp": "^0.35.5"
