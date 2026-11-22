@@ -3,7 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, UserStatus } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
@@ -24,7 +24,6 @@ import { MfaService } from '../mfa/mfa.service';
 describe('Cockpit MFA routes E2E', () => {
   const COCKPIT = '/api/v1/auth/cockpit';
   const PASSWORD = 'Owner-pass-12345';
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
   let app: INestApplication;
   let ds: DataSource;
   let baseUrl = '';
@@ -55,7 +54,7 @@ describe('Cockpit MFA routes E2E', () => {
     const login = await http().post(`${COCKPIT}/login`).send({ email, password: PASSWORD });
     const mfa = await http()
       .post(`${COCKPIT}/mfa`)
-      .send({ mfaToken: login.body.mfaToken, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ mfaToken: login.body.mfaToken, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     const done = await http()
       .post(`${COCKPIT}/device-otp`)
@@ -75,7 +74,7 @@ describe('Cockpit MFA routes E2E', () => {
       .set(o.auth)
       .send({
         scope: ApprovalScope.PLATFORM_RECOVERY_CODES,
-        code: totp.generate(DEV_COCKPIT_TOTP_SECRET),
+        code: totpNow(DEV_COCKPIT_TOTP_SECRET),
       })
       .expect(200);
     return res.body.approval_token;
@@ -156,7 +155,7 @@ describe('Cockpit MFA routes E2E', () => {
       .set(o.auth)
       .send({
         scope: ApprovalScope.PLATFORM_OWNER_LOCK,
-        code: totp.generate(DEV_COCKPIT_TOTP_SECRET),
+        code: totpNow(DEV_COCKPIT_TOTP_SECRET),
       })
       .expect(200);
     await http()

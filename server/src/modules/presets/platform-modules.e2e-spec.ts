@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, ModuleKey } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
@@ -36,7 +36,6 @@ describe('[77.6.01] platform modules E2E', () => {
 
   const decodeSub = (jwt: string) =>
     JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString()).sub as string;
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
   const http = () => supertest(app.getHttpServer());
 
   async function approval(): Promise<string> {
@@ -47,7 +46,7 @@ describe('[77.6.01] platform modules E2E', () => {
       .set(owner())
       .send({
         scope: ApprovalScope.PLATFORM_SCHOOL_CONTROL,
-        code: totp.generate(DEV_COCKPIT_TOTP_SECRET),
+        code: totpNow(DEV_COCKPIT_TOTP_SECRET),
       })
       .expect(200);
     return res.body.approval_token;

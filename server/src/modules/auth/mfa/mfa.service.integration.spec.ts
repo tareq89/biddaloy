@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { randomBytes } from 'crypto';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
-import { authenticator } from 'otplib';
+import { totpNow, totpSecret } from '@test/helpers/totp';
 import { UserStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -11,7 +11,7 @@ import { EncryptionService } from '../../schools/settings/encryption.service';
 import { User } from '../../users/entities/user.entity';
 
 const NOW = 1_700_000_000_000;
-const codeAt = (secret: string, ms: number) => authenticator.clone({ epoch: ms }).generate(secret);
+const codeAt = (secret: string, ms: number) => totpNow(secret, ms);
 
 describe('MfaService (integration)', () => {
   let module: TestingModule;
@@ -157,7 +157,7 @@ describe('MfaService (integration)', () => {
 
   it('enrolWithKnownSecret confirms enrolment with no recovery codes', async () => {
     process.env.NODE_ENV = 'test';
-    const secret = authenticator.generateSecret();
+    const secret = totpSecret();
     await service.enrolWithKnownSecret(userId, secret);
     expect(await service.status(userId)).toEqual({ enrolled: true, recoveryRemaining: 0 });
     expect(await service.verifyCode(userId, codeAt(secret, NOW), NOW)).toBe(true);
@@ -166,13 +166,11 @@ describe('MfaService (integration)', () => {
   it('enrolWithKnownSecret throws in production unless ENV_NAME is staging', async () => {
     process.env.NODE_ENV = 'production';
     process.env.ENV_NAME = 'production';
-    await expect(
-      service.enrolWithKnownSecret(userId, authenticator.generateSecret()),
-    ).rejects.toThrow();
+    await expect(service.enrolWithKnownSecret(userId, totpSecret())).rejects.toThrow();
     expect((await service.status(userId)).enrolled).toBe(false);
 
     process.env.ENV_NAME = 'staging';
-    await service.enrolWithKnownSecret(userId, authenticator.generateSecret());
+    await service.enrolWithKnownSecret(userId, totpSecret());
     expect((await service.status(userId)).enrolled).toBe(true);
   });
 });

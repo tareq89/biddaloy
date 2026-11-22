@@ -184,7 +184,7 @@ describe('runStackConfigCheck', () => {
     const smoke = {
       SMOKE_COCKPIT_EMAIL: 's@school.org',
       SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
-      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
     };
     expect((await runStackConfigCheck('prod', { ...prod, ...smoke })).output).toContain(
       'SMOKE_COCKPIT_EMAIL is allowed only when ENV_NAME=staging',

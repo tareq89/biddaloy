@@ -346,8 +346,9 @@ describe('SectionsStep', () => {
     await userEvent.type(inputs[1]!, '2');
     await userEvent.click(screen.getByRole('button', { name: 'Create sections' }));
     const retry = await screen.findByRole('button', { name: 'Retry' });
-    // Class 2 was not held back by Class 1's failure.
-    expect(calls).toContain('c2:B');
+    // Class 2 was not held back by Class 1's failure. Awaited: msw v3 delivers
+    // intercepted requests asynchronously, so the POST can land a tick later.
+    await waitFor(() => expect(calls).toContain('c2:B'));
     expect(router.state.location.search).toMatchObject({ step: 'setup' });
 
     failB = false;

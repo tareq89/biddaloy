@@ -198,7 +198,7 @@ describe('OwnerSeedingService (integration)', () => {
     const SMOKE = {
       SMOKE_COCKPIT_EMAIL: e1,
       SMOKE_COCKPIT_PASSWORD: 'Smoke-pass-12345-x',
-      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
     };
     const ownerRow = async () =>
       (await ds.query(`SELECT id, password_hash FROM users WHERE email = $1`, [e1]))[0];

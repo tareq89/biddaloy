@@ -3,7 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { randomUUID } from 'crypto';
 import {
   DEV_COCKPIT_TOTP_SECRET,
@@ -35,7 +35,6 @@ describe('Login as server core (e2e)', () => {
   const API = '/api/v1';
   const COCKPIT = `${API}/auth/cockpit`;
   const PASSWORD = 'Owner-pass-12345';
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
 
   let app: INestApplication;
   let ds: DataSource;
@@ -71,7 +70,7 @@ describe('Login as server core (e2e)', () => {
     const login = await http().post(`${COCKPIT}/login`).send({ email, password: PASSWORD });
     const mfa = await http()
       .post(`${COCKPIT}/mfa`)
-      .send({ mfaToken: login.body.mfaToken, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ mfaToken: login.body.mfaToken, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     const done = await http()
       .post(`${COCKPIT}/device-otp`)
@@ -92,7 +91,10 @@ describe('Login as server core (e2e)', () => {
     // `allowed` makes a start go live at once (no ticket step).
     await ds.query(
       `UPDATE schools SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{supportAccess}', $2::jsonb) WHERE id = $1`,
-      [school.id, JSON.stringify({ mode: 'allowed', confirmedAt: null, confirmedBy: null, textVersion: 0 })],
+      [
+        school.id,
+        JSON.stringify({ mode: 'allowed', confirmedAt: null, confirmedBy: null, textVersion: 0 }),
+      ],
     );
     return school;
   }

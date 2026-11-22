@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, UserStatus } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
@@ -28,7 +28,6 @@ describe('Free coupons need the second owner (e2e)', () => {
   const COCKPIT = '/api/v1/auth/cockpit';
   const FREE = '/api/v1/platform/coupons/free';
   const PASSWORD = 'Owner-pass-12345';
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
   let app: INestApplication;
   let ds: DataSource;
   let redis: Redis;
@@ -63,7 +62,7 @@ describe('Free coupons need the second owner (e2e)', () => {
       .expect(200);
     const mfa = await http()
       .post(`${COCKPIT}/mfa`)
-      .send({ mfaToken: login.body.mfaToken, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ mfaToken: login.body.mfaToken, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     const done = await http()
       .post(`${COCKPIT}/device-otp`)
@@ -154,9 +153,7 @@ describe('Free coupons need the second owner (e2e)', () => {
   it('one active owner: 403 SECOND_OWNER_REQUIRED, nothing created', async () => {
     await onlyActive(a.id);
     // The real mint route, once: PLATFORM_COUPON_FREE must be an allowed step-up scope.
-    const nextStep = authenticator
-      .clone({ digits: 6, step: 30, window: 1, epoch: Date.now() + 30_000 })
-      .generate(DEV_COCKPIT_TOTP_SECRET);
+    const nextStep = totpNow(DEV_COCKPIT_TOTP_SECRET, Date.now() + 30_000);
     const minted = await as(
       a,
       http().post('/api/v1/platform/step-up').send({

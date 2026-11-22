@@ -268,11 +268,24 @@ export default defineConfig({
     coverage,
     // [18.5.1] `blob` is CI's per-shard reporter. The `frontend` job sets
     // `CI_TIMINGS_OUT`, which enables this branch and adds `blob` here so
-    // `frontend-merge` can replay all three shards with `--merge-reports`.
+    // `frontend-merge` can replay all shards with `--merge-reports`.
     // It's added here rather than via a CLI `--reporter=blob` flag because
     // that would replace `test.reporters` wholesale instead of adding to
     // it, silently dropping the `json` timings reporter.
-    ...(timingsOut ? { reporters: ['default', 'blob', ['json', { outputFile: timingsOut }]] } : {}),
+    // The blob output is pinned to an absolute workspace-root path: each
+    // project sets its own `root:`, and without an absolute `outputFile`
+    // Vitest 4 resolves the blob dir against each project root, scattering
+    // `.vitest-reports/` across ui/, client-admin/, … so the CI upload glob
+    // at the repo root finds nothing.
+    ...(timingsOut
+      ? {
+          reporters: [
+            'default',
+            ['blob', { outputFile: resolve(__dirname, '.vitest-reports/blob.json') }],
+            ['json', { outputFile: timingsOut }],
+          ],
+        }
+      : {}),
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
         // eslint-rules specs are ESLint RuleTester fixtures, and

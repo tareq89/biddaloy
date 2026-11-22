@@ -78,7 +78,9 @@ describe('cockpit sign-in hooks', () => {
     await act(() =>
       start.result.current.mutateAsync({ enrolToken: 't', smsCode: '1', emailCode: '2' }),
     );
-    await waitFor(() => expect(start.result.current.data?.secret).toBe('JBSWY3DPEHPK3PXP'));
+    await waitFor(() =>
+      expect(start.result.current.data?.secret).toBe('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'),
+    );
     const confirm = renderHookWithProviders(() => useCockpitEnrolConfirm());
     await act(() => confirm.result.current.mutateAsync({ enrolToken: 't', code: '123456' }));
     await waitFor(() => expect(confirm.result.current.data?.recoveryCodes).toHaveLength(1));
