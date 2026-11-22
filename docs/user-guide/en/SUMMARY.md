@@ -90,6 +90,7 @@
   - [Fines](finance/fines.md)
 - [Communications](communications/send-message.md)
   - [Send a message](communications/send-message.md)
+  - [Message staff](communications/staff-message.md)
   - [Send an alert](communications/send-alert.md)
   - [Notices](communications/notices.md)
   - [Fee reminders](communications/fee-reminders.md)

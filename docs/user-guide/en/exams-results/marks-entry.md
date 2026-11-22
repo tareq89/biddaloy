@@ -7,6 +7,9 @@ sources:
   - client-admin/src/routes/_staff/marks/index.tsx
   - client-admin/src/routes/_staff/marks/$examId.$sectionId.$subjectId.tsx
   - client-admin/src/routes/_staff/marks/-submit-dialog.tsx
+  - client-admin/src/routes/_staff/marks/$examId.$sectionId.$subjectId_.sms.tsx
+  - client-admin/src/routes/_staff/marks/-marks-sms-preview.tsx
+  - server/src/modules/exams/marks-sms.service.ts
   - ui/src/components/marks-grid.tsx
   - ui/src/components/marks-stepper.tsx
   - ui/src/hooks/autosave.ts
@@ -22,6 +25,7 @@ labels:
     exams:marksList.*,
     exams:marksGrid.*,
     exams:marksStepper.*,
+    marksSms:*,
     exams:saveState.*,
     exams:submitDialog.*,
     common:marksEntry.*,
@@ -222,6 +226,27 @@ If a mistake is found after a Teacher has submitted, only an Admin can reopen th
 
 If the results are **Published**, the list cannot be reopened. First [reopen the results](results.md#task-reopen). If the results are **Processed**, changing marks in a reopened list recalculates the whole exam's results by itself.
 
+### Send marks to guardians <a href="#task-sms" id="task-sms"></a>
+
+After a marks list is **Submitted**, you can send each guardian an SMS with their child's marks for this subject. You see who gets it and what it costs before anything goes.
+
+1. Open the submitted marks list.
+
+   → **Send marks SMS to guardians** appears at the top. It is not there while the list is **Not submitted**, or if you may not send marks SMS ([who can do what](#roles)).
+
+2. Press **Send marks SMS to guardians**.
+
+   → The **Marks SMS** page opens: "Guardians get each student's marks for …". It shows, for example, **12 guardians will get an SMS, 12 credits**. Students who will not get one are listed under **Not getting an SMS** with the reason: **No guardian with a phone number**, **Guardian turned SMS off** or **No marks entered**.
+
+3. If the exam's results are not out yet, you also see **Submitted, not yet published. Guardians will see these marks before the results are out.** Send only if that is what you want.
+4. Press **Send SMS**.
+
+   → **Sent. … SMS are on the way, … credits used.** Each guardian gets one SMS per student, for example: `Rahim Uddin — Half Yearly, Mathematics: 18/25`. An absent student shows **absent** in place of the marks.
+
+**If you open it again after sending:** when nobody new is left, the page shows **Already sent on …** and **Everyone already has this message queued or sent. To correct one student, use the single-guardian SMS.** **Send SMS** stays grey. If a message failed or a guardian was added after the send, the page shows the number of messages still to send, and **Send SMS** stays available for those recipients only. To correct one student's marks, [send one message](../communications/send-message.md) to that guardian.
+
+If the credit is short you see **Not enough SMS credit. … credits needed, … left.** and nothing is sent.
+
 ### Leaving the page before saving finishes <a href="#task-leave" id="task-leave"></a>
 
 If some marks are not saved yet and you try to go to another page inside the app, the **Leave without saving?** window appears.
@@ -253,6 +278,7 @@ The Academic coordinator can view marks but cannot type them. In the coordinator
 | Saving keeps failing, and someone else submitted the list or the results were published while you had it open | When a list or an exam is closed, new marks are not accepted. Reload the page to see the state.                                                  | Admin                                                             |
 | **Couldn't reopen this marks list. Please try again.**                                                        | Check your internet. If the results are published, first [reopen the results](results.md#task-reopen).                                           | Admin                                                             |
 | You do not see the **Submit** or **Reopen** button                                                            | See [Who can do what](#roles).                                                                                                                   | Admin                                                             |
+| You do not see **Send marks SMS to guardians**                                                                | The list must be **Submitted**, and your role must be allowed. See [Who can do what](#roles).                                                    | Admin                                                             |
 
 ---
 
@@ -267,6 +293,8 @@ The Academic coordinator can view marks but cannot type them. In the coordinator
 | Accountant, Office staff, Committee member | **Enter marks** is not in their menu                                                                                                        | No                                                 | No                                 |
 
 If a Teacher opens the address of a list in another section directly, the app shows it as "not found", as if the list did not exist.
+
+**Send marks to guardians:** Admin, Teacher (only in their own lists) and Exam controller can send. Academic coordinator, Accountant, Office staff and Committee member cannot.
 
 ---
 

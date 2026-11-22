@@ -1066,4 +1066,43 @@ gets the section 404 first, so existence never leaks).
   **Rule candidate:** a seed that depends on another slice's rows has a test that fails when they
   are missing.
 
+- **Surprise (2026-11-16, wave-2 close):** a school registered over the API has exactly one staff
+  member, the admin, with a phone, and no teaching designation. "All teachers" therefore finds
+  nobody there, and the `?people=<id>` link is the shortest way to a known recipient. **Fix:**
+  `e2e/journeys/staff-message.spec.ts` uses a fresh school, checks the empty case from the default
+  audience, then sends through the link. **Rule candidate:** a journey that needs a recipient
+  names the person (link or picker), never "everyone".
+- **Surprise:** the committed `ui/src/api/schema.d.ts` was missing the two marks SMS routes (the
+  routes landed without a regeneration). **Fix:** regenerated here, `check-api-types` is green.
+  **Rule candidate:** none, the parent regenerates once at integration.
+- **Not verified:** the journey was written and type-checked without the stack (no Docker in this
+  lane); it has not run. The integration run (`ci:local`) is the parent's.
+
+- **Surprise (2026-11-16, wave-3 close):** picking "the first SUBMITTED grid" for a seed batch gave
+  grids whose students had no marks in that section (an older exam, or a section nobody sat), so
+  the batch had no recipients and the spec failed with 0 batches. **Fix:** the grid query asks for
+  the same rows the people query joins (active students of that section, a component, a guardian
+  with a phone). **Rule candidate:** a seed that picks a parent row must filter on the child
+  rows it will use.
+- **Surprise:** a Teacher cannot open a marks list without a subject-teacher assignment, and no e2e
+  helper creates one, so `e2e/journeys/marks-sms.spec.ts` signs in as the admin (who holds the
+  permission for every grid). The teacher path stays covered by the server and web unit tests.
+  **Rule candidate:** add a `assignSubjectTeacher` e2e helper when a second journey needs it.
+
+- **Epic-level learning (2026-11-16, #4349):**
+  - **Surprise:** the route manifest (`e2e/route-manifest.json`) drift guard was already red on the
+    epic branch: the staff-message and marks SMS routes were never added, and `guide:gen` was stale.
+    **Cost:** a red `route-manifest` unit test and `guide-gen` test discovered only at the close.
+    **Fix:** manifest entries and a regeneration in the guide ticket. **Rule candidate:** a ticket
+    that adds a route lists `e2e/route-manifest.json` in its `## Files`.
+  - **Surprise:** `guide:impact` compares the whole epic branch to the base, so an epic that touches
+    `route-permissions.ts` and `permissions.ts` flags dozens of unrelated pages. **Fix:** the epic PR
+    body carries `User guide: not affected: <reason>` for the pages this epic did not change.
+    **Rule candidate:** none; document the PR body line in the epic's close ticket.
+  - **Surprise:** `MarksSmsService.send` let a failed audit write turn an already-queued batch into a
+    500, which would make a teacher send twice. **Fix:** log and continue. **Rule candidate:** any
+    send path writes its audit row after the queue and never lets it fail the response.
+  - **Not verified by a person:** the usability tasks (see `docs/ux-research/epic-80-staff-messaging.md`),
+    and both new journeys, which were written without a running stack.
+
 Demo data: see [22-demo-seed.md](22-demo-seed.md) (`comms-print` slice).

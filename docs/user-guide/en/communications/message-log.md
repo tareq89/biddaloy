@@ -223,6 +223,7 @@ For the other roles, **Message log** is not in the left menu.
 
 - [**Reminder history**](reminder-history.md) — the rounds of reminders sent together.
 - [**Send a message**](send-message.md) — your own message to one guardian.
+- [**Message staff**](staff-message.md) — one SMS to your teachers or office staff.
 
 ---
 
