@@ -81,11 +81,19 @@ export class OtpLoginService {
   async request(rawIdentifier: string, context: RequestContext): Promise<OtpLoginRequestResult> {
     const identifier = normalizeLoginIdentifier(rawIdentifier);
     const user = await this.findUser(identifier);
-    return (await this.delivery.detach('otp-login', () => this.requestJob(user, identifier))) ?? {};
+    return (
+      (await this.delivery.detach('otp-login', () =>
+        this.requestJob(user, identifier, context.ip),
+      )) ?? {}
+    );
   }
 
   /** Everything `request` does after the lookup; its value only reaches the caller in echo mode. */
-  private async requestJob(user: User | null, identifier: string): Promise<OtpLoginRequestResult> {
+  private async requestJob(
+    user: User | null,
+    identifier: string,
+    ip: string | null,
+  ): Promise<OtpLoginRequestResult> {
     if (!user || !this.canSignInByCode(user) || !(await this.allowed(user.id))) {
       return {};
     }
@@ -124,6 +132,7 @@ export class OtpLoginService {
       recipientName: user.full_name,
       kind: 'OTP',
       vars: { code },
+      ip,
     });
 
     return this.echo({ otp: code });

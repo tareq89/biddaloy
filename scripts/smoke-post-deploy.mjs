@@ -20,6 +20,8 @@
  * Output never contains a token, password, email, subject or response body.
  * Optional SMOKE_INBOX_API_URL (test-inbox stacks): asks for a password reset for the admin
  * and waits until Mailpit shows the message (Epic 87, D25).
+ * Optional SMOKE_EICAR=1 (staging only, never prod): uploads the EICAR test string as a staff
+ * document and expects 422 FILE_HARMFUL, so the real clamd is proven (Epic 60 D25, #4004).
  */
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +39,15 @@ export function missingEnv(env) {
   ]);
   return names.filter((n) => !env[n]);
 }
+
+/** The standard antivirus test string (harmless; every scanner flags it). Split so this file is not flagged. */
+export const EICAR = [
+  'X5O!P%@AP[4\\PZX54(P^)7CC)7}$',
+  'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*',
+].join('');
+
+/** Pure. The `sub` claim of a JWT (no verification: the server issued it a moment ago). */
+export const jwtSub = (token) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url')).sub;
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -128,7 +139,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     method,
     path,
     label,
-    { headers = {}, body, rawBody, expect = 200, ok = () => true } = {},
+    { headers = {}, body, rawBody, expect = 200, ok = () => true, text = false } = {},
   ) => {
     const started = Date.now();
     let status = '';
@@ -143,7 +154,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       });
       status = String(res.status);
       if (res.status === expect) {
-        json = await res.json().catch(() => undefined);
+        json = await (text ? res.text() : res.json()).catch(() => undefined);
         good = json !== undefined && ok(json);
       }
     } catch (e) {
@@ -163,6 +174,15 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   };
 
   if ((await check('GET', '/api/health', '')) === null) return done();
+
+  // [60.1761] Edge nginx serves the disclosure contact (RFC 9116) on every host.
+  if (
+    (await check('GET', '/.well-known/security.txt', '', {
+      text: true,
+      ok: (t) => typeof t === 'string' && t.startsWith('Contact:'),
+    })) === null
+  )
+    return done();
 
   const sessions = {};
   for (const [key, role] of ACCOUNTS) {
@@ -501,6 +521,26 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     out(`${outStatus === '204' ? 'PASS' : 'FAIL'}  POST ${api}/logout (cockpit)  ${outStatus}`);
     if (outStatus === '204') result.passed++;
     else result.failed++;
+  }
+
+  // [Epic 60 D25] Real virus scan: only where SMOKE_EICAR=1 (staging; no test file ever goes to prod).
+  // The PDF header lets the file pass the signature check first, so only the scanner can refuse it.
+  if (env.SMOKE_EICAR !== '1') {
+    out('eicar: skipped (no SMOKE_EICAR)');
+  } else {
+    const form = new FormData();
+    form.append(
+      'file',
+      new Blob([`%PDF-1.4\n${EICAR}\n`], { type: 'application/pdf' }),
+      'smoke-eicar.pdf',
+    );
+    const staffUserId = jwtSub(sessions.admin.Authorization.slice('Bearer '.length));
+    await check('POST', `/api/v1/staff-documents/${staffUserId}/OTHER`, 'eicar', {
+      headers: sessions.admin,
+      rawBody: form,
+      expect: 422,
+      ok: (b) => b?.details?.code === 'FILE_HARMFUL',
+    });
   }
 
   // [Epic 87] Test-inbox stacks only: a password reset for the admin must reach Mailpit.

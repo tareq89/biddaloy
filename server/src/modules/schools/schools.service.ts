@@ -519,6 +519,28 @@ export class SchoolsService {
         delete (encryptedPatch.communications as { sms?: Record<string, unknown> }).sms?.metering;
       }
 
+      // [60.0 D17/D35] `communications.dailyLimits` is the platform's to set (route #4254, which
+      // passes `isPlatformAdmin`). A school caller may resend stored values (dropped per key) but
+      // not change one.
+      const sentComms = plainPatch.communications as
+        { dailyLimits?: Record<string, unknown> } | undefined;
+      if (sentComms && Object.hasOwn(sentComms, 'dailyLimits') && !isPlatformAdmin) {
+        const storedLimits =
+          (
+            school.settings as {
+              communications?: { dailyLimits?: Record<string, unknown> };
+            } | null
+          )?.communications?.dailyLimits ?? {};
+        const sentLimits = sentComms.dailyLimits ?? {};
+        for (const key of Object.keys(sentLimits)) {
+          if (sentLimits[key] !== storedLimits[key]) {
+            throw new ForbiddenException('Only the platform can change daily limits.');
+          }
+        }
+        delete sentComms.dailyLimits;
+        delete (encryptedPatch.communications as { dailyLimits?: unknown }).dailyLimits;
+      }
+
       // [3.1.03 D13/D47] `lastTestOkAt` is the test-connection route's to write: never from a
       // PATCH. Dropped from both copies before the audit snapshot is taken.
       const sentBkash = (plainPatch.payments as { bkash?: Record<string, unknown> } | undefined)

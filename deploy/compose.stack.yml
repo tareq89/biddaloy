@@ -1,9 +1,9 @@
 # One environment of the app (Epic 79.0, docs/architecture/30-deployment-target.md).
 # Started three times on one host, each with its own .env:
 #
-#   ENV_NAME=prod    docker compose -p prod    -f deploy/stack.yml --env-file /opt/biddaloy/prod/.env up -d
-#   ENV_NAME=staging docker compose -p staging -f deploy/stack.yml --env-file /opt/biddaloy/staging/.env up -d
-#   ENV_NAME=demo    docker compose -p demo    -f deploy/stack.yml --env-file /opt/biddaloy/demo/.env up -d
+#   ENV_NAME=prod    docker compose -p prod    -f deploy/compose.stack.yml --env-file /opt/biddaloy/prod/.env up -d
+#   ENV_NAME=staging docker compose -p staging -f deploy/compose.stack.yml --env-file /opt/biddaloy/staging/.env up -d
+#   ENV_NAME=demo    docker compose -p demo    -f deploy/compose.stack.yml --env-file /opt/biddaloy/demo/.env up -d
 #
 # No container_name and no host ports: the project name scopes every name, and
 # data stores are reached with `docker compose -p <env> exec`. Only app / app2 and
@@ -47,6 +47,10 @@ x-app: &app
     DB_SSL: 'true'
     DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
     REDIS_URL: redis://redis:6379
+    # Virus scanner (Epic 60, #4004): the one shared clamd of the ops stack (deploy/compose.ops.yml),
+    # reached over `biddaloy-ops-scan`. Required in production: boot is refused without CLAMAV_HOST.
+    CLAMAV_HOST: clamav
+    CLAMAV_PORT: '3310'
     # Test inbox (Epic 87): empty = off. The SMTP URL names this stack's mailpit, not the bare
     # `mailpit` service name: compose puts that alias on the shared edge network too, where every
     # stack's mailpit carries it, and demo's app once resolved it to staging's inbox.
@@ -194,6 +198,7 @@ services:
       default: {}
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-app']
+      ops-scan: {}
 
   # School websites (Epic 40, #3620): Astro SSR, one container for every school host. Reached only
   # by edge nginx's :8081 listener (nginx/templates/site.conf.template) over `biddaloy-edge`, never
@@ -242,6 +247,7 @@ services:
       default: {}
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-app2']
+      ops-scan: {}
 
   # One-off migrations (`run --rm migrate node server/dist/scripts/migrate.js run|pending`): the app
   # image on the OWNER url, because biddaloy_app cannot create tables or roles (#3949). Never `up`:
@@ -504,4 +510,8 @@ networks:
   # Created by the deploy (W3.01). Edge nginx reaches app / app2 here by alias.
   edge:
     name: biddaloy-edge
+    external: true
+  # Created by the deploy. app / app2 reach the shared ClamAV (ops stack) here as `clamav`.
+  ops-scan:
+    name: biddaloy-ops-scan
     external: true

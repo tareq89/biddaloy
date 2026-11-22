@@ -1,7 +1,7 @@
 # Direct edge mode (D8, D18): nginx owns 80 and 443, Let's Encrypt HTTP-01, no Cloudflare.
-# Use on top of edge.yml with EDGE_MODE=direct:
+# Use on top of compose.edge.yml with EDGE_MODE=direct:
 #
-#   docker compose -p edge -f deploy/edge.yml -f deploy/edge.direct.yml up -d
+#   docker compose -p edge -f deploy/compose.edge.yml -f deploy/compose.edge-direct.yml up -d
 x-logging: &logging
   driver: json-file
   options:

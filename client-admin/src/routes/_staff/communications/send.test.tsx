@@ -419,6 +419,89 @@ describe('/communications/send', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('names the daily limit with the numbers when a send is refused, and Send works again [#3994]', async () => {
+    server.use(
+      studentSearchHandler(),
+      http.post('/api/v1/communications/send', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'x', '/api/v1/communications/send'),
+            details: { code: 'DAILY_LIMIT_REACHED', requested: 500, remaining: 300, limit: 2000 },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await fillBasicSmsMessage(user);
+    await user.click(screen.getByRole('button', { name: 'Review and send' }));
+    await user.click(await screen.findByRole('button', { name: 'Send message' }));
+
+    const text = (await screen.findByRole('alert')).textContent ?? '';
+    expect(text).toBe(
+      `You can send ${n(300)} more today. You are trying to send ${n(500)}. Send to fewer people, or try again tomorrow.`,
+    );
+    expect(text).not.toMatch(/\b(cap|quota|rate limit|throttle)/i);
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send message' }).disabled).toBe(
+        false,
+      ),
+    );
+  });
+
+  it('says the limit is used up when nothing is left [#3994]', async () => {
+    server.use(
+      studentSearchHandler(),
+      http.post('/api/v1/communications/send', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'x', '/api/v1/communications/send'),
+            details: { code: 'DAILY_LIMIT_REACHED', requested: 1, remaining: 0, limit: 2000 },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await fillBasicSmsMessage(user);
+    await user.click(screen.getByRole('button', { name: 'Review and send' }));
+    await user.click(await screen.findByRole('button', { name: 'Send message' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `Today's daily limit (${n(2000)}) is used up. Try again tomorrow.`,
+    );
+  });
+
+  it.each([
+    [
+      'show on, SMS listed',
+      { show: true, channels: { sms: { limit: 2000, used: 300, left: 1700 } } },
+      true,
+    ],
+    ['show off', { show: false, channels: { sms: { limit: 2000, used: 300, left: 1700 } } }, false],
+    [
+      'channel not listed',
+      { show: true, channels: { email: { limit: 2000, used: 1, left: 1999 } } },
+      false,
+    ],
+  ])('left-today line: %s [#3994]', async (_name, body, visible) => {
+    server.use(
+      studentSearchHandler(),
+      http.get('/api/v1/communications/daily-limits/today', () => HttpResponse.json(body)),
+    );
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    const line = `${n(1700)} of today's ${n(2000)} left.`;
+    if (visible) expect(await screen.findByText(line)).toBeTruthy();
+    else {
+      await new Promise((r) => setTimeout(r, 100));
+      expect(screen.queryByText(/of today's .* left\./)).toBeNull();
+    }
+  });
+
   it('shows the guardian phone formatted in the radio row and lets "Change" clear the student', async () => {
     server.use(studentSearchHandler());
     const user = userEvent.setup();

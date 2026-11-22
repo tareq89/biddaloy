@@ -28,7 +28,7 @@ describe('platform SMS config through the real resolver', () => {
     expect(r?.config).toEqual({ apiKey: 'k' });
   });
 
-  it('deprecated key with the stack.yml default provider and empty extras', async () => {
+  it('deprecated key with the compose.stack.yml default provider and empty extras', async () => {
     const r = await make({
       SMS_PROVIDER: '',
       PLATFORM_SMS_PROVIDER: 'greenweb',
@@ -108,7 +108,7 @@ describe('platform SMS config through the real resolver', () => {
       'PLATFORM_SMS_* ignored because SMS_PROVIDER is set',
     ]);
     warn.mockClear();
-    // stack.yml default alone never warns
+    // compose.stack.yml default alone never warns
     make({ PLATFORM_SMS_PROVIDER: 'greenweb', SMS_PROVIDER: '' }).onModuleInit();
     expect(warn).not.toHaveBeenCalled();
   });

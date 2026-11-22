@@ -65,7 +65,7 @@ hdrs() { docker run --rm --network "$NET" "$CURL_IMG" -skI --resolve "$2:80:$EDG
 body() { docker run --rm --network "$NET" "$CURL_IMG" -sk --resolve "$2:80:$EDGE_IP" --resolve "$2:443:$EDGE_IP" "$1://$2$3" || true; }
 code() { docker run --rm --network "$NET" "$CURL_IMG" -sk -o /dev/null -w '%{http_code}' --resolve "$2:80:$EDGE_IP" --resolve "$2:443:$EDGE_IP" "$1://$2$3" || true; }
 
-# --- the .invalid defaults (edge.yml) render a valid config ---
+# --- the .invalid defaults (compose.edge.yml) render a valid config ---
 start_edge tunnel -e INBOX_DEMO_DOMAIN=inbox-demo.invalid -e INBOX_STAGING_DOMAIN=inbox-staging.invalid
 docker exec inbox-edge nginx -t >/dev/null 2>&1 && pass "defaults: nginx -t" || fail "defaults: nginx -t" "non-zero"
 

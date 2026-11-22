@@ -120,7 +120,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 
 - **Rule.** A URL that a user or tenant can influence (a webhook, an SMS gateway `apiUrl`, a push endpoint) is called only through `fetchPinnedJson`, or `fetchPinnedJsonWithStatus` when the caller needs the HTTP status (`server/src/modules/communications/providers/shared/pinned-http.ts`), after `assertSafeHttpDestination` has checked the address. Any other outbound call (`fetch`, `ws`, `net`, `tls`, an SDK client) goes to a fixed host, a code constant or operator config, and its file is on the reviewed `REVIEWED_OUTBOUND` list in the contract spec, with the host and who controls it.
 - **Why.** A configurable URL could be pointed at internal addresses (75.24, #2332).
-- **Example.** `turnstile.service.ts` calls the constant host `challenges.cloudflare.com` with a plain `fetch`, and is listed in `REVIEWED_OUTBOUND`. The SMS gateways resolve a tenant's `apiUrl` once, refuse private, loopback and metadata addresses, and connect to exactly the checked address (no second DNS answer can sneak in). `mailpit-sink.provider.ts` is also listed: its SMTP host is the compose alias `<stack>-mailpit` set by `deploy/stack.yml` (dev `.env`: `MESSAGE_SINK_SMTP_URL`), never tenant input, and it is reached only when `MESSAGE_SINK=mailpit`. Staging alone can opt out of the inbox with `ALLOW_REAL_PROVIDERS_ON_STAGING=true` (real messages reach real contacts); demo and prod refuse the flag at boot and in config-check.
+- **Example.** `turnstile.service.ts` calls the constant host `challenges.cloudflare.com` with a plain `fetch`, and is listed in `REVIEWED_OUTBOUND`. The SMS gateways resolve a tenant's `apiUrl` once, refuse private, loopback and metadata addresses, and connect to exactly the checked address (no second DNS answer can sneak in). `mailpit-sink.provider.ts` is also listed: its SMTP host is the compose alias `<stack>-mailpit` set by `deploy/compose.stack.yml` (dev `.env`: `MESSAGE_SINK_SMTP_URL`), never tenant input, and it is reached only when `MESSAGE_SINK=mailpit`. Staging alone can opt out of the inbox with `ALLOW_REAL_PROVIDERS_ON_STAGING=true` (real messages reach real contacts); demo and prod refuse the flag at boot and in config-check.
 - **Schema-declared URLs (Epic 97).** A provider's `apiUrl` field is declared in its descriptor as `kind: 'url'`. That declaration does **not** guard the URL: the guard never reads descriptors. `kind: 'url'` only marks the field as a destination the medium's owner sets (D11). Each provider must call `assertSafeHttpDestination(apiUrl)` itself and send through `fetchPinnedJson` / `fetchPinnedJsonWithStatus`, as `onecodesoft.provider.ts` does; a new company that skips either call is not protected by this rule.
 - **Test seam (e2e only).** `OUTBOUND_TEST_ALLOW_LOOPBACK=true` lets `assertSafeHttpDestination` accept `http://127.0.0.1:<port>` so Playwright can point a gateway at the local vendor stub (`e2e/fixtures/vendor-stub.ts`). It works only when `NODE_ENV=test` and the value is exactly `true`; `localhost`, `[::1]`, https, private ranges and metadata stay blocked.
 
@@ -225,6 +225,16 @@ flowchart LR
 - **Why.** "Open everywhere" means unlimited password guessing; "closed everywhere" takes the app down (D4, D4b, D15, 75.18, 75.34).
 - **Example.** `POST /auth/login` with Redis down → `503`; `POST /auth/refresh` → served. The public notice link routes (`/public/notices/:token*`) are not `/auth*` or `/account*`: they stay open without Redis (the throttle fails open, #3374 D29).
 - **Test.** `app-throttler.guard.spec.ts`, `app-throttler.guard.e2e-spec.ts`, `route-guard-coverage.e2e-spec.ts`, `platform-alerts.service.spec.ts`.
+
+**Two more written answers (Epic 60, D8).**
+
+| Control                                                                                            | Redis down                                                     | Why                                                                                                              |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Send limit counter (`SendLimitService`, key `send-limit:<tenant>:<channel, lowercase>:<yyyymmdd>`) | **Fails open** + a Sentry error                                | A closed counter would stop a school from messaging anyone. The existing `REDIS_DOWN` platform alert also fires. |
+| OTP SMS caps (`OtpSmsCapsService`)                                                                 | **Needs Redis**, like OTP itself                               | OTP sign-in already answers 503 without Redis, so there is nothing to fail open into.                            |
+| Virus scanner (ClamAV, [Rule 34](#rule-34-document-uploads-are-virus-scanned))                     | **Per upload**: four uploads refuse, two save and alert Sentry | A dependency that is down gets a written answer per route, like Redis.                                           |
+
+**OTP SMS caps.** Two numbers, both per hour: **10 different numbers per IP** and **500 OTP SMS platform-wide**. Over either, the person gets the same answer as any other OTP request (Rule 18), and the platform owners are alerted. The caps count OTP and account-access SMS only; they are separate from a school's daily send limit (D22).
 
 | Marks sheet route (81 D21)                 | Redis down      | Why                                                                                           |
 | ------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------- |
@@ -463,7 +473,38 @@ flowchart LR
 
 - **Test.** `server/src/database/tenant-context.integration.spec.ts` (connects as `biddaloy_app`), `server/test/app-role-tenant-rls.integration.spec.ts` (up, down, up and default privileges), `server/src/app-role-check.spec.ts` (boot check). Mechanics: [02-auth-and-multitenancy](02-auth-and-multitenancy.md#database-tenant-wall-rls). Password setup: [28-platform-runbook](28-platform-runbook.md).
 
-> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98, Rule 32 is Epic 99 and Rule 33 is Epic 59 (#3949), so Epic 96's rules start at 34.
+### Rule 34: Document uploads are virus-scanned
+
+- **Rule.** Every upload that stores a person's document goes through `VirusScanService.assertClean(buffer, mode, ctx)` after the signature check (Rule 6) and before anything is saved. The mode says what happens when ClamAV does not answer: `closed` refuses the upload, `open` lets it through and tells Sentry.
+- **Why.** A file a guardian, applicant or staff member uploads is later opened by a teacher or an accountant (Epic 60, D19). Nobody else looks at the bytes.
+- **Example.** A guardian attaches `proof.pdf` to a payment submission. ClamAV says `FOUND`: `422 FILE_HARMFUL`, nothing stored, one audit row (recorded as `BULK_UPLOAD` with `new_values.kind = upload.harmful_file`, because no upload action exists yet). ClamAV is stopped: `503 FILE_CHECK_UNAVAILABLE`, nothing stored. The same stop on a staff document: saved, Sentry gets a warning.
+
+| Upload                    | Mode        | ClamAV down                                                                                  |
+| ------------------------- | ----------- | -------------------------------------------------------------------------------------------- |
+| Admission applicant files | `closed`    | refused                                                                                      |
+| Application attachments   | `closed`    | refused                                                                                      |
+| Homework submissions      | `closed`    | refused                                                                                      |
+| Payment proofs            | `closed`    | refused                                                                                      |
+| Notice files              | `open`      | saved, Sentry warning                                                                        |
+| Staff documents           | `open`      | saved, Sentry warning                                                                        |
+| Site pictures             | not scanned | `sharp` decodes the picture and stores a new WebP, so the original bytes never reach storage |
+
+Two fixed sentences, never changed, never carrying the file name or the scanner's reply (Rule 23): "This file looks harmful. Choose another file." (`422 FILE_HARMFUL`) and "We can't check files right now. Try again shortly." (`503 FILE_CHECK_UNAVAILABLE`). Never say malware, infected, ClamAV or "scanner down" to a person.
+
+```mermaid
+flowchart TD
+  U[Upload] --> S[Signature check, Rule 6]
+  S --> C{ClamAV answers?}
+  C -- clean --> OK[Saved]
+  C -- FOUND --> H["422 FILE_HARMFUL"]
+  C -- no answer --> M{Mode}
+  M -- closed --> E["503 FILE_CHECK_UNAVAILABLE"]
+  M -- open --> W[Saved, Sentry warning]
+```
+
+- **Test.** `server/src/modules/storage/upload-scan.guard.spec.ts`: every non-spec file under `server/src/modules` that calls `matchesDeclaredType(` must also call `assertClean(`, or be on its `IMAGE_ONLY` list with a reason. Owner steps: [28-platform-runbook.md Part 20](28-platform-runbook.md#part-20-the-virus-scanner-owners). Unit: `virus-scan.service.spec.ts`.
+
+> **Numbering.** Epic 96 (#3279) reserved rules `28+`, but Rule 28 was taken by Epic 69 first. Rules 29 to 31 are Epic 98, Rule 32 is Epic 99 and Rule 33 is Epic 59 (#3949), so Epic 96's rules start at 35 (Rule 34 is Epic 60's virus-scan rule).
 
 ### Candidate rule: money-tier tables have one writer
 
@@ -1089,8 +1130,9 @@ already-revoked family is an idempotent 204. Each successful revoke writes a
 tenant if present, else `null` — a session isn't tenant-scoped, so `null` is
 the honest value when there's no active tenant to record.
 
-Out of scope for this ticket: a "new sign-in to your account" notification
-(needs a per-user notification-preference surface that doesn't exist yet).
+Out of scope here: a "new sign-in to your account" notification. Epic 98
+(#3725, closed 2026-11-13) built device recognition for platform owners only.
+The school-user alert (#1762) is still open and not yet planned (Epic 60, D4).
 
 ## Dev seed safety (75.12)
 
@@ -1408,6 +1450,12 @@ aborts, and `crit`/`alert` ones such as fd exhaustion), so `error_log ... emerg`
 they carry no request. A failed upstream still shows as a 502/504 line in the masked access log.
 `access-log.infra.test.sh` stops the upstream and checks no secret reaches the log.
 
+## Vulnerability disclosure
+
+- `/.well-known/security.txt` is static text served by edge nginx on every host (`SECURITY_TXT` in `nginx/edge-mode.sh`, both modes, `auth_basic off` so protected hosts serve it; and in `nginx/templates/site.conf.template` for a school's own domain).
+- Its `Expires` date is renewed yearly (calendar row in [44-incident-response.md](44-incident-response.md#security-calendar)).
+- Reports go to `security@schoolmanagerp.com` or GitHub private reporting ([`.github/SECURITY.md`](../../.github/SECURITY.md)).
+
 ## Repository and GitHub settings
 
 Some protection lives in GitHub settings, not in code. Reporters are sent to
@@ -1695,3 +1743,24 @@ Raw notes from the QA audit, same format as the
 - A double click sent one SMS twice — fix: server replay by Idempotency-Key (#2631), registry of dialogs (#2656) — the interceptor entry in [Rule 15](#rule-15-redis-down-has-a-written-answer-per-route) was written then. → Rule 25
 - Some bulk routes (`fees/generate`, `fees/schedules/run-now`, `fees/fines/generate`) stay outside the interceptor until a unique constraint is verified (#2691). → follow-up
 - The wave-close full runs (ci-local, e2e, pwa, axe, 10x flake gate) were not run in Waves 3-5: no Docker, shared ports 3000/5174. → run on a free machine
+
+### Epic 60 Wave 1 — 2026-11-16
+
+- Dependabot's compose updater only reads file names containing `compose`, so the deploy stack files were silently unscanned — fix: renamed to `deploy/compose.{stack,edge,edge-direct,ops}.yml` (#2811); `compose.edge.direct.yml` would not match, the name takes one dotted part. → Rule 21 (confirm `/deploy` shows under Insights > Dependency graph > Dependabot after merge)
+- Trivy runs on PRs, pushes to `main`, weekly and manually (#1757); the path filter applies to PRs only, a push to `main` always scans.
+- `security.txt` text lives in two places (`nginx/edge-mode.sh` and `site.conf.template`); change both together (#1761). → no rule
+- The incident guide was renumbered to `44-incident-response.md` because `43-admission-pipeline.md` held the same prefix (the architecture-docs check rejects duplicates).
+- Owed to the #1757 PR: full-history gitleaks count, fake-key bite test, a first Trivy run. Wave 1 close ran no `ci:local` by design; GitHub CI is the check.
+
+## Lessons (Epic 60, Wave 3 close, 2026-11-16)
+
+- The guard found that site pictures call `matchesDeclaredType(` but never `assertClean(`, although the epic's D19 table listed site media as scanned fail-open. Cost: a guard spec could not be written as "every caller scans" without an exception. Fix: site pictures are on `IMAGE_ONLY` because `sharp` re-encodes them; the rule's table says so. Rule candidate: a decision table that names a route and a control gets a test that reads the code, the day it is written.
+- Proof the guard bites: renaming every `assertClean(` call in `notice-files.service.ts` turned the spec red with "call virusScan.assertClean(...) in: notices/access/notice-files.service.ts"; restored, green.
+- Rule 33 was taken as "next number after the last rule". Epic 96 had reserved 33 and up; its note now starts at 34. Rule candidate: reserve numbers in a table in this doc, not in an epic body.
+
+## Lessons (Epic 60, Wave 6 close, 2026-11-16)
+
+- **Surprise:** `guide:impact` matches a page's `sources` by file, not by meaning. A comment-only edit in `contact-change.service.ts` (a ticket number in a comment) failed `portal.account`, and a new card on the school page failed `platformOwner.loginAs` although only `school-control` changed. Cost: two pages that cannot honestly be edited. Fix: the PR body carries `User guide: not affected — <reason>`. That line passes the whole PR, not just those two pages, so read every failing row first and confirm none needs a guide update. Rule candidate: keep a comment-only fix out of a file a guide page lists as a source.
+- **Surprise:** running `prettier --write` on a guide page rewrites its generated `guide:gen` blocks, and `guide:check` then fails with "differs from what guide:gen writes". Cost: a 240-line diff for a 12-line change. Fix: revert, add the table row by hand. Rule candidate: never run prettier on `docs/user-guide` pages; run `yarn guide:gen` instead.
+- **Surprise:** the two refusal sentences ("This file looks harmful. Choose another file." and "We can't check files right now. Try again shortly.") reach people through four different screens (student homework, admission form, fee proof, staff upload). Cost: each guide page needs its own row. Fix: one row per page, same words. Rule candidate: a new fixed error sentence lists the guide pages it can appear on in its ticket.
+- **Surprise:** two docs already shared the number 43, so the index needed a note, not a rename (other docs link both names). Rule candidate: reserve doc numbers in the README, like rule numbers.

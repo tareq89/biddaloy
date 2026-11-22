@@ -14,6 +14,8 @@ import { OtpLoginService } from './otp-login.service';
 import { OtpService, OTP_REDIS } from './otp.service';
 import { AuthTokenService } from './auth-token.service';
 import { AccountAccessDeliveryService } from './account-access-delivery.service';
+import { OtpSmsCapsService } from './otp-sms-caps.service';
+import { PlatformAlertsService } from '../health/platform-alerts/platform-alerts.service';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
@@ -72,6 +74,8 @@ describe('OtpLoginService (integration)', () => {
       OtpService,
       AuthTokenService,
       AccountAccessDeliveryService,
+      OtpSmsCapsService,
+      { provide: PlatformAlertsService, useValue: { notifyOperators: vi.fn() } },
       AuditService,
       { provide: OTP_REDIS, useValue: redis },
       { provide: AuthService, useValue: fakeAuthService },
@@ -175,6 +179,27 @@ describe('OtpLoginService (integration)', () => {
       expect(logs).toHaveLength(1);
       expect(logs[0].medium).toBe(CommunicationMedium.SMS);
       void user;
+    });
+
+    it('[#3992] a request capped per IP returns the same result as an uncapped one and sends no SMS', async () => {
+      await createMember({ phone: '01712345670' });
+      await createMember({ phone: '01712345671' });
+      module.get(OtpSmsCapsService).perIpLimit = 1;
+      try {
+        const uncapped = await service.request('01712345670', context);
+        expect(fakeProvider.send).toHaveBeenCalledTimes(1);
+        fakeProvider.send.mockClear();
+
+        // Second distinct number from the same IP: over the cap of 1.
+        const capped = await service.request('01712345671', context);
+
+        expect(fakeProvider.send).not.toHaveBeenCalled();
+        // Same shape either way (the echo flag only adds the code); no 429, no error.
+        expect(Object.keys(capped)).toEqual(Object.keys(uncapped));
+        expect(capped.debug?.otp).toMatch(/^\d{6}$/);
+      } finally {
+        module.get(OtpSmsCapsService).perIpLimit = 10;
+      }
     });
 
     it('returns {} and sends nothing when the tenant has otpLoginEnabled=false', async () => {

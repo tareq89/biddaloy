@@ -168,6 +168,10 @@
         "name": "SMS credit low",
         "help": "Warns when SMS credit falls below your limit."
       },
+      "daily_limit_reached": {
+        "name": "Daily send limit reached",
+        "help": "Warns when today's sending limit for SMS, email or WhatsApp has been used up."
+      },
       "failed_messages": {
         "name": "Messages failing",
         "help": "Warns when many messages fail in 24 hours."

@@ -18,6 +18,7 @@ import { HomeworkAccessService } from './homework-access.service';
 import { Student } from '../students/entities/student.entity';
 import { FamilyAccessService } from '../students/family-access.service';
 import { StorageService } from '../storage/storage.service';
+import { VirusScanService } from '../storage/virus-scan.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
 import {
@@ -91,6 +92,7 @@ export class HomeworkSubmissionService {
     private readonly familyAccess: FamilyAccessService,
     private readonly storage: StorageService,
     private readonly schoolsService: SchoolsService,
+    private readonly virusScan: VirusScanService,
   ) {}
 
   private async loadAssignment(
@@ -185,6 +187,13 @@ export class HomeworkSubmissionService {
     }
 
     this.validateFiles(files);
+    // Scan every file before storing any (students upload: fail closed).
+    for (const file of files) {
+      await this.virusScan.assertClean(file.buffer, 'closed', {
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+      });
+    }
 
     const attachments: SubmissionAttachment[] = [];
     for (const file of files) {

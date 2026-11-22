@@ -204,7 +204,7 @@ describe('findBadContent', () => {
 
 describe('findComposeDrift', () => {
   const files = {
-    'deploy/ops.yml': 'memory: ${KUMA_MEM:-384m}\nx: ${OPS_DIR:?set}/y\n',
+    'deploy/compose.ops.yml': 'memory: ${KUMA_MEM:-384m}\nx: ${OPS_DIR:?set}/y\n',
     'infra/secrets/ops.example.env': 'KUMA_MEM=\n',
   };
   // The other mapped compose files read no variables here; an unlisted example is just empty.
@@ -224,21 +224,21 @@ describe('findComposeDrift', () => {
 
   it('also catches a bare $VAR and a lowercase name, but not an escaped $$VAR', () => {
     const drift = findComposeDrift((f) =>
-      f === 'deploy/ops.yml' ? 'a: $PLAIN_VAR\nb: ${lower_var}\nc: $$ESCAPED\n' : read(f),
+      f === 'deploy/compose.ops.yml' ? 'a: $PLAIN_VAR\nb: ${lower_var}\nc: $$ESCAPED\n' : read(f),
     );
     expect(drift.join('\n')).toMatch(/PLAIN_VAR[\s\S]*lower_var|lower_var[\s\S]*PLAIN_VAR/);
     expect(drift.join('\n')).not.toContain('ESCAPED');
   });
 
   it('reports a mapped compose file it cannot read', () => {
-    const drift = findComposeDrift((f) => (f === 'deploy/ops.yml' ? null : read(f)));
+    const drift = findComposeDrift((f) => (f === 'deploy/compose.ops.yml' ? null : read(f)));
     expect(drift).toHaveLength(1);
-    expect(drift[0]).toContain('deploy/ops.yml');
+    expect(drift[0]).toContain('deploy/compose.ops.yml');
   });
 
   it('ignores a ${VAR} that only appears in a YAML comment', () => {
     const drift = findComposeDrift((f) =>
-      f === 'deploy/ops.yml'
+      f === 'deploy/compose.ops.yml'
         ? '# set ${EXAMPLE_VAR} here\nmemory: ${KUMA_MEM:-384m} # or ${OTHER_VAR}\n'
         : read(f),
     );
@@ -247,7 +247,7 @@ describe('findComposeDrift', () => {
 
   it('needs a required ${VAR:?} in every mapped example, an optional one in any', () => {
     const stack = {
-      'deploy/stack.yml': 'a: ${NEED:?set}\nb: ${OPT:-x}\n',
+      'deploy/compose.stack.yml': 'a: ${NEED:?set}\nb: ${OPT:-x}\n',
       'infra/secrets/prod.example.env': 'NEED=\nOPT=\n',
       'infra/secrets/staging.example.env': 'NEED=\n',
       'infra/secrets/demo.example.env': '# none\n',

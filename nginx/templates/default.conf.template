@@ -19,7 +19,7 @@ log_format redacted '$remote_addr - [$time_local] "$request_method $log_uri" '
                     '$status $body_bytes_sent "$http_user_agent" $request_time';
 
 # Two app containers (D25), restarted one at a time. The names are the aliases
-# deploy/stack.yml gives `app` / `app2` on the `biddaloy-edge` network. `resolve` looks the
+# deploy/compose.stack.yml gives `app` / `app2` on the `biddaloy-edge` network. `resolve` looks the
 # names up again every few seconds, so nginx boots (and keeps serving) when one is missing
 # or restarting; a refused connection falls through to the other one.
 upstream app_upstream {

@@ -352,6 +352,29 @@ describe('PlatformAlertsService', () => {
     });
   });
 
+  describe('notifyOperators (#3992)', () => {
+    it('texts every operator the body and writes no platform_alerts row', async () => {
+      const f = fakes({ phones: ['01711111111', '01822222222'] });
+      await f.service.notifyOperators('ALERT: OTP SMS ceiling reached');
+      expect(f.provider.send).toHaveBeenCalledTimes(2);
+      expect(f.provider.send.mock.calls[0][0].body).toContain('ALERT: OTP SMS ceiling reached');
+      expect(inserts(f.sql)).toHaveLength(0);
+    });
+
+    it('swallows a provider error', async () => {
+      const f = fakes({ phones: ['01711111111'] });
+      f.provider.send.mockRejectedValue(new Error('gateway down'));
+      await expect(f.service.notifyOperators('x')).resolves.toBeUndefined();
+    });
+
+    it('swallows a failure before any send (recipient lookup)', async () => {
+      const f = fakes({ phones: ['01711111111'] });
+      f.dataSource.query.mockRejectedValue(new Error('db down'));
+      await expect(f.service.notifyOperators('x')).resolves.toBeUndefined();
+      expect(f.provider.send).not.toHaveBeenCalled();
+    });
+  });
+
   it('listOpen returns kind and ISO opened_at', async () => {
     const f = fakes({});
     f.dataSource.query.mockResolvedValue([{ kind: 'REDIS_DOWN', opened_at: OPENED }]);

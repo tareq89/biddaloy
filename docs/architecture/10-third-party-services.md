@@ -25,8 +25,8 @@ flowchart LR
 
 ## Self-hosted infrastructure
 
-Runs as containers on the one VM, from `deploy/stack.yml` (one copy per
-environment), `deploy/edge.yml` and `deploy/ops.yml` — not managed cloud
+Runs as containers on the one VM, from `deploy/compose.stack.yml` (one copy per
+environment), `deploy/compose.edge.yml` and `deploy/compose.ops.yml` — not managed cloud
 services, but still "third party" software the app depends on. Layout:
 [07-deployment.md](07-deployment.md).
 
@@ -49,7 +49,7 @@ flowchart LR
 | nginx                       | `nginx:1.31-alpine`                  | Reverse proxy at the edge; TLS only in direct mode                                        |
 | cloudflared                 | `cloudflare/cloudflared`             | Tunnel mode: dials out to Cloudflare, so no public web port; checks Access tokens         |
 | Let's Encrypt               | `certbot/certbot` (direct mode only) | Certificate for the public hostnames, HTTP-01, renewed by the `certbot` container         |
-| Uptime Kuma, Beszel, Dozzle | `ops.yml`                            | Uptime and push monitors, host metrics, log viewer ([12-operations.md](12-operations.md)) |
+| Uptime Kuma, Beszel, Dozzle | `compose.ops.yml`                            | Uptime and push monitors, host metrics, log viewer ([12-operations.md](12-operations.md)) |
 
 Server libraries that talk to these (see
 [`server/package.json`](../../server/package.json)):

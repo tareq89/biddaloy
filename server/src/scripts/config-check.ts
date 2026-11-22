@@ -98,7 +98,7 @@ export const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
 export type Stack = 'prod' | 'staging' | 'demo';
 
 /**
- * What deploy/stack.yml hands the app that the host `.env` does not hold: the database URL is
+ * What deploy/compose.stack.yml hands the app that the host `.env` does not hold: the database URL is
  * built from POSTGRES_*, and the bucket falls back to the prod default. The check judges the
  * env the container really gets.
  */
@@ -106,20 +106,23 @@ export function composeAppEnv(env: Record<string, unknown>): Record<string, unkn
   const str = (k: string) => String(env[k] ?? '');
   return {
     ...env,
-    // Same defaults and fixed values as the x-app block of deploy/stack.yml.
+    // Same defaults and fixed values as the x-app block of deploy/compose.stack.yml.
     S3_BUCKET: str('S3_BUCKET') || 'biddaloy',
     SENTRY_TRACES_SAMPLE_RATE: str('SENTRY_TRACES_SAMPLE_RATE') || '0.1',
     DB_SSL: 'true',
-    // The edge serves /api on the app host, so stack.yml defaults it to APP_BASE_URL (#2459).
+    // Fixed in the x-app block of deploy/compose.stack.yml (the scanner sits on biddaloy-ops-scan).
+    CLAMAV_HOST: 'clamav',
+    CLAMAV_PORT: '3310',
+    // The edge serves /api on the app host, so compose.stack.yml defaults it to APP_BASE_URL (#2459).
     API_BASE_URL: str('API_BASE_URL') || str('APP_BASE_URL'),
-    // Same mapping as the x-app block of deploy/stack.yml.
+    // Same mapping as the x-app block of deploy/compose.stack.yml.
     SITE_ROOT_DOMAIN: str('ROOT_DOMAIN'),
     // After ...env: compose builds it, a DATABASE_URL in the host file is never used.
     DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}?sslmode=require`,
   };
 }
 
-// The `:?` variables of deploy/stack.yml for every stack, plus what each stack adds
+// The `:?` variables of deploy/compose.stack.yml for every stack, plus what each stack adds
 // (a spec keeps the common part equal to the compose file).
 export const COMMON_REQUIRED = [
   'ENV_NAME',

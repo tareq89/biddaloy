@@ -77,6 +77,7 @@ If you put **{Student name}**, **{Guardian name}**, **{Amount due}** and **{Due 
   - [Send to the guardians of many students at once](#task-bulk)
   - [See before sending how many SMS it needs](#sms-count)
   - [Who is skipped, and why](#task-skipped)
+  - [Daily limit](#daily-limit)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -174,6 +175,16 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 | **No phone or email on file for the preferred channel**   | There is no number or email for that channel                             |
 
 **Which guardian gets it, when sending to many:** each student's main contact guardian. If there is no main one, or the main one turned notifications off, all the other guardians. **For one student**, everyone who is ticked gets it. A guardian of two picked students gets one message for each student.
+
+### Daily limit <a href="#daily-limit" id="daily-limit"></a>
+
+When your school sends through the platform's own SMS, email or WhatsApp account, each channel has a **Daily limit**. It is 2,000 a day unless the platform team set another number. If the school uses its own SMS gateway, its SMS has no daily limit. Email and WhatsApp sent through the platform's account still have one.
+
+Each message counts as one, so a guardian who gets a message for each of two students counts as two. If a reminder, or a whole bulk round, has more messages on a channel than that channel has left, it is refused as a whole and nothing goes. You see: **You can send 300 more today. You are trying to send 500. Send to fewer people, or try again tomorrow.** When the day's number is used up: **Today's daily limit (2,000) is used up. Try again tomorrow.**
+
+What to do: send to fewer people, wait until tomorrow (the count starts again at midnight, Bangladesh time), or ask the platform team for a higher number. When a message is refused because the day's number is used up, the school's admins also get an alert, once a day for that channel. A send turned back as a whole before it starts does not raise the alert.
+
+If the platform team has switched it on, a line above **Send** shows what is left: **1,700 of today's 2,000 left.**
 
 ---
 

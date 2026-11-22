@@ -127,7 +127,7 @@ ENV_DB="$(envval POSTGRES_DB)"
 [[ -n "$POSTGRES_USER" ]] || refuse "POSTGRES_USER missing in $ENV_FILE"
 [[ "$ENV_DB" =~ ^biddaloy_staging(_dev)?$ ]] || refuse "POSTGRES_DB in $ENV_FILE is '$ENV_DB', not a staging database" "this command only works on the staging stack"
 
-dc() { docker compose -p staging --project-directory "$STAGE" -f "$(kept_file staging stack.yml deploy/stack.yml)" "$@"; }
+dc() { docker compose -p staging --project-directory "$STAGE" -f "$(kept_file staging compose.stack.yml deploy/compose.stack.yml)" "$@"; }
 # psql in the db container over its local socket (no password on a command line).
 psql_in() { local db="$1"; shift; dc exec -T db psql -U "$POSTGRES_USER" -d "$db" -v ON_ERROR_STOP=1 -tAq "$@"; }
 psql_admin() { psql_in postgres -c "$1"; }

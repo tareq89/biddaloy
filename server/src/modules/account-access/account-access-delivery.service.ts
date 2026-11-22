@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, Optional } from '@nestjs/common';
 import { sendOriginMetadata } from '../communications/providers/send-through-provider';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,6 +18,7 @@ import {
   TemplateVars,
 } from './account-access-templates';
 import { User } from '../users/entities/user.entity';
+import { OtpSmsCapsService } from './otp-sms-caps.service';
 
 export type DeliveryMedium = typeof CommunicationMedium.SMS | typeof CommunicationMedium.EMAIL;
 
@@ -37,6 +38,11 @@ export interface DeliverInput {
    * entity.
    */
   metadata?: Record<string, unknown>;
+  /**
+   * `req.ip` of a public caller (Rule 11), for the per-IP SMS cap (#3992). Omitted or null
+   * (signed-in callers, a resend with no request context) = platform ceiling only.
+   */
+  ip?: string | null;
 }
 
 export interface DeliverResult {
@@ -50,6 +56,15 @@ export interface DeliverResult {
  * `communication_logs.message_body` (12.1's D4). The real, secret-bearing
  * body is a local variable only: it goes to the provider and nowhere else.
  */
+/** Only sign-in code messages (incl. cockpit codes) count against the OTP SMS caps (#3992); invitations never do. */
+const CAPPED_OTP_KINDS: ReadonlySet<TemplateKind> = new Set([
+  'OTP',
+  'COCKPIT_DEVICE_CODE',
+  'COCKPIT_ENROL_CODE',
+]);
+const isCappedOtpSms = (input: DeliverInput): boolean =>
+  input.medium === CommunicationMedium.SMS && CAPPED_OTP_KINDS.has(input.kind);
+
 @Injectable()
 export class AccountAccessDeliveryService {
   private readonly logger = new Logger(AccountAccessDeliveryService.name);
@@ -60,7 +75,30 @@ export class AccountAccessDeliveryService {
     private readonly registry: CommunicationProviderRegistryService,
     private readonly schoolsService: SchoolsService,
     private readonly config: ConfigService,
+    // @Optional: a dozen integration specs build this service without the caps; AccountAccessModule
+    // always provides it.
+    @Optional() private readonly smsCaps?: OtpSmsCapsService,
   ) {}
+
+  /**
+   * [#3992] SMS only; email is never capped. A refusal looks to the caller exactly like a
+   * provider that failed (same result shape), so a capped request is not distinguishable.
+   * Runs in the callers' detached work, or in registration's existing SMS branch.
+   */
+  private async smsAllowed(input: DeliverInput): Promise<boolean> {
+    const caps = this.smsCaps;
+    if (!caps || !isCappedOtpSms(input)) return true;
+    return (await caps.allowForIp(input.ip ?? null, input.to)) && (await caps.allowPlatform());
+  }
+
+  private async countSms(input: DeliverInput): Promise<void> {
+    if (!this.smsCaps || !isCappedOtpSms(input)) return;
+    try {
+      await this.smsCaps.countUsage();
+    } catch {
+      // A usage counter must never fail a send that already went out.
+    }
+  }
 
   /**
    * Runs `work` after the response is sent, so a caller's timing cannot depend on
@@ -137,10 +175,12 @@ export class AccountAccessDeliveryService {
     }
 
     try {
+      if (!(await this.smsAllowed(input))) throw new Error('capped');
       const result = await provider.send(
         { to: input.to, body: real.body, subject: real.subject, allowPlatformSms: true },
         input.tenantId,
       );
+      await this.countSms(input);
       if (result.success) {
         log.status = CommunicationStatus.SENT;
         log.provider_message_id = result.providerMessageId;
@@ -181,10 +221,12 @@ export class AccountAccessDeliveryService {
     let status: CommunicationStatus = CommunicationStatus.FAILED;
     if (provider) {
       try {
+        if (!(await this.smsAllowed(input))) throw new Error('capped');
         const result = await provider.send(
           { to: input.to, body: real.body, subject: real.subject, allowPlatformSms: true },
           null,
         );
+        await this.countSms(input);
         if (result.success) status = CommunicationStatus.SENT;
       } catch {
         // status stays FAILED

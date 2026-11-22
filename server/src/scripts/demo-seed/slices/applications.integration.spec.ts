@@ -6,6 +6,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { AuditService } from '../../../modules/audit/audit.service';
 import { StorageService } from '../../../modules/storage/storage.service';
+import { VirusScanService } from '../../../modules/storage/virus-scan.service';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
 import { SchoolsService } from '../../../modules/schools/schools.service';
 import { resolveTenantSettings } from '../../../modules/schools/settings/tenant-settings-resolver';
@@ -127,6 +128,7 @@ describe('applications slice (integration, 2 years, scale 0.1)', () => {
       ApplicationsService,
       ApplicationDecisionsService,
       ApplicationAttachmentsService,
+      { provide: VirusScanService, useValue: { assertClean: async () => undefined } },
       ManualHandler,
       {
         provide: ApplicationNotifyService,

@@ -10,6 +10,9 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { fundMeteredTenant } from '@test/helpers/sms-credit-ledger.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_PASSWORD_HASH, SEED_SECTION_1_ID, SEED_TENANT_ID } from '@test/constants';
+import '../../communications/communications.module'; // load the module graph from its root
+import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
+import { SendLimitService } from '../../communications/limits/send-limit.service';
 import { COMMUNICATIONS_QUEUE } from '../../communications/communications.constants';
 import { CommunicationLog } from '../../communications/entities/communication-log.entity';
 import { NoticeAlertsService } from '../../attention/notice/notice-alerts.service';
@@ -19,12 +22,15 @@ import { NoticeSmsModule } from './notice-sms.module';
 import { NoticeSmsService, maskSmsPhone } from './notice-sms.service';
 
 /** [53.5.01] Real DB: approve reserves credit, makes links, queues one SMS per phone; nothing sends otherwise. */
+
 describe('NoticeSmsService (integration)', () => {
   let svc: NoticeSmsService;
   let ds: DataSource;
   let add: ReturnType<typeof vi.fn>;
   let audit: ReturnType<typeof vi.spyOn>;
   let alerts: NoticeAlertsService;
+  let registry: CommunicationProviderRegistryService;
+  let limits: SendLimitService;
   const T = SEED_TENANT_ID;
   const sfx = randomUUID().slice(0, 8);
   const author = randomUUID();
@@ -147,6 +153,8 @@ describe('NoticeSmsService (integration)', () => {
     add = vi.spyOn(module.get(getQueueToken(COMMUNICATIONS_QUEUE)), 'add') as never;
     audit = vi.spyOn(module.get(AuditService), 'record');
     alerts = module.get(NoticeAlertsService);
+    registry = module.get(CommunicationProviderRegistryService);
+    limits = module.get(SendLimitService);
     oldSettings = (await ds.query(`SELECT settings FROM schools WHERE id = $1`, [T]))[0].settings;
     for (const [id, n] of [
       [author, 'author'],
@@ -524,6 +532,33 @@ describe('NoticeSmsService (integration)', () => {
     expect((await row(id)).sms_status).toBe('PENDING');
     expect(await logsOf(id)).toHaveLength(0);
     expect(add).not.toHaveBeenCalled();
+  });
+
+  it('over the daily send limit: 409 DAILY_LIMIT_REACHED with the numbers, nothing reserved or queued [60.0]', async () => {
+    await meter(100);
+    const before = await ledgerIds();
+    const resolve = vi
+      .spyOn(registry, 'resolveFor')
+      .mockResolvedValue({ source: 'platform' } as never);
+    const rem = vi.spyOn(limits, 'remaining').mockResolvedValue({ limit: 5, remaining: 1 });
+    try {
+      const id = await notice([await guardian('01711000007'), await guardian('01711000008')]);
+      const err: any = await svc.approve(T, id, approver).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details).toEqual({
+        code: 'DAILY_LIMIT_REACHED',
+        requested: 2,
+        remaining: 1,
+        limit: 5,
+      });
+      expect((await row(id)).sms_status).toBe('PENDING');
+      expect(await logsOf(id)).toHaveLength(0);
+      expect(add).not.toHaveBeenCalled();
+      expect(await newLedger(before)).toHaveLength(0); // no credit reserved
+    } finally {
+      resolve.mockRestore();
+      rem.mockRestore();
+    }
   });
 
   it('metered with too little credit: 409 INSUFFICIENT_SMS_CREDIT, notice stays PENDING, no logs, no reserve', async () => {

@@ -122,10 +122,10 @@ const DEPLOY_SET = new Set([
 ]);
 // Which examples must list the variables each compose file reads.
 const COMPOSE_EXAMPLES = {
-  'deploy/stack.yml': ['prod', 'staging', 'demo'],
-  'deploy/edge.yml': ['edge'],
-  'deploy/edge.direct.yml': ['edge'],
-  'deploy/ops.yml': ['ops'],
+  'deploy/compose.stack.yml': ['prod', 'staging', 'demo'],
+  'deploy/compose.edge.yml': ['edge'],
+  'deploy/compose.edge-direct.yml': ['edge'],
+  'deploy/compose.ops.yml': ['ops'],
 };
 
 // \r too: an old-Mac line end must not glue a plaintext line onto an ENC one.
@@ -192,7 +192,7 @@ export function findBadContent(paths, read) {
 }
 
 // Drift guard: every ${VAR} a compose file reads is a key of one of its stack's example files
-// (any one of prod / staging / demo for stack.yml), unless the deploy sets it. Returns messages.
+// (any one of prod / staging / demo for compose.stack.yml), unless the deploy sets it. Returns messages.
 export function findComposeDrift(read) {
   const keysOf = (stack) => {
     const text = read(`infra/secrets/${stack}.example.env`);

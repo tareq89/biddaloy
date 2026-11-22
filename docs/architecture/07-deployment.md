@@ -48,17 +48,17 @@ flowchart TB
   PB -->|"hourly, encrypted"| R2[("Cloudflare R2")]
 ```
 
-| Project   | Compose file(s) in `deploy/`                      | Services                                                                                                              |
-| --------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `prod`    | `stack.yml`                                       | `app`, `app2` (profile `replica`), `db`, `redis`, `seaweedfs`, `backup` (profile `backup`), `jobs` (profile `jobs`)   |
-| `staging` | `stack.yml`                                       | `app`, `db`, `redis`, `seaweedfs`, `jobs`                                                                             |
-| `demo`    | `stack.yml`                                       | `app`, `db`, `redis`, `seaweedfs`, `demo-reset` (profile `demo-jobs`, run once per night)                             |
-| `edge`    | `edge.yml`, plus `edge.direct.yml` in direct mode | `nginx`, `landing`, `beszel-agent`, `cloudflared` (profile `tunnel`); direct mode adds `cert-bootstrap` and `certbot` |
-| `ops`     | `ops.yml`                                         | `uptime-kuma`, `beszel`, `dozzle`                                                                                     |
+| Project   | Compose file(s) in `deploy/`                                      | Services                                                                                                              |
+| --------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `prod`    | `compose.stack.yml`                                               | `app`, `app2` (profile `replica`), `db`, `redis`, `seaweedfs`, `backup` (profile `backup`), `jobs` (profile `jobs`)   |
+| `staging` | `compose.stack.yml`                                               | `app`, `db`, `redis`, `seaweedfs`, `jobs`                                                                             |
+| `demo`    | `compose.stack.yml`                                               | `app`, `db`, `redis`, `seaweedfs`, `demo-reset` (profile `demo-jobs`, run once per night)                             |
+| `edge`    | `compose.edge.yml`, plus `compose.edge-direct.yml` in direct mode | `nginx`, `landing`, `beszel-agent`, `cloudflared` (profile `tunnel`); direct mode adds `cert-bootstrap` and `certbot` |
+| `ops`     | `compose.ops.yml`                                                 | `uptime-kuma`, `beszel`, `dozzle`                                                                                     |
 
-The same `stack.yml` runs three times, told apart by `-p <project>` and by
+The same `compose.stack.yml` runs three times, told apart by `-p <project>` and by
 its own `.env` at `/opt/biddaloy/<project>/.env`. There is no `container_name`
-and no published host port in `stack.yml`. Prod's `.env` sets
+and no published host port in `compose.stack.yml`. Prod's `.env` sets
 `COMPOSE_PROFILES=replica,backup`, which is why every deploy step names its
 services instead of running a bare `up`.
 
@@ -125,10 +125,10 @@ flowchart LR
   end
 ```
 
-|                             | `EDGE_MODE=tunnel`                                                   | `EDGE_MODE=direct`                                                                                                                                          |
+| --------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | --------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Public ports                | SSH only                                                             | SSH, 80, 443                                                                                                                                                |
-| Compose                     | `edge.yml`, profile `tunnel` starts `cloudflared`                    | `edge.yml` + `edge.direct.yml` (`cloudflared` moves to profile `disabled`)                                                                                  |
+| Compose                     | `compose.edge.yml`, profile `tunnel` starts `cloudflared`            | `compose.edge.yml` + `compose.edge-direct.yml` (`cloudflared` moves to profile `disabled`)                                                                  |
 | TLS                         | Cloudflare                                                           | Let's Encrypt, HTTP-01; `cert-bootstrap` makes a 30-day self-signed cert on the first start so nginx can answer the challenge; `certbot` renews twice a day |
 | Visitor IP                  | `CF-Connecting-IP`, trusted only from `EDGE_TRUSTED_CIDR`            | the TCP peer; no `real_ip` lines at all                                                                                                                     |
 | `X-Forwarded-Proto`         | forced to `https` (cloudflared talks plain HTTP)                     | the real scheme                                                                                                                                             |
@@ -142,7 +142,7 @@ flowchart LR
 **First real certificate (direct mode).** Issuing it is one manual step, once.
 After the first `biddaloy-deploy edge <sha>` nginx serves the placeholder; delete
 it and ask Let's Encrypt for the real one (the command is in the comment above
-`cert-bootstrap` in `deploy/edge.direct.yml`):
+`cert-bootstrap` in `deploy/compose.edge-direct.yml`):
 
 ```bash
 rm -r /opt/biddaloy/edge/letsencrypt/live/<APP_DOMAIN>
@@ -292,7 +292,7 @@ Refusing to start with unsafe production config:
 DB_SSL must be "true" in production — refusing to connect to Postgres over an unencrypted connection. Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.
 ```
 
-`deploy/stack.yml` also refuses to start when `POSTGRES_*`, `S3_*`, `JWT_SECRET` or
+`deploy/compose.stack.yml` also refuses to start when `POSTGRES_*`, `S3_*`, `JWT_SECRET` or
 `APP_VERSION` are unset (`${VAR:?...}`), and a `client-admin` production build
 fails if `VITE_USE_MOCKS=true`.
 
@@ -323,8 +323,8 @@ keep working on the new schema for one release: the rule is in
 you need to look (the project name is the stack name):
 
 ```bash
-docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml \
-  run --rm migrate node server/dist/scripts/migrate.js pending
+docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/compose.stack.yml \
+  run --rm app node server/dist/scripts/migrate.js pending
 ```
 
 ## Rolling restart
@@ -350,7 +350,7 @@ old one. Staging and demo have one `app`. nginx finds `prod-app` and
 `prod-app2` by alias.
 
 Known gap (Epic 40): the school-site renderer (`site`) calls only `prod-app`
-(`SITE_API_BASE` in `deploy/stack.yml`). While `app` restarts, a school page
+(`SITE_API_BASE` in `deploy/compose.stack.yml`). While `app` restarts, a school page
 that is not in the 30 s nginx cache shows the site 503 page; a cached page is
 served stale. It ends when `app` is ready again (at most 24 x 5 s).
 `/api/health/ready` needs `HEALTH_TOKEN` in the project's secrets file; without
@@ -466,8 +466,8 @@ after the directory and show nothing.
 
 ```bash
 biddaloy-doctor prod
-docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml ps -a
-docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml logs --tail 100 app
+docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/compose.stack.yml ps -a
+docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/compose.stack.yml logs --tail 100 app
 tail -n 5 /opt/biddaloy/prod/deploys.log
 ```
 
@@ -688,6 +688,39 @@ Monday morning instead of a feeling.
 
 See the root README's "CI" section for the full per-job description and
 `ui/CONTRIBUTING.md` for the PR checklist tied to these gates.
+
+### Security checks
+
+Five checks watch for known-bad code, images and secrets. Two of them
+(`security-scan.yml`) are new in Epic 60.
+
+```mermaid
+flowchart LR
+    PR["Pull request"] --> ci["ci.yml: yarn audit"]
+    PR --> cq["codeql.yml: CodeQL"]
+    PR --> img["security-scan.yml: Trivy<br/>(only if a Dockerfile or yarn.lock changed)"]
+    PR --> sec["security-scan.yml: gitleaks<br/>(only the PR's commits)"]
+    dep["Dependabot"] -.->|opens update PRs| PR
+    week["Monday schedule"] --> img
+```
+
+| Check | Finds | Fails the build when |
+| --- | --- | --- |
+| Dependabot | Outdated dependencies and actions | Never fails a build; opens a PR |
+| CodeQL | Insecure code patterns in TypeScript | CodeQL reports a new alert on the PR |
+| `yarn audit` | Known-vulnerable npm packages | A vulnerability is not on the audit allowlist |
+| Trivy (`image-scan`) | Known CVEs in the built production image | A CRITICAL with a fix available (HIGH is only listed in the job summary) |
+| gitleaks (`secret-scan`) | Keys, tokens and passwords in commits | Any commit the PR adds matches a rule (`.gitleaks.toml`) |
+
+Example: a PR bumps the base image in `Dockerfile`. `image-scan` builds it
+and Trivy finds a CRITICAL in `openssl` with a fixed version. The job fails,
+and the fix is to bump the base image again.
+
+Fail-open or fail-closed: if Trivy cannot reach its database, the job
+fails (closed). Re-run it. `.gitleaks.toml` allows test and example values
+by file path only, never by pattern. A real secret found in history is
+rotated (`28-platform-runbook.md` Part 16); history is not rewritten.
+The weekly run also scans the `site` and `landing` images.
 
 ### Local loop
 

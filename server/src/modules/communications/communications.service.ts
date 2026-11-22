@@ -5,7 +5,11 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { assertRoomForBatch } from './limits/send-limit.precheck';
+import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
+import { SendLimitService } from './limits/send-limit.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -62,7 +66,15 @@ export class CommunicationsService {
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
     private readonly smsCreditService: SmsCreditService,
+    @Optional() private readonly sendLimitRegistry?: CommunicationProviderRegistryService,
+    @Optional() private readonly sendLimits?: SendLimitService,
   ) {}
+
+  private get precheckDeps() {
+    return this.sendLimitRegistry && this.sendLimits
+      ? { registry: this.sendLimitRegistry, limits: this.sendLimits }
+      : undefined;
+  }
 
   /**
    * [#2259] Freeform send to one guardian of this tenant. The address and
@@ -90,6 +102,9 @@ export class CommunicationsService {
         details: { code: 'GUARDIAN_NO_ADDRESS' },
       });
     }
+    // [60.0 D2] Human single send: refused up front when today's limit is used up. enqueue stays
+    // un-checked because automated callers share it (D27).
+    await assertRoomForBatch(this.precheckDeps, tenantId, dto.medium, 1);
     return this.enqueue(
       { ...dto, recipient_address: address, recipient_name: guardian.full_name },
       tenantId,

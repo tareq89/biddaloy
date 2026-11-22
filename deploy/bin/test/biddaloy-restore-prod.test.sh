@@ -98,7 +98,7 @@ run "${good[@]}"
 expect "1 happy path exits 0" test "$RC" -eq 0
 expect "1 order: lock, check, list, stop, restore, files, migrate, verify" bash -c "
   $(declare -f at before); LOG='$LOG'
-  before 'flock' 'psql -U' && before 'psql -U' 'aws s3 ls' && before 'aws s3 ls' 'compose -p prod --project-directory $WORK/opt/prod -f $WORK/opt/repo/deploy/stack.yml stop app app2 backup' && before ' stop app' 'restore.sh' && before 'restore.sh' 'rclone copy' && before 'rclone copy' 'migrate.js pending' && before 'migrate.js pending' 'migrate.js run'"
+  before 'flock' 'psql -U' && before 'psql -U' 'aws s3 ls' && before 'aws s3 ls' 'compose -p prod --project-directory $WORK/opt/prod -f $WORK/opt/repo/deploy/compose.stack.yml stop app app2 backup' && before ' stop app' 'restore.sh' && before 'restore.sh' 'rclone copy' && before 'rclone copy' 'migrate.js pending' && before 'migrate.js pending' 'migrate.js run'"
 expect "1 deploy lock taken before swap lock" before "flock -w 3600 8" "flock -w 3600 9"
 expect "1 restore.sh gets the guards" has "restore.sh db/hourly/20261022T120000Z.dump.age @env --no-migrate --require-empty --allow-live-target --expect-db $DB"
 expect "1 newest key picked, not the older one" hasnt "20261021T100000Z"
@@ -205,7 +205,7 @@ expect "10 busy lock exits 1 before any docker call" bash -c "[[ $RC -eq 1 ]] &&
 # 11/12. secrets and compose flags over a whole successful run
 run "${good[@]}"
 expect "11 no secret in any shim argument or output" bash -c "! grep -qF -e '$SECRET_PW' -e 'AGE-SECRET-KEY' '$LOG' '$WORK/out.txt'"
-expect "12 every compose call has project dir and file" bash -c "! grep '^docker compose' '$LOG' | grep -v -- '--project-directory $WORK/opt/prod -f $WORK/opt/repo/deploy/stack.yml'"
+expect "12 every compose call has project dir and file" bash -c "! grep '^docker compose' '$LOG' | grep -v -- '--project-directory $WORK/opt/prod -f $WORK/opt/repo/deploy/compose.stack.yml'"
 expect "12 every compose call is project prod" bash -c "! grep '^docker compose' '$LOG' | grep -v 'compose -p prod '"
 expect "12 the only other docker call reads the volume's age" bash -c "! grep '^docker ' '$LOG' | grep -v '^docker compose' | grep -v 'volume inspect -f {{.CreatedAt}} prod_pgdata'"
 
@@ -231,10 +231,10 @@ VOL_CREATED="$(date -u -d '100 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || d
 expect "13 only own dumps in the bucket: none found, nothing stopped" bash -c "[[ $RC -eq 1 ]] && ! grep -qE ' stop |restore.sh' '$LOG'"
 
 # 14. prod's last ok compose file wins over the live checkout
-printf 'x\n' > "$WORK/opt/prod/stack.yml"
+printf 'x\n' > "$WORK/opt/prod/compose.stack.yml"
 run "${good[@]}"
-expect "14 uses prod/stack.yml when the deploy kept one" has "-f $WORK/opt/prod/stack.yml"
-rm -f "$WORK/opt/prod/stack.yml"
+expect "14 uses prod/compose.stack.yml when the deploy kept one" has "-f $WORK/opt/prod/compose.stack.yml"
+rm -f "$WORK/opt/prod/compose.stack.yml"
 
 echo
 if [[ $fails -eq 0 ]]; then echo "all passed"; else echo "$fails failed"; exit 1; fi

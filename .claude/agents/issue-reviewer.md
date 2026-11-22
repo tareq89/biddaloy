@@ -153,6 +153,9 @@ why and the enforcing test.
   explain, or a `/platform/*` route without `PlatformSuperAdminGuard`.
 - **Public write without captcha (Rule 22).** Flag a new unauthenticated route
   that writes data without `TurnstileService.verify` before the write.
+- **Unscanned upload (Rule 33).** Flag a new upload that calls
+  `matchesDeclaredType` without `virusScan.assertClean`, or a new entry on
+  the `IMAGE_ONLY` list in `upload-scan.guard.spec.ts` without a reason.
 
 ### 5. Verify the suite yourself
 

@@ -25,6 +25,11 @@ import {
 } from '@tanstack/react-query';
 import * as React from 'react';
 
+import {
+  LeftTodayLine,
+  useDailyLimitMessage,
+} from '../../../routes/_staff/communications/-shared/daily-limit';
+
 import { noticeKeys } from './use-notices';
 
 type SmsView = components['schemas']['NoticeSmsViewDto'];
@@ -83,6 +88,9 @@ export function NoticeSmsPage({ noticeId, onClose }: { noticeId: string; onClose
   const [page, setPage] = React.useState(1);
   const [declining, setDeclining] = React.useState(false);
   const fmt = (n: number) => renderDigits(String(n), config.numerals);
+  // [Epic 60 #3994] A daily-limit refusal names the numbers; every other failure keeps its sentence.
+  const dailyLimitMessage = useDailyLimitMessage();
+  const failure = (e: unknown) => dailyLimitMessage(e) ?? t(smsErrorKey(e));
 
   const query = useQuery({
     queryKey: smsKey(noticeId, page),
@@ -111,7 +119,7 @@ export function NoticeSmsPage({ noticeId, onClose }: { noticeId: string; onClose
       ).data,
     retry: false,
     // The box snaps back on the refetch; say why, so no one thinks the person is out.
-    onError: (e) => toast.error(t(smsErrorKey(e))),
+    onError: (e) => toast.error(failure(e)),
     onSettled: refresh,
   });
   const decide = useMutation({
@@ -138,7 +146,7 @@ export function NoticeSmsPage({ noticeId, onClose }: { noticeId: string; onClose
         onClose();
       },
       // A second click, a colleague who decided first, too little credit: say which.
-      onError: (e) => toast.error(t(smsErrorKey(e))),
+      onError: (e) => toast.error(failure(e)),
       onSettled: () => setDeclining(false),
     });
   }
@@ -215,6 +223,7 @@ export function NoticeSmsPage({ noticeId, onClose }: { noticeId: string; onClose
           </Card>
         ))}
       </dl>
+      <LeftTodayLine channel="sms" />
       <Card className="flex flex-col gap-1 p-3">
         <h2 className="text-caption text-text-secondary">{t('manage.sms.text')}</h2>
         <p className="whitespace-pre-line">{view.sms.text}</p>
