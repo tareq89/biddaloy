@@ -77,7 +77,7 @@
     "axios-mock-adapter": "^2.1.0",
     "eslint-plugin-storybook": "^10",
     "fake-indexeddb": "^6.2.8",
-    "msw": "^3",
+    "msw": "^2",
     "msw-storybook-addon": "^3.0.3",
     "react": "^19",
     "react-dom": "^19",

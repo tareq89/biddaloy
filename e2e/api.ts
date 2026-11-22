@@ -1188,7 +1188,11 @@ export async function activateInvite(
   const body = (await response.json()) as RefreshResponse;
   const membership = body.memberships[0];
   if (!membership) throw new Error('no membership in activate response');
-  const session = { token: body.access_token, tenantId: membership.tenantId, role: membership.role };
+  const session = {
+    token: body.access_token,
+    tenantId: membership.tenantId,
+    role: membership.role,
+  };
   // [59.3.03, D33] An activated ADMIN would stop at /legal/accept on its first staff page.
   if (membership.role === 'ADMIN') await acceptLegal(request, session);
   return session;
@@ -1201,7 +1205,14 @@ export async function activateInvite(
  * from `ADMIN_REQUIRED_DOCS`, versions are the server's own `LEGAL_DOCS`; no literals here.
  */
 export async function acceptLegal(request: APIRequestContext, session: ApiSession): Promise<void> {
-  await post(request, session, '/legal/accept', { documents: [...ADMIN_REQUIRED_DOCS] });
+  await post(request, session, '/legal/accept', {
+    documents: [...ADMIN_REQUIRED_DOCS],
+    // The accept route validates every displayed version (59.3 D33) — send the
+    // same shape the sign-up form does.
+    versions: Object.fromEntries(
+      ADMIN_REQUIRED_DOCS.map((d) => [d, LEGAL_DOCS[d as keyof typeof LEGAL_DOCS].version]),
+    ),
+  });
 }
 
 /**
