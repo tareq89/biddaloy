@@ -2771,7 +2771,7 @@ Run these on the VM as the `deploy` user (`ssh deploy@$BIDDALOY_HOST`, same as [
    ```bash
    DC() { p=$1; shift; docker compose -p "$p" --project-directory "/opt/biddaloy/$p" -f /opt/biddaloy/repo/deploy/stack.yml "$@"; }
    DC prod stop app app2
-   DC prod ps
+   DC prod ps --all
    ```
 
    Expected, in words: `app` and `app2` show as exited; `db`, `redis`, `seaweedfs`, `backup` and `site` stay `Up`.
@@ -2807,8 +2807,18 @@ timers that do not need the app; see [The nightly jobs](#the-nightly-jobs).
 ends the maintenance without you saying so. `docker compose stop` is sticky (`restart: unless-stopped`), so a VM
 reboot also leaves `app` and `app2` stopped until step 4.
 
-**Before you rely on this:** run steps 2 to 4 once on **staging** (use `DC staging stop app`, there is one `app` there
-and no `app2`), then paste the real output of each command into this part and delete the banner at the top.
+**Before you rely on this:** run this sequence once on **staging** — do **not** run the `prod`
+commands above on that host. Staging has one `app` and no `app2`:
+
+```bash
+DC staging stop app
+DC staging ps --all
+DC staging start app
+```
+
+There is no staging `biddaloy-doctor` target yet; confirm the staging health check with the owner
+before relying on it. Then paste the real output of each command into this part and delete the
+banner at the top.
 
 ## Known gaps
 

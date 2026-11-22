@@ -24,8 +24,10 @@ flowchart LR
   S -->|GitHub org| G["Actions: Deploy button"]
 ```
 
-If you cannot get into the vault, stop and use the emergency access path described in the
-vault note. Do not try to guess or reset other accounts.
+If you cannot get into the vault, stop and use the emergency access path in the **printed
+emergency-access copy** the owner keeps outside the vault (with the school-contract papers). It
+repeats the vault note's emergency contact and the request steps, so it is readable without a
+vault login. Do not try to guess or reset other accounts.
 
 ## First hour
 
@@ -50,7 +52,7 @@ Every runbook starts this way: [12-operations.md](12-operations.md).
 | ------------------------ | ---------------------------------------------------------------------------------------- |
 | Fix                      | the `Next:` line, then [12-operations.md, section 3](12-operations.md#3-runbooks)        |
 | Restore                  | [13-backup-restore.md, Restore runbook](13-backup-restore.md#restore-runbook)            |
-| Maintenance              | [Part 20 of the runbook](28-platform-runbook.md#part-20-maintenance-and-telling-schools) |
+| Maintenance              | [Part 21 of the runbook](28-platform-runbook.md#part-21-maintenance-and-telling-schools) |
 | How bad is it (severity) | the incident response doc, pending (#1760)                                               |
 
 ## Telling schools
@@ -59,6 +61,10 @@ Do this **before** you stop anything: the cockpit that sends the message is serv
 
 1. **Announcement to all schools.** Cockpit, owner announcement (preview first). The second owner
    approves it ([12-operations.md 3.11](12-operations.md#311-a-queue-is-stuck-or-a-restore-lock-will-not-clear)).
+   If the second owner is unavailable, the announcement waits for their approval (the cockpit
+   returns `403 APPROVAL_REQUESTED`). Do not bypass it: send the Telegram message (step 2) now and
+   say in it when the announcement will go out once the other owner approves. The school notice
+   waits for the other owner.
 2. **Telegram.** One message in the alert group: what, since when, next update time.
 3. **Status page.** Pending (#1770). Until it exists, step 1 is the school notice.
 4. **If the app is already down and the cockpit does not open.** Send the same words as an SMS
@@ -69,11 +75,11 @@ Fill `<time>` with a real time, the next update, never "soon". Copy one message 
 
 **English**
 
-> Biddaloy is having a problem. Your data is safe. We will update you by `<time>`.
+> Biddaloy is having a problem. We are looking into it and will update you by `<time>`.
 
 **বাংলা**
 
-> Biddaloy-তে একটি সমস্যা হচ্ছে। আপনাদের তথ্য নিরাপদ আছে। আমরা `<time>`-এর মধ্যে আপনাদের জানাব।
+> Biddaloy-তে একটি সমস্যা হচ্ছে। আমরা বিষয়টি দেখছি এবং `<time>`-এর মধ্যে আপনাদের জানাব।
 
 When it is fixed, send a second message:
 
@@ -93,4 +99,6 @@ When it is fixed, send a second message:
 
 In the **Biddaloy vault**, in one note. This page never lists them. The note holds who to call,
 the bills that keep the servers and domain alive, and the legal and school-contract notes.
-Open it first, read it second, and update it when anything changes.
+Open it first, read it second, and update it when anything changes. The note's emergency access
+path (emergency contact and the request steps) is also kept as the **printed emergency-access
+copy** outside the vault, so it stays reachable when the vault itself cannot be opened.
