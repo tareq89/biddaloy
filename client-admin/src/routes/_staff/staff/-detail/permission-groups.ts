@@ -78,6 +78,9 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
     permissions: [
       Permission.COMMUNICATION_SEND,
       Permission.COMMUNICATION_BULK_SEND,
+      Permission.STAFF_MESSAGE_SEND,
+      Permission.STAFF_MESSAGE_COORDINATED,
+      Permission.MARKS_SMS_SEND,
       Permission.COMMUNICATION_LOG_READ,
       Permission.COMMUNICATION_CREDIT_READ,
       Permission.ALERT_SEND,

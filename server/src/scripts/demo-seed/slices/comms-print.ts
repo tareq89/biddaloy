@@ -3,8 +3,10 @@ import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
+  countSmsSegments,
   DocumentKind,
   KIND_CONTEXT,
+  MarkStatus,
   ReminderBatchStatus,
 } from '@biddaloy/shared';
 import type { DemoSeedContext, DemoSlice } from '../context';
@@ -18,6 +20,8 @@ import { PrintJobItem } from '../../../modules/print/entities/print-job-item.ent
 import { SmsCreditBalance } from '../../../modules/communications/credits/entities/sms-credit-balance.entity';
 import { PrintTemplatesService } from '../../../modules/print/templates/print-templates.service';
 import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
+import { buildMarksBody } from '../../../modules/exams/marks-sms.service';
+import { computeSubjectTotal } from '../../../modules/exams/result-rules';
 import { formatArrivalTime } from '../../../modules/attendance/arrival-notice.service';
 import { buildEncryptionKey } from '../../../modules/schools/settings/encryption-key';
 import { EncryptionService } from '../../../modules/schools/settings/encryption.service';
@@ -103,6 +107,8 @@ export const slice: DemoSlice = {
       rows += await printing(ctx, tenant, org.adminUserId);
     }
     rows += await arrivalLogs(ctx);
+    rows += await staffMessages(ctx, org.tenants, org.adminUserId);
+    rows += await marksSmsBatches(ctx, org.tenants, org.adminUserId);
     // Last, so the extra rng draws shift nothing above.
     return rows + (await messagingSettings(ctx, org.tenants));
   },
@@ -539,6 +545,382 @@ export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
       `UPDATE sms_credit_balance SET available = available - $2 WHERE tenant_id = $1`,
       [tenant, debits.filter((d) => d.tenant === tenant).length],
     );
+  }
+  return rows;
+}
+
+/**
+ * [80.W1 close] Three staff-message batches per branch, shaped like `StaffMessagesService.send`
+ * leaves them: header `filters_applied.kind = 'STAFF_MESSAGE'`, every log with
+ * `trigger = STAFF_MESSAGE` and `recipient_user_id`. Audiences: all teachers (meeting notice),
+ * office staff, and one named group (a designation). Every fourth log is FAILED (the enqueue
+ * failure the service writes), so the screen has a failed row. SENT SMS spend one credit each,
+ * like `arrivalLogs`, so ledger and balance still agree. Phones are the seeded `nextPhone()`
+ * ones; no `ctx.rng` draw (stableId, anchor dates), so later random values stay the same.
+ */
+async function staffMessages(
+  ctx: DemoSeedContext,
+  tenants: OrgTenant[],
+  adminId: string,
+): Promise<number> {
+  let rows = 0;
+  for (const tenant of tenants) {
+    const [group] = await ctx.ds.query(
+      `SELECT d.title_en AS name FROM designations d
+         JOIN staff_designation_history h ON h.designation_id = d.id AND h.tenant_id = $1
+              AND h.end_date IS NULL AND h.status <> 'RESIGNED'
+        WHERE d.tenant_id = $1 GROUP BY d.id, d.title_en HAVING count(*) >= 2 ORDER BY d.title_en LIMIT 1`,
+      [tenant.id],
+    );
+    const roleSql = `SELECT u.id, u.full_name AS name, u.phone FROM users u
+        JOIN user_tenants ut ON ut.user_id = u.id AND ut.tenant_id = $1 AND ut.deleted_at IS NULL
+       WHERE u.status = 'ACTIVE' AND u.deleted_at IS NULL AND NULLIF(btrim(u.phone), '') IS NOT NULL
+         AND ut.role::text = ANY($2::text[]) ORDER BY u.full_name, u.id`;
+    const designationSql = `SELECT DISTINCT u.id, u.full_name AS name, u.phone FROM users u
+        JOIN staff_designation_history h ON h.user_id = u.id AND h.tenant_id = $1
+             AND h.end_date IS NULL AND h.status <> 'RESIGNED'
+        JOIN designations d ON d.id = h.designation_id AND d.title_en = $2
+       WHERE u.status = 'ACTIVE' AND u.deleted_at IS NULL AND NULLIF(btrim(u.phone), '') IS NOT NULL
+       ORDER BY u.full_name, u.id`;
+    const plans: {
+      key: string;
+      day: number;
+      text: string;
+      people: { id: string; name: string; phone: string }[];
+    }[] = [
+      {
+        key: 'teachers',
+        day: -6,
+        text: 'সকল শিক্ষকের প্রতি: বৃহস্পতিবার বিকাল ৩টায় শিক্ষক সভা। উপস্থিত থাকুন।',
+        people: await ctx.ds.query(roleSql, [tenant.id, ['TEACHER']]),
+      },
+      {
+        key: 'office',
+        day: -4,
+        text: 'অফিস স্টাফদের প্রতি: মাসিক হিসাব সোমবারের মধ্যে জমা দিন।',
+        people: await ctx.ds.query(roleSql, [tenant.id, ['OFFICE_STAFF', 'ACCOUNTANT']]),
+      },
+      {
+        key: 'group',
+        day: -2,
+        text: 'আগামীকাল স্কুল ভবনের নিরাপত্তা মহড়া। সকাল ৯টায় প্রস্তুত থাকুন।',
+        people: group ? await ctx.ds.query(designationSql, [tenant.id, group.name]) : [],
+      },
+    ];
+    const logs: Record<string, unknown>[] = [];
+    const debits: { id: string; at: Date }[] = [];
+    for (const plan of plans) {
+      if (!plan.people.length) continue;
+      const date = addDays(ctx.anchor, plan.day);
+      const when = at(date, 10);
+      const batchId = stableId(`${tenant.slug}:staff-batch:${plan.key}`);
+      const failed = plan.people.filter((_, i) => i % 4 === 3).length;
+      await ctx.ds.getRepository(ReminderBatch).insert({
+        id: batchId,
+        tenant_id: tenant.id,
+        batch_name: `Staff message ${date}`,
+        status: failed ? ReminderBatchStatus.PARTIALLY_FAILED : ReminderBatchStatus.COMPLETED,
+        total_recipients: plan.people.length,
+        successful_count: plan.people.length - failed,
+        failed_count: failed,
+        message_template: plan.text,
+        initiated_by_user_id: adminId,
+        filters_applied: {
+          kind: 'STAFF_MESSAGE',
+          audience: { key: plan.key },
+          medium: CommunicationMedium.SMS,
+          mediums: [CommunicationMedium.SMS],
+          skipped: [],
+        },
+        created_at: when,
+        updated_at: when,
+      } as never);
+      rows++;
+      plan.people.forEach((p, i) => {
+        const bad = i % 4 === 3;
+        const id = stableId(`${tenant.slug}:staff-log:${plan.key}:${p.id}`);
+        logs.push({
+          id,
+          tenant_id: tenant.id,
+          medium: CommunicationMedium.SMS,
+          recipient_address: p.phone,
+          recipient_name: p.name,
+          recipient_user_id: p.id,
+          message_body: plan.text,
+          subject: null,
+          status: bad ? CommunicationStatus.FAILED : CommunicationStatus.SENT,
+          trigger: CommunicationTrigger.STAFF_MESSAGE,
+          student_id: null,
+          guardian_id: null,
+          sent_by_user_id: adminId,
+          reminder_batch_id: batchId,
+          provider_message_id: bad ? null : id,
+          metadata: bad
+            ? {
+                provider: COMPANY[CommunicationMedium.SMS],
+                error: 'Failed to enqueue for delivery',
+              }
+            : { provider: COMPANY[CommunicationMedium.SMS] },
+          reference_key: null,
+          created_at: when,
+          updated_at: when,
+        });
+        if (!bad) debits.push({ id, at: when });
+      });
+    }
+    if (!logs.length) continue;
+    rows += await insertChunked(ctx.ds.getRepository(CommunicationLog), logs as never);
+    // A matching top-up an hour before, so the balance stays at the floor and the running
+    // balance never dips below zero.
+    const first = at(addDays(ctx.anchor, -6), 9);
+    rows += await insertChunked(ctx.ds.getRepository(SmsCreditLedger), [
+      {
+        tenant_id: tenant.id,
+        kind: 'GRANT',
+        units: debits.length,
+        reference_type: 'manual',
+        reference_id: null,
+        idempotency_key: `demo-grant:staff-messages:${tenant.slug}`,
+        reason: 'ডেমো টপ-আপ',
+        actor_user_id: adminId,
+        created_at: first,
+      },
+      ...debits.map((d) => ({
+        tenant_id: tenant.id,
+        kind: 'DEBIT',
+        units: 1,
+        reference_type: 'log',
+        reference_id: d.id,
+        idempotency_key: `demo-debit:${d.id}`,
+        reason: null,
+        actor_user_id: null,
+        created_at: d.at,
+      })),
+    ] as never);
+  }
+  return rows;
+}
+
+/**
+ * [80.W3 close] Two marks-SMS batches per branch, shaped like `MarksSmsService.send` leaves
+ * them: header `filters_applied.kind = 'MARKS_SMS'` with the `mark_grid_id`, every log with
+ * `trigger = MARKS_SMS`, a student, a guardian and the service's own `reference_key`
+ * (`marks-sms:<grid>:<student>:<guardian>`). Each batch belongs to a SUBMITTED grid from the
+ * exams slice, so the grid screen answers "already sent". The second batch has FAILED rows
+ * (the enqueue failure the service writes: key released, `released_reference_key` kept). The
+ * body is the service's own `buildMarksBody`, from the seeded marks. SENT SMS spend their
+ * segments, like `staffMessages`, so ledger and balance agree. No `ctx.rng` draw (anchor
+ * dates, stableId), so later random values stay the same.
+ */
+async function marksSmsBatches(
+  ctx: DemoSeedContext,
+  tenants: OrgTenant[],
+  adminId: string,
+): Promise<number> {
+  let rows = 0;
+  for (const tenant of tenants) {
+    const grids: {
+      id: string;
+      exam_id: string;
+      section_id: string;
+      subject_id: string;
+      exam: string;
+      subject: string;
+    }[] = await ctx.ds.query(
+      `SELECT g.id, g.exam_id, g.section_id, g.subject_id, e.name AS exam,
+              COALESCE(sub.name_bn, sub.name_en) AS subject
+         FROM mark_grids g
+         JOIN exams e ON e.id = g.exam_id AND e.tenant_id = $1
+         JOIN subjects sub ON sub.id = g.subject_id AND sub.tenant_id = $1
+        WHERE g.tenant_id = $1 AND g.state = 'SUBMITTED'
+          AND EXISTS (SELECT 1 FROM marks m
+                        JOIN exam_components c ON c.id = m.component_id AND c.deleted_at IS NULL
+                        JOIN students st ON st.id = m.student_id AND st.class_section_id = g.section_id
+                         AND st.enrollment_status = 'ACTIVE' AND st.deleted_at IS NULL
+                        JOIN student_guardians sg ON sg.student_id = st.id
+                        JOIN guardians gd ON gd.id = sg.guardian_id
+                         AND NULLIF(btrim(gd.phone), '') IS NOT NULL
+                       WHERE m.exam_id = g.exam_id AND m.subject_id = g.subject_id
+                         AND m.tenant_id = $1)
+        ORDER BY e.name, sub.name_en, g.section_id LIMIT 2`,
+      [tenant.id],
+    );
+    const logs: Record<string, unknown>[] = [];
+    const debits: { id: string; at: Date; units: number }[] = [];
+    for (const [n, grid] of grids.entries()) {
+      const markRows: {
+        student_id: string;
+        name: string;
+        component_full_marks: string;
+        component_value: string | null;
+        component_status: MarkStatus;
+        component_pass_marks: string | null;
+        guardian_id: string;
+        guardian: string;
+        phone: string;
+        is_primary_contact: boolean;
+        notifications_enabled: boolean;
+      }[] = await ctx.ds.query(
+        `SELECT st.id AS student_id, COALESCE(st.full_name_bn, st.full_name) AS name,
+                c.full_marks AS component_full_marks, m.value AS component_value,
+                m.status AS component_status, c.pass_marks AS component_pass_marks,
+                g.id AS guardian_id, g.full_name AS guardian, g.phone,
+                g.is_primary_contact, g.notifications_enabled
+           FROM marks m
+           JOIN exam_components c ON c.id = m.component_id AND c.deleted_at IS NULL
+           JOIN students st ON st.id = m.student_id AND st.class_section_id = $4
+                AND st.enrollment_status = 'ACTIVE' AND st.deleted_at IS NULL
+           JOIN student_guardians sg ON sg.student_id = st.id
+           JOIN guardians g ON g.id = sg.guardian_id AND NULLIF(btrim(g.phone), '') IS NOT NULL
+          WHERE m.tenant_id = $1 AND m.exam_id = $2 AND m.subject_id = $3
+          ORDER BY st.id, g.id`,
+        [tenant.id, grid.exam_id, grid.subject_id, grid.section_id],
+      );
+      // Same shape `MarksSmsService` produces: one recipient per guardian the
+      // reminder-audience rules select, with the subject total from the
+      // component rows (an ABSENT component keeps the subject absent).
+      const people: {
+        student_id: string;
+        name: string;
+        obtained: number;
+        full_marks: number;
+        is_absent: boolean;
+        component_failed: boolean;
+        guardian_id: string;
+        guardian: string;
+        phone: string;
+      }[] = [];
+      const byStudent = new Map<string, typeof markRows>();
+      for (const r of markRows) {
+        const list = byStudent.get(r.student_id);
+        if (list) list.push(r);
+        else byStudent.set(r.student_id, [r]);
+      }
+      for (const rowsOfStudent of byStudent.values()) {
+        const total = computeSubjectTotal(
+          rowsOfStudent.map((r) => ({
+            full_marks: Number(r.component_full_marks),
+            value: r.component_value === null ? null : Number(r.component_value),
+            status: r.component_status,
+            pass_marks: r.component_pass_marks === null ? null : Number(r.component_pass_marks),
+          })),
+        );
+        // The service plans no message for a student with no counted marks
+        // (all-EXEMPT), same "no marks" reason as an empty component list.
+        if (!total.is_absent && total.full_marks === 0) continue;
+        const reachable = rowsOfStudent.filter((r) => r.notifications_enabled);
+        if (!reachable.length) continue;
+        // `selectReminderGuardians` over the reachable guardians: primaries
+        // when the student has any, everyone linked otherwise.
+        const primary = reachable.filter((r) => r.is_primary_contact);
+        for (const g of primary.length > 0 ? primary : reachable) {
+          people.push({
+            student_id: g.student_id,
+            name: g.name,
+            obtained: total.obtained,
+            full_marks: total.full_marks,
+            is_absent: total.is_absent,
+            component_failed: total.component_failed,
+            guardian_id: g.guardian_id,
+            guardian: g.guardian,
+            phone: g.phone,
+          });
+        }
+      }
+      if (!people.length) continue;
+      const when = at(addDays(ctx.anchor, -3 - n), 11);
+      const batchId = stableId(`${tenant.slug}:marks-sms-batch:${n}`);
+      // The first batch is clean; the second has every other message FAILED.
+      const isBad = (i: number) => n === 1 && i % 2 === 1;
+      const failed = people.filter((_, i) => isBad(i)).length;
+      await ctx.ds.getRepository(ReminderBatch).insert({
+        id: batchId,
+        tenant_id: tenant.id,
+        batch_name: `Marks SMS — ${grid.exam}, ${grid.subject}`.slice(0, 200),
+        status: failed ? ReminderBatchStatus.PARTIALLY_FAILED : ReminderBatchStatus.COMPLETED,
+        total_recipients: people.length,
+        successful_count: people.length - failed,
+        failed_count: failed,
+        message_template: null,
+        initiated_by_user_id: adminId,
+        filters_applied: { kind: 'MARKS_SMS', mark_grid_id: grid.id, skipped: [] },
+        created_at: when,
+        updated_at: when,
+      } as never);
+      rows++;
+      people.forEach((p, i) => {
+        const bad = isBad(i);
+        const id = stableId(`${tenant.slug}:marks-sms-log:${n}:${p.student_id}:${p.guardian_id}`);
+        const text = buildMarksBody({
+          locale: 'bn',
+          name: p.name,
+          exam: grid.exam,
+          subject: grid.subject,
+          total: {
+            obtained: p.obtained,
+            full_marks: p.full_marks,
+            is_absent: p.is_absent,
+            component_failed: p.component_failed,
+          },
+        });
+        const key = `marks-sms:${grid.id}:${p.student_id}:${p.guardian_id}`;
+        logs.push({
+          id,
+          tenant_id: tenant.id,
+          medium: CommunicationMedium.SMS,
+          recipient_address: p.phone,
+          recipient_name: p.guardian,
+          message_body: text,
+          subject: null,
+          status: bad ? CommunicationStatus.FAILED : CommunicationStatus.SENT,
+          trigger: CommunicationTrigger.MARKS_SMS,
+          student_id: p.student_id,
+          guardian_id: p.guardian_id,
+          sent_by_user_id: adminId,
+          reminder_batch_id: batchId,
+          provider_message_id: bad ? null : id,
+          metadata: bad
+            ? {
+                provider: COMPANY[CommunicationMedium.SMS],
+                error: 'Failed to enqueue for delivery',
+                released_reference_key: key,
+              }
+            : { provider: COMPANY[CommunicationMedium.SMS] },
+          reference_key: bad ? null : key,
+          created_at: when,
+          updated_at: when,
+        });
+        if (!bad) debits.push({ id, at: when, units: countSmsSegments(text).segments });
+      });
+    }
+    if (!logs.length) continue;
+    rows += await insertChunked(ctx.ds.getRepository(CommunicationLog), logs as never);
+    // A matching top-up just before the first batch keeps balance at the floor and the running
+    // balance above zero (same as `staffMessages`).
+    rows += await insertChunked(ctx.ds.getRepository(SmsCreditLedger), [
+      {
+        tenant_id: tenant.id,
+        kind: 'GRANT',
+        units: debits.reduce((sum, d) => sum + d.units, 0),
+        reference_type: 'manual',
+        reference_id: null,
+        idempotency_key: `demo-grant:marks-sms:${tenant.slug}`,
+        reason: 'ডেমো টপ-আপ',
+        actor_user_id: adminId,
+        created_at: at(addDays(ctx.anchor, -5), 9),
+      },
+      ...debits.map((d) => ({
+        tenant_id: tenant.id,
+        kind: 'DEBIT',
+        units: d.units,
+        reference_type: 'log',
+        reference_id: d.id,
+        idempotency_key: `demo-debit:${d.id}`,
+        reason: null,
+        actor_user_id: null,
+        created_at: d.at,
+      })),
+    ] as never);
   }
   return rows;
 }

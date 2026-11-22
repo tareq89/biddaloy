@@ -994,4 +994,41 @@ describe('/staff', () => {
       ),
     ).toBeTruthy();
   });
+
+  describe('bulk Send SMS [80.2.03]', () => {
+    const ids = ['3fa85f64-5717-4562-b3fc-2c963f66afa6', '4fa85f64-5717-4562-b3fc-2c963f66afa7'];
+    function mockStaff() {
+      server.use(
+        http.get('/api/v1/users', () =>
+          HttpResponse.json(
+            paginated([
+              userResponseFactory({ id: ids[0]!, full_name: 'Abdul Karim', role: 'TEACHER' }),
+              userResponseFactory({ id: ids[1]!, full_name: 'Rina Das', role: 'TEACHER' }),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    it('opens the staff message page with the picked people', async () => {
+      mockStaff();
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/staff'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await screen.findByText('Abdul Karim');
+      const boxes = screen.getAllByRole('checkbox');
+      await user.click(boxes[1]!);
+      await user.click(boxes[2]!);
+      await user.click(await screen.findByRole('button', { name: 'Send SMS' }));
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/communications/staff-message'),
+      );
+      expect(JSON.stringify(router.state.location.search)).toContain(ids[0]!);
+      expect(JSON.stringify(router.state.location.search)).toContain(ids[1]!);
+    });
+  });
 });

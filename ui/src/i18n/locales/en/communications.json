@@ -281,7 +281,11 @@
     "guardians": "Who to remind",
     "bulkBatchName": "Batch name",
     "bulkMediums": "Channels (bulk reminder)",
-    "status": "Status"
+    "status": "Status",
+    "staffAudience": "Who gets it",
+    "staffMedium": "Send by",
+    "staffMessage": "Message",
+    "staffTemplate": "WhatsApp template"
   },
   "help": {
     "guardian": "One guardian of the chosen student. Their phone or email shows below; without one you cannot send.",
@@ -290,14 +294,21 @@
     "guardians": "Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.",
     "bulkBatchName": "A name for this batch; you find it by this name in Reminder history later.",
     "bulkMediums": "A guardian whose preferred channel is not ticked here is skipped. All three start ticked.",
-    "status": "Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round."
+    "status": "Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.",
+    "staffAudience": "Starts on All teachers when the form opens without preselected staff; opened for one or more staff members, those people stay selected instead. Choose more to pick a role, a designation or named people. Someone in two groups is messaged once.",
+    "staffMedium": "SMS uses your school’s SMS credits. WhatsApp needs a template your school has already got approved, and shows only if the school set it up.",
+    "staffMessage": "What to send. The characters and how many SMS each person uses show below. A credit is one SMS to one person. Staff who have no phone number are left out and listed by name.",
+    "staffTemplate": "Type the approved template’s name, its language and the values. Everyone gets the same words. The preview shows the template name and the values, not the approved template text."
   },
   "helpRequired": {
     "guardian": "Yes",
     "message": "Yes",
     "guardians": "Yes, at least one",
     "bulkBatchName": "Yes",
-    "bulkMediums": "Yes, at least one"
+    "bulkMediums": "Yes, at least one",
+    "staffAudience": "Yes",
+    "staffMessage": "Yes",
+    "staffTemplate": "Yes, once WhatsApp is selected"
   },
   "messageLog": {
     "title": "Message log",
@@ -322,6 +333,8 @@
       "MANUAL": "Sent by staff",
       "SINGLE_REMINDER": "Reminder (one)",
       "BULK_REMINDER": "Reminder round",
+      "STAFF_MESSAGE": "Staff message",
+      "MARKS_SMS": "Marks SMS",
       "AUTOMATED": "Automatic",
       "ACCOUNT_ACCESS": "Sign-in codes",
       "RESULT_SMS": "Exam result",
@@ -373,5 +386,127 @@
     "batchTooBig": "You can send {{remaining}} more today. You are trying to send {{requested}}. Send to fewer people, or try again tomorrow.",
     "none": "Today's daily limit ({{limit}}) is used up. Try again tomorrow.",
     "leftToday": "{{remaining}} of today's {{limit}} left."
+  },
+  "staffMessage": {
+    "title": "Message staff",
+    "description": "Send one SMS to your teachers or office staff. You see how many will get it and what it costs before it goes out.",
+    "documentTitle": "Message staff",
+    "breadcrumb": {
+      "communications": "Communications",
+      "send": "Send message",
+      "staff": "Staff",
+      "full": "Communications › Send message › Staff"
+    },
+    "switch": {
+      "label": "Send to",
+      "guardians": "$t(common:entities.guardian_other)",
+      "staff": "Staff"
+    },
+    "audience": {
+      "title": "Who gets it",
+      "allTeachers": "All teachers",
+      "allOffice": "All office staff",
+      "chooseMore": "Choose more",
+      "chooseLess": "Show fewer choices",
+      "role": "Role",
+      "rolePlaceholder": "Pick one or more roles",
+      "designation": "Designation",
+      "designationPlaceholder": "Pick one or more designations",
+      "people": "Pick people",
+      "peoplePlaceholder": "Search by name",
+      "unnamedPerson": "Staff member",
+      "peopleNoResults": "No staff match.",
+      "coordinated": "$t(common:entities.teacher_other) you coordinate",
+      "empty": "Nobody matches. Choose someone else."
+    },
+    "medium": {
+      "label": "Send by",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
+    "message": {
+      "label": "Message",
+      "placeholder": "Type your message",
+      "required": "Type a message first."
+    },
+    "whatsapp": {
+      "help": "WhatsApp needs a template your school has already got approved. Everyone gets the same words.",
+      "templateName": "Template name",
+      "templateLanguage": "Template language",
+      "templateParams": "Template values (comma separated)",
+      "deliveredTitle": "What will be delivered",
+      "deliveredEmpty": "Fill in the template to see the words."
+    },
+    "preview": {
+      "title": "Check before sending",
+      "action": "Check who gets it",
+      "refresh": "Check again",
+      "loading": "Checking…",
+      "stale": "You changed something. Check again before sending.",
+      "line": "{{people}} people, {{withPhone}} with a phone, {{credits}} credits, balance {{balance}}",
+      "people": "People",
+      "withPhone": "With a phone",
+      "credits": "Credits needed",
+      "smsEach": "Each person uses {{count}} SMS",
+      "balance": "Credit balance",
+      "balanceUnknown": "Not known",
+      "shortfall": "You are short by {{count}} credits",
+      "shortfallHelp": "Add credit, or send to fewer people.",
+      "skippedTitle": "Left out ({{count}})",
+      "skippedNone": "Nobody was left out.",
+      "nobodyTitle": "Nobody to send to"
+    },
+    "skipReasons": {
+      "no_phone": "No phone number, so left out",
+      "unknown": "Left out for another reason"
+    },
+    "send": {
+      "action": "Send",
+      "sending": "Sending…",
+      "confirmTitle": "Send this message?",
+      "confirmDescription": "{{withPhone}} people will get it and {{credits}} credits will be used. A sent message cannot be taken back.",
+      "confirm": "Yes, send",
+      "cancel": "Go back",
+      "successTitle": "Message on its way",
+      "successDescription": "{{queued}} people will get it.",
+      "successFailed": "{{failed}} could not be sent.",
+      "successSkipped": "{{skipped}} were left out.",
+      "viewLog": "See message log",
+      "another": "Send another message",
+      "alreadySent": "This message was just sent to the same people. Wait a minute before sending it again."
+    },
+    "coordinator": {
+      "sentWithFailures": "SMS queued for {{count}}; {{failed}} failed. Open the message log.",
+      "sentToast": "SMS queued for {{count}} $t(common:entities.teacher_other).",
+      "sendAsSms": "Send as SMS",
+      "dialogTitle": "Send as SMS",
+      "dialogDescription": "Only the teachers you coordinate will get this SMS.",
+      "sending": "Sending…",
+      "cancel": "Go back"
+    },
+    "entry": {
+      "tooMany": "You can pick up to 500 people at a time.",
+      "bulkAction": "Send SMS",
+      "paletteTitle": "Message staff",
+      "prefillBanner": "To: {{names}}",
+      "prefillBannerMore": "To: {{names}} and {{count}} more",
+      "prefillHelp": "These people were picked on the staff list.",
+      "prefillClear": "Choose a different group",
+      "prefillNotFound": "Some of the people you picked could not be found."
+    },
+    "errors": {
+      "forbidden": "You cannot message staff.",
+      "noCoordinated": "You do not coordinate any teachers yet, so there is nobody to message.",
+      "noPhone": "None of these people has a phone number. Add numbers on their profiles or choose other people.",
+      "insufficientCredit": "There is not enough SMS credit. Add credit or choose fewer people.",
+      "duplicate": "This message was just sent to the same people. Wait a minute before sending it again.",
+      "tooMany": "You can message at most 500 people at once. Choose fewer people.",
+      "invalid": "Something in the message is not right. Check it and try again.",
+      "whatsappNotSet": "WhatsApp is not set up for this school. Send by SMS instead.",
+      "smsNotSet": "SMS is not set up for this school. An admin can turn it on in Settings › Communication.",
+      "previewFailed": "We could not check who gets it. Try again.",
+      "sendFailed": "The message was not sent. Try again in a moment.",
+      "unknownOutcome": "We could not confirm whether it was sent. Look in the message log before sending again."
+    }
   }
 }

@@ -70,6 +70,7 @@ describe('CommunicationsController', () => {
       familyAccess as unknown as FamilyAccessService,
       teacherScope as unknown as TeacherScopeService,
       deliveryStatus as unknown as DeliveryStatusService,
+      { preview: vi.fn(), send: vi.fn() } as never,
     );
   });
 

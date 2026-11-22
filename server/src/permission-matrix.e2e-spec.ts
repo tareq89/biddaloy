@@ -56,6 +56,20 @@ interface IdentityScopedEntry {
  */
 export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
   {
+    controller: 'CommunicationsController',
+    method: 'POST',
+    path: '/communications/staff/preview',
+    reason:
+      '80.1.05 D2/D28: any-of STAFF_MESSAGE_SEND / STAFF_MESSAGE_COORDINATED, checked in StaffMessagesService.callerScope (guard is all-of)',
+  },
+  {
+    controller: 'CommunicationsController',
+    method: 'POST',
+    path: '/communications/staff',
+    reason:
+      '80.1.05 D2/D28: any-of STAFF_MESSAGE_SEND / STAFF_MESSAGE_COORDINATED, checked in StaffMessagesService.callerScope (guard is all-of)',
+  },
+  {
     controller: 'PortalArrivalSubscriptionsController',
     method: 'GET',
     path: '/portal/arrival-subscriptions',
@@ -712,6 +726,10 @@ function findRoleNarrowing(
  * reviewed choice rather than a silent accumulation.
  */
 export const UI_ONLY_PERMISSIONS: Permission[] = [
+  // [80.1.05] The staff-message routes check these in StaffMessagesService.callerScope (any-of;
+  // the guard is all-of), so no route declares them.
+  Permission.STAFF_MESSAGE_SEND,
+  Permission.STAFF_MESSAGE_COORDINATED,
   // Nav/page gates with no corresponding route check.
   Permission.DASHBOARD_ADMIN,
   // [10.4] G17 — reserved for endpoints that don't exist yet (#291's

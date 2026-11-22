@@ -1,0 +1,11 @@
+%% title: The path of a staff message
+%% desc: Open Message staff, pick who gets it (All teachers to start), type the message and press Check who gets it. The check shows how many people, how many have a phone, how many credits it needs and your balance, and lists who is left out. If the balance is short, nothing can be sent. Otherwise press Send, then Yes, send. The message is queued, one SMS per person with a phone.
+flowchart TD
+  A["Who gets it · message"]:::admin --> B["Check who gets it"]:::admin
+  B --> C{"Enough credit?"}:::note
+  C -->|"No: short by …"| X["Cannot send<br/>add credit or pick fewer people"]
+  C -->|"Yes"| D["Send, then Yes, send"]:::admin
+  D --> S["Message on its way<br/>one SMS per person with a phone"]
+  B -.-> L["People with no phone<br/>are left out and listed"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

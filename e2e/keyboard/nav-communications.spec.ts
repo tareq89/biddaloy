@@ -6,11 +6,12 @@ import {
   expectReachableInMain,
   modalTitled,
   openFromSidebar,
+  tabToLocator,
   tabUntilFocused,
 } from './keyboard-utils';
 
 // [31.5.2] D36 — one keyboard journey per nav group; a new screen in this group adds one test here.
-// Nothing here sends a message.
+// Nothing here sends a message (the staff journey stops at the check, before Send).
 
 test.describe('Communications (admin)', () => {
   test.use(loggedIn('admin'));
@@ -18,6 +19,34 @@ test.describe('Communications (admin)', () => {
   test('send message', async ({ page }) => {
     await openFromSidebar(page, t('nav.items.sendMessage'));
     await expectReachableInMain(page);
+  });
+
+  // [80.2.02] Sidebar -> Send message -> Staff tab (arrow key) -> type -> check, no mouse. It stops at
+  // "Check who gets it": the check writes nothing, and Send would spend the school's SMS credits.
+  test('message staff', async ({ page }) => {
+    await openFromSidebar(page, t('nav.items.sendMessage'));
+    await tabUntilFocused(page, t('communications.staffMessage.switch.guardians'), 30, {
+      exact: true,
+    });
+    await page.keyboard.press('ArrowRight');
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('communications.staffMessage.title') }),
+    ).toBeVisible();
+    await tabToLocator(
+      page,
+      page.getByRole('textbox', { name: t('communications.staffMessage.message.label') }),
+    );
+    await page.keyboard.type('Staff meeting at 3 pm');
+    await tabToLocator(
+      page,
+      page.getByRole('button', {
+        name: t('communications.staffMessage.preview.action'),
+        exact: true,
+      }),
+    );
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(t('communications.staffMessage.preview.title'))).toBeVisible();
+    await expect(page.getByText(t('communications.staffMessage.preview.people'))).toBeVisible();
   });
 
   // [97.4.03] Opening the log reads only; nothing is sent.
