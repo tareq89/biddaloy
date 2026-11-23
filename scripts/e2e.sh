@@ -36,6 +36,15 @@ export SEED_ADMIN_PASSWORD
 # login throttler is skipped under it, and the suite logs in many times per
 # run, so NODE_ENV=development would trip the 5/min rate limit.
 export NODE_ENV=test
+# register/start echoes the OTP only with this on (CI sets the same job env).
+export ACCOUNT_ACCESS_ECHO_SECRETS=true
+# The seed creates the platform owner (cockpit specs sign in as it) only with this.
+export SEED_COCKPIT_OWNER=true
+# The rest of playwright.config.ts's webServer env — since this script starts the
+# server first, playwright reuses it and never applies its own env block.
+export OUTBOUND_TEST_ALLOW_LOOPBACK=true
+export BKASH_TEST_BASE_URL=http://127.0.0.1:38417/v1.2.0-beta
+export SITE_ROOT_DOMAIN=sites.e2e.test
 PGUSER="${POSTGRES_USER:-postgres}"
 export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
 export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@127.0.0.1:5432/${DB_NAME}"

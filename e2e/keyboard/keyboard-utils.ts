@@ -95,7 +95,10 @@ export async function selectByTypeahead(
  * Enter, and check the page `h1` reads the same (D16/D32). Keyboard only. */
 export async function openFromSidebar(page: Page, label: string, max = 150): Promise<void> {
   await page.goto('/dashboard');
-  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+  // The dev server compiles the dashboard chunk on first hit; 5s loses that race (CI + local).
+  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({
+    timeout: 30_000,
+  });
   await page.evaluate(() => {
     document.body.setAttribute('tabindex', '-1');
     document.body.focus();
@@ -105,9 +108,9 @@ export async function openFromSidebar(page: Page, label: string, max = 150): Pro
   await tabUntilFocused(page, label, max, { tag: 'a', exact: true });
   await page.keyboard.press('Enter');
   const heading = page.getByRole('heading', { level: 1, name: label, exact: true });
-  await expect(heading).toBeVisible();
+  await expect(heading).toBeVisible({ timeout: 30_000 });
   // Route focus lands on the h1 a moment after navigation; Tabbing before it would race it.
-  await expect(heading).toBeFocused();
+  await expect(heading).toBeFocused({ timeout: 30_000 });
 }
 
 /** [31.5.2] From the focused heading, Tab to the header action `actionLabel`,

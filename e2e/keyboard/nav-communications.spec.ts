@@ -25,13 +25,18 @@ test.describe('Communications (admin)', () => {
   // "Check who gets it": the check writes nothing, and Send would spend the school's SMS credits.
   test('message staff', async ({ page }) => {
     await openFromSidebar(page, t('nav.items.sendMessage'));
-    await tabUntilFocused(page, t('communications.staffMessage.switch.guardians'), 30, {
+    // `tag: 'button'`: the sidebar also has a link named "অভিভাবক" (→ /guardians);
+    // without the pin Tab stops there and ArrowRight does nothing.
+    // Focus starts on the h1, so Tab walks the whole form and wraps through the
+    // sidebar before reaching the switch — it needs the full 150-press budget.
+    await tabUntilFocused(page, t('communications.staffMessage.switch.guardians'), 150, {
+      tag: 'button',
       exact: true,
     });
     await page.keyboard.press('ArrowRight');
     await expect(
       page.getByRole('heading', { level: 1, name: t('communications.staffMessage.title') }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
     await tabToLocator(
       page,
       page.getByRole('textbox', { name: t('communications.staffMessage.message.label') }),

@@ -122,9 +122,10 @@ test.describe('register and set up a school', () => {
       await typed.click();
       await page.keyboard.type(NCTB_NAME_BN);
       await page.getByRole('button', { name: t('curriculumPreset.confirm.apply') }).click();
+      // Applying the preset runs a server job — well over 5s under load.
       await expect(
         page.getByRole('heading', { name: t('curriculumPreset.applied.title') }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
       await welcome.next();
       await expect(
         page.getByRole('heading', { name: t('onboardingSetup.guided.sections.title') }),
