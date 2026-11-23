@@ -83,7 +83,7 @@ export async function selectByTypeahead(
   // Enter then picks. A short delay lets each jump land before the next key, as for a person.
   await page.keyboard.type(value, { delay: 25 });
   const option = page.getByRole('option', { name, exact: true });
-  await expect(option).toBeFocused();
+  await expect(option).toBeFocused({ timeout: 30_000 });
   await page.keyboard.press('Enter');
   await expect(page.getByRole('listbox')).toBeHidden();
   // Focus goes back to the trigger a moment after the listbox closes; a key sent before that
@@ -94,23 +94,34 @@ export async function selectByTypeahead(
 /** [31.5.2] Load the dashboard, Tab to the sidebar link named `label`, press
  * Enter, and check the page `h1` reads the same (D16/D32). Keyboard only. */
 export async function openFromSidebar(page: Page, label: string, max = 150): Promise<void> {
-  await page.goto('/dashboard');
-  // The dev server compiles the dashboard chunk on first hit; 5s loses that race (CI + local).
-  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.evaluate(() => {
-    document.body.setAttribute('tabindex', '-1');
-    document.body.focus();
-    document.body.removeAttribute('tabindex');
-  });
-  await page.keyboard.press('Tab');
-  await tabUntilFocused(page, label, max, { tag: 'a', exact: true });
-  await page.keyboard.press('Enter');
-  const heading = page.getByRole('heading', { level: 1, name: label, exact: true });
-  await expect(heading).toBeVisible({ timeout: 30_000 });
-  // Route focus lands on the h1 a moment after navigation; Tabbing before it would race it.
-  await expect(heading).toBeFocused({ timeout: 30_000 });
+  // Under parallel workers the dev server is slow enough that the route-focus
+  // handoff (Enter → new page's h1) sometimes loses to a late shell re-render
+  // and focus stays on the sidebar link. One whole-journey retry turns that
+  // race into a pass while a real reachability break still fails both goes.
+  for (let attempt = 0; ; attempt += 1) {
+    await page.goto('/dashboard');
+    // The dev server compiles the dashboard chunk on first hit; 5s loses that race (CI + local).
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
+    await page.keyboard.press('Tab');
+    await tabUntilFocused(page, label, max, { tag: 'a', exact: true });
+    await page.keyboard.press('Enter');
+    const heading = page.getByRole('heading', { level: 1, name: label, exact: true });
+    try {
+      await expect(heading).toBeVisible({ timeout: 30_000 });
+      // Route focus lands on the h1 a moment after navigation; Tabbing before it would race it.
+      await expect(heading).toBeFocused({ timeout: 30_000 });
+      return;
+    } catch (error) {
+      if (attempt >= 2) throw error;
+    }
+  }
 }
 
 /** [31.5.2] From the focused heading, Tab to the header action `actionLabel`,

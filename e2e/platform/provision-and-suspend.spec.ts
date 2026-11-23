@@ -8,6 +8,7 @@ import {
 } from '../api';
 import { shells } from '../config';
 import { cockpitOwner, expect, test } from '../fixtures/test';
+import bnLegal from '../../ui/src/i18n/locales/bn/legal.json';
 import { t } from '../i18n';
 import { ActivatePage } from '../pages/activate-page';
 import { AppShellPage } from '../pages/app-shell';
@@ -113,7 +114,29 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     // ADMIN is then sent on to /welcome by the first-visit gate [13.5.1];
     // when activation is slow (cost-12 bcrypt under load) the poll can miss
     // the brief /dashboard, so either URL means "landed in the new school".
-    await expect(activationPage).toHaveURL(/\/(dashboard|welcome)/);
+    // [59.3.03, D33]: an admin the sign-up form did not create stops at
+    // /legal/accept on their first STAFF page — /welcome is not one, so the
+    // gate can surface only after /welcome. Walk both gates: every
+    // /legal/accept gets the consent box, and the step ends inside the school.
+    await activationPage.goto('/dashboard');
+    await activationPage.waitForURL(/\/(dashboard|welcome|legal\/accept)/);
+    for (let visit = 0; visit < 3; visit += 1) {
+      if (activationPage.url().includes('/legal/accept')) {
+        const submit = activationPage.getByRole('button', { name: bnLegal.accept.submit });
+        await expect(submit).toBeVisible();
+        await activationPage.getByRole('checkbox', { name: bnLegal.accept.checkbox }).check();
+        await submit.click();
+        await expect(activationPage).not.toHaveURL(/\/legal\/accept/, { timeout: 30_000 });
+      }
+      if (/\/(dashboard|welcome)/.test(activationPage.url()) && visit < 2) {
+        // A staff page may still swap in the gate after /welcome — one more visit proves it didn't.
+        await activationPage.goto('/dashboard');
+        await activationPage
+          .waitForURL(/\/(dashboard|welcome|legal\/accept)/)
+          .catch(() => undefined);
+      }
+    }
+    await expect(activationPage).toHaveURL(/\/(dashboard|welcome)/, { timeout: 30_000 });
     await activationContext.close();
   });
 
@@ -239,9 +262,20 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     // the real settings page rendered and the suspended notice is gone.
     // By its heading, not by `role="status"` count: the settings page has
     // a live region of its own, so zero status elements is never true here.
-    await expect(
-      adminPage.getByRole('heading', { level: 1, name: t('settings.title') }),
-    ).toBeVisible();
+    // [59.3.03, D33] The suspend/reactivate cycle can re-surface the legal
+    // gate on this first staff page — accept it if it did.
+    const gateSubmit = adminPage.getByRole('button', { name: bnLegal.accept.submit });
+    const settingsHeading = adminPage.getByRole('heading', {
+      level: 1,
+      name: t('settings.title'),
+    });
+    await expect(gateSubmit.or(settingsHeading)).toBeVisible({ timeout: 30_000 });
+    if (await gateSubmit.isVisible()) {
+      await adminPage.getByRole('checkbox', { name: bnLegal.accept.checkbox }).check();
+      await gateSubmit.click();
+      await expect(adminPage).not.toHaveURL(/\/legal\/accept/, { timeout: 30_000 });
+    }
+    await expect(settingsHeading).toBeVisible({ timeout: 30_000 });
     await expect(
       adminPage.getByRole('heading', { level: 1, name: t('common.suspended.pageTitle') }),
     ).toHaveCount(0);

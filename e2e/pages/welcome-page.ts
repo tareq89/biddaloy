@@ -8,9 +8,10 @@ export class WelcomePage {
 
   async expectLoaded(): Promise<void> {
     await expect(this.page).toHaveURL(/\/welcome/);
+    // The welcome chunk compiles on first hit; the 5s default loses that race.
     await expect(
       this.page.getByRole('heading', { name: t('onboardingSetup.doors.heading') }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
   }
 
   door(key: 'guided' | 'excel' | 'later') {

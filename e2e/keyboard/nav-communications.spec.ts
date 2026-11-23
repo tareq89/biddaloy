@@ -15,6 +15,7 @@ import {
 
 test.describe('Communications (admin)', () => {
   test.use(loggedIn('admin'));
+  test.setTimeout(120_000);
 
   test('send message', async ({ page }) => {
     await openFromSidebar(page, t('nav.items.sendMessage'));

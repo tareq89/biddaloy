@@ -57,6 +57,10 @@ export class RegisterPage {
     await field.fill(password);
     await expect(unmet).toHaveCount(0);
     await page.getByLabel(t('auth.setPassword.confirmLabel')).fill(password);
+    // Wait for the save itself: under load the redirect lags the click, and a
+    // spec that navigates on before the session exists bounces to set-password.
+    const saved = page.waitForResponse((res) => res.url().includes('/account/first-password'));
     await page.getByRole('button', { name: t('register.password.save') }).click();
+    await saved;
   }
 }
