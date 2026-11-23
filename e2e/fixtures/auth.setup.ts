@@ -63,7 +63,10 @@ setup('capture a storageState per seed role', async () => {
         `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`,
       );
     }
-    const body = (await response.json()) as { memberships: LoginMembership[] };
+    const body = (await response.json()) as {
+      access_token: string;
+      memberships: LoginMembership[];
+    };
     // The membership matching the seeded role — the admin account is
     // multi-membership (rose-valley-school), so "first" is not enough.
     const membership = body.memberships.find((m) => m.role === role.toUpperCase());
