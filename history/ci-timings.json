@@ -1,215 +1,227 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-16T14:53:59.870Z",
+  "generatedAt": "2026-11-23T17:35:18.643Z",
   "window": {
     "requestedRuns": 60,
-    "consideredRuns": 41
+    "consideredRuns": 49
   },
-  "failureRate": 0.975609756097561,
-  "passRate": 0.024390243902439025,
+  "failureRate": 0.9591836734693877,
+  "passRate": 0.04081632653061224,
   "wall": {
-    "n": 41,
-    "medianMs": 1911000,
-    "p90Ms": 4293000
+    "n": 49,
+    "medianMs": 1248000,
+    "p90Ms": 2300000
   },
   "jobs": [
     {
-      "name": "Frontend tests (6/6)",
-      "n": 41,
-      "medianMs": 387000,
-      "p90Ms": 1439000
-    },
-    {
-      "name": "Frontend tests (2/6)",
-      "n": 41,
-      "medianMs": 398000,
-      "p90Ms": 1163000
-    },
-    {
       "name": "E2E cockpit",
-      "n": 41,
-      "medianMs": 1085000,
-      "p90Ms": 1137000
-    },
-    {
-      "name": "Frontend tests (3/6)",
-      "n": 41,
-      "medianMs": 427000,
-      "p90Ms": 1135000
+      "n": 49,
+      "medianMs": 1090000,
+      "p90Ms": 1136000
     },
     {
       "name": "E2E smoke (chromium 4/4)",
-      "n": 41,
-      "medianMs": 616000,
-      "p90Ms": 900000
-    },
-    {
-      "name": "E2E smoke (chromium 2/4)",
-      "n": 41,
-      "medianMs": 562000,
-      "p90Ms": 825000
+      "n": 47,
+      "medianMs": 831000,
+      "p90Ms": 1038000
     },
     {
       "name": "E2E smoke (chromium 3/4)",
-      "n": 41,
-      "medianMs": 547000,
-      "p90Ms": 710000
+      "n": 47,
+      "medianMs": 697000,
+      "p90Ms": 808000
     },
     {
-      "name": "Server e2e (2/2)",
-      "n": 32,
-      "medianMs": 578000,
-      "p90Ms": 704000
+      "name": "E2E smoke (chromium 2/4)",
+      "n": 47,
+      "medianMs": 638000,
+      "p90Ms": 797000
     },
     {
       "name": "Server e2e (1/2)",
-      "n": 32,
-      "medianMs": 551000,
-      "p90Ms": 694000
+      "n": 41,
+      "medianMs": 585000,
+      "p90Ms": 711000
+    },
+    {
+      "name": "Server e2e (2/2)",
+      "n": 41,
+      "medianMs": 546000,
+      "p90Ms": 703000
     },
     {
       "name": "E2E smoke (chromium 1/4)",
-      "n": 41,
-      "medianMs": 454000,
-      "p90Ms": 593000
+      "n": 47,
+      "medianMs": 522000,
+      "p90Ms": 624000
     },
     {
       "name": "Demo-seed specs",
-      "n": 41,
-      "medianMs": 0,
-      "p90Ms": 573000
-    },
-    {
-      "name": "Frontend tests (5/6)",
-      "n": 41,
-      "medianMs": 441000,
-      "p90Ms": 570000
+      "n": 49,
+      "medianMs": 472000,
+      "p90Ms": 611000
     },
     {
       "name": "Integration tests (1/3)",
-      "n": 32,
-      "medianMs": 132000,
-      "p90Ms": 563000
-    },
-    {
-      "name": "Integration tests (2/3)",
-      "n": 32,
-      "medianMs": 457000,
-      "p90Ms": 560000
-    },
-    {
-      "name": "Frontend tests (1/6)",
       "n": 41,
-      "medianMs": 430000,
-      "p90Ms": 556000
+      "medianMs": 401000,
+      "p90Ms": 584000
     },
     {
       "name": "Integration tests (3/3)",
-      "n": 32,
-      "medianMs": 453000,
-      "p90Ms": 538000
+      "n": 41,
+      "medianMs": 438000,
+      "p90Ms": 569000
+    },
+    {
+      "name": "Integration tests (2/3)",
+      "n": 41,
+      "medianMs": 444000,
+      "p90Ms": 550000
+    },
+    {
+      "name": "Frontend tests (5/6)",
+      "n": 47,
+      "medianMs": 403000,
+      "p90Ms": 545000
+    },
+    {
+      "name": "Frontend tests (1/6)",
+      "n": 47,
+      "medianMs": 394000,
+      "p90Ms": 541000
     },
     {
       "name": "Frontend tests (4/6)",
-      "n": 41,
-      "medianMs": 386000,
-      "p90Ms": 528000
+      "n": 47,
+      "medianMs": 380000,
+      "p90Ms": 526000
+    },
+    {
+      "name": "Frontend tests (6/6)",
+      "n": 47,
+      "medianMs": 425000,
+      "p90Ms": 499000
+    },
+    {
+      "name": "Frontend tests (2/6)",
+      "n": 47,
+      "medianMs": 375000,
+      "p90Ms": 496000
+    },
+    {
+      "name": "Frontend tests (3/6)",
+      "n": 47,
+      "medianMs": 395000,
+      "p90Ms": 469000
     },
     {
       "name": "Build, lint, unit tests",
-      "n": 41,
-      "medianMs": 342000,
-      "p90Ms": 446000
+      "n": 49,
+      "medianMs": 202000,
+      "p90Ms": 466000
     },
     {
       "name": "E2E PWA",
-      "n": 41,
-      "medianMs": 297000,
-      "p90Ms": 368000
+      "n": 49,
+      "medianMs": 326000,
+      "p90Ms": 386000
     },
     {
       "name": "Dependency vulnerability scan",
-      "n": 41,
-      "medianMs": 230000,
-      "p90Ms": 276000
+      "n": 49,
+      "medianMs": 235000,
+      "p90Ms": 317000
     },
     {
       "name": "Infra config tests",
-      "n": 41,
-      "medianMs": 0,
-      "p90Ms": 269000
-    },
-    {
-      "name": "Storybook build",
-      "n": 41,
-      "medianMs": 89000,
-      "p90Ms": 108000
+      "n": 49,
+      "medianMs": 211000,
+      "p90Ms": 278000
     },
     {
       "name": "Landing build",
-      "n": 41,
-      "medianMs": 0,
-      "p90Ms": 106000
-    },
-    {
-      "name": "Frontend coverage merge",
-      "n": 41,
-      "medianMs": 76000,
-      "p90Ms": 95000
-    },
-    {
-      "name": "Site build and test",
-      "n": 41,
-      "medianMs": 73000,
-      "p90Ms": 91000
+      "n": 49,
+      "medianMs": 80000,
+      "p90Ms": 150000
     },
     {
       "name": "User guide checks",
-      "n": 41,
-      "medianMs": 64000,
-      "p90Ms": 77000
+      "n": 49,
+      "medianMs": 71000,
+      "p90Ms": 136000
+    },
+    {
+      "name": "Site build and test",
+      "n": 49,
+      "medianMs": 72000,
+      "p90Ms": 129000
+    },
+    {
+      "name": "Storybook build",
+      "n": 49,
+      "medianMs": 90000,
+      "p90Ms": 122000
+    },
+    {
+      "name": "Frontend coverage merge",
+      "n": 49,
+      "medianMs": 66000,
+      "p90Ms": 89000
     },
     {
       "name": "Bundle size delta",
-      "n": 41,
+      "n": 49,
       "medianMs": 0,
-      "p90Ms": 65000
+      "p90Ms": 75000
     },
     {
       "name": "Test timings & budgets",
-      "n": 41,
-      "medianMs": 21000,
+      "n": 49,
+      "medianMs": 22000,
       "p90Ms": 28000
     },
     {
       "name": "Detect changed areas",
-      "n": 41,
-      "medianMs": 13000,
-      "p90Ms": 16000
+      "n": 49,
+      "medianMs": 12000,
+      "p90Ms": 17000
+    },
+    {
+      "name": "Nightly quality (merge queue)",
+      "n": 49,
+      "medianMs": 0,
+      "p90Ms": 0
     },
     {
       "name": "Route sweeps (chromium-sweeps)",
-      "n": 41,
+      "n": 49,
       "medianMs": 0,
       "p90Ms": 0
     },
     {
       "name": "Integration tests (${{ matrix.shard }}/3)",
-      "n": 9,
-      "medianMs": 0,
+      "n": 8,
+      "medianMs": -1000,
       "p90Ms": 0
     },
     {
       "name": "Server e2e (${{ matrix.shard }}/2)",
-      "n": 9,
-      "medianMs": 0,
+      "n": 8,
+      "medianMs": -1000,
       "p90Ms": 0
     },
     {
-      "name": "Nightly quality (merge queue)",
-      "n": 41,
-      "medianMs": 0,
-      "p90Ms": 0
+      "name": "Frontend tests (${{ matrix.shard }}/6)",
+      "n": 2,
+      "medianMs": -1000,
+      "p90Ms": -1000
+    },
+    {
+      "name": "E2E smoke (${{ matrix.browser }} ${{ matrix.shard }}/4)",
+      "n": 2,
+      "medianMs": -1000,
+      "p90Ms": -1000
     }
   ]
 }
