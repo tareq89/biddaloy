@@ -96,8 +96,12 @@ describe('useCreateSmsBundleOrder', () => {
     );
     const { result } = renderHookWithProviders(() => useCreateSmsBundleOrder(), opts);
     for (const id of [PKG, 'other-package', PKG]) {
-      act(() => result.current.mutate({ package_id: id }));
-      await waitFor(() => expect(result.current.isError).toBe(true));
+      // `mutate` + `reset` let the next call race the previous one's
+      // variable commit (react-query 5.108 delivers the previous call's
+      // input); awaiting mutateAsync sequences them for real.
+      await act(async () => {
+        await result.current.mutateAsync({ package_id: id }).catch(() => undefined);
+      });
       act(() => result.current.reset());
     }
     expect(keys).toHaveLength(3);

@@ -357,12 +357,14 @@ describe('downloadBackup', () => {
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     const blobArg = createObjectURL.mock.calls[0]?.[0] as Blob;
-    expect(blobArg).toBeInstanceOf(Blob);
-    // jsdom's XHR `responseType: 'blob'` path re-wraps the response body
-    // rather than preserving its exact bytes 1:1, so this only asserts
-    // that *some* non-empty blob reached the anchor, not the exact text —
-    // the response-bytes contract is exercised for real in Playwright/e2e.
-    expect(blobArg.size).toBeGreaterThan(0);
+    // MSW 3 delivers the mocked response through the node-side socket layer,
+    // so the blob reaching the anchor can be node's own Blob class rather
+    // than this realm's — assert duck-typed, not by class identity. (jsdom's
+    // XHR `responseType: 'blob'` path also re-wraps the response body rather
+    // than preserving its exact bytes 1:1, so this only asserts that *some*
+    // non-empty blob reached the anchor, not the exact text — the
+    // response-bytes contract is exercised for real in Playwright/e2e.)
+    expect(blobArg?.size).toBeGreaterThan(0);
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
     // The blob URL is revoked on a deferred macrotask (Safari-safe pattern

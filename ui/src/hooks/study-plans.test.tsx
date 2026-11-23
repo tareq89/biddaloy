@@ -145,6 +145,10 @@ describe('downloadStudyPlanLessonsCsv', () => {
     });
     await downloadStudyPlanLessonsCsv('p1');
     expect(names).toEqual(['plan-5-math.csv']);
-    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    // MSW 3 delivers the mocked response through the node-side socket layer,
+    // so the blob can be node's own Blob class rather than this realm's —
+    // assert duck-typed, not by class identity.
+    const blobArg = createObjectURL.mock.calls[0]?.[0] as Blob;
+    expect(blobArg?.size).toBeGreaterThan(0);
   });
 });

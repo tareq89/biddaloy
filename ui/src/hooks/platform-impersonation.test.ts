@@ -109,6 +109,8 @@ describe('platform impersonation hooks', () => {
     expect(keys).toHaveLength(2); // one call per click, no auto-retry
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBe(keys[0]);
+    // react-query commits the error state a tick after mutateAsync settles.
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect((result.current.error as ApiError).statusCode).toBe(409);
   });
 
