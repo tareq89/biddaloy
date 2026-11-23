@@ -466,7 +466,9 @@ describe('/portal/exam-schedule', () => {
       await printAndWithhold();
 
       const alert = await screen.findByRole('alert');
-      expect(within(alert).getByText(/৳2,800\.00 due/)).toBeTruthy();
+      // The amount arrives with the dues query, a tick after the withheld
+      // state renders — wait for it rather than asserting immediately.
+      await within(alert).findByText(/৳2,800\.00 due/);
       expect(
         within(alert).getByRole('link', { name: 'See dues and pay' }).getAttribute('href'),
       ).toBe('/portal/fees?student=student-1');
