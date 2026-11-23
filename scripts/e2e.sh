@@ -32,7 +32,10 @@ if [ -f .env ]; then
   SEED_ADMIN_PASSWORD="$(grep -E '^SEED_ADMIN_PASSWORD=' .env | cut -d= -f2-)"
 fi
 export SEED_ADMIN_PASSWORD
-export NODE_ENV=development
+# NODE_ENV=test — the same env playwright.config.ts gives its webServer; the
+# login throttler is skipped under it, and the suite logs in many times per
+# run, so NODE_ENV=development would trip the 5/min rate limit.
+export NODE_ENV=test
 PGUSER="${POSTGRES_USER:-postgres}"
 export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
 export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@127.0.0.1:5432/${DB_NAME}"
