@@ -117,12 +117,15 @@ describe('platform console hooks', () => {
       await result.current.mutateAsync(announcement).catch(() => undefined);
       await result.current.mutateAsync(announcement).catch(() => undefined);
     });
+    // react-query commits the mutation's error state a tick after the
+    // mutateAsync promise settles — waitFor rather than asserting inline.
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(keys).toHaveLength(2);
     expect(keys[1]).toBe(keys[0]);
     expect((result.current.error as ApiError).statusCode).toBe(500);
 
     server.use(cockpitHandlers.approvalRequested('post', '*/platform/announcements', 'req-7'));
     await act(() => result.current.mutateAsync(announcement).catch(() => undefined));
-    expect(getApprovalRequestId(result.current.error)).toBe('req-7');
+    await waitFor(() => expect(getApprovalRequestId(result.current.error)).toBe('req-7'));
   });
 });

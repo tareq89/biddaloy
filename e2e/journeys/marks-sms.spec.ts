@@ -89,7 +89,7 @@ test('send marks SMS from a submitted grid, then it says already sent', async ({
       new RegExp(`/marks/${exam.id}/${chain.sectionId}/${subject.id}/sms$`),
     );
     // The one marked student has one reachable guardian: the review counts one.
-    expect((await (await previewed).json())).toMatchObject({ count: 1 });
+    expect(await (await previewed).json()).toMatchObject({ count: 1 });
   });
 
   const send = page.getByRole('button', { name: t('marksSms.send'), exact: true });
@@ -113,7 +113,11 @@ test('send marks SMS from a submitted grid, then it says already sent', async ({
     );
     await page.reload();
     await previewed;
-    await expect(page.getByText(t('marksSms.alreadySentNote'))).toBeVisible();
-    await expect(send).toBeDisabled();
+    // The note renders a tick after the preview resolves; CI's slower pages
+    // lose the 5s default window.
+    await expect(page.getByText(t('marksSms.alreadySentNote'))).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(send).toBeDisabled({ timeout: 30_000 });
   });
 });

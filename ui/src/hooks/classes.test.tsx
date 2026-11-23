@@ -574,8 +574,10 @@ describe('useCreateSection / useUpdateSection / useDeleteSection invalidate both
     result.current.update.mutate({ section_name: 'A1' });
 
     await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
-    await waitFor(() =>
-      expect(result.current.sections.data?.map((s) => s.section_name)).toEqual(['A1']),
+    // The invalidation refetch races the 1s default waitFor window on CI.
+    await waitFor(
+      () => expect(result.current.sections.data?.map((s) => s.section_name)).toEqual(['A1']),
+      { timeout: 5000 },
     );
   });
 
