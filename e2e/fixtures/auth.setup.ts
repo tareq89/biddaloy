@@ -1,6 +1,7 @@
 import { request, test as setup } from '@playwright/test';
 import * as fs from 'node:fs';
 
+import { acceptLegal } from '../api';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_ROLES } from '../seed-contract';
 import { shells } from '../config';
 import { AUTH_DIR, noTenantStatePath, storageStatePath } from './auth-paths';
@@ -70,6 +71,13 @@ setup('capture a storageState per seed role', async () => {
       throw new Error(
         `No ${role.toUpperCase()} membership in login response for ${SEED_ROLE_EMAILS[role]}`,
       );
+    }
+
+    // [59.3.03, D33] A stale local DB can hold an admin whose legal acceptance
+    // predates the current doc versions; accept them so the staff gate does not
+    // redirect every admin spec to /legal/accept. Idempotent.
+    if (role === 'admin') {
+      await acceptLegal(ctx, { token: body.access_token, tenantId: membership.tenantId });
     }
 
     // Cookie-only state first (tenant picker specs), then the full state
