@@ -83,4 +83,13 @@ cleanup() {
 trap cleanup EXIT
 
 # 5. Specs — everything after the script name goes straight to playwright.
-yarn e2e --project=chromium "$@"
+# UI mode drives projects from its own filter dropdown, so don't pin chromium
+# there: `--project=chromium` on the CLI narrows the UI's file tree.
+case " $* " in
+  *" --ui "*|*" --debug "*)
+    yarn e2e "$@"
+    ;;
+  *)
+    yarn e2e --project=chromium "$@"
+    ;;
+esac
