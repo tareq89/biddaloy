@@ -109,7 +109,7 @@ export const Route = createFileRoute('/_staff')({
     // Not in a "Login as" session (D36); a failed lookup lets the page load (fail open).
     if (getActiveRole() === UserRole.ADMIN && !isSupportSession()) {
       const status = await context.queryClient.ensureQueryData(legalStatusQuery).catch(() => null);
-      if (status && status.pending.length > 0) {
+      if (Array.isArray(status?.pending) && status.pending.length > 0) {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw redirect({ to: '/legal/accept', search: { redirect: location.href } });
       }

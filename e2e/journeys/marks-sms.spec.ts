@@ -46,8 +46,9 @@ test('send marks SMS from a submitted grid; the second visit reflects the messag
   const stamp = Date.now();
   const phone = `017${String(stamp).slice(-8)}`;
   const guardian = await createGuardian(request, session, `Marks Guardian ${stamp}`, phone);
+  const studentName = `Marks Student ${stamp}`;
   const student = await post<{ id: string }>(request, session, '/students', {
-    full_name: `Marks Student ${stamp}`,
+    full_name: studentName,
     class_section_id: chain.sectionId,
     guardian_ids: [guardian.id],
   });
@@ -124,9 +125,7 @@ test('send marks SMS from a submitted grid; the second visit reflects the messag
           const body = (await res.json()) as {
             data?: { status: string; message_body?: string }[];
           };
-          const mine = (body.data ?? []).find((log) =>
-            log.message_body?.includes(student.full_name),
-          );
+          const mine = (body.data ?? []).find((log) => log.message_body?.includes(studentName));
           status = mine?.status ?? 'row not found yet';
           // Terminal: SENT/DELIVERED (a local sink delivered it) or FAILED (no
           // gateway — the failure released the dedupe key for a retry).
@@ -144,16 +143,16 @@ test('send marks SMS from a submitted grid; the second visit reflects the messag
     await previewed;
 
     if (status === 'FAILED') {
-      // The failure releases the dedupe key for a retry: nobody is left to
-      // send to right now, and the page re-offers the send.
-      await expect(page.getByText(t('marksSms.none'))).toBeVisible({ timeout: 30_000 });
+      // No gateway in CI: worker fails the row and releases the dedupe key, so
+      // the same recipients are sendable again.
+      await expect(page.getByText(t('marksSms.alreadySentNote'))).toHaveCount(0);
+      await expect(send).toBeEnabled({ timeout: 30_000 });
     } else {
-      // SENT/DELIVERED: the visit reads "already sent".
+      // SENT/DELIVERED: the visit reads "already sent" and send stays disabled.
       await expect(page.getByText(t('marksSms.alreadySentNote'))).toBeVisible({
         timeout: 30_000,
       });
+      await expect(send).toBeDisabled();
     }
-    // Either way the count is 0, so the send button disables itself.
-    await expect(send).toBeDisabled();
   });
 });
