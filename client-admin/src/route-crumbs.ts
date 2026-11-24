@@ -51,6 +51,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/verify-email': 'pre-auth screen, no shell',
   '/register': 'pre-auth screen, no shell',
   '/auth/social/done': 'redirect-only landing, never renders a page',
+  '/legal/$doc': 'legal document reader in the AuthLayout, no breadcrumb chrome',
+  '/legal/accept': 'legal consent gate in the AuthLayout, no breadcrumb chrome',
   '/sign-in/forgot': 'cockpit pre-auth screen, no shell',
   '/sign-in/reset': 'cockpit pre-auth screen, no shell',
   '/support/enter': 'Login as landing in a new tab, chromeless, no shell',

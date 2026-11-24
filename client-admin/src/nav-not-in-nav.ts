@@ -21,6 +21,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/verify-email': 'auth route reached via an email link, not signed-in nav',
   '/register': '[13.6.1] public sign-up card, opened signed-out',
   '/auth/social/done': '[13.6.1] social sign-in landing, redirects at once, no UI',
+  '/legal/$doc': '[59.3] legal document reader inside the AuthLayout, no sidebar',
+  '/legal/accept': '[59.3.03] legal consent gate reached by redirect, no sidebar',
   '/select-school': 'tenant/role switcher, reached before the staff sidebar itself renders',
   '/i/$token': 'invitation-accept route reached via a tokenized email link, not signed-in nav',
   '/v/$token': "[32.3.9] public verify page opened by scanning an ID card's QR code, signed-out",

@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server, studentFactory } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -45,6 +46,12 @@ describe('students/-detail/fines-tab', () => {
           total: fines.length,
           totals: { charged: 100, collected: 0, waived: 0, outstanding: 100 },
         }),
+      ),
+      // MSW 3 now intercepts this request where msw 2 let it slip through —
+      // without it the tab falls back to the bn-BD region default (0 decimals,
+      // Bengali numerals) instead of the ৳100.00 the assertions expect.
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({ version: 1, region: REGION_BD_EN }),
       ),
     );
 

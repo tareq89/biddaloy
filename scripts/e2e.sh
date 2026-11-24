@@ -45,6 +45,10 @@ export SEED_COCKPIT_OWNER=true
 export OUTBOUND_TEST_ALLOW_LOOPBACK=true
 export BKASH_TEST_BASE_URL=http://127.0.0.1:38417/v1.2.0-beta
 export SITE_ROOT_DOMAIN=sites.e2e.test
+# One hour — same reason playwright.config.ts's webServer env sets it: every
+# spec shares the seed roles' single storageState, and a refresh rotates the
+# refresh token, revoking the whole family on the next context's reuse.
+export ACCESS_TOKEN_TTL_MS=3600000
 PGUSER="${POSTGRES_USER:-postgres}"
 export PGPASSWORD="${POSTGRES_PASSWORD:-postgres}"
 export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@127.0.0.1:5432/${DB_NAME}"

@@ -228,6 +228,12 @@ export default defineConfig({
             // [#3997] The fake bKash of e2e/fixtures/bkash-stub.ts (same seam, same port).
             BKASH_TEST_BASE_URL: 'http://127.0.0.1:38417/v1.2.0-beta',
             SITE_ROOT_DOMAIN: 'sites.e2e.test',
+            // One hour: every spec in a shard shares the seed roles' single
+            // storageState, and a refresh rotates the refresh token — the next
+            // context's refresh is then "reuse" and revokes the whole token
+            // family, signing every later spec out mid-journey. A TTL longer
+            // than any shard means no context ever needs to refresh.
+            ACCESS_TOKEN_TTL_MS: '3600000',
           },
         },
         {

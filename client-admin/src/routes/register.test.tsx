@@ -30,7 +30,11 @@ describe('/register consent line (59.3.02)', () => {
     open('en');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Terms' }));
-    expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('false');
+    // The open dialog aria-hides the page behind it (Radix), and a hidden
+    // native checkbox sits beside the Radix one — target the consent
+    // checkbox by its id. It must still be unchecked: merely READING a
+    // document never consents.
+    expect(document.getElementById('register-terms')?.getAttribute('aria-checked')).toBe('false');
   });
 });
 

@@ -1,4 +1,4 @@
-# 44. The first 24 hours without the founder
+# 45. The first 24 hours without the founder
 
 > Written for a stand-in who was handed this page at 2 a.m. and has never run Biddaloy.
 > Short on purpose. Where a step needs detail it links to the page that has it.

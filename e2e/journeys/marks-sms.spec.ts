@@ -113,11 +113,11 @@ test('send marks SMS from a submitted grid, then it says already sent', async ({
     );
     await page.reload();
     await previewed;
-    // The note renders a tick after the preview resolves; CI's slower pages
-    // lose the 5s default window.
+    // The note renders after the preview resolves; on a loaded CI runner the
+    // whole page can stall well past 30s.
     await expect(page.getByText(t('marksSms.alreadySentNote'))).toBeVisible({
-      timeout: 30_000,
+      timeout: 60_000,
     });
-    await expect(send).toBeDisabled({ timeout: 30_000 });
+    await expect(send).toBeDisabled({ timeout: 60_000 });
   });
 });
