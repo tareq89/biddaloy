@@ -134,7 +134,7 @@ describe('downloadStudyPlanLessonsCsv', () => {
       ),
     );
     setActiveTenant('tenant-1');
-    const createObjectURL = vi.fn(() => 'blob:x');
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:x');
     URL.createObjectURL = createObjectURL;
     URL.revokeObjectURL = vi.fn();
     const names: string[] = [];
@@ -148,7 +148,7 @@ describe('downloadStudyPlanLessonsCsv', () => {
     // MSW 3 delivers the mocked response through the node-side socket layer,
     // so the blob can be node's own Blob class rather than this realm's —
     // assert duck-typed, not by class identity.
-    const blobArg = createObjectURL.mock.calls[0]?.[0] as Blob;
+    const blobArg = createObjectURL.mock.calls[0]?.[0];
     expect(blobArg?.size).toBeGreaterThan(0);
   });
 });
