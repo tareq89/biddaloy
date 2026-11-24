@@ -625,7 +625,9 @@ describe('/audit-logs', () => {
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
     // The footer (and its page-size select) only exists while there are rows.
-    captureParams({ data: [auditEntryFactory()], total: 1, page: 2, limit: 10, totalPages: 1 });
+    // `totalPages: 2` keeps the pager's page>totalPages clamp from firing a
+    // second navigation whose stale `prev` would clobber the limit write.
+    captureParams({ data: [auditEntryFactory()], total: 20, page: 2, limit: 10, totalPages: 2 });
 
     const { router } = renderAuditLogs({ initialEntries: ['/audit-logs?page=2'] });
 

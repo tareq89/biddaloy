@@ -25,16 +25,17 @@ import { t } from '../i18n';
  * subject-teacher assignment first, which no e2e helper builds, so the teacher leg is covered
  * by the server integration spec and the web unit tests.
  *
- * The e2e school has no SMS gateway, so the message is queued and later fails in the worker;
- * the page only claims "on its way", and the dedupe key is kept at send time, so the second
- * visit still reads "already sent".
+ * The e2e school has no SMS gateway, so the message's settled status differs by environment
+ * (a local sink marks it SENT; CI's worker fails it and RELEASES the dedupe key so the pair can
+ * be sent again) — the spec polls the message log until the row is terminal and asserts the
+ * page state that status requires.
  *
  * Not run in this lane (no stack): written against the real labels in
  * ui/src/i18n/locales/{en,bn}/marksSms.json and type-checked.
  */
 test.use(loggedIn('admin'));
 
-test('send marks SMS from a submitted grid, then it says already sent', async ({
+test('send marks SMS from a submitted grid; the second visit reflects the message log', async ({
   page,
   request,
 }) => {
@@ -106,18 +107,53 @@ test('send marks SMS from a submitted grid, then it says already sent', async ({
     await expect(send).toHaveCount(0);
   });
 
-  await test.step('opening it again says it was already sent', async () => {
+  await test.step('the message log settles, and the second visit reflects it', async () => {
+    // The delivery outcome differs by environment (a local sink marks the
+    // message SENT; CI has no gateway, so the worker fails it and releases
+    // the dedupe key for a retry) — poll the message log until the row is
+    // terminal so the reload cannot race the worker, then assert whichever
+    // settled state the page must show.
+    let status = 'pending';
+    await expect
+      .poll(
+        async () => {
+          const res = await request.get('/api/v1/communications/logs?limit=50', {
+            headers: { 'X-Tenant-ID': session.tenantId, Authorization: `Bearer ${session.token}` },
+          });
+          if (!res.ok()) return (status = `logs ${res.status()}`);
+          const body = (await res.json()) as {
+            data?: { status: string; message_body?: string }[];
+          };
+          const mine = (body.data ?? []).find((log) =>
+            log.message_body?.includes(student.full_name),
+          );
+          status = mine?.status ?? 'row not found yet';
+          // Terminal: SENT/DELIVERED (a local sink delivered it) or FAILED (no
+          // gateway — the failure released the dedupe key for a retry).
+          return ['SENT', 'DELIVERED', 'FAILED'].includes(status);
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+
     const previewed = page.waitForResponse(
       (r) =>
         r.request().method() === 'POST' && /\/marks\/[^/]+\/[^/]+\/sms\/preview$/.test(r.url()),
     );
     await page.reload();
     await previewed;
-    // The note renders after the preview resolves; on a loaded CI runner the
-    // whole page can stall well past 30s.
-    await expect(page.getByText(t('marksSms.alreadySentNote'))).toBeVisible({
-      timeout: 60_000,
-    });
-    await expect(send).toBeDisabled({ timeout: 60_000 });
+
+    if (status === 'FAILED') {
+      // The failure releases the dedupe key for a retry: nobody is left to
+      // send to right now, and the page re-offers the send.
+      await expect(page.getByText(t('marksSms.none'))).toBeVisible({ timeout: 30_000 });
+    } else {
+      // SENT/DELIVERED: the visit reads "already sent".
+      await expect(page.getByText(t('marksSms.alreadySentNote'))).toBeVisible({
+        timeout: 30_000,
+      });
+    }
+    // Either way the count is 0, so the send button disables itself.
+    await expect(send).toBeDisabled();
   });
 });
