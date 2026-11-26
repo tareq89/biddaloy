@@ -187,7 +187,9 @@ describe('Syllabus › Study plans tab', () => {
     const { router } = render();
     const user = userEvent.setup();
     await screen.findByText('14 periods behind (≈7 lessons)');
-    expect(seen.some((s) => s.includes('academic_term_id=t1'))).toBe(true);
+    // The first list request can fire before the terms query resolves (term-less);
+    // await the term-scoped refetch rather than racing it.
+    await waitFor(() => expect(seen.some((s) => s.includes('academic_term_id=t1'))).toBe(true));
     seen.length = 0;
     await user.click(screen.getByRole('combobox', { name: 'Term' }));
     await user.click(await screen.findByRole('option', { name: 'Whole year' }));

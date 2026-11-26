@@ -105,6 +105,7 @@ describe('@AllowWhenReadOnly allowlist', () => {
       'modules/auth/step-up.controller.ts',
       'modules/fees/fees.controller.ts',
       'modules/fees/fines/fine-sweep.controller.ts',
+      'modules/legal/legal.controller.ts',
       'modules/print/jobs/print-jobs.controller.ts',
       'modules/push/push-subscriptions.controller.ts',
       'modules/users/users.controller.ts',

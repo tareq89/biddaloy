@@ -8,7 +8,7 @@ const files = import.meta.glob('./{bn,en}/*.md', {
   query: '?raw',
   import: 'default',
   eager: true,
-}) as Record<string, string>;
+}) satisfies Record<string, string>;
 
 function findPlaceholders(texts: Record<string, string>): string[] {
   const found: string[] = [];

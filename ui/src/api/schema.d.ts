@@ -15749,7 +15749,6 @@ export interface components {
             months_overdue: number;
             dues: components["schemas"]["FamilyDueEntryDto"][];
         };
-        Object: Record<string, never>;
         GenerateFeesPreviewDto: {
             /** Format: uuid */
             academic_year_id: string;
@@ -27499,11 +27498,11 @@ export interface operations {
     FeeController_getDues_v1: {
         parameters: {
             query?: {
+                status?: "PENDING" | "PARTIALLY_PAID";
                 class_id?: string;
                 section_id?: string;
                 month?: number;
                 year?: number;
-                status?: components["schemas"]["Object"];
                 fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
                 search?: string;
                 sort_by?: "due_amount" | "name" | "class";
@@ -27555,12 +27554,12 @@ export interface operations {
     FeeController_exportDues_v1: {
         parameters: {
             query?: {
+                status?: "PENDING" | "PARTIALLY_PAID";
                 format?: "CSV" | "XLSX";
                 class_id?: string;
                 section_id?: string;
                 month?: number;
                 year?: number;
-                status?: components["schemas"]["Object"];
                 fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
                 search?: string;
                 sort_by?: "due_amount" | "name" | "class";

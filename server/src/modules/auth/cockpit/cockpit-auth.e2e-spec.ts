@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { DEV_COCKPIT_TOTP_SECRET, UserStatus } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
@@ -25,7 +25,6 @@ import { AccountAccessDeliveryService } from '../../account-access/account-acces
 describe('Cockpit auth E2E', () => {
   const API = '/api/v1/auth/cockpit';
   const PASSWORD = 'Owner-pass-12345';
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
   let app: INestApplication;
   let ds: DataSource;
   let lockoutRedis: Redis;
@@ -64,7 +63,7 @@ describe('Cockpit auth E2E', () => {
     expect(login.body.step).toBe('mfa');
     const mfa = await post('mfa', {
       mfaToken: login.body.mfaToken,
-      code: totp.generate(DEV_COCKPIT_TOTP_SECRET),
+      code: totpNow(DEV_COCKPIT_TOTP_SECRET),
     }).expect(200);
     // A new device is not trusted yet: both an SMS and an email code are needed.
     expect(mfa.body.step).toBe('device');
@@ -176,7 +175,7 @@ describe('Cockpit auth E2E', () => {
   it('refuses a replayed authenticator code and a forged step token', async () => {
     const owner = await makeOwner();
     const login = await post('login', { email: owner.email, password: PASSWORD }).expect(200);
-    const code = totp.generate(DEV_COCKPIT_TOTP_SECRET);
+    const code = totpNow(DEV_COCKPIT_TOTP_SECRET);
     await post('mfa', { mfaToken: login.body.mfaToken, code }).expect(200);
     // The same code in the same 30 s step is single-use.
     await post('mfa', { mfaToken: login.body.mfaToken, code }).expect(401);

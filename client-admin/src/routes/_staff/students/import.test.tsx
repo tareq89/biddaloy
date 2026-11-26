@@ -270,7 +270,9 @@ describe('/students/import', () => {
 
     const user = userEvent.setup();
     const importButton = screen.getByRole('button', { name: /^Import .+ students$/ });
-    expect(importButton.hasAttribute('disabled')).toBe(false);
+    // The button enables once the preview state settles — a tick after the
+    // preview text renders, which CI's slower runners can stretch.
+    await waitFor(() => expect(importButton.hasAttribute('disabled')).toBe(false));
     await user.click(importButton);
 
     await screen.findByText(`All ${formatNumber(3, REGION_BD_EN)} students were imported.`);

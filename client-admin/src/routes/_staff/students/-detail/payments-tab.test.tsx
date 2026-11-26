@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server, studentFactory } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,6 +19,12 @@ describe('students/-detail/payments-tab', () => {
       http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
       http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
       http.get('/api/v1/payments/student/:studentId', () => HttpResponse.json(payments)),
+      // MSW 3 now intercepts this request where msw 2 let it slip through to
+      // the default handler — without it the tab falls back to the bn-BD
+      // region default, whose 0-decimal parse throws on "500.00".
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({ version: 1, region: REGION_BD_EN }),
+      ),
     );
     return renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1?tab=payments'],

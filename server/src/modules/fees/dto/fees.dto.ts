@@ -18,6 +18,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   FeeType,
   PaymentMethod,
@@ -430,6 +431,9 @@ export class QueryFeeDuesDto {
   year?: number;
 
   @IsOptional()
+  // The Swagger CLI plugin can't resolve an enum-member union type on its own (it emits a bare
+  // `string` inside `oneOf`, which openapi-typescript 7.13 rejects as an invalid SchemaObject).
+  @ApiPropertyOptional({ enum: [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID] })
   @IsIn([FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID])
   status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
 

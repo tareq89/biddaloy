@@ -80,6 +80,8 @@ describe('Public site admission API (e2e)', () => {
     gender: 'MALE',
     guardian_name: 'Karim Uddin',
     guardian_phone: PHONE,
+    // The public form must choose (D27): the DTO rejects UNKNOWN/no choice.
+    photo_consent: 'GIVEN',
     captcha_token: 'no-captcha',
   });
 

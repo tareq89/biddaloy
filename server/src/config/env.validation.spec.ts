@@ -524,11 +524,15 @@ describe('cockpit owners (98 #3737)', () => {
   });
 
   it('COCKPIT_TEST_TOTP_SECRET is refused in production and accepted in test', () => {
-    expect(() => validate({ ...prodConfig, COCKPIT_TEST_TOTP_SECRET: 'JBSWY3DPEHPK3PXP' })).toThrow(
-      /COCKPIT_TEST_TOTP_SECRET/,
-    );
     expect(() =>
-      validate({ ...validConfig, NODE_ENV: 'test', COCKPIT_TEST_TOTP_SECRET: 'JBSWY3DPEHPK3PXP' }),
+      validate({ ...prodConfig, COCKPIT_TEST_TOTP_SECRET: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP' }),
+    ).toThrow(/COCKPIT_TEST_TOTP_SECRET/);
+    expect(() =>
+      validate({
+        ...validConfig,
+        NODE_ENV: 'test',
+        COCKPIT_TEST_TOTP_SECRET: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+      }),
     ).not.toThrow();
   });
 
@@ -539,7 +543,7 @@ describe('cockpit owners (98 #3737)', () => {
       DEMO_PASSWORD: 'demo-pass-1',
       SMOKE_COCKPIT_EMAIL: 's@school.org',
       SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
-      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
     };
     let lines: string[] = [];
     try {
@@ -556,7 +560,7 @@ describe('cockpit owners (98 #3737)', () => {
     const smoke = {
       SMOKE_COCKPIT_EMAIL: 's@school.org',
       SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
-      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
     };
     expect(() => validate({ ...prodConfig, ...smoke })).toThrow(/SMOKE_COCKPIT_EMAIL is allowed/);
     expect(() => validate({ ...prodConfig, ...smoke, ENV_NAME: 'prod' })).toThrow(

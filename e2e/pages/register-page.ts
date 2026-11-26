@@ -28,15 +28,9 @@ export class RegisterPage {
     if (d.email) await page.getByLabel(t('register.fields.email')).fill(d.email);
     await page.getByLabel(t('register.fields.schoolName')).fill(d.schoolName);
     await page.getByLabel(t('register.fields.address')).fill(d.address);
-    await page
-      .getByRole('checkbox', {
-        name: t('register.terms', {
-          terms: t('legal.docs.terms'),
-          privacy: t('legal.docs.privacy'),
-          dpa: t('legal.docs.dpa'),
-        }),
-      })
-      .check();
+    // The label embeds the three doc names as <button>s (they open the legal
+    // dialog), which perturbs the checkbox's accessible name — target the id.
+    await page.locator('#register-terms').check();
     const [response] = await Promise.all([
       page.waitForResponse((res) => res.url().includes('/auth/register/start')),
       page.getByRole('button', { name: t('register.continue') }).click(),
@@ -63,6 +57,10 @@ export class RegisterPage {
     await field.fill(password);
     await expect(unmet).toHaveCount(0);
     await page.getByLabel(t('auth.setPassword.confirmLabel')).fill(password);
+    // Wait for the save itself: under load the redirect lags the click, and a
+    // spec that navigates on before the session exists bounces to set-password.
+    const saved = page.waitForResponse((res) => res.url().includes('/account/first-password'));
     await page.getByRole('button', { name: t('register.password.save') }).click();
+    await saved;
   }
 }

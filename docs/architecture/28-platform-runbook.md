@@ -112,7 +112,7 @@ flowchart LR
 The recovery age key is kept offline, away from the founder's laptop
 ([Part 2b](#2b-recovery-age-key-not-on-the-same-laptop)). The two cockpit owners are set
 in [Part 11a](#11a-platform-owners-the-cockpit). The stand-in steps are in
-[`44-continuity.md`](44-continuity.md) (the first 24 hours without the founder).
+[`45-continuity.md`](45-continuity.md) (the first 24 hours without the founder).
 
 ### Hostnames
 
@@ -2765,7 +2765,7 @@ Run these on the VM as the `deploy` user (`ssh deploy@$BIDDALOY_HOST`, same as [
      ([12-operations 3.11](12-operations.md#311-a-queue-is-stuck-or-a-restore-lock-will-not-clear)).
    - Post one message in the Telegram alert group by hand: what, when, how long.
    - Public status page: pending (#1770). Until it exists, the announcement above is the school notice.
-   - Message words: [44-continuity.md](44-continuity.md#telling-schools).
+   - Message words: [45-continuity.md](45-continuity.md#telling-schools).
 2. **(a) Stop the app.** Only `app` and `app2`. **Never** stop `db`, `redis` or `seaweedfs`.
 
    ```bash

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { generateSync } from 'otplib';
 import { generateSecret, issuerName, matchStep, otpauthUri } from './totp.util';
 
 // RFC 6238 appendix B, SHA-1: ASCII secret "12345678901234567890", T=59s gives 94287082 (8 digits), so 287082 at 6.
@@ -27,8 +28,17 @@ describe('totp.util', () => {
     expect(a).not.toBe(generateSecret());
     const uri = otpauthUri(a, 'ops@example.test', 'Biddaloy Cockpit');
     expect(uri.startsWith('otpauth://totp/')).toBe(true);
-    expect(uri).toContain('digits=6');
-    expect(uri).toContain('period=30');
+    expect(uri).toContain('secret=');
+    expect(uri).toContain('issuer=Biddaloy%20Cockpit');
+    // otplib v13 omits default params (digits=6, period=30) from the URI — verify the
+    // parameters by round-tripping: a code generated with the same options must verify.
+    const code = generateSync({
+      secret: a,
+      digits: 6,
+      period: 30,
+      epoch: Math.floor(Date.now() / 1000),
+    });
+    expect(matchStep(a, code, Date.now())).not.toBeNull();
   });
 
   it('adds the env name to the issuer outside production', () => {

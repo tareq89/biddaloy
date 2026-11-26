@@ -306,10 +306,21 @@ describe('_staff route access [8.14.17]', () => {
     });
 
     it('fails open when the lookup errors', async () => {
-      server.use(http.get('/api/v1/legal/status', () => HttpResponse.error()));
+      // msw v3 delivers intercepted requests asynchronously — a request that
+      // outlives its test lands in the NEXT test's handler window (observed as
+      // the D36 test's `calls()` being 1). Await this test's own errored
+      // request completing before the handlers reset, so nothing leaks.
+      let erroredCalls = 0;
+      server.use(
+        http.get('/api/v1/legal/status', () => {
+          erroredCalls += 1;
+          return HttpResponse.error();
+        }),
+      );
       const { router } = renderWithRouter(routeTree, { initialEntries: ['/students'], ...admin });
       await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
       expect(router.state.location.pathname).toBe('/students');
+      await waitFor(() => expect(erroredCalls).toBeGreaterThan(0));
     });
 
     it('skips the check, and the call, in a "Login as" session (D36)', async () => {

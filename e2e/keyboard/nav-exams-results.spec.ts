@@ -11,9 +11,10 @@ import {
 } from './keyboard-utils';
 
 // [31.5.2] D36 — one keyboard journey per nav group; a new screen in this group adds one test here.
-
 test.describe('Exams & Results (admin)', () => {
   test.use(loggedIn('admin'));
+  // The journey budgets (30s per assert) need more than the 30s default test timeout.
+  test.setTimeout(120_000);
 
   test('exams', async ({ page }) => {
     await openFromSidebar(page, t('common.entities.exam_other'));

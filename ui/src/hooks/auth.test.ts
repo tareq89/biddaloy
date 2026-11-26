@@ -252,28 +252,26 @@ describe('logout', () => {
   });
 
   it('still posts logout when unsubscribe hangs', async () => {
+    // Fake timers are poison here: MSW 3 delivers mocked responses through
+    // timers its own internals schedule, and freezing `setTimeout` strands
+    // the response — the test itself times out and every test after it in
+    // this file hangs behind the poisoned interceptor. Let the logout's own
+    // 2.5s unsubscribe timeout elapse for real instead.
     seedSession();
-    vi.useFakeTimers({ toFake: ['setTimeout'] });
-    try {
-      unsubscribeMock.mockImplementation(() => new Promise<void>(() => {}));
-      let logoutRequests = 0;
-      server.use(
-        http.post('/api/v1/auth/logout', () => {
-          logoutRequests += 1;
-          return new HttpResponse(null, { status: 204 });
-        }),
-      );
+    unsubscribeMock.mockImplementation(() => new Promise<void>(() => {}));
+    let logoutRequests = 0;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        logoutRequests += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
 
-      const done = logout(new QueryClient());
-      await vi.advanceTimersByTimeAsync(2500);
-      await done;
+    await logout(new QueryClient());
 
-      expect(logoutRequests).toBe(1);
-      expect(getAccessToken()).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+    expect(logoutRequests).toBe(1);
+    expect(getAccessToken()).toBeNull();
+  }, 15_000);
 
   it('reaches the server even with an access token but no active tenant selected yet', async () => {
     // Mirrors a session restored by a cold-boot refresh before the user

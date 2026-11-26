@@ -148,7 +148,7 @@ test.describe('check-list', () => {
     const card = page
       .getByRole('heading', { level: 2, name: t('attendance.dashboardCard.title') })
       .locator('xpath=ancestor::*[self::div or self::section][1]');
-    await expect(card).toBeVisible();
+    await expect(card).toBeVisible({ timeout: 15_000 });
     // The exact numbers are tenant-wide and other specs move them, so only
     // their shape is checked; this test's own section is checked in the list.
     const { pending, total } = await attendance.countsFrom(
@@ -471,7 +471,7 @@ test.describe('settings', () => {
     try {
       await page.goto('/settings?section=academics');
       const card = page.locator('#attendance-section');
-      await expect(card).toBeVisible();
+      await expect(card).toBeVisible({ timeout: 15_000 });
 
       // Pick two times for the shift: typing filters the list (Latin digits
       // match Bangla ones), Enter takes the first match.
@@ -569,7 +569,7 @@ test.describe('arrival notices', () => {
     try {
       await page.goto('/settings?section=academics');
       const card = page.locator('#attendance-section');
-      await expect(card).toBeVisible();
+      await expect(card).toBeVisible({ timeout: 15_000 });
       const sms = card.getByLabel(t('settings.attendance.arrivalSmsAllowed'));
       await expect(sms).toBeEnabled();
       const wasOn = await sms.isChecked();

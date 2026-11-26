@@ -109,7 +109,10 @@ const submit = (user: User) => {
 };
 
 async function pickOption(user: User, field: string, option: string) {
-  await user.click(await screen.findByLabelText(label(field)));
+  const trigger = await screen.findByLabelText(label(field));
+  // Async-fed selects (exams, subjects) render disabled until their list loads.
+  await waitFor(() => expect((trigger as HTMLButtonElement).disabled).toBe(false));
+  await user.click(trigger);
   await user.click(await screen.findByRole('option', { name: option }));
 }
 async function pickDate(user: User, field: string, day: number) {

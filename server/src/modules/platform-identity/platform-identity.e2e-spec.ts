@@ -3,7 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, UserStatus } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { waitForLockWaiters } from '@test/helpers/db.helper';
@@ -28,7 +28,6 @@ describe('Platform identity E2E', () => {
   const COCKPIT = '/api/v1/auth/cockpit';
   const PLATFORM = '/api/v1/platform';
   const PASSWORD = 'Owner-pass-12345';
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
 
   let app: INestApplication;
   const extraApps: INestApplication[] = [];
@@ -76,7 +75,7 @@ describe('Platform identity E2E', () => {
     const login = await http().post(`${COCKPIT}/login`).send({ email, password: PASSWORD });
     const mfa = await http()
       .post(`${COCKPIT}/mfa`)
-      .send({ mfaToken: login.body.mfaToken, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ mfaToken: login.body.mfaToken, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     // A new device is not trusted yet: both an SMS and an email code are needed.
     const done = await http()
@@ -97,7 +96,7 @@ describe('Platform identity E2E', () => {
     const res = await http()
       .post(`${PLATFORM}/step-up`)
       .set(auth(o))
-      .send({ scope, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ scope, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     return res.body.approval_token;
   }
@@ -205,7 +204,7 @@ describe('Platform identity E2E', () => {
     await http()
       .post(`${PLATFORM}/step-up`)
       .set(auth(a))
-      .send({ scope: ApprovalScope.RESULTS_REOPEN, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ scope: ApprovalScope.RESULTS_REOPEN, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(401);
     await http()
       .post(`${PLATFORM}/step-up`)

@@ -3,7 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { authenticator } from 'otplib';
+import { totpNow } from '@test/helpers/totp';
 import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, UserRole, UserStatus } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
@@ -28,7 +28,6 @@ describe('Platform control E2E', () => {
   const COCKPIT = '/api/v1/auth/cockpit';
   const PLATFORM = '/api/v1/platform';
   const PASSWORD = 'Owner-pass-12345';
-  const totp = authenticator.clone({ digits: 6, step: 30, window: 1 });
   const uuid = (n: number) => `00000000-0000-4000-8000-0000003816${String(n).padStart(2, '0')}`;
   const SCHOOL_A = uuid(1);
   const SCHOOL_B = uuid(2);
@@ -75,7 +74,7 @@ describe('Platform control E2E', () => {
     const login = await http().post(`${COCKPIT}/login`).send({ email, password: PASSWORD });
     const mfa = await http()
       .post(`${COCKPIT}/mfa`)
-      .send({ mfaToken: login.body.mfaToken, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ mfaToken: login.body.mfaToken, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     const done = await http()
       .post(`${COCKPIT}/device-otp`)
@@ -93,7 +92,7 @@ describe('Platform control E2E', () => {
     const res = await http()
       .post(`${PLATFORM}/step-up`)
       .set(auth(o))
-      .send({ scope, code: totp.generate(DEV_COCKPIT_TOTP_SECRET) })
+      .send({ scope, code: totpNow(DEV_COCKPIT_TOTP_SECRET) })
       .expect(200);
     return res.body.approval_token;
   }

@@ -10,12 +10,12 @@ describe('migrateMfa', () => {
   const rotated = new EncryptionService(newKey, [oldKey]);
 
   it('re-encrypts a secret held under the previous key and keeps the plaintext', async () => {
-    const row = { user_id: 'u1', secret_enc: previous.encrypt('JBSWY3DPEHPK3PXP') };
+    const row = { user_id: 'u1', secret_enc: previous.encrypt('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP') };
     const save = vi.fn(async () => undefined);
     const result = await migrateMfa([row], rotated, save);
     expect(result).toEqual({ migrated: 1, skipped: 0 });
     expect(rotated.isCurrent(row.secret_enc)).toBe(true);
-    expect(rotated.decrypt(row.secret_enc)).toBe('JBSWY3DPEHPK3PXP');
+    expect(rotated.decrypt(row.secret_enc)).toBe('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP');
     expect(save).toHaveBeenCalledOnce();
   });
 

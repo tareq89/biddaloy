@@ -68,7 +68,7 @@ type ThemeGlobal = keyof typeof THEME_META;
 // `initialize()` in favour of a caller-supplied setup function.
 const startWorker = async () => {
   const worker = setupWorker();
-  await worker.start({ quiet: true, onUnhandledRequest: 'bypass' });
+  await worker.start({ quiet: true, onUnhandledFrame: 'bypass' });
   return worker;
 };
 

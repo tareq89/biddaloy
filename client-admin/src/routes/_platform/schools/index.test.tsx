@@ -182,6 +182,8 @@ describe('/schools', () => {
     const healthRegion = await screen.findByRole('region', {
       name: 'Table of backup status per school',
     });
+    // The table renders a skeleton until the health query resolves.
+    await within(healthRegion).findByText('Backup Health Fixture School A');
     expect(within(healthRegion).getByText('Backup Health Fixture School A')).toBeTruthy();
     const neverRow = within(healthRegion)
       .getByText('Backup Health Fixture School B')

@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -31,6 +32,12 @@ describe('palette landing flags', () => {
     server.use(
       http.get('/api/v1/designations', () => HttpResponse.json([])),
       http.get('/api/v1/account/school-invites', () => HttpResponse.json([])),
+      http.get('/api/v1/legal/status', () => HttpResponse.json({ pending: [] })),
+      // MSW 3 intercepts settings where msw 2 let it slip through; without this
+      // pages fall back to bn-BD (0 decimals) and money parsing throws.
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({ version: 1, region: REGION_BD_EN }),
+      ),
       http.get('/api/v1/*', () =>
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
       ),

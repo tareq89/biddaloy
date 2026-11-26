@@ -72,6 +72,7 @@ async function tabTo(page: Page, target: Locator, max = 90) {
 }
 
 test.describe('teacher: tabs, plan row, create wizard', () => {
+  test.setTimeout(120_000);
   test('arrow keys switch tabs, Space filters, Enter opens a plan, the wizard saves by keyboard', async ({
     browser,
     playwright,

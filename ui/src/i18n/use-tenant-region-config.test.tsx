@@ -48,6 +48,31 @@ describe('useTenantRegionConfig', () => {
   // already covers the locale-fallback shape directly, without needing a
   // real i18next instance.
 
+  // Runs FIRST: its "no request" assertion counts every /settings request
+  // MSW sees, and an earlier test's in-flight or retried request can land
+  // here after this test's handler is registered (msw 3's socket-level
+  // interceptor flushes pending requests across test boundaries). First
+  // position means there is nothing earlier to leak in.
+  it('makes no settings request for a role without SETTINGS_MANAGE and returns the locale default', async () => {
+    let called = 0;
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () => {
+        called += 1;
+        return HttpResponse.json(settingsResponse('CAD'));
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(called).toBe(0);
+    expect(result.current.currency.code).not.toBe('CAD');
+    expect(result.current.currency.code).toBeTruthy();
+  });
+
   it('resolves the active tenant’s stored region settings into a RegionConfig', async () => {
     server.use(
       http.get('/api/v1/schools/:id/settings', () => HttpResponse.json(settingsResponse('CAD'))),
@@ -65,10 +90,19 @@ describe('useTenantRegionConfig', () => {
     expect(result.current.academicYear.startMonth).toBe(9);
   });
 
-  it('falls back to a default RegionConfig while settings are still loading', () => {
+  it('falls back to a default RegionConfig while settings are still loading', async () => {
+    // Hold the response only while the fallback is asserted, then release
+    // it: a request left pending here outlives the test on MSW 3's socket
+    // interceptor and lands in the NEXT test's handler, breaking its
+    // "no request" assertion.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     server.use(
       http.get('/api/v1/schools/:id/settings', async () => {
-        await new Promise(() => {}); // never resolves within this test
+        await held;
+        return HttpResponse.json(settingsResponse('CAD'));
       }),
     );
 
@@ -81,6 +115,11 @@ describe('useTenantRegionConfig', () => {
     // regardless of which locale default it happens to be.
     expect(result.current.currency.code).toBeTruthy();
     expect(result.current.phone.pattern).toBeInstanceOf(RegExp);
+
+    release();
+    await waitFor(() => {
+      expect(result.current.currency.code).toBe('CAD');
+    });
   });
 
   it('re-resolves once the active tenant switches and the component re-renders — two tenants with different currency settings resolve to different configs', async () => {
@@ -172,26 +211,6 @@ describe('useTenantRegionConfig', () => {
     expect(result.current.currency.code).toBeTruthy();
     expect(result.current.address.fields.length).toBeGreaterThan(0);
     expect(result.current).toEqual(expect.objectContaining({ locale: expect.any(String) }));
-  });
-
-  it('makes no settings request for a role without SETTINGS_MANAGE and returns the locale default', async () => {
-    let called = 0;
-    server.use(
-      http.get('/api/v1/schools/:id/settings', () => {
-        called += 1;
-        return HttpResponse.json(settingsResponse('CAD'));
-      }),
-    );
-
-    const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
-      tenantId: 'tenant-1',
-      role: 'ACCOUNTANT',
-    });
-
-    await new Promise((r) => setTimeout(r, 50));
-    expect(called).toBe(0);
-    expect(result.current.currency.code).not.toBe('CAD');
-    expect(result.current.currency.code).toBeTruthy();
   });
 
   it('ignores settings cached under an earlier role once the role loses SETTINGS_MANAGE', async () => {

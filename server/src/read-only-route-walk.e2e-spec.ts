@@ -52,6 +52,7 @@ const USER_LEVEL_WRITES = [
   'POST /api/v1/auth/step-up/otp/request',
   'POST /api/v1/fees/fines/generate/preview',
   'POST /api/v1/fees/generate/preview',
+  'POST /api/v1/legal/accept',
   'POST /api/v1/me/push/subscriptions',
   'POST /api/v1/print-jobs/preview',
 ];

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomBytes } from 'crypto';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { authenticator } from 'otplib';
+import { totpNow, totpSecret } from '@test/helpers/totp';
 import { DEV_COCKPIT_TOTP_SECRET } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -52,9 +52,7 @@ describe('ensureDevCockpitOwner (integration)', () => {
     );
     const [{ n }] = await ds.query(`SELECT count(*)::int AS n FROM schools WHERE is_platform`);
     expect([admins.length, confirmed.length, n]).toEqual([1, 1, 1]);
-    expect(await mfa.verifyCode(userId, authenticator.generate(DEV_COCKPIT_TOTP_SECRET))).toBe(
-      true,
-    );
+    expect(await mfa.verifyCode(userId, totpNow(DEV_COCKPIT_TOTP_SECRET))).toBe(true);
   });
 
   it('refuses the public dev secret on a non-local database unless a secret is set', async () => {
@@ -67,8 +65,8 @@ describe('ensureDevCockpitOwner (integration)', () => {
   });
 
   it('uses COCKPIT_TEST_TOTP_SECRET when set', async () => {
-    const secret = authenticator.generateSecret();
+    const secret = totpSecret();
     await ensureDevCockpitOwner(ds, home, mfa, { COCKPIT_TEST_TOTP_SECRET: secret });
-    expect(await mfa.verifyCode(userId, authenticator.generate(secret))).toBe(true);
+    expect(await mfa.verifyCode(userId, totpNow(secret))).toBe(true);
   });
 });

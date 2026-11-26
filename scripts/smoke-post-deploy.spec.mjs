@@ -631,7 +631,7 @@ describe('smoke-post-deploy', () => {
   });
 
   describe('cockpit sign-in (staging only, D17)', () => {
-    const SECRET = 'JBSWY3DPEHPK3PXP';
+    const SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
     const STAGING = {
       ...ENV,
       ENV_NAME: 'staging',

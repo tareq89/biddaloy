@@ -38,6 +38,8 @@ import { DEMO_CARDS } from '../../../modules/demo/demo-accounts';
 import { createContext, type DemoSeedContext } from '../context';
 import { validate } from '../validator';
 import { slice as org } from './org';
+import { slice as staff } from './staff';
+import { slice as students } from './students';
 import { slice } from './admission';
 import { ADMISSION_TEMPLATES } from '@biddaloy/shared';
 
@@ -107,6 +109,10 @@ describe('admission slice (integration, 2 years, scale 0.05)', () => {
       password: 'unit-test-password',
     });
     await org.run(ctx);
+    // Full `validate` needs every demo card's login: staff seeds the staff
+    // cards, students seeds the guardian and student-9-B logins.
+    await staff.run(ctx);
+    await students.run(ctx);
     await slice.run(ctx);
   }, 600_000);
 

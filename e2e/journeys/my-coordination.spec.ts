@@ -39,7 +39,9 @@ test.describe('class coordinator: My coordination', () => {
     await dialog
       .getByRole('textbox', { name: t('coordination.notifyDialog.messageLabel') })
       .fill('Please submit Term 1 marks by Thursday.');
-    await dialog.getByRole('button', { name: t('coordination.notifyDialog.send') }).click();
+    await dialog
+      .getByRole('button', { name: t('coordination.notifyDialog.send'), exact: true })
+      .click();
     await expect(dialog).toBeHidden();
   });
 });

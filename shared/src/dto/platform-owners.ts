@@ -3,8 +3,10 @@
 /**
  * Dev-only TOTP secret so the dev seed and the e2e helper agree.
  * Public and fixed on purpose. It is never a real secret.
+ * otplib v13 rejects secrets under 16 bytes (128 bits); the old RFC-example
+ * value was only 10 bytes, so this is 32 base32 chars (20 bytes).
  */
-export const DEV_COCKPIT_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
+export const DEV_COCKPIT_TOTP_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 /** Each step answer carries the short-lived token the next step sends back. */
 export type CockpitLoginResponse =

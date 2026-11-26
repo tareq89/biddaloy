@@ -33,7 +33,7 @@ services:
   #     -m "$LETSENCRYPT_EMAIL" --cert-name "$APP_DOMAIN" -d "$APP_DOMAIN" -d <staging domain> -d <inbox-demo domain> -d <inbox-staging domain> ... --force-renewal'
   cert-bootstrap:
     logging: *logging
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    image: certbot/certbot:v5.10.0@sha256:c5698da859429ccee0fcc299a8000368198222d1f9e789ab6e388b491e8ce06d
     restart: 'no'
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set}
@@ -53,7 +53,7 @@ services:
   # nginx/reload-loop.sh watches so nginx picks up the new cert.
   certbot:
     logging: *logging
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    image: certbot/certbot:v5.10.0@sha256:c5698da859429ccee0fcc299a8000368198222d1f9e789ab6e388b491e8ce06d
     restart: unless-stopped
     entrypoint:
       - sh

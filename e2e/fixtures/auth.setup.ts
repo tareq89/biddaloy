@@ -1,6 +1,7 @@
 import { request, test as setup } from '@playwright/test';
 import * as fs from 'node:fs';
 
+import { acceptLegal } from '../api';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_ROLES } from '../seed-contract';
 import { shells } from '../config';
 import { AUTH_DIR, noTenantStatePath, storageStatePath } from './auth-paths';
@@ -62,7 +63,10 @@ setup('capture a storageState per seed role', async () => {
         `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`,
       );
     }
-    const body = (await response.json()) as { memberships: LoginMembership[] };
+    const body = (await response.json()) as {
+      access_token: string;
+      memberships: LoginMembership[];
+    };
     // The membership matching the seeded role — the admin account is
     // multi-membership (rose-valley-school), so "first" is not enough.
     const membership = body.memberships.find((m) => m.role === role.toUpperCase());
@@ -70,6 +74,13 @@ setup('capture a storageState per seed role', async () => {
       throw new Error(
         `No ${role.toUpperCase()} membership in login response for ${SEED_ROLE_EMAILS[role]}`,
       );
+    }
+
+    // [59.3.03, D33] A stale local DB can hold an admin whose legal acceptance
+    // predates the current doc versions; accept them so the staff gate does not
+    // redirect every admin spec to /legal/accept. Idempotent.
+    if (role === 'admin') {
+      await acceptLegal(ctx, { token: body.access_token, tenantId: membership.tenantId });
     }
 
     // Cookie-only state first (tenant picker specs), then the full state

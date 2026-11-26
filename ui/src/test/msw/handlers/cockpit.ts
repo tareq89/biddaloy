@@ -64,7 +64,7 @@ export const cockpitDefaultHandlers = [
   http.post('*/auth/cockpit/enrol/start', () =>
     HttpResponse.json({
       otpauthUri: 'otpauth://totp/x?secret=JBSWY3DPEHPK3PXP',
-      secret: 'JBSWY3DPEHPK3PXP',
+      secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
     }),
   ),
   http.post('*/auth/cockpit/enrol/confirm', () =>

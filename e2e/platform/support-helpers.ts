@@ -112,19 +112,31 @@ export async function firstCandidate(
   return person.userId;
 }
 
-/** `POST /platform/impersonation` with a fresh step-up token. */
+/** `POST /platform/impersonation` with a fresh step-up token. Parallel
+ * specs impersonating through the same platform owner can hit the owner's
+ * open-session cap (409) until the other test's session closes — poll with
+ * backoff for that one. NOT the 429 rate limit: every attempt INCRs the
+ * 10/hour counter, so retrying only burns the budget faster. */
 export async function startLoginAs(
   request: APIRequestContext,
   session: ApiSession,
   body: StartBody,
 ): Promise<{ id: string; status: string; code?: string }> {
-  const token = await loginAsApproval(request, session);
-  const res = await request.post('/api/v1/platform/impersonation', {
-    headers: { ...bearer(session), 'X-Approval-Token': token },
-    data: body,
-  });
-  if (!res.ok()) throw new Error(`start login as ${res.status()} ${await res.text()}`);
-  return (await res.json()) as { id: string; status: string; code?: string };
+  const deadline = Date.now() + 120_000;
+  for (;;) {
+    const token = await loginAsApproval(request, session);
+    const res = await request.post('/api/v1/platform/impersonation', {
+      headers: { ...bearer(session), 'X-Approval-Token': token },
+      data: body,
+    });
+    if (res.ok()) return (await res.json()) as { id: string; status: string; code?: string };
+    const text = await res.text();
+    const contention = res.status() === 409 && text.includes('Too many sessions');
+    if (!contention || Date.now() > deadline) {
+      throw new Error(`start login as ${res.status()} ${text}`);
+    }
+    await new Promise((r) => setTimeout(r, 2_000 + Math.random() * 3_000));
+  }
 }
 
 /** The one-time code in, the support access token out. */
