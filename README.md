@@ -1,4 +1,4 @@
-# SchoolManager
+# Biddaloy
  
 A multi-tenant school management system. Staff manage students, fees, payments and invoices; guardians and students use a self-service portal that also works offline.
  
