@@ -15,7 +15,7 @@ x-logging: &logging
 services:
   beszel:
     logging: *logging
-    image: henrygd/beszel:0.21.0@sha256:6b39a8b64f9b15d00a25e7683e31a93c46161182a54f62713525107064e10599
+    image: henrygd/beszel:0.21.2@sha256:b0be90bd4aee2993fde763032a5098ce4386fba43cfe5031ec017b8d9e8c97a2
     restart: unless-stopped
     volumes:
       - beszel_data:/beszel_data
@@ -41,7 +41,7 @@ services:
 
   dozzle:
     logging: *logging
-    image: amir20/dozzle:v11.3.3@sha256:6d9e194587c20660f73967ee8567ce8e2e9e2e17046b0c95586a37a970b1d5ed
+    image: amir20/dozzle:v11.5.0@sha256:74600d62dd73a72a5d36fbd0c98af649203df921d74310b7ed383ef63392358e
     restart: unless-stopped
     environment:
       DOZZLE_NO_ANALYTICS: 'true'
@@ -64,7 +64,7 @@ services:
   # a few minutes); the app never waits for it, scan calls fail per route (D19) meanwhile.
   clamav:
     logging: *logging
-    image: clamav/clamav:1.5.4@sha256:7054e3f34308c384ea43cd786ea17abf899bd44af40af9f1b099853d7a5c214e
+    image: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
     restart: unless-stopped
     environment:
       CLAMAV_NO_MILTERD: 'true'
